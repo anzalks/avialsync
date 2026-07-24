@@ -523,7 +523,7 @@ def main() -> None:
         base_dur = 3600
         path_dur = 10
     else:
-        base_dur = 600
+        base_dur = 10
         path_dur = 10
 
     generate_signal(sig_dir / "signal_base.csv", base_dur, variant="base")
@@ -539,8 +539,8 @@ def main() -> None:
     generate_signal(sig_dir / "signal_units_row.csv", path_dur, variant="units_row")
     generate_signal(sig_dir / "signal_nan_gap_sentinel.csv", path_dur, variant="nan_gap_sentinel")
 
-    # 3. Generate DLC tracking data
-    generate_dlc_tracking(sig_dir / "tracking_dlc.csv", base_dur, fps)
+    # 3. Generate DLC tracking data (match default video length of 10s)
+    generate_dlc_tracking(sig_dir / "tracking_dlc.csv", 10.0, fps)
 
     # 4. Generate OpenEphys data
     generate_openephys_binary(fixtures_dir / "openephys_mock", 10.0)

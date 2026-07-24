@@ -109,10 +109,17 @@ class VideoPane(QWidget):
             class MpvGLWidget(QOpenGLWidget):
                 def __init__(self, parent_pane: "VideoPane"):
                     super().__init__()
+                    self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
                     self.parent_pane = parent_pane
                     self.ctx = None
                     # Use vo="libmpv" so it renders via the API instead of a standalone window
-                    self.mpv = mpv.MPV(hwdec="auto-safe", keep_open="yes", vo="libmpv")
+                    self.mpv = mpv.MPV(
+                        hwdec="auto-safe", 
+                        keep_open="yes", 
+                        vo="libmpv",
+                        input_default_bindings="no",
+                        input_vo_keyboard="no"
+                    )
 
                     @self.mpv.property_observer("time-pos")
                     def time_observer(_name: str, value: float) -> None:
@@ -178,13 +185,26 @@ class VideoPane(QWidget):
             self._video_widget = self.video_container
             self.video_container.setAttribute(Qt.WidgetAttribute.WA_DontCreateNativeAncestors)
             self.video_container.setAttribute(Qt.WidgetAttribute.WA_NativeWindow)
+            self.video_container.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             self.layout().addWidget(self.video_container, 0, 0)
 
             if is_offscreen:
-                self.mpv = mpv.MPV(vo="null", hwdec="auto-safe", keep_open="yes")
+                self.mpv = mpv.MPV(
+                    vo="null", 
+                    hwdec="auto-safe", 
+                    keep_open="yes",
+                    input_default_bindings="no",
+                    input_vo_keyboard="no"
+                )
             else:
                 wid = int(self.video_container.winId())
-                self.mpv = mpv.MPV(wid=wid, hwdec="auto-safe", keep_open="yes")
+                self.mpv = mpv.MPV(
+                    wid=wid, 
+                    hwdec="auto-safe", 
+                    keep_open="yes",
+                    input_default_bindings="no",
+                    input_vo_keyboard="no"
+                )
 
             @self.mpv.property_observer("time-pos")
             def time_observer(_name: str, value: float) -> None:

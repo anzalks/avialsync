@@ -134,6 +134,10 @@ class MainWindow(QMainWindow):
 
         # A/B loop → region stats
         self.transport.ab_loop_changed.connect(self._on_ab_loop_changed)
+        
+        # Annotations tracking
+        self._annotations: list[dict[str, Any]] = []
+        self.transport.annotate_requested.connect(self._on_annotate_requested)
 
         # Autosave timer
         self._autosave_timer = QTimer(self)
@@ -334,12 +338,68 @@ class MainWindow(QMainWindow):
 
     # ── A/B loop stats ───────────────────────────────────────────────
 
-    def _on_ab_loop_changed(self, t_in, t_out) -> None:
+    def _on_ab_loop_changed(
+        self, t_in: float | None, t_out: float | None
+    ) -> None:
         if t_in is not None and t_out is not None:
             lo, hi = min(t_in, t_out), max(t_in, t_out)
             self.readout_panel.show_region_stats(lo, hi)
         else:
             self.readout_panel.clear_region_stats()
+
+    # ── Annotations ──────────────────────────────────────────────────
+
+    def _on_annotate_requested(self) -> None:
+        """Record the master time and estimated frame number for all active videos."""
+        t_master = self.clock.state.t
+        record = {"master_time": round(t_master, 4)}
+        
+        for pane in self.video_grid._panes:
+            if hasattr(pane, "time_map") and pane.time_map.path is not None:
+                video_name = pane.time_map.path.name
+                t_video = pane.time_map.master_to_source(t_master, pane.time_map.path)
+                
+                # Dynamically calculate frame number using fps
+                fps = 30.0
+                if hasattr(pane, "mpv") and pane.mpv is not None:
+                    fps = getattr(pane.mpv, 'estimated_vf_fps', 0.0) or 30.0
+                    
+                frame_number = max(0, round(t_video * fps))
+                record[f"{video_name}_frame"] = frame_number
+                
+        self._annotations.append(record)
+        self.statusBar().showMessage(f"Marked frame at {t_master:.3f}s", 2000)
+
+    def _export_annotations(self) -> None:
+        """Export accumulated annotations to a CSV file."""
+        if not self._annotations:
+            QMessageBox.information(self, "No Annotations", "There are no frame markers to export.")
+            return
+            
+        from PySide6.QtWidgets import QFileDialog
+        import csv
+        
+        out_path, _ = QFileDialog.getSaveFileName(
+            self, "Export Annotations", "annotations.csv", "CSV Files (*.csv)"
+        )
+        if not out_path:
+            return
+            
+        fieldnames = set()
+        for rec in self._annotations:
+            fieldnames.update(rec.keys())
+            
+        fields = ["master_time"] + sorted([f for f in fieldnames if f != "master_time"])
+        
+        try:
+            with open(out_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(self._annotations)
+                
+            QMessageBox.information(self, "Export Complete", f"Exported {len(self._annotations)} annotations to:\n{out_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Failed", f"Could not export annotations:\n{str(e)}")
 
     # ── Keyboard shortcuts ───────────────────────────────────────────
 
@@ -350,6 +410,9 @@ class MainWindow(QMainWindow):
         if key == Qt.Key.Key_Space:
             playing = self.clock.state.playing
             self.player.set_playing(not playing)
+
+        elif key == Qt.Key.Key_M:
+            self._on_annotate_requested()
 
         elif key == Qt.Key.Key_Left:
             if mods & Qt.KeyboardModifier.ShiftModifier:
@@ -384,9 +447,6 @@ class MainWindow(QMainWindow):
 
         elif key == Qt.Key.Key_BracketRight:
             self.transport._on_ab_out()
-
-        elif key == Qt.Key.Key_M:
-            self.annotation_store.add_point(self.clock.state.t)
 
         elif key == Qt.Key.Key_S and (mods & Qt.KeyboardModifier.ControlModifier):
             self._save_session()
@@ -481,6 +541,11 @@ class MainWindow(QMainWindow):
         act = file_menu.addAction("Open Session…")
         act.setShortcut("Ctrl+O")
         act.triggered.connect(self._open_session)
+
+        file_menu.addSeparator()
+
+        act = file_menu.addAction("Export Annotations (CSV)…")
+        act.triggered.connect(self._export_annotations)
 
         # Recent files submenu
         self._recent_menu = file_menu.addMenu("Recent Sessions")

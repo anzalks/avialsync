@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from kinochronix.core.pyramid import PyramidReader
@@ -56,6 +56,7 @@ class PlotPane(QWidget):
         pg.setConfigOption("foreground", "d")
 
         self.graphics_layout = pg.GraphicsLayoutWidget()
+        self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.layout().addWidget(self.graphics_layout)
 
         # State

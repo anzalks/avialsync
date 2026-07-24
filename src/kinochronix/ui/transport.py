@@ -69,6 +69,7 @@ class Transport(QWidget):
     seek_requested = Signal(float, bool)  # t, exact
     rate_changed = Signal(float)
     frame_step_requested = Signal(int)  # -1 or +1
+    annotate_requested = Signal()  # Fired when user wants to mark current frame
     ab_loop_changed = Signal(object, object)  # t_in|None, t_out|None
 
     def __init__(self, parent: QWidget | None = None):
@@ -146,6 +147,13 @@ class Transport(QWidget):
         self._ab_clear_btn.setToolTip("Clear A/B loop")
         self._ab_clear_btn.clicked.connect(self._on_ab_clear)
         self.layout().addWidget(self._ab_clear_btn)
+
+        # Annotate button
+        self._annotate_btn = QPushButton("⚑")
+        self._annotate_btn.setFixedWidth(24)
+        self._annotate_btn.setToolTip("Mark current frame for export (Shortcut: M)")
+        self._annotate_btn.clicked.connect(self.annotate_requested.emit)
+        self.layout().addWidget(self._annotate_btn)
 
         # Rate combo — 0.01x to 10x
         self.rate_combo = QComboBox()
