@@ -6,10 +6,11 @@ White (255) = 1, Black (0) = 0.
 This survives 4:2:0 subsampling and aggressive compression.
 """
 
-import numpy as np
+import pathlib
 import subprocess
 import tempfile
-import pathlib
+
+import numpy as np
 
 BLOCK_SIZE = 16
 NUM_BITS = 32
