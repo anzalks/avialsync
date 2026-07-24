@@ -138,9 +138,9 @@ line moves per tick (≤ 2 ms budget).
 ```python
 class TimeSeriesSource(ABC):
     @classmethod
-    def can_open(cls, path: Path) -> float: ...        # 0..1 confidence
+    def can_open(cls, path: Path) -> float: ...  # 0..1 confidence
     def open(self, path: Path, config: dict) -> None: ...
-    def channels(self) -> list[ChannelInfo]: ...       # name, unit, dtype, rate|irregular
+    def channels(self) -> list[ChannelInfo]: ...  # name, unit, dtype, rate|irregular
     def time_bounds(self) -> tuple[float, float]: ...  # absolute UTC seconds
 
     # CHUNKED INGEST (mandatory): cache/pyramid builder pulls incrementally so 50 GB files
@@ -157,12 +157,14 @@ class TimeSeriesSource(ABC):
         renderers MUST break lines at gaps, never interpolate across them.
         Empty/no-data windows return length-0 arrays, never raise."""
 
-    def config_widget(self) -> "QWidget | None": ...   # optional import-config UI hook
+    def config_widget(self) -> "QWidget | None": ...  # optional import-config UI hook
+
     # Timestamp handling contract: loader must resolve timezone (naive input → user chooses
     # in import wizard, default UTC with a visible warning), handle DST-ambiguous local
     # times by refusing ambiguity silently (ask), and support time-of-day-only formats via
     # an anchor date config. Clock-resync jumps backwards → NonMonotonicTimeError with the
     # row number, plus an offered auto-fix (split into segments).
+
 
 class VideoSource(ABC):
     @classmethod
@@ -175,19 +177,25 @@ class VideoSource(ABC):
     def prepare(self, progress_cb: Callable[[float], None]) -> Path:
         """Produce an mpv-playable file (ffmpeg proxy etc.), cancellable, cached in sidecar."""
 
-    def media_path(self) -> Path: ...                  # what mpv actually plays (proxy-aware)
-    def start_time(self) -> float | None: ...          # metadata guess ONLY; may be None
-                                                       # (very common) → defaults to offset 0,
-                                                       # user aligns manually; offset always wins
+    def media_path(self) -> Path: ...  # what mpv actually plays (proxy-aware)
+    def start_time(self) -> float | None:
+        ...  # metadata guess ONLY; may be None
+        # (very common) → defaults to offset 0,
+        # user aligns manually; offset always wins
+
     def frame_times(self) -> "np.ndarray | None":
         """Per-frame timestamps if the container has them. REQUIRED for correct stepping on
         VFR footage and dropped-frame recordings; if None, constant-fps stepping is used and
         the UI shows a 'nominal fps' badge. Frame stepping must always use mpv's actual
         frame timestamps, never t += 1/fps arithmetic."""
-    def fps(self) -> float: ...                        # nominal; mixed fps across cameras is
-                                                       # normal (25/29.97/30) — never assumed equal
-    def label(self) -> str: ...                        # UI ensures uniqueness (adds parent dir
-                                                       # when filenames collide)
+
+    def fps(self) -> float:
+        ...  # nominal; mixed fps across cameras is
+        # normal (25/29.97/30) — never assumed equal
+
+    def label(self) -> str:
+        ...  # UI ensures uniqueness (adds parent dir
+        # when filenames collide)
 ```
 
 **No-footage / no-data state (uniform rule):** every pane must render a defined state when
