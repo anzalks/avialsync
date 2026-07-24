@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  PYTHONUTF8: 1
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  lint-type:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Ruff Check
+        run: ruff check .
+      - name: Ruff Format Check
+        run: ruff format --check .
+      - name: Mypy Core
+        run: mypy src/kinochronix/core
+
+  test:
+    name: Test ${{ matrix.os }} - Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    needs: lint-type
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          
+      - name: Install System Dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libmpv2 libegl1
+        
+      - name: Install System Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install mpv
+        
+      - name: Install System Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install mpv
+        
+      - name: Install Project Dependencies
+        run: pip install -e ".[dev]"
+        
+      - name: Make Fixtures
+        run: |
+          if ! grep -q "TODO: Implement" tools/make_fixtures.py; then
+            python tools/make_fixtures.py --small
+          else
+            echo "Fixtures not implemented yet, skipping."
+          fi
+        shell: bash
+        
+      - name: Run Tests
+        run: pytest -x -q --ignore=tests/benchmarks
+
+  build-artifacts:
+    name: Build Artifacts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: test
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          
+      - name: Install Project
+        run: pip install -e .
+        
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+        
+      - name: Build with PyInstaller
+        run: pyinstaller packaging/kinochronix.spec
+        
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kinochronix-${{ matrix.os }}
+          path: dist/kinochronix

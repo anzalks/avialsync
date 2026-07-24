@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kinochronix"
+version = "0.0.1"
+description = "GUI desktop app to scrub time-synchronized multi-camera video and dense time series."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "PySide6",
+    "pyqtgraph",
+    "python-mpv>=1.0.7",
+    "numpy",
+    "polars"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-qt",
+    "pytest-benchmark",
+    "hypothesis",
+    "ruff",
+    "mypy"
+]
+docs = []
+
+[project.scripts]
+kinochronix = "kinochronix.__main__:main"
+
+[project.entry-points."kinochronix.loaders"]
+csv = "kinochronix.loaders.csv_loader:CSVLoader"
+video = "kinochronix.loaders.video_standard:VideoStandardLoader"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kinochronix"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+check_untyped_defs = true
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "kinochronix.core.*"
+disallow_untyped_defs = true
+strict = true
