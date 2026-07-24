@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
@@ -28,8 +29,9 @@ class _ChannelReadout(QWidget):
         self._name_lbl.setFixedWidth(140)
         self._name_lbl.setStyleSheet("font-size: 11px;")
 
+        mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self._val_lbl = QLabel("—")
-        self._val_lbl.setStyleSheet("font-size: 11px; font-family: monospace;")
+        self._val_lbl.setStyleSheet(f"font-size: 11px; font-family: '{mono_font}';")
         self._val_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         layout.addWidget(self._name_lbl)
@@ -54,8 +56,9 @@ class _StatsRow(QWidget):
         self._name_lbl.setFixedWidth(80)
         self._name_lbl.setStyleSheet("font-size: 10px;")
 
+        mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self._stats_lbl = QLabel("—")
-        self._stats_lbl.setStyleSheet("font-size: 10px; font-family: monospace;")
+        self._stats_lbl.setStyleSheet(f"font-size: 10px; font-family: '{mono_font}';")
         self._stats_lbl.setWordWrap(True)
 
         layout.addWidget(self._name_lbl)

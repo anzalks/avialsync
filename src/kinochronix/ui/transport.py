@@ -1,7 +1,7 @@
 """Playback transport controls."""
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QFontDatabase
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -103,11 +103,12 @@ class Transport(QWidget):
         # Unified time display / jump input
         # Editable: type a time and press Enter to jump.
         # Otherwise shows the current playhead position.
+        mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self._time_edit = QLineEdit("00:00:00.000")
         self._time_edit.setFixedWidth(110)
         self._time_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._time_edit.setStyleSheet(
-            "font-family: monospace; font-size: 12px;"
+            f"font-family: '{mono_font}'; font-size: 12px;"
         )
         self._time_edit.setToolTip(
             "Current time — click to edit.\n"
