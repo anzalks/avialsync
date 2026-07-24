@@ -6,19 +6,17 @@ All videos have a binary frame-index strip encoded in the top row.
 
 import argparse
 import json
-import subprocess
 import pathlib
+import shutil
+import subprocess
 import sys
+
 import numpy as np
 import polars as pl
-import shutil
-import tempfile
-import os
 
-from kinochronix.core.errors import *  # ensure no PySide6 import, core is headless
-
-# Note: we need the framestrip encoder. Since it's in tests/, we should add it to path or duplicate.
-# For simplicity, we can just duplicate the tiny 30-line encoder here, or import it if PYTHONPATH is set.
+# Note: we need the framestrip encoder. Since it's in tests/, we should add it
+# to path or duplicate. For simplicity, we can just duplicate the tiny encoder
+# here, or import it if PYTHONPATH is set.
 # Let's just duplicate the encoder logic here to keep tools/ isolated, or modify sys.path.
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from tests.util_framestrip import encode_frame_index
@@ -267,7 +265,7 @@ def generate_signal(
         # Convert to datetime string
         import datetime
 
-        base_dt = datetime.datetime(2026, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        base_dt = datetime.datetime(2026, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
 
         def to_iso(val: float) -> str:
             dt = base_dt + datetime.timedelta(seconds=val)
@@ -344,7 +342,7 @@ def generate_signal(
         )
         df_str.write_csv(out_path, separator=";")
     elif variant == "bom":
-        csv_bytes = df.write_csv().encode(
+        _ = df.write_csv().encode(
             "utf-8-sig"
         )  # not natively supported by polars directly to file with BOM
         with open(out_path, "wb") as f:
