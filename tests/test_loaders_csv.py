@@ -36,11 +36,11 @@ def test_csv_loader_basic():
 def test_csv_loader_non_monotonic(tmp_path):
     path = tmp_path / "signal_non_monotonic.csv"
     path.write_text("time,ch0\n0.0,1.0\n0.1,2.0\n0.05,3.0\n0.2,4.0\n")
-    
+
     loader = CSVLoader()
     config = {"time_col": "time", "time_unit": "s", "separator": ","}
     loader.open(path, config)
-    
+
     with pytest.raises(NonMonotonicTimeError):
         list(loader.read_chunks("ch0"))
 
@@ -83,3 +83,67 @@ def test_csv_loader_sentinel():
             break
 
     assert has_nan
+
+
+def test_csv_loader_iso8601():
+    path = FIXTURE_DIR / "signal_iso8601.csv"
+    if not path.exists():
+        pytest.skip("Fixtures not generated")
+
+    loader = CSVLoader()
+    config = {"time_col": "time", "time_format": "iso8601", "separator": ","}
+    loader.open(path, config)
+
+    chunks = list(loader.read_chunks("ch0"))
+    t, _ = chunks[0]
+    assert len(t) > 0
+    # ensure it successfully parsed to epoch seconds
+    assert t[0] > 1e9  # recent dates are > 1e9 seconds
+
+
+def test_csv_loader_time_of_day():
+    path = FIXTURE_DIR / "signal_time_only.csv"
+    if not path.exists():
+        pytest.skip("Fixtures not generated")
+
+    loader = CSVLoader()
+    config = {
+        "time_col": "time",
+        "time_format": "time_of_day",
+        "anchor_date": "2026-01-01",
+        "separator": ",",
+    }
+    loader.open(path, config)
+
+    chunks = list(loader.read_chunks("ch0"))
+    t, _ = chunks[0]
+    assert len(t) > 0
+
+
+def test_csv_loader_clock_jump():
+    path = FIXTURE_DIR / "signal_clock_jump.csv"
+    if not path.exists():
+        pytest.skip("Fixtures not generated")
+
+    loader = CSVLoader()
+    config = {"time_col": "time", "time_unit": "s", "separator": ","}
+    loader.open(path, config)
+
+    with pytest.raises(NonMonotonicTimeError):
+        list(loader.read_chunks("ch0"))
+
+
+def test_csv_loader_duplicate_timestamps():
+    path = FIXTURE_DIR / "signal_duplicates.csv"
+    if not path.exists():
+        pytest.skip("Fixtures not generated")
+
+    loader = CSVLoader()
+    config = {"time_col": "time", "time_unit": "s", "separator": ","}
+    loader.open(path, config)
+
+    chunks = list(loader.read_chunks("ch0"))
+    t, _ = chunks[0]
+    assert len(t) > 0
+    # check that there are no duplicates
+    assert np.all(np.diff(t) > 0)

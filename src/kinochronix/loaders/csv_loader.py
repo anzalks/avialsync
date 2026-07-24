@@ -65,11 +65,15 @@ class CSVLoader(TimeSeriesSource):
         # Get true time bounds from the whole file using lazy execution if possible
         # For robustness in tests, we just use a scan
         lazy_df = pl.scan_csv(path, separator=separator, decimal_comma=(separator == ";"))
-        t_min_max = lazy_df.select(
-            [pl.col(time_col).min().alias("min"), pl.col(time_col).max().alias("max")]
+        t_first_last = lazy_df.select(
+            [pl.col(time_col).first().alias("first"), pl.col(time_col).last().alias("last")]
         ).collect()
 
-        self._time_bounds = (float(t_min_max["min"][0]), float(t_min_max["max"][0]))
+        # We need to construct a 2-element series to normalize correctly (handling rollovers)
+        t_series = pl.Series([t_first_last["first"][0], t_first_last["last"][0]])
+        t_norm = self._normalize_time(t_series)
+
+        self._time_bounds = (float(t_norm[0]), float(t_norm[-1]))
 
     def channels(self) -> list[ChannelInfo]:
         return self._schema_channels
@@ -78,15 +82,63 @@ class CSVLoader(TimeSeriesSource):
         return self._time_bounds
 
     def _normalize_time(self, t_series: pl.Series) -> np.ndarray:
-        t_arr = t_series.cast(pl.Float64).to_numpy()
-        unit = self._config.get("time_unit", "s")
-        if unit == "ms":
-            t_arr /= 1e3
-        elif unit == "us":
-            t_arr /= 1e6
-        elif unit == "ns":
-            t_arr /= 1e9
-        return t_arr
+        time_format = self._config.get("time_format", "numeric")
+
+        if time_format == "iso8601" or time_format == "datetime":
+            # parse to UTC datetime then to unix epoch seconds
+            # if tz naive, assume UTC or use config
+            # strptime format can be inferred or provided
+            # A simple cast to Datetime usually works if it's standard ISO8601
+            try:
+                dt_series = t_series.str.to_datetime(time_unit="ns", time_zone="UTC")
+            except Exception:
+                # Fallback without timezone if it's tz naive
+                dt_series = t_series.str.to_datetime(time_unit="ns")
+
+            # cast to Float64 in seconds. Polars datetime in ns to float seconds:
+            return dt_series.cast(pl.Int64).cast(pl.Float64).to_numpy() / 1e9
+
+        elif time_format == "time_of_day":
+            import datetime
+
+            anchor_str = self._config.get("anchor_date", "1970-01-01")
+            anchor_date = datetime.datetime.strptime(anchor_str, "%Y-%m-%d").date()
+
+            # parse time string to time object, then to datetime, then to epoch
+            # simpler: parse to time, convert to seconds since midnight
+            time_series = t_series.str.to_time()
+            # to_time gives pl.Time. We can extract microseconds and convert to seconds
+            # Alternatively, cast pl.Time to Int64 gives nanoseconds since midnight.
+            ns_since_midnight = time_series.cast(pl.Int64).cast(pl.Float64).to_numpy()
+            sec_since_midnight = ns_since_midnight / 1e9
+
+            # Add anchor date timestamp
+            anchor_epoch = datetime.datetime(
+                anchor_date.year, anchor_date.month, anchor_date.day, tzinfo=datetime.UTC
+            ).timestamp()
+            t_arr = sec_since_midnight + anchor_epoch
+
+            # handle rollover if it crosses midnight
+            if len(t_arr) > 1:
+                dt = np.diff(t_arr)
+                # if it drops by more than 12 hours, assume rollover
+                rollovers = (dt < -43200).astype(int)
+                days_added = np.concatenate([[0], np.cumsum(rollovers)])
+                t_arr += days_added * 86400.0
+
+            return t_arr
+
+        else:
+            # numeric
+            t_arr = t_series.cast(pl.Float64).to_numpy()
+            unit = self._config.get("time_unit", "s")
+            if unit == "ms":
+                t_arr = t_arr / 1e3
+            elif unit == "us":
+                t_arr = t_arr / 1e6
+            elif unit == "ns":
+                t_arr = t_arr / 1e9
+            return t_arr
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         if self._path is None:
@@ -121,7 +173,7 @@ class CSVLoader(TimeSeriesSource):
                     idx = int(np.argmin(dt))
                     raise NonMonotonicTimeError(
                         f"Non-monotonic time detected at row {row_offset + idx + 1}",
-                        row=row_offset + idx + 1
+                        row=row_offset + idx + 1,
                     )
 
             # Remove duplicates (keep last)

@@ -31,6 +31,37 @@ def test_build_pyramid_level():
     assert v_max[-1] == 99.0
 
 
+def test_pyramid_nan_inf():
+    from kinochronix.core.pyramid import build_pyramid_level
+
+    t = np.arange(16.0)
+    v = np.ones(16)
+    v[0] = np.nan
+    v[1] = np.inf
+    v[2] = -np.inf
+
+    t_dec, vmin, vmax = build_pyramid_level(t, v, level=16)
+    assert len(t_dec) == 1
+    # nanmin/nanmax ignores NaN, but inf is treated as inf
+    # so max should be inf, min should be -inf
+    assert vmax[0] == np.inf
+    assert vmin[0] == -np.inf
+
+
+def test_pyramid_gap_mask():
+    from kinochronix.core.pyramid import build_gap_mask
+
+    t = np.array(
+        [0.0, 0.1, 0.2, 0.3, 1.5, 1.6, 1.7]
+    )  # gap between 0.3 and 1.5 is 1.2s. Median dt is 0.1
+    mask = build_gap_mask(t)
+    # median dt = 0.1, threshold = 1.0. dt[3] = 1.2 > 1.0. So mask[3] should be True.
+    assert len(mask) == len(t)
+    assert mask[3]
+    assert not mask[2]
+    assert not mask[4]
+
+
 def test_build_gap_mask():
     t = np.array([0.0, 1.0, 2.0, 3.0, 15.0, 16.0])
     mask = build_gap_mask(t)
