@@ -1,1 +1,103 @@
-"""Clock to mpv fanout and drift correction."""
+"""Player orchestrator."""
+
+import time
+
+from PySide6.QtCore import QObject, QTimer
+
+from kinochronix.core.timeline import MasterClock
+from kinochronix.ui.plot_pane import PlotPane
+from kinochronix.ui.transport import Transport
+from kinochronix.ui.video_pane import VideoPane
+
+
+class Player(QObject):
+    """Coordinates playback between UI and MasterClock."""
+
+    def __init__(
+        self,
+        clock: MasterClock,
+        video_pane: VideoPane,
+        plot_pane: PlotPane,
+        transport: Transport,
+        parent: QObject | None = None,
+    ):
+        super().__init__(parent)
+        self.clock = clock
+        self.video_pane = video_pane
+        self.plot_pane = plot_pane
+        self.transport = transport
+
+        self._timer = QTimer(self)
+        self._timer.setInterval(1000 // 60)  # 60 Hz
+        self._timer.timeout.connect(self._on_tick)
+
+        self._drift_count = 0
+        self._last_tick_monotonic = time.monotonic()
+
+        # Connect transport signals
+        self.transport.play_toggled.connect(self.set_playing)
+        self.transport.seek_requested.connect(self.seek)
+        self.transport.rate_changed.connect(self.set_rate)
+
+        # We keep track of manual scrubbing state so the clock doesn't advance
+        self._is_scrubbing = False
+
+    def start(self) -> None:
+        self._last_tick_monotonic = time.monotonic()
+        self._timer.start()
+
+    def set_playing(self, playing: bool) -> None:
+        if playing:
+            self._last_tick_monotonic = time.monotonic()
+            self.clock.play()
+            self.video_pane.play()
+        else:
+            self.clock.pause()
+            self.video_pane.pause()
+            # Force exact seek on pause to ensure frames align perfectly
+            self.video_pane.seek(self.clock.state.t, exact=True)
+
+        self.transport.set_playing(playing)
+
+    def seek(self, t: float, exact: bool = True) -> None:
+        self._is_scrubbing = not exact
+        self.clock.seek(t)
+        self.video_pane.seek(t, exact=exact)
+
+        # update UI instantly
+        self.plot_pane.set_cursor(self.clock.state.t)
+        self.transport.set_time(self.clock.state.t)
+
+        # Reset drift hysteresis
+        self._drift_count = 0
+        self._last_tick_monotonic = time.monotonic()
+
+    def set_rate(self, rate: float) -> None:
+        self.clock.set_rate(rate)
+        self.video_pane.set_rate(rate)
+
+    def _on_tick(self) -> None:
+        now = time.monotonic()
+
+        if self.clock.state.playing and not self._is_scrubbing:
+            # Advance clock
+            self.clock.advance(now)
+            t = self.clock.state.t
+
+            # Drift correction (video following master clock)
+            # Only if video is not actively seeking
+            if not self.video_pane.is_seeking:
+                vid_t = self.video_pane.time_pos
+                if abs(vid_t - t) > 0.040:
+                    self._drift_count += 1
+                    if self._drift_count > 5:
+                        self.video_pane.seek(t, exact=False)
+                        self._drift_count = 0
+                else:
+                    self._drift_count = 0
+
+            # Update UI
+            self.plot_pane.set_cursor(t)
+            self.transport.set_time(t)
+
+        self._last_tick_monotonic = now
