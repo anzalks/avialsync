@@ -116,6 +116,7 @@ kinochronix open tests/fixtures/sample_session/   # open sample data
 ## Known traps (learned the hard way — do not rediscover)
 
 - `.gitignore` ignores `*.spec` files by default. If you create or modify `packaging/kinochronix.spec`, you must force-add it or it will be silently excluded from commits and break CI.
+- GitHub Actions `windows-latest` does not have `ffmpeg` pre-installed (unlike Ubuntu/macOS). Any script that invokes `ffmpeg` (like `make_fixtures.py`) will fail with `FileNotFoundError` unless `choco install ffmpeg` is in the CI workflow.
 
 - mpv `wid` embedding must be set before mpv initializes video output; on macOS use the documented
   render-API path if `wid` misbehaves.

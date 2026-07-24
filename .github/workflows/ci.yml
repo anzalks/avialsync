@@ -57,7 +57,7 @@ jobs:
         
       - name: Install System Dependencies (Windows)
         if: runner.os == 'Windows'
-        run: choco install mpv
+        run: choco install ffmpeg mpv
         
       - name: Install Project Dependencies
         run: pip install -e ".[dev]"
