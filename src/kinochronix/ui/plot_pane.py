@@ -127,12 +127,6 @@ class PlotPane(QWidget):
                 )
             )
 
-        # Reset view range to full bounds using the master plot if it's the first source
-        if self._master_plot and start_row == 0 and self.channels:
-            t, _, _, _ = self.channels[0].reader._load_level(1)
-            if len(t) > 0:
-                self._master_plot.setXRange(float(t[0]), float(t[-1]))
-
         self.update_plots()
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._redraw_annotations()
@@ -253,6 +247,12 @@ class PlotPane(QWidget):
         self._annotation_store = store
         self._annotation_store.changed.connect(self._redraw_annotations)
         self._redraw_annotations()
+
+        
+    def set_x_range(self, t0: float, t1: float) -> None:
+        """Set the view range of all linked plots."""
+        if self._master_plot:
+            self._master_plot.setXRange(t0, t1)
 
     def _redraw_annotations(self) -> None:
         """Draw point and range markers from the annotation store on all channels."""

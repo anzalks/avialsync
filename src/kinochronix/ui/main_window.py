@@ -149,6 +149,9 @@ class MainWindow(QMainWindow):
 
         # Start player tick
         self.player.start()
+        
+        # Setup global shortcuts
+        self._setup_shortcuts()
 
     # ── Diagnostics ──────────────────────────────────────────────────
 
@@ -403,68 +406,44 @@ class MainWindow(QMainWindow):
 
     # ── Keyboard shortcuts ───────────────────────────────────────────
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:
-        key = event.key()
-        mods = event.modifiers()
+    def _setup_shortcuts(self) -> None:
+        from PySide6.QtGui import QKeySequence, QShortcut
+        from PySide6.QtCore import Qt
+        
+        def _toggle_play():
+            self.player.set_playing(not self.clock.state.playing)
+            
+        def _seek_rel(delta: float):
+            t = self.clock.state.t + delta
+            bounds = self.clock.state.bounds
+            self.player.seek(max(bounds[0], min(bounds[1], t)))
 
-        if key == Qt.Key.Key_Space:
-            playing = self.clock.state.playing
-            self.player.set_playing(not playing)
-
-        elif key == Qt.Key.Key_M:
-            self._on_annotate_requested()
-
-        elif key == Qt.Key.Key_Left:
-            if mods & Qt.KeyboardModifier.ShiftModifier:
-                self.player.seek(
-                    max(
-                        self.clock.state.bounds[0],
-                        self.clock.state.t - 1.0,
-                    )
-                )
-            else:
-                self.player.step_frame(-1)
-
-        elif key == Qt.Key.Key_Right:
-            if mods & Qt.KeyboardModifier.ShiftModifier:
-                self.player.seek(
-                    min(
-                        self.clock.state.bounds[1],
-                        self.clock.state.t + 1.0,
-                    )
-                )
-            else:
-                self.player.step_frame(1)
-
-        elif key == Qt.Key.Key_Home:
-            self.player.seek(self.clock.state.bounds[0])
-
-        elif key == Qt.Key.Key_End:
-            self.player.seek(self.clock.state.bounds[1])
-
-        elif key == Qt.Key.Key_BracketLeft:
-            self.transport._on_ab_in()
-
-        elif key == Qt.Key.Key_BracketRight:
-            self.transport._on_ab_out()
-
-        elif key == Qt.Key.Key_S and (mods & Qt.KeyboardModifier.ControlModifier):
-            self._save_session()
-
-        elif key == Qt.Key.Key_O and (mods & Qt.KeyboardModifier.ControlModifier):
-            self._open_session()
-
-        elif key == Qt.Key.Key_E and (mods & Qt.KeyboardModifier.ControlModifier):
-            self._export_snapshot()
-
-        elif key == Qt.Key.Key_T and (mods & Qt.KeyboardModifier.ControlModifier):
-            self._cycle_theme()
-
-        elif key == Qt.Key.Key_Question:
-            self._show_shortcuts()
-
-        else:
-            super().keyPressEvent(event)
+        # Play/Pause
+        QShortcut(QKeySequence(Qt.Key.Key_Space), self, _toggle_play, context=Qt.ShortcutContext.WindowShortcut)
+        
+        # Frame Stepping
+        QShortcut(QKeySequence(Qt.Key.Key_Left), self, lambda: self.player.step_frame(-1), context=Qt.ShortcutContext.WindowShortcut)
+        QShortcut(QKeySequence(Qt.Key.Key_Right), self, lambda: self.player.step_frame(1), context=Qt.ShortcutContext.WindowShortcut)
+        
+        # 1-second jumps
+        QShortcut(QKeySequence("Shift+Left"), self, lambda: _seek_rel(-1.0), context=Qt.ShortcutContext.WindowShortcut)
+        QShortcut(QKeySequence("Shift+Right"), self, lambda: _seek_rel(1.0), context=Qt.ShortcutContext.WindowShortcut)
+        
+        # Home/End
+        QShortcut(QKeySequence(Qt.Key.Key_Home), self, lambda: self.player.seek(self.clock.state.bounds[0]), context=Qt.ShortcutContext.WindowShortcut)
+        QShortcut(QKeySequence(Qt.Key.Key_End), self, lambda: self.player.seek(self.clock.state.bounds[1]), context=Qt.ShortcutContext.WindowShortcut)
+        
+        # A/B Loop
+        QShortcut(QKeySequence(Qt.Key.Key_BracketLeft), self, self.transport._on_ab_in, context=Qt.ShortcutContext.WindowShortcut)
+        QShortcut(QKeySequence(Qt.Key.Key_BracketRight), self, self.transport._on_ab_out, context=Qt.ShortcutContext.WindowShortcut)
+        
+        # Annotation
+        QShortcut(QKeySequence(Qt.Key.Key_M), self, self._on_annotate_requested, context=Qt.ShortcutContext.WindowShortcut)
+        
+        # App actions (Save/Open are already handled by menu shortcuts, but we can bind the others)
+        QShortcut(QKeySequence("Ctrl+E"), self, self._export_snapshot, context=Qt.ShortcutContext.WindowShortcut)
+        QShortcut(QKeySequence("Ctrl+T"), self, self._cycle_theme, context=Qt.ShortcutContext.WindowShortcut)
+        QShortcut(QKeySequence("?"), self, self._show_shortcuts, context=Qt.ShortcutContext.WindowShortcut)
 
     # ── Window close ─────────────────────────────────────────────────
 
@@ -1004,6 +983,7 @@ class MainWindow(QMainWindow):
     def _update_bounds(self, t0: float, t1: float) -> None:
         if self.clock.state.bounds == (0.0, 0.0):
             new_bounds = (t0, t1)
+            self.plot_pane.set_x_range(t0, t1)
         else:
             curr_t0, curr_t1 = self.clock.state.bounds
             new_bounds = (
