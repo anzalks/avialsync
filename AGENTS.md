@@ -1,0 +1,146 @@
+# AGENTS.md — KinoChronix agent instructions (canonical)
+
+This file is the single source of truth for ALL coding agents (Claude Code, Codex, Gemini/Antigravity,
+Cursor, Copilot, etc.). `CLAUDE.md` and `GEMINI.md` are thin pointers to this file — never duplicate
+content there. If tool-specific config is unavoidable, it still must say "rules live in AGENTS.md".
+
+## What this project is
+
+GUI desktop app to scrub time-synchronized multi-camera video (h264/h265, incl. 12-bit greyscale)
+together with dense time series (up to 50 kHz, 16-bit, CSV or plugin formats), on one master timeline.
+Open-source (Apache-2.0), commercializable. Targets: Windows / macOS / Linux, mid-spec machines
+(8-core, 16 GB, SSD). Read `BLUEPRINT.md` for phases, `ARCHITECTURE.md` for structure,
+`DECISIONS.md` for settled choices. Do not re-litigate settled decisions; propose changes as a
+DECISIONS.md entry in the PR description instead of silently diverging.
+
+## Naming & casing — BINDING (never invent variants)
+
+| Context | Exact form |
+|---|---|
+| Brand / UI / window title / docs prose / installer filenames | `KinoChronix` |
+| PyPI package, import module, CLI command, repo dir, entry-point group, paths | `kinochronix` (all lowercase, one word, no hyphen/underscore) |
+| Python identifiers derived from it | `kinochronix` (e.g. `from kinochronix.core import ...`) |
+| Env vars / constants | `KINOCHRONIX_*` |
+| Session file extension | `.kcx` |
+| Sidecar cache dir | `<file>.kcache/` |
+| Installer artifacts | `KinoChronix-Setup.exe`, `KinoChronix.dmg`, `KinoChronix.AppImage` |
+| Plugin packages (3rd party convention) | `kinochronix-plugin-<name>` on PyPI |
+
+FORBIDDEN spellings: `KinoChronix` in code identifiers, `Kinochronix`, `kinoChronix`,
+`kino_chronix`, `kino-chronix`, `KINOchronix`, or any earlier project name. If you see one,
+fix it in the same PR. A rename is never "improved" by an agent (D-018).
+
+## Tech stack — FIXED
+
+- Python 3.11+ · PySide6 (never PyQt5/PyQt6 — license) · libmpv via `python-mpv` (PyPI name; import `mpv`) for ALL video
+  playback (never QtMultimedia, never OpenCV for playback) · pyqtgraph for plots · numpy + polars
+  for data · hatchling build · pytest / pytest-qt / pytest-benchmark / hypothesis.
+- Dependency policy: no GPL/AGPL. Adding any dependency requires: license named in PR description,
+  justification, and it must be pip-installable on all 3 OSes.
+
+## Architecture rules (violations = rejected PR)
+
+1. Single master clock in `core/timeline.py`. UI and sources NEVER keep independent time state;
+   they subscribe to MasterClock. Time is float seconds, UTC epoch, with per-source
+   `offset + drift_rate` mapping in TimeMap.
+2. `core/` is headless: importing anything from `core/` must not import PySide6. Enforced by a test.
+3. UI thread never blocks: no file IO, parsing, or decoding on it. Use worker threads / mpv's own
+   threads. Any function that can take > 30 ms gets a worker + progress signal.
+4. Plotting only via the decimation pyramid (`core/pyramid.py`). Never pass raw full-resolution
+   arrays to pyqtgraph for datasets > 100 k samples.
+5. All data sources go through the plugin ABCs in `core/source.py` (`TimeSeriesSource`,
+   `VideoSource`). Built-in CSV/video support are plugins too. Do not special-case formats in UI code.
+6. Playback: sync correctness beats frame completeness (drop frames, never drift). Paused/stepping:
+   exact seeks only (`seek --exact` semantics).
+7. Text data is parsed once → binary sidecar cache (`core/cache.py`), mmap-read afterwards.
+
+## Coding standards
+
+- ruff for lint+format (config in pyproject; run `ruff check --fix . && ruff format .` before finishing).
+- mypy --strict on `core/`; standard on `ui/` and `loaders/`.
+- Type hints everywhere; dataclasses/pydantic-free core (plain dataclasses OK).
+- Qt: signals/slots over polling; no `QApplication.processEvents()` hacks; objects have parents or
+  documented ownership.
+- Docstrings: module + public API, Google style. Comments explain WHY, not what.
+- No new module > ~500 lines; split. No function > ~60 lines without justification.
+- Naming: `snake_case`, Qt widget classes end in their role (`VideoPane`, `TransportBar`).
+- Errors: raise typed exceptions from `core/errors.py`; UI layer converts to user dialogs with
+  actionable text. Never `except Exception: pass`.
+
+## Definition of Done (every task)
+
+- [ ] Code + tests in the same change. New logic in `core/` → unit tests; UI behavior → pytest-qt test
+      where feasible; performance-relevant code → benchmark present and within budgets
+      (BLUEPRINT.md table).
+- [ ] `pytest -x`, `ruff check .`, `mypy` all pass locally on the files touched.
+- [ ] Golden sync tests (`tests/test_sync_golden.py`) untouched-and-passing for any change in
+      `core/timeline.py`, playback loop, or seek logic.
+- [ ] No performance budget regressed (> 20 % on touched benchmarks).
+- [ ] Docs updated if public API or user-visible behavior changed.
+- [ ] Conventional commit message: `feat(scope): …` / `fix:` / `perf:` / `test:` / `docs:` / `chore:`.
+
+## How to run things
+
+```bash
+pip install -e .[dev]          # setup
+python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
+pytest -x -q                   # tests (GUI tests use offscreen: QT_QPA_PLATFORM=offscreen)
+pytest --benchmark-only        # perf budgets
+kinochronix                     # run the app
+kinochronix open tests/fixtures/sample_session/   # open sample data
+```
+
+## Task protocol for agents
+
+1. Read the relevant BLUEPRINT.md phase + the kickoff prompt in PROMPTS.md before coding.
+2. Plan first: for any task touching > 2 files, write a short plan (files to change, test strategy,
+   risks) in your response before edits. If the plan conflicts with this file → stop and say so.
+3. Small steps: implement in reviewable increments; run the test suite after each increment, not
+   only at the end.
+4. Never delete or weaken a failing test to make it pass. If a test seems wrong, explain why and
+   propose the fix explicitly.
+5. Fixtures, not real data: all tests use `tools/make_fixtures.py` outputs. Never assume the user's
+   private field data is available; never hardcode paths outside the repo/tmp.
+6. Cross-platform paranoia: pathlib everywhere; no shell=True; guard OS-specific code
+   (`sys.platform`) and provide fallbacks; mpv embedding differs per OS — keep that logic isolated
+   in `ui/video_pane.py`.
+7. When uncertain between two designs, choose the one that keeps `core/` simpler and put the
+   complexity in the adapter/UI layer.
+8. Update `DECISIONS.md` when you make a choice future agents must not reverse.
+9. Consistency over preference: match existing naming/patterns in the module you touch, even if
+   you'd choose differently. Multiple models rotate through this codebase; style entropy is a
+   real failure mode. Do not "improve" working patterns without a DECISIONS.md entry.
+10. Library APIs (mpv, pyqtgraph, polars) may differ from your training data — verify against
+   the installed version's docs/signatures when behavior surprises you; don't force remembered APIs.
+
+## Known traps (learned the hard way — do not rediscover)
+
+- mpv `wid` embedding must be set before mpv initializes video output; on macOS use the documented
+  render-API path if `wid` misbehaves.
+- pyqtgraph `setDownsampling` is not enough at 180 M points — always go through our pyramid.
+- QTimer drift: drive MasterClock from `time.monotonic()` deltas, never by accumulating timer intervals.
+- polars `read_csv` infers types per-chunk; always pass explicit schema for the timestamp column.
+- ffprobe start times lie for some machine-vision containers; treat metadata start time as a default,
+  never as truth — the user offset always wins.
+- 12-bit video: never assume hw decode; probe once at startup (`ui/diagnostics.py`) and surface it.
+- macOS mpv embedding: `wid` is deprecated/flaky there — use the mpv render API path on macOS;
+  build and verify the macOS path FIRST in Phase 2 (highest-risk integration in the project).
+- Seek settle: "seek command returned" ≠ "frame painted". Detect settle via mpv property
+  observation (`seeking`=False + `time-pos` at target) — never sleeps. Flaky golden tests get
+  ignored, which defeats their purpose; keep them rock solid.
+- Playback drift correction needs hysteresis: re-seek only after N consecutive off-target ticks,
+  or late Qt timers cause re-seek/stutter cascades under UI load.
+- Frame stepping: always mpv's actual frame timestamps; never `t += 1/fps` (breaks on VFR and
+  dropped-frame footage).
+- Pyramid must be NaN-aware (nanmin/nanmax) and gap-aware (gap_mask); never draw across gaps.
+- Cache key includes a content-hash tail (ARCHITECTURE §5b); (path,size,mtime) alone is a lie.
+- Timezone-naive timestamps: force an explicit user choice in the wizard; silent-UTC caused real
+  1–2 h "corruption" reports in comparable tools.
+- ffmpeg/mpv/QProcess: argument lists only, never shell strings (unicode/space paths on Windows).
+- Locale bomb: Qt stomps LC_NUMERIC needed by libmpv → call
+  `locale.setlocale(locale.LC_NUMERIC, 'C')` AFTER importing Qt, BEFORE first mpv.MPV().
+  Symptom without it: float options/seeks silently misparsed in decimal-comma locales.
+- Dependency name: `python-mpv` (PyPI) → `import mpv`. The PyPI package literally named `mpv`
+  is a different project; never add it (D-017).
+- NEVER `import mpv` at module top level (D-013): lazy import behind the diagnostics probe so a
+  missing libmpv shows the guided dialog instead of a ctypes crash.
