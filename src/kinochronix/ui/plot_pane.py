@@ -63,6 +63,9 @@ class PlotPane(QWidget):
         # State
         self.channels: list[ChannelPlot] = []
         self.follow_playhead = False
+        
+        self._annotation_store = None
+        self._annotation_items: list[tuple[pg.PlotItem, object]] = []
 
         # We will use the first channel's X axis as the master for linking
         self._master_plot: pg.PlotItem | None = None
@@ -140,6 +143,7 @@ class PlotPane(QWidget):
 
         self.update_plots()
         self.sources_changed.emit([ch.reader for ch in self.channels])
+        self._redraw_annotations()
 
     def remove_channels(self, cache_dir: Path) -> None:
         """Remove all channels associated with a specific cache_dir (source)."""
@@ -163,6 +167,7 @@ class PlotPane(QWidget):
 
         # We don't automatically update view bounds on remove to preserve UX state
         self.sources_changed.emit([ch.reader for ch in self.channels])
+        self._redraw_annotations()
 
     def remove_channel(self, channel_id: str) -> None:
         """Remove a single channel by its channel_id, regardless of cache_dir."""
@@ -184,6 +189,7 @@ class PlotPane(QWidget):
                     ch.plot_item.setXLink(self._master_plot)
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
+        self._redraw_annotations()
 
     def load_source(self, cache_dir: Path, channel_id: str) -> None:
         """Backwards compatibility for Phase 2 single-channel load."""
@@ -251,3 +257,40 @@ class PlotPane(QWidget):
             )
         for ch in self.channels:
             ch.plot_item.enableAutoRange(axis="y")
+
+    def set_annotation_store(self, store: object) -> None:
+        self._annotation_store = store
+        self._annotation_store.changed.connect(self._redraw_annotations)
+        self._redraw_annotations()
+
+    def _redraw_annotations(self) -> None:
+        """Draw point and range markers from the annotation store on all channels."""
+        for plot_item, item in self._annotation_items:
+            plot_item.removeItem(item)
+        self._annotation_items.clear()
+
+        if not self._annotation_store:
+            return
+
+        from PySide6.QtCore import Qt
+
+        for marker in self._annotation_store.markers:
+            c = pg.mkColor(marker.color)
+            for ch in self.channels:
+                if marker.t_end is None:
+                    pen = pg.mkPen(c, width=2, style=Qt.PenStyle.DashLine)
+                    line = pg.InfiniteLine(pos=marker.t_start, angle=90, movable=False, pen=pen)
+                    ch.plot_item.addItem(line)
+                    self._annotation_items.append((ch.plot_item, line))
+                else:
+                    c_brush = pg.mkColor(marker.color)
+                    c_brush.setAlpha(40)
+                    region = pg.LinearRegionItem(
+                        values=[marker.t_start, marker.t_end],
+                        movable=False,
+                        brush=c_brush,
+                        pen=pg.mkPen(c, width=1, style=Qt.PenStyle.DashLine)
+                    )
+                    region.setZValue(-5)
+                    ch.plot_item.addItem(region)
+                    self._annotation_items.append((ch.plot_item, region))

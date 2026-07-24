@@ -85,6 +85,7 @@ class MainWindow(QMainWindow):
 
         # Annotation panel
         self.annotation_panel = AnnotationPanel(self.annotation_store, self)
+        self.plot_pane.set_annotation_store(self.annotation_store)
 
         # Sidebar composite layout
         sidebar_widget = QWidget()
@@ -469,6 +470,9 @@ class MainWindow(QMainWindow):
         act.setShortcut("Ctrl+E")
         act.triggered.connect(self._export_snapshot)
 
+        act = file_menu.addAction("Export Trimmed Video Clip…")
+        act.triggered.connect(self._export_video_clip)
+
         act = file_menu.addAction("Export Data Slice…")
         act.triggered.connect(self._export_data_slice)
 
@@ -654,6 +658,55 @@ class MainWindow(QMainWindow):
                 export_data_slice_csv(readers, t0, t1, Path(path))
         except Exception as e:
             QMessageBox.critical(self, "Export Error", str(e))
+
+    def _export_video_clip(self) -> None:
+        """Export a trimmed video clip for all loaded videos based on A/B loop."""
+        if not self.video_grid._paths:
+            QMessageBox.warning(self, "Export", "No videos are loaded.")
+            return
+
+        t0 = self.transport._ab_in_t
+        t1 = self.transport._ab_out_t
+        if t0 is None or t1 is None:
+            QMessageBox.warning(
+                self, "Export Error", "Please set an A/B loop first ([ and ] buttons)."
+            )
+            return
+
+        if t0 > t1:
+            t0, t1 = t1, t0
+
+        from kinochronix.engine.export import trim_video_clip
+        from pathlib import Path
+
+        if len(self.video_grid._paths) == 1:
+            path, _ = QFileDialog.getSaveFileName(
+                self, "Export Trimmed Video", "", "Video files (*.mp4 *.mkv *.mov *.avi)"
+            )
+            if not path:
+                return
+            success = trim_video_clip(self.video_grid._paths[0], t0, t1, Path(path))
+            if success:
+                QMessageBox.information(self, "Export Complete", "Video clip exported successfully.")
+            else:
+                QMessageBox.critical(self, "Export Failed", "ffmpeg failed to trim the video.")
+        else:
+            dir_path = QFileDialog.getExistingDirectory(self, "Select Directory for Trimmed Clips")
+            if not dir_path:
+                return
+            
+            out_dir = Path(dir_path)
+            success_count = 0
+            for orig_path in self.video_grid._paths:
+                p = Path(orig_path)
+                out_path = out_dir / f"{p.stem}_trim{p.suffix}"
+                if trim_video_clip(orig_path, t0, t1, out_path):
+                    success_count += 1
+            
+            if success_count == len(self.video_grid._paths):
+                QMessageBox.information(self, "Export Complete", f"Exported {success_count} clips.")
+            else:
+                QMessageBox.warning(self, "Export Incomplete", f"Exported {success_count} of {len(self.video_grid._paths)} clips.")
 
     # ── Proxy generation ─────────────────────────────────────────────
 

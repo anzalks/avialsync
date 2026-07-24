@@ -17,38 +17,6 @@ from PySide6.QtWidgets import (
 )
 
 
-class ChannelRow(QFrame):
-    """Single sensor channel row with name label and a remove (hide) button."""
-
-    remove_requested = Signal(str, str)  # sensor_path, channel_name
-
-    def __init__(self, sensor_path: str, channel: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.sensor_path = sensor_path
-        self.channel = channel
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(2, 1, 2, 1)
-        layout.setSpacing(4)
-
-        indicator = QLabel("●")
-        indicator.setStyleSheet("color: #0078d4; font-size: 9px;")
-        indicator.setFixedWidth(12)
-
-        name_lbl = QLabel(channel)
-        name_lbl.setStyleSheet("font-size: 11px;")
-
-        rm_btn = QPushButton("×")
-        rm_btn.setFixedSize(16, 16)
-        rm_btn.setToolTip(f"Remove channel {channel}")
-        rm_btn.setStyleSheet("font-size: 10px; padding: 0;")
-        rm_btn.clicked.connect(lambda: self.remove_requested.emit(self.sensor_path, self.channel))
-
-        layout.addWidget(indicator)
-        layout.addWidget(name_lbl, stretch=1)
-        layout.addWidget(rm_btn)
-
-
 class SensorInfoWidget(QFrame):
     """Displays metadata and per-channel controls for one loaded sensor CSV."""
 
@@ -98,19 +66,59 @@ class SensorInfoWidget(QFrame):
         sep.setFrameShape(QFrame.Shape.HLine)
         layout.addWidget(sep)
 
-        # ── Per-channel rows ─────────────────────────────────────────
-        self._channel_rows: dict[str, ChannelRow] = {}
+        # ── Channel Tree ─────────────────────────────────────────────
+        from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QHeaderView
+
+        self.tree = QTreeWidget()
+        self.tree.setColumnCount(2)
+        self.tree.setHeaderHidden(True)
+        self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        self.tree.header().resizeSection(1, 24)
+        self.tree.setIndentation(12)
+        self.tree.setMinimumHeight(120)
+        self.tree.setMaximumHeight(250)
+        self.tree.setStyleSheet("QTreeWidget { border: 1px solid #444; background: transparent; }")
+        layout.addWidget(self.tree)
+
+        self._channel_items: dict[str, QTreeWidgetItem] = {}
+        nodes = {"": self.tree.invisibleRootItem()}
+
         for ch in channels:
-            row = ChannelRow(path, ch)
-            row.remove_requested.connect(self._on_channel_remove)
-            layout.addWidget(row)
-            self._channel_rows[ch] = row
+            # Grouping by '/' or '.'
+            parts = ch.replace(".", "/").split("/")
+            parent_path = ""
+            for part in parts[:-1]:
+                path_key = parent_path + "/" + part if parent_path else part
+                if path_key not in nodes:
+                    group_item = QTreeWidgetItem(nodes[parent_path])
+                    group_item.setText(0, part)
+                    font = group_item.font(0)
+                    font.setBold(True)
+                    group_item.setFont(0, font)
+                    group_item.setExpanded(True)
+                    nodes[path_key] = group_item
+                parent_path = path_key
+            
+            leaf_part = parts[-1]
+            item = QTreeWidgetItem(nodes[parent_path])
+            item.setText(0, leaf_part)
+            item.setToolTip(0, ch)
+            
+            rm_btn = QPushButton("×")
+            rm_btn.setFixedSize(16, 16)
+            rm_btn.setToolTip(f"Remove {ch}")
+            rm_btn.setStyleSheet("font-size: 10px; padding: 0;")
+            rm_btn.clicked.connect(lambda checked=False, c=ch: self._on_channel_remove(self.path, c))
+            self.tree.setItemWidget(item, 1, rm_btn)
+            
+            self._channel_items[ch] = item
 
     def _on_channel_remove(self, sensor_path: str, channel: str) -> None:
-        row = self._channel_rows.pop(channel, None)
-        if row:
-            self.layout().removeWidget(row)
-            row.deleteLater()
+        item = self._channel_items.pop(channel, None)
+        if item:
+            parent = item.parent() or self.tree.invisibleRootItem()
+            parent.removeChild(item)
         self.channel_remove_requested.emit(sensor_path, channel)
 
 
