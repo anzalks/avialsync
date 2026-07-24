@@ -1,5 +1,124 @@
-"""Standard Video Loader plugin."""
+"""Standard Video Loader."""
+
+import json
+import subprocess
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from kinochronix.core.source import VideoSource
 
 
-class VideoStandardLoader:
-    pass
+class VideoStandardLoader(VideoSource):
+    """Loads standard videos utilizing ffprobe metadata."""
+
+    def __init__(self) -> None:
+        self._path: Path | None = None
+        self._config: dict[str, Any] = {}
+        self._start_time: float | None = None
+        self._fps: float = 30.0
+        self._frame_times: np.ndarray | None = None
+
+    @classmethod
+    def can_open(cls, path: Path) -> float:
+        suffix = path.suffix.lower()
+        if suffix in [".mp4", ".mov", ".mkv", ".avi", ".webm"]:
+            # Could run ffprobe here to verify, but checking extension is faster
+            return 0.9
+        return 0.0
+
+    def open(self, path: Path, config: dict[str, Any]) -> None:
+        self._path = path
+        self._config = config
+
+        # Probe metadata
+        cmd = [
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+            str(path),
+        ]
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            meta = json.loads(result.stdout)
+        except Exception as e:
+            raise ValueError(f"Failed to probe video: {path}") from e
+
+        format_info = meta.get("format", {})
+
+        # Parse start_time from format
+        st = format_info.get("start_time")
+        if st is not None:
+            self._start_time = float(st)
+
+        # Parse FPS from first video stream
+        streams = meta.get("streams", [])
+        video_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
+
+        if video_stream:
+            r_frame_rate = video_stream.get("r_frame_rate", "0/0")
+            num, den = r_frame_rate.split("/")
+            if float(den) > 0:
+                self._fps = float(num) / float(den)
+
+        # Parse frame times (to ensure correct frame stepping for VFR/dropped-frames)
+        # Note: This is an expensive operation for large videos, so we could defer it
+        # However, for correct stepping we need it
+        self._extract_frame_times(path)
+
+    def _extract_frame_times(self, path: Path) -> None:
+        cmd = [
+            "ffprobe",
+            "-v", "quiet",
+            "-select_streams", "v:0",
+            "-show_entries", "packet=pts_time",
+            "-of", "csv=p=0",
+            str(path)
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            times = []
+            for line in result.stdout.strip().split("\n"):
+                if line:
+                    try:
+                        times.append(float(line))
+                    except ValueError:
+                        pass
+            if times:
+                self._frame_times = np.array(times)
+        except Exception:
+            self._frame_times = None
+
+    def needs_conversion(self) -> bool:
+        return False
+
+    def prepare(self, progress_cb: Callable[[float], None]) -> Path:
+        if self._path is None:
+            raise RuntimeError("Source not opened")
+        return self._path
+
+    def media_path(self) -> Path:
+        if self._path is None:
+            raise RuntimeError("Source not opened")
+        return self._path
+
+    def start_time(self) -> float | None:
+        return self._start_time
+
+    def frame_times(self) -> np.ndarray | None:
+        return self._frame_times
+
+    def fps(self) -> float:
+        return self._fps
+
+    def label(self) -> str:
+        if self._path is None:
+            return "Unknown"
+        return self._path.name
