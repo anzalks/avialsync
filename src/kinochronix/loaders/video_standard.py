@@ -76,11 +76,15 @@ class VideoStandardLoader(VideoSource):
     def _extract_frame_times(self, path: Path) -> None:
         cmd = [
             "ffprobe",
-            "-v", "quiet",
-            "-select_streams", "v:0",
-            "-show_entries", "packet=pts_time",
-            "-of", "csv=p=0",
-            str(path)
+            "-v",
+            "quiet",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "packet=pts_time",
+            "-of",
+            "csv=p=0",
+            str(path),
         ]
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
