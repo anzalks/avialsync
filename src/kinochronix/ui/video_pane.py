@@ -23,13 +23,13 @@ class VideoPane(QWidget):
         self.is_seeking = False
         self.mpv = None
 
+        self.setLayout(QVBoxLayout())
+        self.layout().setContentsMargins(0, 0, 0, 0)
+
         if not probe_libmpv(self):
             return
 
         import mpv
-
-        self.setLayout(QVBoxLayout())
-        self.layout().setContentsMargins(0, 0, 0, 0)
 
         import os
         is_offscreen = os.environ.get("QT_QPA_PLATFORM") == "offscreen"
