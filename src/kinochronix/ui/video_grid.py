@@ -1,6 +1,5 @@
 """Video grid layout manager."""
 
-import math
 from pathlib import Path
 
 from PySide6.QtWidgets import QHBoxLayout, QWidget
@@ -23,6 +22,15 @@ class VideoGrid(QWidget):
         self.grid_layout.setContentsMargins(0, 0, 0, 0)
         self.grid_layout.setSpacing(2)
 
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QLabel
+
+        self.lbl_empty = QLabel("No videos loaded.\nDouble-click a video pane to maximize.")
+        self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_empty.setStyleSheet("color: #888888; font-size: 18px;")
+        self.lbl_empty.setMinimumHeight(200)
+        self.grid_layout.addWidget(self.lbl_empty)
+
     def add_pane(self, path: str) -> VideoPane:
         """Add a new video pane to the grid and open the video."""
         pane = VideoPane(self)
@@ -44,16 +52,20 @@ class VideoGrid(QWidget):
 
         # If in fullscreen mode, only show that pane
         if self._fullscreen_pane and self._fullscreen_pane in self.panes:
+            self.lbl_empty.setVisible(False)
             for pane in self.panes:
                 pane.setVisible(pane == self._fullscreen_pane)
             self.grid_layout.addWidget(self._fullscreen_pane)
             return
 
-        # Normal grid layout
+        # Normal layout
         n = len(self.panes)
         if n == 0:
+            self.lbl_empty.setVisible(True)
+            self.grid_layout.addWidget(self.lbl_empty)
             return
 
+        self.lbl_empty.setVisible(False)
         for pane in self.panes:
             pane.setVisible(True)
             self.grid_layout.addWidget(pane)
@@ -62,6 +74,7 @@ class VideoGrid(QWidget):
         """Update camera labels, disambiguating duplicates."""
         # Find duplicates by filename
         from collections import defaultdict
+
         name_counts = defaultdict(list)
         for i, p in enumerate(self._paths):
             name_counts[Path(p).name].append(i)
