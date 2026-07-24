@@ -1,6 +1,7 @@
-import pytest
-from hypothesis import given, strategies as st
 import math
+
+from hypothesis import given
+from hypothesis import strategies as st
 
 from kinochronix.core.timeline import MasterClock, TimeMap
 

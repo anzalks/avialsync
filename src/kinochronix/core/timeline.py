@@ -1,7 +1,7 @@
 """Master timeline and synchronization logic."""
 
 import dataclasses
-from typing import Callable, List, Tuple
+from collections.abc import Callable
 
 
 @dataclasses.dataclass(frozen=True)
@@ -11,7 +11,7 @@ class PlaybackState:
     playing: bool
     rate: float
     t: float
-    bounds: Tuple[float, float]
+    bounds: tuple[float, float]
 
 
 class MasterClock:
@@ -25,10 +25,10 @@ class MasterClock:
         self._playing: bool = False
         self._rate: float = 1.0
         self._t: float = 0.0
-        self._bounds: Tuple[float, float] = (0.0, 0.0)
+        self._bounds: tuple[float, float] = (0.0, 0.0)
         self._last_monotonic: float | None = None
 
-        self._subscribers: List[Callable[[float], None]] = []
+        self._subscribers: list[Callable[[float], None]] = []
 
     def subscribe(self, callback: Callable[[float], None]) -> None:
         """Register a callback that is fired on seek or playback advance."""
@@ -139,7 +139,10 @@ class TimeMap:
         return (t_source - self._base_offset + drift_coeff * self._t_ref) / (1.0 + drift_coeff)
 
     def update(self, new_offset: float, new_drift_ppm: float, t_master_now: float) -> None:
-        """Update mapping parameters dynamically, anchoring so that mapped time at t_master_now does not jump."""
+        """
+        Update mapping parameters dynamically, anchoring so that mapped time
+        at t_master_now does not jump.
+        """
         new_offset = float(new_offset)
         new_drift_ppm = float(new_drift_ppm)
         t_master_now = float(t_master_now)
@@ -148,7 +151,8 @@ class TimeMap:
         current_t_source = self.to_source(t_master_now)
 
         # We want the new mapping to equal current_t_source at t_master_now
-        # current_t_source = t_master_now + new_base_offset + (new_drift * 1e-6) * (t_master_now - t_master_now)
+        # current_t_source = t_master_now + new_base_offset +
+        #                    (new_drift * 1e-6) * (t_master_now - t_master_now)
         # current_t_source = t_master_now + new_base_offset
         # => new_base_offset = current_t_source - t_master_now
 
