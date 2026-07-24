@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.addWidget(self.video_grid)
         splitter.addWidget(self.plot_pane)
-        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 1)
 
         layout.addWidget(splitter)
@@ -71,6 +71,7 @@ class MainWindow(QMainWindow):
         if path:
             self.video_grid.add_pane(path)
             from kinochronix.loaders.video_standard import VideoStandardLoader
+
             vloader = VideoStandardLoader()
             try:
                 vloader.open(Path(path), {})
@@ -106,6 +107,7 @@ class MainWindow(QMainWindow):
             # Synchronous read for MVP demo
             all_chunks = list(loader.read_chunks(ch_name))
             import numpy as np
+
             full_t = np.concatenate([c[0] for c in all_chunks])
             full_v = np.concatenate([c[1] for c in all_chunks])
 
