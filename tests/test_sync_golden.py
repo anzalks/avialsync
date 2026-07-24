@@ -35,7 +35,7 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
     # Give mpv a moment to load and populate duration
     def is_loaded():
         has_mpv = pane.mpv is not None
-        has_dur = getattr(pane.mpv, 'duration', None) is not None
+        has_dur = getattr(pane.mpv, "duration", None) is not None
         return has_mpv and has_dur
 
     qtbot.waitUntil(is_loaded, timeout=5000)
@@ -62,6 +62,7 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
         # Extract pixel data via mpv screenshot
         import os
         import tempfile
+
         with tempfile.TemporaryDirectory() as td:
             img_path = os.path.join(td, "screenshot.png")
             pane.mpv.command("screenshot-to-file", img_path)
@@ -74,7 +75,7 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
             img = img.convertToFormat(QImage.Format.Format_Grayscale8)
             ptr = img.bits()
             arr = np.frombuffer(ptr, np.uint8).reshape((img.height(), img.bytesPerLine()))
-            arr = arr[:, :img.width()].copy()
+            arr = arr[:, : img.width()].copy()
 
         # Decode
         decoded = decode_frame_strip(arr)
@@ -107,7 +108,7 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
     # Give mpv a moment to load and populate duration on all panes
     def is_loaded():
         for pane in panes:
-            if pane.mpv is None or getattr(pane.mpv, 'duration', None) is None:
+            if pane.mpv is None or getattr(pane.mpv, "duration", None) is None:
                 return False
         return True
 
@@ -135,6 +136,7 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
         # Check each pane's exact frame via decoding
         import os
         import tempfile
+
         with tempfile.TemporaryDirectory() as td:
             for i, pane in enumerate(panes):
                 img_path = os.path.join(td, f"screenshot_{i}.png")
@@ -146,7 +148,7 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
                 img = img.convertToFormat(QImage.Format.Format_Grayscale8)
                 ptr = img.bits()
                 arr = np.frombuffer(ptr, np.uint8).reshape((img.height(), img.bytesPerLine()))
-                arr = arr[:, :img.width()].copy()
+                arr = arr[:, : img.width()].copy()
 
                 decoded = decode_frame_strip(arr)
 

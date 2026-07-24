@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QMessageBox
 
 _LIBMPV_AVAILABLE = None
 
+
 def _configure_macos_env() -> None:
     """
     Configure dyld paths on macOS.
@@ -36,6 +37,7 @@ def probe_libmpv(parent=None) -> bool:
 
     try:
         import mpv  # noqa: F401
+
         _LIBMPV_AVAILABLE = True
         return True
     except OSError:

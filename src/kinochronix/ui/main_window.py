@@ -44,7 +44,7 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.addWidget(self.video_grid)
         splitter.addWidget(self.plot_pane)
-        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 1)
 
         layout.addWidget(splitter)

@@ -27,6 +27,7 @@ class VideoPane(QWidget):
         self._video_widget = None
 
         from kinochronix.core.timeline import TimeMap
+
         self.time_map = TimeMap()
 
         self.setLayout(QGridLayout())
@@ -38,6 +39,7 @@ class VideoPane(QWidget):
         import os
 
         import mpv
+
         is_offscreen = os.environ.get("QT_QPA_PLATFORM") == "offscreen"
 
         if sys.platform == "darwin" and not is_offscreen:
@@ -63,6 +65,7 @@ class VideoPane(QWidget):
 
                 def initializeGL(self) -> None:
                     ctx = QOpenGLContext.currentContext()
+
                     def get_proc_address(name: bytes) -> int:
                         addr = ctx.getProcAddress(name)
                         return int(addr) if addr else 0
@@ -70,7 +73,7 @@ class VideoPane(QWidget):
                     self.ctx = mpv.MpvRenderContext(
                         self.mpv,
                         "opengl",
-                        opengl_init_params={"get_proc_address": get_proc_address}
+                        opengl_init_params={"get_proc_address": get_proc_address},
                     )
                     self.ctx.update_cb = self.update
 
@@ -81,7 +84,7 @@ class VideoPane(QWidget):
                         ratio = self.devicePixelRatio()
                         self.ctx.render(
                             flip_y=True,
-                            opengl_fbo={"w": int(w * ratio), "h": int(h * ratio), "fbo": fbo}
+                            opengl_fbo={"w": int(w * ratio), "h": int(h * ratio), "fbo": fbo},
                         )
 
             self.gl_widget = MpvGLWidget(self)
@@ -125,8 +128,7 @@ class VideoPane(QWidget):
         )
         self.lbl_name.setVisible(False)
         olayout.addWidget(
-            self.lbl_name,
-            alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+            self.lbl_name, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
         )
 
         self.lbl_no_footage = QLabel("No Footage")
@@ -135,7 +137,7 @@ class VideoPane(QWidget):
         )
         self.lbl_no_footage.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_no_footage.setVisible(False)
-        olayout.addWidget(self.lbl_no_footage, 1) # stretch
+        olayout.addWidget(self.lbl_no_footage, 1)  # stretch
 
         self.layout().addWidget(self.overlay, 0, 0)
 
