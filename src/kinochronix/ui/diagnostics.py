@@ -9,7 +9,7 @@ _LIBMPV_AVAILABLE = None
 def _configure_macos_env() -> None:
     """
     Configure dyld paths on macOS.
-    
+
     Homebrew does not add its lib directory to the standard Python linker paths
     by default. We elegantly inject the Homebrew lib directory so ctypes can
     find libmpv natively without breaking standard library resolution.
@@ -35,7 +35,7 @@ def probe_libmpv(parent=None) -> bool:
     _configure_macos_env()
 
     try:
-        import mpv
+        import mpv  # noqa: F401
         _LIBMPV_AVAILABLE = True
         return True
     except OSError:
