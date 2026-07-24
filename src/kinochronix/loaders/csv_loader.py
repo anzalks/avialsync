@@ -38,6 +38,7 @@ class CSVLoader(TimeSeriesSource):
         # Read a small sample to deduce channels and bounds
         separator = config.get("separator", ",")
         time_col = config.get("time_col", "time")
+        euro_decimal = config.get("euro_decimal", False)
 
         try:
             sample = pl.read_csv(
@@ -45,7 +46,7 @@ class CSVLoader(TimeSeriesSource):
                 separator=separator,
                 n_rows=100,
                 infer_schema_length=100,
-                decimal_comma=(separator == ";"),
+                decimal_comma=euro_decimal or (separator == ";"),
             )
         except Exception as e:
             raise ValueError(f"Failed to parse CSV: {path}") from e
@@ -64,7 +65,9 @@ class CSVLoader(TimeSeriesSource):
 
         # Get true time bounds from the whole file using lazy execution if possible
         # For robustness in tests, we just use a scan
-        lazy_df = pl.scan_csv(path, separator=separator, decimal_comma=(separator == ";"))
+        lazy_df = pl.scan_csv(
+            path, separator=separator, decimal_comma=euro_decimal or (separator == ";")
+        )
         t_first_last = lazy_df.select(
             [pl.col(time_col).first().alias("first"), pl.col(time_col).last().alias("last")]
         ).collect()
@@ -81,47 +84,84 @@ class CSVLoader(TimeSeriesSource):
     def time_bounds(self) -> tuple[float, float]:
         return self._time_bounds
 
+    def _classify_format(self, fmt: str) -> str:
+        """Map wizard format strings to internal categories."""
+        if not fmt or fmt == "numeric":
+            return "numeric"
+        if fmt.startswith("epoch_"):
+            return "numeric"
+        if fmt in ("iso8601", "datetime"):
+            return "datetime"
+        if fmt == "time_of_day":
+            return "time_of_day"
+        # strftime patterns containing date components → datetime
+        if any(d in fmt for d in ("%Y", "%m", "%d")):
+            return "datetime"
+        # time-only strftime patterns
+        if any(d in fmt for d in ("%H", "%M", "%S")):
+            return "time_of_day"
+        return "numeric"
+
+    def _epoch_unit_from_format(self, fmt: str) -> str:
+        """Extract epoch unit from wizard format like 'epoch_ms'."""
+        if fmt == "epoch_ms":
+            return "ms"
+        if fmt == "epoch_us":
+            return "us"
+        if fmt == "epoch_ns":
+            return "ns"
+        return self._config.get("time_unit", "s")
+
     def _normalize_time(self, t_series: pl.Series) -> np.ndarray:
         time_format = self._config.get("time_format", "numeric")
+        category = self._classify_format(time_format)
 
-        if time_format == "iso8601" or time_format == "datetime":
-            # parse to UTC datetime then to unix epoch seconds
-            # if tz naive, assume UTC or use config
-            # strptime format can be inferred or provided
-            # A simple cast to Datetime usually works if it's standard ISO8601
+        if category == "datetime":
+            strp_fmt = None
+            if time_format not in ("iso8601", "datetime", ""):
+                strp_fmt = time_format
+
             try:
-                dt_series = t_series.str.to_datetime(time_unit="ns", time_zone="UTC")
+                if strp_fmt:
+                    dt_series = t_series.str.to_datetime(format=strp_fmt, time_unit="ns")
+                else:
+                    dt_series = t_series.str.to_datetime(time_unit="ns", time_zone="UTC")
             except Exception:
-                # Fallback without timezone if it's tz naive
-                dt_series = t_series.str.to_datetime(time_unit="ns")
+                try:
+                    if strp_fmt:
+                        dt_series = t_series.str.to_datetime(format=strp_fmt, time_unit="ns")
+                    else:
+                        dt_series = t_series.str.to_datetime(time_unit="ns")
+                except Exception:
+                    dt_series = t_series.str.to_datetime(time_unit="ns")
 
-            # cast to Float64 in seconds. Polars datetime in ns to float seconds:
             return dt_series.cast(pl.Int64).cast(pl.Float64).to_numpy() / 1e9
 
-        elif time_format == "time_of_day":
+        elif category == "time_of_day":
             import datetime
 
             anchor_str = self._config.get("anchor_date", "1970-01-01")
             anchor_date = datetime.datetime.strptime(anchor_str, "%Y-%m-%d").date()
 
-            # parse time string to time object, then to datetime, then to epoch
-            # simpler: parse to time, convert to seconds since midnight
-            time_series = t_series.str.to_time()
-            # to_time gives pl.Time. We can extract microseconds and convert to seconds
-            # Alternatively, cast pl.Time to Int64 gives nanoseconds since midnight.
+            strp_fmt = None
+            if time_format not in ("time_of_day", ""):
+                strp_fmt = time_format
+
+            if strp_fmt:
+                time_series = t_series.str.to_time(format=strp_fmt)
+            else:
+                time_series = t_series.str.to_time()
+
             ns_since_midnight = time_series.cast(pl.Int64).cast(pl.Float64).to_numpy()
             sec_since_midnight = ns_since_midnight / 1e9
 
-            # Add anchor date timestamp
             anchor_epoch = datetime.datetime(
                 anchor_date.year, anchor_date.month, anchor_date.day, tzinfo=datetime.UTC
             ).timestamp()
             t_arr = sec_since_midnight + anchor_epoch
 
-            # handle rollover if it crosses midnight
             if len(t_arr) > 1:
                 dt = np.diff(t_arr)
-                # if it drops by more than 12 hours, assume rollover
                 rollovers = (dt < -43200).astype(int)
                 days_added = np.concatenate([[0], np.cumsum(rollovers)])
                 t_arr += days_added * 86400.0
@@ -129,9 +169,9 @@ class CSVLoader(TimeSeriesSource):
             return t_arr
 
         else:
-            # numeric
+            # numeric / epoch
             t_arr = t_series.cast(pl.Float64).to_numpy()
-            unit = self._config.get("time_unit", "s")
+            unit = self._epoch_unit_from_format(time_format)
             if unit == "ms":
                 t_arr = t_arr / 1e3
             elif unit == "us":
@@ -146,11 +186,22 @@ class CSVLoader(TimeSeriesSource):
 
         separator = self._config.get("separator", ",")
         time_col = self._config.get("time_col", "time")
-        sentinel = self._config.get("sentinel", None)
+        sentinel_raw = self._config.get("sentinel", None)
+        euro_decimal = self._config.get("euro_decimal", False)
+
+        sentinel: float | None = None
+        if sentinel_raw is not None and sentinel_raw != "":
+            try:
+                sentinel = float(sentinel_raw)
+            except (ValueError, TypeError):
+                sentinel = None
 
         # Read in batches
         reader = pl.read_csv_batched(
-            self._path, separator=separator, batch_size=50000, decimal_comma=(separator == ";")
+            self._path,
+            separator=separator,
+            batch_size=50000,
+            decimal_comma=euro_decimal or (separator == ";"),
         )
 
         row_offset = 0

@@ -7,9 +7,9 @@ import numpy as np
 import pytest
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
+from util_framestrip import decode_frame_strip
 
 from kinochronix.ui.main_window import MainWindow
-from tests.util_framestrip import decode_frame_strip
 
 
 @pytest.fixture

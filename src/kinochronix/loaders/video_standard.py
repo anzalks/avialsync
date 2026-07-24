@@ -57,7 +57,7 @@ class VideoStandardLoader(VideoSource):
         st = format_info.get("start_time")
         if st is not None:
             self._start_time = float(st)
-        
+
         d = format_info.get("duration")
         self._duration = float(d) if d is not None else 0.0
 

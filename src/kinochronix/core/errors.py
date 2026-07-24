@@ -28,3 +28,24 @@ class CacheError(KinoChronixError):
     """Raised when the sidecar binary cache encounters an error."""
 
     pass
+
+
+class CodecUnsupportedError(KinoChronixError):
+    """Raised when a video codec is not supported."""
+
+    pass
+
+
+class MissingColumnError(KinoChronixError):
+    """Raised when a required CSV column is missing."""
+
+    def __init__(self, column: str, available: list[str]):
+        self.column = column
+        self.available = available
+        super().__init__(f"Column '{column}' not found. Available: {', '.join(available)}")
+
+
+class FileUnreadableError(KinoChronixError):
+    """Raised when a file cannot be read or parsed."""
+
+    pass

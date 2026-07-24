@@ -71,11 +71,11 @@ def test_master_clock_rate():
     assert clock.state.t == 2.0  # 1.0 delta * 2.0 rate
 
     # Check bounds clamping on rate
-    clock.set_rate(10.0)
-    assert clock.state.rate == 8.0  # max 8.0
+    clock.set_rate(15.0)
+    assert clock.state.rate == 10.0  # max 10.0
 
-    clock.set_rate(0.01)
-    assert clock.state.rate == 0.1  # min 0.1
+    clock.set_rate(0.001)
+    assert clock.state.rate == 0.01  # min 0.01
 
 
 def test_zero_duration_bounds():

@@ -60,8 +60,8 @@ class MasterClock:
             self._last_monotonic = None
 
     def set_rate(self, rate: float) -> None:
-        """Set playback rate, clamped between 0.1 and 8.0."""
-        self._rate = max(0.1, min(8.0, float(rate)))
+        """Set playback rate, clamped between 0.01 and 10.0."""
+        self._rate = max(0.01, min(10.0, float(rate)))
         self._last_monotonic = (
             None  # Re-anchor on next advance to prevent jump with old monotonic delta
         )
@@ -120,6 +120,11 @@ class TimeMap:
     @property
     def offset(self) -> float:
         return self._offset
+
+    @offset.setter
+    def offset(self, value: float) -> None:
+        self._offset = float(value)
+        self._base_offset = float(value)  # reset drift anchor too
 
     @property
     def drift_ppm(self) -> float:

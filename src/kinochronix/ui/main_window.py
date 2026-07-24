@@ -2,28 +2,44 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSettings, Qt, QTimer
+from PySide6.QtGui import QCloseEvent, QKeyEvent
 from PySide6.QtWidgets import (
     QFileDialog,
-    QMainWindow,
-    QSplitter,
     QHBoxLayout,
+    QMainWindow,
+    QMessageBox,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
 
+from kinochronix.core.session import (
+    MarkerEntry,
+    SensorEntry,
+    SessionState,
+    VideoEntry,
+    add_recent,
+    get_recent,
+)
 from kinochronix.core.timeline import MasterClock
 from kinochronix.engine.player import Player
+from kinochronix.ui.annotations import AnnotationPanel, AnnotationStore
 from kinochronix.ui.plot_pane import PlotPane
+from kinochronix.ui.readout_panel import ReadoutPanel
 from kinochronix.ui.transport import Transport
 from kinochronix.ui.video_grid import VideoGrid
+
+_AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
 
 
 class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("KinoChronix")
-        self.resize(1024, 768)
+        self.resize(1280, 800)
+
+        self._session_path: Path | None = None
 
         # Core
         self.clock = MasterClock()
@@ -34,7 +50,16 @@ class MainWindow(QMainWindow):
         self.transport = Transport(self)
 
         # Engine
-        self.player = Player(self.clock, self.video_grid, self.plot_pane, self.transport, self)
+        self.player = Player(
+            self.clock,
+            self.video_grid,
+            self.plot_pane,
+            self.transport,
+            self,
+        )
+
+        # Annotations
+        self.annotation_store = AnnotationStore(self)
 
         # Layout
         central_widget = QWidget()
@@ -43,15 +68,36 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
 
         from kinochronix.ui.sidebar import SidebarPane
+
         self.sidebar = SidebarPane(self)
         self.sidebar.open_video_requested.connect(self._open_video)
         self.sidebar.open_sensor_requested.connect(self._open_csv)
         self.sidebar.video_offset_changed.connect(self._on_video_offset_changed)
         self.sidebar.video_remove_requested.connect(self._on_video_remove_requested)
         self.sidebar.sensor_remove_requested.connect(self._on_sensor_remove_requested)
+        self.sidebar.channel_remove_requested.connect(self._on_channel_remove_requested)
+        self.sidebar.grid_mode_changed.connect(self.video_grid.set_grid_mode)
+
+        # Readout panel
+        self.readout_panel = ReadoutPanel(self)
+        self.plot_pane.sources_changed.connect(self.readout_panel.update_sources)
+        self.player._readout_panel = self.readout_panel
+
+        # Annotation panel
+        self.annotation_panel = AnnotationPanel(self.annotation_store, self)
+
+        # Sidebar composite layout
+        sidebar_widget = QWidget()
+        sidebar_layout = QVBoxLayout(sidebar_widget)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(0)
+        sidebar_layout.addWidget(self.sidebar, stretch=2)
+        sidebar_layout.addWidget(self.readout_panel, stretch=1)
+        sidebar_layout.addWidget(self.annotation_panel, stretch=2)
 
         h_splitter = QSplitter(Qt.Orientation.Horizontal)
-        h_splitter.addWidget(self.sidebar)
+        h_splitter.addWidget(sidebar_widget)
+        self._h_splitter = h_splitter
 
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
@@ -62,6 +108,7 @@ class MainWindow(QMainWindow):
         v_splitter.addWidget(self.plot_pane)
         v_splitter.setStretchFactor(0, 3)
         v_splitter.setStretchFactor(1, 1)
+        self._v_splitter = v_splitter
 
         right_layout.addWidget(v_splitter)
         right_layout.addWidget(self.transport)
@@ -78,8 +125,291 @@ class MainWindow(QMainWindow):
         # Drag and Drop
         self.setAcceptDrops(True)
 
+        # Restore geometry
+        self._restore_geometry()
+
+        # A/B loop → region stats
+        self.transport.ab_loop_changed.connect(self._on_ab_loop_changed)
+
+        # Autosave timer
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.timeout.connect(self._autosave)
+        self._autosave_timer.start(_AUTOSAVE_INTERVAL_MS)
+
+        # Startup diagnostics (deferred so window shows first)
+        QTimer.singleShot(500, self._run_diagnostics)
+
         # Start player tick
         self.player.start()
+
+    # ── Diagnostics ──────────────────────────────────────────────────
+
+    def _run_diagnostics(self) -> None:
+        from kinochronix.ui.diagnostics import run_startup_diagnostics
+
+        self._diag = run_startup_diagnostics(self)
+
+    # ── Geometry persistence ─────────────────────────────────────────
+
+    def _restore_geometry(self) -> None:
+        settings = QSettings("KinoChronix", "KinoChronix")
+        geom = settings.value("window/geometry")
+        if geom:
+            self.restoreGeometry(geom)
+        h_state = settings.value("splitter/horizontal")
+        if h_state:
+            self._h_splitter.restoreState(h_state)
+        v_state = settings.value("splitter/vertical")
+        if v_state:
+            self._v_splitter.restoreState(v_state)
+
+    def _save_geometry(self) -> None:
+        settings = QSettings("KinoChronix", "KinoChronix")
+        settings.setValue("window/geometry", self.saveGeometry())
+        settings.setValue(
+            "splitter/horizontal",
+            self._h_splitter.saveState(),
+        )
+        settings.setValue(
+            "splitter/vertical",
+            self._v_splitter.saveState(),
+        )
+
+    # ── Session save / load ──────────────────────────────────────────
+
+    def _build_session_state(self) -> SessionState:
+        """Snapshot current app state into a SessionState."""
+        from kinochronix.ui.sidebar import SensorInfoWidget
+
+        bounds = self.clock.state.bounds
+        videos = [
+            VideoEntry(path=p, offset=pane.time_map.offset)
+            for p, pane in zip(
+                self.video_grid._paths,
+                self.video_grid.panes,
+                strict=False,
+            )
+        ]
+
+        sensors: list[SensorEntry] = []
+        for i in range(self.sidebar.sensors_layout.count()):
+            item = self.sidebar.sensors_layout.itemAt(i)
+            if item and item.widget():
+                w = item.widget()
+                if isinstance(w, SensorInfoWidget):
+                    sensors.append(SensorEntry(path=w.path, channels=[]))
+
+        markers = [
+            MarkerEntry(
+                t_start=m.t_start,
+                t_end=m.t_end,
+                label=m.label,
+            )
+            for m in self.annotation_store.markers
+        ]
+
+        # Capture plot zoom
+        plot_x0, plot_x1 = None, None
+        if self.plot_pane._master_plot:
+            vr = self.plot_pane._master_plot.viewRange()
+            plot_x0, plot_x1 = vr[0][0], vr[0][1]
+
+        return SessionState(
+            videos=videos,
+            sensors=sensors,
+            markers=markers,
+            t_start=bounds[0],
+            t_end=bounds[1],
+            plot_x0=plot_x0,
+            plot_x1=plot_x1,
+        )
+
+    def _save_session(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Session",
+            "",
+            "KinoChronix Session (*.kcx)",
+        )
+        if not path:
+            return
+        if not path.endswith(".kcx"):
+            path += ".kcx"
+
+        state = self._build_session_state()
+        try:
+            state.save(Path(path))
+            self._session_path = Path(path)
+            add_recent(path)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Save Error",
+                f"Could not save session:\n{e}",
+            )
+
+    def _open_session(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Session",
+            "",
+            "KinoChronix Session (*.kcx)",
+        )
+        if not path:
+            return
+
+        try:
+            state = SessionState.load(Path(path))
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Session Error",
+                f"Could not load session:\n{e}",
+            )
+            return
+
+        self._session_path = Path(path)
+        add_recent(path)
+        self._restore_session(state)
+
+    def _restore_session(self, state: SessionState) -> None:
+        """Load all sources from a SessionState object."""
+        # Collect missing files for relink
+        missing: list[str] = []
+        kind_labels: dict[str, str] = {}
+
+        for ve in state.videos:
+            if not Path(ve.path).exists():
+                missing.append(ve.path)
+                kind_labels[ve.path] = "video"
+
+        for se in state.sensors:
+            if not Path(se.path).exists():
+                missing.append(se.path)
+                kind_labels[se.path] = "sensor"
+
+        relink_map: dict[str, str] = {}
+        if missing:
+            from kinochronix.ui.relink_dialog import RelinkDialog
+
+            dlg = RelinkDialog(missing, kind_labels, self)
+            if dlg.exec() == RelinkDialog.DialogCode.Rejected:
+                return
+            relink_map = dlg.resolved_mapping()
+
+        for ve in state.videos:
+            p = Path(relink_map.get(ve.path, ve.path))
+            if p.exists():
+                self._load_video(p, offset=ve.offset)
+
+        for se in state.sensors:
+            p = Path(relink_map.get(se.path, se.path))
+            if p.exists():
+                self._start_csv_import(p)
+
+        # Restore annotations
+        for me in state.markers:
+            if me.t_end is not None:
+                self.annotation_store.add_range(me.t_start, me.t_end, me.label)
+            else:
+                self.annotation_store.add_point(me.t_start, me.label)
+
+        # Restore plot zoom
+        if state.plot_x0 is not None and state.plot_x1 is not None and self.plot_pane._master_plot:
+            self.plot_pane._master_plot.setXRange(state.plot_x0, state.plot_x1, padding=0)
+
+    def _autosave(self) -> None:
+        """Silently autosave if a session path is set."""
+        if self._session_path is None:
+            return
+        try:
+            state = self._build_session_state()
+            state.save(self._session_path)
+        except Exception:
+            pass
+
+    # ── A/B loop stats ───────────────────────────────────────────────
+
+    def _on_ab_loop_changed(self, t_in, t_out) -> None:
+        if t_in is not None and t_out is not None:
+            lo, hi = min(t_in, t_out), max(t_in, t_out)
+            self.readout_panel.show_region_stats(lo, hi)
+        else:
+            self.readout_panel.clear_region_stats()
+
+    # ── Keyboard shortcuts ───────────────────────────────────────────
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        key = event.key()
+        mods = event.modifiers()
+
+        if key == Qt.Key.Key_Space:
+            playing = self.clock.state.playing
+            self.player.set_playing(not playing)
+
+        elif key == Qt.Key.Key_Left:
+            if mods & Qt.KeyboardModifier.ShiftModifier:
+                self.player.seek(
+                    max(
+                        self.clock.state.bounds[0],
+                        self.clock.state.t - 1.0,
+                    )
+                )
+            else:
+                self.player.step_frame(-1)
+
+        elif key == Qt.Key.Key_Right:
+            if mods & Qt.KeyboardModifier.ShiftModifier:
+                self.player.seek(
+                    min(
+                        self.clock.state.bounds[1],
+                        self.clock.state.t + 1.0,
+                    )
+                )
+            else:
+                self.player.step_frame(1)
+
+        elif key == Qt.Key.Key_Home:
+            self.player.seek(self.clock.state.bounds[0])
+
+        elif key == Qt.Key.Key_End:
+            self.player.seek(self.clock.state.bounds[1])
+
+        elif key == Qt.Key.Key_BracketLeft:
+            self.transport._on_ab_in()
+
+        elif key == Qt.Key.Key_BracketRight:
+            self.transport._on_ab_out()
+
+        elif key == Qt.Key.Key_M:
+            self.annotation_store.add_point(self.clock.state.t)
+
+        elif key == Qt.Key.Key_S and (mods & Qt.KeyboardModifier.ControlModifier):
+            self._save_session()
+
+        elif key == Qt.Key.Key_O and (mods & Qt.KeyboardModifier.ControlModifier):
+            self._open_session()
+
+        elif key == Qt.Key.Key_E and (mods & Qt.KeyboardModifier.ControlModifier):
+            self._export_snapshot()
+
+        elif key == Qt.Key.Key_T and (mods & Qt.KeyboardModifier.ControlModifier):
+            self._cycle_theme()
+
+        elif key == Qt.Key.Key_Question:
+            self._show_shortcuts()
+
+        else:
+            super().keyPressEvent(event)
+
+    # ── Window close ─────────────────────────────────────────────────
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self._save_geometry()
+        self._autosave()
+        super().closeEvent(event)
+
+    # ── Drag and Drop ────────────────────────────────────────────────
 
     def dragEnterEvent(self, event) -> None:
         if event.mimeData().hasUrls():
@@ -90,26 +420,307 @@ class MainWindow(QMainWindow):
             path = Path(url.toLocalFile())
             if not path.is_file():
                 continue
-            
+
             ext = path.suffix.lower()
-            if ext in [".mp4", ".mov", ".avi", ".mkv"]:
+            if ext in (".mp4", ".mov", ".avi", ".mkv"):
                 self._load_video(path)
-            elif ext in [".csv", ".txt", ".tsv"]:
+            elif ext in (".csv", ".txt", ".tsv"):
                 self._start_csv_import(path)
+            elif ext == ".kcx":
+                try:
+                    state = SessionState.load(path)
+                    self._restore_session(state)
+                except Exception as e:
+                    QMessageBox.critical(self, "Session Error", str(e))
+
+    # ── Menu ─────────────────────────────────────────────────────────
 
     def _setup_menu(self) -> None:
         menu = self.menuBar()
+
+        # ── File ──
         file_menu = menu.addMenu("File")
 
-        open_video_action = file_menu.addAction("Open Video(s)...")
-        open_video_action.triggered.connect(self._open_video)
+        act = file_menu.addAction("Open Video(s)…")
+        act.setShortcut("Ctrl+V")
+        act.triggered.connect(self._open_video)
 
-        open_csv_action = file_menu.addAction("Open CSV...")
-        open_csv_action.triggered.connect(self._open_csv)
+        act = file_menu.addAction("Open Sensor Data…")
+        act.setShortcut("Ctrl+D")
+        act.triggered.connect(self._open_csv)
 
-    def _load_video(self, path: Path) -> None:
+        file_menu.addSeparator()
+
+        act = file_menu.addAction("Save Session…")
+        act.setShortcut("Ctrl+S")
+        act.triggered.connect(self._save_session)
+
+        act = file_menu.addAction("Open Session…")
+        act.setShortcut("Ctrl+O")
+        act.triggered.connect(self._open_session)
+
+        # Recent files submenu
+        self._recent_menu = file_menu.addMenu("Recent Sessions")
+        self._rebuild_recent_menu()
+
+        file_menu.addSeparator()
+
+        act = file_menu.addAction("Export Snapshot…")
+        act.setShortcut("Ctrl+E")
+        act.triggered.connect(self._export_snapshot)
+
+        act = file_menu.addAction("Export Data Slice…")
+        act.triggered.connect(self._export_data_slice)
+
+        act = file_menu.addAction("Generate Proxy…")
+        act.triggered.connect(self._generate_proxy)
+
+        # ── View ──
+        view_menu = menu.addMenu("View")
+
+        theme_menu = view_menu.addMenu("Theme")
+        from PySide6.QtGui import QActionGroup
+
+        self._theme_group = QActionGroup(self)
+        for label, key in [
+            ("System", "system"),
+            ("Dark", "dark"),
+            ("Light", "light"),
+        ]:
+            act = theme_menu.addAction(label)
+            act.setCheckable(True)
+            act.setData(key)
+            self._theme_group.addAction(act)
+        self._theme_group.triggered.connect(self._on_theme_selected)
+        self._sync_theme_menu()
+
+        act = view_menu.addAction("Follow Playhead")
+        act.setCheckable(True)
+        act.toggled.connect(self.plot_pane.set_follow_playhead)
+
+        # ── Help ──
+        help_menu = menu.addMenu("Help")
+
+        act = help_menu.addAction("Keyboard Shortcuts…")
+        act.triggered.connect(self._show_shortcuts)
+
+        act = help_menu.addAction("Diagnostics…")
+        act.triggered.connect(self._show_diagnostics)
+
+    def _rebuild_recent_menu(self) -> None:
+        self._recent_menu.clear()
+        recent = get_recent()
+        if not recent:
+            act = self._recent_menu.addAction("(no recent files)")
+            act.setEnabled(False)
+            return
+        for rpath in recent:
+            act = self._recent_menu.addAction(Path(rpath).name)
+            act.setToolTip(rpath)
+            act.triggered.connect(lambda _checked, p=rpath: self._open_recent(p))
+
+    def _open_recent(self, path: str) -> None:
+        p = Path(path)
+        if not p.exists():
+            QMessageBox.warning(
+                self,
+                "File Not Found",
+                f"Session file no longer exists:\n{path}",
+            )
+            return
+        try:
+            state = SessionState.load(p)
+            self._session_path = p
+            self._restore_session(state)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Session Error",
+                f"Could not load session:\n{e}",
+            )
+
+    # ── Theme selection ─────────────────────────────────────────────
+
+    def _on_theme_selected(self, action) -> None:
+        from PySide6.QtWidgets import QApplication
+
+        from kinochronix.ui.theme import apply_theme
+
+        apply_theme(QApplication.instance(), action.data())
+
+    def _sync_theme_menu(self) -> None:
+        from kinochronix.ui.theme import current_preference
+
+        pref = current_preference()
+        for act in self._theme_group.actions():
+            if act.data() == pref:
+                act.setChecked(True)
+                break
+
+    def _cycle_theme(self) -> None:
+        from PySide6.QtWidgets import QApplication
+
+        from kinochronix.ui.theme import apply_theme, current_preference
+
+        order = ["system", "dark", "light"]
+        pref = current_preference()
+        idx = order.index(pref) if pref in order else 0
+        new_pref = order[(idx + 1) % len(order)]
+        apply_theme(QApplication.instance(), new_pref)
+        self._sync_theme_menu()
+
+    # ── Shortcuts dialog ─────────────────────────────────────────────
+
+    def _show_shortcuts(self) -> None:
+        from kinochronix.ui.shortcuts_dialog import ShortcutsDialog
+
+        dlg = ShortcutsDialog(self)
+        dlg.exec()
+
+    # ── Diagnostics dialog ───────────────────────────────────────────
+
+    def _show_diagnostics(self) -> None:
+        from kinochronix.ui.diagnostics import format_diagnostics
+
+        diag = getattr(self, "_diag", {})
+        text = format_diagnostics(diag)
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Diagnostics")
+        msg.setText(text)
+        msg.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        msg.exec()
+
+    # ── Snapshot export ──────────────────────────────────────────────
+
+    def _export_snapshot(self) -> None:
+        from kinochronix.engine.export import (
+            save_snapshot,
+            snapshot_widget,
+        )
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Snapshot",
+            "snapshot.png",
+            "PNG Images (*.png)",
+        )
+        if not path:
+            return
+
+        video_px = snapshot_widget(self.video_grid)
+        plot_px = snapshot_widget(self.plot_pane)
+        try:
+            save_snapshot(video_px, plot_px, Path(path))
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", str(e))
+
+    # ── Data slice export ────────────────────────────────────────────
+
+    def _export_data_slice(self) -> None:
+        if not self.plot_pane.channels:
+            QMessageBox.information(
+                self,
+                "No Data",
+                "Load sensor data before exporting.",
+            )
+            return
+
+        # Use A/B loop region if set, else full bounds
+        t0, t1 = self.clock.state.bounds
+        if self.player._ab_in is not None and self.player._ab_out is not None:
+            t0 = min(self.player._ab_in, self.player._ab_out)
+            t1 = max(self.player._ab_in, self.player._ab_out)
+
+        path, filt = QFileDialog.getSaveFileName(
+            self,
+            "Export Data Slice",
+            "data_export.csv",
+            "CSV files (*.csv);;Parquet files (*.parquet)",
+        )
+        if not path:
+            return
+
+        from kinochronix.engine.export import (
+            export_data_slice_csv,
+            export_data_slice_parquet,
+        )
+
+        readers = [ch.reader for ch in self.plot_pane.channels]
+        try:
+            if path.endswith(".parquet"):
+                export_data_slice_parquet(readers, t0, t1, Path(path))
+            else:
+                export_data_slice_csv(readers, t0, t1, Path(path))
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", str(e))
+
+    # ── Proxy generation ─────────────────────────────────────────────
+
+    def _generate_proxy(self) -> None:
+        if not self.video_grid._paths:
+            QMessageBox.information(
+                self,
+                "No Videos",
+                "Load a video before generating proxies.",
+            )
+            return
+
+        from PySide6.QtCore import QThread
+        from PySide6.QtWidgets import QProgressDialog
+
+        from kinochronix.engine.proxy import ProxyWorker
+
+        # Proxy the first video for now
+        video_path = Path(self.video_grid._paths[0])
+
+        self._proxy_thread = QThread()
+        self._proxy_worker = ProxyWorker(video_path)
+        self._proxy_worker.moveToThread(self._proxy_thread)
+
+        dlg = QProgressDialog(
+            f"Generating proxy for {video_path.name}…",
+            "Cancel",
+            0,
+            100,
+            self,
+        )
+        dlg.setWindowTitle("Proxy Generation")
+        dlg.setWindowModality(Qt.WindowModality.WindowModal)
+        self._proxy_dlg = dlg
+
+        self._proxy_thread.started.connect(self._proxy_worker.run)
+        self._proxy_worker.progress.connect(dlg.setValue)
+        dlg.canceled.connect(self._proxy_worker.cancel)
+
+        self._proxy_worker.finished.connect(self._on_proxy_finished)
+        self._proxy_worker.finished.connect(self._proxy_thread.quit)
+        self._proxy_worker.error.connect(self._on_proxy_error)
+        self._proxy_worker.error.connect(self._proxy_thread.quit)
+        self._proxy_thread.finished.connect(self._proxy_thread.deleteLater)
+
+        dlg.show()
+        self._proxy_thread.start()
+
+    def _on_proxy_finished(self, orig: str, proxy: str) -> None:
+        self._proxy_dlg.close()
+        QMessageBox.information(
+            self,
+            "Proxy Ready",
+            f"Proxy saved:\n{proxy}",
+        )
+
+    def _on_proxy_error(self, err: str) -> None:
+        self._proxy_dlg.close()
+        QMessageBox.critical(self, "Proxy Error", err)
+
+    # ── Source loading ───────────────────────────────────────────────
+
+    def _load_video(self, path: Path, offset: float = 0.0) -> None:
         self.video_grid.add_pane(str(path))
-        from kinochronix.loaders.video_standard import VideoStandardLoader
+        from kinochronix.loaders.video_standard import (
+            VideoStandardLoader,
+        )
 
         vloader = VideoStandardLoader()
         try:
@@ -119,15 +730,21 @@ class MainWindow(QMainWindow):
             metadata = {
                 "fps": vloader._fps,
                 "codec": getattr(vloader, "_codec", "unknown"),
-                "duration": vloader._duration
+                "duration": vloader._duration,
             }
             self.sidebar.add_video(str(path), metadata)
-        except Exception:
-            pass
+            if offset != 0.0:
+                self.video_grid.set_offset(str(path), offset)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Video Error",
+                f"Could not open video:\n{path}\n\n{e}",
+            )
 
     def _on_video_offset_changed(self, path: str, offset: float) -> None:
         self.video_grid.set_offset(path, offset)
-        self.clock.play()  # Force an update/re-sync
+        self.clock.play()
         self.clock.pause()
 
     def _on_video_remove_requested(self, path: str) -> None:
@@ -136,10 +753,14 @@ class MainWindow(QMainWindow):
 
     def _on_sensor_remove_requested(self, path: str) -> None:
         from kinochronix.core.cache import CacheManager
+
         cache_mgr = CacheManager(loader_version=1)
-        cache_dir = cache_mgr.get_temp_cache_dir(Path(path))
+        cache_dir = cache_mgr.get_cache_dir(Path(path))
         self.plot_pane.remove_channels(cache_dir)
         self.sidebar.remove_sensor(path)
+
+    def _on_channel_remove_requested(self, sensor_path: str, channel: str) -> None:
+        self.plot_pane.remove_channel(channel)
 
     def _open_video(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(self, "Open Video(s)")
@@ -148,30 +769,34 @@ class MainWindow(QMainWindow):
                 self._load_video(Path(path))
 
     def _open_csv(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Open CSV")
+        path, _ = QFileDialog.getOpenFileName(self, "Open Sensor Data")
         if path:
             self._start_csv_import(Path(path))
 
     def _start_csv_import(self, path: Path) -> None:
-        from kinochronix.engine.importer import ImportWorker
+        from kinochronix.ui.import_wizard import ImportWizard
+
+        wizard = ImportWizard(path, self)
+        if wizard.exec() != ImportWizard.DialogCode.Accepted:
+            return
+        config = wizard.config()
+
         from PySide6.QtCore import QThread
         from PySide6.QtWidgets import QProgressDialog
 
-        # Hardcoded config for MVP
-        config = {"time_col": "time", "time_unit": "s", "separator": ","}
+        from kinochronix.engine.importer import ImportWorker
 
         self._import_thread = QThread()
         self._import_worker = ImportWorker(path, config)
         self._import_worker.moveToThread(self._import_thread)
 
-        self._progress_dialog = QProgressDialog("Importing CSV...", "Cancel", 0, 100, self)
+        self._progress_dialog = QProgressDialog("Importing CSV…", "Cancel", 0, 100, self)
         self._progress_dialog.setWindowTitle("Importing Data")
         self._progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self._progress_dialog.setAutoClose(True)
         self._progress_dialog.setAutoReset(True)
         self._progress_dialog.setValue(0)
 
-        # Connect signals
         self._import_thread.started.connect(self._import_worker.run)
         self._import_worker.progress.connect(self._progress_dialog.setValue)
         self._progress_dialog.canceled.connect(self._import_worker.cancel)
@@ -184,14 +809,16 @@ class MainWindow(QMainWindow):
         self._import_worker.error.connect(self._on_import_error)
         self._import_worker.error.connect(self._import_thread.quit)
 
-        # Start
         self._progress_dialog.show()
         self._import_thread.start()
 
     def _on_import_finished(
-        self, path: str, cache_dir: str, channels: list[str], bounds: tuple[float, float]
+        self,
+        path: str,
+        cache_dir: str,
+        channels: list[str],
+        bounds: tuple[float, float],
     ) -> None:
-        print(f"DEBUG _on_import_finished called with path={path}, cache_dir={cache_dir}, channels={channels}")
         self._progress_dialog.close()
         self.plot_pane.load_channels(Path(cache_dir), channels)
         self._update_bounds(bounds[0], bounds[1])
@@ -199,16 +826,22 @@ class MainWindow(QMainWindow):
 
     def _on_import_error(self, err_msg: str) -> None:
         self._progress_dialog.close()
-        from PySide6.QtWidgets import QMessageBox
-        QMessageBox.critical(self, "Import Error", f"Failed to import CSV:\n{err_msg}")
+        QMessageBox.critical(
+            self,
+            "Import Error",
+            f"Failed to import CSV:\n{err_msg}",
+        )
 
     def _update_bounds(self, t0: float, t1: float) -> None:
         if self.clock.state.bounds == (0.0, 0.0):
             new_bounds = (t0, t1)
         else:
             curr_t0, curr_t1 = self.clock.state.bounds
-            new_bounds = (min(curr_t0, t0), max(curr_t1, t1))
-        
+            new_bounds = (
+                min(curr_t0, t0),
+                max(curr_t1, t1),
+            )
+
         self.clock.set_bounds(*new_bounds)
         self.transport.set_bounds(*new_bounds)
         self.transport.set_time(new_bounds[0])

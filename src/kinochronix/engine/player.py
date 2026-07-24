@@ -27,6 +27,7 @@ class Player(QObject):
         self.video_grid = video_grid
         self.plot_pane = plot_pane
         self.transport = transport
+        self._readout_panel = None
         self.seeker = SeekGroup(self.video_grid.panes)
 
         self._timer = QTimer(self)
@@ -36,10 +37,16 @@ class Player(QObject):
         self._drift_counts: dict[int, int] = {}
         self._last_tick_monotonic = time.monotonic()
 
+        # A/B loop state
+        self._ab_in: float | None = None
+        self._ab_out: float | None = None
+
         # Connect transport signals
         self.transport.play_toggled.connect(self.set_playing)
         self.transport.seek_requested.connect(self.seek)
         self.transport.rate_changed.connect(self.set_rate)
+        self.transport.frame_step_requested.connect(self.step_frame)
+        self.transport.ab_loop_changed.connect(self.set_ab_loop)
 
         # We keep track of manual scrubbing state so the clock doesn't advance
         self._is_scrubbing = False
@@ -83,6 +90,48 @@ class Player(QObject):
         for pane in self.video_grid.panes:
             pane.set_rate(rate)
 
+    def step_frame(self, direction: int) -> None:
+        """Step forward or backward by one frame across all video panes.
+
+        Uses mpv's frame-step / frame-back-step so the step size is exact
+        even for VFR content. After stepping, the master clock is snapped to
+        the first pane's reported time_pos so plots stay in sync.
+        """
+        was_playing = self.clock.state.playing
+        if was_playing:
+            self.set_playing(False)
+
+        for pane in self.video_grid.panes:
+            if not pane.mpv:
+                continue
+            if direction > 0:
+                pane.mpv.command("frame-step")
+            else:
+                pane.mpv.command("frame-back-step")
+
+        # Snap master clock to first pane's position after a short delay
+        # (mpv frame-step is async so we defer 50 ms)
+        from PySide6.QtCore import QTimer
+
+        QTimer.singleShot(50, self._snap_clock_to_first_pane)
+
+    def _snap_clock_to_first_pane(self) -> None:
+        """Read first pane's time_pos and seek master clock to match."""
+        if not self.video_grid.panes:
+            return
+        pane = self.video_grid.panes[0]
+        if pane.mpv is None:
+            return
+        t_pos = pane.time_map.to_master(pane.time_pos or self.clock.state.t)
+        self.clock.seek(t_pos)
+        self.plot_pane.set_cursor(t_pos)
+        self.transport.set_time(t_pos)
+
+    def set_ab_loop(self, t_in: float | None, t_out: float | None) -> None:
+        """Set or clear the A/B loop region on the master clock."""
+        self._ab_in = t_in
+        self._ab_out = t_out
+
     def _on_tick(self) -> None:
         now = time.monotonic()
 
@@ -91,25 +140,28 @@ class Player(QObject):
             self.clock.advance(now)
             t = self.clock.state.t
 
+            # A/B loop enforcement
+            if self._ab_in is not None and self._ab_out is not None and t >= self._ab_out:
+                self.seek(self._ab_in, exact=True)
+                t = self._ab_in
+
             # Drift correction (video following master clock)
-            # Only if grid is settled (no panes are actively seeking)
             self.seeker.panes = self.video_grid.panes
             if self.seeker.is_settled() and len(self.video_grid.panes) > 0:
                 for idx, pane in enumerate(self.video_grid.panes):
                     if not pane.mpv:
                         continue
-                    
+
                     vid_t = pane.time_pos
                     if vid_t is None:
                         continue
-                    
+
                     source_t = pane.time_map.to_source(t)
                     drift = vid_t - source_t
-                    
+
                     if abs(drift) > 0.040:
                         self._drift_counts[idx] = self._drift_counts.get(idx, 0) + 1
                         if self._drift_counts[idx] > 5:
-                            # Use async seek directly with exact=True to avoid keyframe loops
                             self.seeker.seek_pane(pane, source_t, exact=True)
                             self._drift_counts[idx] = 0
                     else:
@@ -118,5 +170,7 @@ class Player(QObject):
             # Update UI
             self.plot_pane.set_cursor(t)
             self.transport.set_time(t)
+            if self._readout_panel:
+                self._readout_panel.set_cursor(t)
 
         self._last_tick_monotonic = now

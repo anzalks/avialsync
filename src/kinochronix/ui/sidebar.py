@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDoubleSpinBox,
     QFrame,
     QGroupBox,
@@ -11,43 +12,106 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 
-class SensorInfoWidget(QFrame):
-    """Displays metadata for a single loaded sensor CSV."""
+class ChannelRow(QFrame):
+    """Single sensor channel row with name label and a remove (hide) button."""
 
-    remove_requested = Signal(str)
+    remove_requested = Signal(str, str)  # sensor_path, channel_name
+
+    def __init__(self, sensor_path: str, channel: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.sensor_path = sensor_path
+        self.channel = channel
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(2, 1, 2, 1)
+        layout.setSpacing(4)
+
+        indicator = QLabel("●")
+        indicator.setStyleSheet("color: #0078d4; font-size: 9px;")
+        indicator.setFixedWidth(12)
+
+        name_lbl = QLabel(channel)
+        name_lbl.setStyleSheet("font-size: 11px;")
+
+        rm_btn = QPushButton("×")
+        rm_btn.setFixedSize(16, 16)
+        rm_btn.setToolTip(f"Remove channel {channel}")
+        rm_btn.setStyleSheet("font-size: 10px; padding: 0;")
+        rm_btn.clicked.connect(lambda: self.remove_requested.emit(self.sensor_path, self.channel))
+
+        layout.addWidget(indicator)
+        layout.addWidget(name_lbl, stretch=1)
+        layout.addWidget(rm_btn)
+
+
+class SensorInfoWidget(QFrame):
+    """Displays metadata and per-channel controls for one loaded sensor CSV."""
+
+    remove_requested = Signal(str)  # whole sensor removed
+    channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
 
     def __init__(self, path: str, channels: list[str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.path = path
+        self._channels = list(channels)
         self.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(3)
 
-        # Header: Name and Close button
-        header_layout = QHBoxLayout()
+        # ── Header: filename + remove whole source ───────────────────
+        header = QHBoxLayout()
         name_lbl = QLabel(Path(path).name)
         name_lbl.setToolTip(path)
-        name_lbl.setStyleSheet("font-weight: bold;")
-        
-        close_btn = QPushButton("X")
-        close_btn.setFixedSize(20, 20)
-        close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
-        
-        header_layout.addWidget(name_lbl, stretch=1)
-        header_layout.addWidget(close_btn)
-        layout.addLayout(header_layout)
+        name_lbl.setStyleSheet("font-weight: bold; font-size: 12px;")
 
-        # Metadata
-        meta_lbl = QLabel(f"{len(channels)} channels")
-        meta_lbl.setStyleSheet("color: #888888; font-size: 11px;")
-        layout.addWidget(meta_lbl)
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(20, 20)
+        close_btn.setToolTip("Remove entire sensor source")
+        close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
+
+        header.addWidget(name_lbl, stretch=1)
+        header.addWidget(close_btn)
+        layout.addLayout(header)
+
+        # ── Metadata: path + channel count ──────────────────────────
+        path_lbl = QLabel(path)
+        path_lbl.setStyleSheet("font-size: 9px;")
+        path_lbl.setWordWrap(True)
+        layout.addWidget(path_lbl)
+
+        n_ch = len(channels)
+        ch_count_lbl = QLabel(
+            f"{n_ch} channel{'s' if n_ch != 1 else ''}"
+        )
+        ch_count_lbl.setStyleSheet("font-size: 10px;")
+        layout.addWidget(ch_count_lbl)
+
+        # ── Separator ────────────────────────────────────────────────
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        layout.addWidget(sep)
+
+        # ── Per-channel rows ─────────────────────────────────────────
+        self._channel_rows: dict[str, ChannelRow] = {}
+        for ch in channels:
+            row = ChannelRow(path, ch)
+            row.remove_requested.connect(self._on_channel_remove)
+            layout.addWidget(row)
+            self._channel_rows[ch] = row
+
+    def _on_channel_remove(self, sensor_path: str, channel: str) -> None:
+        row = self._channel_rows.pop(channel, None)
+        if row:
+            self.layout().removeWidget(row)
+            row.deleteLater()
+        self.channel_remove_requested.emit(sensor_path, channel)
 
 
 class VideoInfoWidget(QFrame):
@@ -69,11 +133,11 @@ class VideoInfoWidget(QFrame):
         name_lbl = QLabel(Path(path).name)
         name_lbl.setToolTip(path)
         name_lbl.setStyleSheet("font-weight: bold;")
-        
+
         close_btn = QPushButton("X")
         close_btn.setFixedSize(20, 20)
         close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
-        
+
         header_layout.addWidget(name_lbl, stretch=1)
         header_layout.addWidget(close_btn)
         layout.addLayout(header_layout)
@@ -82,9 +146,11 @@ class VideoInfoWidget(QFrame):
         fps = metadata.get("fps", 0.0)
         codec = metadata.get("codec", "unknown")
         duration = metadata.get("duration", 0.0)
-        
-        meta_lbl = QLabel(f"{codec.upper()} | {fps:.2f} fps | {duration:.1f}s")
-        meta_lbl.setStyleSheet("color: #888888; font-size: 11px;")
+
+        meta_lbl = QLabel(
+            f"{codec.upper()} | {fps:.2f} fps | {duration:.1f}s"
+        )
+        meta_lbl.setStyleSheet("font-size: 11px;")
         layout.addWidget(meta_lbl)
 
         # Sync controls
@@ -96,7 +162,7 @@ class VideoInfoWidget(QFrame):
         self.offset_spin.setSingleStep(0.05)
         self.offset_spin.setSuffix(" s")
         self.offset_spin.valueChanged.connect(self._on_offset_changed)
-        
+
         sync_layout.addWidget(sync_lbl)
         sync_layout.addWidget(self.offset_spin, stretch=1)
         layout.addLayout(sync_layout)
@@ -114,6 +180,8 @@ class SidebarPane(QWidget):
     video_offset_changed = Signal(str, float)
     video_remove_requested = Signal(str)
     sensor_remove_requested = Signal(str)
+    channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
+    grid_mode_changed = Signal(bool)  # True = NxN grid, False = strip
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -121,11 +189,11 @@ class SidebarPane(QWidget):
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
+
         scroll_content = QWidget()
         self.content_layout = QVBoxLayout(scroll_content)
         self.content_layout.setContentsMargins(5, 5, 5, 5)
@@ -141,9 +209,21 @@ class SidebarPane(QWidget):
         actions_layout.addWidget(self.btn_open_sensor)
         self.content_layout.addWidget(actions_group)
 
-        # Row 2: Videos
-        self.videos_group = QGroupBox("Videos")
+        # Row 2: Videos — header has an inline "Grid" checkbox
+        self.videos_group = QGroupBox()
+        videos_top = QHBoxLayout()
+        videos_top.setContentsMargins(0, 0, 0, 0)
+        videos_title = QLabel("Videos")
+        videos_title.setStyleSheet("font-weight: bold;")
+        self._grid_chk = QCheckBox("⊞ Grid")
+        self._grid_chk.setToolTip("Arrange videos in an NxN grid instead of a horizontal strip")
+        self._grid_chk.toggled.connect(self.grid_mode_changed)
+        videos_top.addWidget(videos_title)
+        videos_top.addStretch()
+        videos_top.addWidget(self._grid_chk)
         self.videos_layout = QVBoxLayout(self.videos_group)
+        self.videos_layout.setContentsMargins(5, 5, 5, 5)
+        self.videos_layout.addLayout(videos_top)
         self.content_layout.addWidget(self.videos_group)
         self._video_widgets: dict[str, VideoInfoWidget] = {}
 
@@ -154,7 +234,7 @@ class SidebarPane(QWidget):
         self.content_layout.addWidget(self.sensors_group)
 
         self.content_layout.addStretch(1)
-        
+
         self.scroll.setWidget(scroll_content)
         main_layout.addWidget(self.scroll)
 
@@ -162,11 +242,11 @@ class SidebarPane(QWidget):
         """Add a video info widget to the sidebar."""
         if path in self._video_widgets:
             return
-        
+
         widget = VideoInfoWidget(path, metadata)
         widget.offset_changed.connect(self.video_offset_changed)
         widget.remove_requested.connect(self.video_remove_requested)
-        
+
         self.videos_layout.addWidget(widget)
         self._video_widgets[path] = widget
 
@@ -186,9 +266,10 @@ class SidebarPane(QWidget):
                 w = item.widget()
                 self.sensors_layout.removeWidget(w)
                 w.deleteLater()
-                
+
         widget = SensorInfoWidget(path, channels)
         widget.remove_requested.connect(self.sensor_remove_requested)
+        widget.channel_remove_requested.connect(self.channel_remove_requested)
         self.sensors_layout.addWidget(widget)
 
     def remove_sensor(self, path: str) -> None:
@@ -200,6 +281,6 @@ class SidebarPane(QWidget):
                 self.sensors_layout.removeWidget(w)
                 w.deleteLater()
                 break
-                
+
         if self.sensors_layout.count() == 0:
             self.sensors_layout.addWidget(QLabel("No sensor data loaded."))

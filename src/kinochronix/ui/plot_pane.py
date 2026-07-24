@@ -5,26 +5,28 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from kinochronix.core.pyramid import PyramidReader
 
 # Predefined color palette for channels
 CHANNEL_COLORS = [
-    (0, 255, 255),   # Cyan
-    (255, 0, 255),   # Magenta
-    (255, 255, 0),   # Yellow
-    (0, 255, 0),     # Green
-    (255, 128, 0),   # Orange
-    (128, 128, 255), # Light Blue
-    (255, 128, 128), # Pink
-    (128, 255, 128), # Light Green
+    (0, 255, 255),  # Cyan
+    (255, 0, 255),  # Magenta
+    (255, 255, 0),  # Yellow
+    (0, 255, 0),  # Green
+    (255, 128, 0),  # Orange
+    (128, 128, 255),  # Light Blue
+    (255, 128, 128),  # Pink
+    (128, 255, 128),  # Light Green
 ]
 
 
 @dataclass
 class ChannelPlot:
     """Holds UI and data state for a single time-series channel."""
+
     name: str
     reader: PyramidReader
     plot_item: pg.PlotItem
@@ -32,6 +34,7 @@ class ChannelPlot:
     curve_max: pg.PlotCurveItem
     fill: pg.FillBetweenItem
     cursor_line: pg.InfiniteLine
+    coverage_region: pg.LinearRegionItem | None = None
 
 
 class PlotPane(QWidget):
@@ -41,6 +44,9 @@ class PlotPane(QWidget):
     Uses pyqtgraph GraphicsLayoutWidget to stack channels vertically.
     All channels share the same X-axis.
     """
+
+    # Emitted when the set of active readers changes so ReadoutPanel can refresh
+    sources_changed = Signal(list)  # list[PyramidReader]
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -101,15 +107,30 @@ class PlotPane(QWidget):
             cursor_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen("y", width=2))
             plot_item.addItem(cursor_line)
 
-            self.channels.append(ChannelPlot(
-                name=ch_name,
-                reader=reader,
-                plot_item=plot_item,
-                curve_min=curve_min,
-                curve_max=curve_max,
-                fill=fill,
-                cursor_line=cursor_line
-            ))
+            # Coverage shading — dim region showing data extent
+            t_full, _, _, _ = reader._load_level(1)
+            coverage_region = None
+            if len(t_full) > 0:
+                coverage_region = pg.LinearRegionItem(
+                    values=[float(t_full[0]), float(t_full[-1])],
+                    movable=False,
+                    brush=pg.mkBrush(255, 255, 255, 15),
+                )
+                coverage_region.setZValue(-10)
+                plot_item.addItem(coverage_region)
+
+            self.channels.append(
+                ChannelPlot(
+                    name=ch_name,
+                    reader=reader,
+                    plot_item=plot_item,
+                    curve_min=curve_min,
+                    curve_max=curve_max,
+                    fill=fill,
+                    cursor_line=cursor_line,
+                    coverage_region=coverage_region,
+                )
+            )
 
         # Reset view range to full bounds using the master plot if it's the first source
         if self._master_plot and start_row == 0 and self.channels:
@@ -118,6 +139,7 @@ class PlotPane(QWidget):
                 self._master_plot.setXRange(float(t[0]), float(t[-1]))
 
         self.update_plots()
+        self.sources_changed.emit([ch.reader for ch in self.channels])
 
     def remove_channels(self, cache_dir: Path) -> None:
         """Remove all channels associated with a specific cache_dir (source)."""
@@ -125,21 +147,43 @@ class PlotPane(QWidget):
         for ch in to_remove:
             self.graphics_layout.removeItem(ch.plot_item)
             self.channels.remove(ch)
-            
+
             if self._master_plot == ch.plot_item:
                 if self.channels:
                     self._master_plot = self.channels[0].plot_item
                     self._master_plot.sigXRangeChanged.connect(self.update_plots)
                 else:
                     self._master_plot = None
-                    
+
         # Update X-links to new master
         if self._master_plot:
             for ch in self.channels:
                 if ch.plot_item != self._master_plot:
                     ch.plot_item.setXLink(self._master_plot)
-        
+
         # We don't automatically update view bounds on remove to preserve UX state
+        self.sources_changed.emit([ch.reader for ch in self.channels])
+
+    def remove_channel(self, channel_id: str) -> None:
+        """Remove a single channel by its channel_id, regardless of cache_dir."""
+        to_remove = [ch for ch in self.channels if ch.reader.channel_id == channel_id]
+        for ch in to_remove:
+            self.graphics_layout.removeItem(ch.plot_item)
+            self.channels.remove(ch)
+
+            if self._master_plot == ch.plot_item:
+                if self.channels:
+                    self._master_plot = self.channels[0].plot_item
+                    self._master_plot.sigXRangeChanged.connect(self.update_plots)
+                else:
+                    self._master_plot = None
+
+        if self._master_plot:
+            for ch in self.channels:
+                if ch.plot_item != self._master_plot:
+                    ch.plot_item.setXLink(self._master_plot)
+
+        self.sources_changed.emit([ch.reader for ch in self.channels])
 
     def load_source(self, cache_dir: Path, channel_id: str) -> None:
         """Backwards compatibility for Phase 2 single-channel load."""
@@ -191,3 +235,19 @@ class PlotPane(QWidget):
     def set_follow_playhead(self, follow: bool) -> None:
         """Toggle playhead following mode."""
         self.follow_playhead = follow
+
+    def reset_zoom(self) -> None:
+        """Reset all plot axes to their full data extent."""
+        if not self.channels or not self._master_plot:
+            return
+        t_all = []
+        for ch in self.channels:
+            t, _, _, _ = ch.reader._load_level(1)
+            if len(t) > 0:
+                t_all.extend([float(t[0]), float(t[-1])])
+        if t_all:
+            self._master_plot.setXRange(
+                min(t_all), max(t_all), padding=0.02
+            )
+        for ch in self.channels:
+            ch.plot_item.enableAutoRange(axis="y")

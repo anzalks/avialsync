@@ -2,7 +2,7 @@
 
 import sys
 
-from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
 from kinochronix.ui.diagnostics import probe_libmpv
@@ -32,6 +32,7 @@ class VideoPane(QWidget):
 
         self.setLayout(QGridLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
 
         if not probe_libmpv(self):
             return
@@ -67,8 +68,6 @@ class VideoPane(QWidget):
                 def initializeGL(self) -> None:
                     ctx = QOpenGLContext.currentContext()
 
-                    import ctypes
-
                     def get_proc_address(_ctx, name: bytes) -> int:
                         addr = ctx.getProcAddress(name)
                         return int(addr) if addr else 0
@@ -84,10 +83,11 @@ class VideoPane(QWidget):
 
                     def on_mpv_update():
                         from PySide6.QtCore import QMetaObject, Qt
+
                         QMetaObject.invokeMethod(self, "update", Qt.ConnectionType.QueuedConnection)
 
                     self.ctx.update_cb = on_mpv_update
-                    
+
                     # If open() was called before we had a context, play it now
                     if hasattr(self.parent_pane, "_pending_play"):
                         self.mpv.play(self.parent_pane._pending_play)
@@ -105,6 +105,9 @@ class VideoPane(QWidget):
                         )
 
             self.gl_widget = MpvGLWidget(self)
+            self.gl_widget.setAttribute(
+                Qt.WidgetAttribute.WA_StyledBackground, False
+            )
             self._video_widget = self.gl_widget
             self.layout().addWidget(self.gl_widget, 0, 0)
             self.mpv = self.gl_widget.mpv
@@ -165,7 +168,7 @@ class VideoPane(QWidget):
         if obj == self._video_widget:
             try:
                 # Compare integer values to avoid PySide6 EnumType.__call__ exceptions
-                if int(event.type()) == 4: # QEvent.Type.MouseButtonDblClick is 4
+                if int(event.type()) == 4:  # QEvent.Type.MouseButtonDblClick is 4
                     self.double_clicked.emit(self)
             except Exception:
                 pass
@@ -229,3 +232,13 @@ class VideoPane(QWidget):
                 self.mpv.command("frame-back-step")
         except Exception:
             pass
+
+    def close(self) -> None:
+        """Terminate mpv before closing the widget."""
+        if self.mpv:
+            try:
+                self.mpv.terminate()
+            except Exception:
+                pass
+            self.mpv = None
+        super().close()
