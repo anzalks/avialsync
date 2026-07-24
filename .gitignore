@@ -70,6 +70,13 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# Profiling data
+.prof
+
+# Generated Fixtures
+tests/fixtures/
+tests/fixtures_first_run/
+
 # PyBuilder
 .pybuilder/
 target/
