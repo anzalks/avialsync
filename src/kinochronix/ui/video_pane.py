@@ -3,7 +3,7 @@
 import sys
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QHBoxLayout, QWidget
 
 from kinochronix.ui.diagnostics import probe_libmpv
 
@@ -17,6 +17,7 @@ class VideoPane(QWidget):
     """
 
     double_clicked = Signal(object)
+    _osd_update = Signal(float, float)  # time, fps
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -59,6 +60,8 @@ class VideoPane(QWidget):
                     def time_observer(_name: str, value: float) -> None:
                         if value is not None:
                             self.parent_pane.time_pos = value
+                            fps = getattr(self.mpv, 'estimated_vf_fps', 0.0) or 0.0
+                            self.parent_pane._osd_update.emit(value, fps)
 
                     @self.mpv.property_observer("seeking")
                     def seeking_observer(_name: str, value: bool) -> None:
@@ -129,6 +132,8 @@ class VideoPane(QWidget):
             def time_observer(_name: str, value: float) -> None:
                 if value is not None:
                     self.time_pos = value
+                    fps = getattr(self.mpv, 'estimated_vf_fps', 0.0) or 0.0
+                    self._osd_update.emit(value, fps)
 
             @self.mpv.property_observer("seeking")
             def seeking_observer(_name: str, value: bool) -> None:
@@ -147,9 +152,18 @@ class VideoPane(QWidget):
             "color: white; background-color: rgba(0,0,0,128); padding: 4px;"
         )
         self.lbl_name.setVisible(False)
-        olayout.addWidget(
-            self.lbl_name, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+
+        self.lbl_osd = QLabel("Time: 00:00:00.000\nFPS:  0.0")
+        self.lbl_osd.setStyleSheet(
+            "color: white; background-color: rgba(0,0,0,128); padding: 4px; font-family: monospace; font-size: 11px;"
         )
+
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(self.lbl_name, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        top_layout.addStretch()
+        top_layout.addWidget(self.lbl_osd, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        
+        olayout.addLayout(top_layout)
 
         self.lbl_no_footage = QLabel("No Footage")
         self.lbl_no_footage.setStyleSheet(
@@ -161,8 +175,16 @@ class VideoPane(QWidget):
 
         self.layout().addWidget(self.overlay, 0, 0)
 
+        self._osd_update.connect(self._update_osd)
+
         if self._video_widget:
             self._video_widget.installEventFilter(self)
+
+    def _update_osd(self, t: float, fps: float) -> None:
+        h = int(t // 3600)
+        m = int((t % 3600) // 60)
+        s = t % 60
+        self.lbl_osd.setText(f"Time: {h:02d}:{m:02d}:{s:06.3f}\nFPS:  {fps:.1f}")
 
     def eventFilter(self, obj, event):
         if obj == self._video_widget:
