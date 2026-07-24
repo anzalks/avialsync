@@ -53,10 +53,13 @@ class VideoStandardLoader(VideoSource):
 
         format_info = meta.get("format", {})
 
-        # Parse start_time from format
+        # Parse start_time and duration from format
         st = format_info.get("start_time")
         if st is not None:
             self._start_time = float(st)
+        
+        d = format_info.get("duration")
+        self._duration = float(d) if d is not None else 0.0
 
         # Parse FPS from first video stream
         streams = meta.get("streams", [])
@@ -118,6 +121,10 @@ class VideoStandardLoader(VideoSource):
 
     def frame_times(self) -> np.ndarray | None:
         return self._frame_times
+
+    def time_bounds(self) -> tuple[float, float]:
+        st = self._start_time or 0.0
+        return (st, st + getattr(self, "_duration", 0.0))
 
     def fps(self) -> float:
         return self._fps

@@ -9,6 +9,17 @@ from PySide6.QtWidgets import (
     QSlider,
     QWidget,
 )
+from PySide6.QtGui import QMouseEvent
+
+
+class JumpSlider(QSlider):
+    """A QSlider that instantly jumps to the clicked position."""
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            val = self.minimum() + ((self.maximum() - self.minimum()) * event.position().x()) / self.width()
+            self.setValue(int(val))
+        super().mousePressEvent(event)
 
 
 class Transport(QWidget):
@@ -31,7 +42,7 @@ class Transport(QWidget):
         self.time_lbl = QLabel("00:00:00.00")
         self.layout().addWidget(self.time_lbl)
 
-        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider = JumpSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 10000)
         self.slider.sliderPressed.connect(self._on_slider_pressed)
         self.slider.sliderMoved.connect(self._on_slider_moved)

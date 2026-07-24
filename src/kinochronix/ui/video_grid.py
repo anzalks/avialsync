@@ -25,7 +25,9 @@ class VideoGrid(QWidget):
         from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QLabel
 
-        self.lbl_empty = QLabel("No videos loaded.\nDouble-click a video pane to maximize.")
+        self.lbl_empty = QLabel(
+            "No videos loaded.\nDrag and drop videos or CSV files here to view.\nDouble-click a video pane to maximize."
+        )
         self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_empty.setStyleSheet("color: #888888; font-size: 18px;")
         self.lbl_empty.setMinimumHeight(200)

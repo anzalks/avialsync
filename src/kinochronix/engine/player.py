@@ -33,7 +33,7 @@ class Player(QObject):
         self._timer.setInterval(1000 // 60)  # 60 Hz
         self._timer.timeout.connect(self._on_tick)
 
-        self._drift_count = 0
+        self._drift_counts: dict[int, int] = {}
         self._last_tick_monotonic = time.monotonic()
 
         # Connect transport signals
@@ -75,7 +75,7 @@ class Player(QObject):
         self.transport.set_time(self.clock.state.t)
 
         # Reset drift hysteresis
-        self._drift_count = 0
+        self._drift_counts.clear()
         self._last_tick_monotonic = time.monotonic()
 
     def set_rate(self, rate: float) -> None:
@@ -95,20 +95,25 @@ class Player(QObject):
             # Only if grid is settled (no panes are actively seeking)
             self.seeker.panes = self.video_grid.panes
             if self.seeker.is_settled() and len(self.video_grid.panes) > 0:
-                drifting = False
-                for pane in self.video_grid.panes:
+                for idx, pane in enumerate(self.video_grid.panes):
+                    if not pane.mpv:
+                        continue
+                    
+                    vid_t = pane.time_pos
+                    if vid_t is None:
+                        continue
+                    
                     source_t = pane.time_map.to_source(t)
-                    if abs(pane.time_pos - source_t) > 0.040:
-                        drifting = True
-                        break
-
-                if drifting:
-                    self._drift_count += 1
-                    if self._drift_count > 5:
-                        self.seeker.seek(t, exact=False)
-                        self._drift_count = 0
-                else:
-                    self._drift_count = 0
+                    drift = vid_t - source_t
+                    
+                    if abs(drift) > 0.040:
+                        self._drift_counts[idx] = self._drift_counts.get(idx, 0) + 1
+                        if self._drift_counts[idx] > 5:
+                            # Use async seek directly with exact=True to avoid keyframe loops
+                            self.seeker.seek_pane(pane, source_t, exact=True)
+                            self._drift_counts[idx] = 0
+                    else:
+                        self._drift_counts[idx] = 0
 
             # Update UI
             self.plot_pane.set_cursor(t)

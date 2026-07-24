@@ -51,7 +51,8 @@ class VideoPane(QWidget):
                     super().__init__()
                     self.parent_pane = parent_pane
                     self.ctx = None
-                    self.mpv = mpv.MPV(hwdec="auto-safe", keep_open="yes")
+                    # Use vo="libmpv" so it renders via the API instead of a standalone window
+                    self.mpv = mpv.MPV(hwdec="auto-safe", keep_open="yes", vo="libmpv")
 
                     @self.mpv.property_observer("time-pos")
                     def time_observer(_name: str, value: float) -> None:
@@ -66,16 +67,32 @@ class VideoPane(QWidget):
                 def initializeGL(self) -> None:
                     ctx = QOpenGLContext.currentContext()
 
-                    def get_proc_address(name: bytes) -> int:
+                    import ctypes
+
+                    def get_proc_address(_ctx, name: bytes) -> int:
                         addr = ctx.getProcAddress(name)
                         return int(addr) if addr else 0
+
+                    # Wrap using the EXACT ctypes function signature defined in python-mpv
+                    wrapped_get_proc_address = mpv.MpvGlGetProcAddressFn(get_proc_address)
 
                     self.ctx = mpv.MpvRenderContext(
                         self.mpv,
                         "opengl",
-                        opengl_init_params={"get_proc_address": get_proc_address},
+                        opengl_init_params={"get_proc_address": wrapped_get_proc_address},
                     )
-                    self.ctx.update_cb = self.update
+
+                    def on_mpv_update():
+                        from PySide6.QtCore import QMetaObject, Qt
+                        QMetaObject.invokeMethod(self, "update", Qt.ConnectionType.QueuedConnection)
+
+                    self.ctx.update_cb = on_mpv_update
+                    
+                    # If open() was called before we had a context, play it now
+                    if hasattr(self.parent_pane, "_pending_play"):
+                        self.mpv.play(self.parent_pane._pending_play)
+                        self.mpv.pause = getattr(self.parent_pane, "_target_pause", True)
+                        delattr(self.parent_pane, "_pending_play")
 
                 def paintGL(self) -> None:
                     if self.ctx:
@@ -145,8 +162,13 @@ class VideoPane(QWidget):
             self._video_widget.installEventFilter(self)
 
     def eventFilter(self, obj, event):
-        if obj == self._video_widget and event.type() == QEvent.Type.MouseButtonDblClick:
-            self.double_clicked.emit(self)
+        if obj == self._video_widget:
+            try:
+                # Compare integer values to avoid PySide6 EnumType.__call__ exceptions
+                if int(event.type()) == 4: # QEvent.Type.MouseButtonDblClick is 4
+                    self.double_clicked.emit(self)
+            except Exception:
+                pass
         return super().eventFilter(obj, event)
 
     def set_label(self, text: str) -> None:
@@ -162,16 +184,21 @@ class VideoPane(QWidget):
     def open(self, path: str) -> None:
         """Open a video file."""
         if self.mpv:
-            self.mpv.play(path)
-            self.mpv.pause = True
+            if hasattr(self, "gl_widget") and self.gl_widget.ctx is None:
+                self._pending_play = path
+            else:
+                self.mpv.play(path)
+                self.mpv.pause = True
 
     def play(self) -> None:
         """Unpause the video."""
+        self._target_pause = False
         if self.mpv:
             self.mpv.pause = False
 
     def pause(self) -> None:
         """Pause the video."""
+        self._target_pause = True
         if self.mpv:
             self.mpv.pause = True
 
@@ -185,13 +212,20 @@ class VideoPane(QWidget):
         if not self.mpv:
             return
         precision = "exact" if exact else "keyframes"
-        self.mpv.seek(t, reference="absolute", precision=precision)
+        try:
+            self.mpv.seek(t, reference="absolute", precision=precision)
+        except Exception:
+            # mpv may raise SystemError -12 if we seek before it has finished loading the file
+            pass
 
     def frame_step(self, forward: bool = True) -> None:
         """Step one frame forward or backward."""
         if not self.mpv:
             return
-        if forward:
-            self.mpv.command("frame-step")
-        else:
-            self.mpv.command("frame-back-step")
+        try:
+            if forward:
+                self.mpv.command("frame-step")
+            else:
+                self.mpv.command("frame-back-step")
+        except Exception:
+            pass

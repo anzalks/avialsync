@@ -53,71 +53,96 @@ class MainWindow(QMainWindow):
         # Menu
         self._setup_menu()
 
+        # Drag and Drop
+        self.setAcceptDrops(True)
+
         # Start player tick
         self.player.start()
+
+    def dragEnterEvent(self, event) -> None:
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event) -> None:
+        for url in event.mimeData().urls():
+            path = Path(url.toLocalFile())
+            if not path.is_file():
+                continue
+            
+            ext = path.suffix.lower()
+            if ext in [".mp4", ".mov", ".avi", ".mkv"]:
+                self._load_video(path)
+            elif ext in [".csv", ".txt", ".tsv"]:
+                self._start_csv_import(path)
 
     def _setup_menu(self) -> None:
         menu = self.menuBar()
         file_menu = menu.addMenu("File")
 
-        open_video_action = file_menu.addAction("Open Video...")
+        open_video_action = file_menu.addAction("Open Video(s)...")
         open_video_action.triggered.connect(self._open_video)
 
         open_csv_action = file_menu.addAction("Open CSV...")
         open_csv_action.triggered.connect(self._open_csv)
 
-    def _open_video(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Open Video")
-        if path:
-            self.video_grid.add_pane(path)
-            from kinochronix.loaders.video_standard import VideoStandardLoader
+    def _load_video(self, path: Path) -> None:
+        self.video_grid.add_pane(str(path))
+        from kinochronix.loaders.video_standard import VideoStandardLoader
 
-            vloader = VideoStandardLoader()
-            try:
-                vloader.open(Path(path), {})
-                b = vloader.time_bounds()
-                self._update_bounds(b[0], b[1])
-            except Exception:
-                pass
+        vloader = VideoStandardLoader()
+        try:
+            vloader.open(path, {})
+            b = vloader.time_bounds()
+            self._update_bounds(b[0], b[1])
+        except Exception:
+            pass
+
+    def _open_video(self) -> None:
+        paths, _ = QFileDialog.getOpenFileNames(self, "Open Video(s)")
+        for path in paths:
+            if path:
+                self._load_video(Path(path))
 
     def _open_csv(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Open CSV")
         if path:
-            from PySide6.QtCore import QThread
-            from PySide6.QtWidgets import QProgressDialog
+            self._start_csv_import(Path(path))
 
-            from kinochronix.engine.importer import ImportWorker
+    def _start_csv_import(self, path: Path) -> None:
+        from kinochronix.engine.importer import ImportWorker
+        from PySide6.QtCore import QThread
+        from PySide6.QtWidgets import QProgressDialog
 
-            # Hardcoded config for MVP
-            config = {"time_col": "time", "time_unit": "s", "separator": ","}
+        # Hardcoded config for MVP
+        config = {"time_col": "time", "time_unit": "s", "separator": ","}
 
-            self._import_thread = QThread()
-            self._import_worker = ImportWorker(Path(path), config)
-            self._import_worker.moveToThread(self._import_thread)
+        self._import_thread = QThread()
+        self._import_worker = ImportWorker(path, config)
+        self._import_worker.moveToThread(self._import_thread)
 
-            self._progress_dialog = QProgressDialog("Importing CSV...", "Cancel", 0, 100, self)
-            self._progress_dialog.setWindowTitle("Importing Data")
-            self._progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
-            self._progress_dialog.setAutoClose(True)
-            self._progress_dialog.setAutoReset(True)
-            self._progress_dialog.setValue(0)
+        self._progress_dialog = QProgressDialog("Importing CSV...", "Cancel", 0, 100, self)
+        self._progress_dialog.setWindowTitle("Importing Data")
+        self._progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self._progress_dialog.setAutoClose(True)
+        self._progress_dialog.setAutoReset(True)
+        self._progress_dialog.setValue(0)
 
-            # Connect signals
-            self._import_thread.started.connect(self._import_worker.run)
-            self._import_worker.progress.connect(self._progress_dialog.setValue)
-            self._progress_dialog.canceled.connect(self._import_worker.cancel)
+        # Connect signals
+        self._import_thread.started.connect(self._import_worker.run)
+        self._import_worker.progress.connect(self._progress_dialog.setValue)
+        self._progress_dialog.canceled.connect(self._import_worker.cancel)
 
-            self._import_worker.finished.connect(self._on_import_finished)
-            self._import_worker.finished.connect(self._import_thread.quit)
-            self._import_worker.finished.connect(self._import_worker.deleteLater)
-            self._import_thread.finished.connect(self._import_thread.deleteLater)
+        self._import_worker.finished.connect(self._on_import_finished)
+        self._import_worker.finished.connect(self._import_thread.quit)
+        self._import_worker.finished.connect(self._import_worker.deleteLater)
+        self._import_thread.finished.connect(self._import_thread.deleteLater)
 
-            self._import_worker.error.connect(self._on_import_error)
-            self._import_worker.error.connect(self._import_thread.quit)
+        self._import_worker.error.connect(self._on_import_error)
+        self._import_worker.error.connect(self._import_thread.quit)
 
-            # Start
-            self._progress_dialog.show()
-            self._import_thread.start()
+        # Start
+        self._progress_dialog.show()
+        self._import_thread.start()
 
     def _on_import_finished(
         self, cache_dir: Path, channels: list[str], bounds: tuple[float, float]
@@ -132,6 +157,12 @@ class MainWindow(QMainWindow):
         QMessageBox.critical(self, "Import Error", f"Failed to import CSV:\n{err_msg}")
 
     def _update_bounds(self, t0: float, t1: float) -> None:
-        self.clock.bounds = (t0, t1)
-        self.transport.set_bounds(t0, t1)
-        self.transport.set_time(t0)
+        if self.clock.state.bounds == (0.0, 0.0):
+            new_bounds = (t0, t1)
+        else:
+            curr_t0, curr_t1 = self.clock.state.bounds
+            new_bounds = (min(curr_t0, t0), max(curr_t1, t1))
+        
+        self.clock.set_bounds(*new_bounds)
+        self.transport.set_bounds(*new_bounds)
+        self.transport.set_time(new_bounds[0])
