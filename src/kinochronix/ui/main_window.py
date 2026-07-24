@@ -71,7 +71,7 @@ class MainWindow(QMainWindow):
 
         self.sidebar = SidebarPane(self)
         self.sidebar.open_video_requested.connect(self._open_video)
-        self.sidebar.open_sensor_requested.connect(self._open_csv)
+        self.sidebar.open_sensor_requested.connect(self._open_data)
         self.sidebar.video_offset_changed.connect(self._on_video_offset_changed)
         self.sidebar.video_remove_requested.connect(self._on_video_remove_requested)
         self.sidebar.video_visibility_changed.connect(self.video_grid.set_pane_visible)
@@ -422,20 +422,39 @@ class MainWindow(QMainWindow):
     def dropEvent(self, event) -> None:
         for url in event.mimeData().urls():
             path = Path(url.toLocalFile())
-            if not path.is_file():
+            if not path.exists():
                 continue
 
-            ext = path.suffix.lower()
-            if ext in (".mp4", ".mov", ".avi", ".mkv"):
-                self._load_video(path)
-            elif ext in (".csv", ".txt", ".tsv"):
-                self._start_csv_import(path)
-            elif ext == ".kcx":
-                try:
-                    state = SessionState.load(path)
-                    self._restore_session(state)
-                except Exception as e:
-                    QMessageBox.critical(self, "Session Error", str(e))
+            if path.is_dir():
+                # 1. Check for KCX first
+                kcx_files = list(path.glob("*.kcx"))
+                if kcx_files:
+                    try:
+                        state = SessionState.load(kcx_files[0])
+                        self._restore_session(state)
+                    except Exception as e:
+                        QMessageBox.critical(self, "Session Error", str(e))
+                    continue
+                
+                # 2. Load any immediate video files
+                for child in path.iterdir():
+                    if child.is_file() and child.suffix.lower() in (".mp4", ".mov", ".avi", ".mkv"):
+                        self._load_video(child)
+                
+                # 3. Attempt to load directory as data bundle
+                self._start_data_import(path)
+            else:
+                ext = path.suffix.lower()
+                if ext in (".mp4", ".mov", ".avi", ".mkv"):
+                    self._load_video(path)
+                elif ext == ".kcx":
+                    try:
+                        state = SessionState.load(path)
+                        self._restore_session(state)
+                    except Exception as e:
+                        QMessageBox.critical(self, "Session Error", str(e))
+                else:
+                    self._start_data_import(path)
 
     # ── Menu ─────────────────────────────────────────────────────────
 
@@ -449,9 +468,9 @@ class MainWindow(QMainWindow):
         act.setShortcut("Ctrl+V")
         act.triggered.connect(self._open_video)
 
-        act = file_menu.addAction("Open Sensor Data…")
+        act = file_menu.addAction("Open Sensor/Ephys Data…")
         act.setShortcut("Ctrl+D")
-        act.triggered.connect(self._open_csv)
+        act.triggered.connect(self._open_data)
 
         file_menu.addSeparator()
 
@@ -831,12 +850,12 @@ class MainWindow(QMainWindow):
             if path:
                 self._load_video(Path(path))
 
-    def _open_csv(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Open Sensor Data")
+    def _open_data(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Open Sensor/Ephys Data")
         if path:
-            self._start_csv_import(Path(path))
+            self._start_data_import(Path(path))
 
-    def _start_csv_import(self, path: Path) -> None:
+    def _start_data_import(self, path: Path) -> None:
         from kinochronix.core.registry import LoaderRegistry
         registry = LoaderRegistry()
         loader_cls = registry.find_best_loader(path)
@@ -845,13 +864,14 @@ class MainWindow(QMainWindow):
             return
             
         from kinochronix.loaders.csv_loader import CSVLoader
+        from kinochronix.loaders.tracking_loader import TrackingLoader
         if loader_cls is CSVLoader:
             from kinochronix.ui.import_wizard import ImportWizard
             wizard = ImportWizard(path, self)
             if wizard.exec() != ImportWizard.DialogCode.Accepted:
                 return
             config = wizard.config()
-        else:
+        elif loader_cls is TrackingLoader:
             from PySide6.QtWidgets import QInputDialog
             fps, ok = QInputDialog.getDouble(
                 self, "Tracking Data FPS", 
@@ -861,6 +881,9 @@ class MainWindow(QMainWindow):
             if not ok:
                 return
             config = {"fps": fps}
+        else:
+            # NeoLoader and other headless loaders that don't need UI config
+            config = {}
 
         from PySide6.QtCore import QThread
         from PySide6.QtWidgets import QProgressDialog

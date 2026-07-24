@@ -36,7 +36,7 @@ class ImportWorker(QObject):
             loader = self.loader_class()
             loader.open(self.path, self.config)
 
-            cache_mgr = CacheManager(loader_version=1)
+            cache_mgr = CacheManager(loader_version=2)
             temp_dir = cache_mgr.get_temp_cache_dir(self.path)
 
             channels = loader.channels()

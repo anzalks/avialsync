@@ -382,16 +382,24 @@ def generate_dlc_tracking(out_path: pathlib.Path, duration_s: float, fps: float 
     n_points = int(duration_s * fps)
     t = np.arange(n_points) / fps
     
-    # 3 body parts: nose, left_ear, right_ear
-    # Sinusoidal movement
-    nose_x = 320 + 200 * np.sin(2 * np.pi * 0.5 * t)
-    nose_y = 180 + 100 * np.cos(2 * np.pi * 0.5 * t)
+    # Nose drives the overall trajectory (slow macroscopic movement)
+    trajectory_freq = 0.2
+    nose_x = 320 + 200 * np.sin(2 * np.pi * trajectory_freq * t)
+    nose_y = 180 + 100 * np.cos(2 * np.pi * trajectory_freq * t)
     
-    left_ear_x = nose_x - 30
-    left_ear_y = nose_y - 20
+    # Body center is located behind the nose
+    body_x = nose_x - 30
+    body_y = nose_y + 40
     
-    right_ear_x = nose_x + 30
-    right_ear_y = nose_y - 20
+    # Legs oscillate (stride) relative to the body in strict antiphase (180 degrees)
+    stride_freq = 1.5
+    stride_amp = 40
+    
+    l_leg_x = body_x + stride_amp * np.sin(2 * np.pi * stride_freq * t)
+    l_leg_y = body_y + 20
+    
+    r_leg_x = body_x + stride_amp * np.sin(2 * np.pi * stride_freq * t + np.pi)
+    r_leg_y = body_y + 20
     
     # Static likelihood
     likelihood = np.ones(n_points) * 0.95
@@ -399,13 +407,73 @@ def generate_dlc_tracking(out_path: pathlib.Path, duration_s: float, fps: float 
     with open(out_path, "w") as f:
         # Write multi-index header
         f.write('scorer,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model\n')
-        f.write('bodyparts,nose,nose,nose,left_ear,left_ear,left_ear,right_ear,right_ear,right_ear\n')
+        f.write('bodyparts,nose,nose,nose,l_leg,l_leg,l_leg,r_leg,r_leg,r_leg\n')
         f.write('coords,x,y,likelihood,x,y,likelihood,x,y,likelihood\n')
         
         for i in range(n_points):
             f.write(f"{i},{nose_x[i]:.2f},{nose_y[i]:.2f},{likelihood[i]:.2f},"
-                    f"{left_ear_x[i]:.2f},{left_ear_y[i]:.2f},{likelihood[i]:.2f},"
-                    f"{right_ear_x[i]:.2f},{right_ear_y[i]:.2f},{likelihood[i]:.2f}\n")
+                    f"{l_leg_x[i]:.2f},{l_leg_y[i]:.2f},{likelihood[i]:.2f},"
+                    f"{r_leg_x[i]:.2f},{r_leg_y[i]:.2f},{likelihood[i]:.2f}\n")
+
+
+def generate_openephys_binary(out_path: pathlib.Path, duration: float = 60.0) -> None:
+    """Generate a mock OpenEphys Binary format dataset."""
+    import json
+    
+    # OpenEphys folder structure
+    exp_dir = out_path / "experiment1" / "recording1"
+    cont_dir = exp_dir / "continuous" / "Acquisition_Board-100.Rhythm_Data"
+    cont_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate 4-channel sine waves, 30kHz
+    fs = 30000.0
+    num_samples = int(duration * fs)
+    num_channels = 4
+    
+    t = np.arange(num_samples) / fs
+    data = np.zeros((num_samples, num_channels), dtype=np.int16)
+    
+    for i in range(num_channels):
+        freq = 2.0 * (i + 1)
+        data[:, i] = (np.sin(2 * np.pi * freq * t) * 1000).astype(np.int16)
+        
+    # OpenEphys expects multiplexed binary: sample0_ch0, sample0_ch1, ..., sample1_ch0, ...
+    with open(cont_dir / "continuous.dat", "wb") as f:
+        f.write(data.tobytes())
+        
+    # Write timestamps
+    np.save(cont_dir / "timestamps.npy", np.arange(num_samples, dtype=np.int64))
+        
+    # Write structure.oebin
+    oebin = {
+        "continuous": [
+            {
+                "folder_name": "Acquisition_Board-100.Rhythm_Data/",
+                "sample_rate": fs,
+                "source_processor_name": "Acquisition Board",
+                "source_processor_id": 100,
+                "stream_name": "Rhythm Data",
+                "recorded_processor": "Record Node",
+                "recorded_processor_id": 104,
+                "num_channels": num_channels,
+                "channels": [
+                    {
+                        "channel_name": f"CH{i+1}",
+                        "description": "Continuous Channel",
+                        "identifier": f"continuous.{i}",
+                        "history": "Acquisition Board-100",
+                        "bit_volts": 0.195,
+                        "units": "uV"
+                    } for i in range(num_channels)
+                ]
+            }
+        ],
+        "events": [],
+        "spikes": []
+    }
+    
+    with open(exp_dir / "structure.oebin", "w") as f:
+        json.dump(oebin, f, indent=4)
 
 
 def main() -> None:
@@ -474,7 +542,10 @@ def main() -> None:
     # 3. Generate DLC tracking data
     generate_dlc_tracking(sig_dir / "tracking_dlc.csv", base_dur, fps)
 
-    # 4. Create Sample Session
+    # 4. Generate OpenEphys data
+    generate_openephys_binary(fixtures_dir / "openephys_mock", 10.0)
+
+    # 5. Create Sample Session
     sample_dir = fixtures_dir / "sample_session"
     sample_dir.mkdir(parents=True)
     # Just copy camera 1 and base signal for a tiny sample dataset
@@ -483,6 +554,12 @@ def main() -> None:
     shutil.copy(sig_dir / "signal_base.csv", sample_dir / "signal_base.csv")
     shutil.copy(sig_dir / "signal_base.json", sample_dir / "signal_base.json")
     shutil.copy(sig_dir / "tracking_dlc.csv", sample_dir / "tracking_dlc.csv")
+    
+    # Copy OpenEphys to examples/data for user testing
+    example_openephys = pathlib.Path("examples/data/openephys_mock")
+    if example_openephys.exists():
+        shutil.rmtree(example_openephys)
+    shutil.copytree(fixtures_dir / "openephys_mock", example_openephys)
 
     print("Fixtures generated successfully.")
 

@@ -1,0 +1,50 @@
+{
+    "continuous": [
+        {
+            "folder_name": "Acquisition_Board-100.Rhythm_Data/",
+            "sample_rate": 30000.0,
+            "source_processor_name": "Acquisition Board",
+            "source_processor_id": 100,
+            "stream_name": "Rhythm Data",
+            "recorded_processor": "Record Node",
+            "recorded_processor_id": 104,
+            "num_channels": 4,
+            "channels": [
+                {
+                    "channel_name": "CH1",
+                    "description": "Continuous Channel",
+                    "identifier": "continuous.0",
+                    "history": "Acquisition Board-100",
+                    "bit_volts": 0.195,
+                    "units": "uV"
+                },
+                {
+                    "channel_name": "CH2",
+                    "description": "Continuous Channel",
+                    "identifier": "continuous.1",
+                    "history": "Acquisition Board-100",
+                    "bit_volts": 0.195,
+                    "units": "uV"
+                },
+                {
+                    "channel_name": "CH3",
+                    "description": "Continuous Channel",
+                    "identifier": "continuous.2",
+                    "history": "Acquisition Board-100",
+                    "bit_volts": 0.195,
+                    "units": "uV"
+                },
+                {
+                    "channel_name": "CH4",
+                    "description": "Continuous Channel",
+                    "identifier": "continuous.3",
+                    "history": "Acquisition Board-100",
+                    "bit_volts": 0.195,
+                    "units": "uV"
+                }
+            ]
+        }
+    ],
+    "events": [],
+    "spikes": []
+}

@@ -75,7 +75,10 @@ def test_loader_discovery(mock_eps):
     mock_eps.return_value = [ep1, ep2]
 
     registry = LoaderRegistry()
-    assert len(registry._loaders) == 2
+    # Expect 4 built-in + 2 from entry points
+    assert len(registry._loaders) == 6
+    assert DummyTimeSeriesLoader in registry._loaders
+    assert DummyVideoLoader in registry._loaders
 
     # Test best loader routing
     best_ts = registry.find_best_loader(Path("data.dummy_ts"))
@@ -84,5 +87,5 @@ def test_loader_discovery(mock_eps):
     best_vid = registry.find_best_loader(Path("movie.dummy_vid"))
     assert best_vid is DummyVideoLoader
 
-    best_none = registry.find_best_loader(Path("unknown.txt"))
+    best_none = registry.find_best_loader(Path("unknown.xyz"))
     assert best_none is None

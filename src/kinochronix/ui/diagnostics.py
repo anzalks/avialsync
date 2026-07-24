@@ -155,11 +155,8 @@ def run_startup_diagnostics(parent=None) -> dict:
                     "proxy files (File → Generate Proxy).",
                 )
 
-            QMetaObject.invokeMethod(
-                parent,
-                _warn,
-                Qt.ConnectionType.QueuedConnection,
-            )
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, _warn)
 
     t = threading.Thread(target=_probe, daemon=True)
     t.start()

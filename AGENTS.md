@@ -111,7 +111,8 @@ kinochronix open tests/fixtures/sample_session/   # open sample data
    you'd choose differently. Multiple models rotate through this codebase; style entropy is a
    real failure mode. Do not "improve" working patterns without a DECISIONS.md entry.
 10. Library APIs (mpv, pyqtgraph, polars) may differ from your training data — verify against
-   the installed version's docs/signatures when behavior surprises you; don't force remembered APIs.
+    the installed version's docs/signatures when behavior surprises you; don't force remembered APIs.
+11. Test and scratch script locations: NEVER create temporary test scripts, scratch files, or ad-hoc tests in the repository root or inside `src/`. All formal tests must be placed in `tests/` and appropriately named (e.g., `test_*.py`). If you need temporary scratch files, use the designated artifact scratch folder or `/tmp/`, and clean them up afterward.
 
 ## Known traps (learned the hard way — do not rediscover)
 

@@ -18,8 +18,9 @@ class LoaderRegistry:
         from kinochronix.loaders.csv_loader import CSVLoader
         from kinochronix.loaders.video_standard import VideoStandardLoader
         from kinochronix.loaders.tracking_loader import TrackingLoader
+        from kinochronix.loaders.neo_loader import NeoLoader
         
-        self._loaders = [CSVLoader, VideoStandardLoader, TrackingLoader]
+        self._loaders = [CSVLoader, VideoStandardLoader, TrackingLoader, NeoLoader]
 
         eps = entry_points(group="kinochronix.loaders")
         for ep in eps:

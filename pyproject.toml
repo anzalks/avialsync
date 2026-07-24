@@ -15,7 +15,8 @@ dependencies = [
     "python-mpv>=1.0.7",
     "numpy",
     "polars",
-    "xxhash"
+    "xxhash",
+    "neo"
 ]
 
 [project.optional-dependencies]
@@ -36,6 +37,7 @@ kinochronix = "kinochronix.__main__:main"
 csv = "kinochronix.loaders.csv_loader:CSVLoader"
 video = "kinochronix.loaders.video_standard:VideoStandardLoader"
 tracking = "kinochronix.loaders.tracking_loader:TrackingLoader"
+neo = "kinochronix.loaders.neo_loader:NeoLoader"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kinochronix"]

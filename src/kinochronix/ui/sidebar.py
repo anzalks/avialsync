@@ -225,7 +225,7 @@ class SidebarPane(QWidget):
         actions_group = QGroupBox("Open Files")
         actions_layout = QHBoxLayout(actions_group)
         self.btn_open_video = QPushButton("Open Videos")
-        self.btn_open_sensor = QPushButton("Open Sensor Data")
+        self.btn_open_sensor = QPushButton("Open Sensor/Ephys Data")
         self.btn_open_video.clicked.connect(self.open_video_requested)
         self.btn_open_sensor.clicked.connect(self.open_sensor_requested)
         actions_layout.addWidget(self.btn_open_video)
