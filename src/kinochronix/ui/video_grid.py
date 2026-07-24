@@ -3,14 +3,14 @@
 import math
 from pathlib import Path
 
-from PySide6.QtWidgets import QGridLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QWidget
 
 from kinochronix.ui.video_pane import VideoPane
 
 
 class VideoGrid(QWidget):
     """
-    Manages N VideoPanes in a dynamic grid layout.
+    Manages N VideoPanes in a horizontal layout.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -19,7 +19,7 @@ class VideoGrid(QWidget):
         self._fullscreen_pane: VideoPane | None = None
         self._paths: list[str] = []
 
-        self.grid_layout = QGridLayout(self)
+        self.grid_layout = QHBoxLayout(self)
         self.grid_layout.setContentsMargins(0, 0, 0, 0)
         self.grid_layout.setSpacing(2)
 
@@ -46,7 +46,7 @@ class VideoGrid(QWidget):
         if self._fullscreen_pane and self._fullscreen_pane in self.panes:
             for pane in self.panes:
                 pane.setVisible(pane == self._fullscreen_pane)
-            self.grid_layout.addWidget(self._fullscreen_pane, 0, 0)
+            self.grid_layout.addWidget(self._fullscreen_pane)
             return
 
         # Normal grid layout
@@ -54,13 +54,9 @@ class VideoGrid(QWidget):
         if n == 0:
             return
 
-        cols = math.ceil(math.sqrt(n))
-
-        for i, pane in enumerate(self.panes):
+        for pane in self.panes:
             pane.setVisible(True)
-            row = i // cols
-            col = i % cols
-            self.grid_layout.addWidget(pane, row, col)
+            self.grid_layout.addWidget(pane)
 
     def _update_labels(self) -> None:
         """Update camera labels, disambiguating duplicates."""
