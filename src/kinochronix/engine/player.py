@@ -5,9 +5,10 @@ import time
 from PySide6.QtCore import QObject, QTimer
 
 from kinochronix.core.timeline import MasterClock
+from kinochronix.engine.seeker import SeekGroup
 from kinochronix.ui.plot_pane import PlotPane
 from kinochronix.ui.transport import Transport
-from kinochronix.ui.video_pane import VideoPane
+from kinochronix.ui.video_grid import VideoGrid
 
 
 class Player(QObject):
@@ -16,16 +17,17 @@ class Player(QObject):
     def __init__(
         self,
         clock: MasterClock,
-        video_pane: VideoPane,
+        video_grid: VideoGrid,
         plot_pane: PlotPane,
         transport: Transport,
         parent: QObject | None = None,
     ):
         super().__init__(parent)
         self.clock = clock
-        self.video_pane = video_pane
+        self.video_grid = video_grid
         self.plot_pane = plot_pane
         self.transport = transport
+        self.seeker = SeekGroup(self.video_grid.panes)
 
         self._timer = QTimer(self)
         self._timer.setInterval(1000 // 60)  # 60 Hz
@@ -50,19 +52,23 @@ class Player(QObject):
         if playing:
             self._last_tick_monotonic = time.monotonic()
             self.clock.play()
-            self.video_pane.play()
+            for pane in self.video_grid.panes:
+                pane.play()
         else:
             self.clock.pause()
-            self.video_pane.pause()
+            for pane in self.video_grid.panes:
+                pane.pause()
             # Force exact seek on pause to ensure frames align perfectly
-            self.video_pane.seek(self.clock.state.t, exact=True)
+            self.seeker.panes = self.video_grid.panes
+            self.seeker.seek(self.clock.state.t, exact=True)
 
         self.transport.set_playing(playing)
 
     def seek(self, t: float, exact: bool = True) -> None:
         self._is_scrubbing = not exact
         self.clock.seek(t)
-        self.video_pane.seek(t, exact=exact)
+        self.seeker.panes = self.video_grid.panes
+        self.seeker.seek(t, exact=exact)
 
         # update UI instantly
         self.plot_pane.set_cursor(self.clock.state.t)
@@ -74,7 +80,8 @@ class Player(QObject):
 
     def set_rate(self, rate: float) -> None:
         self.clock.set_rate(rate)
-        self.video_pane.set_rate(rate)
+        for pane in self.video_grid.panes:
+            pane.set_rate(rate)
 
     def _on_tick(self) -> None:
         now = time.monotonic()
@@ -85,13 +92,20 @@ class Player(QObject):
             t = self.clock.state.t
 
             # Drift correction (video following master clock)
-            # Only if video is not actively seeking
-            if not self.video_pane.is_seeking:
-                vid_t = self.video_pane.time_pos
-                if abs(vid_t - t) > 0.040:
+            # Only if grid is settled (no panes are actively seeking)
+            self.seeker.panes = self.video_grid.panes
+            if self.seeker.is_settled() and len(self.video_grid.panes) > 0:
+                drifting = False
+                for pane in self.video_grid.panes:
+                    source_t = pane.time_map.to_source(t)
+                    if abs(pane.time_pos - source_t) > 0.040:
+                        drifting = True
+                        break
+
+                if drifting:
                     self._drift_count += 1
                     if self._drift_count > 5:
-                        self.video_pane.seek(t, exact=False)
+                        self.seeker.seek(t, exact=False)
                         self._drift_count = 0
                 else:
                     self._drift_count = 0

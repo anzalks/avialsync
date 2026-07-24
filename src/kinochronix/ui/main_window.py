@@ -15,7 +15,7 @@ from kinochronix.core.timeline import MasterClock
 from kinochronix.engine.player import Player
 from kinochronix.ui.plot_pane import PlotPane
 from kinochronix.ui.transport import Transport
-from kinochronix.ui.video_pane import VideoPane
+from kinochronix.ui.video_grid import VideoGrid
 
 
 class MainWindow(QMainWindow):
@@ -28,12 +28,12 @@ class MainWindow(QMainWindow):
         self.clock = MasterClock()
 
         # UI Components
-        self.video_pane = VideoPane(self)
+        self.video_grid = VideoGrid(self)
         self.plot_pane = PlotPane(self)
         self.transport = Transport(self)
 
         # Engine
-        self.player = Player(self.clock, self.video_pane, self.plot_pane, self.transport, self)
+        self.player = Player(self.clock, self.video_grid, self.plot_pane, self.transport, self)
 
         # Layout
         central_widget = QWidget()
@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.addWidget(self.video_pane)
+        splitter.addWidget(self.video_grid)
         splitter.addWidget(self.plot_pane)
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 1)
@@ -69,7 +69,7 @@ class MainWindow(QMainWindow):
     def _open_video(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Open Video")
         if path:
-            self.video_pane.open(path)
+            self.video_grid.add_pane(path)
             from kinochronix.loaders.video_standard import VideoStandardLoader
             vloader = VideoStandardLoader()
             try:

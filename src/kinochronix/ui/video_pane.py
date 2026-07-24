@@ -2,8 +2,8 @@
 
 import sys
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
 from kinochronix.ui.diagnostics import probe_libmpv
 
@@ -16,22 +16,28 @@ class VideoPane(QWidget):
     and native window embedding (wid) on Windows/Linux.
     """
 
+    double_clicked = Signal(object)
+
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
 
         self.time_pos = 0.0
         self.is_seeking = False
         self.mpv = None
+        self._video_widget = None
 
-        self.setLayout(QVBoxLayout())
+        from kinochronix.core.timeline import TimeMap
+        self.time_map = TimeMap()
+
+        self.setLayout(QGridLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
 
         if not probe_libmpv(self):
             return
 
-        import mpv
-
         import os
+
+        import mpv
         is_offscreen = os.environ.get("QT_QPA_PLATFORM") == "offscreen"
 
         if sys.platform == "darwin" and not is_offscreen:
@@ -79,14 +85,16 @@ class VideoPane(QWidget):
                         )
 
             self.gl_widget = MpvGLWidget(self)
-            self.layout().addWidget(self.gl_widget)
+            self._video_widget = self.gl_widget
+            self.layout().addWidget(self.gl_widget, 0, 0)
             self.mpv = self.gl_widget.mpv
 
         else:
             self.video_container = QWidget()
+            self._video_widget = self.video_container
             self.video_container.setAttribute(Qt.WidgetAttribute.WA_DontCreateNativeAncestors)
             self.video_container.setAttribute(Qt.WidgetAttribute.WA_NativeWindow)
-            self.layout().addWidget(self.video_container)
+            self.layout().addWidget(self.video_container, 0, 0)
 
             if is_offscreen:
                 self.mpv = mpv.MPV(vo="null", hwdec="auto-safe", keep_open="yes")
@@ -103,6 +111,51 @@ class VideoPane(QWidget):
             def seeking_observer(_name: str, value: bool) -> None:
                 if value is not None:
                     self.is_seeking = value
+
+        # Set up overlay
+        self.overlay = QWidget()
+        self.overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.overlay.setStyleSheet("background: transparent;")
+        olayout = QVBoxLayout(self.overlay)
+        olayout.setContentsMargins(0, 0, 0, 0)
+
+        self.lbl_name = QLabel("")
+        self.lbl_name.setStyleSheet(
+            "color: white; background-color: rgba(0,0,0,128); padding: 4px;"
+        )
+        self.lbl_name.setVisible(False)
+        olayout.addWidget(
+            self.lbl_name,
+            alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
+
+        self.lbl_no_footage = QLabel("No Footage")
+        self.lbl_no_footage.setStyleSheet(
+            "color: white; background-color: rgba(0,0,0,180); font-size: 24px;"
+        )
+        self.lbl_no_footage.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_no_footage.setVisible(False)
+        olayout.addWidget(self.lbl_no_footage, 1) # stretch
+
+        self.layout().addWidget(self.overlay, 0, 0)
+
+        if self._video_widget:
+            self._video_widget.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if obj == self._video_widget and event.type() == QEvent.Type.MouseButtonDblClick:
+            self.double_clicked.emit(self)
+        return super().eventFilter(obj, event)
+
+    def set_label(self, text: str) -> None:
+        if text:
+            self.lbl_name.setText(text)
+            self.lbl_name.setVisible(True)
+        else:
+            self.lbl_name.setVisible(False)
+
+    def set_has_footage(self, has_footage: bool) -> None:
+        self.lbl_no_footage.setVisible(not has_footage)
 
     def open(self, path: str) -> None:
         """Open a video file."""
