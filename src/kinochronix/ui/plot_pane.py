@@ -1,5 +1,6 @@
 """Plot rendering pane using pyqtgraph and decimation pyramids."""
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -8,13 +9,37 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from kinochronix.core.pyramid import PyramidReader
 
+# Predefined color palette for channels
+CHANNEL_COLORS = [
+    (0, 255, 255),   # Cyan
+    (255, 0, 255),   # Magenta
+    (255, 255, 0),   # Yellow
+    (0, 255, 0),     # Green
+    (255, 128, 0),   # Orange
+    (128, 128, 255), # Light Blue
+    (255, 128, 128), # Pink
+    (128, 255, 128), # Light Green
+]
+
+
+@dataclass
+class ChannelPlot:
+    """Holds UI and data state for a single time-series channel."""
+    name: str
+    reader: PyramidReader
+    plot_item: pg.PlotItem
+    curve_min: pg.PlotCurveItem
+    curve_max: pg.PlotCurveItem
+    fill: pg.FillBetweenItem
+    cursor_line: pg.InfiniteLine
+
 
 class PlotPane(QWidget):
     """
-    Data plotting pane.
+    Data plotting pane for multiple time-series channels.
 
-    Uses pyqtgraph to render decimated signal data from the cache pyramid.
-    Includes a vertical playhead cursor.
+    Uses pyqtgraph GraphicsLayoutWidget to stack channels vertically.
+    All channels share the same X-axis.
     """
 
     def __init__(self, parent: QWidget | None = None):
@@ -26,80 +51,123 @@ class PlotPane(QWidget):
         pg.setConfigOption("background", "k")
         pg.setConfigOption("foreground", "d")
 
-        self.plot_widget = pg.PlotWidget()
-        self.layout().addWidget(self.plot_widget)
-
-        # Cursor line
-        self.cursor_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen("y", width=2))
-        self.plot_widget.addItem(self.cursor_line)
+        self.graphics_layout = pg.GraphicsLayoutWidget()
+        self.layout().addWidget(self.graphics_layout)
 
         # State
-        self.reader = None
+        self.channels: list[ChannelPlot] = []
         self.follow_playhead = False
 
-        # Visual items
-        self.curve_min = pg.PlotCurveItem(pen=pg.mkPen("c", width=1), connect="finite")
-        self.curve_max = pg.PlotCurveItem(pen=pg.mkPen("c", width=1), connect="finite")
+        # We will use the first channel's X axis as the master for linking
+        self._master_plot: pg.PlotItem | None = None
 
-        brush = pg.mkBrush(0, 255, 255, 100)
-        self.fill = pg.FillBetweenItem(self.curve_min, self.curve_max, brush=brush)
+    def load_channels(self, cache_dir: Path, channel_names: list[str]) -> None:
+        """Load multiple data sources from cache and build plot rows."""
+        # Clear existing plots
+        self.graphics_layout.clear()
+        self.channels.clear()
+        self._master_plot = None
 
-        self.plot_widget.addItem(self.curve_min)
-        self.plot_widget.addItem(self.curve_max)
-        self.plot_widget.addItem(self.fill)
+        if not channel_names:
+            return
 
-        # Connect zoom/pan to pyramid query
-        self.plot_widget.sigXRangeChanged.connect(self.update_plot)
+        for i, ch_name in enumerate(channel_names):
+            reader = PyramidReader(cache_dir, ch_name)
+
+            # Create plot item
+            plot_item = self.graphics_layout.addPlot(row=i, col=0)
+            plot_item.setLabel("left", ch_name)
+            plot_item.showGrid(x=True, y=True, alpha=0.3)
+
+            # Link X-axes
+            if self._master_plot is None:
+                self._master_plot = plot_item
+                # Connect master's range changed to update query
+                self._master_plot.sigXRangeChanged.connect(self.update_plots)
+            else:
+                plot_item.setXLink(self._master_plot)
+
+            # Aesthetics
+            color = CHANNEL_COLORS[i % len(CHANNEL_COLORS)]
+            pen = pg.mkPen(color=color, width=1)
+            brush = pg.mkBrush(*color, 100)
+
+            curve_min = pg.PlotCurveItem(pen=pen, connect="finite")
+            curve_max = pg.PlotCurveItem(pen=pen, connect="finite")
+            fill = pg.FillBetweenItem(curve_min, curve_max, brush=brush)
+
+            plot_item.addItem(curve_min)
+            plot_item.addItem(curve_max)
+            plot_item.addItem(fill)
+
+            # Cursor line
+            cursor_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen("y", width=2))
+            plot_item.addItem(cursor_line)
+
+            self.channels.append(ChannelPlot(
+                name=ch_name,
+                reader=reader,
+                plot_item=plot_item,
+                curve_min=curve_min,
+                curve_max=curve_max,
+                fill=fill,
+                cursor_line=cursor_line
+            ))
+
+        # Reset view range to full bounds using the master plot
+        if self._master_plot and self.channels:
+            t, _, _, _ = self.channels[0].reader._load_level(1)
+            if len(t) > 0:
+                self._master_plot.setXRange(float(t[0]), float(t[-1]))
+
+        self.update_plots()
 
     def load_source(self, cache_dir: Path, channel_id: str) -> None:
-        """Load a data source from cache."""
-        self.reader = PyramidReader(cache_dir, channel_id)
-        # Reset view range to full bounds
-        t, _, _, _ = self.reader._load_level(1)
-        if len(t) > 0:
-            self.plot_widget.setXRange(float(t[0]), float(t[-1]))
-        self.update_plot()
+        """Backwards compatibility for Phase 2 single-channel load."""
+        self.load_channels(cache_dir, [channel_id])
 
-    def update_plot(self) -> None:
-        """Query the pyramid for the current view range and update curves."""
-        if not self.reader:
+    def update_plots(self) -> None:
+        """Query the pyramid for the current view range and update all curves."""
+        if not self._master_plot or not self.channels:
             return
 
-        view = self.plot_widget.viewRange()[0]
+        view = self._master_plot.viewRange()[0]
         t0, t1 = view[0], view[1]
 
-        # max_points is roughly screen width in pixels
-        t, vmin, vmax, gap = self.reader.query(t0, t1, max_points=1500)
+        for ch in self.channels:
+            # max_points is roughly screen width in pixels
+            t, vmin, vmax, gap = ch.reader.query(t0, t1, max_points=1500)
 
-        if len(t) == 0:
-            self.curve_min.setData([], [])
-            self.curve_max.setData([], [])
-            return
+            if len(t) == 0:
+                ch.curve_min.setData([], [])
+                ch.curve_max.setData([], [])
+                continue
 
-        # Break lines across gaps and handle NaN
-        vmin = vmin.copy()
-        vmax = vmax.copy()
-        vmin[gap] = np.nan
-        vmax[gap] = np.nan
+            # Break lines across gaps and handle NaN
+            vmin = vmin.copy()
+            vmax = vmax.copy()
+            vmin[gap] = np.nan
+            vmax[gap] = np.nan
 
-        self.curve_min.setData(t, vmin)
+            ch.curve_min.setData(t, vmin)
 
-        # Optimization: if vmin == vmax (level 1), don't draw max and fill
-        if np.array_equal(vmin, vmax, equal_nan=True):
-            self.curve_max.setData([], [])
-        else:
-            self.curve_max.setData(t, vmax)
+            # Optimization: if vmin == vmax (level 1), don't draw max and fill
+            if np.array_equal(vmin, vmax, equal_nan=True):
+                ch.curve_max.setData([], [])
+            else:
+                ch.curve_max.setData(t, vmax)
 
     def set_cursor(self, t: float) -> None:
-        """Update playhead position independently of curve redraws."""
-        self.cursor_line.setValue(t)
+        """Update playhead position independently of curve redraws on all channels."""
+        for ch in self.channels:
+            ch.cursor_line.setValue(t)
 
-        if self.follow_playhead:
-            view = self.plot_widget.viewRange()[0]
+        if self.follow_playhead and self._master_plot:
+            view = self._master_plot.viewRange()[0]
             width = view[1] - view[0]
             if t < view[0] or t > view[1]:
                 # Center the playhead
-                self.plot_widget.setXRange(t - width / 2, t + width / 2, padding=0)
+                self._master_plot.setXRange(t - width / 2, t + width / 2, padding=0)
 
     def set_follow_playhead(self, follow: bool) -> None:
         """Toggle playhead following mode."""

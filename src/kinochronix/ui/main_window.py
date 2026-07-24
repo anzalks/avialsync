@@ -83,42 +83,53 @@ class MainWindow(QMainWindow):
     def _open_csv(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Open CSV")
         if path:
-            from kinochronix.core.cache import CacheManager
-            from kinochronix.core.pyramid import PyramidBuilder
-            from kinochronix.loaders.csv_loader import CSVLoader
+            from PySide6.QtCore import QThread
+            from PySide6.QtWidgets import QProgressDialog
 
-            loader = CSVLoader()
+            from kinochronix.engine.importer import ImportWorker
+
             # Hardcoded config for MVP
             config = {"time_col": "time", "time_unit": "s", "separator": ","}
-            try:
-                loader.open(Path(path), config)
-            except Exception as e:
-                print(f"Error opening CSV: {e}")
-                return
 
-            cache_mgr = CacheManager(loader_version=1)
-            temp_dir = cache_mgr.get_temp_cache_dir(Path(path))
+            self._import_thread = QThread()
+            self._import_worker = ImportWorker(Path(path), config)
+            self._import_worker.moveToThread(self._import_thread)
 
-            channels = loader.channels()
-            if not channels:
-                return
-            ch_name = channels[0].name
+            self._progress_dialog = QProgressDialog("Importing CSV...", "Cancel", 0, 100, self)
+            self._progress_dialog.setWindowTitle("Importing Data")
+            self._progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+            self._progress_dialog.setAutoClose(True)
+            self._progress_dialog.setAutoReset(True)
+            self._progress_dialog.setValue(0)
 
-            # Synchronous read for MVP demo
-            all_chunks = list(loader.read_chunks(ch_name))
-            import numpy as np
+            # Connect signals
+            self._import_thread.started.connect(self._import_worker.run)
+            self._import_worker.progress.connect(self._progress_dialog.setValue)
+            self._progress_dialog.canceled.connect(self._import_worker.cancel)
 
-            full_t = np.concatenate([c[0] for c in all_chunks])
-            full_v = np.concatenate([c[1] for c in all_chunks])
+            self._import_worker.finished.connect(self._on_import_finished)
+            self._import_worker.finished.connect(self._import_thread.quit)
+            self._import_worker.finished.connect(self._import_worker.deleteLater)
+            self._import_thread.finished.connect(self._import_thread.deleteLater)
 
-            builder = PyramidBuilder(temp_dir, ch_name)
-            builder.build_and_save(full_t, full_v)
-            cache_mgr.commit_cache(Path(path), temp_dir)
+            self._import_worker.error.connect(self._on_import_error)
+            self._import_worker.error.connect(self._import_thread.quit)
 
-            cache_dir = cache_mgr.get_cache_dir(Path(path))
-            self.plot_pane.load_source(cache_dir, ch_name)
+            # Start
+            self._progress_dialog.show()
+            self._import_thread.start()
 
-            self._update_bounds(float(full_t[0]), float(full_t[-1]))
+    def _on_import_finished(
+        self, cache_dir: Path, channels: list[str], bounds: tuple[float, float]
+    ) -> None:
+        self._progress_dialog.close()
+        self.plot_pane.load_channels(cache_dir, channels)
+        self._update_bounds(bounds[0], bounds[1])
+
+    def _on_import_error(self, err_msg: str) -> None:
+        self._progress_dialog.close()
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.critical(self, "Import Error", f"Failed to import CSV:\n{err_msg}")
 
     def _update_bounds(self, t0: float, t1: float) -> None:
         self.clock.bounds = (t0, t1)
