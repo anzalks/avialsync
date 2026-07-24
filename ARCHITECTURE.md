@@ -40,7 +40,7 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │   │   ├── seeker.py                 # parallel exact/keyframe seeks, settle detection
 │   │   └── proxy.py                  # ffmpeg short-GOP proxies + prepare() conversion flow (D-006)
 │   ├── ui/                           # PySide6 widgets only; no business logic
-│   │   ├── main_window.py            # 2-row layout: video grid / channel plot rows
+│   │   ├── main_window.py            # Left sidebar (metadata, offsets, file management) + right content (video grid, plots)
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
 │   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c)

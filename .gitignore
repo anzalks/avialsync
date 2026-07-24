@@ -112,3 +112,4 @@ dmypy.json
 # KinoChronix specific based on AGENTS.md
 *.kcx
 *.kcache/
+.tmp_kcache_*/

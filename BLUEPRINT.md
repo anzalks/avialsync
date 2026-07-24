@@ -78,9 +78,13 @@ Exit criteria: **golden sync test** — for fixture video (burned frame counter)
 Deliverables:
 - Dynamic video grid (row 1, N columns, camera label overlay, double-click fullscreen).
 - Channel rows (row 2+): one plot row per time series source, shared X axis link, show/hide channels, per-channel color/legend.
+- Left Sidebar / Inspector Pane (~20% width, collapsible):
+  - File open/management buttons (video/sensor) + remove/hide toggles.
+  - Per-file metadata readouts (codec, resolution, sample rate, channels).
+  - Per-source offset spinboxes (live preview) + optional drift rate; persisted in session.
+- Global Session Summary (Master timeline absolute times, duration).
 - Async parallel seeking across mpv instances (QThreadPool or asyncio bridge); frame-drop tolerance during play.
 - Import pipeline: background parse → binary sidecar → pyramid, with progress + cancel.
-- Per-source offset spinbox (live preview) + optional drift rate; persisted in session.
 - Proxy generator: one-click ffmpeg re-encode to short-GOP scrub proxies; session tracks original↔proxy pairs.
 - Startup diagnostics: disk read speed probe, hw-decode capability report, slow-drive warning.
 

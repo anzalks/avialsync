@@ -45,6 +45,33 @@ class VideoGrid(QWidget):
         self._update_labels()
         return pane
 
+    def remove_pane(self, path: str) -> None:
+        """Remove a video pane by path."""
+        try:
+            idx = self._paths.index(path)
+        except ValueError:
+            return
+            
+        pane = self.panes.pop(idx)
+        self._paths.pop(idx)
+        
+        if self._fullscreen_pane == pane:
+            self._fullscreen_pane = None
+            
+        pane.close()
+        pane.deleteLater()
+        
+        self._update_layout()
+        self._update_labels()
+
+    def set_offset(self, path: str, offset: float) -> None:
+        """Update the offset for a specific video."""
+        try:
+            idx = self._paths.index(path)
+            self.panes[idx].time_map.offset = offset
+        except ValueError:
+            pass
+
     def _update_layout(self) -> None:
         # Clear existing layout
         for i in reversed(range(self.grid_layout.count())):

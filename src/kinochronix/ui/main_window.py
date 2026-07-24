@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
     QSplitter,
+    QHBoxLayout,
     QVBoxLayout,
     QWidget,
 )
@@ -38,17 +39,38 @@ class MainWindow(QMainWindow):
         # Layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
+        layout = QHBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.addWidget(self.video_grid)
-        splitter.addWidget(self.plot_pane)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 1)
+        from kinochronix.ui.sidebar import SidebarPane
+        self.sidebar = SidebarPane(self)
+        self.sidebar.open_video_requested.connect(self._open_video)
+        self.sidebar.open_sensor_requested.connect(self._open_csv)
+        self.sidebar.video_offset_changed.connect(self._on_video_offset_changed)
+        self.sidebar.video_remove_requested.connect(self._on_video_remove_requested)
+        self.sidebar.sensor_remove_requested.connect(self._on_sensor_remove_requested)
 
-        layout.addWidget(splitter)
-        layout.addWidget(self.transport)
+        h_splitter = QSplitter(Qt.Orientation.Horizontal)
+        h_splitter.addWidget(self.sidebar)
+
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+
+        v_splitter = QSplitter(Qt.Orientation.Vertical)
+        v_splitter.addWidget(self.video_grid)
+        v_splitter.addWidget(self.plot_pane)
+        v_splitter.setStretchFactor(0, 3)
+        v_splitter.setStretchFactor(1, 1)
+
+        right_layout.addWidget(v_splitter)
+        right_layout.addWidget(self.transport)
+
+        h_splitter.addWidget(right_widget)
+        h_splitter.setStretchFactor(0, 0)
+        h_splitter.setStretchFactor(1, 1)
+
+        layout.addWidget(h_splitter)
 
         # Menu
         self._setup_menu()
@@ -94,8 +116,30 @@ class MainWindow(QMainWindow):
             vloader.open(path, {})
             b = vloader.time_bounds()
             self._update_bounds(b[0], b[1])
+            metadata = {
+                "fps": vloader._fps,
+                "codec": getattr(vloader, "_codec", "unknown"),
+                "duration": vloader._duration
+            }
+            self.sidebar.add_video(str(path), metadata)
         except Exception:
             pass
+
+    def _on_video_offset_changed(self, path: str, offset: float) -> None:
+        self.video_grid.set_offset(path, offset)
+        self.clock.play()  # Force an update/re-sync
+        self.clock.pause()
+
+    def _on_video_remove_requested(self, path: str) -> None:
+        self.video_grid.remove_pane(path)
+        self.sidebar.remove_video(path)
+
+    def _on_sensor_remove_requested(self, path: str) -> None:
+        from kinochronix.core.cache import CacheManager
+        cache_mgr = CacheManager(loader_version=1)
+        cache_dir = cache_mgr.get_temp_cache_dir(Path(path))
+        self.plot_pane.remove_channels(cache_dir)
+        self.sidebar.remove_sensor(path)
 
     def _open_video(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(self, "Open Video(s)")
@@ -145,11 +189,13 @@ class MainWindow(QMainWindow):
         self._import_thread.start()
 
     def _on_import_finished(
-        self, cache_dir: Path, channels: list[str], bounds: tuple[float, float]
+        self, path: str, cache_dir: str, channels: list[str], bounds: tuple[float, float]
     ) -> None:
+        print(f"DEBUG _on_import_finished called with path={path}, cache_dir={cache_dir}, channels={channels}")
         self._progress_dialog.close()
-        self.plot_pane.load_channels(cache_dir, channels)
+        self.plot_pane.load_channels(Path(cache_dir), channels)
         self._update_bounds(bounds[0], bounds[1])
+        self.sidebar.add_sensor(path, channels)
 
     def _on_import_error(self, err_msg: str) -> None:
         self._progress_dialog.close()

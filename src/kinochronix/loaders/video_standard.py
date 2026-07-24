@@ -66,10 +66,13 @@ class VideoStandardLoader(VideoSource):
         video_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
 
         if video_stream:
+            self._codec = video_stream.get("codec_name", "unknown")
             r_frame_rate = video_stream.get("r_frame_rate", "0/0")
             num, den = r_frame_rate.split("/")
             if float(den) > 0:
                 self._fps = float(num) / float(den)
+        else:
+            self._codec = "unknown"
 
         # Parse frame times (to ensure correct frame stepping for VFR/dropped-frames)
         # Note: This is an expensive operation for large videos, so we could defer it

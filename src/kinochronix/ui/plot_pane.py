@@ -63,19 +63,16 @@ class PlotPane(QWidget):
 
     def load_channels(self, cache_dir: Path, channel_names: list[str]) -> None:
         """Load multiple data sources from cache and build plot rows."""
-        # Clear existing plots
-        self.graphics_layout.clear()
-        self.channels.clear()
-        self._master_plot = None
-
         if not channel_names:
             return
+
+        start_row = len(self.channels)
 
         for i, ch_name in enumerate(channel_names):
             reader = PyramidReader(cache_dir, ch_name)
 
             # Create plot item
-            plot_item = self.graphics_layout.addPlot(row=i, col=0)
+            plot_item = self.graphics_layout.addPlot(row=start_row + i, col=0)
             plot_item.setLabel("left", ch_name)
             plot_item.showGrid(x=True, y=True, alpha=0.3)
 
@@ -88,7 +85,7 @@ class PlotPane(QWidget):
                 plot_item.setXLink(self._master_plot)
 
             # Aesthetics
-            color = CHANNEL_COLORS[i % len(CHANNEL_COLORS)]
+            color = CHANNEL_COLORS[(start_row + i) % len(CHANNEL_COLORS)]
             pen = pg.mkPen(color=color, width=1)
             brush = pg.mkBrush(*color, 100)
 
@@ -114,13 +111,35 @@ class PlotPane(QWidget):
                 cursor_line=cursor_line
             ))
 
-        # Reset view range to full bounds using the master plot
-        if self._master_plot and self.channels:
+        # Reset view range to full bounds using the master plot if it's the first source
+        if self._master_plot and start_row == 0 and self.channels:
             t, _, _, _ = self.channels[0].reader._load_level(1)
             if len(t) > 0:
                 self._master_plot.setXRange(float(t[0]), float(t[-1]))
 
         self.update_plots()
+
+    def remove_channels(self, cache_dir: Path) -> None:
+        """Remove all channels associated with a specific cache_dir (source)."""
+        to_remove = [ch for ch in self.channels if ch.reader.cache_dir == cache_dir]
+        for ch in to_remove:
+            self.graphics_layout.removeItem(ch.plot_item)
+            self.channels.remove(ch)
+            
+            if self._master_plot == ch.plot_item:
+                if self.channels:
+                    self._master_plot = self.channels[0].plot_item
+                    self._master_plot.sigXRangeChanged.connect(self.update_plots)
+                else:
+                    self._master_plot = None
+                    
+        # Update X-links to new master
+        if self._master_plot:
+            for ch in self.channels:
+                if ch.plot_item != self._master_plot:
+                    ch.plot_item.setXLink(self._master_plot)
+        
+        # We don't automatically update view bounds on remove to preserve UX state
 
     def load_source(self, cache_dir: Path, channel_id: str) -> None:
         """Backwards compatibility for Phase 2 single-channel load."""

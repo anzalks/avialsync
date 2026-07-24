@@ -18,7 +18,7 @@ class ImportWorker(QObject):
     """
 
     progress = Signal(int)  # 0-100
-    finished = Signal(Path, list, tuple)  # cache_dir, channel_names, (t0, t1)
+    finished = Signal(str, str, list, tuple)  # original_path, cache_dir, channel_names, (t0, t1)
     error = Signal(str)
 
     def __init__(self, path: Path, config: dict[str, Any]) -> None:
@@ -78,14 +78,19 @@ class ImportWorker(QObject):
                 # Don't emit finished if cancelled
                 return
 
-            # Atomically commit cache
+            # Emit bounds of the first channel as the source bounds
+            t0, t1 = 0.0, 0.0
+            if channel_names:
+                from kinochronix.core.pyramid import PyramidReader
+                pr = PyramidReader(temp_dir, channel_names[0])
+                t, _, _, _ = pr._load_level(1)
+                if len(t) > 0:
+                    t0, t1 = float(t[0]), float(t[-1])
+
             cache_mgr.commit_cache(self.path, temp_dir)
-            cache_dir = cache_mgr.get_cache_dir(self.path)
+            final_dir = cache_mgr.get_cache_dir(self.path)
 
-            # Get bounds
-            bounds = loader.time_bounds()
-
-            self.finished.emit(cache_dir, channel_names, bounds)
+            self.finished.emit(str(self.path), str(final_dir), channel_names, (t0, t1))
 
         except Exception as e:
             traceback.print_exc()
