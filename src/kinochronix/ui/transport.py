@@ -167,6 +167,11 @@ class Transport(QWidget):
         self._pin_in = _ABPin("#2a9d8f", self)
         self._pin_out = _ABPin("#e76f51", self)
 
+        # Prevent buttons/combos from stealing the Spacebar shortcut
+        for widget in self.findChildren(QWidget):
+            if isinstance(widget, (QPushButton, QComboBox, QSlider)):
+                widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
     # ── Public API ────────────────────────────────────────────────────
 
     def set_bounds(self, t0: float, t1: float) -> None:

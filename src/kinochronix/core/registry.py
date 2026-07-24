@@ -15,11 +15,18 @@ class LoaderRegistry:
 
     def _discover(self) -> None:
         """Find all loaders in the kinochronix.loaders entry point group."""
+        from kinochronix.loaders.csv_loader import CSVLoader
+        from kinochronix.loaders.video_standard import VideoStandardLoader
+        from kinochronix.loaders.tracking_loader import TrackingLoader
+        
+        self._loaders = [CSVLoader, VideoStandardLoader, TrackingLoader]
+
         eps = entry_points(group="kinochronix.loaders")
         for ep in eps:
             try:
                 plugin_cls = ep.load()
-                self._loaders.append(plugin_cls)
+                if plugin_cls not in self._loaders:
+                    self._loaders.append(plugin_cls)
             except Exception:
                 # Silently ignore failed plugins per discovery best practices,
                 # or log them if a logger is configured.

@@ -38,6 +38,11 @@ class VideoGrid(QWidget):
 
     # ── Public API ────────────────────────────────────────────────────
 
+    def set_tracking_readers(self, readers: list) -> None:
+        """Pass tracking data readers to all video panes for overlay rendering."""
+        for pane in self.panes:
+            pane.set_tracking_readers(readers)
+
     def set_grid_mode(self, enabled: bool) -> None:
         """Switch between horizontal-strip and NxN grid layout."""
         if enabled == self._grid_mode:

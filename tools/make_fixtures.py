@@ -100,6 +100,21 @@ def generate_video(
 
         # Add visual noise or sweep pattern so it's not totally static
         frame = np.full((height, width), (i % 256), dtype=np.uint8)
+        
+        # Draw a moving square that matches the DLC tracking nose path
+        # t = i / fps
+        t = i / fps
+        nose_x = int(320 + 200 * np.sin(2 * np.pi * 0.5 * t))
+        nose_y = int(180 + 100 * np.cos(2 * np.pi * 0.5 * t))
+        
+        # Draw 20x20 white square
+        sz = 10
+        y0 = max(0, nose_y - sz)
+        y1 = min(height, nose_y + sz)
+        x0 = max(0, nose_x - sz)
+        x1 = min(width, nose_x + sz)
+        frame[y0:y1, x0:x1] = 255
+
 
         # Encode binary index in top row
         encode_frame_index(frame, i)
@@ -362,41 +377,70 @@ def generate_signal(
         json.dump(meta, f, indent=2)
 
 
+def generate_dlc_tracking(out_path: pathlib.Path, duration_s: float, fps: float = 30.0) -> None:
+    """Generate dummy DeepLabCut multi-index CSV data."""
+    n_points = int(duration_s * fps)
+    t = np.arange(n_points) / fps
+    
+    # 3 body parts: nose, left_ear, right_ear
+    # Sinusoidal movement
+    nose_x = 320 + 200 * np.sin(2 * np.pi * 0.5 * t)
+    nose_y = 180 + 100 * np.cos(2 * np.pi * 0.5 * t)
+    
+    left_ear_x = nose_x - 30
+    left_ear_y = nose_y - 20
+    
+    right_ear_x = nose_x + 30
+    right_ear_y = nose_y - 20
+    
+    # Static likelihood
+    likelihood = np.ones(n_points) * 0.95
+    
+    with open(out_path, "w") as f:
+        # Write multi-index header
+        f.write('scorer,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model\n')
+        f.write('bodyparts,nose,nose,nose,left_ear,left_ear,left_ear,right_ear,right_ear,right_ear\n')
+        f.write('coords,x,y,likelihood,x,y,likelihood,x,y,likelihood\n')
+        
+        for i in range(n_points):
+            f.write(f"{i},{nose_x[i]:.2f},{nose_y[i]:.2f},{likelihood[i]:.2f},"
+                    f"{left_ear_x[i]:.2f},{left_ear_y[i]:.2f},{likelihood[i]:.2f},"
+                    f"{right_ear_x[i]:.2f},{right_ear_y[i]:.2f},{likelihood[i]:.2f}\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--small", action="store_true")
-    parser.add_argument("--big", action="store_true")
+    parser.add_argument("--small", action="store_true", help="Generate tiny files for fast tests")
+    parser.add_argument("--big", action="store_true", help="Generate 1-hour files for perf testing")
     args = parser.parse_args()
 
-    np.random.seed(args.seed)
-
-    repo_root = pathlib.Path(__file__).parent.parent
-    fixtures_dir = repo_root / "tests" / "fixtures"
-
+    fixtures_dir = pathlib.Path(__file__).parent.parent / "tests" / "fixtures"
     if fixtures_dir.exists():
         shutil.rmtree(fixtures_dir)
+    fixtures_dir.mkdir(parents=True)
 
     vid_dir = fixtures_dir / "videos"
     sig_dir = fixtures_dir / "signals"
-    vid_dir.mkdir(parents=True)
-    sig_dir.mkdir(parents=True)
+    vid_dir.mkdir()
+    sig_dir.mkdir()
 
     # 1. Generate Videos
-    vid_dur = 1 if args.small else 10
-    fps = 30
-    frames = vid_dur * fps
+    if args.small:
+        frames = 30
+        fps = 30.0
+    elif args.big:
+        frames = 30 * 3600
+        fps = 30.0
+    else:
+        frames = 30 * 10
+        fps = 30.0
 
-    generate_video(vid_dir / "base_30fps.mp4", fps, frames, "base")
+    generate_video(vid_dir / "camera_1.mp4", fps, frames)
+    generate_video(vid_dir / "camera_2.mp4", fps, frames, offset=2.5)
+    generate_video(vid_dir / "camera_3.mp4", fps, frames, offset=-1.0, drift_ppm=100.0)
+    
     generate_video(vid_dir / "high_10bit.mp4", fps, frames, "high_10bit")
     generate_video(vid_dir / "mono_12bit.mp4", fps, frames, "mono_12bit")
-
-    # 3-camera set
-    generate_video(vid_dir / "camera_1.mp4", fps, frames, "base", offset=0.0)
-    generate_video(vid_dir / "camera_2.mp4", fps, frames, "base", offset=1.234)
-    generate_video(vid_dir / "camera_3.mp4", fps, frames, "base", offset=7.500)
-    generate_video(vid_dir / "camera_drift.mp4", fps, frames, "base", drift_ppm=2.0)
-
     generate_video(vid_dir / "vfr.mp4", fps, frames, "vfr")
     generate_video(vid_dir / "dropped_frames.mp4", fps, frames, "dropped_frames")
     generate_video(vid_dir / "no_metadata.mp4", fps, frames, "no_metadata")
@@ -427,7 +471,10 @@ def main() -> None:
     generate_signal(sig_dir / "signal_units_row.csv", path_dur, variant="units_row")
     generate_signal(sig_dir / "signal_nan_gap_sentinel.csv", path_dur, variant="nan_gap_sentinel")
 
-    # 3. Create Sample Session
+    # 3. Generate DLC tracking data
+    generate_dlc_tracking(sig_dir / "tracking_dlc.csv", base_dur, fps)
+
+    # 4. Create Sample Session
     sample_dir = fixtures_dir / "sample_session"
     sample_dir.mkdir(parents=True)
     # Just copy camera 1 and base signal for a tiny sample dataset
@@ -435,6 +482,7 @@ def main() -> None:
     shutil.copy(vid_dir / "camera_1.json", sample_dir / "camera_1.json")
     shutil.copy(sig_dir / "signal_base.csv", sample_dir / "signal_base.csv")
     shutil.copy(sig_dir / "signal_base.json", sample_dir / "signal_base.json")
+    shutil.copy(sig_dir / "tracking_dlc.csv", sample_dir / "tracking_dlc.csv")
 
     print("Fixtures generated successfully.")
 

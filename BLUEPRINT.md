@@ -116,7 +116,7 @@ Exit criteria: scripted UX walkthrough (pytest-qt integration test) covering ope
 **Goal:** third parties can add proprietary formats; normal users can install in one click.
 
 Deliverables:
-- Public plugin API v1: entry-point group `kinochronix.loaders`; document + freeze the `TimeSeriesSource`/`VideoSource` ABCs; example external plugin repo (`kinochronix-plugin-example`) reading a toy binary format.
+- Public plugin API v1: Drop-in directory system (`~/.kinochronix/plugins/` and bundled `examples/plugins/`); document + freeze the `TimeSeriesSource`/`VideoSource` ABCs; PluginManager uses `sys._MEIPASS` for compiled bundles.
 - Loader capability negotiation (can_open(path) → score) and per-plugin config UI hook.
 - Packaging per ARCHITECTURE §6 / D-012..D-017: PyPI wheel + sdist; PyInstaller **one-dir**
   bundles with LGPL-verified mpv/ffmpeg (build-flavor assertion in CI); Inno Setup installer;
@@ -129,8 +129,7 @@ Deliverables:
 
 Exit criteria: a stranger can `pip install kinochronix` **on a machine WITHOUT mpv installed**
 (guided dialog / auto-fetch gets them running) or download an installer, and open the sample
-dataset in < 5 minutes with zero manual dependency steps; example plugin installs via pip and
-appears in the import dialog; installers verified to contain LGPL-flavor binaries.
+dataset in < 5 minutes with zero manual dependency steps; users can drop a `.py` plugin into their folder and it appears in the import dialog; installers verified to contain LGPL-flavor binaries.
 
 ## Phase 6 — Release & community (Week 13–16)
 

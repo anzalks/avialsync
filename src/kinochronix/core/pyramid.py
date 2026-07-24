@@ -159,3 +159,31 @@ class PyramidReader:
         lvl_i1 = np.searchsorted(t, t1, side="right")
 
         return t[lvl_i0:lvl_i1], vmin[lvl_i0:lvl_i1], vmax[lvl_i0:lvl_i1], gap[lvl_i0:lvl_i1]
+
+    def value_at(self, t_target: float) -> float:
+        """
+        Return the exact value at the given time `t_target` using the highest resolution level.
+        Returns np.nan if out of bounds or if the nearest point is across a gap.
+        """
+        t, vmin, _, gap = self._load_level(1)
+        if len(t) == 0:
+            return float("nan")
+
+        idx = np.searchsorted(t, t_target)
+        
+        if idx == len(t):
+            return float("nan") if t_target - t[-1] > 0.1 else float(vmin[-1])
+            
+        if t[idx] == t_target:
+            return float(vmin[idx]) if not gap[idx] else float("nan")
+            
+        if idx == 0:
+            return float("nan") if t[0] - t_target > 0.1 else float(vmin[0])
+            
+        left_idx = idx - 1
+        right_idx = idx
+        
+        if (t_target - t[left_idx]) <= (t[right_idx] - t_target):
+            return float(vmin[left_idx]) if not gap[left_idx] else float("nan")
+        else:
+            return float(vmin[right_idx]) if not gap[right_idx] else float("nan")

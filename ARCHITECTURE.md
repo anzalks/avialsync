@@ -30,7 +30,7 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │   │   ├── source.py                 # ABCs: TimeSeriesSource, VideoSource (plugin contract, §4)
 │   │   ├── pyramid.py                # NaN/gap-aware min-max pyramid build + query (D-009)
 │   │   ├── cache.py                  # .kcache/ sidecar manager, content-hash key (D-008), atomic writes
-│   │   ├── registry.py               # plugin discovery via entry points `kinochronix.loaders`
+│   │   ├── registry.py               # directory scanner and dynamic module loader (`~/.kinochronix/plugins/`)
 │   │   └── errors.py                 # typed exceptions (NonMonotonicTimeError, ...)
 │   ├── loaders/                      # built-in plugins (use ONLY the public core API)
 │   │   ├── csv_loader.py             # polars; chunked ingest (D-005); tz/anchor/sentinel config
@@ -58,6 +58,9 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │   └── make_fixtures.py              # ground-truth generator: frame-strip videos, 50 kHz signals,
 │                                     #   ALL edge-case variants (TESTING §7); deterministic, CI-run
 │
+├── scripts/                          # playground/scratch folder for manual experiments and tests;
+│                                     #   not shipped with the package, just for dev convenience
+│
 ├── tests/                            # mirrors src/ layout
 │   ├── conftest.py                   # offscreen Qt, fixture paths, qtbot helpers
 │   ├── util_framestrip.py            # numpy decoder for burned frame indices (+ its own test)
@@ -84,8 +87,9 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │       └── make_appimage.sh          # KinoChronix.AppImage
 │
 ├── examples/
-│   └── kinochronix-plugin-example/   # complete external loader plugin (toy binary format);
-│                                     #   template for kinochronix-plugin-<name> authors (Phase 5)
+│   ├── data/                         # user-provided sample footage and sensor/tracking data for manual testing
+│   └── plugins/                      # bundled plugins loaded via sys._MEIPASS on compiled builds;
+│                                     #   template for custom drop-in plugin authors (Phase 5)
 │
 ├── docs/                             # mkdocs-material site → GitHub Pages (Phase 5)
 │   ├── mkdocs.yml
@@ -204,8 +208,8 @@ placeholder (never last frame frozen, which misleads); plots show axis with no c
 shows "—". Timeline bounds = union of all sources; a 4 h video + 10 min data is legal and the
 overview strip shades each source's coverage span.
 
-Discovery: Python entry points group `kinochronix.loaders`; highest `can_open` score wins,
-ties → user picks. Built-ins register the same way (no special path).
+Discovery: Dynamic directory scanning (`~/.kinochronix/plugins/` and bundled `examples/plugins/`); highest `can_open` score wins,
+ties → user picks. Built-ins register directly into the PluginManager.
 
 ## 5. Session file (.kcx, JSON, schema_version field)
 

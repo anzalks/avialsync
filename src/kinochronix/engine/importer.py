@@ -21,10 +21,11 @@ class ImportWorker(QObject):
     finished = Signal(str, str, list, tuple)  # original_path, cache_dir, channel_names, (t0, t1)
     error = Signal(str)
 
-    def __init__(self, path: Path, config: dict[str, Any]) -> None:
+    def __init__(self, path: Path, config: dict[str, Any], loader_class: type = CSVLoader) -> None:
         super().__init__()
         self.path = path
         self.config = config
+        self.loader_class = loader_class
         self._cancel_flag = False
 
     def cancel(self) -> None:
@@ -32,7 +33,7 @@ class ImportWorker(QObject):
 
     def run(self) -> None:
         try:
-            loader = CSVLoader()
+            loader = self.loader_class()
             loader.open(self.path, self.config)
 
             cache_mgr = CacheManager(loader_version=1)

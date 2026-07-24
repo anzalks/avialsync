@@ -57,6 +57,14 @@ class Player(QObject):
 
     def set_playing(self, playing: bool) -> None:
         if playing:
+            # Wrap around to start if at the very end
+            current_t = self.clock.state.t
+            end_t = self.transport._bounds[1] if self._ab_out is None else self._ab_out
+            start_t = self.transport._bounds[0] if self._ab_in is None else self._ab_in
+            
+            if current_t >= end_t - 0.05:
+                self.seek(start_t, exact=True)
+                
             self._last_tick_monotonic = time.monotonic()
             self.clock.play()
             for pane in self.video_grid.panes:

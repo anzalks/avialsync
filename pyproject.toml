@@ -35,6 +35,7 @@ kinochronix = "kinochronix.__main__:main"
 [project.entry-points."kinochronix.loaders"]
 csv = "kinochronix.loaders.csv_loader:CSVLoader"
 video = "kinochronix.loaders.video_standard:VideoStandardLoader"
+tracking = "kinochronix.loaders.tracking_loader:TrackingLoader"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kinochronix"]

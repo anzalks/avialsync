@@ -83,6 +83,7 @@ class MainWindow(QMainWindow):
         # Readout panel
         self.readout_panel = ReadoutPanel(self)
         self.plot_pane.sources_changed.connect(self.readout_panel.update_sources)
+        self.plot_pane.sources_changed.connect(self.video_grid.set_tracking_readers)
         self.player._readout_panel = self.readout_panel
 
         # Annotation panel
@@ -836,12 +837,30 @@ class MainWindow(QMainWindow):
             self._start_csv_import(Path(path))
 
     def _start_csv_import(self, path: Path) -> None:
-        from kinochronix.ui.import_wizard import ImportWizard
-
-        wizard = ImportWizard(path, self)
-        if wizard.exec() != ImportWizard.DialogCode.Accepted:
+        from kinochronix.core.registry import LoaderRegistry
+        registry = LoaderRegistry()
+        loader_cls = registry.find_best_loader(path)
+        if not loader_cls:
+            QMessageBox.warning(self, "Unsupported File", "No suitable loader found for this file.")
             return
-        config = wizard.config()
+            
+        from kinochronix.loaders.csv_loader import CSVLoader
+        if loader_cls is CSVLoader:
+            from kinochronix.ui.import_wizard import ImportWizard
+            wizard = ImportWizard(path, self)
+            if wizard.exec() != ImportWizard.DialogCode.Accepted:
+                return
+            config = wizard.config()
+        else:
+            from PySide6.QtWidgets import QInputDialog
+            fps, ok = QInputDialog.getDouble(
+                self, "Tracking Data FPS", 
+                "Enter the video frame rate for this tracking data:", 
+                30.0, 1.0, 1000.0, 2
+            )
+            if not ok:
+                return
+            config = {"fps": fps}
 
         from PySide6.QtCore import QThread
         from PySide6.QtWidgets import QProgressDialog
@@ -849,7 +868,7 @@ class MainWindow(QMainWindow):
         from kinochronix.engine.importer import ImportWorker
 
         self._import_thread = QThread()
-        self._import_worker = ImportWorker(path, config)
+        self._import_worker = ImportWorker(path, config, loader_cls)
         self._import_worker.moveToThread(self._import_thread)
 
         self._progress_dialog = QProgressDialog("Importing CSV…", "Cancel", 0, 100, self)
