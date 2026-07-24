@@ -74,8 +74,10 @@ class MainWindow(QMainWindow):
         self.sidebar.open_sensor_requested.connect(self._open_csv)
         self.sidebar.video_offset_changed.connect(self._on_video_offset_changed)
         self.sidebar.video_remove_requested.connect(self._on_video_remove_requested)
+        self.sidebar.video_visibility_changed.connect(self.video_grid.set_pane_visible)
         self.sidebar.sensor_remove_requested.connect(self._on_sensor_remove_requested)
         self.sidebar.channel_remove_requested.connect(self._on_channel_remove_requested)
+        self.sidebar.channel_visibility_changed.connect(self._on_channel_visibility_changed)
         self.sidebar.grid_mode_changed.connect(self.video_grid.set_grid_mode)
 
         # Readout panel
@@ -812,8 +814,15 @@ class MainWindow(QMainWindow):
         self.plot_pane.remove_channels(cache_dir)
         self.sidebar.remove_sensor(path)
 
-    def _on_channel_remove_requested(self, sensor_path: str, channel: str) -> None:
+    def _on_channel_remove_requested(self, path: str, channel: str) -> None:
         self.plot_pane.remove_channel(channel)
+        self._update_window_title()
+
+    def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
+        self.plot_pane.set_channel_visible(channel, is_visible)
+
+    def _on_video_visibility_changed(self, path: str, is_visible: bool) -> None:
+        self.video_grid.set_pane_visible(path, is_visible)
 
     def _open_video(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(self, "Open Video(s)")

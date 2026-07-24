@@ -30,9 +30,7 @@ class ChannelPlot:
     name: str
     reader: PyramidReader
     plot_item: pg.PlotItem
-    curve_min: pg.PlotCurveItem
-    curve_max: pg.PlotCurveItem
-    fill: pg.FillBetweenItem
+    curve: pg.PlotCurveItem
     cursor_line: pg.InfiniteLine
     coverage_region: pg.LinearRegionItem | None = None
 
@@ -83,6 +81,7 @@ class PlotPane(QWidget):
             # Create plot item
             plot_item = self.graphics_layout.addPlot(row=start_row + i, col=0)
             plot_item.setLabel("left", ch_name)
+            plot_item.getAxis("left").setWidth(70)
             plot_item.showGrid(x=True, y=True, alpha=0.3)
 
             # Link X-axes
@@ -95,16 +94,10 @@ class PlotPane(QWidget):
 
             # Aesthetics
             color = CHANNEL_COLORS[(start_row + i) % len(CHANNEL_COLORS)]
-            pen = pg.mkPen(color=color, width=1)
-            brush = pg.mkBrush(*color, 100)
+            pen = pg.mkPen(color=color, width=1.5)
 
-            curve_min = pg.PlotCurveItem(pen=pen, connect="finite")
-            curve_max = pg.PlotCurveItem(pen=pen, connect="finite")
-            fill = pg.FillBetweenItem(curve_min, curve_max, brush=brush)
-
-            plot_item.addItem(curve_min)
-            plot_item.addItem(curve_max)
-            plot_item.addItem(fill)
+            curve = pg.PlotCurveItem(pen=pen, connect="finite")
+            plot_item.addItem(curve)
 
             # Cursor line
             cursor_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen("y", width=2))
@@ -127,9 +120,7 @@ class PlotPane(QWidget):
                     name=ch_name,
                     reader=reader,
                     plot_item=plot_item,
-                    curve_min=curve_min,
-                    curve_max=curve_max,
-                    fill=fill,
+                    curve=curve,
                     cursor_line=cursor_line,
                     coverage_region=coverage_region,
                 )
@@ -208,23 +199,14 @@ class PlotPane(QWidget):
             t, vmin, vmax, gap = ch.reader.query(t0, t1, max_points=1500)
 
             if len(t) == 0:
-                ch.curve_min.setData([], [])
-                ch.curve_max.setData([], [])
+                ch.curve.setData([], [])
                 continue
 
             # Break lines across gaps and handle NaN
-            vmin = vmin.copy()
-            vmax = vmax.copy()
-            vmin[gap] = np.nan
-            vmax[gap] = np.nan
+            v_mean = (vmin + vmax) / 2.0
+            v_mean[gap] = np.nan
 
-            ch.curve_min.setData(t, vmin)
-
-            # Optimization: if vmin == vmax (level 1), don't draw max and fill
-            if np.array_equal(vmin, vmax, equal_nan=True):
-                ch.curve_max.setData([], [])
-            else:
-                ch.curve_max.setData(t, vmax)
+            ch.curve.setData(t, v_mean)
 
     def set_cursor(self, t: float) -> None:
         """Update playhead position independently of curve redraws on all channels."""
@@ -241,6 +223,14 @@ class PlotPane(QWidget):
     def set_follow_playhead(self, follow: bool) -> None:
         """Toggle playhead following mode."""
         self.follow_playhead = follow
+
+    def set_channel_visible(self, channel_id: str, visible: bool) -> None:
+        """Show or hide a specific channel's plot row."""
+        for ch in self.channels:
+            if ch.name == channel_id:
+                ch.plot_item.setVisible(visible)
+                # When showing/hiding, the layout updates automatically
+                break
 
     def reset_zoom(self) -> None:
         """Reset all plot axes to their full data extent."""

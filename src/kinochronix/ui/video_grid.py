@@ -83,6 +83,15 @@ class VideoGrid(QWidget):
         except ValueError:
             pass
 
+    def set_pane_visible(self, path: str, visible: bool) -> None:
+        """Show or hide a video pane without unloading it."""
+        try:
+            idx = self._paths.index(path)
+            self.panes[idx].setVisible(visible)
+            # The layout will automatically hide the item and reclaim space
+        except ValueError:
+            pass
+
     # ── Internal ──────────────────────────────────────────────────────
 
     def _relayout(self) -> None:

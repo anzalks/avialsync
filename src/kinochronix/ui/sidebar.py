@@ -14,6 +14,9 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QVBoxLayout,
     QWidget,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QHeaderView,
 )
 
 
@@ -22,6 +25,7 @@ class SensorInfoWidget(QFrame):
 
     remove_requested = Signal(str)  # whole sensor removed
     channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
+    channel_visibility_changed = Signal(str, str, bool)  # sensor_path, channel_name, is_visible
 
     def __init__(self, path: str, channels: list[str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -67,14 +71,11 @@ class SensorInfoWidget(QFrame):
         layout.addWidget(sep)
 
         # ── Channel Tree ─────────────────────────────────────────────
-        from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QHeaderView
 
         self.tree = QTreeWidget()
-        self.tree.setColumnCount(2)
+        self.tree.setColumnCount(1)
         self.tree.setHeaderHidden(True)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        self.tree.header().resizeSection(1, 24)
         self.tree.setIndentation(12)
         self.tree.setMinimumHeight(120)
         self.tree.setMaximumHeight(250)
@@ -104,15 +105,18 @@ class SensorInfoWidget(QFrame):
             item = QTreeWidgetItem(nodes[parent_path])
             item.setText(0, leaf_part)
             item.setToolTip(0, ch)
-            
-            rm_btn = QPushButton("×")
-            rm_btn.setFixedSize(16, 16)
-            rm_btn.setToolTip(f"Remove {ch}")
-            rm_btn.setStyleSheet("font-size: 10px; padding: 0;")
-            rm_btn.clicked.connect(lambda checked=False, c=ch: self._on_channel_remove(self.path, c))
-            self.tree.setItemWidget(item, 1, rm_btn)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(0, Qt.CheckState.Checked)
             
             self._channel_items[ch] = item
+
+        self.tree.itemChanged.connect(self._on_item_changed)
+
+    def _on_item_changed(self, item: QTreeWidgetItem, column: int) -> None:
+        ch = item.toolTip(0)
+        if ch:
+            is_visible = (item.checkState(0) == Qt.CheckState.Checked)
+            self.channel_visibility_changed.emit(self.path, ch, is_visible)
 
     def _on_channel_remove(self, sensor_path: str, channel: str) -> None:
         item = self._channel_items.pop(channel, None)
@@ -127,6 +131,7 @@ class VideoInfoWidget(QFrame):
 
     remove_requested = Signal(str)  # Emits the file path
     offset_changed = Signal(str, float)  # Emits path, new offset
+    visibility_changed = Signal(str, bool)  # Emits path, is_visible
 
     def __init__(self, path: str, metadata: dict, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -136,8 +141,15 @@ class VideoInfoWidget(QFrame):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
 
-        # Header: Name and Close button
+        # Header: Checkbox, Name, and Close button
+        from PySide6.QtWidgets import QCheckBox
         header_layout = QHBoxLayout()
+        
+        self.visibility_cb = QCheckBox()
+        self.visibility_cb.setChecked(True)
+        self.visibility_cb.setToolTip("Show/Hide video pane")
+        self.visibility_cb.toggled.connect(lambda checked: self.visibility_changed.emit(self.path, checked))
+
         name_lbl = QLabel(Path(path).name)
         name_lbl.setToolTip(path)
         name_lbl.setStyleSheet("font-weight: bold;")
@@ -146,6 +158,7 @@ class VideoInfoWidget(QFrame):
         close_btn.setFixedSize(20, 20)
         close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
 
+        header_layout.addWidget(self.visibility_cb)
         header_layout.addWidget(name_lbl, stretch=1)
         header_layout.addWidget(close_btn)
         layout.addLayout(header_layout)
@@ -187,8 +200,10 @@ class SidebarPane(QWidget):
 
     video_offset_changed = Signal(str, float)
     video_remove_requested = Signal(str)
+    video_visibility_changed = Signal(str, bool)
     sensor_remove_requested = Signal(str)
     channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
+    channel_visibility_changed = Signal(str, str, bool)  # sensor_path, channel_name, is_visible
     grid_mode_changed = Signal(bool)  # True = NxN grid, False = strip
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -254,6 +269,7 @@ class SidebarPane(QWidget):
         widget = VideoInfoWidget(path, metadata)
         widget.offset_changed.connect(self.video_offset_changed)
         widget.remove_requested.connect(self.video_remove_requested)
+        widget.visibility_changed.connect(self.video_visibility_changed)
 
         self.videos_layout.addWidget(widget)
         self._video_widgets[path] = widget
@@ -278,6 +294,7 @@ class SidebarPane(QWidget):
         widget = SensorInfoWidget(path, channels)
         widget.remove_requested.connect(self.sensor_remove_requested)
         widget.channel_remove_requested.connect(self.channel_remove_requested)
+        widget.channel_visibility_changed.connect(self.channel_visibility_changed)
         self.sensors_layout.addWidget(widget)
 
     def remove_sensor(self, path: str) -> None:
