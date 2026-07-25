@@ -6,11 +6,14 @@ Probes for libmpv, hardware decode capability, and disk read speed.
 import os
 import sys
 import tempfile
+import threading
 import time
 
 from PySide6.QtWidgets import QMessageBox
 
 _LIBMPV_AVAILABLE: bool | None = None
+_STARTUP_DIAGNOSTICS: dict | None = None
+_STARTUP_DIAGNOSTICS_LOCK = threading.Lock()
 
 
 def _configure_macos_env() -> None:
@@ -130,13 +133,18 @@ def run_startup_diagnostics(parent=None) -> dict:
     ``libmpv`` key is filled immediately; ``hwdec`` and
     ``disk_speed_mbps`` arrive once the thread finishes.
     """
-    import threading
+    global _STARTUP_DIAGNOSTICS
 
-    diag: dict = {
-        "libmpv": _LIBMPV_AVAILABLE or False,
-        "hwdec": {},
-        "disk_speed_mbps": 0.0,
-    }
+    with _STARTUP_DIAGNOSTICS_LOCK:
+        if _STARTUP_DIAGNOSTICS is not None:
+            return _STARTUP_DIAGNOSTICS
+
+        diag: dict = {
+            "libmpv": _LIBMPV_AVAILABLE or False,
+            "hwdec": {},
+            "disk_speed_mbps": 0.0,
+        }
+        _STARTUP_DIAGNOSTICS = diag
 
     def _probe():
         diag["hwdec"] = probe_hwdec()
@@ -158,7 +166,7 @@ def run_startup_diagnostics(parent=None) -> dict:
 
             QTimer.singleShot(0, _warn)
 
-    t = threading.Thread(target=_probe, daemon=True)
+    t = threading.Thread(target=_probe, daemon=True, name="kinochronix-diagnostics")
     t.start()
 
     return diag

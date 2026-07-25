@@ -37,7 +37,9 @@ Forbidden spellings: `Kinochronix`, `kinoChronix`, `kino_chronix`, `kino-chronix
 
 ## Phase Status
 
-Phases 0–4 complete. Phase 5 (plugin API + packaging) is next.
+Phases 0–4 complete. Phase 5.1 has frozen the Plugin API v1: time-series plugins
+provide chunked ingest only; video sources open asynchronously through the registry,
+retain D-006 conversion hooks, and may be discovered through entry points or drop-ins.
 
 ### Done (Phase 4)
 - Session save/load `.kcx`, autosave 2 min, recent files, relink dialog
@@ -99,6 +101,9 @@ Phases 0–4 complete. Phase 5 (plugin API + packaging) is next.
 - Bug: `Any` not imported from `typing` in `main_window.py`
 - Bug: `_start_csv_import` → `_start_data_import` (AttributeError on session restore with sensors)
 - Bug: `_update_window_title()` called but never defined — removed phantom call in `_on_channel_remove_requested`
+- Drag/drop routes files and directories through `LoaderRegistry` capability negotiation. Video
+  workers are retained until their QThread finishes, so dropped videos now open reliably; Neo,
+  tracking, sensor, and third-party source types route to their matching import pipeline.
 
 ### Pre-existing mypy errors (suppressed in pyproject.toml — cleanup is a separate task)
 10 modules have `ignore_errors = true` in `[[tool.mypy.overrides]]`:

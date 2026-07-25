@@ -97,13 +97,13 @@ def test_pathological_gap_mask():
     """Verify subsampled gap_mask (stride 10k) detects correctly on clustered gaps (D-023)."""
     # Create 180k samples, uniform dt=0.02 (50Hz)
     t = np.arange(180_000, dtype=float) * 0.02
-    
+
     # Inject a clustered block of large gaps near the end
     # This creates 1000 sequential gaps of 10.02s each.
     t[-1000:] += np.arange(1000, dtype=float) * 10.0
 
     mask = build_gap_mask(t)
-    
+
     # The true median dt is still 0.02 because 179k elements have dt=0.02.
     # Threshold = 0.2. So indices up to -1001 should be False, -1000 onwards True.
     # The subsampled median estimator must not be skewed enough to miss this.

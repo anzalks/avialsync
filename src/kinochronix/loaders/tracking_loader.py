@@ -8,8 +8,7 @@ import numpy as np
 import polars as pl
 
 from kinochronix.core.errors import NonMonotonicTimeError
-from kinochronix.core.pyramid import PyramidReader
-from kinochronix.core.source import ChannelInfo, ChannelSlice, TimeSeriesSource
+from kinochronix.core.source import ChannelInfo, TimeSeriesSource
 
 
 class TrackingLoader(TimeSeriesSource):
@@ -19,8 +18,6 @@ class TrackingLoader(TimeSeriesSource):
         self._path: Path | None = None
         self._config: dict[str, Any] = {}
         self._schema_channels: list[ChannelInfo] = []
-        self._time_bounds: tuple[float, float] = (0.0, 0.0)
-        self._cache_dir: Path | None = None
         self._flat_headers: list[str] = []
 
     def is_frame_indexed(self) -> bool:
@@ -47,7 +44,6 @@ class TrackingLoader(TimeSeriesSource):
     def open(self, path: Path, config: dict[str, Any]) -> None:
         self._path = path
         self._config = config
-        self._cache_dir = path.with_name(path.name + ".kcache")
 
         # Read the first 3 rows to build flattened headers
         with open(path, encoding="utf-8") as f:
@@ -72,29 +68,8 @@ class TrackingLoader(TimeSeriesSource):
                 ChannelInfo(name=col, unit="px", dtype="Float64", rate_hz=None)
             )
 
-        # Get true time bounds from the whole file using lazy execution
-        # We skip the 3 header rows and name the columns directly
-        fps = float(config.get("fps", 30.0))
-
-        lazy_df = pl.scan_csv(path, skip_rows=3, has_header=False, new_columns=self._flat_headers)
-
-        t_first_last = lazy_df.select(
-            [
-                pl.col("frame_index").first().alias("first"),
-                pl.col("frame_index").last().alias("last"),
-            ]
-        ).collect()
-
-        first_frame = float(t_first_last["first"][0])
-        last_frame = float(t_first_last["last"][0])
-
-        self._time_bounds = (first_frame / fps, last_frame / fps)
-
     def channels(self) -> list[ChannelInfo]:
         return self._schema_channels
-
-    def time_bounds(self) -> tuple[float, float]:
-        return self._time_bounds
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         if self._path is None:
@@ -141,13 +116,3 @@ class TrackingLoader(TimeSeriesSource):
 
             yield t, v
             row_offset += len(batch)
-
-    def read(self, ch: str, t0: float, t1: float, max_points: int) -> ChannelSlice:
-        if self._cache_dir is None:
-            return np.array([]), np.array([]), np.array([]), np.array([], dtype=bool)
-
-        reader = PyramidReader(self._cache_dir, ch)
-        return reader.query(t0, t1, max_points)
-
-    def config_widget(self) -> Any | None:
-        return None

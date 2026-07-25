@@ -77,15 +77,15 @@ class VideoGrid(QWidget):
         self._grid_mode = enabled
         self._relayout()
 
-    def add_pane(self, path: str) -> VideoPane:
-        """Add a new video pane to the grid and open the video."""
+    def add_pane(self, path: str, *, media_path: str | None = None) -> VideoPane:
+        """Add a pane identified by original *path*, playing *media_path* if supplied."""
         pane = VideoPane(self)
         pane.double_clicked.connect(self._on_pane_double_clicked)
         # Forward right-click with path so MainWindow can build a context menu.
         pane.right_clicked.connect(lambda pos, _p=path: self.pane_right_clicked.emit(_p, pos))
         self.panes.append(pane)
         self._paths.append(path)
-        pane.open(path)
+        pane.open(media_path or path)
         self._relayout()
         self._update_labels()
         return pane

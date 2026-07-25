@@ -12,8 +12,8 @@ uniformly — never per-test — to avoid hidden fudge factors.
 D-023: benchmarks are CI-gated, budget-assertion pattern established here.
 """
 
-import os
 import gc
+import os
 from pathlib import Path
 
 import numpy as np

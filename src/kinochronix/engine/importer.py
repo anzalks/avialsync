@@ -104,9 +104,7 @@ class ImportWorker(QObject):
             final_dir = cache_mgr.get_cache_dir(self.path)
 
             fps_provisional = bool(
-                hasattr(loader, "is_frame_indexed")
-                and loader.is_frame_indexed()
-                and self.config.get("fps_provisional", False)
+                loader.is_frame_indexed() and self.config.get("fps_provisional", False)
             )
 
             report = ImportReport(

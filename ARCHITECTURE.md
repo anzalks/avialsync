@@ -154,8 +154,6 @@ class TimeSeriesSource(ABC):
     def can_open(cls, path: Path) -> float: ...  # 0..1 confidence
     def open(self, path: Path, config: dict) -> None: ...
     def channels(self) -> list[ChannelInfo]: ...  # name, unit, dtype, rate|irregular
-    def time_bounds(self) -> tuple[float, float]: ...  # absolute UTC seconds
-
     # CHUNKED INGEST (mandatory): cache/pyramid builder pulls incrementally so 50 GB files
     # and streaming sources work without loading everything into RAM.
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
@@ -163,14 +161,6 @@ class TimeSeriesSource(ABC):
         NonMonotonicTimeError (never yield unsorted silently). Duplicate timestamps: keep-last.
         NaN/inf pass through; sentinel codes (e.g. -9999) mapped to NaN only via explicit
         loader config, never guessed."""
-
-    def read(self, ch: str, t0: float, t1: float, max_points: int) -> ChannelSlice:
-        """Serve from pyramid/cache. ChannelSlice = (t, vmin, vmax, gap_mask):
-        gap_mask marks intervals larger than gap_threshold (default 10× median dt) —
-        renderers MUST break lines at gaps, never interpolate across them.
-        Empty/no-data windows return length-0 arrays, never raise."""
-
-    def config_widget(self) -> "QWidget | None": ...  # optional import-config UI hook
 
     # Timestamp handling contract: loader must resolve timezone (naive input → user chooses
     # in import wizard, default UTC with a visible warning), handle DST-ambiguous local
@@ -196,6 +186,10 @@ class VideoSource(ABC):
         # (very common) → defaults to offset 0,
         # user aligns manually; offset always wins
 
+    def time_bounds(self) -> tuple[float, float]: ...
+        # (metadata start, metadata start + duration), or (0, duration)
+        # when the source has no UTC timestamp
+
     def frame_times(self) -> "np.ndarray | None":
         """Per-frame timestamps if the container has them. REQUIRED for correct stepping on
         VFR footage and dropped-frame recordings; if None, constant-fps stepping is used and
@@ -217,7 +211,7 @@ placeholder (never last frame frozen, which misleads); plots show axis with no c
 shows "—". Timeline bounds = union of all sources; a 4 h video + 10 min data is legal and the
 overview strip shades each source's coverage span.
 
-Discovery: Dynamic directory scanning (`~/.kinochronix/plugins/` and bundled `examples/plugins/`); highest `can_open` score wins,
+Discovery: Python entry points and dynamic directory scanning (`~/.kinochronix/plugins/`); highest `can_open` score wins,
 ties → user picks. Built-ins register directly into the PluginManager.
 
 ## 5. Session file (.kcx, JSON, schema_version field)

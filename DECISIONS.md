@@ -223,6 +223,18 @@ New outputs:
   - Non-zero drift (0.5 ppm) set on camera_3 in launch_demo.py
   - Demo load order: camera_1 first (triggers pose.csv D-019 rebind), then camera_2/camera_3
 
+## 2026-07 · D-025 · Plugin API v1 is ingest-only for time series and preparation-aware for video
+
+`TimeSeriesSource` is frozen around capability detection, metadata discovery, and chunked ingest:
+`read()` and `time_bounds()` are removed because cache readers own all post-import querying and
+source bounds are derived from their persisted data. `config_widget()` is removed: core remains
+headless and plugin configuration is JSON-serialisable host-provided data rather than a Qt object.
+
+`VideoSource` retains `needs_conversion()` and `prepare()` (D-006), gains abstract
+`time_bounds()`, and is opened through the registry in a worker thread before mpv receives its
+prepared media path. Discovery supports Python entry points plus `~/.kinochronix/plugins/` drop-ins.
+The removed methods must not be reintroduced without a versioned API decision.
+
 ## 2026-07 · D-022 · Interaction standard — visible surface, depth in menus, shortcuts as accelerators
 
 ### 1. Single authority — one QAction (or one transport signal) per action

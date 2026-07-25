@@ -96,13 +96,7 @@ def test_neoloader_openephys(tmp_path: Path):
         assert ch.rate_hz == 30000.0
         assert ch.unit == "uV"
 
-    # 3. Test time bounds
-    bounds = loader.time_bounds()
-    assert bounds[0] == 0.0
-    assert bounds[1] > 0.0
-    assert abs(bounds[1] - 10.0) < 0.1  # We generated 10 seconds of mock data
-
-    # 4. Test chunk reading
+    # 3. Test chunk reading
     # Read the first channel
     chunks = list(loader.read_chunks("CH1"))
     assert len(chunks) > 0

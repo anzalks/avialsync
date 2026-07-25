@@ -117,7 +117,8 @@ Exit criteria: scripted UX walkthrough (pytest-qt integration test) covering ope
 
 Deliverables:
 - Public plugin API v1: Drop-in directory system (`~/.kinochronix/plugins/` and bundled `examples/plugins/`); document + freeze the `TimeSeriesSource`/`VideoSource` ABCs; PluginManager uses `sys._MEIPASS` for compiled bundles.
-- Loader capability negotiation (can_open(path) → score) and per-plugin config UI hook.
+- Loader capability negotiation (can_open(path) → score). Plugin configuration is a
+  JSON-serialisable dictionary supplied by the host; plugins do not return Qt widgets (D-025).
 - Packaging per ARCHITECTURE §6 / D-012..D-017: PyPI wheel + sdist; PyInstaller **one-dir**
   bundles with LGPL-verified mpv/ffmpeg (build-flavor assertion in CI); Inno Setup installer;
   arm64 .dmg; AppImage; **Windows pip auto-fetch of libmpv (pinned URL + SHA256)**;

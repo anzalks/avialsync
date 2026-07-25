@@ -5,9 +5,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QThread, QUrl, Signal, Slot
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication
 
 from kinochronix.core.session import SensorEntry, SessionState
+from kinochronix.loaders.csv_loader import CSVLoader
+from kinochronix.loaders.neo_loader import NeoLoader
+from kinochronix.loaders.tracking_loader import TrackingLoader
+from kinochronix.loaders.video_standard import VideoStandardLoader
 from kinochronix.ui.main_window import MainWindow
 
 
@@ -69,3 +75,198 @@ def test_session_restore_calls_data_import(main_window: MainWindow) -> None:
     with patch.object(main_window, "_start_data_import") as mock_import:
         main_window._restore_session(state)
         mock_import.assert_called_once_with(csv_path)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "loader_class", "target"),
+    [
+        (".mp4", VideoStandardLoader, "video"),
+        (".cine", VideoStandardLoader, "video"),
+        (".csv", CSVLoader, "data"),
+        (".tracking", TrackingLoader, "data"),
+        (".nix", NeoLoader, "data"),
+    ],
+)
+def test_drop_routing_uses_loader_capability(
+    main_window: MainWindow,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    suffix: str,
+    loader_class: type,
+    target: str,
+) -> None:
+    """Dropped files route by registered source type, not a suffix allow-list."""
+    path = tmp_path / f"recording{suffix}"
+    path.touch()
+    monkeypatch.setattr(
+        "kinochronix.core.registry.LoaderRegistry.find_best_loader",
+        lambda _registry, _path: loader_class,
+    )
+    video_paths: list[Path] = []
+    data_calls: list[tuple[Path, type]] = []
+    monkeypatch.setattr(main_window, "_load_video", video_paths.append)
+    monkeypatch.setattr(
+        main_window,
+        "_start_data_import",
+        lambda data_path, selected: data_calls.append((data_path, selected)),
+    )
+
+    main_window._route_dropped_path(path)
+
+    if target == "video":
+        assert video_paths == [path]
+        assert data_calls == []
+    else:
+        assert video_paths == []
+        assert data_calls == [(path, loader_class)]
+
+
+def test_drop_directory_routes_each_supported_child(
+    main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A generic directory falls back to capability-routing its direct children."""
+    video = tmp_path / "camera.anyvideo"
+    sensor = tmp_path / "sensor.anysensor"
+    video.touch()
+    sensor.touch()
+
+    def find_loader(_registry, path: Path):
+        return VideoStandardLoader if path == video else CSVLoader if path == sensor else None
+
+    monkeypatch.setattr("kinochronix.core.registry.LoaderRegistry.find_best_loader", find_loader)
+    video_paths: list[Path] = []
+    data_calls: list[tuple[Path, type]] = []
+    monkeypatch.setattr(main_window, "_load_video", video_paths.append)
+    monkeypatch.setattr(
+        main_window,
+        "_start_data_import",
+        lambda data_path, selected: data_calls.append((data_path, selected)),
+    )
+
+    main_window._route_dropped_path(tmp_path)
+
+    assert video_paths == [video]
+    assert data_calls == [(sensor, CSVLoader)]
+
+
+def test_video_load_keeps_worker_alive_until_thread_finishes(
+    main_window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Video workers need an explicit owner after being moved to a QThread."""
+
+    class _IdleWorker(QObject):
+        opened = Signal(str, object, str)
+        error = Signal(str)
+        cancelled = Signal()
+
+        def __init__(self, path: Path) -> None:
+            super().__init__()
+            self.path = path
+
+        @Slot()
+        def run(self) -> None:
+            return
+
+    monkeypatch.setattr("kinochronix.engine.video_worker.VideoOpenWorker", _IdleWorker)
+
+    main_window._load_video(Path("camera.mp4"))
+
+    assert len(main_window._video_load_jobs) == 1
+    for thread in main_window._video_load_jobs:
+        thread.quit()
+        assert thread.wait(1_000)
+
+
+def test_drop_real_video_completes_async_open(
+    main_window: MainWindow, qtbot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A dropped video must complete its real worker lifecycle without closing the app."""
+    video = Path("tests/fixtures/videos/camera_1.mp4")
+    assert video.exists()
+    pane = object()
+    widget_threads: list[bool] = []
+
+    def add_pane(*args, **kwargs):
+        widget_threads.append(QThread.currentThread() == QApplication.instance().thread())
+        return pane
+
+    monkeypatch.setattr(main_window.video_grid, "add_pane", add_pane)
+    monkeypatch.setattr(main_window.sidebar, "add_video", lambda *args: None)
+    monkeypatch.setattr(main_window.sidebar, "set_video_loader", lambda *args: None)
+    monkeypatch.setattr(main_window.sidebar, "set_video_pane", lambda *args: None)
+    monkeypatch.setattr(main_window, "_update_bounds", lambda *args: None)
+
+    main_window._route_dropped_path(video)
+
+    qtbot.waitUntil(lambda: not main_window._video_load_jobs, timeout=10_000)
+    assert str(video) in main_window._video_fps
+    assert widget_threads == [True]
+
+
+def test_real_drop_event_routes_sensor_file(
+    main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Qt delivery of a drop event must route a supported sensor without closing the window."""
+    sensor = tmp_path / "sensor.csv"
+    sensor.write_text("time,value\n0,1\n", encoding="utf-8")
+    data_calls: list[tuple[Path, type]] = []
+    monkeypatch.setattr(
+        main_window,
+        "_start_data_import",
+        lambda path, loader: data_calls.append((path, loader)),
+    )
+
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(str(sensor))])
+    enter_event = QDragEnterEvent(
+        QPointF(10, 10).toPoint(),
+        Qt.DropAction.CopyAction,
+        mime,
+        Qt.MouseButton.NoButton,
+        Qt.NoModifier,
+    )
+    QApplication.sendEvent(main_window, enter_event)
+    assert enter_event.isAccepted()
+    event = QDropEvent(
+        QPointF(10, 10), Qt.DropAction.CopyAction, mime, Qt.MouseButton.NoButton, Qt.NoModifier
+    )
+
+    QApplication.sendEvent(main_window, event)
+
+    assert event.isAccepted()
+    assert main_window.isVisible()
+    assert data_calls == [(sensor, CSVLoader)]
+
+
+def test_drop_over_video_grid_forwards_to_main_router(
+    main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A drop over the video grid reaches the same mixed-source router."""
+    sensor = tmp_path / "sensor.csv"
+    sensor.write_text("time,value\n0,1\n", encoding="utf-8")
+    data_calls: list[tuple[Path, type]] = []
+    monkeypatch.setattr(
+        main_window,
+        "_start_data_import",
+        lambda path, loader: data_calls.append((path, loader)),
+    )
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(str(sensor))])
+    enter_event = QDragEnterEvent(
+        QPointF(10, 10).toPoint(),
+        Qt.DropAction.CopyAction,
+        mime,
+        Qt.MouseButton.NoButton,
+        Qt.NoModifier,
+    )
+    QApplication.sendEvent(main_window.video_grid, enter_event)
+    assert enter_event.isAccepted()
+    drop_event = QDropEvent(
+        QPointF(10, 10), Qt.DropAction.CopyAction, mime, Qt.MouseButton.NoButton, Qt.NoModifier
+    )
+
+    QApplication.sendEvent(main_window.video_grid, drop_event)
+
+    assert drop_event.isAccepted()
+    assert main_window.isVisible()
+    assert data_calls == [(sensor, CSVLoader)]

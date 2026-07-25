@@ -8,8 +8,7 @@ import numpy as np
 import polars as pl
 
 from kinochronix.core.errors import NonMonotonicTimeError
-from kinochronix.core.pyramid import PyramidReader
-from kinochronix.core.source import ChannelInfo, ChannelSlice, TimeSeriesSource
+from kinochronix.core.source import ChannelInfo, TimeSeriesSource
 
 
 class CSVLoader(TimeSeriesSource):
@@ -19,8 +18,6 @@ class CSVLoader(TimeSeriesSource):
         self._path: Path | None = None
         self._config: dict[str, Any] = {}
         self._schema_channels: list[ChannelInfo] = []
-        self._time_bounds: tuple[float, float] = (0.0, 0.0)
-        self._cache_dir: Path | None = None
 
     @classmethod
     def can_open(cls, path: Path) -> float:
@@ -33,7 +30,6 @@ class CSVLoader(TimeSeriesSource):
     def open(self, path: Path, config: dict[str, Any]) -> None:
         self._path = path
         self._config = config
-        self._cache_dir = path.with_name(path.name + ".kcache")
 
         # Read a small sample to deduce channels and bounds
         separator = config.get("separator", ",")
@@ -63,26 +59,8 @@ class CSVLoader(TimeSeriesSource):
                 ChannelInfo(name=col, unit="", dtype=str(dt), rate_hz=None)
             )
 
-        # Get true time bounds from the whole file using lazy execution if possible
-        # For robustness in tests, we just use a scan
-        lazy_df = pl.scan_csv(
-            path, separator=separator, decimal_comma=euro_decimal or (separator == ";")
-        )
-        t_first_last = lazy_df.select(
-            [pl.col(time_col).first().alias("first"), pl.col(time_col).last().alias("last")]
-        ).collect()
-
-        # We need to construct a 2-element series to normalize correctly (handling rollovers)
-        t_series = pl.Series([t_first_last["first"][0], t_first_last["last"][0]])
-        t_norm = self._normalize_time(t_series)
-
-        self._time_bounds = (float(t_norm[0]), float(t_norm[-1]))
-
     def channels(self) -> list[ChannelInfo]:
         return self._schema_channels
-
-    def time_bounds(self) -> tuple[float, float]:
-        return self._time_bounds
 
     def _classify_format(self, fmt: str) -> str:
         """Map wizard format strings to internal categories."""
@@ -240,13 +218,3 @@ class CSVLoader(TimeSeriesSource):
 
             yield t, v
             row_offset += len(batch)
-
-    def read(self, ch: str, t0: float, t1: float, max_points: int) -> ChannelSlice:
-        if self._cache_dir is None:
-            return np.array([]), np.array([]), np.array([]), np.array([], dtype=bool)
-
-        reader = PyramidReader(self._cache_dir, ch)
-        return reader.query(t0, t1, max_points)
-
-    def config_widget(self) -> Any | None:
-        return None

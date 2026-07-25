@@ -8,8 +8,6 @@ from typing import Any
 
 import numpy as np
 
-ChannelSlice = tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-
 
 @dataclass
 class ChannelInfo:
@@ -22,40 +20,43 @@ class ChannelInfo:
 
 
 class TimeSeriesSource(ABC):
-    """Plugin contract for time series data sources."""
+    """Frozen v1 plugin contract for chunked time-series ingestion.
+
+    Instances are created and used by :class:`engine.importer.ImportWorker` on a
+    background thread.  Implementations must not retain Qt objects.  The importer
+    owns cache construction, decimation, gap detection, and all subsequent reads.
+    """
 
     @classmethod
     @abstractmethod
     def can_open(cls, path: Path) -> float:
-        """Return 0..1 confidence that this loader can open the file."""
+        """Return a confidence in ``[0.0, 1.0]`` without expensive I/O."""
         pass
 
     @abstractmethod
     def open(self, path: Path, config: dict[str, Any]) -> None:
-        """Open the source with the given configuration."""
+        """Read metadata required for :meth:`channels` and :meth:`read_chunks`.
+
+        ``config`` is plugin-defined, JSON-serialisable import configuration.
+        Raise a typed source error with actionable context when it cannot be read.
+        """
         pass
 
     @abstractmethod
     def channels(self) -> list[ChannelInfo]:
-        """Return metadata for all available channels."""
-        pass
-
-    @abstractmethod
-    def time_bounds(self) -> tuple[float, float]:
-        """Return the absolute UTC bounds (start, end) in seconds."""
+        """Return stable metadata for every importable channel."""
         pass
 
     @abstractmethod
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
-        """
-        Yield (t, v) chunks in time order.
-        Must sort non-monotonic input or raise NonMonotonicTimeError.
-        """
-        pass
+        """Yield one-dimensional ``float64`` time/value chunks for *ch*.
 
-    @abstractmethod
-    def read(self, ch: str, t0: float, t1: float, max_points: int) -> ChannelSlice:
-        """Serve from pyramid/cache returning (t, vmin, vmax, gap_mask)."""
+        Chunks, including their boundaries, must be globally chronological.
+        Duplicate timestamps must keep the final value.  A loader may sort its
+        input or raise :class:`NonMonotonicTimeError`; it must never silently emit
+        decreasing times.  NaN and infinity values pass through.  Core computes
+        gaps after ingest using a 10× median-sample-interval threshold.
+        """
         pass
 
     def is_frame_indexed(self) -> bool:
@@ -67,14 +68,13 @@ class TimeSeriesSource(ABC):
         """
         return False
 
-    @abstractmethod
-    def config_widget(self) -> Any | None:
-        """Optional import-config UI hook. Returns QWidget or None."""
-        pass
-
 
 class VideoSource(ABC):
-    """Plugin contract for video sources."""
+    """Frozen v1 plugin contract for video sources.
+
+    ``open`` and optional ``prepare`` run in a background worker.  The returned
+    media path is opened by mpv only after this work has completed successfully.
+    """
 
     @classmethod
     @abstractmethod
@@ -84,7 +84,7 @@ class VideoSource(ABC):
 
     @abstractmethod
     def open(self, path: Path, config: dict[str, Any]) -> None:
-        """Open the source with the given configuration."""
+        """Probe source metadata; this method may perform blocking I/O."""
         pass
 
     @abstractmethod
@@ -94,7 +94,7 @@ class VideoSource(ABC):
 
     @abstractmethod
     def prepare(self, progress_cb: Callable[[float], None]) -> Path:
-        """Produce an mpv-playable file (proxy), return the cached sidecar path."""
+        """Produce an mpv-playable cached proxy and report progress in ``[0, 1]``."""
         pass
 
     @abstractmethod
@@ -104,7 +104,16 @@ class VideoSource(ABC):
 
     @abstractmethod
     def start_time(self) -> float | None:
-        """Metadata guess ONLY; defaults to offset 0 in UI."""
+        """Return an optional UTC-epoch metadata guess; user offset always wins."""
+        pass
+
+    @abstractmethod
+    def time_bounds(self) -> tuple[float, float]:
+        """Return source coverage in master-time seconds.
+
+        Sources with a metadata start return ``(start_time, start_time + duration)``;
+        sources without one return media-relative ``(0.0, duration)``.
+        """
         pass
 
     @abstractmethod

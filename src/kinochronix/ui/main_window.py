@@ -2,9 +2,9 @@
 
 import dataclasses
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-from PySide6.QtCore import QSettings, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -25,6 +25,7 @@ from kinochronix.core.session import (
     add_recent,
     get_recent,
 )
+from kinochronix.core.source import TimeSeriesSource, VideoSource
 from kinochronix.core.timeline import MasterClock
 from kinochronix.engine.player import Player
 from kinochronix.ui.annotations import AnnotationPanel, AnnotationStore
@@ -49,6 +50,10 @@ class MainWindow(QMainWindow):
 
         # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
         self._video_fps: dict[str, float] = {}
+        # Keep QObject workers alive until their QThread has finished. Moving an
+        # object to a thread does not transfer Python ownership.
+        self._video_load_jobs: dict[QThread, object] = {}
+        self._video_load_offsets: dict[str, float] = {}
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
         self._frame_indexed_sources: list[tuple[Path, float]] = []
         # Inspection data keyed by str(path)
@@ -142,6 +147,12 @@ class MainWindow(QMainWindow):
         h_splitter.setStretchFactor(1, 1)
 
         layout.addWidget(h_splitter)
+
+        # Child widgets receive drag events before QMainWindow. Forward those
+        # events to the single capability-routing implementation below.
+        for drop_target in (central_widget, right_widget, self.video_grid, self.plot_pane):
+            drop_target.setAcceptDrops(True)
+            drop_target.installEventFilter(self)
 
         # Menu
         self._setup_menu()
@@ -661,6 +672,9 @@ class MainWindow(QMainWindow):
     # ── Window close ─────────────────────────────────────────────────
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._video_load_jobs:
+            event.ignore()
+            return
         self._save_geometry()
         self._autosave()
         super().closeEvent(event)
@@ -671,42 +685,59 @@ class MainWindow(QMainWindow):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
 
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Forward drops over child panes to the main-window source router."""
+        if event.type() == QEvent.Type.DragEnter:
+            self.dragEnterEvent(cast(QDragEnterEvent, event))
+            return event.isAccepted()
+        if event.type() == QEvent.Type.Drop:
+            self.dropEvent(cast(QDropEvent, event))
+            return event.isAccepted()
+        return super().eventFilter(watched, event)
+
     def dropEvent(self, event: QDropEvent) -> None:
+        if not event.mimeData().hasUrls():
+            event.ignore()
+            return
+        event.acceptProposedAction()
         for url in event.mimeData().urls():
             path = Path(url.toLocalFile())
             if not path.exists():
                 continue
 
-            if path.is_dir():
-                # 1. Check for KCX first
-                kcx_files = list(path.glob("*.kcx"))
-                if kcx_files:
-                    try:
-                        state = SessionState.load(kcx_files[0])
-                        self._restore_session(state)
-                    except Exception as e:
-                        QMessageBox.critical(self, "Session Error", str(e))
-                    continue
+            self._route_dropped_path(path)
 
-                # 2. Load any immediate video files
-                for child in path.iterdir():
-                    if child.is_file() and child.suffix.lower() in (".mp4", ".mov", ".avi", ".mkv"):
-                        self._load_video(child)
+    def _route_dropped_path(self, path: Path) -> None:
+        """Route a dropped path by plugin capability rather than filename suffix."""
+        if path.suffix.lower() == ".kcx":
+            try:
+                self._restore_session(SessionState.load(path))
+            except (OSError, ValueError) as error:
+                QMessageBox.critical(self, "Session Error", str(error))
+            return
 
-                # 3. Attempt to load directory as data bundle
-                self._start_data_import(path)
-            else:
-                ext = path.suffix.lower()
-                if ext in (".mp4", ".mov", ".avi", ".mkv"):
-                    self._load_video(path)
-                elif ext == ".kcx":
-                    try:
-                        state = SessionState.load(path)
-                        self._restore_session(state)
-                    except Exception as e:
-                        QMessageBox.critical(self, "Session Error", str(e))
-                else:
-                    self._start_data_import(path)
+        from kinochronix.core.registry import LoaderRegistry
+
+        loader_class = LoaderRegistry().find_best_loader(path)
+        if loader_class is not None:
+            if issubclass(loader_class, VideoSource):
+                self._load_video(path)
+                return
+            if issubclass(loader_class, TimeSeriesSource):
+                self._start_data_import(path, loader_class)
+                return
+
+        if path.is_dir():
+            kcx_files = list(path.glob("*.kcx"))
+            if kcx_files:
+                self._route_dropped_path(kcx_files[0])
+                return
+            for child in path.iterdir():
+                if child.is_file():
+                    self._route_dropped_path(child)
+            return
+
+        QMessageBox.warning(self, "Unsupported File", f"No suitable loader found for:\n{path}")
 
     # ── Menu ─────────────────────────────────────────────────────────
 
@@ -1221,39 +1252,62 @@ class MainWindow(QMainWindow):
     # ── Source loading ───────────────────────────────────────────────
 
     def _load_video(self, path: Path, offset: float = 0.0) -> None:
-        self.video_grid.add_pane(str(path))
-        from kinochronix.loaders.video_standard import VideoStandardLoader
+        """Open a registry-selected video source without blocking the UI thread."""
+        from kinochronix.engine.video_worker import VideoOpenWorker
 
-        vloader = VideoStandardLoader()
-        try:
-            vloader.open(path, {})
-            b = vloader.time_bounds()
-            self._update_bounds(b[0], b[1])
-            metadata = {
-                "fps": vloader._fps,
-                "codec": getattr(vloader, "_codec", "unknown"),
-                "duration": vloader._duration,
-            }
-            self.sidebar.add_video(str(path), metadata)
-            self.sidebar.set_video_loader(str(path), vloader)
-            # set_video_pane: pane is last added entry in video_grid.panes
-            if self.video_grid.panes:
-                self.sidebar.set_video_pane(str(path), self.video_grid.panes[-1])
-            if offset != 0.0:
-                self.video_grid.set_offset(str(path), offset)
+        thread = QThread(self)
+        worker = VideoOpenWorker(path)
+        self._video_load_jobs[thread] = worker
+        self._video_load_offsets[str(path)] = offset
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        # These QObject slots are queued onto MainWindow's UI thread.  Do not
+        # replace them with lambdas: a lambda runs in the emitting worker thread
+        # and would create widgets off-thread.
+        worker.opened.connect(self._on_video_opened)
+        worker.error.connect(self._on_video_open_error)
+        worker.opened.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        worker.cancelled.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(self._on_video_thread_finished)
+        thread.start()
 
-            # Store fps for frame-indexed source resolution (D-019)
-            self._video_fps[str(path)] = vloader._fps
+    @Slot(str, object, str)
+    def _on_video_opened(
+        self, original_path: str, loader: object, media_path: str
+    ) -> None:
+        """Create UI state only after asynchronous source opening succeeds."""
+        offset = self._video_load_offsets.pop(original_path, 0.0)
+        if not isinstance(loader, VideoSource):
+            self._on_video_open_error(original_path, "Selected loader is not a VideoSource.")
+            return
+        bounds = loader.time_bounds()
+        self._update_bounds(*bounds)
+        pane = self.video_grid.add_pane(original_path, media_path=media_path)
+        metadata = {"fps": loader.fps(), "duration": bounds[1] - bounds[0]}
+        self.sidebar.add_video(original_path, metadata)
+        self.sidebar.set_video_loader(original_path, loader)
+        self.sidebar.set_video_pane(original_path, pane)
+        if offset:
+            self.video_grid.set_offset(original_path, offset)
+        self._video_fps[original_path] = loader.fps()
+        if self._frame_indexed_sources and len(self._video_fps) == 1:
+            self._rebind_frame_indexed_sources(loader.fps())
 
-            # When the first video is loaded, auto-rebind any provisional frame-indexed sources
-            if self._frame_indexed_sources and len(self._video_fps) == 1:
-                self._rebind_frame_indexed_sources(vloader._fps)
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Video Error",
-                f"Could not open video:\n{path}\n\n{e}",
-            )
+    @Slot(str, str)
+    def _on_video_open_error(self, path: str, error: str) -> None:
+        """Show a source-open error without leaving a partially-created pane."""
+        self._video_load_offsets.pop(path, None)
+        QMessageBox.critical(self, "Video Error", f"Could not open video:\n{path}\n\n{error}")
+
+    @Slot()
+    def _on_video_thread_finished(self) -> None:
+        """Release the worker ownership after its thread has stopped on the UI thread."""
+        thread = self.sender()
+        if isinstance(thread, QThread):
+            self._video_load_jobs.pop(thread, None)
+            thread.deleteLater()
 
     def _on_video_offset_changed(self, path: str, offset: float) -> None:
         self.video_grid.set_offset(path, offset)
@@ -1292,12 +1346,26 @@ class MainWindow(QMainWindow):
         if path:
             self._start_data_import(Path(path))
 
-    def _start_data_import(self, path: Path) -> None:
+    def _start_data_import(
+        self, path: Path, loader_cls: type[TimeSeriesSource] | None = None
+    ) -> None:
+        """Start a registry-selected time-series import for one path."""
         from kinochronix.core.registry import LoaderRegistry
 
-        registry = LoaderRegistry()
-        loader_cls = registry.find_best_loader(path)
-        if not loader_cls:
+        if loader_cls is None:
+            discovered_loader = LoaderRegistry().find_best_loader(path)
+            if discovered_loader is None:
+                QMessageBox.warning(
+                    self, "Unsupported File", "No suitable loader found for this file."
+                )
+                return
+            if not issubclass(discovered_loader, TimeSeriesSource):
+                QMessageBox.warning(
+                    self, "Unsupported File", "The selected loader is not time-series data."
+                )
+                return
+            loader_cls = discovered_loader
+        if loader_cls is None:
             QMessageBox.warning(self, "Unsupported File", "No suitable loader found for this file.")
             return
 

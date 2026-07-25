@@ -18,17 +18,8 @@ class DummyTimeSeriesLoader(TimeSeriesSource):
     def channels(self):
         return []
 
-    def time_bounds(self):
-        return 0.0, 1.0
-
     def read_chunks(self, ch):
         yield from []
-
-    def read(self, ch, t0, t1, mp):
-        return (), (), (), ()
-
-    def config_widget(self):
-        return None
 
 
 class DummyVideoLoader(VideoSource):
@@ -52,6 +43,9 @@ class DummyVideoLoader(VideoSource):
 
     def start_time(self):
         return 0.0
+
+    def time_bounds(self):
+        return 0.0, 1.0
 
     def frame_times(self):
         return None

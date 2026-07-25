@@ -38,8 +38,6 @@ class NeoLoader(TimeSeriesSource):
         self._path: Path | None = None
         self._config: dict[str, Any] = {}
         self._schema_channels: list[ChannelInfo] = []
-        self._time_bounds: tuple[float, float] = (0.0, 0.0)
-        self._cache_dir: Path | None = None
         self._block: neo.Block | None = None
 
         # We store metadata for chunk reading:
@@ -111,7 +109,6 @@ class NeoLoader(TimeSeriesSource):
     def open(self, path: Path, config: dict[str, Any]) -> None:
         self._path = path
         self._config = config
-        self._cache_dir = path.with_name(path.name + ".kcache")
 
         resolved_path = path
         try:
@@ -179,13 +176,8 @@ class NeoLoader(TimeSeriesSource):
         if t_start == float("inf"):
             t_start, t_stop = 0.0, 0.0
 
-        self._time_bounds = (t_start, t_stop)
-
     def channels(self) -> list[ChannelInfo]:
         return self._schema_channels
-
-    def time_bounds(self) -> tuple[float, float]:
-        return self._time_bounds
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         if self._block is None or ch not in self._channel_map:
@@ -212,17 +204,3 @@ class NeoLoader(TimeSeriesSource):
             t_chunk = start_time + (np.arange(i, end_idx) / sr)
 
             yield t_chunk, chunk_data
-
-    def read(
-        self, ch: str, t0: float, t1: float, max_points: int
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        if self._cache_dir is None:
-            return np.array([]), np.array([]), np.array([]), np.array([], dtype=bool)
-
-        from kinochronix.core.pyramid import PyramidReader
-
-        reader = PyramidReader(self._cache_dir, ch)
-        return reader.query(t0, t1, max_points)
-
-    def config_widget(self) -> Any | None:
-        return None
