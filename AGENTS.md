@@ -6,10 +6,12 @@ content there. If tool-specific config is unavoidable, it still must say "rules 
 
 ## What this project is
 
-GUI desktop app to scrub time-synchronized multi-camera video (h264/h265, incl. 12-bit greyscale)
-together with dense time series (up to 50 kHz, 16-bit, CSV or plugin formats), on one master timeline.
-Open-source (Apache-2.0), commercializable. Targets: Windows / macOS / Linux, mid-spec machines
-(8-core, 16 GB, SSD). Read `BLUEPRINT.md` for phases, `ARCHITECTURE.md` for structure,
+GUI desktop app for visual synchronization and inspection of multi-camera video (h264/h265, incl.
+12-bit greyscale) together with dense time series (up to 50 kHz, 16-bit, CSV or plugin formats) on
+one master timeline. Acquisition and built-in scientific analysis are out of scope: labs extend file
+formats, TTL/event semantics, and optional analysis through plugins. Open-source (Apache-2.0),
+commercializable. Targets: Windows / macOS / Linux, mid-spec machines (8-core, 16 GB, SSD). Read
+`BLUEPRINT.md` for phases, `ARCHITECTURE.md` for structure,
 `DECISIONS.md` for settled choices. Do not re-litigate settled decisions; propose changes as a
 DECISIONS.md entry in the PR description instead of silently diverging.
 
@@ -53,6 +55,11 @@ fix it in the same PR. A rename is never "improved" by an agent (D-018).
 6. Playback: sync correctness beats frame completeness (drop frames, never drift). Paused/stepping:
    exact seeks only (`seek --exact` semantics).
 7. Text data is parsed once → binary sidecar cache (`core/cache.py`), mmap-read afterwards.
+8. Synchronization is evidence-based. TTL/event alignment preserves raw source timestamps and records
+   matched evidence, fitted offset/drift, residuals, and confidence. Never silently invent a match or
+   apply a proposed TimeMap without explicit user acceptance.
+9. Speed and timing accuracy are co-equal release criteria. Sync extraction is chunked; fitting is
+   deterministic and benchmarked; any timing feature needs a ground-truth fixture before it ships.
 
 ## Coding standards
 

@@ -119,6 +119,14 @@ and one failure path. Update docs/user-guide stub. Keyboard-first where sensible
 - **P5.3 Docs site**: "mkdocs-material site: 5-minute quickstart with the sample dataset,
   format advice (short GOP!), troubleshooting (slow drive, no hwdec, timestamp formats),
   plugin guide. CI deploy to GitHub Pages."
+- **P5.4 Evidence-based synchronization**: "Implement D-026 and BLUEPRINT P5.4. First add
+  ground-truth fixtures and failing tests for periodic TTL clocks, camera-frame triggers, sparse
+  pulses, drift, missing pulses, ambiguity, and outliers. Keep `core/` headless. Extract events
+  chunkwise in a worker; preserve raw timestamps; use deterministic matching and robust affine
+  offset/drift fitting. Build a Sync Wizard that previews paired evidence, residuals, and confidence,
+  requires explicit user acceptance, persists provenance in `.kcx`, and offers manual fallback.
+  Do not add acquisition drivers or built-in scientific analysis; expose lab-specific event formats
+  through plugins. Add benchmarks before release: speed and declared timing accuracy are equal gates."
 
 ## Phase 6 prompts
 

@@ -37,6 +37,22 @@ The non-negotiable invariant: *when the app says t, every pane shows t.*
 5. Offset test: change offset by +0.5 s in UI → frame indices shift by exactly 15 frames @30fps.
 6. Drift test: source with 2 ppm drift stays ≤ 1 frame error across the full fixture duration.
 
+### 3a. Planned TTL/event synchronization golden tests (D-026)
+
+Before the synchronization feature is released, fixtures must prove that the proposed mapping is
+correct rather than merely plausible:
+
+1. Common periodic TTL clock with known offset and drift: accepted fit recovers both within the
+   declared fixture tolerance across the whole recording.
+2. Camera-frame TTLs plus a sensor event stream: pairings are correct despite a different nominal
+   camera rate.
+3. Sparse experimental pulses, missing pulses, and outliers: matching remains deterministic and
+   reports the rejected/ambiguous evidence.
+4. Ambiguous periodic sequences: automatic acceptance is unavailable; the user must choose a
+   constraint or manual alignment.
+5. Session round-trip: accepted mapping and provenance recreate the same `TimeMap`; raw event
+   timestamps and source recordings are unchanged.
+
 ## 4. Performance benchmarks (`tests/benchmarks/`)
 
 - `bench_pyramid.py`: build 180 M samples ≤ 2 s; query any window ≤ 5 ms.
@@ -44,6 +60,8 @@ The non-negotiable invariant: *when the app says t, every pane shows t.*
 - `bench_plot.py`: pan/zoom redraw ≤ 16 ms at every pyramid level.
 - `bench_import.py`: 1 GB CSV → cache ≤ 60 s (marked slow; nightly, not per-PR).
 - `bench_seek.py`: 3-camera parallel exact seek ≤ 250 ms (requires ffmpeg; runs where available).
+- `bench_sync.py` (planned): chunked extraction and fit preview on representative TTL/event fixtures;
+  baseline and timing-error threshold are established before the UI is released.
 Store baselines with `--benchmark-autosave`; compare with `--benchmark-compare`.
 
 ## 5. GUI test conventions
@@ -98,6 +116,16 @@ Store baselines with `--benchmark-autosave`; compare with `--benchmark-compare`.
 | European CSV (";" + decimal comma), BOM, units row | Wizard preview detects/suggests; parses correctly |
 | Multi-part split recording | Loader presents as one source; boundaries seamless in pyramid |
 | 32+ channels | Tree panel + grouping; no 32-row explosion |
+
+### Synchronization evidence (planned, D-026)
+| Case | Expected behavior |
+|---|---|
+| Common periodic TTL clock | Deterministic pairing and affine offset/drift fit within fixture tolerance |
+| Camera frame trigger + sensor TTL | Correct frame/event alignment despite differing sample and frame rates |
+| Sparse pulses with a missing edge | Missing evidence recorded; valid remaining pairs fit without silent interpolation |
+| Repeated/ambiguous pulse pattern | No automatic acceptance; wizard explains ambiguity and offers manual constraint |
+| Outlier or spurious edge | Robust fit rejects it and records residual/outlier evidence |
+| Plugin native event stream | Raw timestamps are preserved; no acquisition driver or format special case in UI |
 
 ### Sessions & environment
 | Case | Expected behavior |

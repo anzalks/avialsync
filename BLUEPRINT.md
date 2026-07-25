@@ -15,6 +15,11 @@
 5. **No GPL dependencies.** PySide6 (LGPL), mpv/ffmpeg LGPL builds, pyqtgraph (MIT), numpy/polars (BSD/MIT) only. New deps require a license check in the PR.
 6. **Sync correctness > frame completeness** during playback; exact frames when paused/stepping.
 7. **Binary sidecar cache.** Text formats are parsed once → cached as mmap-able binary (`.kcache/` sidecar dir: raw arrays + pyramid levels + metadata JSON).
+8. **Evidence-based alignment.** TTL/event alignment preserves raw timestamps and presents the
+   matched evidence, offset/drift fit, residuals, and confidence before the user accepts it.
+   Ambiguous evidence is surfaced, never silently guessed.
+9. **Speed and timing accuracy are co-equal.** Synchronization extraction is chunked, matching is
+   deterministic, and every new timing path requires a ground-truth fixture and benchmark.
 
 ## Performance budgets (CI-enforced where marked ★)
 
@@ -131,6 +136,32 @@ Deliverables:
 Exit criteria: a stranger can `pip install kinochronix` **on a machine WITHOUT mpv installed**
 (guided dialog / auto-fetch gets them running) or download an installer, and open the sample
 dataset in < 5 minutes with zero manual dependency steps; users can drop a `.py` plugin into their folder and it appears in the import dialog; installers verified to contain LGPL-flavor binaries.
+
+### P5.4 — Evidence-based synchronization (TTL/events)
+
+**Goal:** let a scientist align independently-clocked cameras, sensors, electrodes, and tracking
+data through a simple visual workflow, while retaining enough evidence to trust and reproduce the
+result. KinoChronix remains a visual-inspection tool: acquisition and scientific analysis stay out of
+the core and may be supplied by plugins.
+
+Deliverables:
+- A headless synchronization model for raw event evidence, proposed mappings, residuals, confidence,
+  and accepted provenance; no PySide6 in `core/`.
+- Chunked extraction of rising/falling TTL edges and ingestion of native digital events or camera-frame
+  triggers supplied by plugins. Raw timestamps are preserved.
+- Deterministic matching for common periodic pulses, camera-frame TTLs, and sparse event sequences;
+  robust affine offset/drift fitting, outlier rejection, ambiguity detection, and manual fallback.
+- A synchronization wizard: select source evidence, preview paired events and residuals, accept or
+  reject the proposal, then persist the accepted mapping and evidence summary in `.kcx`.
+- Plugin extension points for lab-specific file formats and event semantics; core provides no lab
+  acquisition drivers and no scientific-analysis algorithms.
+- Synthetic fixtures and golden tests for common-clock drift, camera-frame triggers, sparse pulses,
+  missing pulses, ambiguous matches, and outlier contamination; extraction/matching benchmarks are
+  established before the feature is released.
+
+Exit criteria: an accepted alignment is reproducible from the session alone, never changes raw data,
+and stays within its declared timing error on every ground-truth fixture without regressing the
+existing playback, import, or plotting budgets.
 
 ## Phase 6 — Release & community (Week 13–16)
 

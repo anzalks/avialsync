@@ -378,3 +378,20 @@ the loader_version in the cache key (D-008) so stale caches are automatically in
 
 **Future Optimization (Format Migration deferred post-1.0):**
 For uniform-rate sources, the Level-1 `t` array does not need to be written to disk. It is perfectly reconstructible from a `(t0, dt)` tuple, which would save ~1.44 GB of writes per channel and almost certainly bring the build time back comfortably under 2.0s. This optimization requires a cache-format change (bump `loader_version` and refactor format migration) and is explicitly deferred until post-1.0 to prioritize stabilization. The 2.5s budget is therefore considered provisional.
+
+## 2026-07 · D-026 · Synchronization is evidence-based, plugin-extensible, and user-accepted
+
+KinoChronix is a visual-inspection tool, not an acquisition system or a built-in scientific-analysis
+suite. It must align independently-clocked cameras, sensors, electrodes, and tracking data using
+TTL/event evidence without changing the raw recordings.
+
+Core will represent raw event timestamps, matched evidence, an affine offset/drift proposal,
+residuals, confidence, and accepted provenance. It will support common periodic clocks,
+camera-frame triggers, and sparse pulse sequences through deterministic chunked extraction and
+matching. Lab-specific file formats and event encodings belong in plugins.
+
+The UI must show the evidence and fit quality, detect ambiguity/outliers, permit manual fallback,
+and require explicit user acceptance before updating a `TimeMap`. Accepted provenance is persisted
+in `.kcx` so an alignment is reproducible and auditable. Sync accuracy and throughput are release
+criteria: every implementation requires ground-truth fixtures and benchmarks, and may not regress
+existing playback, import, or plotting budgets.
