@@ -281,3 +281,40 @@ def test_shortcuts_dialog_includes_every_registered_action(main_window, qtbot) -
     assert tables[0].rowCount() == n_expected, (
         f"Expected {n_expected} rows (one per action), got {tables[0].rowCount()}"
     )
+
+
+# -- K-while-paused test (D-022.4) -------------------------------------------
+
+
+def test_k_while_paused_stays_paused(main_window) -> None:
+    """K key while paused must emit play_toggled(False) and keep the transport paused (D-022.4).
+
+    D-022.4 specifies K = pause unconditionally; pressing it when already paused
+    must be a no-op in terms of state (never toggle to playing).
+    """
+    received: list[bool] = []
+    main_window.transport.play_toggled.connect(received.append)
+
+    # Ensure we start paused
+    main_window.transport.set_playing(False)
+
+    # Simulate K key: find the Pause QAction and trigger it
+    k_seq = QKeySequence("K")
+    k_acts = [
+        act
+        for act in main_window._all_actions
+        if any(
+            seq.matches(k_seq) == QKeySequence.SequenceMatch.ExactMatch for seq in act.shortcuts()
+        )
+    ]
+    assert k_acts, "K key must be registered as a QAction in _all_actions"
+    k_acts[0].trigger()
+
+    assert received, "K action must emit play_toggled"
+    assert received[-1] is False, (
+        "K while paused must emit play_toggled(False) \u2014 never play_toggled(True)"
+    )
+    # Transport must remain showing paused state
+    assert not main_window.transport.play_btn.isChecked(), (
+        "Transport play button must remain unchecked (paused) after K"
+    )

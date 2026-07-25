@@ -229,6 +229,14 @@ class Transport(QWidget):
 
     # ── Public API ────────────────────────────────────────────────────
 
+    def ab_in(self) -> None:
+        """Set the A/B loop in-point at the current slider position (public, D-022.1)."""
+        self._on_ab_in()
+
+    def ab_out(self) -> None:
+        """Set the A/B loop out-point at the current slider position (public, D-022.1)."""
+        self._on_ab_out()
+
     def set_bounds(self, t0: float, t1: float) -> None:
         self._bounds = (t0, t1)
 

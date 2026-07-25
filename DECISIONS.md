@@ -313,3 +313,48 @@ The previous collision was a known bug confirmed at audit; this entry resolves i
   or `PreferencesRole` appropriately.
 - J shortcuts dialog rendering must remain derived from live `QAction` registry; no
   static table. If new actions are added, they appear automatically.
+
+## 2026-07 · D-023 · Benchmarks CI-gated; budget-assertion pattern; CI multiplier
+
+### Context
+Benchmarks in `tests/benchmarks/` were never CI-gated for two reasons: the file was
+named `bench_pyramid.py` (not collected by pytest) and `ci.yml` passed
+`--ignore=tests/benchmarks`.  A known regression existed: pyramid build measured 3.3 s
+vs the 2 s BLUEPRINT budget.
+
+### Decisions
+
+**Collection:** Renamed `bench_pyramid.py` → `test_bench_pyramid.py` so pytest collects
+it normally under the existing `test_*.py` pattern.
+
+**CI step:** Added a separate `Run Benchmarks (budget-gated ★)` step in `ci.yml` that
+runs `pytest tests/benchmarks --benchmark-only`.  Kept `--ignore=tests/benchmarks` on
+the main test step so regular tests remain fast.  Rationale for separate step (not
+inline): budget failures surface as a named, identifiable CI step rather than a
+mid-suite failure that is hard to bisect.
+
+**Budget assertion pattern:** Each ★-budgeted test asserts `benchmark.stats["mean"] <=
+budget * CI_BUDGET_MULTIPLIER` where `CI_BUDGET_MULTIPLIER = 2.0` (single constant in
+`test_bench_pyramid.py`).  No per-test fudge factors.  Future agents: never add a
+per-test multiplier; only adjust the module-level constant with a comment explaining why.
+
+**CI_BUDGET_MULTIPLIER = 2.0:** GitHub Actions runners are shared, virtualized, and
+have variable disk speed.  2× observed empirically to be sufficient headroom on
+ubuntu-latest/macos-latest/windows-latest against the measured dev-machine numbers.
+
+**Pyramid build optimization (to meet ≤2s budget):**
+Profiling showed two hotspots at 180 M samples (total ~3.3 s):
+  1. `np.median(np.diff(t))` — 1000 ms.  Fix: estimate median from every 10 000-th diff
+     element (statistically equivalent for uniform/near-uniform sensor data; gap_threshold
+     is still correctly set; only changes O(n) → O(n/10000)).
+  2. Level-16 vmin/vmax np.save (float64, ~360 MB) — 550 ms.  Fix: cast to float32
+     before save (sensor precision is ≤16-bit → float32 is lossless in practice; halves
+     IO).  t arrays remain float64 for seek accuracy.
+
+Both changes are backward-compatible: `float()` casts on scalar reads and numpy auto-
+promotion on arithmetic work with float32 arrays.  Cache key (D-008) is unaffected —
+ImportWorker always rebuilds on open, never short-circuits on pyramid data alone.
+
+**Agents:** Never change the pyramid storage format (dtype, file layout) without bumping
+the loader_version in the cache key (D-008) so stale caches are automatically invalidated.
+

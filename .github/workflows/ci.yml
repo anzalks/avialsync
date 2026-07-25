@@ -86,6 +86,13 @@ jobs:
       - name: Run Tests
         run: pytest -x -q --ignore=tests/benchmarks
 
+      # Run budget-gated benchmarks as a separate step so regressions are
+      # clearly flagged in CI (D-023: benchmarks CI-gated, separate step).
+      # --benchmark-only: only run benchmark tests (skip regular tests already run above).
+      - name: Run Benchmarks (budget-gated ★)
+        run: pytest tests/benchmarks --benchmark-only -q
+
+
   build-artifacts:
     name: Build Artifacts (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

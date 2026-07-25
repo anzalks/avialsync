@@ -619,18 +619,19 @@ class MainWindow(QMainWindow):
         )
 
         # ── Marking ───────────────────────────────────────────────────
-        # A/B in/out: same internal method as the transport buttons
+        # A/B in/out: route through the same internal method as the transport buttons
+        # (public API as required by D-022.1 — no direct call to engine privates)
         _act(
             "Set A/B in-point",
             "Marking",
-            self.transport._on_ab_in,
+            self.transport.ab_in,
             Qt.Key.Key_BracketLeft,
             "I",
         )
         _act(
             "Set A/B out-point",
             "Marking",
-            self.transport._on_ab_out,
+            self.transport.ab_out,
             Qt.Key.Key_BracketRight,
             "O",
         )
