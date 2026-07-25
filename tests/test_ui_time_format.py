@@ -22,6 +22,15 @@ class TestFormatTimeRelative:
         result = format_time(1.001, TimeDisplayMode.RELATIVE)
         assert "001" in result
 
+    def test_negative_seconds_are_signed_elapsed_time(self):
+        assert format_time(-1.234, TimeDisplayMode.RELATIVE) == "-00:00:01.234"
+
+    def test_negative_subsecond_time_does_not_wrap(self):
+        assert format_time(-0.642, TimeDisplayMode.RELATIVE) == "-00:00:00.642"
+
+    def test_negative_hours_are_signed_elapsed_time(self):
+        assert format_time(-3661.5, TimeDisplayMode.RELATIVE) == "-01:01:01.500"
+
     def test_no_epoch_falls_back_to_relative(self):
         result = format_time(60.0, TimeDisplayMode.UTC, t_epoch=0.0)
         assert ":" in result

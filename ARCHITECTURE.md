@@ -172,6 +172,8 @@ playhead controls · time ───── master seek bar ───── end ·
   while a later source remains blank until its actual start. An event
   hover/focus card reports type, source(s), master timestamp, and, for accepted sync evidence, the
   match/provenance identity. Clicking any location seeks the master clock; it never changes a mapping.
+- Video panes must use the same mapped source bounds as their coverage rows: an out-of-range pane is
+  paused and shows **No Footage**, never its last decoded frame.
 - Native vertical splitter handles, matching the video/plot boundary, distinguish plots from Data
   Streams and Data Streams from the seek/transport section. Those handles resize the overview; a
   collapse button preserves a minimal title row. Expanded/collapsed state is a QSettings view preference,

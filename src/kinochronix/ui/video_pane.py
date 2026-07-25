@@ -124,6 +124,8 @@ class VideoPane(QWidget):
         from kinochronix.core.timeline import TimeMap
 
         self.time_map = TimeMap()
+        self._source_bounds: tuple[float, float] | None = None
+        self._master_has_footage: bool | None = None
 
         self.setLayout(QGridLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
@@ -295,7 +297,7 @@ class VideoPane(QWidget):
 
         self.lbl_no_footage = QLabel("No Footage")
         self.lbl_no_footage.setStyleSheet(
-            "color: white; background-color: rgba(0,0,0,180); font-size: 24px;"
+            "color: white; background-color: rgb(0,0,0); font-size: 24px;"
         )
         self.lbl_no_footage.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_no_footage.setVisible(False)
@@ -329,6 +331,18 @@ class VideoPane(QWidget):
         """Supply the stream's nominal rate for stable CFR readout."""
         self._nominal_fps = fps
 
+    def set_source_bounds(self, bounds: tuple[float, float]) -> None:
+        """Set the source-time interval that contains decodable media."""
+        self._source_bounds = tuple(sorted(bounds))
+
+    def has_footage_at_master(self, t_master: float) -> bool:
+        """Return whether this pane has media at the supplied master time."""
+        if self._source_bounds is None:
+            return True
+        t_source = self.time_map.to_source(t_master)
+        start, end = self._source_bounds
+        return start <= t_source <= end
+
     def set_tracking_readers(self, readers: list) -> None:
         self.paint_canvas.set_readers(readers)
 
@@ -354,6 +368,9 @@ class VideoPane(QWidget):
             self.lbl_name.setVisible(False)
 
     def set_has_footage(self, has_footage: bool) -> None:
+        if has_footage == self._master_has_footage:
+            return
+        self._master_has_footage = has_footage
         self.lbl_no_footage.setVisible(not has_footage)
 
     def open(self, path: str) -> None:

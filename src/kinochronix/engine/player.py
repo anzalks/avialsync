@@ -12,6 +12,7 @@ from kinochronix.engine.seeker import SeekGroup
 from kinochronix.ui.plot_pane import PlotPane
 from kinochronix.ui.transport import Transport
 from kinochronix.ui.video_grid import VideoGrid
+from kinochronix.ui.video_pane import VideoPane
 
 if TYPE_CHECKING:
     from kinochronix.ui.readout_panel import ReadoutPanel
@@ -76,7 +77,7 @@ class Player(QObject):
 
             self._last_tick_monotonic = time.monotonic()
             self.clock.play()
-            for pane in self.video_grid.panes:
+            for pane in self._update_pane_footage(self.clock.state.t):
                 pane.play()
         else:
             self.clock.pause()
@@ -99,7 +100,7 @@ class Player(QObject):
         # Coalesce fast keyframe seeks: if a seek is already in flight and this
         # is a non-exact (drag) seek, remember only the newest target and skip
         # dispatching a new SeekTask — _on_tick will flush it once seeker settles.
-        self.seeker.panes = self.video_grid.panes
+        self.seeker.panes = self._update_pane_footage(t)
         if not exact and not self.seeker.is_settled():
             self._pending_scrub_t = t
         else:
@@ -133,7 +134,7 @@ class Player(QObject):
         if was_playing:
             self.set_playing(False)
 
-        for pane in self.video_grid.panes:
+        for pane in self._update_pane_footage(self.clock.state.t):
             if not pane.mpv:
                 continue
             if direction > 0:
@@ -164,12 +165,25 @@ class Player(QObject):
         self._ab_in = t_in
         self._ab_out = t_out
 
+    def _update_pane_footage(self, t_master: float) -> list[VideoPane]:
+        """Synchronize pane availability with master-time coverage before display or seek."""
+        active_panes: list[VideoPane] = []
+        for pane in self.video_grid.panes:
+            has_footage = pane.has_footage_at_master(t_master)
+            if getattr(pane, "_master_has_footage", None) != has_footage:
+                pane.set_has_footage(has_footage)
+                if not has_footage:
+                    pane.pause()
+            if has_footage:
+                active_panes.append(pane)
+        return active_panes
+
     def _on_tick(self) -> None:
         now = time.monotonic()
 
         # Flush a coalesced pending scrub seek as soon as the seeker is free
         if self._pending_scrub_t is not None:
-            self.seeker.panes = self.video_grid.panes
+            self.seeker.panes = self._update_pane_footage(self._pending_scrub_t)
             if self.seeker.is_settled():
                 self.seeker.seek(self._pending_scrub_t, exact=False)
                 self._pending_scrub_t = None
@@ -185,9 +199,10 @@ class Player(QObject):
                 t = self._ab_in
 
             # Drift correction (video following master clock)
-            self.seeker.panes = self.video_grid.panes
-            if self.seeker.is_settled() and len(self.video_grid.panes) > 0:
-                for idx, pane in enumerate(self.video_grid.panes):
+            active_panes = self._update_pane_footage(t)
+            self.seeker.panes = active_panes
+            if self.seeker.is_settled() and active_panes:
+                for idx, pane in enumerate(active_panes):
                     if not pane.mpv:
                         continue
 

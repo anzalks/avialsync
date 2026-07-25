@@ -34,7 +34,10 @@ def format_time(t_seconds: float, mode: TimeDisplayMode, t_epoch: float = 0.0) -
 
 
 def _fmt_relative(t: float) -> str:
-    h = int(t // 3600)
-    m = int((t % 3600) // 60)
-    s = t % 60
-    return f"{h:02d}:{m:02d}:{s:06.3f}"
+    """Format signed elapsed time without wrapping negative values by a day."""
+    total_milliseconds = round(abs(t) * 1000)
+    hours, remainder = divmod(total_milliseconds, 3_600_000)
+    minutes, remainder = divmod(remainder, 60_000)
+    seconds, milliseconds = divmod(remainder, 1_000)
+    sign = "-" if t < 0 else ""
+    return f"{sign}{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"

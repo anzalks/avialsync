@@ -164,6 +164,25 @@ def test_readout_updated_during_drag(player_with_mocks):
     assert abs(args[0] - 4.0) < 1e-9
 
 
+def test_seek_hides_and_skips_video_panes_without_master_time_coverage(player_with_mocks):
+    """Out-of-range panes show No Footage and are never asked to seek a stale frame."""
+    player, _clock = player_with_mocks
+    active = MagicMock()
+    active.has_footage_at_master.return_value = True
+    inactive = MagicMock()
+    inactive.has_footage_at_master.return_value = False
+    player.video_grid.panes = [active, inactive]
+    player.seeker.is_settled.return_value = True
+
+    player.seek(5.0, exact=True)
+
+    active.set_has_footage.assert_called_once_with(True)
+    inactive.set_has_footage.assert_called_once_with(False)
+    inactive.pause.assert_called_once()
+    assert player.seeker.panes == [active]
+    player.seeker.seek.assert_called_once_with(5.0, exact=True)
+
+
 def test_play_starts_playback_for_programmatic_callers(player_with_mocks):
     """The demo launcher's public play call delegates to the normal UI path."""
     player, _clock = player_with_mocks

@@ -133,6 +133,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
   timestamp-derived rate plus `(VFR)`, never a misleading single average rate.
 - Bug: `video_grid._panes` → `video_grid.panes` (AttributeError on annotate)
 - Bug: compact video summaries now receive the codec already probed by the video loader (no false `UNKNOWN`)
+- Video availability: panes outside their mapped source bounds pause and show `No Footage`, matching Data Streams coverage
+- Bug: negative relative master time is displayed as signed elapsed time (for example `-00:00:01.234`), never a wrapped clock value
 - Bug: `Any` not imported from `typing` in `main_window.py`
 - Bug: `_start_csv_import` → `_start_data_import` (AttributeError on session restore with sensors)
 - Bug: `_update_window_title()` called but never defined — removed phantom call in `_on_channel_remove_requested`

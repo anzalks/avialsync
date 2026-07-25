@@ -1389,6 +1389,7 @@ class MainWindow(QMainWindow):
         frame_times = loader.frame_times()
         pane.set_frame_times(frame_times)
         pane.set_nominal_fps(loader.fps())
+        pane.set_source_bounds(bounds)
         is_vfr = bool(getattr(loader, "is_vfr", lambda: False)())
         pane.set_vfr(is_vfr)
         from kinochronix.core.inspection import IntegrityFlags
