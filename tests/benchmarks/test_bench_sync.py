@@ -7,7 +7,18 @@ import numpy as np
 from avialview.core.sync import fit_sync_events
 
 CI_BUDGET_MULTIPLIER = 1.5
-_ACTUAL_MULTIPLIER = CI_BUDGET_MULTIPLIER if os.environ.get("CI") == "true" else 1.0
+HOSTED_CI_BUDGET_MULTIPLIER = 8.0
+
+
+def _budget_multiplier() -> float:
+    if os.environ.get("AVIALVIEW_HOSTED_CI") == "true":
+        return HOSTED_CI_BUDGET_MULTIPLIER
+    if os.environ.get("CI") == "true":
+        return CI_BUDGET_MULTIPLIER
+    return 1.0
+
+
+_ACTUAL_MULTIPLIER = _budget_multiplier()
 _FIT_PREVIEW_BUDGET_S = 0.25
 
 

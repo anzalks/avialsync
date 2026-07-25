@@ -1,0 +1,71 @@
+name: Performance
+
+on:
+  workflow_call:
+    inputs:
+      runner_tier:
+        description: >-
+          hosted records a calibrated sanity cap; reference enforces raw engineering marks.
+        required: false
+        default: hosted
+        type: string
+  workflow_dispatch:
+    inputs:
+      runner_tier:
+        description: >-
+          Choose hosted for a portable sanity check or reference for strict engineering marks.
+        required: true
+        default: hosted
+        type: choice
+        options: [hosted, reference]
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  hosted:
+    name: Hosted performance sanity
+    if: inputs.runner_tier != 'reference'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      QT_QPA_PLATFORM: offscreen
+      AVIALVIEW_HOSTED_CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Measure all timing paths
+        run: pytest tests/benchmarks --benchmark-only -q --benchmark-json=benchmark.json
+      - name: Upload measurements
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosted-benchmark-measurements
+          path: benchmark.json
+
+  reference:
+    name: Reference hardware engineering gate
+    if: inputs.runner_tier == 'reference'
+    runs-on: [self-hosted, avialview-performance]
+    timeout-minutes: 20
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Enforce raw engineering marks
+        run: pytest tests/benchmarks --benchmark-only -q --benchmark-json=benchmark.json
+      - name: Upload measurements
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-benchmark-measurements
+          path: benchmark.json

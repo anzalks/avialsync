@@ -35,9 +35,11 @@ jobs:
           mypy src/avialview
       - run: python tools/make_fixtures.py --small
       - run: pytest -x -q --ignore=tests/benchmarks
-      - name: Run performance budgets
-        if: matrix.python-version == '3.12'
-        run: pytest tests/benchmarks --benchmark-only -q
+
+  performance:
+    uses: ./.github/workflows/performance.yml
+    with:
+      runner_tier: hosted
 
   docs:
     name: Release documentation
@@ -54,7 +56,7 @@ jobs:
 
   distributions:
     name: Build Python distributions
-    needs: [quality, docs]
+    needs: [quality, docs, performance]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

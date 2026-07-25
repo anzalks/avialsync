@@ -93,11 +93,11 @@ jobs:
       - name: Run Tests
         run: pytest -x -q --ignore=tests/benchmarks
 
-      # Run budget-gated benchmarks as a separate step so regressions are
-      # clearly flagged in CI (D-023: benchmarks CI-gated, separate step).
-      # --benchmark-only: only run benchmark tests (skip regular tests already run above).
-      - name: Run Benchmarks (budget-gated ★)
-        run: pytest tests/benchmarks --benchmark-only -q
+  performance:
+    needs: [lint-type, test]
+    uses: ./.github/workflows/performance.yml
+    with:
+      runner_tier: hosted
 
   docs:
     name: Read the Docs build
@@ -117,7 +117,7 @@ jobs:
   build-artifacts:
     name: Build Artifacts (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: [test, docs]
+    needs: [test, docs, performance]
     timeout-minutes: 15
     strategy:
       fail-fast: false

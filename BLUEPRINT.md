@@ -33,7 +33,10 @@
 | Pyramid build 180 M samples ★ | ≤ 2.5 s (revised, D-024) |
 | Idle RAM, session loaded | ≤ 2.5 GB |
 
-Benchmarks live in `tests/benchmarks/`, run via `pytest --benchmark-only`, regressions > 20 % fail CI.
+Benchmarks live in `tests/benchmarks/`, run via `pytest --benchmark-only`. The raw ★ marks are
+enforced by the `Performance` workflow's reference-hardware gate. GitHub-hosted runners run the
+same paths with one documented uniform sanity cap and upload their measurements; they never
+redefine the product targets.
 
 ---
 

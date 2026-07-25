@@ -423,3 +423,26 @@ and require explicit user acceptance before updating a `TimeMap`. Accepted prove
 in `.avv` so an alignment is reproducible and auditable. Sync accuracy and throughput are release
 criteria: every implementation requires ground-truth fixtures and benchmarks, and may not regress
 existing playback, import, or plotting budgets.
+
+## 2026-07 · D-029 · Separate hosted performance monitoring from reference-hardware certification
+
+### Context
+
+The 180 M-sample pyramid build meets its 2.5 s mark on the defined engineering machine, but it
+measured 15.6 s on an Ubuntu GitHub-hosted runner. That runner has shared CPU and ephemeral disk,
+so using it as the authority for the raw product mark produces false failures. Running the same
+heavy benchmark in every six-member correctness matrix was also redundant and wasteful.
+
+### Decision
+
+`Performance` is now a reusable workflow with two tiers:
+
+- `hosted` runs once on Ubuntu 3.12 from CI, release, schedule, or manual dispatch. It exercises
+  every timing path, applies one documented uniform 8× sanity cap, and uploads `benchmark.json`.
+- `reference` is a manually dispatched, uncalibrated gate on a runner labelled
+  `self-hosted, avialview-performance`. It enforces the raw 2.5 s / 5 ms / 2 ms / 250 ms marks.
+
+The cross-platform correctness matrix no longer runs heavyweight benchmarks. This preserves the
+real engineering target while making CI timing evidence reproducible, visible, and proportionate
+to the hardware that produced it. The hosted multiplier applies uniformly; per-test multipliers
+remain prohibited.

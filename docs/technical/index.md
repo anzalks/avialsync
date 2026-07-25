@@ -8,5 +8,6 @@ from the scientist-facing guides.
 
 architecture
 data-handling
+performance
 ../plugin-guide
 ```
