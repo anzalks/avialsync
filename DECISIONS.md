@@ -222,3 +222,94 @@ New outputs:
   - examples/data/camera_2.mp4: second clean camera with +1.234 s offset in launch_demo.py
   - Non-zero drift (0.5 ppm) set on camera_3 in launch_demo.py
   - Demo load order: camera_1 first (triggers pose.csv D-019 rebind), then camera_2/camera_3
+
+## 2026-07 · D-022 · Interaction standard — visible surface, depth in menus, shortcuts as accelerators
+
+### 1. Single authority — one QAction (or one transport signal) per action
+
+Every user-reachable action (button, menu item, context-menu item, keyboard shortcut) MUST
+share exactly one implementation path. Parallel handlers are forbidden.
+
+Concretely:
+- If an action is in the menu bar, its `QAction` carries the keyboard shortcut (`setShortcut`
+  or `setShortcuts`). The matching `QShortcut` in `_setup_shortcuts()` is REMOVED.
+- Transport buttons emit a signal; that signal is connected to the engine; keyboard shortcuts
+  that duplicate those buttons must emit the SAME signal, not call the engine directly.
+- Context-menu items must trigger the SAME `QAction` objects used by the menu bar and toolbars
+  (verified by object identity in tests). Never create a second action for the same effect.
+
+Rationale: parallel handlers caused the Ctrl+E / Ctrl+0 double-trigger bug and makes the
+shortcuts dialog impossible to keep in sync with reality.
+
+### 2. StandardKey over hardcoded strings wherever a platform standard exists
+
+Use `QKeySequence.StandardKey` for:
+- Save session → `StandardKey.Save` (Ctrl+S on Win/Linux, Cmd+S on macOS)
+- Open session → `StandardKey.Open` (Ctrl+O / Cmd+O)
+- Quit → `StandardKey.Quit` (Ctrl+Q / Cmd+Q)
+- HelpContents → `StandardKey.HelpContents` (F1); `?` stays as an alias QShortcut
+- FullScreen → `StandardKey.FullScreen` (F11 on Win/Linux; Ctrl+Cmd+F on macOS)
+
+Hardcoded string shortcuts are only acceptable when no StandardKey covers the action
+(e.g., `Ctrl+T` for theme cycle, `Ctrl+E` for snapshot, field keys J/K/L).
+
+### 3. macOS menuRoles required
+
+- Quit action: `setMenuRole(QAction.MenuRole.QuitRole)` AND `StandardKey.Quit`
+- About action: `setMenuRole(QAction.MenuRole.AboutRole)` — even if just a stub
+- Preferences: DEFERRED — no settings dialog exists yet; add when it does
+
+Without `QuitRole`, the macOS app menu has no Quit item, which breaks notarization review
+and violates HIG. This was a known omission confirmed at audit (D-022 pre-condition).
+
+### 4. J/K/L shuttle semantics
+
+- **L** — step up through the playback-rate set (0.01×, 0.05×, 0.1×, 0.25×, 0.5×, 1×,
+  2×, 4×, 8×, 10×). Each press advances one step; wraps at max. Emits `transport.rate_changed`.
+- **K** — pause (equivalent to clicking the pause button; emits `transport.play_toggled(False)`).
+- **J** — jump back 1 second (emits `transport.jump_requested(-1.0)`). True reverse-play is not
+  implemented; J is a time-jump, not reverse. This is documented in the shortcuts dialog.
+- Rationale: J=back/K=stop/L=forward-speed is the industry-standard (Avid, Premiere, DaVinci).
+  True reverse requires re-seeking every frame at playback rate which mpv supports but creates
+  seek-settle complexity not yet designed. Defer to a future PR.
+
+### 5. A/B button active state
+
+Transport A-in and A-out buttons are `setCheckable(True)`. When a point is set, the button
+is shown as checked. When cleared (`_on_ab_clear`), both buttons are unchecked.
+Visual differentiation: checked state uses a distinct background to signal "loop is armed."
+
+### 6. Shortcuts dialog rendering
+
+`ShortcutsDialog` must NOT maintain a static string table. Instead:
+- `MainWindow._show_shortcuts()` collects all registered `QAction` objects that have shortcuts.
+- Passes them to `ShortcutsDialog(actions, parent)`.
+- The dialog renders `QKeySequence.toString(QKeySequence.SequenceFormat.NativeText)` for each.
+- Grouped by category tag: Playback / Marking / View / File.
+- Consequence: it is impossible for the dialog to drift from the actual bindings.
+
+### 7. Open Video → Ctrl+Shift+V, Open Data → Ctrl+Shift+D
+
+The previous bindings Ctrl+V ("Open Video") and Ctrl+D ("Open Data") collide with
+system Paste and platform bookmark/dock keys respectively. They are rebound here.
+
+Decision: pre-1.0, zero external users, cheapest moment to change. The new bindings
+are less ergonomic but non-colliding.
+
+**TRAP: never bind Ctrl+V or Ctrl+D to any application action.** These are reserved
+by the OS/desktop across all three platforms. If a future action needs a shortcut,
+use Ctrl+Shift+<letter> or pick a non-colliding combination.
+The previous collision was a known bug confirmed at audit; this entry resolves it.
+
+### Consequences (what every future agent must not reverse)
+
+- Never create a `QShortcut` for an action that already has a menu `QAction` with
+  the same shortcut. The `QAction` is the single authority; the shortcut is set on it.
+- Never call `player.set_playing()` or `player.step_frame()` from a keyboard shortcut
+  handler. Always emit the corresponding transport signal so the transport bar stays
+  in sync.
+- Never bind Ctrl+V or Ctrl+D.
+- Never add a Preferences action without also setting `MenuRole.ApplicationSpecificRole`
+  or `PreferencesRole` appropriately.
+- J shortcuts dialog rendering must remain derived from live `QAction` registry; no
+  static table. If new actions are added, they appear automatically.

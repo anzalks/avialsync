@@ -127,7 +127,7 @@ Phases 0–4 complete. Phase 5 (plugin API + packaging) is next.
 | `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane` |
 | `ui/video_grid.py` | N VideoPanes; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `set_grid_mode()` |
 | `ui/plot_pane.py` | pyqtgraph multi-row plot; pyramid-fed; X-linked; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
-| `ui/transport.py` | Transport bar + scrub slider + A/B loop; time via `format_time()` | `set_time()`, `set_bounds()`, `set_playing()`, `set_time_mode()` |
+| `ui/transport.py` | Transport bar + scrub slider + A/B loop; time via `format_time()`; jump-back/fwd buttons; snapshot btn; fullscreen btn; checkable A/B with active state | `set_time()`, `set_bounds()`, `set_playing()`, `set_time_mode()`; signals: `snapshot_requested`, `fullscreen_requested`, `jump_requested(float)` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |
@@ -186,6 +186,11 @@ All connections established in `MainWindow.__init__` unless noted.
 | `transport.frame_step_requested(int)` | `player.step_frame(int)` |
 | `transport.ab_loop_changed(t_in, t_out)` | `player.set_ab_loop` AND `_on_ab_loop_changed` (readout stats) |
 | `transport.annotate_requested` | `_on_annotate_requested()` |
+| `transport.snapshot_requested` | `_export_snapshot()` |
+| `transport.fullscreen_requested` | `_toggle_fullscreen()` — toggles fullscreen of first pane or active pane |
+| `transport.jump_requested(float delta)` | `_on_jump_requested(delta)` → `player.seek(t + delta, exact=True)` |
+| `video_grid.pane_right_clicked(path, QPoint)` | `_on_pane_right_clicked` → context menu: fullscreen / snapshot / properties / copy frame info |
+| `plot_pane.annotate_at_requested(float t)` | `_on_annotate_at_requested(t)` → `annotation_store.add_point(t, ...)` |
 
 ### PlotPane / Player → downstream
 
@@ -294,6 +299,17 @@ from the stored time via `_time_to_frac(t)` + `_ABPin.pin_to_slider()` using
 pyqtgraph gap/measure markers (`pg.InfiniteLine`) are safe — pyqtgraph remaps data coordinates
 to pixels via the ViewBox transform on every paint call; no cached pixel positions exist.
 
+### 18. System-key collisions — Ctrl+V and Ctrl+D are reserved (D-022)
+
+Ctrl+V is the system Paste shortcut on all three platforms. Ctrl+D is the browser/dock
+bookmark shortcut on macOS/Windows. Binding application actions to these keys means:
+- On macOS: the system intercepts Ctrl+V before Qt sees it → Open Video never fires.
+- On Windows: QShortcut wins but breaks paste in Qt text widgets in the same window.
+- On Linux: behavior varies by WM/toolkit — unreliable.
+
+**Fix (D-022.7):** Open Video → `Ctrl+Shift+V`; Open Data → `Ctrl+Shift+D`.
+Never bind Ctrl+V or Ctrl+D to any application action. This is a permanent trap.
+
 ### 11. Annotation label edits via `markers` property are silently discarded
 `AnnotationStore.markers` returns `list(self._markers)` — a copy. Edits to the copy are lost.  
 **Fix:** Access `self._markers` directly when mutating. See `annotations.py:_on_label_edited`.
@@ -358,6 +374,7 @@ Plain CSV for DLC/LightningPose retraining pipelines.
 
 ---
 
+
 ## Run Commands
 
 ```bash
@@ -388,7 +405,63 @@ QT_QPA_PLATFORM=offscreen conda run -n kinochronix pytest --benchmark-only
 
 ---
 
+## Shortcuts Reference (D-022)
+
+### Playback
+
+| Key | Action |
+|---|---|
+| `Space` | Play / Pause (via `transport.play_toggled`) |
+| `←` | Step back 1 frame (via `transport.frame_step_requested(-1)`) |
+| `→` | Step forward 1 frame (via `transport.frame_step_requested(+1)`) |
+| `,` | Step back 1 frame (alias for `←`) |
+| `.` | Step forward 1 frame (alias for `→`) |
+| `Shift+←` | Jump back 1 second |
+| `Shift+→` | Jump forward 1 second |
+| `J` | Jump back 1 second (via `transport.jump_requested(-1.0)`) |
+| `K` | Pause (via `transport.play_toggled(False)`) |
+| `L` | Step up playback rate (via `transport.rate_changed`) |
+| `Home` | Jump to start |
+| `End` | Jump to end |
+
+### Marking
+
+| Key | Action |
+|---|---|
+| `[` | Set A/B loop in-point |
+| `I` | Set A/B loop in-point (alias for `[`) |
+| `]` | Set A/B loop out-point |
+| `O` | Set A/B loop out-point (alias for `]`) |
+| `M` | Add point marker at playhead |
+
+### View
+
+| Key | Action |
+|---|---|
+| `Ctrl+0` | Reset plot zoom (single QAction authority) |
+| `+` | Plot zoom in |
+| `-` | Plot zoom out |
+| `Ctrl+T` | Cycle theme (System → Dark → Light) |
+| `F11` / platform FullScreen | Toggle pane fullscreen (`StandardKey.FullScreen`) |
+| `F1` | Shortcuts dialog (`StandardKey.HelpContents`) |
+| `?` | Shortcuts dialog (alias) |
+
+### File
+
+| Key | Action |
+|---|---|
+| `Ctrl+S` / `Cmd+S` | Save session (`StandardKey.Save`) |
+| `Ctrl+O` / `Cmd+O` | Open session (`StandardKey.Open`) |
+| `Ctrl+Shift+V` | Open Video(s)… |
+| `Ctrl+Shift+D` | Open Sensor/Ephys Data… |
+| `Ctrl+E` | Export Snapshot (single QAction authority) |
+| `Ctrl+Q` / `Cmd+Q` | Quit (`StandardKey.Quit`, `QuitRole`) |
+
+
+---
+
 ## Performance Budgets (CI-enforced where ★)
+
 
 | Metric | Budget |
 |---|---|
