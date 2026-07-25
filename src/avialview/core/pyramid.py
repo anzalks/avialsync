@@ -14,6 +14,7 @@ LEVELS = [1, 16, 256, 4096]
 # identical for regular sensor data; irregular multi-second gaps are still
 # detected correctly because the subsample captures global dt statistics.)
 _MEDIAN_SAMPLE_STRIDE = 10_000
+_GAP_CHUNK_SIZE = 1_000_000
 
 
 def build_pyramid_level(
@@ -70,19 +71,46 @@ def build_gap_mask(t: np.ndarray) -> np.ndarray:
     if len(t) < 2:
         return np.zeros(len(t), dtype=bool)
 
-    dt = np.diff(t)
-    # Estimate median from a subsample — much faster than np.median on 180M items.
-    stride = max(1, len(dt) // _MEDIAN_SAMPLE_STRIDE)
-    median_dt = float(np.median(dt[::stride]))
+    # Sample adjacent pairs directly.  Constructing ``np.diff(t)`` would allocate
+    # another 1.4 GB array for a 180 M-sample recording before we even build the
+    # mask.  Adjacent pairs retain the original median-dt semantics.
+    stride = max(1, (len(t) - 1) // _MEDIAN_SAMPLE_STRIDE)
+    sample_starts = np.arange(0, len(t) - 1, stride)
+    median_dt = float(np.median(t[sample_starts + 1] - t[sample_starts]))
 
     if math.isnan(median_dt) or median_dt <= 0:
         return np.zeros(len(t), dtype=bool)
 
     gap_threshold = median_dt * 10.0
     mask = np.zeros(len(t), dtype=bool)
-    mask[:-1] = dt > gap_threshold
+    scratch = np.empty(min(_GAP_CHUNK_SIZE, len(t) - 1), dtype=np.float64)
+    for start in range(0, len(t) - 1, _GAP_CHUNK_SIZE):
+        stop = min(start + _GAP_CHUNK_SIZE, len(t) - 1)
+        chunk_size = stop - start
+        np.subtract(t[start + 1 : stop + 1], t[start:stop], out=scratch[:chunk_size])
+        np.greater(scratch[:chunk_size], gap_threshold, out=mask[start:stop])
 
     return mask
+
+
+def _aggregate_pyramid_level(
+    t: np.ndarray, v_min: np.ndarray, v_max: np.ndarray, factor: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Aggregate one pyramid level from the preceding level's min/max envelopes."""
+    n = len(t)
+    remainder = n % factor
+    n_trunc = n - remainder
+
+    t_dec = t[:n_trunc:factor]
+    min_dec = np.nanmin(v_min[:n_trunc].reshape(-1, factor), axis=1)
+    max_dec = np.nanmax(v_max[:n_trunc].reshape(-1, factor), axis=1)
+
+    if remainder:
+        t_dec = np.concatenate((t_dec, t[n_trunc : n_trunc + 1]))
+        min_dec = np.concatenate((min_dec, [np.nanmin(v_min[n_trunc:])]))
+        max_dec = np.concatenate((max_dec, [np.nanmax(v_max[n_trunc:])]))
+
+    return t_dec, min_dec, max_dec
 
 
 class PyramidBuilder:
@@ -107,8 +135,13 @@ class PyramidBuilder:
         # is lossless and halves IO for the largest levels.
         save_dtype = v.dtype if v.dtype == np.float64 else np.float32
 
+        previous_t = t
+        previous_min = v
+        previous_max = v
         for level in LEVELS[1:]:
-            t_lvl, vmin_lvl, vmax_lvl = build_pyramid_level(t, v, level)
+            t_lvl, vmin_lvl, vmax_lvl = _aggregate_pyramid_level(
+                previous_t, previous_min, previous_max, factor=16
+            )
             gap_lvl = build_gap_mask(t_lvl)
             np.save(self.cache_dir / f"{self.channel_id}_pyr_{level}_t.npy", t_lvl)
             np.save(
@@ -120,6 +153,9 @@ class PyramidBuilder:
                 vmax_lvl.astype(save_dtype, copy=False),
             )
             np.save(self.cache_dir / f"{self.channel_id}_pyr_{level}_gap.npy", gap_lvl)
+            previous_t = t_lvl
+            previous_min = vmin_lvl
+            previous_max = vmax_lvl
 
 
 class PyramidReader:

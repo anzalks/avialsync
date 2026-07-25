@@ -56,7 +56,7 @@ following fixture coverage remains the release-level acceptance set:
 
 ## 4. Performance benchmarks (`tests/benchmarks/`)
 
-- `bench_pyramid.py`: build 180 M samples ≤ 2 s; query any window ≤ 5 ms.
+- `bench_pyramid.py`: build 180 M samples ≤ 2.5 s; query any window ≤ 5 ms.
 - `bench_cursor.py`: playhead update ≤ 2 ms (offscreen).
 - `bench_plot.py`: pan/zoom redraw ≤ 16 ms at every pyramid level.
 - `bench_import.py`: 1 GB CSV → cache ≤ 60 s (marked slow; nightly, not per-PR).

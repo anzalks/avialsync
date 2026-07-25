@@ -529,7 +529,7 @@ QT_QPA_PLATFORM=offscreen conda run -n avialview pytest --benchmark-only
 
 ★ budgets are asserted in `tests/benchmarks/test_bench_pyramid.py` via
 `benchmark.stats["mean"] <= budget * CI_BUDGET_MULTIPLIER`.  The multiplier is
-`CI_BUDGET_MULTIPLIER = 2.0` (single constant in the file) to account for CI-runner
+`CI_BUDGET_MULTIPLIER = 1.5` (single constant in the file) to account for CI-runner
 variability.  Never add per-test multipliers (D-023).
 
 | Metric | Budget |
@@ -541,3 +541,8 @@ variability.  Never add per-test multipliers (D-023).
 | First CSV import 1 GB | ≤ 60 s |
 | Pyramid build 180 M samples ★ | ≤ 2.5 s (revised, D-024) |
 | Idle RAM, session loaded | ≤ 2.5 GB |
+
+The pyramid builder creates the 16× level from raw data, then derives 256× and
+4096× levels from the preceding min/max envelopes. This preserves exact envelopes
+while avoiding repeated full-resolution passes; the gap mask is chunked to avoid a
+large temporary timestamp-difference allocation.

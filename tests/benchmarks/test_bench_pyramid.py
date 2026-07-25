@@ -1,7 +1,7 @@
 """Pyramid and cursor-path benchmarks with CI-enforced budget gates.
 
 Budget-★ items (BLUEPRINT.md / HANDOUT.md):
-  - Pyramid build 180 M samples: ≤ 2 s  (★ CI-gated)
+  - Pyramid build 180 M samples: ≤ 2.5 s  (★ CI-gated)
   - Cursor update per tick:       ≤ 2 ms (★ CI-gated)
 
 CI runners are typically slower than dev machines.  All budgets are

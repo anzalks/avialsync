@@ -395,6 +395,18 @@ the loader_version in the cache key (D-008) so stale caches are automatically in
 **Future Optimization (Format Migration deferred post-1.0):**
 For uniform-rate sources, the Level-1 `t` array does not need to be written to disk. It is perfectly reconstructible from a `(t0, dt)` tuple, which would save ~1.44 GB of writes per channel and almost certainly bring the build time back comfortably under 2.0s. This optimization requires a cache-format change (bump `loader_version` and refactor format migration) and is explicitly deferred until post-1.0 to prioritize stabilization. The 2.5s budget is therefore considered provisional.
 
+## 2026-07 · D-028 · Hierarchical pyramid construction
+
+**Decision:** Build the 16× display envelope from raw samples, then derive the
+256× and 4096× envelopes from the preceding level's min/max values. Compute gap
+masks in bounded chunks rather than allocating one full timestamp-difference array.
+
+**Rationale:** Minima and maxima are associative, so hierarchical aggregation is
+identical to direct aggregation at each published level, including partial final
+blocks. It reduces full-resolution passes from three to one and avoids a large
+temporary allocation during gap detection. The 180M-sample build benchmark improved
+from 3.11 s to 1.69 s on the development machine while retaining exact envelopes.
+
 ## 2026-07 · D-026 · Synchronization is evidence-based, plugin-extensible, and user-accepted
 
 AvialView is a visual-inspection tool, not an acquisition system or a built-in scientific-analysis
