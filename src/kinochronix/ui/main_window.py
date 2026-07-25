@@ -21,6 +21,7 @@ from kinochronix.core.session import (
     MarkerEntry,
     SensorEntry,
     SessionState,
+    SyncProvenance,
     VideoEntry,
     add_recent,
     get_recent,
@@ -54,6 +55,9 @@ class MainWindow(QMainWindow):
         # object to a thread does not transfer Python ownership.
         self._video_load_jobs: dict[QThread, object] = {}
         self._video_load_offsets: dict[str, float] = {}
+        self._video_load_drifts: dict[str, float] = {}
+        self._video_frame_times: dict[str, Any] = {}
+        self._sync_provenance: list[SyncProvenance] = []
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
         self._frame_indexed_sources: list[tuple[Path, float]] = []
         # Inspection data keyed by str(path)
@@ -303,6 +307,7 @@ class MainWindow(QMainWindow):
                 VideoEntry(
                     path=p,
                     offset=pane.time_map.offset,
+                    drift_ppm=pane.time_map.drift_ppm,
                     integrity_flags=ins.integrity_flags.as_dict() if ins else {},
                     metadata=ins.import_config if ins else {},
                 )
@@ -347,6 +352,7 @@ class MainWindow(QMainWindow):
             videos=videos,
             sensors=sensors,
             markers=markers,
+            sync_provenance=list(self._sync_provenance),
             t_start=bounds[0],
             t_end=bounds[1],
             plot_x0=plot_x0,
@@ -429,7 +435,7 @@ class MainWindow(QMainWindow):
         for ve in state.videos:
             p = Path(relink_map.get(ve.path, ve.path))
             if p.exists():
-                self._load_video(p, offset=ve.offset)
+                self._load_video(p, offset=ve.offset, drift_ppm=ve.drift_ppm)
                 if ve.integrity_flags or ve.metadata:
                     from kinochronix.core.inspection import IntegrityFlags
 
@@ -473,6 +479,8 @@ class MainWindow(QMainWindow):
                 self.annotation_store.add_range(me.t_start, me.t_end, me.label, video_frames=vfs)
             else:
                 self.annotation_store.add_point(me.t_start, me.label, video_frames=vfs)
+
+        self._sync_provenance = list(state.sync_provenance)
 
         # Restore plot zoom
         if state.plot_x0 is not None and state.plot_x1 is not None and self.plot_pane._master_plot:
@@ -770,6 +778,9 @@ class MainWindow(QMainWindow):
         act.setShortcut(QKeySequence("Ctrl+Shift+D"))
         act.triggered.connect(self._open_data)
         _reg(act, "File")
+
+        act = file_menu.addAction("Synchronize TTL / events…")
+        act.triggered.connect(self._open_sync_wizard)
 
         file_menu.addSeparator()
 
@@ -1251,7 +1262,7 @@ class MainWindow(QMainWindow):
 
     # ── Source loading ───────────────────────────────────────────────
 
-    def _load_video(self, path: Path, offset: float = 0.0) -> None:
+    def _load_video(self, path: Path, offset: float = 0.0, drift_ppm: float = 0.0) -> None:
         """Open a registry-selected video source without blocking the UI thread."""
         from kinochronix.engine.video_worker import VideoOpenWorker
 
@@ -1259,6 +1270,7 @@ class MainWindow(QMainWindow):
         worker = VideoOpenWorker(path)
         self._video_load_jobs[thread] = worker
         self._video_load_offsets[str(path)] = offset
+        self._video_load_drifts[str(path)] = drift_ppm
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         # These QObject slots are queued onto MainWindow's UI thread.  Do not
@@ -1274,11 +1286,10 @@ class MainWindow(QMainWindow):
         thread.start()
 
     @Slot(str, object, str)
-    def _on_video_opened(
-        self, original_path: str, loader: object, media_path: str
-    ) -> None:
+    def _on_video_opened(self, original_path: str, loader: object, media_path: str) -> None:
         """Create UI state only after asynchronous source opening succeeds."""
         offset = self._video_load_offsets.pop(original_path, 0.0)
+        drift_ppm = self._video_load_drifts.pop(original_path, 0.0)
         if not isinstance(loader, VideoSource):
             self._on_video_open_error(original_path, "Selected loader is not a VideoSource.")
             return
@@ -1289,9 +1300,12 @@ class MainWindow(QMainWindow):
         self.sidebar.add_video(original_path, metadata)
         self.sidebar.set_video_loader(original_path, loader)
         self.sidebar.set_video_pane(original_path, pane)
-        if offset:
-            self.video_grid.set_offset(original_path, offset)
+        if offset or drift_ppm:
+            self.video_grid.set_sync_mapping(original_path, offset, drift_ppm)
         self._video_fps[original_path] = loader.fps()
+        frame_times = loader.frame_times()
+        if frame_times is not None:
+            self._video_frame_times[original_path] = frame_times
         if self._frame_indexed_sources and len(self._video_fps) == 1:
             self._rebind_frame_indexed_sources(loader.fps())
 
@@ -1299,6 +1313,7 @@ class MainWindow(QMainWindow):
     def _on_video_open_error(self, path: str, error: str) -> None:
         """Show a source-open error without leaving a partially-created pane."""
         self._video_load_offsets.pop(path, None)
+        self._video_load_drifts.pop(path, None)
         QMessageBox.critical(self, "Video Error", f"Could not open video:\n{path}\n\n{error}")
 
     @Slot()
@@ -1314,9 +1329,83 @@ class MainWindow(QMainWindow):
         self.clock.play()
         self.clock.pause()
 
+    def _open_sync_wizard(self) -> None:
+        """Open evidence-based TTL/frame-event alignment for loaded sources."""
+        from kinochronix.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec
+        from kinochronix.ui.sync_wizard import SyncWizard
+
+        references = [
+            SignalEvidenceSpec(
+                source_id=f"{channel.reader.cache_dir}:{channel.reader.channel_id}",
+                cache_dir=channel.reader.cache_dir,
+                channel_id=channel.reader.channel_id,
+            )
+            for channel in self.plot_pane.channels
+        ]
+        targets = [
+            EventEvidenceSpec(path, frame_times)
+            for path, frame_times in self._video_frame_times.items()
+            if len(frame_times) >= 3
+        ]
+        if not references or not targets:
+            QMessageBox.information(
+                self,
+                "Synchronization evidence",
+                "Load a TTL-bearing sensor channel and a video with frame timestamps first.",
+            )
+            return
+
+        wizard = SyncWizard(references, targets, self)
+        if wizard.exec() == wizard.DialogCode.Accepted and wizard.proposal is not None:
+            self._accept_sync_proposal(wizard.target_id, wizard.proposal)
+
+    def _accept_sync_proposal(self, target_path: str, proposal: object) -> None:
+        """Apply an explicitly accepted proposal and retain reproducible provenance."""
+        from kinochronix.core.sync import SyncProposal
+
+        if not isinstance(proposal, SyncProposal) or not proposal.acceptable:
+            raise ValueError("Only an acceptable synchronization proposal can be applied.")
+        if target_path not in self.video_grid.pane_paths():
+            raise ValueError(f"Synchronization target is not a loaded video: {target_path}")
+
+        fit = proposal.fit
+        self.video_grid.set_sync_mapping(target_path, fit.offset, fit.drift_ppm)
+        provenance = SyncProvenance(
+            reference_id=proposal.reference_id,
+            target_id=target_path,
+            offset=fit.offset,
+            drift_ppm=fit.drift_ppm,
+            rms_residual=fit.rms_residual,
+            max_residual=fit.max_residual,
+            matched_count=fit.matched_count,
+            rejected_count=fit.rejected_count,
+            tolerance=proposal.tolerance,
+            matches=[
+                {
+                    "reference_time": match.reference_time,
+                    "target_time": match.target_time,
+                    "residual": match.residual,
+                }
+                for match in proposal.matches[:500]
+            ],
+        )
+        self._sync_provenance = [
+            item for item in self._sync_provenance if item.target_id != target_path
+        ]
+        self._sync_provenance.append(provenance)
+        self.statusBar().showMessage(
+            f"Accepted TTL/event alignment for {Path(target_path).name}: "
+            f"{fit.max_residual * 1000:.3f} ms maximum residual.",
+            5000,
+        )
+
     def _on_video_remove_requested(self, path: str) -> None:
         self.video_grid.remove_pane(path)
         self.sidebar.remove_video(path)
+        self._video_frame_times.pop(path, None)
+        self._sync_provenance = [
+            entry for entry in self._sync_provenance if entry.target_id != path
+        ]
 
     def _on_sensor_remove_requested(self, path: str) -> None:
         from kinochronix.core.cache import CacheManager

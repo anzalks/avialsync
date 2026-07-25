@@ -10,6 +10,7 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication
 
 from kinochronix.core.session import SensorEntry, SessionState
+from kinochronix.core.sync import SyncFit, SyncMatch, SyncProposal
 from kinochronix.loaders.csv_loader import CSVLoader
 from kinochronix.loaders.neo_loader import NeoLoader
 from kinochronix.loaders.tracking_loader import TrackingLoader
@@ -55,6 +56,32 @@ def test_annotate_with_pane_present_no_error(main_window: MainWindow) -> None:
 
     # One marker must have been added to the store
     assert len(main_window.annotation_store.markers) == 1
+
+
+def test_accepted_sync_mapping_updates_video_and_session(main_window: MainWindow) -> None:
+    """A user-accepted proposal changes only the target TimeMap and is persisted."""
+    from unittest.mock import MagicMock
+
+    from kinochronix.core.timeline import TimeMap
+
+    pane = MagicMock()
+    pane.time_map = TimeMap()
+    main_window.video_grid.panes.append(pane)
+    main_window.video_grid._paths.append("/fake/camera.mp4")
+    proposal = SyncProposal(
+        reference_id="sensor:ttl",
+        target_id="/fake/camera.mp4",
+        fit=SyncFit(1.25, 3.5, 0.0, 0.0, 4, 0),
+        matches=(SyncMatch(0.0, 1.25, 0.0),),
+        tolerance=0.01,
+    )
+
+    main_window._accept_sync_proposal("/fake/camera.mp4", proposal)
+
+    assert pane.time_map.to_source(100.0) == pytest.approx(101.25035)
+    state = main_window._build_session_state()
+    assert state.videos[0].drift_ppm == pytest.approx(3.5)
+    assert state.sync_provenance[0].target_id == "/fake/camera.mp4"
 
 
 # ── Bug b: _start_csv_import → _start_data_import ────────────────────

@@ -49,3 +49,15 @@ class FileUnreadableError(KinoChronixError):
     """Raised when a file cannot be read or parsed."""
 
     pass
+
+
+class SyncEvidenceError(KinoChronixError):
+    """Raised when synchronization evidence is malformed or insufficient."""
+
+    pass
+
+
+class SyncAmbiguityError(SyncEvidenceError):
+    """Raised when event evidence supports multiple equally valid alignments."""
+
+    pass

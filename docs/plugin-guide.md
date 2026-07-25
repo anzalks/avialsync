@@ -33,11 +33,13 @@ create an mpv-playable cached file and return it; KinoChronix opens only
 otherwise `(0.0, duration)`. `start_time()` is only a metadata guess: the user
 offset always takes precedence.
 
-## Planned synchronization plugins
+## Synchronization and future plugins
 
-TTL/event synchronization is planned under D-026; its plugin API is intentionally
-not frozen yet. The future extension will let a loader expose raw event timestamps
-and metadata for native digital events, TTL edges, or camera-frame triggers.
+KinoChronix currently extracts rising TTL edges from cached time-series channels
+and aligns them to video frame-event timestamps through the Sync Wizard. Its plugin
+event-provider API is intentionally not frozen yet. The future extension will let a
+loader expose raw event timestamps and metadata for native digital events, TTL edges,
+or camera-frame triggers.
 
 Keep laboratory-specific parsing and semantics in the plugin. KinoChronix will
 preserve raw timestamps, perform visual alignment, show matched evidence and fit

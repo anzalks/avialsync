@@ -40,13 +40,13 @@ def load_data(win: MainWindow) -> None:
         print(f"Loading {cam2.name}  (applying +1.234 s session offset)")
         win._load_video(cam2, offset=1.234)
 
-    # ── Step 4: load camera_3 — 10.01 s vs 10.0 s (~1000 ppm drift) ──────────
+    # ── Step 4: load camera_3 with a known drift mapping ─────────────────────
     cam3 = base_dir / "camera_3.mp4"
     if cam3.exists():
         print(f"Loading {cam3.name}  (~1000 ppm drift vs camera_1)")
-        win._load_video(cam3)
-        # Surface the known ~1000 ppm drift in the VideoPropertiesPanel
-        win.sidebar.set_video_pane(str(cam3), win.video_grid.panes[-1])
+        # _load_video is asynchronous. Pass the mapping into its worker-owned
+        # completion path instead of accessing video_grid.panes immediately.
+        win._load_video(cam3, drift_ppm=1000.0)
 
     # ── Step 5: load camera_vfr to demonstrate VFR detection ─────────────────
     cam_vfr = base_dir / "camera_vfr.mp4"

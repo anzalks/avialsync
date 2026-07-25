@@ -82,7 +82,7 @@ def _make_sensors_gaps(path: Path) -> None:
 
 
 def _make_pose_csv(path: Path) -> None:
-    """Minimal DLC-style pose CSV (frame-indexed, no time column)."""
+    """Write a minimal three-row-header DLC-style frame-indexed pose CSV."""
     n_frames = 300  # 10 s @ 30 fps
     frames = np.arange(n_frames)
     x_nose = 320.0 + 40 * np.sin(2 * np.pi * frames / 150) + RNG.normal(0, 2, n_frames)
@@ -91,17 +91,27 @@ def _make_pose_csv(path: Path) -> None:
     x_tail = 320.0 - 40 * np.sin(2 * np.pi * frames / 150) + RNG.normal(0, 2, n_frames)
     y_tail = 180.0 - 20 * np.cos(2 * np.pi * frames / 150) + RNG.normal(0, 2, n_frames)
     like_tail = np.clip(RNG.uniform(0.7, 1.0, n_frames), 0.0, 1.0)
-    pl.DataFrame(
-        {
-            "frame": frames,
-            "x_nose": x_nose,
-            "y_nose": y_nose,
-            "likelihood_nose": like_nose,
-            "x_tail": x_tail,
-            "y_tail": y_tail,
-            "likelihood_tail": like_tail,
-        }
-    ).write_csv(path)
+    header_rows = [
+        "scorer,DLC,DLC,DLC,DLC,DLC,DLC",
+        "bodyparts,nose,nose,nose,tail,tail,tail",
+        "coords,x,y,likelihood,x,y,likelihood",
+    ]
+    data = np.column_stack((frames, x_nose, y_nose, like_nose, x_tail, y_tail, like_tail))
+    rows = [
+        ",".join([str(int(row[0]))] + [f"{float(value):.8f}" for value in row[1:]]) for row in data
+    ]
+    path.write_text("\n".join(header_rows + rows) + "\n", encoding="utf-8")
+
+
+def _is_dlc_pose_csv(path: Path) -> bool:
+    """Return whether a demo pose file has the header contract TrackingLoader needs."""
+    try:
+        with path.open(encoding="utf-8") as pose_file:
+            return pose_file.readline().startswith("scorer,") and pose_file.readline().startswith(
+                "bodyparts,"
+            )
+    except OSError:
+        return False
 
 
 def main():
@@ -169,7 +179,7 @@ def main():
 
     # pose.csv: minimal DLC-style frame-indexed tracking
     pose_path = out_dir / "pose.csv"
-    if not pose_path.exists():
+    if not _is_dlc_pose_csv(pose_path):
         _make_pose_csv(pose_path)
         print(f"Created {pose_path}  (DLC-style, 300 frames @ 30 fps)")
     else:

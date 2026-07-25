@@ -185,3 +185,14 @@ def test_timemap_properties():
     tmap = TimeMap(offset=1.23, drift_ppm=4.5)
     assert tmap.offset == 1.23
     assert tmap.drift_ppm == 4.5
+
+
+def test_timemap_set_mapping_reproduces_accepted_fit() -> None:
+    """An accepted fit replaces the mapping instead of preserving a stale live anchor."""
+    tmap = TimeMap(offset=10.0, drift_ppm=-100.0)
+    tmap.update(0.0, 20.0, 50.0)
+
+    tmap.set_mapping(offset=1.25, drift_ppm=3.5)
+
+    assert tmap.to_source(0.0) == 1.25
+    assert tmap.to_source(200.0) == 201.2507

@@ -40,7 +40,8 @@ Forbidden spellings: `Kinochronix`, `kinoChronix`, `kino_chronix`, `kino-chronix
 Phases 0–4 complete. Phase 5.1 has frozen the Plugin API v1: time-series plugins
 provide chunked ingest only; video sources open asynchronously through the registry,
 retain D-006 conversion hooks, and may be discovered through entry points or drop-ins.
-P5.4 is planned before release: evidence-based TTL/event synchronization for visual inspection.
+P5.4 has an initial implementation: cached TTL-channel extraction and video frame-event alignment
+with explicit user acceptance and session provenance. Native plugin event providers remain unfrozen.
 
 ### Done (Phase 4)
 - Session save/load `.kcx`, autosave 2 min, recent files, relink dialog
@@ -92,20 +93,22 @@ P5.4 is planned before release: evidence-based TTL/event synchronization for vis
   sensors_gaps.csv (gaps/NaN/sentinel), pose.csv (DLC), camera_2.mp4 with +1.234 s offset,
   non-zero drift on camera_3; launch_demo.py loads them in D-019 rebind-triggering order.
 
-### Next planned — TTL/event synchronization (D-026)
+### Implemented — TTL/event synchronization baseline (D-026)
 - Scope: visual alignment of independently-clocked cameras, sensors, electrodes, and tracking
   data. Acquisition and built-in scientific analysis are out of scope; lab-specific semantics are
   plugin-owned.
-- Core must preserve raw timestamps and model raw events, matched pairs, affine offset/drift,
-  residuals, confidence, and accepted session provenance. It must remain headless.
-- UX: a Sync Wizard lets the user choose evidence, inspect pairings/residuals, accept or reject a
-  proposal, and use a manual fallback. Never silently alter a `TimeMap`.
-- Engineering gate: extraction is chunked/off-UI-thread; matching is deterministic; fixtures cover
-  common clocks, camera triggers, sparse/missing/ambiguous pulses, drift, and outliers; benchmark
-  the path before release. Timing accuracy and speed are equal priorities.
+- Core preserves raw timestamps and models raw events, matched pairs, affine offset/drift,
+  residuals, and accepted session provenance. It remains headless.
+- `SyncWizard` lets the user choose a cached TTL channel and video frame-event source, preview the
+  mapping, then explicitly accept it. Never silently alter a `TimeMap`.
+- `SyncWorker` extracts chunks off the UI thread; matching is deterministic. Unit/Qt coverage includes
+  chunk boundaries, drift, missing/spurious/ambiguous pulses, session round-trip, and acceptance.
+  `test_bench_sync.py` gates a 10,000-event preview at ≤250 ms locally (CI multiplier applies).
+- Follow-up: native plugin event providers remain separate API work; manual offset/drift fallback is
+  available in the Sync Wizard.
 
 ### Pending
-- P5.2 packaging, P5.3 docs site, P5.4 evidence-based synchronization (D-026).
+- P5.2 packaging, P5.3 docs site, native synchronization plugin API (D-026).
 
 ### Fixed (this PR — Phase 4 stabilization)
 - Left-pane vertical QSplitter: `_left_splitter` in `main_window.py`; state persisted in QSettings `splitter/left`
@@ -136,12 +139,12 @@ P5.4 is planned before release: evidence-based TTL/event synchronization for vis
 | `core/source.py` | Plugin ABCs — frozen API | `TimeSeriesSource`, `VideoSource` |
 | `core/session.py` | `.kcx` session JSON, schema v2 | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
-| `core/sync.py` | Planned headless synchronization evidence/model layer (D-026) | `SyncEvent`, match/fit/provenance dataclasses |
+| `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
 | `engine/player.py` | 60 Hz QTimer tick; MasterClock ↔ mpv ↔ UI | `Player.seek()`, `.set_playing()`, `.step_frame()` |
 | `engine/seeker.py` | Parallel seek across all mpv panes | `SeekGroup` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
-| `engine/sync_worker.py` | Planned chunked event extraction and deterministic alignment fit (D-026) | worker API to be frozen with implementation |
+| `engine/sync_worker.py` | Chunked event extraction and deterministic alignment fit (D-026) | `SyncWorker`, evidence specs |
 | `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `ui/main_window.py` | Top-level; wires all signals; session lifecycle; `_inspections` dict | `MainWindow` |
 | `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane` |

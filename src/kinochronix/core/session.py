@@ -16,6 +16,7 @@ class VideoEntry:
 
     path: str
     offset: float = 0.0
+    drift_ppm: float = 0.0
     integrity_flags: dict[str, object] = dataclasses.field(default_factory=dict)
     metadata: dict[str, object] = dataclasses.field(default_factory=dict)
 
@@ -42,6 +43,22 @@ class MarkerEntry:
 
 
 @dataclasses.dataclass
+class SyncProvenance:
+    """Accepted synchronization evidence summary persisted in a session."""
+
+    reference_id: str
+    target_id: str
+    offset: float
+    drift_ppm: float
+    rms_residual: float
+    max_residual: float
+    matched_count: int
+    rejected_count: int
+    tolerance: float
+    matches: list[dict[str, float]] = dataclasses.field(default_factory=list)
+
+
+@dataclasses.dataclass
 class SessionState:
     """Complete serialisable state of a KinoChronix session.
 
@@ -52,18 +69,20 @@ class SessionState:
     videos: list[VideoEntry] = dataclasses.field(default_factory=list)
     sensors: list[SensorEntry] = dataclasses.field(default_factory=list)
     markers: list[MarkerEntry] = dataclasses.field(default_factory=list)
+    sync_provenance: list[SyncProvenance] = dataclasses.field(default_factory=list)
     t_start: float = 0.0
     t_end: float = 0.0
     plot_x0: float | None = None
     plot_x1: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 3)."""
+        """Serialise to a JSON-compatible dict (always writes version 4)."""
         return {
-            "version": 3,
+            "version": 4,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
+            "sync_provenance": [dataclasses.asdict(p) for p in self.sync_provenance],
             "t_start": self.t_start,
             "t_end": self.t_end,
             "plot_x0": self.plot_x0,
@@ -72,15 +91,16 @@ class SessionState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1, v2, and v3)."""
+        """Deserialise from a parsed JSON dict (accepts v1 through v4)."""
         version = data.get("version", 1)
-        if version not in (1, 2, 3):
+        if version not in (1, 2, 3, 4):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
             VideoEntry(
                 path=v["path"],
                 offset=v.get("offset", 0.0),
+                drift_ppm=v.get("drift_ppm", 0.0),
                 integrity_flags=v.get("integrity_flags", {}),
                 metadata=v.get("metadata", {}),
             )
@@ -105,11 +125,34 @@ class SessionState:
             )
             for m in data.get("markers", [])
         ]
+        sync_provenance = [
+            SyncProvenance(
+                reference_id=str(item["reference_id"]),
+                target_id=str(item["target_id"]),
+                offset=float(item["offset"]),
+                drift_ppm=float(item["drift_ppm"]),
+                rms_residual=float(item["rms_residual"]),
+                max_residual=float(item["max_residual"]),
+                matched_count=int(item["matched_count"]),
+                rejected_count=int(item["rejected_count"]),
+                tolerance=float(item["tolerance"]),
+                matches=[
+                    {
+                        "reference_time": float(match["reference_time"]),
+                        "target_time": float(match["target_time"]),
+                        "residual": float(match["residual"]),
+                    }
+                    for match in item.get("matches", [])
+                ],
+            )
+            for item in data.get("sync_provenance", [])
+        ]
 
         return cls(
             videos=videos,
             sensors=sensors,
             markers=markers,
+            sync_provenance=sync_provenance,
             t_start=data.get("t_start", 0.0),
             t_end=data.get("t_end", 0.0),
             plot_x0=data.get("plot_x0"),

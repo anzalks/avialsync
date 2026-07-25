@@ -165,3 +165,15 @@ class TimeMap:
         self._base_offset = current_t_source - t_master_now
         self._offset = new_offset
         self._drift_ppm = new_drift_ppm
+
+    def set_mapping(self, offset: float, drift_ppm: float, t_ref: float = 0.0) -> None:
+        """Replace this source mapping with an accepted, absolute calibration.
+
+        Unlike :meth:`update`, this method intentionally does not preserve the
+        current visual position.  It is only for a user-accepted alignment fit
+        whose reference epoch is known and must be reproduced on session load.
+        """
+        self._offset = float(offset)
+        self._base_offset = float(offset)
+        self._drift_ppm = float(drift_ppm)
+        self._t_ref = float(t_ref)

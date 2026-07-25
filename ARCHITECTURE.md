@@ -33,7 +33,7 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │   │   ├── cache.py                  # .kcache/ sidecar manager, content-hash key (D-008), atomic writes
 │   │   ├── registry.py               # directory scanner and dynamic module loader (`~/.kinochronix/plugins/`)
 │   │   ├── inspection.py             # ImportReport, IntegrityFlags, SourceInspection — headless, frozen dataclasses (D-020)
-│   │   ├── sync.py                   # planned: SyncEvent, match evidence, fit/provenance dataclasses (D-026)
+│   │   ├── sync.py                   # SyncEvent, match evidence, affine fit/provenance dataclasses (D-026)
 │   │   └── errors.py                 # typed exceptions (NonMonotonicTimeError, ...)
 │   ├── loaders/                      # built-in plugins (use ONLY the public core API)
 │   │   ├── csv_loader.py             # polars; chunked ingest (D-005); tz/anchor/sentinel config
@@ -46,7 +46,7 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │   │   ├── importer.py               # QThread worker: parse → cache → pyramid; progress + cancel signals
 │   │   ├── export.py                 # snapshot, data slice (CSV/Parquet), video clip trim
 │   │   ├── proxy.py                  # ffmpeg short-GOP proxies + prepare() conversion flow (D-006)
-│   │   └── sync_worker.py            # planned: chunked event extraction and deterministic fitting (D-026)
+│   │   └── sync_worker.py            # chunked event extraction and deterministic fitting (D-026)
 │   ├── ui/                           # PySide6 widgets only; no business logic
 │   │   ├── main_window.py            # Left sidebar (metadata, offsets, file management) + right content (video grid, plots)
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
@@ -54,7 +54,7 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
 │   │   ├── transport.py              # slider, play/pause, speed, A/B loop, time readout; uses format_time()
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
-│   │   ├── sync_wizard.py            # planned: evidence selection, residual preview, acceptance (D-026)
+│   │   ├── sync_wizard.py            # evidence selection, residual preview, explicit acceptance (D-026)
 │   │   ├── offsets_panel.py          # per-source offset + drift ppm, live preview (D-020)
 │   │   ├── annotations.py            # point/range markers panel + CSV export
 │   │   ├── readout_panel.py          # nearest-sample values at t_master + units + sample index + Δ section
@@ -141,7 +141,7 @@ flat at repo root so every model finds them without searching. Dependency direct
 Time series never "play": plots render pyramid slices for the visible window; only the playhead
 line moves per tick (≤ 2 ms budget).
 
-### 2a. Planned synchronization dataflow (D-026)
+### 2a. Synchronization dataflow (D-026)
 
 ```
 Plugin/raw signal → chunked TTL edge extraction or native event timestamps
@@ -231,14 +231,15 @@ overview strip shades each source's coverage span.
 Discovery: Python entry points and dynamic directory scanning (`~/.kinochronix/plugins/`); highest `can_open` score wins,
 ties → user picks. Built-ins register directly into the PluginManager.
 
-### Planned synchronization extension (D-026; not frozen API v1)
+### Synchronization plugin extension (D-026; not frozen API v1)
 
-The frozen loader API remains focused on opening video and chunked time-series ingest. A later,
-separate plugin extension will let a loader expose raw `SyncEvent` evidence: native digital events,
-TTL edge timestamps, or camera-frame triggers. It will be headless, timestamp-only, and independent
-of any lab acquisition system. The core will perform no scientific analysis; plugins may offer
-lab-specific analysis separately. A source proposal must include its paired-event evidence and fit
-quality so the user can inspect and explicitly accept it.
+The shipped workflow extracts rising TTL edges from cached time-series channels and compares them
+with video frame-event timestamps. The frozen loader API remains focused on opening video and
+chunked time-series ingest. A later, separate plugin extension will let a loader expose native raw
+`SyncEvent` evidence (digital events, TTL edges, or camera-frame triggers). It will be headless,
+timestamp-only, and independent of any lab acquisition system. The core will perform no scientific
+analysis; plugins may offer lab-specific analysis separately. A source proposal includes its paired
+event evidence and fit quality so the user can inspect and explicitly accept it.
 
 Video acceptance is capability-based rather than suffix-based: files playable by the installed
 ffmpeg/mpv stack use the standard video path, while non-playable laboratory formats use a plugin's

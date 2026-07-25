@@ -117,6 +117,14 @@ class VideoGrid(QWidget):
         except ValueError:
             pass
 
+    def set_sync_mapping(self, path: str, offset: float, drift_ppm: float) -> None:
+        """Apply a user-accepted absolute synchronization mapping to one video."""
+        try:
+            idx = self._paths.index(path)
+            self.panes[idx].time_map.set_mapping(offset, drift_ppm)
+        except ValueError:
+            pass
+
     def set_pane_visible(self, path: str, visible: bool) -> None:
         """Show or hide a video pane without unloading it."""
         try:
