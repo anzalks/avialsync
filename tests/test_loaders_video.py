@@ -42,6 +42,29 @@ def test_video_standard_vfr():
     assert frame_times is not None
     assert len(frame_times) > 2
     assert loader.is_vfr() is True
+    intervals = np.diff(frame_times)
+    assert np.unique(np.round(intervals, 4)).size >= 2
+
+
+def test_video_standard_uses_presentation_order_frame_timestamps(monkeypatch) -> None:
+    """B-frame packet order must not decide VFR detection or frame stepping."""
+
+    class _Result:
+        stdout = "0.000000,\n0.050000,\n0.066667,\n"
+
+    captured: list[str] = []
+
+    def fake_run(command, **_kwargs):
+        captured.extend(command)
+        return _Result()
+
+    monkeypatch.setattr("avialview.loaders.video_standard.subprocess.run", fake_run)
+    loader = VideoStandardLoader()
+    loader._extract_frame_times(Path("presentation-order.mp4"))
+
+    assert "frame=best_effort_timestamp_time" in captured
+    assert loader.frame_times() is not None
+    np.testing.assert_allclose(loader.frame_times(), [0.0, 0.05, 0.066667])
 
 
 def test_video_standard_detects_variable_frame_intervals() -> None:

@@ -192,9 +192,10 @@ def generate_video(
             )
         return  # Skip writing the main json
     elif variant == "vfr":
-        # Generate a timecode v2 file and remux with mkvmerge (if available) or mp4box.
-        # Actually ffmpeg can do VFR from an image sequence or by copying timestamps.
-        # It's easier to create a VFR video by using a simple ffmpeg filter `setpts`.
+        # Alternate 50 ms and 16.7 ms presentation intervals.  A 90 kHz filter
+        # and MP4 track timebase represent those intervals exactly; `-vsync vfr`
+        # preserves them instead of asking ffmpeg to manufacture a constant-rate
+        # output.  This makes the ground-truth VFR fixture portable across CI.
         subprocess.run(
             [
                 "ffmpeg",
@@ -202,9 +203,15 @@ def generate_video(
                 "-i",
                 str(final_out_path),
                 "-vf",
-                "setpts='(PTS*(1+0.2*sin(PTS/10)))'",
+                "settb=expr=1/90000,setpts='N*3000+mod(N,2)*1500'",
                 "-c:v",
                 "libx264",
+                "-vsync",
+                "vfr",
+                "-enc_time_base",
+                "1:90000",
+                "-video_track_timescale",
+                "90000",
                 str(out_path),
             ],
             check=True,

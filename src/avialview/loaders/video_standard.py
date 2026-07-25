@@ -106,7 +106,10 @@ class VideoStandardLoader(VideoSource):
             "-select_streams",
             "v:0",
             "-show_entries",
-            "packet=pts_time",
+            # Packet order follows decode order for codecs with B-frames.  Frame
+            # timestamps are presentation-order timestamps, which are the only
+            # timestamps suitable for stepping and VFR detection.
+            "frame=best_effort_timestamp_time",
             "-of",
             "csv=p=0",
             str(path),
@@ -115,9 +118,10 @@ class VideoStandardLoader(VideoSource):
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             times = []
             for line in result.stdout.strip().split("\n"):
-                if line:
+                value = line.split(",", maxsplit=1)[0].strip()
+                if value:
                     try:
-                        times.append(float(line))
+                        times.append(float(value))
                     except ValueError:
                         pass
             if times:
