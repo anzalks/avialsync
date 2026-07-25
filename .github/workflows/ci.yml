@@ -93,12 +93,6 @@ jobs:
       - name: Run Tests
         run: pytest -x -q --ignore=tests/benchmarks
 
-  performance:
-    needs: [lint-type, test]
-    uses: ./.github/workflows/performance.yml
-    with:
-      runner_tier: hosted
-
   docs:
     name: Read the Docs build
     runs-on: ubuntu-latest
@@ -117,7 +111,7 @@ jobs:
   build-artifacts:
     name: Build Artifacts (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: [test, docs, performance]
+    needs: [test, docs]
     timeout-minutes: 15
     strategy:
       fail-fast: false

@@ -36,11 +36,6 @@ jobs:
       - run: python tools/make_fixtures.py --small
       - run: pytest -x -q --ignore=tests/benchmarks
 
-  performance:
-    uses: ./.github/workflows/performance.yml
-    with:
-      runner_tier: hosted
-
   docs:
     name: Release documentation
     runs-on: ubuntu-latest
@@ -56,7 +51,7 @@ jobs:
 
   distributions:
     name: Build Python distributions
-    needs: [quality, docs, performance]
+    needs: [quality, docs]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

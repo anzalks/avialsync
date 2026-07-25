@@ -33,10 +33,9 @@
 | Pyramid build 180 M samples ★ | ≤ 2.5 s (revised, D-024) |
 | Idle RAM, session loaded | ≤ 2.5 GB |
 
-Benchmarks live in `tests/benchmarks/`, run via `pytest --benchmark-only`. The raw ★ marks are
-enforced by the `Performance` workflow's reference-hardware gate. GitHub-hosted runners run the
-same paths with one documented uniform sanity cap and upload their measurements; they never
-redefine the product targets.
+Benchmarks live in `tests/benchmarks/`, run locally via `pytest --benchmark-only`, where the raw
+★ marks are enforced without a multiplier. GitHub Actions verifies the representative scientific
+session's correctness across platforms but does not use shared hosted machines to certify speed.
 
 ---
 
@@ -96,7 +95,9 @@ Deliverables:
 - Proxy generator: one-click ffmpeg re-encode to short-GOP scrub proxies; session tracks original↔proxy pairs.
 - Startup diagnostics: disk read speed probe, hw-decode capability report, slow-drive warning.
 
-Exit criteria: benchmark session (3× 1080p fixtures + 4× 50 kHz × 1 h synthetic) meets all budgets on CI perf runner + one real mid-spec machine; golden sync test now runs across 3 cameras simultaneously.
+Exit criteria: representative session (3× 1080p fixtures + 4× 50 kHz streams) works correctly in
+GitHub Actions; the 3× 1080p + 4× 50 kHz × 1 h benchmark session meets all timing marks locally on
+a real mid-spec machine; golden sync test now runs across 3 cameras simultaneously.
 
 ## Phase 4 — UX completeness (Week 7–10)
 

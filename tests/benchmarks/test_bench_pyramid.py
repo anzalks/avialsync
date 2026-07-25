@@ -4,42 +4,19 @@ Budget-★ items (BLUEPRINT.md / HANDOUT.md):
   - Pyramid build 180 M samples: ≤ 2.5 s  (★ CI-gated)
   - Cursor update per tick:       ≤ 2 ms (★ CI-gated)
 
-GitHub-hosted runners are not the reference engineering hardware: their
-shared CPU and ephemeral disks make the 180 M sample build several times
-slower.  They use one explicit, uniform sanity-cap multiplier.  The raw
-engineering marks remain enforced on reference hardware.
+These are local engineering checks. GitHub Actions verifies the same workload's
+correctness but does not claim shared hosted machines can certify runtime speed.
 
 D-023: benchmarks are CI-gated, budget-assertion pattern established here.
 """
 
 import gc
-import os
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from avialview.core.pyramid import PyramidBuilder, PyramidReader
-
-# ── CI budget multiplier (D-023) ────────────────────────────────────────────
-# CI GitHub Actions runners are significantly slower than developer machines
-# (shared CPU, memory pressure, different disk speeds).
-# NEVER add per-test multipliers — only adjust this constant, and note the
-# change in DECISIONS.md.
-CI_BUDGET_MULTIPLIER = 1.5
-HOSTED_CI_BUDGET_MULTIPLIER = 8.0
-
-
-def _budget_multiplier() -> float:
-    """Return the documented calibration for the current benchmark environment."""
-    if os.environ.get("AVIALVIEW_HOSTED_CI") == "true":
-        return HOSTED_CI_BUDGET_MULTIPLIER
-    if os.environ.get("CI") == "true":
-        return CI_BUDGET_MULTIPLIER
-    return 1.0
-
-
-_ACTUAL_MULTIPLIER = _budget_multiplier()
 
 # Raw dev-machine budgets (seconds) matching BLUEPRINT.md / HANDOUT.md ★ rows
 _PYRAMID_BUILD_BUDGET_S = 2.5  # ≤ 2.5 s (D-024)
@@ -77,11 +54,10 @@ def test_bench_pyramid_build(benchmark, tmp_path: Path, large_dataset):
 
     benchmark.pedantic(do_build, setup=setup, rounds=5)
 
-    budget = _PYRAMID_BUILD_BUDGET_S * _ACTUAL_MULTIPLIER
+    budget = _PYRAMID_BUILD_BUDGET_S
     assert benchmark.stats["mean"] <= budget, (
         f"Pyramid build mean {benchmark.stats['mean']:.3f}s exceeds "
-        f"budget {budget:.1f}s (dev={_PYRAMID_BUILD_BUDGET_S}s × {_ACTUAL_MULTIPLIER}×). "
-        "Fix pyramid.py or adjust CI_BUDGET_MULTIPLIER in test_bench_pyramid.py."
+        f"budget {budget:.1f}s. Fix pyramid.py; do not relax the engineering mark."
     )
 
 
@@ -101,11 +77,10 @@ def test_bench_pyramid_query(benchmark, tmp_path: Path, large_dataset):
 
     benchmark(do_query)
 
-    budget = _PYRAMID_QUERY_BUDGET_S * _ACTUAL_MULTIPLIER
+    budget = _PYRAMID_QUERY_BUDGET_S
     assert benchmark.stats["mean"] <= budget, (
         f"Pyramid query mean {benchmark.stats['mean'] * 1000:.3f}ms exceeds "
-        f"budget {budget * 1000:.1f}ms "
-        f"(dev={_PYRAMID_QUERY_BUDGET_S * 1000:.0f}ms × {_ACTUAL_MULTIPLIER}×)."
+        f"budget {budget * 1000:.1f}ms."
     )
 
 
@@ -166,10 +141,9 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
 
     benchmark(tick)
 
-    budget = _CURSOR_UPDATE_BUDGET_S * _ACTUAL_MULTIPLIER
+    budget = _CURSOR_UPDATE_BUDGET_S
     assert benchmark.stats["mean"] <= budget, (
         f"Cursor update mean {benchmark.stats['mean'] * 1000:.3f}ms exceeds "
-        f"budget {budget * 1000:.1f}ms"
-        f" (dev={_CURSOR_UPDATE_BUDGET_S * 1000:.0f}ms × {_ACTUAL_MULTIPLIER}×)."
+        f"budget {budget * 1000:.1f}ms."
         " See BLUEPRINT.md ★ cursor-update budget."
     )

@@ -528,11 +528,9 @@ QT_QPA_PLATFORM=offscreen conda run -n avialview pytest --benchmark-only
 ## Performance Budgets (CI-enforced where ★)
 
 ★ budgets are asserted in `tests/benchmarks/test_bench_pyramid.py` via
-`benchmark.stats["mean"] <= budget * multiplier`. The raw engineering mark uses `1.0`; local
-CI uses `CI_BUDGET_MULTIPLIER = 1.5`, while GitHub-hosted CI explicitly sets the single uniform
-`HOSTED_CI_BUDGET_MULTIPLIER = 8.0` calibration and uploads its raw measurements. The `Performance`
-workflow's `reference` tier runs uncalibrated on a runner labelled `avialview-performance`. Never
-add per-test multipliers (D-023, D-029).
+`benchmark.stats["mean"] <= budget` without any multiplier. Run them locally on the intended
+engineering machine. GitHub Actions verifies the representative multi-camera/multi-stream workload
+for correctness only; it is not a speed authority. Never add per-test multipliers (D-023, D-029).
 
 | Metric | Budget |
 |---|---|

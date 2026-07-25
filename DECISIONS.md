@@ -361,14 +361,10 @@ the main test step so regular tests remain fast.  Rationale for separate step (n
 inline): budget failures surface as a named, identifiable CI step rather than a
 mid-suite failure that is hard to bisect.
 
-**Budget assertion pattern:** Each ★-budgeted test asserts `benchmark.stats["mean"] <=
-budget * CI_BUDGET_MULTIPLIER` where `CI_BUDGET_MULTIPLIER = 2.0` (single constant in
-`test_bench_pyramid.py`).  No per-test fudge factors.  Future agents: never add a
-per-test multiplier; only adjust the module-level constant with a comment explaining why.
-
-**CI_BUDGET_MULTIPLIER = 2.0:** GitHub Actions runners are shared, virtualized, and
-have variable disk speed.  2× observed empirically to be sufficient headroom on
-ubuntu-latest/macos-latest/windows-latest against the measured dev-machine numbers.
+**Budget assertion pattern (superseded by D-029):** This initially used one CI multiplier.
+Experience showed that a shared hosted runner cannot certify the user-facing timing target at all.
+D-029 replaces the multiplier with uncalibrated local timing checks and a GitHub workload-correctness
+check. No per-test multiplier is permitted.
 
 **Pyramid build optimization (to meet ≤2s budget):**
 Profiling showed two hotspots at 180 M samples (total ~3.3 s):
@@ -424,25 +420,18 @@ in `.avv` so an alignment is reproducible and auditable. Sync accuracy and throu
 criteria: every implementation requires ground-truth fixtures and benchmarks, and may not regress
 existing playback, import, or plotting budgets.
 
-## 2026-07 · D-029 · Separate hosted performance monitoring from reference-hardware certification
+## 2026-07 · D-029 · Separate GitHub workload correctness from local speed certification
 
 ### Context
 
 The 180 M-sample pyramid build meets its 2.5 s mark on the defined engineering machine, but it
 measured 15.6 s on an Ubuntu GitHub-hosted runner. That runner has shared CPU and ephemeral disk,
-so using it as the authority for the raw product mark produces false failures. Running the same
-heavy benchmark in every six-member correctness matrix was also redundant and wasteful.
+so using it as the authority for the raw product mark produces false failures. Scientists care
+about app responsiveness under a real multi-camera, multi-stream session, not CI build speed.
 
 ### Decision
 
-`Performance` is now a reusable workflow with two tiers:
-
-- `hosted` runs once on Ubuntu 3.12 from CI, release, schedule, or manual dispatch. It exercises
-  every timing path, applies one documented uniform 8× sanity cap, and uploads `benchmark.json`.
-- `reference` is a manually dispatched, uncalibrated gate on a runner labelled
-  `self-hosted, avialview-performance`. It enforces the raw 2.5 s / 5 ms / 2 ms / 250 ms marks.
-
-The cross-platform correctness matrix no longer runs heavyweight benchmarks. This preserves the
-real engineering target while making CI timing evidence reproducible, visible, and proportionate
-to the hardware that produced it. The hosted multiplier applies uniformly; per-test multipliers
-remain prohibited.
+GitHub Actions verifies the representative three-camera, four-stream workload for correctness only.
+The local `pytest --benchmark-only` command enforces the raw 2.5 s / 5 ms / 2 ms / 250 ms timing
+marks, without any multiplier. The cross-platform matrix never claims shared hosted hardware can
+certify user-facing speed. Per-test multipliers remain prohibited.

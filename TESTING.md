@@ -64,11 +64,9 @@ following fixture coverage remains the release-level acceptance set:
 - `test_bench_sync.py`: deterministic 10,000-event fit preview ≤250 ms locally (with the standard
   CI multiplier); covers the worker's matching hot path without UI or file I/O.
 Store baselines with `--benchmark-autosave`; compare with `--benchmark-compare`.
-The 2.5 s / 5 ms / 2 ms / 250 ms marks are measured without calibration by the `Performance`
-workflow's `reference` tier, which requires a runner labelled `avialview-performance`. Hosted
-GitHub runners use `AVIALVIEW_HOSTED_CI=true` and one uniform 8× sanity cap because their shared
-CPU and ephemeral disk are materially slower; the workflow uploads raw JSON measurements. Run the
-reference tier manually before a performance-sensitive release.
+The 2.5 s / 5 ms / 2 ms / 250 ms marks are measured without calibration with the local benchmark
+command. GitHub Actions runs the representative three-camera, four-stream workload for correctness,
+not speed: shared CI hardware is not a valid stand-in for the machines scientists use.
 
 ## 5. GUI test conventions
 
