@@ -46,7 +46,11 @@ with explicit user acceptance and session provenance. Native plugin event provid
 ### Done (Phase 4)
 - Session save/load `.kcx`, autosave 2 min, recent files, relink dialog
 - Transport: unified `QLineEdit` 110px fixed, `HH:MM:SS.fff`, `_time_editing` guard
-- Theme: System/Dark/Light radio group in View menu; Ctrl+T cycles; defaults to system
+- Theme: System/Dark/Light radio group in View menu; Ctrl+T cycles; System retains the platform
+  style, palette, accent, and font, and follows Qt-reported palette changes while open. Explicit
+  Dark/Light use the same platform accent with readable application surfaces.
+- Font size: View → Font Size offers System, Small, Medium, and Large; each non-System choice is a
+  persisted scale relative to the platform application font.
 - Video/channel visibility checkboxes (hide without unloading)
 - A/B loop + region stats in ReadoutPanel
 - Annotations (point + range markers, M key, CSV export)
@@ -112,7 +116,13 @@ with explicit user acceptance and session provenance. Native plugin event provid
 
 ### Fixed (this PR — Phase 4 stabilization)
 - Left-pane vertical QSplitter: `_left_splitter` in `main_window.py`; state persisted in QSettings `splitter/left`
-- Reset Zoom: wired to View → Reset Plot Zoom (Ctrl+0), plot toolbar button, shortcuts dialog
+- Reset Zoom: wired to View → Reset Plot Zoom (Ctrl+0), timeline-row button, and shortcuts dialog
+- Transport UX: master time, seek bar, end time, and Reset Zoom occupy row one; playback controls
+  occupy row two with a compact non-blocking status message at its right edge. The overview beneath
+  the seek bar renders source coverage, annotations, data gaps, accepted TTL matches, and playhead;
+  drag its lower edge to enlarge dense evidence. It uses the system accent for video/TTL evidence.
+- VFR: integrity is derived from decoded frame timestamps; its on-video OSD reports the current
+  timestamp-derived rate plus `(VFR)`, never a misleading single average rate.
 - Bug: `video_grid._panes` → `video_grid.panes` (AttributeError on annotate)
 - Bug: `Any` not imported from `typing` in `main_window.py`
 - Bug: `_start_csv_import` → `_start_data_import` (AttributeError on session restore with sensors)
@@ -150,7 +160,7 @@ with explicit user acceptance and session provenance. Native plugin event provid
 | `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane` |
 | `ui/video_grid.py` | N VideoPanes; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `set_grid_mode()` |
 | `ui/plot_pane.py` | pyqtgraph multi-row plot; pyramid-fed; X-linked; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
-| `ui/transport.py` | Transport bar + scrub slider + A/B loop; time via `format_time()`; jump-back/fwd buttons; snapshot btn; fullscreen btn; checkable A/B with active state | `set_time()`, `set_bounds()`, `set_playing()`, `set_time_mode()`; signals: `snapshot_requested`, `fullscreen_requested`, `jump_requested(float)` |
+| `ui/transport.py` | Two-row timeline: time/scrub/end/reset + clickable, vertically resizable coverage/event overview above controls/status | `set_time()`, `set_bounds()`, `set_source_coverage()`, `set_ttl_events()`, `set_gap_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |
@@ -212,6 +222,7 @@ All connections established in `MainWindow.__init__` unless noted.
 | `transport.snapshot_requested` | `_export_snapshot()` |
 | `transport.fullscreen_requested` | `_toggle_fullscreen()` — toggles fullscreen of first pane or active pane |
 | `transport.jump_requested(float delta)` | `_on_jump_requested(delta)` → `player.seek(t + delta, exact=True)` |
+| `transport.reset_zoom_requested` | `plot_pane.reset_zoom()` |
 | `video_grid.pane_right_clicked(path, QPoint)` | `_on_pane_right_clicked` → context menu: fullscreen / snapshot / properties / copy frame info |
 | `plot_pane.annotate_at_requested(float t)` | `_on_annotate_at_requested(t)` → `annotation_store.add_point(t, ...)` |
 

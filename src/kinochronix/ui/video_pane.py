@@ -4,10 +4,41 @@ import sys
 
 import numpy as np
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPen
+from PySide6.QtGui import QColor, QFontDatabase, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from kinochronix.ui.diagnostics import probe_libmpv
+
+
+def instantaneous_frame_rate(frame_times: np.ndarray | None, t: float, fallback: float) -> float:
+    """Return the displayed frame's rate from its timestamp interval.
+
+    VFR does not have one truthful FPS value.  The rate is therefore derived
+    from the current frame and its successor, with the decoder estimate only
+    used before timestamp evidence is available.
+    """
+    if frame_times is None or len(frame_times) < 2:
+        return fallback
+    index = int(np.searchsorted(frame_times, t, side="right"))
+    if index <= 0:
+        index = 1
+    if index >= len(frame_times):
+        index = len(frame_times) - 1
+    interval = float(frame_times[index] - frame_times[index - 1])
+    return 1.0 / interval if interval > 1e-9 else fallback
+
+
+def displayed_frame_rate(
+    frame_times: np.ndarray | None,
+    t: float,
+    is_vfr: bool,
+    nominal_fps: float,
+    fallback: float,
+) -> float:
+    """Use a stable nominal rate for CFR and timestamp evidence for VFR."""
+    if is_vfr:
+        return instantaneous_frame_rate(frame_times, t, fallback)
+    return nominal_fps if nominal_fps > 0 else fallback
 
 
 class PaintCanvas(QWidget):
@@ -83,6 +114,9 @@ class VideoPane(QWidget):
         super().__init__(parent)
 
         self.time_pos = 0.0
+        self._is_vfr = False
+        self._frame_times: np.ndarray | None = None
+        self._nominal_fps = 0.0
         self.is_seeking = False
         self.mpv = None
         self._video_widget = None
@@ -127,7 +161,13 @@ class VideoPane(QWidget):
                     def time_observer(_name: str, value: float) -> None:
                         if value is not None:
                             self.parent_pane.time_pos = value
-                            fps = getattr(self.mpv, "estimated_vf_fps", 0.0) or 0.0
+                            fps = displayed_frame_rate(
+                                self.parent_pane._frame_times,
+                                value,
+                                self.parent_pane._is_vfr,
+                                self.parent_pane._nominal_fps,
+                                getattr(self.mpv, "estimated_vf_fps", 0.0) or 0.0,
+                            )
                             self.parent_pane._osd_update.emit(value, fps)
 
                     @self.mpv.property_observer("seeking")
@@ -210,7 +250,13 @@ class VideoPane(QWidget):
             def time_observer(_name: str, value: float) -> None:
                 if value is not None:
                     self.time_pos = value
-                    fps = getattr(self.mpv, "estimated_vf_fps", 0.0) or 0.0
+                    fps = displayed_frame_rate(
+                        self._frame_times,
+                        value,
+                        self._is_vfr,
+                        self._nominal_fps,
+                        getattr(self.mpv, "estimated_vf_fps", 0.0) or 0.0,
+                    )
                     self._osd_update.emit(value, fps)
 
             @self.mpv.property_observer("seeking")
@@ -236,10 +282,8 @@ class VideoPane(QWidget):
         self.lbl_name.setVisible(False)
 
         self.lbl_osd = QLabel("Time: 00:00:00.000\nFPS:  0.0")
-        self.lbl_osd.setStyleSheet(
-            "color: white; background-color: rgba(0,0,0,128); padding: 4px;"
-            " font-family: 'Courier New', Courier, monospace; font-size: 11px;"
-        )
+        self.lbl_osd.setStyleSheet("color: white; background-color: rgba(0,0,0,128); padding: 4px;")
+        self.lbl_osd.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
 
         top_layout = QHBoxLayout()
         _top = Qt.AlignmentFlag.AlignTop
@@ -268,8 +312,22 @@ class VideoPane(QWidget):
         h = int(t // 3600)
         m = int((t % 3600) // 60)
         s = t % 60
-        self.lbl_osd.setText(f"Time: {h:02d}:{m:02d}:{s:06.3f}\nFPS:  {fps:.1f}")
+        fps_text = f"{fps:.1f} (VFR)" if self._is_vfr else f"{fps:.1f}"
+        self.lbl_osd.setText(f"Time: {h:02d}:{m:02d}:{s:06.3f}\nFPS:  {fps_text}")
         self.paint_canvas.update_time(t)
+
+    def set_vfr(self, is_vfr: bool) -> None:
+        """Mark the on-video readout so its instantaneous rate is contextualized."""
+        self._is_vfr = is_vfr
+        self._update_osd(self.time_pos, getattr(self.mpv, "estimated_vf_fps", 0.0) or 0.0)
+
+    def set_frame_times(self, frame_times: np.ndarray | None) -> None:
+        """Supply decoded frame timestamps for instantaneous VFR readout."""
+        self._frame_times = frame_times
+
+    def set_nominal_fps(self, fps: float) -> None:
+        """Supply the stream's nominal rate for stable CFR readout."""
+        self._nominal_fps = fps
 
     def set_tracking_readers(self, readers: list) -> None:
         self.paint_canvas.set_readers(readers)

@@ -8,15 +8,15 @@ def main() -> None:
     from PySide6.QtWidgets import QApplication
 
     from kinochronix.ui.main_window import MainWindow
-    from kinochronix.ui.theme import load_saved_theme
+    from kinochronix.ui.theme import load_saved_font_size, load_saved_theme
 
     app = QApplication(sys.argv)
-    app.setStyle("Fusion")
 
     # Prevent Qt from stomping LC_NUMERIC (breaks libmpv float parsing)
     locale.setlocale(locale.LC_NUMERIC, "C")
 
     load_saved_theme(app)
+    load_saved_font_size(app)
 
     win = MainWindow()
     win.show()

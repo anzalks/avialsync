@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from kinochronix.loaders.video_standard import VideoStandardLoader
@@ -39,8 +40,24 @@ def test_video_standard_vfr():
 
     frame_times = loader.frame_times()
     assert frame_times is not None
-    assert len(frame_times) > 0
-    # Variable frame rate should produce variable dt, but let's just ensure it parses successfully
+    assert len(frame_times) > 2
+    assert loader.is_vfr() is True
+
+
+def test_video_standard_detects_variable_frame_intervals() -> None:
+    """VFR detection is based on timestamps, not a misleading average FPS."""
+    loader = VideoStandardLoader()
+    loader._frame_times = np.array([0.0, 1 / 30, 2 / 30, 4 / 30])
+
+    assert loader.is_vfr() is True
+
+
+def test_video_standard_detects_constant_frame_intervals() -> None:
+    """CFR timestamps must not receive the VFR integrity warning."""
+    loader = VideoStandardLoader()
+    loader._frame_times = np.array([0.0, 1 / 30, 2 / 30, 3 / 30])
+
+    assert loader.is_vfr() is False
 
 
 def test_video_standard_no_metadata():

@@ -38,7 +38,7 @@ def _make_camera_vfr(path: Path) -> None:
         "-i",
         "testsrc=duration=10:size=640x360:rate=30",
         "-vf",
-        r"select=not(mod(n\,7))",
+        r"select=not(eq(mod(n\,7)\,0))",
         "-vsync",
         "vfr",
         "-c:v",
@@ -47,6 +47,37 @@ def _make_camera_vfr(path: Path) -> None:
         "yuv420p",
         str(path),
     )
+
+
+def _is_valid_vfr_video(path: Path) -> bool:
+    """Return whether an existing demo file really has variable frame intervals."""
+    if not path.exists():
+        return False
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "frame=best_effort_timestamp_time",
+            "-of",
+            "csv=p=0",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return False
+    try:
+        timestamps = np.array([float(value) for value in result.stdout.splitlines() if value])
+    except ValueError:
+        return False
+    intervals = np.diff(timestamps)
+    return len(intervals) > 1 and not np.allclose(intervals, np.median(intervals), atol=1e-6)
 
 
 def _make_sensors_gaps(path: Path) -> None:
@@ -146,7 +177,7 @@ def main():
 
     # camera_vfr: VFR video (every 7th frame dropped)
     vid_vfr = out_dir / "camera_vfr.mp4"
-    if not vid_vfr.exists():
+    if not _is_valid_vfr_video(vid_vfr):
         _make_camera_vfr(vid_vfr)
         print(f"Created {vid_vfr}  (VFR — every 7th frame dropped)")
     else:

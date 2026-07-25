@@ -3,11 +3,11 @@
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
 from kinochronix.ui.main_window import MainWindow
+from kinochronix.ui.theme import load_saved_font_size, load_saved_theme
 
 
 def load_data(win: MainWindow) -> None:
@@ -119,23 +119,8 @@ def load_data(win: MainWindow) -> None:
 
 def main():
     app = QApplication(sys.argv)
-
-    app.setStyle("Fusion")
-    dark_palette = QPalette()
-    dark_palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
-    dark_palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
-    dark_palette.setColor(QPalette.ColorRole.Base, QColor(18, 18, 18))
-    dark_palette.setColor(QPalette.ColorRole.AlternateBase, QColor(30, 30, 30))
-    dark_palette.setColor(QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.white)
-    dark_palette.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.white)
-    dark_palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.white)
-    dark_palette.setColor(QPalette.ColorRole.Button, QColor(45, 45, 45))
-    dark_palette.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.white)
-    dark_palette.setColor(QPalette.ColorRole.BrightText, Qt.GlobalColor.red)
-    dark_palette.setColor(QPalette.ColorRole.Link, QColor(42, 130, 218))
-    dark_palette.setColor(QPalette.ColorRole.Highlight, QColor(42, 130, 218))
-    dark_palette.setColor(QPalette.ColorRole.HighlightedText, Qt.GlobalColor.black)
-    app.setPalette(dark_palette)
+    load_saved_theme(app)
+    load_saved_font_size(app)
 
     win = MainWindow()
     win.show()

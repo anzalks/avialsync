@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -30,7 +31,7 @@ class ImportReportDialog(QDialog):
 
         self._text = QTextEdit()
         self._text.setReadOnly(True)
-        self._text.setFontFamily("Menlo, Consolas, Courier New, monospace")
+        self._text.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
         self._text.setPlainText(self.as_plain_text())
 
         scroll = QScrollArea()

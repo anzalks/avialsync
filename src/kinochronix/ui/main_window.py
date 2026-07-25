@@ -58,6 +58,7 @@ class MainWindow(QMainWindow):
         self._video_load_drifts: dict[str, float] = {}
         self._video_frame_times: dict[str, Any] = {}
         self._sync_provenance: list[SyncProvenance] = []
+        self._overview_gaps: set[float] = set()
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
         self._frame_indexed_sources: list[tuple[Path, float]] = []
         # Inspection data keyed by str(path)
@@ -73,6 +74,7 @@ class MainWindow(QMainWindow):
         self.video_grid = VideoGrid(self)
         self.plot_pane = PlotPane(self)
         self.transport = Transport(self)
+        self.transport.reset_zoom_requested.connect(self.plot_pane.reset_zoom)
 
         # Engine
         self.player = Player(
@@ -85,6 +87,7 @@ class MainWindow(QMainWindow):
 
         # Annotations
         self.annotation_store = AnnotationStore(self)
+        self.annotation_store.changed.connect(self._update_timeline_annotations)
 
         # Layout
         central_widget = QWidget()
@@ -200,6 +203,15 @@ class MainWindow(QMainWindow):
         """Forward to ReadoutPanel with accumulated units for known channels."""
         self.readout_panel.update_sources(readers, self._channel_units)
 
+    def _update_timeline_annotations(self) -> None:
+        """Mirror annotations to the overview without adding another time model."""
+        self.transport.set_annotation_markers(
+            [
+                (marker.t_start, marker.t_end, marker.color)
+                for marker in self.annotation_store.markers
+            ]
+        )
+
     # ── Inspection / properties dialogs ─────────────────────────────
 
     def _show_video_properties(self, path: str) -> None:
@@ -254,6 +266,7 @@ class MainWindow(QMainWindow):
     def _set_time_mode(self, mode: TimeDisplayMode) -> None:
         self._time_mode = mode
         self.transport.set_time_mode(mode)
+        self.transport.set_time(self.clock.state.t)
         self.time_mode_changed.emit(mode)
 
     # ── Diagnostics ──────────────────────────────────────────────────
@@ -841,6 +854,21 @@ class MainWindow(QMainWindow):
         self._theme_group.triggered.connect(self._on_theme_selected)
         self._sync_theme_menu()
 
+        font_menu = view_menu.addMenu("Font Size")
+        self._font_size_group = QActionGroup(self)
+        for label, key in [
+            ("System", "system"),
+            ("Small", "small"),
+            ("Medium", "medium"),
+            ("Large", "large"),
+        ]:
+            fa = font_menu.addAction(label)
+            fa.setCheckable(True)
+            fa.setData(key)
+            self._font_size_group.addAction(fa)
+        self._font_size_group.triggered.connect(self._on_font_size_selected)
+        self._sync_font_size_menu()
+
         time_menu = view_menu.addMenu("Time Display")
         self._time_mode_group = QActionGroup(self)
         for label, mode in [
@@ -958,6 +986,25 @@ class MainWindow(QMainWindow):
         if isinstance(app, QApplication):
             apply_theme(app, new_pref)
         self._sync_theme_menu()
+
+    def _on_font_size_selected(self, action: QAction) -> None:
+        """Apply the selected system-relative application font scale."""
+        from PySide6.QtWidgets import QApplication
+
+        from kinochronix.ui.theme import apply_font_size
+
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            apply_font_size(app, action.data())
+
+    def _sync_font_size_menu(self) -> None:
+        from kinochronix.ui.theme import current_font_preference
+
+        pref = current_font_preference()
+        for act in self._font_size_group.actions():
+            if act.data() == pref:
+                act.setChecked(True)
+                break
 
     # ── Fullscreen / jump / pane context menu ───────────────────────
 
@@ -1271,6 +1318,7 @@ class MainWindow(QMainWindow):
         self._video_load_jobs[thread] = worker
         self._video_load_offsets[str(path)] = offset
         self._video_load_drifts[str(path)] = drift_ppm
+        self.transport.set_status(f"Loading video: {path.name}", "busy")
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         # These QObject slots are queued onto MainWindow's UI thread.  Do not
@@ -1295,6 +1343,7 @@ class MainWindow(QMainWindow):
             return
         bounds = loader.time_bounds()
         self._update_bounds(*bounds)
+        self.transport.set_source_coverage(original_path, bounds[0], bounds[1], "video")
         pane = self.video_grid.add_pane(original_path, media_path=media_path)
         metadata = {"fps": loader.fps(), "duration": bounds[1] - bounds[0]}
         self.sidebar.add_video(original_path, metadata)
@@ -1304,16 +1353,31 @@ class MainWindow(QMainWindow):
             self.video_grid.set_sync_mapping(original_path, offset, drift_ppm)
         self._video_fps[original_path] = loader.fps()
         frame_times = loader.frame_times()
+        pane.set_frame_times(frame_times)
+        pane.set_nominal_fps(loader.fps())
+        is_vfr = bool(getattr(loader, "is_vfr", lambda: False)())
+        pane.set_vfr(is_vfr)
+        from kinochronix.core.inspection import IntegrityFlags
+
+        inspection = SourceInspection(
+            path=original_path,
+            loader_id=type(loader).__name__,
+            integrity_flags=IntegrityFlags(is_vfr=is_vfr, drift_nonzero=bool(drift_ppm)),
+        )
+        self._inspections[original_path] = inspection
+        self.sidebar.set_video_inspection(original_path, inspection)
         if frame_times is not None:
             self._video_frame_times[original_path] = frame_times
         if self._frame_indexed_sources and len(self._video_fps) == 1:
             self._rebind_frame_indexed_sources(loader.fps())
+        self.transport.set_status(f"Ready · loaded {Path(original_path).name}")
 
     @Slot(str, str)
     def _on_video_open_error(self, path: str, error: str) -> None:
         """Show a source-open error without leaving a partially-created pane."""
         self._video_load_offsets.pop(path, None)
         self._video_load_drifts.pop(path, None)
+        self.transport.set_status(f"Video failed: {Path(path).name}", "error")
         QMessageBox.critical(self, "Video Error", f"Could not open video:\n{path}\n\n{error}")
 
     @Slot()
@@ -1393,6 +1457,10 @@ class MainWindow(QMainWindow):
             item for item in self._sync_provenance if item.target_id != target_path
         ]
         self._sync_provenance.append(provenance)
+        self.transport.set_status(
+            f"TTL aligned · {fit.max_residual * 1000:.3f} ms residual", "info"
+        )
+        self.transport.set_ttl_events([match.reference_time for match in proposal.matches])
         self.statusBar().showMessage(
             f"Accepted TTL/event alignment for {Path(target_path).name}: "
             f"{fit.max_residual * 1000:.3f} ms maximum residual.",
@@ -1530,6 +1598,7 @@ class MainWindow(QMainWindow):
         from kinochronix.engine.importer import ImportWorker
 
         self._import_thread = QThread()
+        self.transport.set_status(f"Importing data: {path.name}", "busy")
         self._import_worker = ImportWorker(path, config, loader_cls)
         self._import_worker.moveToThread(self._import_thread)
 
@@ -1575,9 +1644,12 @@ class MainWindow(QMainWindow):
         bounds: tuple[float, float],
         inspection: object = None,
     ) -> None:
-        self._progress_dialog.close()
+        progress_dialog = getattr(self, "_progress_dialog", None)
+        if progress_dialog is not None:
+            progress_dialog.close()
         self.plot_pane.load_channels(Path(cache_dir), channels)
         self._update_bounds(bounds[0], bounds[1])
+        self.transport.set_source_coverage(path, bounds[0], bounds[1], "data")
         self.sidebar.add_sensor(path, channels)
 
         if isinstance(inspection, SourceInspection):
@@ -1591,11 +1663,17 @@ class MainWindow(QMainWindow):
             rep = inspection.import_report
             if rep and rep.gap_locations:
                 gap_times = list(rep.gap_locations)
+                self._overview_gaps.update(gap_times)
+                self.transport.set_gap_events(sorted(self._overview_gaps))
                 for ch in channels:
                     self.plot_pane.set_gap_markers(ch, gap_times)
+        self.transport.set_status(f"Ready · imported {Path(path).name}")
 
     def _on_import_error(self, err_msg: str) -> None:
-        self._progress_dialog.close()
+        progress_dialog = getattr(self, "_progress_dialog", None)
+        if progress_dialog is not None:
+            progress_dialog.close()
+        self.transport.set_status("Data import failed", "error")
         QMessageBox.critical(
             self,
             "Import Error",

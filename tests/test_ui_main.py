@@ -2,8 +2,9 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QThread, QUrl, Signal, Slot
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
@@ -82,6 +83,27 @@ def test_accepted_sync_mapping_updates_video_and_session(main_window: MainWindow
     state = main_window._build_session_state()
     assert state.videos[0].drift_ppm == pytest.approx(3.5)
     assert state.sync_provenance[0].target_id == "/fake/camera.mp4"
+
+
+def test_programmatic_import_completion_needs_no_progress_dialog(
+    main_window: MainWindow, tmp_path: Path
+) -> None:
+    """Demo/programmatic imports may finish without an interactive progress dialog."""
+    from kinochronix.core.inspection import SourceInspection
+    from kinochronix.core.pyramid import PyramidBuilder
+
+    cache_dir = tmp_path / "demo.kcache"
+    cache_dir.mkdir()
+    PyramidBuilder(cache_dir, "ttl").build_and_save(np.array([0.0, 1.0]), np.array([0.0, 1.0]))
+    main_window._on_import_finished(
+        "demo.csv",
+        str(cache_dir),
+        ["ttl"],
+        (0.0, 1.0),
+        SourceInspection(path="demo.csv"),
+    )
+
+    assert main_window.transport._status_label.text() == "Ready · imported demo.csv"
 
 
 # ── Bug b: _start_csv_import → _start_data_import ────────────────────
@@ -210,7 +232,7 @@ def test_drop_real_video_completes_async_open(
     """A dropped video must complete its real worker lifecycle without closing the app."""
     video = Path("tests/fixtures/videos/camera_1.mp4")
     assert video.exists()
-    pane = object()
+    pane = MagicMock()
     widget_threads: list[bool] = []
 
     def add_pane(*args, **kwargs):
@@ -221,6 +243,7 @@ def test_drop_real_video_completes_async_open(
     monkeypatch.setattr(main_window.sidebar, "add_video", lambda *args: None)
     monkeypatch.setattr(main_window.sidebar, "set_video_loader", lambda *args: None)
     monkeypatch.setattr(main_window.sidebar, "set_video_pane", lambda *args: None)
+    monkeypatch.setattr(main_window.sidebar, "set_video_inspection", lambda *args: None)
     monkeypatch.setattr(main_window, "_update_bounds", lambda *args: None)
 
     main_window._route_dropped_path(video)
@@ -228,6 +251,7 @@ def test_drop_real_video_completes_async_open(
     qtbot.waitUntil(lambda: not main_window._video_load_jobs, timeout=10_000)
     assert str(video) in main_window._video_fps
     assert widget_threads == [True]
+    pane.set_vfr.assert_called_once_with(False)
 
 
 def test_real_drop_event_routes_sensor_file(

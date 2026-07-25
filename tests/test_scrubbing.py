@@ -162,3 +162,13 @@ def test_readout_updated_during_drag(player_with_mocks):
     readout.set_cursor.assert_called_once()
     args = readout.set_cursor.call_args[0]
     assert abs(args[0] - 4.0) < 1e-9
+
+
+def test_play_starts_playback_for_programmatic_callers(player_with_mocks):
+    """The demo launcher's public play call delegates to the normal UI path."""
+    player, _clock = player_with_mocks
+    player.set_playing = MagicMock()
+
+    player.play()
+
+    player.set_playing.assert_called_once_with(True)

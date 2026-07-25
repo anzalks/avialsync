@@ -88,6 +88,10 @@ class Player(QObject):
 
         self.transport.set_playing(playing)
 
+    def play(self) -> None:
+        """Start playback for programmatic callers such as the demo launcher."""
+        self.set_playing(True)
+
     def seek(self, t: float, exact: bool = True) -> None:
         self._is_scrubbing = not exact
         self.clock.seek(t)

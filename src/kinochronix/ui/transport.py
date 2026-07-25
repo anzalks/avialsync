@@ -1,19 +1,22 @@
 """Playback transport controls."""
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFontDatabase, QMouseEvent, QResizeEvent
+from PySide6.QtGui import QColor, QFontDatabase, QMouseEvent, QPainter, QPaintEvent, QResizeEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QPushButton,
     QSlider,
     QStyle,
     QStyleOptionSlider,
+    QVBoxLayout,
     QWidget,
 )
 
+from kinochronix.ui.theme import system_accent
 from kinochronix.ui.time_format import TimeDisplayMode, format_time
 
 
@@ -27,6 +30,144 @@ class JumpSlider(QSlider):
             )
             self.setValue(val)
         super().mousePressEvent(event)
+
+
+class TimelineOverview(QWidget):
+    """Compact, clickable overview of coverage and inspection evidence."""
+
+    seek_requested = Signal(float)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(28)
+        self.setMouseTracking(True)
+        self.setToolTip(
+            "Overview: source coverage, annotations, gaps, and accepted TTL matches. "
+            "Click to seek on the master timeline. Drag its lower edge to resize."
+        )
+        self._bounds = (0.0, 0.0)
+        self._cursor = 0.0
+        self._coverage: dict[str, tuple[float, float, str]] = {}
+        self._ttl_events: tuple[float, ...] = ()
+        self._gap_events: tuple[float, ...] = ()
+        self._markers: tuple[tuple[float, float | None, str], ...] = ()
+        self._resize_origin_y: float | None = None
+        self._resize_origin_height = self.height()
+
+    def set_bounds(self, t0: float, t1: float) -> None:
+        """Set the shared master-time range rendered by this overview."""
+        self._bounds = (t0, t1)
+        self.update()
+
+    def set_cursor(self, t: float) -> None:
+        """Move the overview playhead without recalculating any evidence."""
+        self._cursor = t
+        self.update()
+
+    def set_coverage(self, source_id: str, t0: float, t1: float, kind: str) -> None:
+        """Register one source coverage span, keyed for later replacement."""
+        self._coverage[source_id] = (t0, t1, kind)
+        self.update()
+
+    def set_ttl_events(self, events: list[float] | tuple[float, ...]) -> None:
+        """Display accepted TTL/event matches as cyan ticks."""
+        self._ttl_events = tuple(events)
+        self.update()
+
+    def set_gap_events(self, events: list[float] | tuple[float, ...]) -> None:
+        """Display imported data gaps as red ticks."""
+        self._gap_events = tuple(events)
+        self.update()
+
+    def set_markers(self, markers: list[tuple[float, float | None, str]]) -> None:
+        """Display point/range annotations in their stored colors."""
+        self._markers = tuple(markers)
+        self.update()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            if event.position().y() >= self.height() - 5:
+                self._resize_origin_y = event.globalPosition().y()
+                self._resize_origin_height = self.height()
+                event.accept()
+                return
+            t0, t1 = self._bounds
+            if self.width() > 0 and t1 > t0:
+                fraction = min(1.0, max(0.0, event.position().x() / self.width()))
+                self.seek_requested.emit(t0 + fraction * (t1 - t0))
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._resize_origin_y is not None:
+            height = round(
+                self._resize_origin_height + event.globalPosition().y() - self._resize_origin_y
+            )
+            self.setFixedHeight(max(20, min(180, height)))
+            event.accept()
+            return
+        edge = event.position().y() >= self.height() - 5
+        self.setCursor(Qt.CursorShape.SizeVerCursor if edge else Qt.CursorShape.ArrowCursor)
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if self._resize_origin_y is not None and event.button() == Qt.MouseButton.LeftButton:
+            self._resize_origin_y = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        palette = self.palette()
+        painter.fillRect(self.rect(), palette.color(palette.ColorRole.AlternateBase))
+        t0, t1 = self._bounds
+        if t1 <= t0:
+            return
+
+        def x_at(time: float) -> int:
+            return round((time - t0) / (t1 - t0) * max(0, self.width() - 1))
+
+        lane_height = max(2, self.height() // max(1, len(self._coverage)))
+        accent = system_accent(palette)
+        data_color = palette.color(palette.ColorRole.Link)
+        for lane, (_, (start, end, kind)) in enumerate(sorted(self._coverage.items())):
+            left, right = sorted((x_at(start), x_at(end)))
+            painter.fillRect(
+                left,
+                lane * lane_height,
+                max(1, right - left),
+                lane_height - 1,
+                accent if kind == "video" else data_color,
+            )
+
+        for start, end, color in self._markers:
+            left = x_at(start)
+            if end is None:
+                painter.fillRect(left, 0, 2, self.height(), QColor(color))
+            else:
+                painter.fillRect(
+                    min(left, x_at(end)),
+                    0,
+                    max(2, abs(x_at(end) - left)),
+                    self.height(),
+                    QColor(color).darker(130),
+                )
+
+        painter.setPen(QColor("#d64545"))
+        for gap in self._gap_events:
+            x = x_at(gap)
+            painter.drawLine(x, 0, x, self.height() - 1)
+
+        painter.setPen(accent)
+        for ttl in self._ttl_events:
+            x = x_at(ttl)
+            painter.drawLine(x, self.height() // 2, x, self.height() - 1)
+
+        painter.setPen(palette.color(palette.ColorRole.BrightText))
+        cursor_x = x_at(self._cursor)
+        painter.drawLine(cursor_x, 0, cursor_x, self.height() - 1)
 
 
 class _ABPin(QFrame):
@@ -84,53 +225,24 @@ class Transport(QWidget):
     snapshot_requested = Signal()
     fullscreen_requested = Signal()
     jump_requested = Signal(float)  # delta in seconds
+    reset_zoom_requested = Signal()
 
     # Ordered playback-rate steps (J/K/L model, D-022.4)
     _RATE_STEPS = [0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 10.0]
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
-        self.setLayout(QHBoxLayout())
-        self.layout().setContentsMargins(5, 5, 5, 5)
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(5, 3, 5, 5)
+        root_layout.setSpacing(2)
+        self._timeline_layout = QHBoxLayout()
+        self._timeline_layout.setSpacing(5)
+        self._controls_layout = QHBoxLayout()
+        self._controls_layout.setSpacing(4)
+        root_layout.addLayout(self._timeline_layout)
+        root_layout.addLayout(self._controls_layout)
 
-        # ── Jump back 1 s ─────────────────────────────────────────────
-        self._jump_back_btn = QPushButton("–1s")
-        self._jump_back_btn.setFixedWidth(36)
-        self._jump_back_btn.setToolTip("Jump back 1 second (J or Shift+←)")
-        self._jump_back_btn.clicked.connect(lambda: self.jump_requested.emit(-1.0))
-        self.layout().addWidget(self._jump_back_btn)
-
-        # ── Frame step back ───────────────────────────────────────────
-        self._step_back_btn = QPushButton("◀")
-        self._step_back_btn.setFixedWidth(28)
-        self._step_back_btn.setToolTip("Step back 1 frame (← or ,)")
-        self._step_back_btn.clicked.connect(lambda: self.frame_step_requested.emit(-1))
-        self.layout().addWidget(self._step_back_btn)
-
-        # ── Play / Pause ──────────────────────────────────────────────
-        self.play_btn = QPushButton("Play")
-        self.play_btn.setCheckable(True)
-        self.play_btn.setToolTip("Play / Pause (Space)")
-        self.play_btn.clicked.connect(self._on_play_clicked)
-        self.layout().addWidget(self.play_btn)
-
-        # ── Frame step forward ────────────────────────────────────────
-        self._step_fwd_btn = QPushButton("▶")
-        self._step_fwd_btn.setFixedWidth(28)
-        self._step_fwd_btn.setToolTip("Step forward 1 frame (→ or .)")
-        self._step_fwd_btn.clicked.connect(lambda: self.frame_step_requested.emit(1))
-        self.layout().addWidget(self._step_fwd_btn)
-
-        # ── Jump forward 1 s ──────────────────────────────────────────
-        self._jump_fwd_btn = QPushButton("+1s")
-        self._jump_fwd_btn.setFixedWidth(36)
-        self._jump_fwd_btn.setToolTip("Jump forward 1 second (Shift+→)")
-        self._jump_fwd_btn.clicked.connect(lambda: self.jump_requested.emit(1.0))
-        self.layout().addWidget(self._jump_fwd_btn)
-
-        self.layout().addWidget(_sep(self))
-
-        # ── Time display / jump input ──────────────────────────────────
+        # ── Timeline row: time, scrub bar, end time, view reset ──────
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self._time_edit = QLineEdit("00:00:00.000")
         self._time_edit.setFixedWidth(110)
@@ -143,17 +255,71 @@ class Transport(QWidget):
         self._time_edit.editingFinished.connect(self._on_editing_done)
         self._time_editing = False
         self._time_edit.textEdited.connect(self._on_text_edited)
-        self.layout().addWidget(self._time_edit)
+        self._timeline_layout.addWidget(self._time_edit)
 
-        # ── Scrub slider ──────────────────────────────────────────────
+        timeline_stack = QVBoxLayout()
+        timeline_stack.setContentsMargins(0, 0, 0, 0)
+        timeline_stack.setSpacing(1)
         self.slider = JumpSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 10000)
+        self.slider.setToolTip("Master timeline — drag to scrub; release for an exact seek")
         self.slider.sliderPressed.connect(self._on_slider_pressed)
         self.slider.sliderMoved.connect(self._on_slider_moved)
         self.slider.sliderReleased.connect(self._on_slider_released)
-        self.layout().addWidget(self.slider)
+        timeline_stack.addWidget(self.slider)
+        self.overview = TimelineOverview(self)
+        self.overview.seek_requested.connect(lambda t: self.seek_requested.emit(t, True))
+        timeline_stack.addWidget(self.overview)
+        self._timeline_layout.addLayout(timeline_stack, 1)
 
-        self.layout().addWidget(_sep(self))
+        self._end_time_label = QLabel("00:00:00.000", self)
+        self._end_time_label.setFixedWidth(110)
+        self._end_time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._end_time_label.setStyleSheet(f"font-family: '{mono_font}'; font-size: 12px;")
+        self._end_time_label.setToolTip("End of the loaded master timeline")
+        self._timeline_layout.addWidget(self._end_time_label)
+
+        self._reset_zoom_btn = QPushButton("Reset Zoom", self)
+        self._reset_zoom_btn.setToolTip("Reset plot zoom to all loaded data (Ctrl+0)")
+        self._reset_zoom_btn.clicked.connect(self.reset_zoom_requested.emit)
+        self._timeline_layout.addWidget(self._reset_zoom_btn)
+
+        # ── Jump back 1 s ─────────────────────────────────────────────
+        self._jump_back_btn = QPushButton("–1s")
+        self._jump_back_btn.setFixedWidth(36)
+        self._jump_back_btn.setToolTip("Jump back 1 second (J or Shift+←)")
+        self._jump_back_btn.clicked.connect(lambda: self.jump_requested.emit(-1.0))
+        self._controls_layout.addWidget(self._jump_back_btn)
+
+        # ── Frame step back ───────────────────────────────────────────
+        self._step_back_btn = QPushButton("◀")
+        self._step_back_btn.setFixedWidth(28)
+        self._step_back_btn.setToolTip("Step back 1 frame (← or ,)")
+        self._step_back_btn.clicked.connect(lambda: self.frame_step_requested.emit(-1))
+        self._controls_layout.addWidget(self._step_back_btn)
+
+        # ── Play / Pause ──────────────────────────────────────────────
+        self.play_btn = QPushButton("Play")
+        self.play_btn.setCheckable(True)
+        self.play_btn.setToolTip("Play / Pause (Space)")
+        self.play_btn.clicked.connect(self._on_play_clicked)
+        self._controls_layout.addWidget(self.play_btn)
+
+        # ── Frame step forward ────────────────────────────────────────
+        self._step_fwd_btn = QPushButton("▶")
+        self._step_fwd_btn.setFixedWidth(28)
+        self._step_fwd_btn.setToolTip("Step forward 1 frame (→ or .)")
+        self._step_fwd_btn.clicked.connect(lambda: self.frame_step_requested.emit(1))
+        self._controls_layout.addWidget(self._step_fwd_btn)
+
+        # ── Jump forward 1 s ──────────────────────────────────────────
+        self._jump_fwd_btn = QPushButton("+1s")
+        self._jump_fwd_btn.setFixedWidth(36)
+        self._jump_fwd_btn.setToolTip("Jump forward 1 second (Shift+→)")
+        self._jump_fwd_btn.clicked.connect(lambda: self.jump_requested.emit(1.0))
+        self._controls_layout.addWidget(self._jump_fwd_btn)
+
+        self._controls_layout.addWidget(_sep(self))
 
         # ── A/B loop buttons (checkable — D-022.5) ────────────────────
         self._ab_in_btn = QPushButton("[")
@@ -161,45 +327,45 @@ class Transport(QWidget):
         self._ab_in_btn.setCheckable(True)
         self._ab_in_btn.setToolTip("Set loop in-point here ([ or I)")
         self._ab_in_btn.clicked.connect(self._on_ab_in_clicked)
-        self.layout().addWidget(self._ab_in_btn)
+        self._controls_layout.addWidget(self._ab_in_btn)
 
         self._ab_out_btn = QPushButton("]")
         self._ab_out_btn.setFixedWidth(28)
         self._ab_out_btn.setCheckable(True)
         self._ab_out_btn.setToolTip("Set loop out-point here (] or O)")
         self._ab_out_btn.clicked.connect(self._on_ab_out_clicked)
-        self.layout().addWidget(self._ab_out_btn)
+        self._controls_layout.addWidget(self._ab_out_btn)
 
         self._ab_clear_btn = QPushButton("✕")
         self._ab_clear_btn.setFixedWidth(24)
         self._ab_clear_btn.setToolTip("Clear A/B loop")
         self._ab_clear_btn.clicked.connect(self._on_ab_clear)
-        self.layout().addWidget(self._ab_clear_btn)
+        self._controls_layout.addWidget(self._ab_clear_btn)
 
-        self.layout().addWidget(_sep(self))
+        self._controls_layout.addWidget(_sep(self))
 
         # ── Annotate ──────────────────────────────────────────────────
         self._annotate_btn = QPushButton("⚑")
         self._annotate_btn.setFixedWidth(28)
         self._annotate_btn.setToolTip("Add marker at playhead (M)")
         self._annotate_btn.clicked.connect(self.annotate_requested.emit)
-        self.layout().addWidget(self._annotate_btn)
+        self._controls_layout.addWidget(self._annotate_btn)
 
         # ── Snapshot ──────────────────────────────────────────────────
         self._snapshot_btn = QPushButton("⊙")
         self._snapshot_btn.setFixedWidth(28)
         self._snapshot_btn.setToolTip("Export snapshot (Ctrl+E)")
         self._snapshot_btn.clicked.connect(self.snapshot_requested.emit)
-        self.layout().addWidget(self._snapshot_btn)
+        self._controls_layout.addWidget(self._snapshot_btn)
 
         # ── Fullscreen toggle ─────────────────────────────────────────
         self._fullscreen_btn = QPushButton("⤢")
         self._fullscreen_btn.setFixedWidth(28)
         self._fullscreen_btn.setToolTip("Toggle pane fullscreen (F11)")
         self._fullscreen_btn.clicked.connect(self.fullscreen_requested.emit)
-        self.layout().addWidget(self._fullscreen_btn)
+        self._controls_layout.addWidget(self._fullscreen_btn)
 
-        self.layout().addWidget(_sep(self))
+        self._controls_layout.addWidget(_sep(self))
 
         # ── Rate combo (0.01× – 10×) ──────────────────────────────────
         self.rate_combo = QComboBox()
@@ -209,7 +375,14 @@ class Transport(QWidget):
         self.rate_combo.setCurrentText("1.0x")
         self.rate_combo.setToolTip("Playback rate (L = step up, K = pause)")
         self.rate_combo.currentIndexChanged.connect(self._on_rate_changed)
-        self.layout().addWidget(self.rate_combo)
+        self._controls_layout.addWidget(self.rate_combo)
+
+        self._controls_layout.addStretch(1)
+        self._status_label = QLabel("Ready", self)
+        self._status_label.setMinimumWidth(220)
+        self._status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._status_label.setToolTip("Non-blocking application status")
+        self._controls_layout.addWidget(self._status_label)
 
         self._bounds = (0.0, 0.0)
         self._is_scrubbing = False
@@ -239,12 +412,39 @@ class Transport(QWidget):
 
     def set_bounds(self, t0: float, t1: float) -> None:
         self._bounds = (t0, t1)
+        self._end_time_label.setText(format_time(t1, self._time_mode, self._t_epoch))
+        self.overview.set_bounds(t0, t1)
 
     def set_time_mode(self, mode: TimeDisplayMode) -> None:
         self._time_mode = mode
+        self._end_time_label.setText(format_time(self._bounds[1], self._time_mode, self._t_epoch))
 
     def set_t_epoch(self, epoch: float) -> None:
         self._t_epoch = epoch
+        self._end_time_label.setText(format_time(self._bounds[1], self._time_mode, self._t_epoch))
+
+    def set_status(self, message: str, severity: str = "info") -> None:
+        """Show compact, non-blocking status text on the transport controls row."""
+        colors = {"info": "#b8c7d9", "busy": "#f0c674", "warning": "#ff9f43", "error": "#ff6b6b"}
+        color = colors.get(severity, colors["info"])
+        self._status_label.setText(message)
+        self._status_label.setStyleSheet(f"color: {color};")
+
+    def set_source_coverage(self, source_id: str, t0: float, t1: float, kind: str) -> None:
+        """Show one video or data coverage span in the overview strip."""
+        self.overview.set_coverage(source_id, t0, t1, kind)
+
+    def set_ttl_events(self, events: list[float] | tuple[float, ...]) -> None:
+        """Show accepted synchronization events in the overview strip."""
+        self.overview.set_ttl_events(events)
+
+    def set_gap_events(self, events: list[float] | tuple[float, ...]) -> None:
+        """Show imported data gaps in the overview strip."""
+        self.overview.set_gap_events(events)
+
+    def set_annotation_markers(self, markers: list[tuple[float, float | None, str]]) -> None:
+        """Show point and range annotations in the overview strip."""
+        self.overview.set_markers(markers)
 
     def set_time(self, t: float) -> None:
         """Update the displayed time (unless the user is typing)."""
@@ -259,6 +459,7 @@ class Transport(QWidget):
                 self.slider.blockSignals(True)
                 self.slider.setValue(val)
                 self.slider.blockSignals(False)
+        self.overview.set_cursor(t)
 
     def set_playing(self, playing: bool) -> None:
         self.play_btn.blockSignals(True)

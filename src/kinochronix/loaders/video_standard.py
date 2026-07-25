@@ -144,6 +144,16 @@ class VideoStandardLoader(VideoSource):
     def frame_times(self) -> np.ndarray | None:
         return self._frame_times
 
+    def is_vfr(self) -> bool:
+        """Return whether decoded frame timestamps have variable intervals."""
+        if self._frame_times is None or len(self._frame_times) < 3:
+            return False
+        intervals = np.diff(np.sort(self._frame_times))
+        intervals = intervals[intervals > 1e-9]
+        if len(intervals) < 2:
+            return False
+        return not np.allclose(intervals, np.median(intervals), rtol=1e-3, atol=1e-6)
+
     def time_bounds(self) -> tuple[float, float]:
         st = self._start_time or 0.0
         return (st, st + getattr(self, "_duration", 0.0))

@@ -52,7 +52,7 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
 │   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
-│   │   ├── transport.py              # slider, play/pause, speed, A/B loop, time readout; uses format_time()
+│   │   ├── transport.py              # two-row timeline + evidence overview, controls, status, A/B loop
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
 │   │   ├── sync_wizard.py            # evidence selection, residual preview, explicit acceptance (D-026)
 │   │   ├── offsets_panel.py          # per-source offset + drift ppm, live preview (D-020)
@@ -64,7 +64,7 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │   │   ├── relink_dialog.py          # missing session files → browse/search (§5)
 │   │   ├── shortcuts_dialog.py       # keyboard shortcuts reference dialog (? key)
 │   │   ├── diagnostics.py            # startup probes: libmpv/hwdec/disk; guided-install; auto-fetch (D-013/14)
-│   │   └── theme.py                  # dark/light qss
+│   │   └── theme.py                  # native-aware system/dark/light appearance
 │   └── resources/                    # icons, .qss themes, sample-session manifest (packaged data)
 │
 ├── tools/

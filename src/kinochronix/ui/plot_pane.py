@@ -5,8 +5,8 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QMenu, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from kinochronix.core.pyramid import PyramidReader
 
@@ -58,23 +58,8 @@ class PlotPane(QWidget):
         _layout.setSpacing(0)
         self.setLayout(_layout)
 
-        # Toolbar: Reset Zoom button flush-left, rest of bar empty
-        _toolbar = QWidget()
-        _tbar = QHBoxLayout(_toolbar)
-        _tbar.setContentsMargins(4, 2, 4, 0)
-        _tbar.setSpacing(4)
-        self._btn_reset_zoom = QPushButton("Reset Zoom")
-        self._btn_reset_zoom.setFixedHeight(22)
-        self._btn_reset_zoom.setFlat(True)
-        self._btn_reset_zoom.setToolTip("Reset plot zoom to full data extent (Ctrl+0)")
-        self._btn_reset_zoom.clicked.connect(self.reset_zoom)
-        _tbar.addWidget(self._btn_reset_zoom)
-        _tbar.addStretch()
-        _layout.addWidget(_toolbar)
-
         # Configure pyqtgraph
-        pg.setConfigOption("background", "k")
-        pg.setConfigOption("foreground", "d")
+        self._apply_palette()
 
         self.graphics_layout = pg.GraphicsLayoutWidget()
         self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -102,6 +87,18 @@ class PlotPane(QWidget):
 
         # Right-click context menu on the plot scene
         self.graphics_layout.scene().sigMouseClicked.connect(self._on_scene_clicked)
+
+    def changeEvent(self, event: QEvent) -> None:
+        """Keep pyqtgraph's canvas aligned with an application palette change."""
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange):
+            self._apply_palette()
+
+    def _apply_palette(self) -> None:
+        """Apply the active Qt palette to pyqtgraph's global canvas settings."""
+        palette = self.palette()
+        pg.setConfigOption("background", palette.color(palette.ColorRole.Base).name())
+        pg.setConfigOption("foreground", palette.color(palette.ColorRole.Text).name())
 
     def load_channels(self, cache_dir: Path, channel_names: list[str]) -> None:
         """Load multiple data sources from cache and build plot rows."""
