@@ -25,9 +25,9 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
     win = app_with_main_window
 
     fixture_dir = pathlib.Path("tests/fixtures")
-    video_path = fixture_dir / "videos/base_30fps.mp4"
+    video_path = fixture_dir / "videos/camera_1.mp4"  # base 30fps h264, no offset
     if not video_path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     win.video_grid.add_pane(str(video_path))
     pane = win.video_grid.panes[0]
@@ -93,7 +93,7 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
     cam3 = fixture_dir / "videos/camera_3.mp4"
 
     if not cam1.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     win.video_grid.add_pane(str(cam1))
     win.video_grid.add_pane(str(cam2))

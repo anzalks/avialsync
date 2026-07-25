@@ -20,6 +20,16 @@ class VideoStandardLoader(VideoSource):
         self._start_time: float | None = None
         self._fps: float = 30.0
         self._frame_times: np.ndarray | None = None
+        # Extended metadata (D-020) — all probed from the existing ffprobe JSON
+        self._codec: str = "unknown"
+        self._duration: float = 0.0
+        self._container: str = ""
+        self._width: int = 0
+        self._height: int = 0
+        self._pix_fmt: str = ""
+        self._profile: str = ""
+        self._frame_count: int | None = None
+        self._file_size: int = 0
 
     @classmethod
     def can_open(cls, path: Path) -> float:
@@ -60,8 +70,11 @@ class VideoStandardLoader(VideoSource):
 
         d = format_info.get("duration")
         self._duration = float(d) if d is not None else 0.0
+        self._container = format_info.get("format_name", "").split(",")[0]
+        size_str = format_info.get("size")
+        self._file_size = int(size_str) if size_str else 0
 
-        # Parse FPS from first video stream
+        # Parse fields from first video stream
         streams = meta.get("streams", [])
         video_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
 
@@ -71,6 +84,12 @@ class VideoStandardLoader(VideoSource):
             num, den = r_frame_rate.split("/")
             if float(den) > 0:
                 self._fps = float(num) / float(den)
+            self._width = int(video_stream.get("width", 0))
+            self._height = int(video_stream.get("height", 0))
+            self._pix_fmt = video_stream.get("pix_fmt", "")
+            self._profile = video_stream.get("profile", "")
+            nb = video_stream.get("nb_frames")
+            self._frame_count = int(nb) if nb and nb != "N/A" else None
         else:
             self._codec = "unknown"
 

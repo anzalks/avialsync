@@ -1,12 +1,12 @@
 """Plot rendering pane using pyqtgraph and decimation pyramids."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QMenu, QPushButton, QVBoxLayout, QWidget
 
 from kinochronix.core.pyramid import PyramidReader
 
@@ -33,6 +33,7 @@ class ChannelPlot:
     curve: pg.PlotCurveItem
     cursor_line: pg.InfiniteLine
     coverage_region: pg.LinearRegionItem | None = None
+    gap_markers: list = field(default_factory=list)  # list[pg.InfiniteLine]
 
 
 class PlotPane(QWidget):
@@ -45,11 +46,29 @@ class PlotPane(QWidget):
 
     # Emitted when the set of active readers changes so ReadoutPanel can refresh
     sources_changed = Signal(list)  # list[PyramidReader]
+    # Emitted when both measure points are set (t_a, t_b)
+    measure_changed = Signal(float, float)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
-        self.setLayout(QVBoxLayout())
-        self.layout().setContentsMargins(0, 0, 0, 0)
+        _layout = QVBoxLayout()
+        _layout.setContentsMargins(0, 0, 0, 0)
+        _layout.setSpacing(0)
+        self.setLayout(_layout)
+
+        # Toolbar: Reset Zoom button flush-left, rest of bar empty
+        _toolbar = QWidget()
+        _tbar = QHBoxLayout(_toolbar)
+        _tbar.setContentsMargins(4, 2, 4, 0)
+        _tbar.setSpacing(4)
+        self._btn_reset_zoom = QPushButton("Reset Zoom")
+        self._btn_reset_zoom.setFixedHeight(22)
+        self._btn_reset_zoom.setFlat(True)
+        self._btn_reset_zoom.setToolTip("Reset plot zoom to full data extent (Ctrl+0)")
+        self._btn_reset_zoom.clicked.connect(self.reset_zoom)
+        _tbar.addWidget(self._btn_reset_zoom)
+        _tbar.addStretch()
+        _layout.addWidget(_toolbar)
 
         # Configure pyqtgraph
         pg.setConfigOption("background", "k")
@@ -57,17 +76,26 @@ class PlotPane(QWidget):
 
         self.graphics_layout = pg.GraphicsLayoutWidget()
         self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.layout().addWidget(self.graphics_layout)
+        _layout.addWidget(self.graphics_layout)
 
         # State
         self.channels: list[ChannelPlot] = []
         self.follow_playhead = False
-        
+
         self._annotation_store = None
         self._annotation_items: list[tuple[pg.PlotItem, object]] = []
 
+        # Measure markers (A/B pins for Δ measurement, separate from loop A/B)
+        self._measure_a: float | None = None
+        self._measure_b: float | None = None
+        self._measure_a_lines: list[pg.InfiniteLine] = []
+        self._measure_b_lines: list[pg.InfiniteLine] = []
+
         # We will use the first channel's X axis as the master for linking
         self._master_plot: pg.PlotItem | None = None
+
+        # Right-click context menu on the plot scene
+        self.graphics_layout.scene().sigMouseClicked.connect(self._on_scene_clicked)
 
     def load_channels(self, cache_dir: Path, channel_names: list[str]) -> None:
         """Load multiple data sources from cache and build plot rows."""
@@ -237,18 +265,109 @@ class PlotPane(QWidget):
             if len(t) > 0:
                 t_all.extend([float(t[0]), float(t[-1])])
         if t_all:
-            self._master_plot.setXRange(
-                min(t_all), max(t_all), padding=0.02
-            )
+            self._master_plot.setXRange(min(t_all), max(t_all), padding=0.02)
         for ch in self.channels:
             ch.plot_item.enableAutoRange(axis="y")
+
+    # ── Measure markers ──────────────────────────────────────────────
+
+    def set_measure_a(self, t: float) -> None:
+        """Place measure pin A at time *t* on all channels."""
+        self._measure_a = t
+        self._redraw_measure_lines()
+        if self._measure_b is not None:
+            self.measure_changed.emit(
+                min(t, self._measure_b), max(t, self._measure_b)
+            )
+
+    def set_measure_b(self, t: float) -> None:
+        """Place measure pin B at time *t* on all channels."""
+        self._measure_b = t
+        self._redraw_measure_lines()
+        if self._measure_a is not None:
+            self.measure_changed.emit(
+                min(self._measure_a, t), max(self._measure_a, t)
+            )
+
+    def clear_measure(self) -> None:
+        """Remove both measure pins."""
+        self._measure_a = None
+        self._measure_b = None
+        self._redraw_measure_lines()
+
+    def _redraw_measure_lines(self) -> None:
+        for line in self._measure_a_lines + self._measure_b_lines:
+            for ch in self.channels:
+                try:
+                    ch.plot_item.removeItem(line)
+                except Exception:
+                    pass
+        self._measure_a_lines.clear()
+        self._measure_b_lines.clear()
+
+        pen_a = pg.mkPen(color=(0, 255, 100), width=2, style=Qt.PenStyle.DashLine)
+        pen_b = pg.mkPen(color=(255, 80, 80), width=2, style=Qt.PenStyle.DashLine)
+        for ch in self.channels:
+            if self._measure_a is not None:
+                la = pg.InfiniteLine(pos=self._measure_a, angle=90, movable=False, pen=pen_a)
+                la.setZValue(5)
+                ch.plot_item.addItem(la)
+                self._measure_a_lines.append(la)
+            if self._measure_b is not None:
+                lb = pg.InfiniteLine(pos=self._measure_b, angle=90, movable=False, pen=pen_b)
+                lb.setZValue(5)
+                ch.plot_item.addItem(lb)
+                self._measure_b_lines.append(lb)
+
+    def _on_scene_clicked(self, ev) -> None:
+        if ev.button() != Qt.MouseButton.RightButton:
+            return
+        if not self._master_plot:
+            return
+        scene_pos = ev.scenePos()
+        if not self._master_plot.vb.sceneBoundingRect().contains(scene_pos):
+            return
+        view_pos = self._master_plot.vb.mapSceneToView(scene_pos)
+        t = float(view_pos.x())
+        menu = QMenu()
+        act_a = menu.addAction(f"Set Measure A  ({t:.3f} s)")
+        act_b = menu.addAction(f"Set Measure B  ({t:.3f} s)")
+        menu.addSeparator()
+        act_clear = menu.addAction("Clear Measure")
+        chosen = menu.exec(ev.screenPos().toPoint())
+        if chosen == act_a:
+            self.set_measure_a(t)
+        elif chosen == act_b:
+            self.set_measure_b(t)
+        elif chosen == act_clear:
+            self.clear_measure()
+        ev.accept()
+
+    # ── Gap markers ──────────────────────────────────────────────────
+
+    def set_gap_markers(self, channel_id: str, gap_times: list[float]) -> None:
+        """Overlay thin red vertical lines at gap positions for one channel."""
+        for ch in self.channels:
+            if ch.name != channel_id:
+                continue
+            for line in ch.gap_markers:
+                ch.plot_item.removeItem(line)
+            ch.gap_markers.clear()
+            pen = pg.mkPen(color=(255, 60, 60), width=1, style=Qt.PenStyle.DotLine)
+            for t in gap_times:
+                line = pg.InfiniteLine(pos=t, angle=90, movable=False, pen=pen)
+                line.setZValue(3)
+                ch.plot_item.addItem(line)
+                ch.gap_markers.append(line)
+            break
+
+    # ── Annotation / misc ────────────────────────────────────────────
 
     def set_annotation_store(self, store: object) -> None:
         self._annotation_store = store
         self._annotation_store.changed.connect(self._redraw_annotations)
         self._redraw_annotations()
 
-        
     def set_x_range(self, t0: float, t1: float) -> None:
         """Set the view range of all linked plots."""
         if self._master_plot:
@@ -280,7 +399,7 @@ class PlotPane(QWidget):
                         values=[marker.t_start, marker.t_end],
                         movable=False,
                         brush=c_brush,
-                        pen=pg.mkPen(c, width=1, style=Qt.PenStyle.DashLine)
+                        pen=pg.mkPen(c, width=1, style=Qt.PenStyle.DashLine),
                     )
                     region.setZValue(-5)
                     ch.plot_item.addItem(region)

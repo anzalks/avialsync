@@ -26,6 +26,7 @@ _SHORTCUTS = [
     ("Ctrl + O", "Open session"),
     ("Ctrl + E", "Export snapshot (plot + frame)"),
     ("Ctrl + T", "Cycle theme (System → Dark → Light)"),
+    ("Ctrl + 0", "Reset plot zoom to full data extent"),
     ("?", "Show this shortcuts dialog"),
 ]
 

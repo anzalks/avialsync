@@ -18,6 +18,7 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 ├── BLUEPRINT.md                      # phases & exit criteria
 ├── ARCHITECTURE.md                   # this file
 ├── DECISIONS.md                      # ADR log D-001..
+├── HANDOUT.md                        # model handout: module map, API, traps, run commands, bug log
 ├── PROMPTS.md                        # per-task kickoff prompts
 ├── TESTING.md                        # test strategy + edge-case matrix
 │
@@ -26,40 +27,48 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │   ├── __main__.py                   # CLI: `kinochronix` / `kinochronix open <path>`
 │   ├── core/                         # HEADLESS — must never import PySide6 (test-enforced)
 │   │   ├── timeline.py               # MasterClock, TimeMap(offset, drift), PlaybackState
-│   │   ├── session.py                # Session model + .kcx JSON (versioned schema)
+│   │   ├── session.py                # Session model + .kcx JSON (versioned schema v2)
 │   │   ├── source.py                 # ABCs: TimeSeriesSource, VideoSource (plugin contract, §4)
 │   │   ├── pyramid.py                # NaN/gap-aware min-max pyramid build + query (D-009)
 │   │   ├── cache.py                  # .kcache/ sidecar manager, content-hash key (D-008), atomic writes
 │   │   ├── registry.py               # directory scanner and dynamic module loader (`~/.kinochronix/plugins/`)
+│   │   ├── inspection.py             # ImportReport, IntegrityFlags, SourceInspection — headless, frozen dataclasses (D-020)
 │   │   └── errors.py                 # typed exceptions (NonMonotonicTimeError, ...)
 │   ├── loaders/                      # built-in plugins (use ONLY the public core API)
 │   │   ├── csv_loader.py             # polars; chunked ingest (D-005); tz/anchor/sentinel config
-│   │   └── video_standard.py         # ffprobe metadata, frame_times(), needs_conversion=False
+│   │   ├── video_standard.py         # ffprobe metadata, frame_times(), needs_conversion=False
+│   │   ├── tracking_loader.py        # DeepLabCut CSV; multi-scorer, bodypart/coord flat-headers
+│   │   └── neo_loader.py             # Neo electrophysiology; OpenEphys/NCS/NIX; BFS root detect
 │   ├── engine/                       # playback machinery (imports core + mpv, no widgets)
 │   │   ├── player.py                 # clock→mpv fanout, hysteresis drift correction
 │   │   ├── seeker.py                 # parallel exact/keyframe seeks, settle detection
+│   │   ├── importer.py               # QThread worker: parse → cache → pyramid; progress + cancel signals
+│   │   ├── export.py                 # snapshot, data slice (CSV/Parquet), video clip trim
 │   │   └── proxy.py                  # ffmpeg short-GOP proxies + prepare() conversion flow (D-006)
 │   ├── ui/                           # PySide6 widgets only; no business logic
 │   │   ├── main_window.py            # Left sidebar (metadata, offsets, file management) + right content (video grid, plots)
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
 │   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen
-│   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c)
-│   │   ├── transport.py              # slider, play/pause, speed, A/B loop, time readout
+│   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
+│   │   ├── transport.py              # slider, play/pause, speed, A/B loop, time readout; uses format_time()
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
-│   │   ├── offsets_panel.py          # per-source offset + drift ppm, live preview
+│   │   ├── offsets_panel.py          # per-source offset + drift ppm, live preview (D-020)
 │   │   ├── annotations.py            # point/range markers panel + CSV export
-│   │   ├── readout_panel.py          # nearest-sample values at t_master
+│   │   ├── readout_panel.py          # nearest-sample values at t_master + units + sample index + Δ section
+│   │   ├── source_properties.py      # VideoPropertiesPanel + SensorPropertiesPanel — collapsible detail (D-020)
+│   │   ├── import_report.py          # ImportReportDialog — scrollable import stats + "Copy as text" (D-020)
+│   │   ├── time_format.py            # TimeDisplayMode enum + format_time(t, mode, t_epoch) helper (D-020)
 │   │   ├── relink_dialog.py          # missing session files → browse/search (§5)
+│   │   ├── shortcuts_dialog.py       # keyboard shortcuts reference dialog (? key)
 │   │   ├── diagnostics.py            # startup probes: libmpv/hwdec/disk; guided-install; auto-fetch (D-013/14)
 │   │   └── theme.py                  # dark/light qss
 │   └── resources/                    # icons, .qss themes, sample-session manifest (packaged data)
 │
 ├── tools/
-│   └── make_fixtures.py              # ground-truth generator: frame-strip videos, 50 kHz signals,
-│                                     #   ALL edge-case variants (TESTING §7); deterministic, CI-run
-│
-├── scripts/                          # playground/scratch folder for manual experiments and tests;
-│                                     #   not shipped with the package, just for dev convenience
+│   ├── make_fixtures.py              # ground-truth generator: frame-strip videos, 50 kHz signals,
+│   │                                 #   ALL edge-case variants (TESTING §7); deterministic, CI-run
+│   ├── generate_demo_data.py         # generate examples/data/ sample videos+CSV; writes tools/launch_demo.py
+│   └── launch_demo.py                # (generated) launch the app pre-loaded with demo data
 │
 ├── tests/                            # mirrors src/ layout
 │   ├── conftest.py                   # offscreen Qt, fixture paths, qtbot helpers

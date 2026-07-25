@@ -1,6 +1,9 @@
 """Player orchestrator."""
 
+from __future__ import annotations
+
 import time
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QTimer
 
@@ -9,6 +12,9 @@ from kinochronix.engine.seeker import SeekGroup
 from kinochronix.ui.plot_pane import PlotPane
 from kinochronix.ui.transport import Transport
 from kinochronix.ui.video_grid import VideoGrid
+
+if TYPE_CHECKING:
+    from kinochronix.ui.readout_panel import ReadoutPanel
 
 
 class Player(QObject):
@@ -27,7 +33,7 @@ class Player(QObject):
         self.video_grid = video_grid
         self.plot_pane = plot_pane
         self.transport = transport
-        self._readout_panel = None
+        self._readout_panel: ReadoutPanel | None = None
         self.seeker = SeekGroup(self.video_grid.panes)
 
         self._timer = QTimer(self)
@@ -51,6 +57,9 @@ class Player(QObject):
         # We keep track of manual scrubbing state so the clock doesn't advance
         self._is_scrubbing = False
 
+        # Coalescing: newest pending keyframe-seek target during drag; flushed when seeker settles
+        self._pending_scrub_t: float | None = None
+
     def start(self) -> None:
         self._last_tick_monotonic = time.monotonic()
         self._timer.start()
@@ -61,10 +70,10 @@ class Player(QObject):
             current_t = self.clock.state.t
             end_t = self.transport._bounds[1] if self._ab_out is None else self._ab_out
             start_t = self.transport._bounds[0] if self._ab_in is None else self._ab_in
-            
+
             if current_t >= end_t - 0.05:
                 self.seek(start_t, exact=True)
-                
+
             self._last_tick_monotonic = time.monotonic()
             self.clock.play()
             for pane in self.video_grid.panes:
@@ -82,12 +91,23 @@ class Player(QObject):
     def seek(self, t: float, exact: bool = True) -> None:
         self._is_scrubbing = not exact
         self.clock.seek(t)
-        self.seeker.panes = self.video_grid.panes
-        self.seeker.seek(t, exact=exact)
 
-        # update UI instantly
-        self.plot_pane.set_cursor(self.clock.state.t)
-        self.transport.set_time(self.clock.state.t)
+        # Coalesce fast keyframe seeks: if a seek is already in flight and this
+        # is a non-exact (drag) seek, remember only the newest target and skip
+        # dispatching a new SeekTask — _on_tick will flush it once seeker settles.
+        self.seeker.panes = self.video_grid.panes
+        if not exact and not self.seeker.is_settled():
+            self._pending_scrub_t = t
+        else:
+            self._pending_scrub_t = None
+            self.seeker.seek(t, exact=exact)
+
+        # Update UI instantly (cursor + readout follow live during drag)
+        t_now = self.clock.state.t
+        self.plot_pane.set_cursor(t_now)
+        self.transport.set_time(t_now)
+        if self._readout_panel:
+            self._readout_panel.set_cursor(t_now)
 
         # Reset drift hysteresis
         self._drift_counts.clear()
@@ -142,6 +162,13 @@ class Player(QObject):
 
     def _on_tick(self) -> None:
         now = time.monotonic()
+
+        # Flush a coalesced pending scrub seek as soon as the seeker is free
+        if self._pending_scrub_t is not None:
+            self.seeker.panes = self.video_grid.panes
+            if self.seeker.is_settled():
+                self.seeker.seek(self._pending_scrub_t, exact=False)
+                self._pending_scrub_t = None
 
         if self.clock.state.playing and not self._is_scrubbing:
             # Advance clock

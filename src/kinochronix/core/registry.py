@@ -16,10 +16,10 @@ class LoaderRegistry:
     def _discover(self) -> None:
         """Find all loaders in the kinochronix.loaders entry point group."""
         from kinochronix.loaders.csv_loader import CSVLoader
-        from kinochronix.loaders.video_standard import VideoStandardLoader
-        from kinochronix.loaders.tracking_loader import TrackingLoader
         from kinochronix.loaders.neo_loader import NeoLoader
-        
+        from kinochronix.loaders.tracking_loader import TrackingLoader
+        from kinochronix.loaders.video_standard import VideoStandardLoader
+
         self._loaders = [CSVLoader, VideoStandardLoader, TrackingLoader, NeoLoader]
 
         eps = entry_points(group="kinochronix.loaders")

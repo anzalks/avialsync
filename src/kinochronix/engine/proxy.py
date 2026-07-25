@@ -97,9 +97,7 @@ class ProxyWorker(QObject):
             self.finished.emit(str(src), str(dst))
 
         except FileNotFoundError:
-            self.error.emit(
-                "ffmpeg not found. Install ffmpeg to generate proxies."
-            )
+            self.error.emit("ffmpeg not found. Install ffmpeg to generate proxies.")
         except Exception as e:
             tmp.unlink(missing_ok=True)
             self.error.emit(str(e))

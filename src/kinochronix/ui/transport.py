@@ -1,12 +1,11 @@
 """Playback transport controls."""
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QMouseEvent, QFontDatabase
+from PySide6.QtGui import QFontDatabase, QMouseEvent, QResizeEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QPushButton,
     QSlider,
@@ -15,6 +14,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from kinochronix.ui.time_format import TimeDisplayMode, format_time
+
 
 class JumpSlider(QSlider):
     """A QSlider that instantly jumps to the clicked position."""
@@ -22,9 +23,7 @@ class JumpSlider(QSlider):
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             val = self.minimum() + int(
-                (self.maximum() - self.minimum())
-                * event.position().x()
-                / self.width()
+                (self.maximum() - self.minimum()) * event.position().x() / self.width()
             )
             self.setValue(val)
         super().mousePressEvent(event)
@@ -36,12 +35,8 @@ class _ABPin(QFrame):
     def __init__(self, color: str, parent: QWidget) -> None:
         super().__init__(parent)
         self.setFixedWidth(2)
-        self.setStyleSheet(
-            f"background-color: {color}; border: none;"
-        )
-        self.setAttribute(
-            Qt.WidgetAttribute.WA_TransparentForMouseEvents
-        )
+        self.setStyleSheet(f"background-color: {color}; border: none;")
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.hide()
 
     def pin_to_slider(self, slider: QSlider, frac: float) -> None:
@@ -81,9 +76,7 @@ class Transport(QWidget):
         self._step_back_btn = QPushButton("◀")
         self._step_back_btn.setFixedWidth(28)
         self._step_back_btn.setToolTip("Step back 1 frame (← arrow)")
-        self._step_back_btn.clicked.connect(
-            lambda: self.frame_step_requested.emit(-1)
-        )
+        self._step_back_btn.clicked.connect(lambda: self.frame_step_requested.emit(-1))
         self.layout().addWidget(self._step_back_btn)
 
         # Play / Pause
@@ -96,9 +89,7 @@ class Transport(QWidget):
         self._step_fwd_btn = QPushButton("▶")
         self._step_fwd_btn.setFixedWidth(28)
         self._step_fwd_btn.setToolTip("Step forward 1 frame (→ arrow)")
-        self._step_fwd_btn.clicked.connect(
-            lambda: self.frame_step_requested.emit(1)
-        )
+        self._step_fwd_btn.clicked.connect(lambda: self.frame_step_requested.emit(1))
         self.layout().addWidget(self._step_fwd_btn)
 
         # Unified time display / jump input
@@ -108,12 +99,9 @@ class Transport(QWidget):
         self._time_edit = QLineEdit("00:00:00.000")
         self._time_edit.setFixedWidth(110)
         self._time_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._time_edit.setStyleSheet(
-            f"font-family: '{mono_font}'; font-size: 12px;"
-        )
+        self._time_edit.setStyleSheet(f"font-family: '{mono_font}'; font-size: 12px;")
         self._time_edit.setToolTip(
-            "Current time — click to edit.\n"
-            "Formats: HH:MM:SS.fff, MM:SS, or seconds."
+            "Current time — click to edit.\nFormats: HH:MM:SS.fff, MM:SS, or seconds."
         )
         self._time_edit.returnPressed.connect(self._on_jump)
         self._time_edit.editingFinished.connect(self._on_editing_done)
@@ -161,15 +149,15 @@ class Transport(QWidget):
             label = f"{r}x" if r >= 0.1 else f"{r:.2f}x"
             self.rate_combo.addItem(label, r)
         self.rate_combo.setCurrentText("1.0x")
-        self.rate_combo.currentIndexChanged.connect(
-            self._on_rate_changed
-        )
+        self.rate_combo.currentIndexChanged.connect(self._on_rate_changed)
         self.layout().addWidget(self.rate_combo)
 
         self._bounds = (0.0, 0.0)
         self._is_scrubbing = False
         self._ab_in_t: float | None = None
         self._ab_out_t: float | None = None
+        self._time_mode = TimeDisplayMode.RELATIVE
+        self._t_epoch = 0.0
 
         # Overlay pins for A/B markers
         self._pin_in = _ABPin("#2a9d8f", self)
@@ -185,20 +173,21 @@ class Transport(QWidget):
     def set_bounds(self, t0: float, t1: float) -> None:
         self._bounds = (t0, t1)
 
+    def set_time_mode(self, mode: TimeDisplayMode) -> None:
+        self._time_mode = mode
+
+    def set_t_epoch(self, epoch: float) -> None:
+        self._t_epoch = epoch
+
     def set_time(self, t: float) -> None:
         """Update the displayed time (unless the user is typing)."""
         if not self._time_editing:
-            h = int(t // 3600)
-            m = int((t % 3600) // 60)
-            s = t % 60
-            self._time_edit.setText(f"{h:02d}:{m:02d}:{s:06.3f}")
+            self._time_edit.setText(format_time(t, self._time_mode, self._t_epoch))
 
         if not self._is_scrubbing:
             duration = self._bounds[1] - self._bounds[0]
             if duration > 0:
-                val = int(
-                    (t - self._bounds[0]) / duration * 10000
-                )
+                val = int((t - self._bounds[0]) / duration * 10000)
                 val = max(0, min(10000, val))
                 self.slider.blockSignals(True)
                 self.slider.setValue(val)
@@ -216,11 +205,24 @@ class Transport(QWidget):
         duration = self._bounds[1] - self._bounds[0]
         return self._bounds[0] + (val / 10000.0) * duration
 
-    def _slider_frac(self) -> float:
-        span = max(1, self.slider.maximum() - self.slider.minimum())
-        return (
-            (self.slider.value() - self.slider.minimum()) / span
-        )
+    def _time_to_frac(self, t: float) -> float:
+        """Convert absolute time to a [0, 1] fraction within current bounds."""
+        t0, t1 = self._bounds
+        duration = t1 - t0
+        if duration <= 0:
+            return 0.0
+        return max(0.0, min(1.0, (t - t0) / duration))
+
+    def _repin(self) -> None:
+        """Reposition all visible A/B pins from stored times + current geometry."""
+        if self._ab_in_t is not None:
+            self._pin_in.pin_to_slider(self.slider, self._time_to_frac(self._ab_in_t))
+        if self._ab_out_t is not None:
+            self._pin_out.pin_to_slider(self.slider, self._time_to_frac(self._ab_out_t))
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._repin()
 
     # ── Slots ─────────────────────────────────────────────────────────
 
@@ -230,18 +232,14 @@ class Transport(QWidget):
 
     def _on_slider_pressed(self) -> None:
         self._is_scrubbing = True
-        self.seek_requested.emit(
-            self._t_from_slider(self.slider.value()), False
-        )
+        self.seek_requested.emit(self._t_from_slider(self.slider.value()), False)
 
     def _on_slider_moved(self, val: int) -> None:
         self.seek_requested.emit(self._t_from_slider(val), False)
 
     def _on_slider_released(self) -> None:
         self._is_scrubbing = False
-        self.seek_requested.emit(
-            self._t_from_slider(self.slider.value()), True
-        )
+        self.seek_requested.emit(self._t_from_slider(self.slider.value()), True)
 
     def _on_rate_changed(self, idx: int) -> None:
         rate = self.rate_combo.currentData()
@@ -255,16 +253,12 @@ class Transport(QWidget):
 
     def _on_ab_in(self) -> None:
         self._ab_in_t = self._t_from_slider(self.slider.value())
-        self._pin_in.pin_to_slider(
-            self.slider, self._slider_frac()
-        )
+        self._pin_in.pin_to_slider(self.slider, self._time_to_frac(self._ab_in_t))
         self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
 
     def _on_ab_out(self) -> None:
         self._ab_out_t = self._t_from_slider(self.slider.value())
-        self._pin_out.pin_to_slider(
-            self.slider, self._slider_frac()
-        )
+        self._pin_out.pin_to_slider(self.slider, self._time_to_frac(self._ab_out_t))
         self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
 
     def _on_ab_clear(self) -> None:
@@ -280,9 +274,7 @@ class Transport(QWidget):
             return
         t = self._parse_time_input(text)
         if t is not None:
-            clamped = max(
-                self._bounds[0], min(self._bounds[1], t)
-            )
+            clamped = max(self._bounds[0], min(self._bounds[1], t))
             self.seek_requested.emit(clamped, True)
         self._time_editing = False
 

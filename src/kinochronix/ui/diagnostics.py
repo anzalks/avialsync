@@ -143,7 +143,6 @@ def run_startup_diagnostics(parent=None) -> dict:
         diag["disk_speed_mbps"] = probe_disk_speed()
 
         if diag["disk_speed_mbps"] < 50.0 and parent is not None:
-            from PySide6.QtCore import QMetaObject, Qt
 
             def _warn():
                 QMessageBox.warning(
@@ -156,6 +155,7 @@ def run_startup_diagnostics(parent=None) -> dict:
                 )
 
             from PySide6.QtCore import QTimer
+
             QTimer.singleShot(0, _warn)
 
     t = threading.Thread(target=_probe, daemon=True)

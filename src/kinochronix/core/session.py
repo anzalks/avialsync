@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from PySide6.QtCore import QSettings
 
@@ -16,6 +16,8 @@ class VideoEntry:
 
     path: str
     offset: float = 0.0
+    integrity_flags: dict[str, object] = dataclasses.field(default_factory=dict)
+    metadata: dict[str, object] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -24,6 +26,9 @@ class SensorEntry:
 
     path: str
     channels: list[str] = dataclasses.field(default_factory=list)
+    loader_id: str = ""
+    import_config: dict[str, object] = dataclasses.field(default_factory=dict)
+    import_report: dict[str, object] | None = None
 
 
 @dataclasses.dataclass
@@ -33,6 +38,7 @@ class MarkerEntry:
     t_start: float
     t_end: float | None = None
     label: str = ""
+    video_frames: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -52,9 +58,9 @@ class SessionState:
     plot_x1: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
+        """Serialise to a JSON-compatible dict (always writes version 3)."""
         return {
-            "version": 1,
+            "version": 3,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
@@ -66,14 +72,39 @@ class SessionState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict."""
+        """Deserialise from a parsed JSON dict (accepts v1, v2, and v3)."""
         version = data.get("version", 1)
-        if version != 1:
+        if version not in (1, 2, 3):
             raise ValueError(f"Unsupported session file version: {version}")
 
-        videos = [VideoEntry(**v) for v in data.get("videos", [])]
-        sensors = [SensorEntry(**s) for s in data.get("sensors", [])]
-        markers = [MarkerEntry(**m) for m in data.get("markers", [])]
+        videos = [
+            VideoEntry(
+                path=v["path"],
+                offset=v.get("offset", 0.0),
+                integrity_flags=v.get("integrity_flags", {}),
+                metadata=v.get("metadata", {}),
+            )
+            for v in data.get("videos", [])
+        ]
+        sensors = [
+            SensorEntry(
+                path=s["path"],
+                channels=s.get("channels", []),
+                loader_id=s.get("loader_id", ""),
+                import_config=s.get("import_config", {}),
+                import_report=s.get("import_report"),
+            )
+            for s in data.get("sensors", [])
+        ]
+        markers = [
+            MarkerEntry(
+                t_start=float(m["t_start"]),
+                t_end=float(m["t_end"]) if m.get("t_end") is not None else None,
+                label=m.get("label", ""),
+                video_frames=list(m.get("video_frames", [])),
+            )
+            for m in data.get("markers", [])
+        ]
 
         return cls(
             videos=videos,
@@ -109,7 +140,7 @@ _SETTINGS_KEY = "session/recent_files"
 def add_recent(path: str) -> None:
     """Push *path* to the top of the recent-files list."""
     settings = QSettings("KinoChronix", "KinoChronix")
-    recent: list[str] = settings.value(_SETTINGS_KEY, [], type=list)
+    recent: list[str] = cast(list[str], settings.value(_SETTINGS_KEY, [], type=list))
     if path in recent:
         recent.remove(path)
     recent.insert(0, path)
@@ -119,7 +150,7 @@ def add_recent(path: str) -> None:
 def get_recent() -> list[str]:
     """Return the recent-files list, newest first."""
     settings = QSettings("KinoChronix", "KinoChronix")
-    return settings.value(_SETTINGS_KEY, [], type=list)
+    return cast(list[str], settings.value(_SETTINGS_KEY, [], type=list))
 
 
 def clear_recent() -> None:

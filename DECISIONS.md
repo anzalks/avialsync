@@ -84,3 +84,141 @@ Brand/display: `KinoChronix`. Package/module/CLI/entry-point group/paths: `kinoc
 third-party plugins `kinochronix-plugin-<name>`. Casing table is binding (AGENTS.md §Naming).
 Agents must not introduce spelling variants or rename anything. ACTION FOR OWNER: register
 `kinochronix` on PyPI (stub 0.0.1) and the GitHub org/repo before Phase 0 work begins.
+
+## 2026-07 · D-019 · Frame-indexed sources — is_frame_indexed() pre-freeze API addition
+`TimeSeriesSource` (core/source.py) gains a non-abstract `is_frame_indexed() → bool` method
+defaulting to False.  Loaders whose on-disk format stores raw frame counters (not wall-clock
+seconds) override it to return True.  `TrackingLoader` (DLC/LP) is the first such loader.
+
+Resolution order for fps when importing a frame-indexed source:
+1. Exactly one video loaded → fps pre-filled from that video; user confirms in one click.
+2. Multiple videos loaded → dropdown of video filenames; user picks the matching camera.
+3. No videos loaded → manual entry of nominal fps; source recorded as provisional in
+   `MainWindow._frame_indexed_sources`.  When the first video is subsequently added,
+   `_rebind_frame_indexed_sources(fps)` removes the provisional channels, re-imports with the
+   video fps, and clears the provisional list.
+
+fps is NOT added to the cache key (D-008) — re-import always overwrites the sidecar atomically,
+which is correct because ImportWorker never short-circuits on a cache hit.
+
+## 2026-07 · D-020 · Inspection layer — what is surfaced where
+
+This entry governs the design of the source-properties, load-provenance, sync-provenance,
+precision-readout, delta-measurement, time-display-mode, import-report, and integrity-badge
+features (Features A–K in the Phase 4 UX kickoff).
+
+### Single-source-of-truth rule
+Every displayed value is read from the object that OWNS it at the time it is needed — never
+cached into widget state, never re-probed from disk, never parsed back from a formatted string.
+Owners:
+  - Video metadata (container, codec, resolution, fps, frame count, GOP, bit-depth): VideoStandardLoader
+  - Live video state (measured fps, decode mode): live mpv instance via mpv properties
+  - TimeMap (offset, drift, effective source time): VideoPane.time_map
+  - Channel metadata (unit, dtype, rate_hz): ChannelInfo returned by loader.channels()
+  - Import stats (rows, gaps, NaN, sentinel counts): ImportReport emitted by ImportWorker
+  - Integrity flags: IntegrityFlags computed by ImportWorker / VideoStandardLoader at open time
+  - Cache state: CacheManager.is_cache_valid() — never duplicated into widget fields
+
+### New headless core module: core/inspection.py
+Three frozen dataclasses — no PySide6 imports, test-enforced.
+  - ImportReport: rows_parsed, rows_dropped_duplicate, rows_dropped_nonmonotonic,
+    gap_count, nan_count, sentinel_count, gap_locations (list[float]), import_timestamp (float)
+  - IntegrityFlags: is_vfr (bool), fps_mismatch (bool), has_gaps (bool), drift_nonzero (bool),
+    fps_provisional (bool); vfr_threshold_pct = 2.0 % deviation from nominal fps
+  - SourceInspection: path (str), loader_id (str), import_config (dict), import_report
+    (ImportReport | None), integrity_flags (IntegrityFlags), fps_binding (str — "provisional",
+    "bound:<video_path>", or "" for non-frame-indexed sources)
+
+### Session schema bump: v1 → v2
+SensorEntry gains: loader_id (str), import_config (dict), import_report (ImportReport as dict).
+VideoEntry gains: integrity_flags (IntegrityFlags as dict).
+Backward compatibility: v1 sessions loaded with empty reports and zero-flags (never fail).
+Version field checked on load; "version": 2 written on save.
+
+### ImportWorker.finished signal change
+Old: finished(path: str, cache_dir: str, channels: list[str], bounds: tuple[float, float])
+New: finished(path: str, cache_dir: str, channels: list[str], bounds: tuple[float, float],
+              inspection: SourceInspection)
+ImportWorker computes ImportReport and IntegrityFlags while building the pyramid (gap_mask already
+built; NaN/sentinel counts gathered during read_chunks; import_timestamp = time.time() at finish).
+All callers (MainWindow._on_import_finished) updated. The fifth parameter is ignored gracefully if
+not present (backward compat via **kwargs or signal versioning).
+
+### VideoStandardLoader additions
+New probed fields stored as typed attributes after open():
+  _container (str), _width (int), _height (int), _pix_fmt (str), _frame_count (int | None),
+  _gop_size (int | None), _profile (str).
+All probed from the same ffprobe JSON response already fetched — no extra subprocess call.
+_gop_size: read from streams[*].codec_tag or inferred from min(pts_dts_diff) in frame_times
+  if available; None if indeterminate.
+Measured fps: NOT stored in VideoStandardLoader (it's a live runtime property of the mpv
+  decoder). Read from VideoPane.mpv.estimated_vf_fps when populating the properties panel.
+Decode mode: Read from VideoPane.mpv.hwdec-current when populating the properties panel.
+
+### UI panel strategy: extend, not parallel
+VideoInfoWidget in sidebar.py gains a collapsible "Properties" section showing all video fields.
+SensorInfoWidget gains a collapsible "Properties" section + "Report…" button.
+These are toggle-collapsed by default to keep the sidebar compact.
+Module sidebar.py will exceed 500 lines after these additions — it is split into:
+  - sidebar.py: SidebarPane (navigation/controls/open buttons) + thin VideoInfoWidget/SensorInfoWidget
+    headers (filename, remove button, offset control, visibility checkbox)
+  - source_properties.py: VideoPropertiesPanel + SensorPropertiesPanel (the collapsible detail section
+    including import provenance, cache status, integrity flags, copy button)
+No parallel hierarchy — source_properties panels are children of the existing sidebar widgets.
+
+### Time display modes
+TimeDisplayMode enum: RELATIVE (default) | UTC | LOCAL_TOD.
+ui/time_format.py: format_time(t_seconds: float, mode: TimeDisplayMode, t_epoch: float) → str
+  where t_epoch is the recording start epoch (0.0 if unknown → RELATIVE always from 0).
+Stored as a singleton in MainWindow, persisted in QSettings("KinoChronix","KinoChronix","time_mode").
+MainWindow emits time_mode_changed(mode) signal. Transport, VideoPane OSD, ReadoutPanel, and
+all properties panels subscribe. format_time() is the ONLY place time is formatted — no inline
+HH:MM:SS formatting scattered through widgets.
+
+### Delta measurement: distinct measure points on PlotPane
+A/B pins in Transport remain loop-only. Measurement is a distinct two-click mode on PlotPane:
+  - PlotPane gains set_measure_a(t) / set_measure_b(t) / clear_measure() public methods.
+  - A right-click context menu item "Set measure point A/B" places markers on the plot.
+  - When both are set, PlotPane emits measure_changed(t_a, t_b).
+  - ReadoutPanel responds to measure_changed, appending a "Δ" section showing:
+    Δt, per-channel Δvalue (value_at(t_b) − value_at(t_a)), and per-camera frames-between
+    (computed as round((t_b − t_a) * fps) per pane, accessed via player.video_grid.panes).
+Rationale: "loop from A to B" and "measure delta A to B" are different user intents. Entangling
+them would require mode-switching UX that is harder to discover and test. Separate mechanism is
+cleaner and lets both be active simultaneously.
+
+### Import Report access
+SensorInfoWidget's "Report…" button opens ImportReportDialog (new file ui/import_report.py):
+  a scrollable plain-text view of the ImportReport fields, plus a "Copy as text" button.
+ImportReport is stored in SourceInspection which flows into MainWindow._inspections dict
+(keyed by path), persisted to session, reloaded on session open.
+
+### Integrity badge
+WarningBadge: a small QLabel("⚠", tooltip=<list of anomalies>) on the right side of each
+VideoInfoWidget and SensorInfoWidget header. Visible only when IntegrityFlags has any True field.
+Clicking opens the relevant Properties section scrolled to the integrity summary.
+No new widget class required — populated in the respective header layouts.
+
+### Copy as text
+Every collapsible properties section and ImportReportDialog has a QPushButton("Copy as text").
+Handler calls QApplication.clipboard().setText(widget.as_plain_text()) where as_plain_text() is
+a method returning aligned columns suitable for pasting into a lab notebook or ticket.
+No mixin class required — each panel implements the method directly (DRY for 3 call sites
+is premature abstraction; AGENTS rule: three similar lines is better than a premature abstraction).
+
+### Gap markers on plot
+Gaps (where gap_mask is True) are surfaced as vertical InfiniteLines at gap positions, overlaid
+on the existing per-channel coverage_region in PlotPane. No separate timeline strip is built.
+Positions loaded from the pyramid gap arrays after import finishes — no re-scan.
+
+### Demo data extensions
+generate_demo_data.py extended (NOT make_fixtures.py — fixtures are for CI).
+New outputs:
+  - examples/data/camera_vfr.mp4: ffmpeg lavfi testsrc with deliberately dropped frames (via
+    ffmpeg -vf "select=not(mod(n\,7))" to drop every 7th frame → measured fps ≠ nominal)
+  - examples/data/sensors_gaps.csv: 10 kHz signal, 3 gaps at 2s/5s/8s, 500 NaN values,
+    200 sentinel (-9999) values
+  - examples/data/pose.csv: minimal 2-bodypart DLC file, 300 frames @ nominal 30 fps
+  - examples/data/camera_2.mp4: second clean camera with +1.234 s offset in launch_demo.py
+  - Non-zero drift (0.5 ppm) set on camera_3 in launch_demo.py
+  - Demo load order: camera_1 first (triggers pose.csv D-019 rebind), then camera_2/camera_3

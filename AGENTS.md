@@ -66,6 +66,11 @@ fix it in the same PR. A rename is never "improved" by an agent (D-018).
 - Naming: `snake_case`, Qt widget classes end in their role (`VideoPane`, `TransportBar`).
 - Errors: raise typed exceptions from `core/errors.py`; UI layer converts to user dialogs with
   actionable text. Never `except Exception: pass`.
+- **Never silence a type/lint error to ship code known to be broken.** A `# type: ignore`
+  is only valid for genuine mypy limitations (e.g. `**dict[str, object]` unpacking, missing
+  third-party stubs). A TODO comment acknowledging a crash is forbidden — fix it or stop and
+  report. Suppressing a checker warning that hides a real defect is the same as shipping the
+  defect with extra steps.
 
 ## Definition of Done (every task)
 
@@ -81,18 +86,32 @@ fix it in the same PR. A rename is never "improved" by an agent (D-018).
 
 ## How to run things
 
+ALL commands must be prefixed with `conda run -n kinochronix` when working inside the
+`kinochronix` conda environment. Never run project commands (pytest, ruff, mypy, pip,
+kinochronix) without this prefix — the system Python may differ from the env Python.
+
 ```bash
-pip install -e .[dev]          # setup
-python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
-pytest -x -q                   # tests (GUI tests use offscreen: QT_QPA_PLATFORM=offscreen)
-pytest --benchmark-only        # perf budgets
-kinochronix                     # run the app
-kinochronix open tests/fixtures/sample_session/   # open sample data
+conda run -n kinochronix pip install -e .[dev]          # setup
+conda run -n kinochronix python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
+QT_QPA_PLATFORM=offscreen conda run -n kinochronix pytest -x -q   # tests
+conda run -n kinochronix pytest --benchmark-only                   # perf budgets
+conda run -n kinochronix kinochronix                                # run the app
+conda run -n kinochronix kinochronix open tests/fixtures/sample_session/
+
+# Type checking — run BOTH; strict mode applies only to core/
+conda run -n kinochronix mypy src/kinochronix/core    # strict (enforced)
+conda run -n kinochronix mypy src/kinochronix          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
+
+# Lint + format
+conda run -n kinochronix ruff check --fix . && conda run -n kinochronix ruff format .
 ```
 
 ## Task protocol for agents
 
-1. Read the relevant BLUEPRINT.md phase + the kickoff prompt in PROMPTS.md before coding.
+1. Read HANDOUT.md (module map, current phase status, known bugs, run commands) and the
+   relevant BLUEPRINT.md phase + the kickoff prompt in PROMPTS.md before coding.
+   **Rule:** any PR that changes a module's public API, adds a trap, or fixes a listed bug
+   must update HANDOUT.md in the same commit.
 2. Plan first: for any task touching > 2 files, write a short plan (files to change, test strategy,
    risks) in your response before edits. If the plan conflicts with this file → stop and say so.
 3. Small steps: implement in reviewable increments; run the test suite after each increment, not

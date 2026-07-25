@@ -58,6 +58,15 @@ class TimeSeriesSource(ABC):
         """Serve from pyramid/cache returning (t, vmin, vmax, gap_mask)."""
         pass
 
+    def is_frame_indexed(self) -> bool:
+        """Return True if this source stores frame numbers instead of wall-clock time.
+
+        Frame-indexed sources require an explicit fps to convert frame indices to seconds.
+        The UI uses this flag to drive automatic fps resolution from loaded video (D-019).
+        Default False; loaders that store raw frame counters should override to return True.
+        """
+        return False
+
     @abstractmethod
     def config_widget(self) -> Any | None:
         """Optional import-config UI hook. Returns QWidget or None."""

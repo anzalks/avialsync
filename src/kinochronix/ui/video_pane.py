@@ -2,27 +2,27 @@
 
 import sys
 
+import numpy as np
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QHBoxLayout, QWidget
+from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPen
+from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from kinochronix.ui.diagnostics import probe_libmpv
 
 
-import numpy as np
-from PySide6.QtGui import QPainter, QPen, QColor, QPaintEvent
-
 class PaintCanvas(QWidget):
     """Transparent overlay for drawing tracking markers."""
+
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.readers = []
         self.t = 0.0
-        
+
     def set_readers(self, readers) -> None:
         self.readers = readers
         self.update()
-        
+
     def update_time(self, t: float) -> None:
         self.t = t
         self.update()
@@ -30,19 +30,19 @@ class PaintCanvas(QWidget):
     def paintEvent(self, event: QPaintEvent) -> None:
         if not self.readers:
             return
-            
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         pen = QPen(QColor(0, 255, 255), 3)
         painter.setPen(pen)
         painter.setBrush(QColor(0, 255, 255))
-        
+
         points = {}
         for r in self.readers:
             val = r.value_at(self.t)
             if np.isnan(val):
                 continue
-                
+
             if r.channel_id.endswith("_x"):
                 base = r.channel_id[:-2]
                 if base not in points:
@@ -53,18 +53,19 @@ class PaintCanvas(QWidget):
                 if base not in points:
                     points[base] = {}
                 points[base]["y"] = val
-                
+
         # To accurately map, we assume tracking is in video dimensions and scale to widget size.
         # But mpv may letterbox. For now, we will draw directly on the widget width/height.
-        # A more precise mapping would query mpv.dwidth and mpv.dheight and compute the letterbox offset.
-        for name, pt in points.items():
+        # A more precise mapping would query mpv.dwidth/dheight and compute letterbox offset.
+        for _name, pt in points.items():
             if "x" in pt and "y" in pt:
                 # Basic absolute mapping (assuming tracking X/Y is pixel coords on original video)
-                # But since we don't have video dimensions instantly without querying mpv, 
+                # But since we don't have video dimensions instantly without querying mpv,
                 # we'll scale them if they are normalized (0-1), or draw raw if absolute.
                 # Usually tracking data is in absolute pixels (e.g. 320x180).
                 # We'll just draw them raw for the fixture, and we can scale later when integrated.
                 painter.drawEllipse(int(pt["x"]), int(pt["y"]), 6, 6)
+
 
 class VideoPane(QWidget):
     """
@@ -114,18 +115,18 @@ class VideoPane(QWidget):
                     self.ctx = None
                     # Use vo="libmpv" so it renders via the API instead of a standalone window
                     self.mpv = mpv.MPV(
-                        hwdec="auto-safe", 
-                        keep_open="yes", 
+                        hwdec="auto-safe",
+                        keep_open="yes",
                         vo="libmpv",
                         input_default_bindings="no",
-                        input_vo_keyboard="no"
+                        input_vo_keyboard="no",
                     )
 
                     @self.mpv.property_observer("time-pos")
                     def time_observer(_name: str, value: float) -> None:
                         if value is not None:
                             self.parent_pane.time_pos = value
-                            fps = getattr(self.mpv, 'estimated_vf_fps', 0.0) or 0.0
+                            fps = getattr(self.mpv, "estimated_vf_fps", 0.0) or 0.0
                             self.parent_pane._osd_update.emit(value, fps)
 
                     @self.mpv.property_observer("seeking")
@@ -173,9 +174,7 @@ class VideoPane(QWidget):
                         )
 
             self.gl_widget = MpvGLWidget(self)
-            self.gl_widget.setAttribute(
-                Qt.WidgetAttribute.WA_StyledBackground, False
-            )
+            self.gl_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
             self._video_widget = self.gl_widget
             self.layout().addWidget(self.gl_widget, 0, 0)
             self.mpv = self.gl_widget.mpv
@@ -190,33 +189,34 @@ class VideoPane(QWidget):
 
             if is_offscreen:
                 self.mpv = mpv.MPV(
-                    vo="null", 
-                    hwdec="auto-safe", 
+                    vo="null",
+                    hwdec="auto-safe",
                     keep_open="yes",
                     input_default_bindings="no",
-                    input_vo_keyboard="no"
+                    input_vo_keyboard="no",
                 )
             else:
                 wid = int(self.video_container.winId())
                 self.mpv = mpv.MPV(
-                    wid=wid, 
-                    hwdec="auto-safe", 
+                    wid=wid,
+                    hwdec="auto-safe",
                     keep_open="yes",
                     input_default_bindings="no",
-                    input_vo_keyboard="no"
+                    input_vo_keyboard="no",
                 )
 
             @self.mpv.property_observer("time-pos")
             def time_observer(_name: str, value: float) -> None:
                 if value is not None:
                     self.time_pos = value
-                    fps = getattr(self.mpv, 'estimated_vf_fps', 0.0) or 0.0
+                    fps = getattr(self.mpv, "estimated_vf_fps", 0.0) or 0.0
                     self._osd_update.emit(value, fps)
 
             @self.mpv.property_observer("seeking")
             def seeking_observer(_name: str, value: bool) -> None:
                 if value is not None:
                     self.is_seeking = value
+
         # Set up PaintCanvas for tracking
         self.paint_canvas = PaintCanvas(self)
         self.layout().addWidget(self.paint_canvas, 0, 0)
@@ -236,14 +236,16 @@ class VideoPane(QWidget):
 
         self.lbl_osd = QLabel("Time: 00:00:00.000\nFPS:  0.0")
         self.lbl_osd.setStyleSheet(
-            "color: white; background-color: rgba(0,0,0,128); padding: 4px; font-family: 'Courier New', Courier, monospace; font-size: 11px;"
+            "color: white; background-color: rgba(0,0,0,128); padding: 4px;"
+            " font-family: 'Courier New', Courier, monospace; font-size: 11px;"
         )
 
         top_layout = QHBoxLayout()
-        top_layout.addWidget(self.lbl_name, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        _top = Qt.AlignmentFlag.AlignTop
+        top_layout.addWidget(self.lbl_name, alignment=_top | Qt.AlignmentFlag.AlignLeft)
         top_layout.addStretch()
-        top_layout.addWidget(self.lbl_osd, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
-        
+        top_layout.addWidget(self.lbl_osd, alignment=_top | Qt.AlignmentFlag.AlignRight)
+
         olayout.addLayout(top_layout)
 
         self.lbl_no_footage = QLabel("No Footage")
@@ -267,7 +269,7 @@ class VideoPane(QWidget):
         s = t % 60
         self.lbl_osd.setText(f"Time: {h:02d}:{m:02d}:{s:06.3f}\nFPS:  {fps:.1f}")
         self.paint_canvas.update_time(t)
-        
+
     def set_tracking_readers(self, readers: list) -> None:
         self.paint_canvas.set_readers(readers)
 

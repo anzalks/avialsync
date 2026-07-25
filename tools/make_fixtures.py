@@ -100,13 +100,13 @@ def generate_video(
 
         # Add visual noise or sweep pattern so it's not totally static
         frame = np.full((height, width), (i % 256), dtype=np.uint8)
-        
+
         # Draw a moving square that matches the DLC tracking nose path
         # t = i / fps
         t = i / fps
         nose_x = int(320 + 200 * np.sin(2 * np.pi * 0.5 * t))
         nose_y = int(180 + 100 * np.cos(2 * np.pi * 0.5 * t))
-        
+
         # Draw 20x20 white square
         sz = 10
         y0 = max(0, nose_y - sz)
@@ -114,7 +114,6 @@ def generate_video(
         x0 = max(0, nose_x - sz)
         x1 = min(width, nose_x + sz)
         frame[y0:y1, x0:x1] = 255
-
 
         # Encode binary index in top row
         encode_frame_index(frame, i)
@@ -381,69 +380,73 @@ def generate_dlc_tracking(out_path: pathlib.Path, duration_s: float, fps: float 
     """Generate dummy DeepLabCut multi-index CSV data."""
     n_points = int(duration_s * fps)
     t = np.arange(n_points) / fps
-    
+
     # Nose drives the overall trajectory (slow macroscopic movement)
     trajectory_freq = 0.2
     nose_x = 320 + 200 * np.sin(2 * np.pi * trajectory_freq * t)
     nose_y = 180 + 100 * np.cos(2 * np.pi * trajectory_freq * t)
-    
+
     # Body center is located behind the nose
     body_x = nose_x - 30
     body_y = nose_y + 40
-    
+
     # Legs oscillate (stride) relative to the body in strict antiphase (180 degrees)
     stride_freq = 1.5
     stride_amp = 40
-    
+
     l_leg_x = body_x + stride_amp * np.sin(2 * np.pi * stride_freq * t)
     l_leg_y = body_y + 20
-    
+
     r_leg_x = body_x + stride_amp * np.sin(2 * np.pi * stride_freq * t + np.pi)
     r_leg_y = body_y + 20
-    
+
     # Static likelihood
     likelihood = np.ones(n_points) * 0.95
-    
+
     with open(out_path, "w") as f:
         # Write multi-index header
-        f.write('scorer,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model\n')
-        f.write('bodyparts,nose,nose,nose,l_leg,l_leg,l_leg,r_leg,r_leg,r_leg\n')
-        f.write('coords,x,y,likelihood,x,y,likelihood,x,y,likelihood\n')
-        
+        f.write(
+            "scorer,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model,DLC_resnet50_model\n"
+        )
+        f.write("bodyparts,nose,nose,nose,l_leg,l_leg,l_leg,r_leg,r_leg,r_leg\n")
+        f.write("coords,x,y,likelihood,x,y,likelihood,x,y,likelihood\n")
+
         for i in range(n_points):
-            f.write(f"{i},{nose_x[i]:.2f},{nose_y[i]:.2f},{likelihood[i]:.2f},"
-                    f"{l_leg_x[i]:.2f},{l_leg_y[i]:.2f},{likelihood[i]:.2f},"
-                    f"{r_leg_x[i]:.2f},{r_leg_y[i]:.2f},{likelihood[i]:.2f}\n")
+            f.write(
+                f"{i},{nose_x[i]:.2f},{nose_y[i]:.2f},{likelihood[i]:.2f},"
+                f"{l_leg_x[i]:.2f},{l_leg_y[i]:.2f},{likelihood[i]:.2f},"
+                f"{r_leg_x[i]:.2f},{r_leg_y[i]:.2f},{likelihood[i]:.2f}\n"
+            )
 
 
 def generate_openephys_binary(out_path: pathlib.Path, duration: float = 60.0) -> None:
     """Generate a mock OpenEphys Binary format dataset."""
     import json
-    
+
     # OpenEphys folder structure
     exp_dir = out_path / "experiment1" / "recording1"
     cont_dir = exp_dir / "continuous" / "Acquisition_Board-100.Rhythm_Data"
     cont_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Generate 4-channel sine waves, 30kHz
     fs = 30000.0
     num_samples = int(duration * fs)
     num_channels = 4
-    
+
     t = np.arange(num_samples) / fs
     data = np.zeros((num_samples, num_channels), dtype=np.int16)
-    
+
     for i in range(num_channels):
         freq = 2.0 * (i + 1)
         data[:, i] = (np.sin(2 * np.pi * freq * t) * 1000).astype(np.int16)
-        
+
     # OpenEphys expects multiplexed binary: sample0_ch0, sample0_ch1, ..., sample1_ch0, ...
     with open(cont_dir / "continuous.dat", "wb") as f:
         f.write(data.tobytes())
-        
+
     # Write timestamps
     np.save(cont_dir / "timestamps.npy", np.arange(num_samples, dtype=np.int64))
-        
+
     # Write structure.oebin
     oebin = {
         "continuous": [
@@ -458,22 +461,34 @@ def generate_openephys_binary(out_path: pathlib.Path, duration: float = 60.0) ->
                 "num_channels": num_channels,
                 "channels": [
                     {
-                        "channel_name": f"CH{i+1}",
+                        "channel_name": f"CH{i + 1}",
                         "description": "Continuous Channel",
                         "identifier": f"continuous.{i}",
                         "history": "Acquisition Board-100",
                         "bit_volts": 0.195,
-                        "units": "uV"
-                    } for i in range(num_channels)
-                ]
+                        "units": "uV",
+                    }
+                    for i in range(num_channels)
+                ],
             }
         ],
         "events": [],
-        "spikes": []
+        "spikes": [],
     }
-    
+
     with open(exp_dir / "structure.oebin", "w") as f:
         json.dump(oebin, f, indent=4)
+
+
+_GENERATED_SUBDIRS = {"videos", "signals", "openephys_mock", "sample_session"}
+
+
+def _clean_generated(fixtures_dir: pathlib.Path) -> None:
+    """Delete only auto-generated subdirs; permanent .kcx fixture files are never touched."""
+    for name in _GENERATED_SUBDIRS:
+        p = fixtures_dir / name
+        if p.exists():
+            shutil.rmtree(p)
 
 
 def main() -> None:
@@ -483,9 +498,8 @@ def main() -> None:
     args = parser.parse_args()
 
     fixtures_dir = pathlib.Path(__file__).parent.parent / "tests" / "fixtures"
-    if fixtures_dir.exists():
-        shutil.rmtree(fixtures_dir)
-    fixtures_dir.mkdir(parents=True)
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
+    _clean_generated(fixtures_dir)
 
     vid_dir = fixtures_dir / "videos"
     sig_dir = fixtures_dir / "signals"
@@ -494,7 +508,7 @@ def main() -> None:
 
     # 1. Generate Videos
     if args.small:
-        frames = 30
+        frames = 120  # 4 s @ 30 fps — enough for seed-42 golden seeks (max frame 91)
         fps = 30.0
     elif args.big:
         frames = 30 * 3600
@@ -506,7 +520,7 @@ def main() -> None:
     generate_video(vid_dir / "camera_1.mp4", fps, frames)
     generate_video(vid_dir / "camera_2.mp4", fps, frames, offset=2.5)
     generate_video(vid_dir / "camera_3.mp4", fps, frames, offset=-1.0, drift_ppm=100.0)
-    
+
     generate_video(vid_dir / "high_10bit.mp4", fps, frames, "high_10bit")
     generate_video(vid_dir / "mono_12bit.mp4", fps, frames, "mono_12bit")
     generate_video(vid_dir / "vfr.mp4", fps, frames, "vfr")
@@ -554,7 +568,7 @@ def main() -> None:
     shutil.copy(sig_dir / "signal_base.csv", sample_dir / "signal_base.csv")
     shutil.copy(sig_dir / "signal_base.json", sample_dir / "signal_base.json")
     shutil.copy(sig_dir / "tracking_dlc.csv", sample_dir / "tracking_dlc.csv")
-    
+
     # Copy OpenEphys to examples/data for user testing
     example_openephys = pathlib.Path("examples/data/openephys_mock")
     if example_openephys.exists():

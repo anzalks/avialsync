@@ -24,16 +24,27 @@ _COLORS = ["#f4a261", "#e76f51", "#2a9d8f", "#e9c46a", "#a8dadc", "#b5838d", "#8
 
 
 @dataclasses.dataclass
+class VideoFrame:
+    """Per-video frame snapshot stored with an annotation marker."""
+
+    path: str
+    frame_index: int
+    media_timestamp: float
+
+
+@dataclasses.dataclass
 class Marker:
     """A single annotation marker on the timeline.
 
     If ``t_end`` is None this is a point marker; otherwise it is a range.
+    ``video_frames`` holds one record per loaded video at the moment of marking.
     """
 
     t_start: float
     t_end: float | None
     label: str
     color: str = "#f4a261"
+    video_frames: list[VideoFrame] = dataclasses.field(default_factory=list)
 
 
 class AnnotationStore(QObject):
@@ -54,22 +65,32 @@ class AnnotationStore(QObject):
     def markers(self) -> list[Marker]:
         return list(self._markers)
 
-    def add_point(self, t: float, label: str = "") -> Marker:
+    def add_point(
+        self, t: float, label: str = "", video_frames: list[VideoFrame] | None = None
+    ) -> Marker:
         """Add a point marker at time *t*."""
         color = _COLORS[self._color_idx % len(_COLORS)]
         self._color_idx += 1
-        m = Marker(t_start=t, t_end=None, label=label, color=color)
+        m = Marker(t_start=t, t_end=None, label=label, color=color, video_frames=video_frames or [])
         self._markers.append(m)
         self.changed.emit()
         return m
 
-    def add_range(self, t_start: float, t_end: float, label: str = "") -> Marker:
+    def add_range(
+        self,
+        t_start: float,
+        t_end: float,
+        label: str = "",
+        video_frames: list[VideoFrame] | None = None,
+    ) -> Marker:
         """Add a range marker from *t_start* to *t_end*."""
         if t_start > t_end:
             t_start, t_end = t_end, t_start
         color = _COLORS[self._color_idx % len(_COLORS)]
         self._color_idx += 1
-        m = Marker(t_start=t_start, t_end=t_end, label=label, color=color)
+        m = Marker(
+            t_start=t_start, t_end=t_end, label=label, color=color, video_frames=video_frames or []
+        )
         self._markers.append(m)
         self.changed.emit()
         return m
@@ -85,12 +106,24 @@ class AnnotationStore(QObject):
         self.changed.emit()
 
     def export_csv(self, path: Path) -> None:
-        """Write all markers to a CSV file."""
+        """Write one row per (marker, video) — format for DLC/LightningPose retraining.
+
+        Columns: label, comment, t_master, video_path, frame_index, media_timestamp.
+        Markers with no video_frames produce one row with empty video columns.
+        """
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["t_start", "t_end", "label"])
+            writer.writerow(
+                ["label", "comment", "t_master", "video_path", "frame_index", "media_timestamp"]
+            )
             for m in self._markers:
-                writer.writerow([m.t_start, m.t_end if m.t_end is not None else "", m.label])
+                if m.video_frames:
+                    for vf in m.video_frames:
+                        writer.writerow(
+                            [m.label, "", m.t_start, vf.path, vf.frame_index, vf.media_timestamp]
+                        )
+                else:
+                    writer.writerow([m.label, "", m.t_start, "", "", ""])
 
 
 class AnnotationPanel(QGroupBox):
@@ -105,12 +138,13 @@ class AnnotationPanel(QGroupBox):
         layout.setContentsMargins(4, 4, 4, 4)
 
         # Table
-        self._table = QTableWidget(0, 3)
-        self._table.setHorizontalHeaderLabels(["Start", "End", "Label"])
+        self._table = QTableWidget(0, 4)
+        self._table.setHorizontalHeaderLabels(["Start", "End", "Label", "Cameras"])
         hdr = self._table.horizontalHeader()
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
         self._table.itemChanged.connect(self._on_label_edited)
@@ -144,10 +178,16 @@ class AnnotationPanel(QGroupBox):
             t_end_item = QTableWidgetItem(_fmt(m.t_end) if m.t_end is not None else "—")
             t_end_item.setFlags(t_end_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             label_item = QTableWidgetItem(m.label)
+            cameras_str = "  ".join(
+                f"{Path(vf.path).stem}:f{vf.frame_index}" for vf in m.video_frames
+            )
+            cameras_item = QTableWidgetItem(cameras_str)
+            cameras_item.setFlags(cameras_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
             self._table.setItem(row, 0, t_start_item)
             self._table.setItem(row, 1, t_end_item)
             self._table.setItem(row, 2, label_item)
+            self._table.setItem(row, 3, cameras_item)
         self._table.blockSignals(False)
 
     def _on_delete(self) -> None:

@@ -9,14 +9,14 @@ from PySide6.QtWidgets import (
     QFrame,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QPushButton,
     QScrollArea,
-    QVBoxLayout,
-    QWidget,
     QTreeWidget,
     QTreeWidgetItem,
-    QHeaderView,
+    QVBoxLayout,
+    QWidget,
 )
 
 
@@ -26,6 +26,8 @@ class SensorInfoWidget(QFrame):
     remove_requested = Signal(str)  # whole sensor removed
     channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
     channel_visibility_changed = Signal(str, str, bool)  # sensor_path, channel_name, is_visible
+    badge_clicked = Signal(str)  # path
+    report_requested = Signal(str)  # path
 
     def __init__(self, path: str, channels: list[str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -37,11 +39,18 @@ class SensorInfoWidget(QFrame):
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(3)
 
-        # ── Header: filename + remove whole source ───────────────────
+        # ── Header: filename + badge + remove whole source ──────────
         header = QHBoxLayout()
         name_lbl = QLabel(Path(path).name)
         name_lbl.setToolTip(path)
         name_lbl.setStyleSheet("font-weight: bold; font-size: 12px;")
+
+        self._badge_btn = QPushButton("⚠")
+        self._badge_btn.setFixedSize(18, 18)
+        self._badge_btn.setFlat(True)
+        self._badge_btn.setStyleSheet("color: #e9c46a; font-weight: bold; font-size: 11px;")
+        self._badge_btn.setVisible(False)
+        self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
 
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(20, 20)
@@ -49,6 +58,7 @@ class SensorInfoWidget(QFrame):
         close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
 
         header.addWidget(name_lbl, stretch=1)
+        header.addWidget(self._badge_btn)
         header.addWidget(close_btn)
         layout.addLayout(header)
 
@@ -59,9 +69,7 @@ class SensorInfoWidget(QFrame):
         layout.addWidget(path_lbl)
 
         n_ch = len(channels)
-        ch_count_lbl = QLabel(
-            f"{n_ch} channel{'s' if n_ch != 1 else ''}"
-        )
+        ch_count_lbl = QLabel(f"{n_ch} channel{'s' if n_ch != 1 else ''}")
         ch_count_lbl.setStyleSheet("font-size: 10px;")
         layout.addWidget(ch_count_lbl)
 
@@ -100,22 +108,39 @@ class SensorInfoWidget(QFrame):
                     group_item.setExpanded(True)
                     nodes[path_key] = group_item
                 parent_path = path_key
-            
+
             leaf_part = parts[-1]
             item = QTreeWidgetItem(nodes[parent_path])
             item.setText(0, leaf_part)
             item.setToolTip(0, ch)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(0, Qt.CheckState.Checked)
-            
+
             self._channel_items[ch] = item
 
         self.tree.itemChanged.connect(self._on_item_changed)
 
+        # ── Report button + Properties panel ─────────────────────────
+        report_row = QHBoxLayout()
+        self._report_btn = QPushButton("Report…")
+        self._report_btn.setFixedHeight(20)
+        self._report_btn.setStyleSheet("font-size: 10px;")
+        self._report_btn.setVisible(False)
+        self._report_btn.clicked.connect(lambda: self.report_requested.emit(self.path))
+        report_row.addWidget(self._report_btn)
+        report_row.addStretch()
+        layout.addLayout(report_row)
+
+        from kinochronix.ui.source_properties import SensorPropertiesPanel
+        self._props_panel = SensorPropertiesPanel(
+            _make_empty_inspection(path), parent=self
+        )
+        layout.addWidget(self._props_panel)
+
     def _on_item_changed(self, item: QTreeWidgetItem, column: int) -> None:
         ch = item.toolTip(0)
         if ch:
-            is_visible = (item.checkState(0) == Qt.CheckState.Checked)
+            is_visible = item.checkState(0) == Qt.CheckState.Checked
             self.channel_visibility_changed.emit(self.path, ch, is_visible)
 
     def _on_channel_remove(self, sensor_path: str, channel: str) -> None:
@@ -125,6 +150,23 @@ class SensorInfoWidget(QFrame):
             parent.removeChild(item)
         self.channel_remove_requested.emit(sensor_path, channel)
 
+    def set_inspection(self, inspection: object) -> None:
+        """Update badge and properties panel from a SourceInspection."""
+        flags = getattr(inspection, "integrity_flags", None)
+        if flags and getattr(flags, "any_flag", False):
+            tip = "\n".join(flags.flag_labels())
+            self._badge_btn.setToolTip(tip)
+            self._badge_btn.setVisible(True)
+        else:
+            self._badge_btn.setVisible(False)
+        self._report_btn.setVisible(True)
+        self._props_panel.update_inspection(inspection)
+
+
+def _make_empty_inspection(path: str) -> object:
+    from kinochronix.core.inspection import SourceInspection
+    return SourceInspection(path=path)
+
 
 class VideoInfoWidget(QFrame):
     """Displays metadata and controls for a single loaded video."""
@@ -132,6 +174,7 @@ class VideoInfoWidget(QFrame):
     remove_requested = Signal(str)  # Emits the file path
     offset_changed = Signal(str, float)  # Emits path, new offset
     visibility_changed = Signal(str, bool)  # Emits path, is_visible
+    badge_clicked = Signal(str)  # path
 
     def __init__(self, path: str, metadata: dict, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -143,12 +186,15 @@ class VideoInfoWidget(QFrame):
 
         # Header: Checkbox, Name, and Close button
         from PySide6.QtWidgets import QCheckBox
+
         header_layout = QHBoxLayout()
-        
+
         self.visibility_cb = QCheckBox()
         self.visibility_cb.setChecked(True)
         self.visibility_cb.setToolTip("Show/Hide video pane")
-        self.visibility_cb.toggled.connect(lambda checked: self.visibility_changed.emit(self.path, checked))
+        self.visibility_cb.toggled.connect(
+            lambda checked: self.visibility_changed.emit(self.path, checked)
+        )
 
         name_lbl = QLabel(Path(path).name)
         name_lbl.setToolTip(path)
@@ -168,9 +214,7 @@ class VideoInfoWidget(QFrame):
         codec = metadata.get("codec", "unknown")
         duration = metadata.get("duration", 0.0)
 
-        meta_lbl = QLabel(
-            f"{codec.upper()} | {fps:.2f} fps | {duration:.1f}s"
-        )
+        meta_lbl = QLabel(f"{codec.upper()} | {fps:.2f} fps | {duration:.1f}s")
         meta_lbl.setStyleSheet("font-size: 11px;")
         layout.addWidget(meta_lbl)
 
@@ -188,8 +232,46 @@ class VideoInfoWidget(QFrame):
         sync_layout.addWidget(self.offset_spin, stretch=1)
         layout.addLayout(sync_layout)
 
+        # Badge (hidden until inspection is available)
+        self._badge_btn = QPushButton("⚠")
+        self._badge_btn.setFixedSize(18, 18)
+        self._badge_btn.setFlat(True)
+        self._badge_btn.setStyleSheet("color: #e9c46a; font-weight: bold; font-size: 11px;")
+        self._badge_btn.setVisible(False)
+        self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
+        header_layout.insertWidget(2, self._badge_btn)  # between name and close
+
+        # Properties panel (collapsible, from source_properties.py)
+        from kinochronix.ui.source_properties import VideoPropertiesPanel
+        self._props_panel = VideoPropertiesPanel(loader=None, parent=self)
+        self._loader: object = None
+        layout.addWidget(self._props_panel)
+
     def _on_offset_changed(self, val: float) -> None:
         self.offset_changed.emit(self.path, val)
+
+    def set_loader(self, loader: object) -> None:
+        """Attach the VideoStandardLoader for metadata display."""
+        self._loader = loader
+        from kinochronix.ui.source_properties import VideoPropertiesPanel
+        self._props_panel.setParent(None)
+        self._props_panel.deleteLater()
+        self._props_panel = VideoPropertiesPanel(loader=loader, parent=self)
+        self.layout().addWidget(self._props_panel)
+
+    def set_pane(self, pane: object) -> None:
+        """Attach the VideoPane for live mpv property reads."""
+        self._props_panel.set_pane(pane)
+
+    def set_inspection(self, inspection: object) -> None:
+        """Show badge if integrity flags are set."""
+        flags = getattr(inspection, "integrity_flags", None)
+        if flags and getattr(flags, "any_flag", False):
+            tip = "\n".join(flags.flag_labels())
+            self._badge_btn.setToolTip(tip)
+            self._badge_btn.setVisible(True)
+        else:
+            self._badge_btn.setVisible(False)
 
 
 class SidebarPane(QWidget):
@@ -201,7 +283,10 @@ class SidebarPane(QWidget):
     video_offset_changed = Signal(str, float)
     video_remove_requested = Signal(str)
     video_visibility_changed = Signal(str, bool)
+    video_badge_clicked = Signal(str)  # path
     sensor_remove_requested = Signal(str)
+    sensor_badge_clicked = Signal(str)  # path
+    sensor_report_requested = Signal(str)  # path
     channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
     channel_visibility_changed = Signal(str, str, bool)  # sensor_path, channel_name, is_visible
     grid_mode_changed = Signal(bool)  # True = NxN grid, False = strip
@@ -270,6 +355,7 @@ class SidebarPane(QWidget):
         widget.offset_changed.connect(self.video_offset_changed)
         widget.remove_requested.connect(self.video_remove_requested)
         widget.visibility_changed.connect(self.video_visibility_changed)
+        widget.badge_clicked.connect(self.video_badge_clicked)
 
         self.videos_layout.addWidget(widget)
         self._video_widgets[path] = widget
@@ -295,6 +381,8 @@ class SidebarPane(QWidget):
         widget.remove_requested.connect(self.sensor_remove_requested)
         widget.channel_remove_requested.connect(self.channel_remove_requested)
         widget.channel_visibility_changed.connect(self.channel_visibility_changed)
+        widget.badge_clicked.connect(self.sensor_badge_clicked)
+        widget.report_requested.connect(self.sensor_report_requested)
         self.sensors_layout.addWidget(widget)
 
     def remove_sensor(self, path: str) -> None:
@@ -309,3 +397,29 @@ class SidebarPane(QWidget):
 
         if self.sensors_layout.count() == 0:
             self.sensors_layout.addWidget(QLabel("No sensor data loaded."))
+
+    def set_video_loader(self, path: str, loader: object) -> None:
+        """Forward loader reference to VideoInfoWidget for properties panel."""
+        w = self._video_widgets.get(path)
+        if w:
+            w.set_loader(loader)
+
+    def set_video_pane(self, path: str, pane: object) -> None:
+        """Forward VideoPane reference to VideoInfoWidget for live mpv reads."""
+        w = self._video_widgets.get(path)
+        if w:
+            w.set_pane(pane)
+
+    def set_video_inspection(self, path: str, inspection: object) -> None:
+        """Forward SourceInspection to the VideoInfoWidget badge."""
+        w = self._video_widgets.get(path)
+        if w:
+            w.set_inspection(inspection)
+
+    def set_sensor_inspection(self, path: str, inspection: object) -> None:
+        """Forward SourceInspection to the SensorInfoWidget badge + panel."""
+        for i in range(self.sensors_layout.count()):
+            w = self.sensors_layout.itemAt(i).widget()
+            if isinstance(w, SensorInfoWidget) and w.path == path:
+                w.set_inspection(inspection)
+                break

@@ -1,9 +1,11 @@
 """Main window for KinoChronix."""
 
+import dataclasses
 from pathlib import Path
+from typing import Any
 
-from PySide6.QtCore import QSettings, Qt, QTimer
-from PySide6.QtGui import QCloseEvent, QKeyEvent
+from PySide6.QtCore import QSettings, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -14,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from kinochronix.core.inspection import SourceInspection
 from kinochronix.core.session import (
     MarkerEntry,
     SensorEntry,
@@ -27,6 +30,7 @@ from kinochronix.engine.player import Player
 from kinochronix.ui.annotations import AnnotationPanel, AnnotationStore
 from kinochronix.ui.plot_pane import PlotPane
 from kinochronix.ui.readout_panel import ReadoutPanel
+from kinochronix.ui.time_format import TimeDisplayMode
 from kinochronix.ui.transport import Transport
 from kinochronix.ui.video_grid import VideoGrid
 
@@ -34,12 +38,24 @@ _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
 
 
 class MainWindow(QMainWindow):
+    time_mode_changed = Signal(object)  # TimeDisplayMode
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("KinoChronix")
         self.resize(1280, 800)
 
         self._session_path: Path | None = None
+
+        # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
+        self._video_fps: dict[str, float] = {}
+        # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
+        self._frame_indexed_sources: list[tuple[Path, float]] = []
+        # Inspection data keyed by str(path)
+        self._inspections: dict[str, SourceInspection] = {}
+        # Units dict keyed by channel_id; populated from import config or wizard
+        self._channel_units: dict[str, str] = {}
+        self._time_mode = TimeDisplayMode.RELATIVE
 
         # Core
         self.clock = MasterClock()
@@ -79,28 +95,32 @@ class MainWindow(QMainWindow):
         self.sidebar.channel_remove_requested.connect(self._on_channel_remove_requested)
         self.sidebar.channel_visibility_changed.connect(self._on_channel_visibility_changed)
         self.sidebar.grid_mode_changed.connect(self.video_grid.set_grid_mode)
+        self.sidebar.video_badge_clicked.connect(self._show_video_properties)
+        self.sidebar.sensor_badge_clicked.connect(self._show_sensor_properties)
+        self.sidebar.sensor_report_requested.connect(self._show_import_report)
 
         # Readout panel
         self.readout_panel = ReadoutPanel(self)
-        self.plot_pane.sources_changed.connect(self.readout_panel.update_sources)
+        self.plot_pane.sources_changed.connect(self._on_sources_changed)
         self.plot_pane.sources_changed.connect(self.video_grid.set_tracking_readers)
+        self.plot_pane.measure_changed.connect(self._on_measure_changed)
         self.player._readout_panel = self.readout_panel
 
         # Annotation panel
         self.annotation_panel = AnnotationPanel(self.annotation_store, self)
         self.plot_pane.set_annotation_store(self.annotation_store)
 
-        # Sidebar composite layout
-        sidebar_widget = QWidget()
-        sidebar_layout = QVBoxLayout(sidebar_widget)
-        sidebar_layout.setContentsMargins(0, 0, 0, 0)
-        sidebar_layout.setSpacing(0)
-        sidebar_layout.addWidget(self.sidebar, stretch=2)
-        sidebar_layout.addWidget(self.readout_panel, stretch=1)
-        sidebar_layout.addWidget(self.annotation_panel, stretch=2)
+        # Sidebar composite layout — vertical splitter so sections are user-resizable
+        self._left_splitter = QSplitter(Qt.Orientation.Vertical)
+        self._left_splitter.addWidget(self.sidebar)
+        self._left_splitter.addWidget(self.readout_panel)
+        self._left_splitter.addWidget(self.annotation_panel)
+        self._left_splitter.setStretchFactor(0, 2)
+        self._left_splitter.setStretchFactor(1, 1)
+        self._left_splitter.setStretchFactor(2, 2)
 
         h_splitter = QSplitter(Qt.Orientation.Horizontal)
-        h_splitter.addWidget(sidebar_widget)
+        h_splitter.addWidget(self._left_splitter)
         self._h_splitter = h_splitter
 
         right_widget = QWidget()
@@ -134,9 +154,7 @@ class MainWindow(QMainWindow):
 
         # A/B loop → region stats
         self.transport.ab_loop_changed.connect(self._on_ab_loop_changed)
-        
-        # Annotations tracking
-        self._annotations: list[dict[str, Any]] = []
+
         self.transport.annotate_requested.connect(self._on_annotate_requested)
 
         # Autosave timer
@@ -149,9 +167,67 @@ class MainWindow(QMainWindow):
 
         # Start player tick
         self.player.start()
-        
+
         # Setup global shortcuts
         self._setup_shortcuts()
+
+    # ── Sources / units ──────────────────────────────────────────────
+
+    def _on_sources_changed(self, readers: list[Any]) -> None:
+        """Forward to ReadoutPanel with accumulated units for known channels."""
+        self.readout_panel.update_sources(readers, self._channel_units)
+
+    # ── Inspection / properties dialogs ─────────────────────────────
+
+    def _show_video_properties(self, path: str) -> None:
+        """Show the VideoPropertiesPanel for a video (triggered by badge click)."""
+        ins = self._inspections.get(path)
+        if ins is None:
+            return
+        from kinochronix.ui.import_report import ImportReportDialog
+        dlg = ImportReportDialog(ins, self)
+        dlg.setWindowTitle(f"Video Properties — {Path(path).name}")
+        dlg.exec()
+
+    def _show_sensor_properties(self, path: str) -> None:
+        """Show sensor properties for a data source."""
+        ins = self._inspections.get(path)
+        if ins is None:
+            return
+        from kinochronix.ui.import_report import ImportReportDialog
+        dlg = ImportReportDialog(ins, self)
+        dlg.setWindowTitle(f"Sensor Properties — {Path(path).name}")
+        dlg.exec()
+
+    def _show_import_report(self, path: str) -> None:
+        """Show the full ImportReport dialog for a data source."""
+        ins = self._inspections.get(path)
+        if ins is None:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "No Report", f"No import report for:\n{path}")
+            return
+        from kinochronix.ui.import_report import ImportReportDialog
+        dlg = ImportReportDialog(ins, self)
+        dlg.exec()
+
+    # ── Measure delta ────────────────────────────────────────────────
+
+    def _on_measure_changed(self, t_a: float, t_b: float) -> None:
+        """Forward measure pins to ReadoutPanel with live camera states."""
+        camera_states = []
+        for pane in self.video_grid.panes:
+            fps = getattr(pane, "_fps", 0.0) or 0.0
+            t_pos = getattr(pane, "_t_pos", t_a)  # best-effort; fallback to t_a
+            label = getattr(pane, "_label", "cam")
+            camera_states.append((label, t_pos, fps))
+        self.readout_panel.show_delta(t_a, t_b, camera_states or None)
+
+    # ── Time display mode ────────────────────────────────────────────
+
+    def _set_time_mode(self, mode: TimeDisplayMode) -> None:
+        self._time_mode = mode
+        self.transport.set_time_mode(mode)
+        self.time_mode_changed.emit(mode)
 
     # ── Diagnostics ──────────────────────────────────────────────────
 
@@ -173,6 +249,9 @@ class MainWindow(QMainWindow):
         v_state = settings.value("splitter/vertical")
         if v_state:
             self._v_splitter.restoreState(v_state)
+        left_state = settings.value("splitter/left")
+        if left_state:
+            self._left_splitter.restoreState(left_state)
 
     def _save_geometry(self) -> None:
         settings = QSettings("KinoChronix", "KinoChronix")
@@ -185,6 +264,7 @@ class MainWindow(QMainWindow):
             "splitter/vertical",
             self._v_splitter.saveState(),
         )
+        settings.setValue("splitter/left", self._left_splitter.saveState())
 
     # ── Session save / load ──────────────────────────────────────────
 
@@ -193,14 +273,15 @@ class MainWindow(QMainWindow):
         from kinochronix.ui.sidebar import SensorInfoWidget
 
         bounds = self.clock.state.bounds
-        videos = [
-            VideoEntry(path=p, offset=pane.time_map.offset)
-            for p, pane in zip(
-                self.video_grid._paths,
-                self.video_grid.panes,
-                strict=False,
-            )
-        ]
+        videos = []
+        for p, pane in zip(self.video_grid._paths, self.video_grid.panes, strict=False):
+            ins = self._inspections.get(p)
+            videos.append(VideoEntry(
+                path=p,
+                offset=pane.time_map.offset,
+                integrity_flags=ins.integrity_flags.as_dict() if ins else {},
+                metadata=ins.import_config if ins else {},
+            ))
 
         sensors: list[SensorEntry] = []
         for i in range(self.sidebar.sensors_layout.count()):
@@ -208,13 +289,23 @@ class MainWindow(QMainWindow):
             if item and item.widget():
                 w = item.widget()
                 if isinstance(w, SensorInfoWidget):
-                    sensors.append(SensorEntry(path=w.path, channels=[]))
+                    ins = self._inspections.get(w.path)
+                    sensors.append(SensorEntry(
+                        path=w.path,
+                        channels=[],
+                        loader_id=ins.loader_id if ins else "",
+                        import_config=dict(ins.import_config) if ins else {},
+                        import_report=(
+                            ins.import_report.as_dict() if ins and ins.import_report else None
+                        ),
+                    ))
 
         markers = [
             MarkerEntry(
                 t_start=m.t_start,
                 t_end=m.t_end,
                 label=m.label,
+                video_frames=[dataclasses.asdict(vf) for vf in m.video_frames],
             )
             for m in self.annotation_store.markers
         ]
@@ -312,18 +403,47 @@ class MainWindow(QMainWindow):
             p = Path(relink_map.get(ve.path, ve.path))
             if p.exists():
                 self._load_video(p, offset=ve.offset)
+                if ve.integrity_flags or ve.metadata:
+                    from kinochronix.core.inspection import IntegrityFlags
+                    ins = SourceInspection(
+                        path=str(p),
+                        integrity_flags=IntegrityFlags.from_dict(ve.integrity_flags),
+                        import_config=ve.metadata,
+                    )
+                    self._inspections[str(p)] = ins
 
         for se in state.sensors:
             p = Path(relink_map.get(se.path, se.path))
             if p.exists():
-                self._start_csv_import(p)
+                self._start_data_import(p)
+                if se.loader_id or se.import_report:
+                    from kinochronix.core.inspection import ImportReport
+                    ins = SourceInspection(
+                        path=str(p),
+                        loader_id=se.loader_id,
+                        import_config=dict(se.import_config),
+                        import_report=(
+                            ImportReport.from_dict(se.import_report) if se.import_report else None
+                        ),
+                    )
+                    self._inspections[str(p)] = ins
 
         # Restore annotations
+        from kinochronix.ui.annotations import VideoFrame
+
         for me in state.markers:
+            vfs = [
+                VideoFrame(
+                    path=str(vf["path"]),
+                    frame_index=int(vf["frame_index"]),
+                    media_timestamp=float(vf["media_timestamp"]),
+                )
+                for vf in me.video_frames
+            ]
             if me.t_end is not None:
-                self.annotation_store.add_range(me.t_start, me.t_end, me.label)
+                self.annotation_store.add_range(me.t_start, me.t_end, me.label, video_frames=vfs)
             else:
-                self.annotation_store.add_point(me.t_start, me.label)
+                self.annotation_store.add_point(me.t_start, me.label, video_frames=vfs)
 
         # Restore plot zoom
         if state.plot_x0 is not None and state.plot_x1 is not None and self.plot_pane._master_plot:
@@ -341,9 +461,7 @@ class MainWindow(QMainWindow):
 
     # ── A/B loop stats ───────────────────────────────────────────────
 
-    def _on_ab_loop_changed(
-        self, t_in: float | None, t_out: float | None
-    ) -> None:
+    def _on_ab_loop_changed(self, t_in: float | None, t_out: float | None) -> None:
         if t_in is not None and t_out is not None:
             lo, hi = min(t_in, t_out), max(t_in, t_out)
             self.readout_panel.show_region_stats(lo, hi)
@@ -353,97 +471,102 @@ class MainWindow(QMainWindow):
     # ── Annotations ──────────────────────────────────────────────────
 
     def _on_annotate_requested(self) -> None:
-        """Record the master time and estimated frame number for all active videos."""
+        """Record master time and per-video frame snapshot for all active videos."""
+        from kinochronix.ui.annotations import VideoFrame
+
         t_master = self.clock.state.t
-        record = {"master_time": round(t_master, 4)}
-        
-        for pane in self.video_grid._panes:
-            if hasattr(pane, "time_map") and pane.time_map.path is not None:
-                video_name = pane.time_map.path.name
-                t_video = pane.time_map.master_to_source(t_master, pane.time_map.path)
-                
-                # Dynamically calculate frame number using fps
-                fps = 30.0
-                if hasattr(pane, "mpv") and pane.mpv is not None:
-                    fps = getattr(pane.mpv, 'estimated_vf_fps', 0.0) or 30.0
-                    
-                frame_number = max(0, round(t_video * fps))
-                record[f"{video_name}_frame"] = frame_number
-                
-        self._annotations.append(record)
+        video_frames = [
+            VideoFrame(
+                path=str(r["path"]),
+                frame_index=int(r["frame_index"]),
+                media_timestamp=float(r["media_timestamp"]),
+            )
+            for r in self.video_grid.frame_records_at(t_master)
+        ]
+        self.annotation_store.add_point(t_master, video_frames=video_frames)
         self.statusBar().showMessage(f"Marked frame at {t_master:.3f}s", 2000)
 
     def _export_annotations(self) -> None:
-        """Export accumulated annotations to a CSV file."""
-        if not self._annotations:
-            QMessageBox.information(self, "No Annotations", "There are no frame markers to export.")
+        """Export annotation markers to CSV — one row per (marker, video)."""
+        if not self.annotation_store.markers:
+            QMessageBox.information(self, "No Annotations", "There are no markers to export.")
             return
-            
-        from PySide6.QtWidgets import QFileDialog
-        import csv
-        
         out_path, _ = QFileDialog.getSaveFileName(
             self, "Export Annotations", "annotations.csv", "CSV Files (*.csv)"
         )
         if not out_path:
             return
-            
-        fieldnames = set()
-        for rec in self._annotations:
-            fieldnames.update(rec.keys())
-            
-        fields = ["master_time"] + sorted([f for f in fieldnames if f != "master_time"])
-        
         try:
-            with open(out_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=fields)
-                writer.writeheader()
-                writer.writerows(self._annotations)
-                
-            QMessageBox.information(self, "Export Complete", f"Exported {len(self._annotations)} annotations to:\n{out_path}")
+            self.annotation_store.export_csv(Path(out_path))
+            QMessageBox.information(
+                self,
+                "Export Complete",
+                f"Exported {len(self.annotation_store.markers)} markers to:\n{out_path}",
+            )
         except Exception as e:
-            QMessageBox.critical(self, "Export Failed", f"Could not export annotations:\n{str(e)}")
+            QMessageBox.critical(self, "Export Failed", f"Could not export annotations:\n{e}")
 
     # ── Keyboard shortcuts ───────────────────────────────────────────
 
     def _setup_shortcuts(self) -> None:
-        from PySide6.QtGui import QKeySequence, QShortcut
         from PySide6.QtCore import Qt
-        
-        def _toggle_play():
+        from PySide6.QtGui import QKeySequence, QShortcut
+
+        def _toggle_play() -> None:
             self.player.set_playing(not self.clock.state.playing)
-            
-        def _seek_rel(delta: float):
+
+        def _seek_rel(delta: float) -> None:
             t = self.clock.state.t + delta
             bounds = self.clock.state.bounds
             self.player.seek(max(bounds[0], min(bounds[1], t)))
 
+        _win = Qt.ShortcutContext.WindowShortcut
+
         # Play/Pause
-        QShortcut(QKeySequence(Qt.Key.Key_Space), self, _toggle_play, context=Qt.ShortcutContext.WindowShortcut)
-        
+        QShortcut(QKeySequence(Qt.Key.Key_Space), self, _toggle_play, context=_win)
+
         # Frame Stepping
-        QShortcut(QKeySequence(Qt.Key.Key_Left), self, lambda: self.player.step_frame(-1), context=Qt.ShortcutContext.WindowShortcut)
-        QShortcut(QKeySequence(Qt.Key.Key_Right), self, lambda: self.player.step_frame(1), context=Qt.ShortcutContext.WindowShortcut)
-        
+        QShortcut(
+            QKeySequence(Qt.Key.Key_Left), self, lambda: self.player.step_frame(-1), context=_win
+        )
+        QShortcut(
+            QKeySequence(Qt.Key.Key_Right), self, lambda: self.player.step_frame(1), context=_win
+        )
+
         # 1-second jumps
-        QShortcut(QKeySequence("Shift+Left"), self, lambda: _seek_rel(-1.0), context=Qt.ShortcutContext.WindowShortcut)
-        QShortcut(QKeySequence("Shift+Right"), self, lambda: _seek_rel(1.0), context=Qt.ShortcutContext.WindowShortcut)
-        
+        QShortcut(QKeySequence("Shift+Left"), self, lambda: _seek_rel(-1.0), context=_win)
+        QShortcut(QKeySequence("Shift+Right"), self, lambda: _seek_rel(1.0), context=_win)
+
         # Home/End
-        QShortcut(QKeySequence(Qt.Key.Key_Home), self, lambda: self.player.seek(self.clock.state.bounds[0]), context=Qt.ShortcutContext.WindowShortcut)
-        QShortcut(QKeySequence(Qt.Key.Key_End), self, lambda: self.player.seek(self.clock.state.bounds[1]), context=Qt.ShortcutContext.WindowShortcut)
-        
+        QShortcut(
+            QKeySequence(Qt.Key.Key_Home),
+            self,
+            lambda: self.player.seek(self.clock.state.bounds[0]),
+            context=_win,
+        )
+        QShortcut(
+            QKeySequence(Qt.Key.Key_End),
+            self,
+            lambda: self.player.seek(self.clock.state.bounds[1]),
+            context=_win,
+        )
+
         # A/B Loop
-        QShortcut(QKeySequence(Qt.Key.Key_BracketLeft), self, self.transport._on_ab_in, context=Qt.ShortcutContext.WindowShortcut)
-        QShortcut(QKeySequence(Qt.Key.Key_BracketRight), self, self.transport._on_ab_out, context=Qt.ShortcutContext.WindowShortcut)
-        
+        QShortcut(
+            QKeySequence(Qt.Key.Key_BracketLeft), self, self.transport._on_ab_in, context=_win
+        )
+        QShortcut(
+            QKeySequence(Qt.Key.Key_BracketRight), self, self.transport._on_ab_out, context=_win
+        )
+
         # Annotation
-        QShortcut(QKeySequence(Qt.Key.Key_M), self, self._on_annotate_requested, context=Qt.ShortcutContext.WindowShortcut)
-        
-        # App actions (Save/Open are already handled by menu shortcuts, but we can bind the others)
-        QShortcut(QKeySequence("Ctrl+E"), self, self._export_snapshot, context=Qt.ShortcutContext.WindowShortcut)
-        QShortcut(QKeySequence("Ctrl+T"), self, self._cycle_theme, context=Qt.ShortcutContext.WindowShortcut)
-        QShortcut(QKeySequence("?"), self, self._show_shortcuts, context=Qt.ShortcutContext.WindowShortcut)
+        QShortcut(QKeySequence(Qt.Key.Key_M), self, self._on_annotate_requested, context=_win)
+
+        # Export / theme / help / zoom
+        QShortcut(QKeySequence("Ctrl+E"), self, self._export_snapshot, context=_win)
+        QShortcut(QKeySequence("Ctrl+T"), self, self._cycle_theme, context=_win)
+        QShortcut(QKeySequence("?"), self, self._show_shortcuts, context=_win)
+        QShortcut(QKeySequence("Ctrl+0"), self, self.plot_pane.reset_zoom, context=_win)
 
     # ── Window close ─────────────────────────────────────────────────
 
@@ -454,11 +577,11 @@ class MainWindow(QMainWindow):
 
     # ── Drag and Drop ────────────────────────────────────────────────
 
-    def dragEnterEvent(self, event) -> None:
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
 
-    def dropEvent(self, event) -> None:
+    def dropEvent(self, event: QDropEvent) -> None:
         for url in event.mimeData().urls():
             path = Path(url.toLocalFile())
             if not path.exists():
@@ -474,12 +597,12 @@ class MainWindow(QMainWindow):
                     except Exception as e:
                         QMessageBox.critical(self, "Session Error", str(e))
                     continue
-                
+
                 # 2. Load any immediate video files
                 for child in path.iterdir():
                     if child.is_file() and child.suffix.lower() in (".mp4", ".mov", ".avi", ".mkv"):
                         self._load_video(child)
-                
+
                 # 3. Attempt to load directory as data bundle
                 self._start_data_import(path)
             else:
@@ -564,6 +687,27 @@ class MainWindow(QMainWindow):
         self._theme_group.triggered.connect(self._on_theme_selected)
         self._sync_theme_menu()
 
+        time_menu = view_menu.addMenu("Time Display")
+        from PySide6.QtGui import QActionGroup
+        self._time_mode_group = QActionGroup(self)
+        for label, mode in [
+            ("Relative (HH:MM:SS)", TimeDisplayMode.RELATIVE),
+            ("UTC", TimeDisplayMode.UTC),
+            ("Local time of day", TimeDisplayMode.LOCAL_TOD),
+        ]:
+            act = time_menu.addAction(label)
+            act.setCheckable(True)
+            act.setData(mode)
+            act.setChecked(mode == TimeDisplayMode.RELATIVE)
+            self._time_mode_group.addAction(act)
+        self._time_mode_group.triggered.connect(
+            lambda a: self._set_time_mode(a.data())
+        )
+
+        act = view_menu.addAction("Reset Plot Zoom")
+        act.setShortcut("Ctrl+0")
+        act.triggered.connect(self.plot_pane.reset_zoom)
+
         act = view_menu.addAction("Follow Playhead")
         act.setCheckable(True)
         act.toggled.connect(self.plot_pane.set_follow_playhead)
@@ -611,12 +755,14 @@ class MainWindow(QMainWindow):
 
     # ── Theme selection ─────────────────────────────────────────────
 
-    def _on_theme_selected(self, action) -> None:
+    def _on_theme_selected(self, action: QAction) -> None:
         from PySide6.QtWidgets import QApplication
 
         from kinochronix.ui.theme import apply_theme
 
-        apply_theme(QApplication.instance(), action.data())
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            apply_theme(app, action.data())
 
     def _sync_theme_menu(self) -> None:
         from kinochronix.ui.theme import current_preference
@@ -636,7 +782,9 @@ class MainWindow(QMainWindow):
         pref = current_preference()
         idx = order.index(pref) if pref in order else 0
         new_pref = order[(idx + 1) % len(order)]
-        apply_theme(QApplication.instance(), new_pref)
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            apply_theme(app, new_pref)
         self._sync_theme_menu()
 
     # ── Shortcuts dialog ─────────────────────────────────────────────
@@ -742,8 +890,9 @@ class MainWindow(QMainWindow):
         if t0 > t1:
             t0, t1 = t1, t0
 
-        from kinochronix.engine.export import trim_video_clip
         from pathlib import Path
+
+        from kinochronix.engine.export import trim_video_clip
 
         if len(self.video_grid._paths) == 1:
             path, _ = QFileDialog.getSaveFileName(
@@ -753,14 +902,14 @@ class MainWindow(QMainWindow):
                 return
             success = trim_video_clip(self.video_grid._paths[0], t0, t1, Path(path))
             if success:
-                QMessageBox.information(self, "Export Complete", "Video clip exported successfully.")
+                QMessageBox.information(self, "Export Complete", "Video clip exported.")
             else:
                 QMessageBox.critical(self, "Export Failed", "ffmpeg failed to trim the video.")
         else:
             dir_path = QFileDialog.getExistingDirectory(self, "Select Directory for Trimmed Clips")
             if not dir_path:
                 return
-            
+
             out_dir = Path(dir_path)
             success_count = 0
             for orig_path in self.video_grid._paths:
@@ -768,11 +917,14 @@ class MainWindow(QMainWindow):
                 out_path = out_dir / f"{p.stem}_trim{p.suffix}"
                 if trim_video_clip(orig_path, t0, t1, out_path):
                     success_count += 1
-            
+
             if success_count == len(self.video_grid._paths):
                 QMessageBox.information(self, "Export Complete", f"Exported {success_count} clips.")
             else:
-                QMessageBox.warning(self, "Export Incomplete", f"Exported {success_count} of {len(self.video_grid._paths)} clips.")
+                n_total = len(self.video_grid._paths)
+                QMessageBox.warning(
+                    self, "Export Incomplete", f"Exported {success_count} of {n_total} clips."
+                )
 
     # ── Proxy generation ─────────────────────────────────────────────
 
@@ -837,9 +989,7 @@ class MainWindow(QMainWindow):
 
     def _load_video(self, path: Path, offset: float = 0.0) -> None:
         self.video_grid.add_pane(str(path))
-        from kinochronix.loaders.video_standard import (
-            VideoStandardLoader,
-        )
+        from kinochronix.loaders.video_standard import VideoStandardLoader
 
         vloader = VideoStandardLoader()
         try:
@@ -852,8 +1002,19 @@ class MainWindow(QMainWindow):
                 "duration": vloader._duration,
             }
             self.sidebar.add_video(str(path), metadata)
+            self.sidebar.set_video_loader(str(path), vloader)
+            # set_video_pane: pane is last added entry in video_grid.panes
+            if self.video_grid.panes:
+                self.sidebar.set_video_pane(str(path), self.video_grid.panes[-1])
             if offset != 0.0:
                 self.video_grid.set_offset(str(path), offset)
+
+            # Store fps for frame-indexed source resolution (D-019)
+            self._video_fps[str(path)] = vloader._fps
+
+            # When the first video is loaded, auto-rebind any provisional frame-indexed sources
+            if self._frame_indexed_sources and len(self._video_fps) == 1:
+                self._rebind_frame_indexed_sources(vloader._fps)
         except Exception as e:
             QMessageBox.critical(
                 self,
@@ -880,7 +1041,6 @@ class MainWindow(QMainWindow):
 
     def _on_channel_remove_requested(self, path: str, channel: str) -> None:
         self.plot_pane.remove_channel(channel)
-        self._update_window_title()
 
     def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
         self.plot_pane.set_channel_visible(channel, is_visible)
@@ -901,34 +1061,79 @@ class MainWindow(QMainWindow):
 
     def _start_data_import(self, path: Path) -> None:
         from kinochronix.core.registry import LoaderRegistry
+
         registry = LoaderRegistry()
         loader_cls = registry.find_best_loader(path)
         if not loader_cls:
             QMessageBox.warning(self, "Unsupported File", "No suitable loader found for this file.")
             return
-            
+
         from kinochronix.loaders.csv_loader import CSVLoader
         from kinochronix.loaders.tracking_loader import TrackingLoader
+
         if loader_cls is CSVLoader:
             from kinochronix.ui.import_wizard import ImportWizard
+
             wizard = ImportWizard(path, self)
             if wizard.exec() != ImportWizard.DialogCode.Accepted:
                 return
             config = wizard.config()
         elif loader_cls is TrackingLoader:
-            from PySide6.QtWidgets import QInputDialog
-            fps, ok = QInputDialog.getDouble(
-                self, "Tracking Data FPS", 
-                "Enter the video frame rate for this tracking data:", 
-                30.0, 1.0, 1000.0, 2
-            )
+            fps, ok = self._resolve_tracking_fps()
             if not ok:
                 return
             config = {"fps": fps}
+            # No video loaded yet — track as provisional so we can re-bind on first video add
+            if not self._video_fps:
+                self._frame_indexed_sources.append((path, fps))
         else:
             # NeoLoader and other headless loaders that don't need UI config
             config = {}
 
+        self._enqueue_import(path, loader_cls, config)
+
+    def _resolve_tracking_fps(self) -> tuple[float, bool]:
+        """Return (fps, ok) for a frame-indexed source, using loaded video fps when possible."""
+        from PySide6.QtWidgets import QInputDialog
+
+        n = len(self._video_fps)
+        if n == 1:
+            fps = next(iter(self._video_fps.values()))
+            _, ok = QInputDialog.getDouble(
+                self,
+                "Confirm Frame Rate",
+                "Frame rate for this tracking data (pre-filled from loaded video):",
+                fps,
+                1.0,
+                1000.0,
+                2,
+            )
+            return fps, ok
+        if n > 1:
+            items = list(self._video_fps.keys())
+            picked, ok = QInputDialog.getItem(
+                self,
+                "Select Video for Frame Rate",
+                "Use frame rate from which video?",
+                items,
+                0,
+                False,
+            )
+            return (self._video_fps[picked], ok) if ok else (30.0, False)
+        # No videos loaded — ask user for nominal fps
+        fps, ok = QInputDialog.getDouble(
+            self,
+            "Tracking Data FPS",
+            "Enter the video frame rate for this tracking data:",
+            30.0,
+            1.0,
+            1000.0,
+            2,
+        )
+        return fps, ok
+
+    def _enqueue_import(self, path: Path, loader_cls: type, config: dict[str, Any]) -> None:
+        """Start a background ImportWorker for the given path/loader/config."""
         from PySide6.QtCore import QThread
         from PySide6.QtWidgets import QProgressDialog
 
@@ -938,7 +1143,7 @@ class MainWindow(QMainWindow):
         self._import_worker = ImportWorker(path, config, loader_cls)
         self._import_worker.moveToThread(self._import_thread)
 
-        self._progress_dialog = QProgressDialog("Importing CSV…", "Cancel", 0, 100, self)
+        self._progress_dialog = QProgressDialog("Importing…", "Cancel", 0, 100, self)
         self._progress_dialog.setWindowTitle("Importing Data")
         self._progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self._progress_dialog.setAutoClose(True)
@@ -960,17 +1165,44 @@ class MainWindow(QMainWindow):
         self._progress_dialog.show()
         self._import_thread.start()
 
+    def _rebind_frame_indexed_sources(self, fps: float) -> None:
+        """Re-import all provisional frame-indexed sources using the video fps."""
+        from kinochronix.core.cache import CacheManager
+        from kinochronix.loaders.tracking_loader import TrackingLoader
+
+        for dlc_path, _ in self._frame_indexed_sources:
+            cache_dir = CacheManager(loader_version=2).get_cache_dir(dlc_path)
+            self.plot_pane.remove_channels(cache_dir)
+            self.sidebar.remove_sensor(str(dlc_path))
+            self._enqueue_import(dlc_path, TrackingLoader, {"fps": fps})
+        self._frame_indexed_sources.clear()
+
     def _on_import_finished(
         self,
         path: str,
         cache_dir: str,
         channels: list[str],
         bounds: tuple[float, float],
+        inspection: object = None,
     ) -> None:
         self._progress_dialog.close()
         self.plot_pane.load_channels(Path(cache_dir), channels)
         self._update_bounds(bounds[0], bounds[1])
         self.sidebar.add_sensor(path, channels)
+
+        if isinstance(inspection, SourceInspection):
+            self._inspections[path] = inspection
+            self.sidebar.set_sensor_inspection(path, inspection)
+            # Extract per-channel units from import config ("units" key → dict or mapping)
+            units_cfg = inspection.import_config.get("units", {})
+            if isinstance(units_cfg, dict):
+                self._channel_units.update(units_cfg)
+            # Overlay gap markers on each channel from this source
+            rep = inspection.import_report
+            if rep and rep.gap_locations:
+                gap_times = list(rep.gap_locations)
+                for ch in channels:
+                    self.plot_pane.set_gap_markers(ch, gap_times)
 
     def _on_import_error(self, err_msg: str) -> None:
         self._progress_dialog.close()

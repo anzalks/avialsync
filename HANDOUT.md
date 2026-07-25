@@ -1,0 +1,401 @@
+# KinoChronix — Model Handout
+
+Desktop tool for scrubbing time-synchronized multi-camera video with dense time-series data on a single master timeline.  
+**Stack:** Python 3.11+, PySide6, libmpv (python-mpv), pyqtgraph, polars, numpy  
+**License:** Apache-2.0  
+**Env:** `conda run -n kinochronix <cmd>` — every command without exception
+
+---
+
+## Naming (binding)
+
+| Context | Form |
+|---|---|
+| Brand / UI / window title | `KinoChronix` |
+| Module / CLI / PyPI / import paths | `kinochronix` (lowercase, one word) |
+| Session files | `.kcx` |
+| Cache sidecar dirs | `<file>.kcache/` |
+
+Forbidden spellings: `Kinochronix`, `kinoChronix`, `kino_chronix`, `kino-chronix`, any prior project name.
+
+---
+
+## Tech Stack
+
+| Layer | Library | Notes |
+|---|---|---|
+| GUI | `PySide6` | NEVER PyQt5/PyQt6 — license |
+| Video | `python-mpv` → `import mpv` | Lazy import only (D-013). Never QtMultimedia or OpenCV for playback |
+| Plots | `pyqtgraph` | All data via decimation pyramid — never raw arrays >100k samples |
+| Data | `polars` + `numpy` | polars for CSV; numpy for pyramid math |
+| Build | `hatchling` | `pip install -e .[dev]` |
+| Tests | `pytest` + `pytest-qt` | `QT_QPA_PLATFORM=offscreen` for headless |
+| Lint | `ruff` | `ruff check --fix . && ruff format .` before finishing |
+| Types | `mypy` | `--strict` on `core/`; standard on `ui/` and `loaders/` |
+
+---
+
+## Phase Status
+
+Phases 0–4 complete. Phase 5 (plugin API + packaging) is next.
+
+### Done (Phase 4)
+- Session save/load `.kcx`, autosave 2 min, recent files, relink dialog
+- Transport: unified `QLineEdit` 110px fixed, `HH:MM:SS.fff`, `_time_editing` guard
+- Theme: System/Dark/Light radio group in View menu; Ctrl+T cycles; defaults to system
+- Video/channel visibility checkboxes (hide without unloading)
+- A/B loop + region stats in ReadoutPanel
+- Annotations (point + range markers, M key, CSV export)
+- Keyboard shortcuts dialog (`?` key)
+- Snapshot / data slice / video clip export
+- Import wizard (CSV format/TZ/sentinel/euro-decimal) + proxy worker
+- `plot_pane.reset_zoom()` method exists
+
+### Done (Phase 4 UX / loader fixes)
+- **Live scrubbing coalescing**: During slider drag `Player.seek(exact=False)` coalesces in-flight keyframe seeks — if a seek is already dispatched, the newest target is held in `_pending_scrub_t` and flushed in `_on_tick` as soon as `SeekGroup.is_settled()`. Plot cursor and readout panel update every drag event. Exact seek fires on release as before.
+- **Frame-indexed sources (D-019)**: `TimeSeriesSource.is_frame_indexed()` added (default False). `TrackingLoader` overrides to True. Import fps resolution: 1 video → pre-filled confirm; multiple videos → dropdown; no video → manual entry + auto-rebind when first video is added.
+- **NeoLoader.can_open tightening**: `SUPPORTED_EXTENSIONS` whitelist added; `can_open` returns 0.0 immediately for any file not in the whitelist. Never claims `.csv` or acts as a fallback for unknown files.
+
+### Done — Inspection Layer (A–K, D-020)
+- **Source Properties** (A/B): VideoPropertiesPanel (container, codec, profile/pix_fmt,
+  resolution, nominal fps, measured fps, frame count, duration, GOP, decode mode, file size);
+  SensorPropertiesPanel (channels + units, declared/measured rate, sample count, duration,
+  dtype, file size, cache status, gap/NaN/sentinel counts, timestamp format/tz).
+  Collapsible section inside existing VideoInfoWidget / SensorInfoWidget — extend, not parallel.
+- **Load Provenance** (B): loader_id + import_config stored in SourceInspection; persisted to
+  session schema v2; shown in properties panel.
+- **Sync Provenance** (C): metadata start_time and drift_ppm surfaced in VideoPropertiesPanel
+  (set_drift() API); offsets_panel.py left as stub — offset editing stays in
+  VideoInfoWidget.offset_spin (one place only); no duplicate offset UI.
+- **Precision Readouts** (D): ReadoutPanel shows per-channel value + unit + sample index;
+  per-camera frame number and media timestamp below video rows.
+- **Delta Measurement** (E): PlotPane measure markers (right-click Set Measure A/Set Measure B);
+  measure_changed(t_a, t_b) signal; ReadoutPanel shows Δ section with Δt, Δvalue per channel,
+  frames-between per camera. A/B loop in Transport remains loop-only.
+- **Time Display Modes** (F): TimeDisplayMode enum (RELATIVE/UTC/LOCAL_TOD);
+  format_time() in ui/time_format.py; toggle in View menu; persisted in QSettings; all
+  time-displaying widgets subscribe to MainWindow.time_mode_changed(mode).
+- **Import Report** (G): ImportWorker emits SourceInspection with ImportReport (rows_parsed,
+  rows_dropped, gap_count, nan_count, sentinel_count); session schema v2; Report… button →
+  ImportReportDialog.
+- **Integrity Surfacing** (H): IntegrityFlags (vfr, fps_mismatch, has_gaps, drift_nonzero,
+  fps_provisional); WarningBadge on VideoInfoWidget/SensorInfoWidget headers; gap markers
+  (InfiniteLine objects) on existing per-channel coverage_region in PlotPane.
+- **Units Everywhere** (I): SensorInfoWidget channel list shows `name (unit)`; ReadoutPanel
+  _ChannelReadout.set_value(v, unit) appends unit string; VideoInfoWidget shows "fps" / "s" / "MB".
+- **Copy as Text** (J): as_plain_text() + "Copy as text" QPushButton on VideoPropertiesPanel,
+  SensorPropertiesPanel, ImportReportDialog.
+- **Demo Data** (K): extended generate_demo_data.py produces camera_vfr.mp4 (dropped frames),
+  sensors_gaps.csv (gaps/NaN/sentinel), pose.csv (DLC), camera_2.mp4 with +1.234 s offset,
+  non-zero drift on camera_3; launch_demo.py loads them in D-019 rebind-triggering order.
+
+### Pending
+- None from Phase 4. Phase 5 (plugin API + packaging) is next.
+
+### Fixed (this PR — Phase 4 stabilization)
+- Left-pane vertical QSplitter: `_left_splitter` in `main_window.py`; state persisted in QSettings `splitter/left`
+- Reset Zoom: wired to View → Reset Plot Zoom (Ctrl+0), plot toolbar button, shortcuts dialog
+- Bug: `video_grid._panes` → `video_grid.panes` (AttributeError on annotate)
+- Bug: `Any` not imported from `typing` in `main_window.py`
+- Bug: `_start_csv_import` → `_start_data_import` (AttributeError on session restore with sensors)
+- Bug: `_update_window_title()` called but never defined — removed phantom call in `_on_channel_remove_requested`
+
+### Pre-existing mypy errors (suppressed in pyproject.toml — cleanup is a separate task)
+10 modules have `ignore_errors = true` in `[[tool.mypy.overrides]]`:
+`ui/transport` (11), `ui/sidebar` (11), `ui/relink_dialog` (2), `ui/diagnostics` (10),
+`ui/video_pane` (25+), `ui/readout_panel` (1), `ui/video_grid` (1),
+`engine/export` (6), `loaders/neo_loader` (1), `loaders/csv_loader` (1) — total ~75 errors.
+
+---
+
+## Module Map
+
+| File | Responsibility | Key API |
+|---|---|---|
+| `core/timeline.py` | Single master clock — HEADLESS, no PySide6 | `MasterClock`, `TimeMap`, `ClockState` |
+| `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
+| `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
+| `core/source.py` | Plugin ABCs — frozen API | `TimeSeriesSource`, `VideoSource` |
+| `core/session.py` | `.kcx` session JSON, schema v2 | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry` |
+| `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
+| `engine/player.py` | 60 Hz QTimer tick; MasterClock ↔ mpv ↔ UI | `Player.seek()`, `.set_playing()`, `.step_frame()` |
+| `engine/seeker.py` | Parallel seek across all mpv panes | `SeekGroup` |
+| `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
+| `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
+| `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
+| `ui/main_window.py` | Top-level; wires all signals; session lifecycle; `_inspections` dict | `MainWindow` |
+| `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane` |
+| `ui/video_grid.py` | N VideoPanes; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `set_grid_mode()` |
+| `ui/plot_pane.py` | pyqtgraph multi-row plot; pyramid-fed; X-linked; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
+| `ui/transport.py` | Transport bar + scrub slider + A/B loop; time via `format_time()` | `set_time()`, `set_bounds()`, `set_playing()`, `set_time_mode()` |
+| `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
+| `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
+| `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |
+| `ui/time_format.py` | TimeDisplayMode enum + format_time() — single formatting authority (D-020) | `TimeDisplayMode`, `format_time()` |
+| `ui/offsets_panel.py` | Stub — offset editing stays in `VideoInfoWidget.offset_spin`; not filled by D-020 | — |
+| `ui/readout_panel.py` | Live per-channel values + units + sample index + Δ section | `update_sources()`, `set_cursor()`, `show_region_stats()`, `show_delta()` |
+| `ui/annotations.py` | Annotation store + list panel | `AnnotationStore`, `AnnotationPanel` |
+| `ui/theme.py` | QPalette + QSS; system/dark/light | `apply_theme()`, `load_saved_theme()`, `current_preference()`, `THEME_SYSTEM/DARK/LIGHT` |
+| `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
+| `ui/diagnostics.py` | Startup probe (hw-decode, disk speed) — async daemon thread | `run_startup_diagnostics()` |
+| `loaders/csv_loader.py` | polars CSV ingest; epoch/time-of-day/datetime, euro-decimal, sentinel, BOM | `CSVLoader` |
+| `loaders/tracking_loader.py` | DeepLabCut CSV loader; multi-scorer; flat-headers per bodypart/coord | `TrackingLoader` |
+| `loaders/neo_loader.py` | Neo electrophysiology (OpenEphys/NCS/NIX); BFS dataset root detection; extension whitelist via `SUPPORTED_EXTENSIONS` | `NeoLoader` |
+
+---
+
+## Architecture Rules (violations = rejected PR)
+
+1. Single master clock in `core/timeline.py`. UI and sources NEVER keep independent time state.
+2. `core/` is headless — importing it must not import PySide6. Enforced by test.
+3. UI thread never blocks. Any operation >30ms gets a worker thread + progress signal.
+4. Plotting only via decimation pyramid. Never pass raw full-resolution arrays >100k samples to pyqtgraph.
+5. All data sources go through plugin ABCs in `core/source.py`. No format special-casing in UI code.
+6. Sync correctness beats frame completeness. Drop frames, never drift. Paused/stepping: exact seeks only.
+7. Text data parsed once → binary sidecar cache, mmap-read afterwards.
+8. No GPL/AGPL dependencies. New dep requires license named in PR + pip-installable on all 3 OSes.
+9. No module >~500 lines; no function >~60 lines. Errors: typed exceptions from `core/errors.py`. Never `except Exception: pass`.
+
+---
+
+## Signal Wiring Map
+
+All connections established in `MainWindow.__init__` unless noted.
+
+### Sidebar → MainWindow → subsystems
+
+| Signal | Handler / Target |
+|---|---|
+| `sidebar.open_video_requested` | `_open_video()` |
+| `sidebar.open_sensor_requested` | `_open_data()` |
+| `sidebar.video_offset_changed(path, offset)` | `_on_video_offset_changed` → `video_grid.set_offset` |
+| `sidebar.video_remove_requested(path)` | `_on_video_remove_requested` → `video_grid.remove_pane` + `sidebar.remove_video` |
+| `sidebar.video_visibility_changed(path, bool)` | `video_grid.set_pane_visible` (direct) |
+| `sidebar.sensor_remove_requested(path)` | `_on_sensor_remove_requested` → `plot_pane.remove_channels` + `sidebar.remove_sensor` |
+| `sidebar.channel_remove_requested(path, ch)` | `_on_channel_remove_requested` → `plot_pane.remove_channel(ch)` |
+| `sidebar.channel_visibility_changed(path, ch, bool)` | `_on_channel_visibility_changed` → `plot_pane.set_channel_visible(ch, bool)` |
+| `sidebar.grid_mode_changed(bool)` | `video_grid.set_grid_mode` (direct) |
+
+### Transport → Player → subsystems
+
+| Signal | Handler |
+|---|---|
+| `transport.play_toggled(bool)` | `player.set_playing(bool)` |
+| `transport.seek_requested(t, exact)` | `player.seek(t, exact)` |
+| `transport.rate_changed(float)` | `player.set_rate(float)` |
+| `transport.frame_step_requested(int)` | `player.step_frame(int)` |
+| `transport.ab_loop_changed(t_in, t_out)` | `player.set_ab_loop` AND `_on_ab_loop_changed` (readout stats) |
+| `transport.annotate_requested` | `_on_annotate_requested()` |
+
+### PlotPane / Player → downstream
+
+| Source | Target |
+|---|---|
+| `plot_pane.sources_changed(readers)` | `readout_panel.update_sources` + `video_grid.set_tracking_readers` |
+| `plot_pane.measure_changed(t_a, t_b)` | `readout_panel.show_delta(t_a, t_b, panes)` |
+| `player._on_tick()` — direct calls | `plot_pane.set_cursor(t)`, `transport.set_time(t)`, `readout_panel.set_cursor(t)` via `player._readout_panel` attr |
+
+### Time display mode (D-020)
+
+| Signal | Handler / Target |
+|---|---|
+| `MainWindow.time_mode_changed(mode)` | `transport.set_time_mode(mode)`, `readout_panel.set_time_mode(mode)`, all properties panels |
+| View menu "Time: Relative / UTC / Local" | `MainWindow._on_time_mode_action(mode)` → persists to QSettings, emits `time_mode_changed` |
+
+### Source properties + integrity (D-020)
+
+| Signal | Handler / Target |
+|---|---|
+| `VideoInfoWidget.badge_clicked(path)` | `MainWindow._show_video_properties(path)` → shows VideoPropertiesPanel |
+| `SensorInfoWidget.badge_clicked(path)` | `MainWindow._show_sensor_properties(path)` → shows SensorPropertiesPanel |
+| `SensorInfoWidget.report_requested(path)` | `MainWindow._show_import_report(path)` → ImportReportDialog |
+| `VideoPropertiesPanel.copy_requested` | copies `as_plain_text()` to clipboard |
+| `SensorPropertiesPanel.copy_requested` | copies `as_plain_text()` to clipboard |
+
+### Import pipeline (updated, D-020)
+
+```
+_start_data_import(path)
+  → ImportWizard.exec()          # CSV only; returns config dict
+  → ImportWorker (QThread)        # now also builds ImportReport + IntegrityFlags
+      finished(path, cache_dir, channels, bounds, inspection: SourceInspection)
+        → plot_pane.load_channels(cache_dir, channels)
+        → _update_bounds(t0, t1)
+        → sidebar.add_sensor(path, channels)
+        → sidebar.set_sensor_inspection(path, inspection)   # populates badge
+        → MainWindow._inspections[path] = inspection        # persisted to session v2
+```
+
+---
+
+## Known Traps
+
+### 1. No bare `QWidget { }` QSS selector — blacks out video panes
+`QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  
+**Fix:** Use QPalette for all base widget colors. QSS only for sliders, scrollbars, group boxes, header sections, progress bars. `ui/theme.py` — neither `_DARK_QSS` nor `_LIGHT_QSS` contains a bare `QWidget` selector.
+
+### 2. `setParent(None)` makes a widget a popup window
+Detaches the widget from its parent, promoting it to a standalone window with its own frame.  
+**Fix:** To remove from a layout without destroying: `layout.takeAt(index)` + `widget.hide()`. To destroy: `widget.deleteLater()`. See `VideoGrid._relayout()` — uses `takeAt(0)` in a loop, never `setParent`.
+
+### 3. `setLayout()` silently fails if layout already exists
+A second `setLayout()` call on a QWidget that has a layout is silently ignored.  
+**Fix:** Build the layout once in `__init__`, never reassign. Use a child container widget if a different structure is needed.
+
+### 4. LC_NUMERIC must be 'C' after Qt import, before mpv
+Qt stomps LC_NUMERIC on import. libmpv uses it to parse float seeks and options. In decimal-comma locales, `1.5` becomes `1`.  
+**Fix:** `locale.setlocale(locale.LC_NUMERIC, 'C')` in the entry point, after Qt imports, before the first `mpv.MPV()`.
+
+### 5. Never import mpv at module top level (D-013)
+Top-level `import mpv` causes a ctypes crash before any UI renders when libmpv is missing.  
+**Fix:** Lazy import inside a function/method only, after startup diagnostics confirm libmpv is present.
+
+### 6. Video pane needs `WA_StyledBackground = False`
+Without it, ancestor QSS may bleed through and paint over the OpenGL surface even when no bare `QWidget` selector exists.  
+**Fix:** `VideoPane` and `MpvGLWidget` both call `setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)` in `__init__`. Do not remove these.
+
+### 7. Drive MasterClock from `time.monotonic()` — never accumulate timer intervals
+QTimer fires late under UI load. Accumulating the interval leads to drift.  
+**Fix:** `delta = now - self._last_tick_monotonic` where `now = time.monotonic()`.
+
+### 8. Drift correction needs hysteresis (5 consecutive ticks)
+Seeking on every off-target tick causes stutter cascades.  
+**Fix:** Player uses `_drift_counts` dict; re-seeks only after 5 consecutive ticks >40ms drift per pane, then resets the counter.
+
+### 9. polars `read_csv` type inference flips per-chunk
+Without an explicit schema, the timestamp column type can change between chunks.  
+**Fix:** `CSVLoader` always passes an explicit dtype for the time column.
+
+### 10. `python-mpv` (PyPI) ≠ `mpv` (PyPI)
+The correct dependency is `python-mpv` on PyPI, imported as `import mpv`. The package named `mpv` on PyPI is a different unrelated project (D-017).
+
+### 12. ruff `line-length = 100` — IDE diagnostics at 79 chars are false positives
+`pyproject.toml` sets `line-length = 100`. Editor/Pylance red-underline at 79 chars is wrong.
+Only `conda run -n kinochronix ruff check .` is authoritative.
+
+### 13. `_load_level()` on PyramidReader is private — do not call outside ReadoutPanel
+`ReadoutPanel.set_cursor` calls `reader._load_level(1)` directly because the public API
+`query()` and `value_at()` involve unnecessary range arguments for the nearest-sample use case.
+This is a known coupling. If PyramidReader grows a public `nearest(t)` method, migrate ReadoutPanel.
+
+### 14. Session v1 → v2 migration: SensorEntry / VideoEntry gain new optional fields
+`SourceInspection` data is stored as dict in SensorEntry. When loading a v1 session, these fields
+are absent — callers must use `.get()` with defaults, never `entry["inspection"]` (KeyError).
+`_inspections` dict in MainWindow may be empty for v1-loaded sources — properties panels must
+handle None inspection gracefully (show "—" for all stats).
+
+### 15. Never cache time→pixel positions; map from current geometry at paint time
+Overlay widgets (e.g. A/B pins) positioned with `setGeometry()` at event time hold stale pixel
+coordinates after the parent is resized. The time→pixel mapping must be a pure function of
+`(t, bounds, current groove rect)` called on every resize, not once at pin-set time.  
+**Fix:** `Transport.resizeEvent` calls `_repin()`, which recomputes each visible pin's position
+from the stored time via `_time_to_frac(t)` + `_ABPin.pin_to_slider()` using
+`QStyle.subControlRect(SC_SliderGroove)` against the live slider geometry.  
+pyqtgraph gap/measure markers (`pg.InfiniteLine`) are safe — pyqtgraph remaps data coordinates
+to pixels via the ViewBox transform on every paint call; no cached pixel positions exist.
+
+### 11. Annotation label edits via `markers` property are silently discarded
+`AnnotationStore.markers` returns `list(self._markers)` — a copy. Edits to the copy are lost.  
+**Fix:** Access `self._markers` directly when mutating. See `annotations.py:_on_label_edited`.
+
+### 16. `type: ignore` is never a shipping mechanism
+Silencing a type checker to work around a known crash is forbidden. Only two legitimate uses:
+1. **Genuine mypy limitation** — e.g. `**dict[str, object]` unpacking where the dict structure
+   is guaranteed by the caller but mypy can't prove it.
+2. **Missing third-party stubs** — e.g. an untyped PyPI package with no `py.typed` marker.
+
+In both cases: document the reason in the comment, not just the suppression. Example:
+```python
+# type: ignore[arg-type]  # dict[str,object] from our own serializer; shape guaranteed
+```
+A `# TODO: fix later` comment next to `# type: ignore` is a red flag — stop and fix it now.
+
+**Trap that was caught (D-021):** `_on_annotate_requested` accessed `pane.time_map.path`
+which was guarded with `# type: ignore[attr-defined]`. TimeMap has no `.path` attribute.
+The crash was real, committed, and silently shipping. Fix: `video_grid.frame_records_at()`
+is the single authority for frame computation; MainWindow never reaches into pane internals.
+
+### 17. Annotation schema (v3) — per-video frame records
+
+**`Marker` (in-memory):**
+```python
+@dataclasses.dataclass
+class VideoFrame:
+    path: str
+    frame_index: int
+    media_timestamp: float
+
+@dataclasses.dataclass
+class Marker:
+    t_start: float
+    t_end: float | None
+    label: str
+    color: str
+    video_frames: list[VideoFrame]  # one entry per loaded video at mark time
+```
+
+**`MarkerEntry` (session file, v3):**
+```json
+{
+  "t_start": 1.5, "t_end": null, "label": "stance",
+  "video_frames": [
+    {"path": "/cam/left.mp4", "frame_index": 45, "media_timestamp": 1.5}
+  ]
+}
+```
+
+**Schema versions:**
+- v1: `{t_start, t_end, label}` — no video_frames  
+- v2: same marker schema as v1  
+- v3: adds `video_frames: []` to each marker (defaults to `[]` when loading v1/v2)
+
+**Single authority:** `VideoGrid.frame_records_at(t_master)` computes per-pane records.
+MainWindow calls it and converts to `VideoFrame` objects — no fps/time_map logic anywhere else.
+
+**Export CSV** (`export_csv(path)`) writes one row per (marker × video):
+`label, comment, t_master, video_path, frame_index, media_timestamp`
+Plain CSV for DLC/LightningPose retraining pipelines.
+
+---
+
+## Run Commands
+
+```bash
+# Install
+conda run -n kinochronix pip install -e .[dev]
+
+# Run the app
+conda run -n kinochronix kinochronix
+
+# Run with sample data
+conda run -n kinochronix kinochronix open tests/fixtures/sample_session/
+
+# Generate test fixtures (needs ffmpeg in PATH)
+conda run -n kinochronix python tools/make_fixtures.py
+
+# Tests (offscreen)
+QT_QPA_PLATFORM=offscreen conda run -n kinochronix pytest -x -q
+
+# Lint + format
+conda run -n kinochronix ruff check --fix . && conda run -n kinochronix ruff format .
+
+# Type check
+conda run -n kinochronix mypy src/kinochronix/core/
+
+# Performance benchmarks
+QT_QPA_PLATFORM=offscreen conda run -n kinochronix pytest --benchmark-only
+```
+
+---
+
+## Performance Budgets (CI-enforced where ★)
+
+| Metric | Budget |
+|---|---|
+| Scrub response (3 cams, exact seek) | ≤ 250 ms |
+| Plot pan/zoom frame time ★ | ≤ 16 ms |
+| Cursor update per tick ★ | ≤ 2 ms |
+| Cached session open (3 cams + 4×50 kHz) | ≤ 3 s |
+| First CSV import 1 GB | ≤ 60 s |
+| Pyramid build 180 M samples ★ | ≤ 2 s |
+| Idle RAM, session loaded | ≤ 2.5 GB |

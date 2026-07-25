@@ -23,14 +23,17 @@ class TrackingLoader(TimeSeriesSource):
         self._cache_dir: Path | None = None
         self._flat_headers: list[str] = []
 
+    def is_frame_indexed(self) -> bool:
+        return True
+
     @classmethod
     def can_open(cls, path: Path) -> float:
         suffix = path.suffix.lower()
         if suffix not in [".csv"]:
             return 0.0
-            
+
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 line1 = f.readline().strip()
                 line2 = f.readline().strip()
                 # Check for DLC/LP multi-index signatures
@@ -38,7 +41,7 @@ class TrackingLoader(TimeSeriesSource):
                     return 1.0
         except Exception:
             pass
-            
+
         return 0.0
 
     def open(self, path: Path, config: dict[str, Any]) -> None:
@@ -47,14 +50,14 @@ class TrackingLoader(TimeSeriesSource):
         self._cache_dir = path.with_name(path.name + ".kcache")
 
         # Read the first 3 rows to build flattened headers
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             scorers = f.readline().strip().split(",")
             bodyparts = f.readline().strip().split(",")
             coords = f.readline().strip().split(",")
-            
+
         # The first column is usually the frame index (scorer="")
         self._flat_headers = []
-        for s, b, c in zip(scorers, bodyparts, coords):
+        for s, b, c in zip(scorers, bodyparts, coords, strict=False):
             if s == "scorer" or b == "bodyparts":
                 self._flat_headers.append("frame_index")
             else:
@@ -72,18 +75,19 @@ class TrackingLoader(TimeSeriesSource):
         # Get true time bounds from the whole file using lazy execution
         # We skip the 3 header rows and name the columns directly
         fps = float(config.get("fps", 30.0))
-        
-        lazy_df = pl.scan_csv(
-            path, skip_rows=3, has_header=False, new_columns=self._flat_headers
-        )
-        
+
+        lazy_df = pl.scan_csv(path, skip_rows=3, has_header=False, new_columns=self._flat_headers)
+
         t_first_last = lazy_df.select(
-            [pl.col("frame_index").first().alias("first"), pl.col("frame_index").last().alias("last")]
+            [
+                pl.col("frame_index").first().alias("first"),
+                pl.col("frame_index").last().alias("last"),
+            ]
         ).collect()
 
         first_frame = float(t_first_last["first"][0])
         last_frame = float(t_first_last["last"][0])
-        
+
         self._time_bounds = (first_frame / fps, last_frame / fps)
 
     def channels(self) -> list[ChannelInfo]:

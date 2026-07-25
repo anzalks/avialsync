@@ -20,9 +20,9 @@ class CacheManager:
     def _hash_file_edges(self, path: Path) -> str:
         """Hash the first and last 64KB of the file."""
         if path.is_dir():
-            # For directories, edge hashing is not applicable. The cache key 
+            # For directories, edge hashing is not applicable. The cache key
             # will rely on the directory's mtime and size in generate_key.
-            return xxhash.xxh64(str(path.absolute()).encode('utf-8')).hexdigest()
+            return xxhash.xxh64(str(path.absolute()).encode("utf-8")).hexdigest()
 
         size = path.stat().st_size
         chunk_size = 64 * 1024

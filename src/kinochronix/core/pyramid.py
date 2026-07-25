@@ -170,19 +170,19 @@ class PyramidReader:
             return float("nan")
 
         idx = np.searchsorted(t, t_target)
-        
+
         if idx == len(t):
             return float("nan") if t_target - t[-1] > 0.1 else float(vmin[-1])
-            
+
         if t[idx] == t_target:
             return float(vmin[idx]) if not gap[idx] else float("nan")
-            
+
         if idx == 0:
             return float("nan") if t[0] - t_target > 0.1 else float(vmin[0])
-            
+
         left_idx = idx - 1
         right_idx = idx
-        
+
         if (t_target - t[left_idx]) <= (t[right_idx] - t_target):
             return float(vmin[left_idx]) if not gap[left_idx] else float("nan")
         else:

@@ -2,6 +2,7 @@
 
 import math
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
@@ -37,6 +38,30 @@ class VideoGrid(QWidget):
         self._layout.addWidget(self.lbl_empty, 0, 0)
 
     # ── Public API ────────────────────────────────────────────────────
+
+    def pane_paths(self) -> list[str]:
+        """Return a copy of the loaded video paths, parallel to self.panes."""
+        return list(self._paths)
+
+    def frame_records_at(self, t_master: float) -> list[dict[str, Any]]:
+        """Return per-video frame records at *t_master* for annotation storage.
+
+        Each record: {"path": str, "frame_index": int, "media_timestamp": float}.
+        This is the single authority for frame computation — main_window and
+        tests must call this rather than replicating the fps/time_map logic.
+        """
+        records: list[dict[str, Any]] = []
+        for path, pane in zip(self._paths, self.panes, strict=False):
+            t_video: float = pane.time_map.to_source(t_master)
+            fps: float = float(getattr(pane, "_fps", 0.0) or 0.0)
+            if fps <= 0.0:
+                mpv = getattr(pane, "mpv", None)
+                fps = float(getattr(mpv, "estimated_vf_fps", 0.0) or 30.0) if mpv else 30.0
+            frame_index = max(0, int(t_video * fps))
+            records.append(
+                {"path": path, "frame_index": frame_index, "media_timestamp": t_video}
+            )
+        return records
 
     def set_tracking_readers(self, readers: list) -> None:
         """Pass tracking data readers to all video panes for overlay rendering."""
@@ -125,10 +150,7 @@ class VideoGrid(QWidget):
         self.lbl_empty.setVisible(False)
 
         # ── Fullscreen override ──────────────────────────────────
-        if (
-            self._fullscreen_pane
-            and self._fullscreen_pane in self.panes
-        ):
+        if self._fullscreen_pane and self._fullscreen_pane in self.panes:
             for pane in self.panes:
                 pane.setVisible(pane is self._fullscreen_pane)
             self._layout.addWidget(self._fullscreen_pane, 0, 0)

@@ -28,6 +28,8 @@ jobs:
         run: ruff format --check .
       - name: Mypy Core
         run: mypy src/kinochronix/core
+      - name: Mypy All (standard mode; pre-existing errors suppressed in pyproject.toml)
+        run: mypy src/kinochronix
 
   test:
     name: Test ${{ matrix.os }} - Python ${{ matrix.python-version }}
