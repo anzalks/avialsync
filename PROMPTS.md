@@ -131,7 +131,8 @@ and one failure path. Update docs/user-guide stub. Keyboard-first where sensible
 ## Phase 6 prompts
 
 - **P6.1 Coverage & polish**: "Raise coverage to targets (TESTING §1); fix all mypy strict on
-  core; triage TODOs into issues." 
+  core; triage TODOs into issues. Implement the D-027 Timeline Evidence contract from
+  ARCHITECTURE §2b with pytest-qt coverage, preserving the ≤2 ms cursor path."
 - **P6.2 Community**: "CONTRIBUTING.md, CODE_OF_CONDUCT.md, issue/PR templates, 10 good-first-
   issues drafted from the backlog, README with GIF placeholders and feature matrix vs
   PlotJuggler/Rerun/Foxglove (factual, respectful)."

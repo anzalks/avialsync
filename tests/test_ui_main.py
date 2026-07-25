@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QThread, QUrl, Signal, Slot
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QSplitter
 
 from kinochronix.core.session import SensorEntry, SessionState
 from kinochronix.core.sync import SyncFit, SyncMatch, SyncProposal
@@ -32,6 +32,17 @@ def main_window(qapp: QApplication) -> MainWindow:
 def test_annotate_no_attribute_error(main_window: MainWindow) -> None:
     """_on_annotate_requested must not raise with zero videos loaded."""
     main_window._on_annotate_requested()
+
+
+def test_data_streams_uses_the_video_plot_native_splitter_style(
+    main_window: MainWindow,
+) -> None:
+    """Plots and Data Streams share the same native vertical splitter treatment."""
+    assert isinstance(main_window._content_splitter, QSplitter)
+    assert main_window._content_splitter.widget(0) is main_window._v_splitter
+    assert main_window._content_splitter.widget(1) is main_window.data_streams
+    assert main_window._content_splitter.handle(1).isVisible()
+    assert main_window.transport.parentWidget() is not main_window._content_splitter
 
 
 def test_annotate_with_pane_present_no_error(main_window: MainWindow) -> None:
@@ -103,7 +114,7 @@ def test_programmatic_import_completion_needs_no_progress_dialog(
         SourceInspection(path="demo.csv"),
     )
 
-    assert main_window.transport._status_label.text() == "Ready · imported demo.csv"
+    assert main_window.data_streams._status_label.text() == "Status: Ready · imported demo.csv"
 
 
 # ── Bug b: _start_csv_import → _start_data_import ────────────────────
@@ -252,6 +263,48 @@ def test_drop_real_video_completes_async_open(
     assert str(video) in main_window._video_fps
     assert widget_threads == [True]
     pane.set_vfr.assert_called_once_with(False)
+
+
+def test_video_sidebar_summary_receives_probed_codec(
+    main_window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A successfully probed video must not fall back to UNKNOWN in the sidebar."""
+    from unittest.mock import MagicMock
+
+    from kinochronix.loaders.video_standard import VideoStandardLoader
+
+    loader = VideoStandardLoader()
+    loader._codec = "h264"
+    loader._duration = 10.0
+    loader._fps = 30.0
+    pane = MagicMock()
+    metadata: dict[str, object] = {}
+    monkeypatch.setattr(main_window.video_grid, "add_pane", lambda *_args, **_kwargs: pane)
+    monkeypatch.setattr(
+        main_window.sidebar,
+        "add_video",
+        lambda _path, values: metadata.update(values),
+    )
+    monkeypatch.setattr(main_window.sidebar, "set_video_loader", lambda *_args: None)
+    monkeypatch.setattr(main_window.sidebar, "set_video_pane", lambda *_args: None)
+    monkeypatch.setattr(main_window.sidebar, "set_video_inspection", lambda *_args: None)
+    monkeypatch.setattr(main_window, "_update_bounds", lambda *_args: None)
+
+    main_window._on_video_opened("camera.mp4", loader, "camera.mp4")
+
+    assert metadata["codec"] == "h264"
+
+
+def test_video_coverage_is_projected_onto_master_time(main_window: MainWindow, monkeypatch) -> None:
+    """Evidence spans must reflect source offset/drift, never raw media time."""
+    from unittest.mock import MagicMock
+
+    coverage = MagicMock()
+    monkeypatch.setattr(main_window.transport, "set_source_coverage", coverage)
+
+    main_window._set_video_coverage("camera.mp4", (0.0, 10.0), offset=1.0, drift_ppm=0.0)
+
+    coverage.assert_called_once_with("camera.mp4", -1.0, 9.0, "video")
 
 
 def test_real_drop_event_routes_sensor_file(

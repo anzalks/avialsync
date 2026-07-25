@@ -27,7 +27,7 @@ from kinochronix.core.session import (
     get_recent,
 )
 from kinochronix.core.source import TimeSeriesSource, VideoSource
-from kinochronix.core.timeline import MasterClock
+from kinochronix.core.timeline import MasterClock, TimeMap
 from kinochronix.engine.player import Player
 from kinochronix.ui.annotations import AnnotationPanel, AnnotationStore
 from kinochronix.ui.plot_pane import PlotPane
@@ -57,8 +57,10 @@ class MainWindow(QMainWindow):
         self._video_load_offsets: dict[str, float] = {}
         self._video_load_drifts: dict[str, float] = {}
         self._video_frame_times: dict[str, Any] = {}
+        self._video_source_bounds: dict[str, tuple[float, float]] = {}
+        self._video_time_mappings: dict[str, tuple[float, float]] = {}
         self._sync_provenance: list[SyncProvenance] = []
-        self._overview_gaps: set[float] = set()
+        self._overview_gaps: dict[float, str] = {}
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
         self._frame_indexed_sources: list[tuple[Path, float]] = []
         # Inspection data keyed by str(path)
@@ -74,6 +76,7 @@ class MainWindow(QMainWindow):
         self.video_grid = VideoGrid(self)
         self.plot_pane = PlotPane(self)
         self.transport = Transport(self)
+        self.data_streams = self.transport.detach_data_streams()
         self.transport.reset_zoom_requested.connect(self.plot_pane.reset_zoom)
 
         # Engine
@@ -146,7 +149,13 @@ class MainWindow(QMainWindow):
         v_splitter.setStretchFactor(1, 1)
         self._v_splitter = v_splitter
 
-        right_layout.addWidget(v_splitter)
+        self._content_splitter = QSplitter(Qt.Orientation.Vertical)
+        self._content_splitter.setAccessibleName("Video, plots, and Data Streams splitter")
+        self._content_splitter.addWidget(v_splitter)
+        self._content_splitter.addWidget(self.data_streams)
+        self._content_splitter.setStretchFactor(0, 4)
+        self._content_splitter.setStretchFactor(1, 1)
+        right_layout.addWidget(self._content_splitter)
         right_layout.addWidget(self.transport)
 
         h_splitter.addWidget(right_widget)
@@ -289,6 +298,9 @@ class MainWindow(QMainWindow):
         v_state = settings.value("splitter/vertical")
         if v_state:
             self._v_splitter.restoreState(v_state)
+        content_state = settings.value("splitter/content")
+        if content_state:
+            self._content_splitter.restoreState(content_state)
         left_state = settings.value("splitter/left")
         if left_state:
             self._left_splitter.restoreState(left_state)
@@ -304,6 +316,7 @@ class MainWindow(QMainWindow):
             "splitter/vertical",
             self._v_splitter.saveState(),
         )
+        settings.setValue("splitter/content", self._content_splitter.saveState())
         settings.setValue("splitter/left", self._left_splitter.saveState())
 
     # ── Session save / load ──────────────────────────────────────────
@@ -1333,6 +1346,24 @@ class MainWindow(QMainWindow):
         thread.finished.connect(self._on_video_thread_finished)
         thread.start()
 
+    def _set_video_coverage(
+        self,
+        path: str,
+        source_bounds: tuple[float, float],
+        offset: float,
+        drift_ppm: float,
+    ) -> None:
+        """Project media bounds through its TimeMap before drawing master-time coverage."""
+        mapping = TimeMap(offset, drift_ppm)
+        master_bounds = (
+            mapping.to_master(source_bounds[0]),
+            mapping.to_master(source_bounds[1]),
+        )
+        self._video_source_bounds[path] = source_bounds
+        self._video_time_mappings[path] = (offset, drift_ppm)
+        self._update_bounds(*master_bounds)
+        self.transport.set_source_coverage(path, *master_bounds, "video")
+
     @Slot(str, object, str)
     def _on_video_opened(self, original_path: str, loader: object, media_path: str) -> None:
         """Create UI state only after asynchronous source opening succeeds."""
@@ -1342,10 +1373,13 @@ class MainWindow(QMainWindow):
             self._on_video_open_error(original_path, "Selected loader is not a VideoSource.")
             return
         bounds = loader.time_bounds()
-        self._update_bounds(*bounds)
-        self.transport.set_source_coverage(original_path, bounds[0], bounds[1], "video")
+        self._set_video_coverage(original_path, bounds, offset, drift_ppm)
         pane = self.video_grid.add_pane(original_path, media_path=media_path)
-        metadata = {"fps": loader.fps(), "duration": bounds[1] - bounds[0]}
+        metadata = {
+            "codec": getattr(loader, "_codec", "unknown"),
+            "fps": loader.fps(),
+            "duration": bounds[1] - bounds[0],
+        }
         self.sidebar.add_video(original_path, metadata)
         self.sidebar.set_video_loader(original_path, loader)
         self.sidebar.set_video_pane(original_path, pane)
@@ -1390,6 +1424,9 @@ class MainWindow(QMainWindow):
 
     def _on_video_offset_changed(self, path: str, offset: float) -> None:
         self.video_grid.set_offset(path, offset)
+        if path in self._video_source_bounds:
+            _, drift_ppm = self._video_time_mappings.get(path, (0.0, 0.0))
+            self._set_video_coverage(path, self._video_source_bounds[path], offset, drift_ppm)
         self.clock.play()
         self.clock.pause()
 
@@ -1434,6 +1471,13 @@ class MainWindow(QMainWindow):
 
         fit = proposal.fit
         self.video_grid.set_sync_mapping(target_path, fit.offset, fit.drift_ppm)
+        if target_path in self._video_source_bounds:
+            self._set_video_coverage(
+                target_path,
+                self._video_source_bounds[target_path],
+                fit.offset,
+                fit.drift_ppm,
+            )
         provenance = SyncProvenance(
             reference_id=proposal.reference_id,
             target_id=target_path,
@@ -1460,7 +1504,15 @@ class MainWindow(QMainWindow):
         self.transport.set_status(
             f"TTL aligned · {fit.max_residual * 1000:.3f} ms residual", "info"
         )
-        self.transport.set_ttl_events([match.reference_time for match in proposal.matches])
+        self.transport.set_ttl_events(
+            [
+                (
+                    match.reference_time,
+                    f"Target: {Path(target_path).name} · residual: {match.residual * 1000:.3f} ms",
+                )
+                for match in proposal.matches
+            ]
+        )
         self.statusBar().showMessage(
             f"Accepted TTL/event alignment for {Path(target_path).name}: "
             f"{fit.max_residual * 1000:.3f} ms maximum residual.",
@@ -1663,8 +1715,10 @@ class MainWindow(QMainWindow):
             rep = inspection.import_report
             if rep and rep.gap_locations:
                 gap_times = list(rep.gap_locations)
-                self._overview_gaps.update(gap_times)
-                self.transport.set_gap_events(sorted(self._overview_gaps))
+                self._overview_gaps.update(
+                    {time: f"Source: {Path(path).name}" for time in gap_times}
+                )
+                self.transport.set_gap_events(sorted(self._overview_gaps.items()))
                 for ch in channels:
                     self.plot_pane.set_gap_markers(ch, gap_times)
         self.transport.set_status(f"Ready · imported {Path(path).name}")

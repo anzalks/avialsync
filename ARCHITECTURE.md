@@ -52,7 +52,7 @@ kinochronix/                          # repo root = GitHub repo `kinochronix`
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
 │   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
-│   │   ├── transport.py              # two-row timeline + evidence overview, controls, status, A/B loop
+│   │   ├── transport.py              # two-row timeline + named evidence lanes, controls, status, A/B loop
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
 │   │   ├── sync_wizard.py            # evidence selection, residual preview, explicit acceptance (D-026)
 │   │   ├── offsets_panel.py          # per-source offset + drift ppm, live preview (D-020)
@@ -140,6 +140,50 @@ flat at repo root so every model finds them without searching. Dependency direct
 
 Time series never "play": plots render pyramid slices for the visible window; only the playhead
 line moves per tick (≤ 2 ms budget).
+
+### 2b. Timeline Evidence overview (D-027)
+
+The full-width lanes above the master seek row form a **Data Streams** view, not an unlabeled
+decoration. It gives visual-inspection users a concise account of what exists on the shared master
+timeline without replacing the plot, sidebar, or synchronization wizard.
+
+```
+Data Streams               [Hide] [Flag Frame]                 [Snapshot] [Fullscreen Toggle] [Reset Zoom] [Status: …]
+source labels │ ━ video / data spans (one named row per visible source group)
+Sync / TTL     │ accepted paired-event ticks only
+Data gaps      │ imported discontinuities only
+Annotations    │ point and range markers only
+               ─────────────────────────────────────────── playhead
+══════════════ native splitter handle ══════════════
+playhead controls · time ───── master seek bar ───── end · A/B · Speed [selector]
+```
+
+**Presentation contract:**
+
+- The title is exactly **Data Streams**. Hide and **Flag Frame** sit beside it; Snapshot, **Fullscreen Toggle**,
+  and Reset Zoom sit at the far right of the same header, followed by compact status text. Busy status remains visible;
+  ordinary completion/status messages clear after a short delay. Each visible lane has a text label and an accessible name;
+  colour is supporting information, never the only meaning. Do not print a long inline list of all
+  source names in the header.
+- Lanes are conditional: do not show Sync / TTL until accepted synchronization evidence exists, or
+  Gaps / Annotations until those objects exist. Coverage remains visible whenever sources are loaded.
+- A fixed source-label gutter keeps every source name clear of the timeline. Coverage is clipped to
+  the timeline area to its right: a source spanning negative master time begins at that common edge,
+  while a later source remains blank until its actual start. An event
+  hover/focus card reports type, source(s), master timestamp, and, for accepted sync evidence, the
+  match/provenance identity. Clicking any location seeks the master clock; it never changes a mapping.
+- Native vertical splitter handles, matching the video/plot boundary, distinguish plots from Data
+  Streams and Data Streams from the seek/transport section. Those handles resize the overview; a
+  collapse button preserves a minimal title row. Expanded/collapsed state is a QSettings view preference,
+  not scientific session data.
+- The view consumes existing UI-side inspection/synchronization/annotation state. `core/` stays
+  headless and owns no colours, widget geometry, or tooltip strings.
+- Rendering is bounded: coverage is precomputed spans, and dense event sequences are bucketed to
+  display pixels before paint. Master-clock ticks may move only the playhead; they must not scan all
+  events. The cursor-path budget remains ≤2 ms.
+
+This view is explanatory evidence, not analysis: it must faithfully surface accepted provenance and
+raw import facts, and it must never infer synchronization or hide rejected/ambiguous evidence.
 
 ### 2a. Synchronization dataflow (D-026)
 
@@ -252,6 +296,10 @@ Stores: source list (path, loader id, loader config, offset, drift, proxy path),
 alignment is accepted—synchronization provenance (evidence summary, matching settings, residuals,
 confidence, and the accepted mapping).
 Paths stored relative to session file when possible, absolute fallback.
+
+Timeline Evidence splitter geometry/collapse is deliberately excluded from `.kcx`: they are local
+QSettings view preferences, so opening a collaborator's session does not unexpectedly alter their
+workspace.
 
 **Missing-file relink:** on load, any unresolved path opens a relink dialog (browse / search a
 chosen folder by filename+size); session loads with unresolved sources placeholdered, never fails

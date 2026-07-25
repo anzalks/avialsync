@@ -73,14 +73,19 @@ Store baselines with `--benchmark-autosave`; compare with `--benchmark-compare`.
   actionable dialog text appears and app stays alive.
 - Headless-core guard test: `import kinochronix.core` in a subprocess with PySide6 uninstalled
   (or import-hook blocked) must succeed.
-- Transport layout tests verify the timeline row remains above the controls row, Reset Zoom emits the
-  single shared action, status is non-blocking, and A/B pins remain correctly aligned after resize.
-  Overview tests cover source coverage, TTL events, gaps, annotations, and click-to-seek; theme tests
-  require readable tooltip colours, platform-accent retention in explicit appearances, native-control
-  behavior in System mode, and a Light → System palette-toggle path.
+- Transport layout tests verify the seek-row placement of playhead, A/B, end-time, and labelled Speed
+  controls; Flag/Snapshot/Fullscreen/Reset header actions with explanatory tooltips; non-blocking
+  transient/busy status; and A/B pins after resize.
+  Timeline Evidence tests cover source coverage, accepted TTL events, gaps, annotations, and
+  click-to-seek; they require named conditional lanes, accessible names, event hover/focus details,
+  empty-lane suppression, native splitter handles, label-gutter coverage clipping, collapse/restore, and
+  persisted view preference. Tests assert that a master-clock update repaints only the playhead and
+  stays inside the ≤2 ms cursor path. Theme tests require readable tooltip colours, platform-accent
+  retention in explicit appearances, native-control behavior in System mode, and a Light → System
+  palette-toggle path.
   Video timing tests verify that VFR OSD rates come from adjacent decoded timestamps rather than an
-  average frame rate, while CFR OSD rates remain stable; overview tests also cover lower-edge
-  resizing for dense evidence. Theme tests cover persisted system-relative font scaling.
+  average frame rate, while CFR OSD rates remain stable; overview tests also cover header resizing
+  for dense evidence. Theme tests cover persisted system-relative font scaling.
 
 ## 6. Manual smoke checklist (human, end of each phase, on YOUR real field data)
 
@@ -89,6 +94,9 @@ Store baselines with `--benchmark-autosave`; compare with `--benchmark-compare`.
   plots, transport, and sidebars remain legible after each switch.
 - [ ] Scrub feels ≤ ~200 ms; playback 1× smooth ≥ 60 s; 4× speed doesn't desync.
 - [ ] Align offsets against a real physical event visible in both video and data.
+- [ ] With Timeline Evidence expanded, identify each populated lane without consulting documentation;
+  hover a TTL/gap/annotation event to verify its type, source, and exact master time. Collapse,
+  resize, restart, and confirm the view preference restores without changing session data.
 - [ ] Frame-step through the event; annotate it; export region; reopen session — everything restored.
 - [ ] Kill app mid-import; relaunch; cache not corrupted.
 - [ ] Try it on the weakest machine you own; note anything sluggish as an issue.

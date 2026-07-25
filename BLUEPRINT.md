@@ -113,8 +113,12 @@ Deliverables:
   grouping for many-channel sources (ARCHITECTURE §5c).
 - Error handling pass: unreadable file, missing column, codec unsupported → actionable dialogs; "copy diagnostics" button.
 - Dark/light theme; window state persistence.
+- Timeline Evidence overview (D-027): named, conditional Coverage / Sync-TTL / Gaps / Annotations
+  lanes under the **Data Streams** header; event hover/focus details; click-to-seek; standard section
+  splitter handles matching the video/plot boundary plus a collapse control. A fixed label gutter
+  clips coverage to the master-time area so labels are never overpainted. Colour supplements labels/icons, never substitutes for them. Persist only local splitter geometry/collapse preferences and keep playhead updates within the existing cursor budget.
 
-Exit criteria: scripted UX walkthrough (pytest-qt integration test) covering open→align→annotate→export with zero unhandled exceptions; keyboard-only operation possible for the core loop.
+Exit criteria: scripted UX walkthrough (pytest-qt integration test) covering open→align→annotate→export with zero unhandled exceptions; keyboard-only operation possible for the core loop. Timeline Evidence is understandable without a manual or colour interpretation: its populated lanes, event details, collapse/resize controls, and empty-lane suppression are covered.
 
 ## Phase 5 — Plugin API + packaging (Week 10–13)
 

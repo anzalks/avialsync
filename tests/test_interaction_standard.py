@@ -62,14 +62,14 @@ def test_jump_fwd_btn_emits_jump_requested(transport: Transport) -> None:
 def test_snapshot_btn_emits_snapshot_requested(transport: Transport) -> None:
     fired: list[Any] = []
     transport.snapshot_requested.connect(lambda: fired.append(1))
-    transport._snapshot_btn.click()
+    transport.evidence.snapshot_button.click()
     assert fired, "Snapshot button must emit snapshot_requested"
 
 
 def test_fullscreen_btn_emits_fullscreen_requested(transport: Transport) -> None:
     fired: list[Any] = []
     transport.fullscreen_requested.connect(lambda: fired.append(1))
-    transport._fullscreen_btn.click()
+    transport.evidence.fullscreen_button.click()
     assert fired, "Fullscreen button must emit fullscreen_requested"
 
 

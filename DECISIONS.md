@@ -2,6 +2,22 @@
 Format per entry: date · decision · context · alternatives rejected · consequences.
 Agents: read before coding; append when making irreversible choices; never silently reverse entries.
 
+## 2026-07 · D-027 · Timeline Evidence must be named and conditional
+
+**Context:** coverage, sync/TTL events, gaps, and annotations share the master timeline, but an
+unlabeled colour-only strip makes scientific evidence ambiguous.
+
+**Decision:** `ui/transport.py` owns the named **Data Streams** presentation with conditional lanes,
+inspectable event details, click-to-seek, native splitter handles, a fixed source-label gutter, and
+persisted view-only collapse preference. It reads existing UI state; `core/` remains headless and makes
+no visual decisions.
+
+**Alternatives rejected:** a permanently visible unlabeled colour strip; a second independent
+timeline; presenting sync evidence only in the wizard/sidebar.
+
+**Consequences:** implementation must bucket dense evidence for paint, preserve the ≤2 ms cursor
+path, never infer/alter mappings, and have pytest-qt coverage for discoverability and accessibility.
+
 ## 2026-07 · D-001 · Master time = float64 seconds, UTC epoch
 Context: need one representation across video, 50 kHz data, UI. Alternatives: int ns (rerun-style),
 per-source relative time. float64 gives ~µs precision at epoch scale — sufficient (50 kHz = 20 µs

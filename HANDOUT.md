@@ -113,17 +113,26 @@ with explicit user acceptance and session provenance. Native plugin event provid
 
 ### Pending
 - P5.2 packaging, P5.3 docs site, native synchronization plugin API (D-026).
+- D-027 Data Streams legibility: replace the current implicit coloured strip with the named,
+  conditional, inspectable lanes defined in ARCHITECTURE §2b. Do not add a second timeline or put
+  scientific interpretation in `core/`; preserve click-to-seek and the ≤2 ms cursor path.
 
 ### Fixed (this PR — Phase 4 stabilization)
 - Left-pane vertical QSplitter: `_left_splitter` in `main_window.py`; state persisted in QSettings `splitter/left`
 - Reset Zoom: wired to View → Reset Plot Zoom (Ctrl+0), timeline-row button, and shortcuts dialog
-- Transport UX: master time, seek bar, end time, and Reset Zoom occupy row one; playback controls
-  occupy row two with a compact non-blocking status message at its right edge. The overview beneath
-  the seek bar renders source coverage, annotations, data gaps, accepted TTL matches, and playhead;
-  drag its lower edge to enlarge dense evidence. It uses the system accent for video/TTL evidence.
+- Transport UX: the full-width **Data Streams** section is distinct from both plots and the
+  seek/transport section with the native splitter handles used for video/plot resizing. Its header owns Hide, Flag Frame, Snapshot,
+  Fullscreen Toggle, Reset Zoom, and compact status; busy work remains visible while ordinary messages clear shortly.
+  Playhead controls precede master time and the seek bar; end time, A/B controls, and the labelled Speed selector follow it.
+  Evidence renders source coverage, annotations, data
+  gaps, accepted TTL matches, and playhead; the native handle resizes it against the video/plot workspace,
+  never the seek/controls area. A fixed source-label
+  gutter prevents coverage from painting beneath labels. It uses the
+  system accent for video/TTL evidence.
 - VFR: integrity is derived from decoded frame timestamps; its on-video OSD reports the current
   timestamp-derived rate plus `(VFR)`, never a misleading single average rate.
 - Bug: `video_grid._panes` → `video_grid.panes` (AttributeError on annotate)
+- Bug: compact video summaries now receive the codec already probed by the video loader (no false `UNKNOWN`)
 - Bug: `Any` not imported from `typing` in `main_window.py`
 - Bug: `_start_csv_import` → `_start_data_import` (AttributeError on session restore with sensors)
 - Bug: `_update_window_title()` called but never defined — removed phantom call in `_on_channel_remove_requested`
@@ -160,7 +169,7 @@ with explicit user acceptance and session provenance. Native plugin event provid
 | `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane` |
 | `ui/video_grid.py` | N VideoPanes; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `set_grid_mode()` |
 | `ui/plot_pane.py` | pyqtgraph multi-row plot; pyramid-fed; X-linked; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
-| `ui/transport.py` | Two-row timeline: time/scrub/end/reset + clickable, vertically resizable coverage/event overview above controls/status | `set_time()`, `set_bounds()`, `set_source_coverage()`, `set_ttl_events()`, `set_gap_events()`, `set_annotation_markers()`, `set_status()` |
+| `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status | `set_time()`, `set_bounds()`, `set_source_coverage()`, `set_ttl_events()`, `set_gap_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |
