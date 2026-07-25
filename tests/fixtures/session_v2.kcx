@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "videos": [
+    {
+      "path": "/tmp/nonexistent_video.mp4",
+      "offset": 0.5,
+      "integrity_flags": {},
+      "metadata": {}
+    }
+  ],
+  "sensors": [
+    {
+      "path": "/tmp/nonexistent_sensors.csv",
+      "channels": ["ch1", "ch2"],
+      "loader_id": "",
+      "import_config": {},
+      "import_report": null
+    }
+  ],
+  "markers": [
+    {"t_start": 1.5, "t_end": 3.0, "label": "range1"},
+    {"t_start": 7.0, "t_end": null, "label": "pt1"}
+  ],
+  "t_start": 0.0,
+  "t_end": 10.0,
+  "plot_x0": null,
+  "plot_x1": null
+}

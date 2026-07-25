@@ -73,8 +73,11 @@ docs/_build/
 # Profiling data
 .prof
 
-# Generated Fixtures
-tests/fixtures/
+# Generated Fixtures — only auto-generated subdirs; permanent .kcx fixtures are tracked
+tests/fixtures/videos/
+tests/fixtures/signals/
+tests/fixtures/openephys_mock/
+tests/fixtures/sample_session/
 tests/fixtures_first_run/
 
 # PyBuilder
@@ -111,6 +114,7 @@ dmypy.json
 
 # KinoChronix specific based on AGENTS.md
 *.kcx
+!tests/fixtures/*.kcx
 *.kcache/
 .tmp_kcache_*/
 
