@@ -1267,7 +1267,7 @@ class MainWindow(QMainWindow):
     def _on_sensor_remove_requested(self, path: str) -> None:
         from kinochronix.core.cache import CacheManager
 
-        cache_mgr = CacheManager(loader_version=1)
+        cache_mgr = CacheManager(loader_version=3)
         cache_dir = cache_mgr.get_cache_dir(Path(path))
         self.plot_pane.remove_channels(cache_dir)
         self.sidebar.remove_sensor(path)
@@ -1404,7 +1404,7 @@ class MainWindow(QMainWindow):
         from kinochronix.loaders.tracking_loader import TrackingLoader
 
         for dlc_path, _ in self._frame_indexed_sources:
-            cache_dir = CacheManager(loader_version=2).get_cache_dir(dlc_path)
+            cache_dir = CacheManager(loader_version=3).get_cache_dir(dlc_path)
             self.plot_pane.remove_channels(cache_dir)
             self.sidebar.remove_sensor(str(dlc_path))
             self._enqueue_import(dlc_path, TrackingLoader, {"fps": fps})

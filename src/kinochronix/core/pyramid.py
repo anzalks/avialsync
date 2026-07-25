@@ -101,20 +101,23 @@ class PyramidBuilder:
         np.save(self.cache_dir / f"{self.channel_id}_gap.npy", gap_mask)
 
         # Build and save decimated levels.
-        # vmin/vmax stored as float32 (D-023): sensor precision is ≤16-bit so
-        # float32 (7 decimal digits) is lossless in practice, and halves IO for
-        # the largest level.  t arrays remain float64 for seek accuracy.
+        # vmin/vmax stored as float32 conditionally (D-023): if source is float64
+        # (e.g. processed outputs with large magnitude offsets), we keep float64 to
+        # avoid lossy downcasts. For raw sensor data (≤16-bit or float32), float32
+        # is lossless and halves IO for the largest levels.
+        save_dtype = v.dtype if v.dtype == np.float64 else np.float32
+
         for level in LEVELS[1:]:
             t_lvl, vmin_lvl, vmax_lvl = build_pyramid_level(t, v, level)
             gap_lvl = build_gap_mask(t_lvl)
             np.save(self.cache_dir / f"{self.channel_id}_pyr_{level}_t.npy", t_lvl)
             np.save(
                 self.cache_dir / f"{self.channel_id}_pyr_{level}_vmin.npy",
-                vmin_lvl.astype(np.float32, copy=False),
+                vmin_lvl.astype(save_dtype, copy=False),
             )
             np.save(
                 self.cache_dir / f"{self.channel_id}_pyr_{level}_vmax.npy",
-                vmax_lvl.astype(np.float32, copy=False),
+                vmax_lvl.astype(save_dtype, copy=False),
             )
             np.save(self.cache_dir / f"{self.channel_id}_pyr_{level}_gap.npy", gap_lvl)
 

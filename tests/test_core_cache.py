@@ -67,3 +67,17 @@ def test_cache_stale_invalidation(tmp_path: Path):
 
     # Cache should be invalid because xxhash tail changed
     assert not manager.is_cache_valid(source)
+
+
+def test_cache_stale_on_loader_version_bump(tmp_path: Path):
+    """A cache written by an older loader_version is stale post-change (D-023)."""
+    manager_old = CacheManager(loader_version=2)
+    source = tmp_path / "data_ver.csv"
+    source.write_text("dummy")
+
+    temp_dir = manager_old.get_temp_cache_dir(source)
+    manager_old.commit_cache(source, temp_dir)
+    assert manager_old.is_cache_valid(source)
+
+    manager_new = CacheManager(loader_version=3)
+    assert not manager_new.is_cache_valid(source), "Cache must be stale after loader_version bump"

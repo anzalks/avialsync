@@ -12,6 +12,7 @@ uniformly — never per-test — to avoid hidden fudge factors.
 D-023: benchmarks are CI-gated, budget-assertion pattern established here.
 """
 
+import os
 import gc
 from pathlib import Path
 
@@ -22,14 +23,14 @@ from kinochronix.core.pyramid import PyramidBuilder, PyramidReader
 
 # ── CI budget multiplier (D-023) ────────────────────────────────────────────
 # CI GitHub Actions runners are significantly slower than developer machines
-# (shared CPU, memory pressure, different disk speeds).  A uniform 2× factor
-# prevents flaky CI failures while still catching real regressions.
+# (shared CPU, memory pressure, different disk speeds).
 # NEVER add per-test multipliers — only adjust this constant, and note the
 # change in DECISIONS.md.
-CI_BUDGET_MULTIPLIER = 2.0
+CI_BUDGET_MULTIPLIER = 1.5
+_ACTUAL_MULTIPLIER = CI_BUDGET_MULTIPLIER if os.environ.get("CI") == "true" else 1.0
 
 # Raw dev-machine budgets (seconds) matching BLUEPRINT.md / HANDOUT.md ★ rows
-_PYRAMID_BUILD_BUDGET_S = 2.0  # ≤ 2 s
+_PYRAMID_BUILD_BUDGET_S = 2.5  # ≤ 2.5 s (D-024)
 _CURSOR_UPDATE_BUDGET_S = 0.002  # ≤ 2 ms
 
 
@@ -63,10 +64,10 @@ def test_bench_pyramid_build(benchmark, tmp_path: Path, large_dataset):
 
     benchmark.pedantic(do_build, setup=setup, rounds=5)
 
-    budget = _PYRAMID_BUILD_BUDGET_S * CI_BUDGET_MULTIPLIER
+    budget = _PYRAMID_BUILD_BUDGET_S * _ACTUAL_MULTIPLIER
     assert benchmark.stats["mean"] <= budget, (
         f"Pyramid build mean {benchmark.stats['mean']:.3f}s exceeds "
-        f"CI budget {budget:.1f}s (dev={_PYRAMID_BUILD_BUDGET_S}s × {CI_BUDGET_MULTIPLIER}×). "
+        f"budget {budget:.1f}s (dev={_PYRAMID_BUILD_BUDGET_S}s × {_ACTUAL_MULTIPLIER}×). "
         "Fix pyramid.py or adjust CI_BUDGET_MULTIPLIER in test_bench_pyramid.py."
     )
 
@@ -145,10 +146,10 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
 
     benchmark(tick)
 
-    budget = _CURSOR_UPDATE_BUDGET_S * CI_BUDGET_MULTIPLIER
+    budget = _CURSOR_UPDATE_BUDGET_S * _ACTUAL_MULTIPLIER
     assert benchmark.stats["mean"] <= budget, (
         f"Cursor update mean {benchmark.stats['mean'] * 1000:.3f}ms exceeds "
-        f"CI budget {budget * 1000:.1f}ms"
-        f" (dev={_CURSOR_UPDATE_BUDGET_S * 1000:.0f}ms × {CI_BUDGET_MULTIPLIER}×)."
+        f"budget {budget * 1000:.1f}ms"
+        f" (dev={_CURSOR_UPDATE_BUDGET_S * 1000:.0f}ms × {_ACTUAL_MULTIPLIER}×)."
         " See BLUEPRINT.md ★ cursor-update budget."
     )

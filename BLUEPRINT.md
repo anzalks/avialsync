@@ -25,7 +25,7 @@
 | Cursor update per tick ★ | ≤ 2 ms |
 | Cached session open (3 cams + 4×50 kHz ch) | ≤ 3 s |
 | First CSV import 1 GB (with progress) | ≤ 60 s |
-| Pyramid build 180 M samples ★ | ≤ 2 s |
+| Pyramid build 180 M samples ★ | ≤ 2.5 s (revised, D-024) |
 | Idle RAM, session loaded | ≤ 2.5 GB |
 
 Benchmarks live in `tests/benchmarks/`, run via `pytest --benchmark-only`, regressions > 20 % fail CI.

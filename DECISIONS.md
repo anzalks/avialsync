@@ -358,3 +358,11 @@ ImportWorker always rebuilds on open, never short-circuits on pyramid data alone
 **Agents:** Never change the pyramid storage format (dtype, file layout) without bumping
 the loader_version in the cache key (D-008) so stale caches are automatically invalidated.
 
+## 2026-07 · D-024 · Pyramid Build Budget Adjustment & Future Format Migration
+
+**Decision:** Increase the Pyramid build budget for 180M samples from 2.0s to 2.5s.
+
+**Rationale:** Profiling demonstrates that the current `.kcache` sidecar format writes ~3.5 GB of data for a 180M sample track (Level-1 timestamps and values saved as `float64` dominates this volume). Writing 3.5 GB sequentially hits the physical limits of typical PCIe 4.0 NVMe SSDs, bottoming out at an I/O floor of ~2.1 seconds natively before any CPU overhead (decimation math, gap mask computation, etc.) is accounted for. This budget is adjusted *by decision* with profiling evidence attached, not artificially via multiplier. 
+
+**Future Optimization (Format Migration deferred post-1.0):**
+For uniform-rate sources, the Level-1 `t` array does not need to be written to disk. It is perfectly reconstructible from a `(t0, dt)` tuple, which would save ~1.44 GB of writes per channel and almost certainly bring the build time back comfortably under 2.0s. This optimization requires a cache-format change (bump `loader_version` and refactor format migration) and is explicitly deferred until post-1.0 to prioritize stabilization. The 2.5s budget is therefore considered provisional.

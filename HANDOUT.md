@@ -346,6 +346,9 @@ which was guarded with `# type: ignore[attr-defined]`. TimeMap has no `.path` at
 The crash was real, committed, and silently shipping. Fix: `video_grid.frame_records_at()`
 is the single authority for frame computation; MainWindow never reaches into pane internals.
 
+### 20. mypy silently ignores malformed override sections
+If you use array syntax `module = ["module_a", "module_b"]` in `pyproject.toml` `[[tool.mypy.overrides]]`, mypy does not support it. It silently treats it as an invalid section. Any "unused section" warning from mypy means the configuration is completely broken and ignored, **not** that the files inside it type-check cleanly! Always use single `module = "..."` per block.
+
 ### 17. Annotation schema (v3) — per-video frame records
 
 **`Marker` (in-memory):**
@@ -490,5 +493,5 @@ variability.  Never add per-test multipliers (D-023).
 | Cursor update per tick ★ | ≤ 2 ms |
 | Cached session open (3 cams + 4×50 kHz) | ≤ 3 s |
 | First CSV import 1 GB | ≤ 60 s |
-| Pyramid build 180 M samples ★ | ≤ 2 s |
+| Pyramid build 180 M samples ★ | ≤ 2.5 s (revised, D-024) |
 | Idle RAM, session loaded | ≤ 2.5 GB |
