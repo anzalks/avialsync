@@ -65,8 +65,15 @@ class IntegrityFlags:
 
     @property
     def any_flag(self) -> bool:
-        return any([self.is_vfr, self.fps_mismatch, self.has_gaps,
-                    self.drift_nonzero, self.fps_provisional])
+        return any(
+            [
+                self.is_vfr,
+                self.fps_mismatch,
+                self.has_gaps,
+                self.drift_nonzero,
+                self.fps_provisional,
+            ]
+        )
 
     def flag_labels(self) -> list[str]:
         labels = []

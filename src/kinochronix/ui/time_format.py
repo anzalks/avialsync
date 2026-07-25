@@ -10,8 +10,8 @@ from enum import Enum, auto
 
 
 class TimeDisplayMode(Enum):
-    RELATIVE = auto()   # HH:MM:SS.fff from master-clock zero
-    UTC = auto()        # absolute UTC wall clock
+    RELATIVE = auto()  # HH:MM:SS.fff from master-clock zero
+    UTC = auto()  # absolute UTC wall clock
     LOCAL_TOD = auto()  # local time-of-day
 
 

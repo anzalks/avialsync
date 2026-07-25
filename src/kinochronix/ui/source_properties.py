@@ -187,6 +187,7 @@ class SensorPropertiesPanel(_PropertiesBase):
         rep = ins.import_report
         if rep:
             import datetime as _dt
+
             ts = _dt.datetime.fromtimestamp(rep.import_timestamp).strftime("%Y-%m-%d %H:%M:%S")
             self._add_row("Imported at", ts)
             self._add_row("Rows parsed", f"{rep.rows_parsed:,}")

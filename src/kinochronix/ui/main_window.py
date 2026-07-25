@@ -152,10 +152,18 @@ class MainWindow(QMainWindow):
         # Restore geometry
         self._restore_geometry()
 
-        # A/B loop → region stats
+        # Transport signals (D-022)
         self.transport.ab_loop_changed.connect(self._on_ab_loop_changed)
-
         self.transport.annotate_requested.connect(self._on_annotate_requested)
+        self.transport.snapshot_requested.connect(self._export_snapshot)
+        self.transport.fullscreen_requested.connect(self._toggle_fullscreen)
+        self.transport.jump_requested.connect(self._on_jump_requested)
+
+        # Video pane right-click context menu (D-022)
+        self.video_grid.pane_right_clicked.connect(self._on_pane_right_clicked)
+
+        # Plot annotate-at (D-022)
+        self.plot_pane.annotate_at_requested.connect(self._on_annotate_at_requested)
 
         # Autosave timer
         self._autosave_timer = QTimer(self)
@@ -168,7 +176,7 @@ class MainWindow(QMainWindow):
         # Start player tick
         self.player.start()
 
-        # Setup global shortcuts
+        # Setup global shortcuts (must come after _setup_menu so _all_actions exists)
         self._setup_shortcuts()
 
     # ── Sources / units ──────────────────────────────────────────────
@@ -185,6 +193,7 @@ class MainWindow(QMainWindow):
         if ins is None:
             return
         from kinochronix.ui.import_report import ImportReportDialog
+
         dlg = ImportReportDialog(ins, self)
         dlg.setWindowTitle(f"Video Properties — {Path(path).name}")
         dlg.exec()
@@ -195,6 +204,7 @@ class MainWindow(QMainWindow):
         if ins is None:
             return
         from kinochronix.ui.import_report import ImportReportDialog
+
         dlg = ImportReportDialog(ins, self)
         dlg.setWindowTitle(f"Sensor Properties — {Path(path).name}")
         dlg.exec()
@@ -204,9 +214,11 @@ class MainWindow(QMainWindow):
         ins = self._inspections.get(path)
         if ins is None:
             from PySide6.QtWidgets import QMessageBox
+
             QMessageBox.information(self, "No Report", f"No import report for:\n{path}")
             return
         from kinochronix.ui.import_report import ImportReportDialog
+
         dlg = ImportReportDialog(ins, self)
         dlg.exec()
 
@@ -276,12 +288,14 @@ class MainWindow(QMainWindow):
         videos = []
         for p, pane in zip(self.video_grid._paths, self.video_grid.panes, strict=False):
             ins = self._inspections.get(p)
-            videos.append(VideoEntry(
-                path=p,
-                offset=pane.time_map.offset,
-                integrity_flags=ins.integrity_flags.as_dict() if ins else {},
-                metadata=ins.import_config if ins else {},
-            ))
+            videos.append(
+                VideoEntry(
+                    path=p,
+                    offset=pane.time_map.offset,
+                    integrity_flags=ins.integrity_flags.as_dict() if ins else {},
+                    metadata=ins.import_config if ins else {},
+                )
+            )
 
         sensors: list[SensorEntry] = []
         for i in range(self.sidebar.sensors_layout.count()):
@@ -290,15 +304,17 @@ class MainWindow(QMainWindow):
                 w = item.widget()
                 if isinstance(w, SensorInfoWidget):
                     ins = self._inspections.get(w.path)
-                    sensors.append(SensorEntry(
-                        path=w.path,
-                        channels=[],
-                        loader_id=ins.loader_id if ins else "",
-                        import_config=dict(ins.import_config) if ins else {},
-                        import_report=(
-                            ins.import_report.as_dict() if ins and ins.import_report else None
-                        ),
-                    ))
+                    sensors.append(
+                        SensorEntry(
+                            path=w.path,
+                            channels=[],
+                            loader_id=ins.loader_id if ins else "",
+                            import_config=dict(ins.import_config) if ins else {},
+                            import_report=(
+                                ins.import_report.as_dict() if ins and ins.import_report else None
+                            ),
+                        )
+                    )
 
         markers = [
             MarkerEntry(
@@ -405,6 +421,7 @@ class MainWindow(QMainWindow):
                 self._load_video(p, offset=ve.offset)
                 if ve.integrity_flags or ve.metadata:
                     from kinochronix.core.inspection import IntegrityFlags
+
                     ins = SourceInspection(
                         path=str(p),
                         integrity_flags=IntegrityFlags.from_dict(ve.integrity_flags),
@@ -418,6 +435,7 @@ class MainWindow(QMainWindow):
                 self._start_data_import(p)
                 if se.loader_id or se.import_report:
                     from kinochronix.core.inspection import ImportReport
+
                     ins = SourceInspection(
                         path=str(p),
                         loader_id=se.loader_id,
@@ -509,64 +527,135 @@ class MainWindow(QMainWindow):
     # ── Keyboard shortcuts ───────────────────────────────────────────
 
     def _setup_shortcuts(self) -> None:
-        from PySide6.QtCore import Qt
-        from PySide6.QtGui import QKeySequence, QShortcut
+        """Register window-scoped QActions for all keyboard-only shortcuts (D-022).
 
-        def _toggle_play() -> None:
-            self.player.set_playing(not self.clock.state.playing)
+        Rules (D-022.1):
+        - Menu QActions already carry their shortcuts — no duplicate QShortcut.
+        - Transport-button shortcuts emit the matching Transport signal.
+        - Non-transport keyboard-only shortcuts (Home/End) may call the engine directly.
+        """
+        from collections.abc import Callable
 
-        def _seek_rel(delta: float) -> None:
-            t = self.clock.state.t + delta
-            bounds = self.clock.state.bounds
-            self.player.seek(max(bounds[0], min(bounds[1], t)))
+        from PySide6.QtGui import QKeySequence
 
-        _win = Qt.ShortcutContext.WindowShortcut
+        _wsc = Qt.ShortcutContext.WindowShortcut
 
-        # Play/Pause
-        QShortcut(QKeySequence(Qt.Key.Key_Space), self, _toggle_play, context=_win)
+        def _act(text: str, category: str, handler: Callable[[], None], *keys: Any) -> QAction:
+            a = QAction(text, self)
+            a.setShortcuts([QKeySequence(k) for k in keys])
+            a.setShortcutContext(_wsc)
+            a.triggered.connect(handler)
+            a.setProperty("kc_category", category)
+            self.addAction(a)
+            self._all_actions.append(a)
+            return a
 
-        # Frame Stepping
-        QShortcut(
-            QKeySequence(Qt.Key.Key_Left), self, lambda: self.player.step_frame(-1), context=_win
+        # ── Playback ──────────────────────────────────────────────────
+        # Space: toggle play through transport signal (D-022.1 — duplicates Play button)
+        _act(
+            "Play / Pause",
+            "Playback",
+            lambda: self.transport.play_toggled.emit(not self.clock.state.playing),
+            Qt.Key.Key_Space,
         )
-        QShortcut(
-            QKeySequence(Qt.Key.Key_Right), self, lambda: self.player.step_frame(1), context=_win
+
+        # Frame step: emit transport signal (D-022.1 — duplicates ◀/▶ buttons)
+        _act(
+            "Step back 1 frame",
+            "Playback",
+            lambda: self.transport.frame_step_requested.emit(-1),
+            Qt.Key.Key_Left,
+            Qt.Key.Key_Comma,
+        )
+        _act(
+            "Step forward 1 frame",
+            "Playback",
+            lambda: self.transport.frame_step_requested.emit(1),
+            Qt.Key.Key_Right,
+            Qt.Key.Key_Period,
         )
 
-        # 1-second jumps
-        QShortcut(QKeySequence("Shift+Left"), self, lambda: _seek_rel(-1.0), context=_win)
-        QShortcut(QKeySequence("Shift+Right"), self, lambda: _seek_rel(1.0), context=_win)
+        # Jump ±1 s: emit transport signal (D-022.1 — duplicates –1s/+1s buttons)
+        _act(
+            "Jump back 1 second",
+            "Playback",
+            lambda: self.transport.jump_requested.emit(-1.0),
+            "Shift+Left",
+            "J",
+        )
+        _act(
+            "Jump forward 1 second",
+            "Playback",
+            lambda: self.transport.jump_requested.emit(1.0),
+            "Shift+Right",
+        )
 
-        # Home/End
-        QShortcut(
-            QKeySequence(Qt.Key.Key_Home),
-            self,
+        # J/K/L shuttle (D-022.4) — J already aliased above
+        _act(
+            "Pause",
+            "Playback",
+            lambda: self.transport.play_toggled.emit(False),
+            "K",
+        )
+        _act(
+            "Step up playback rate",
+            "Playback",
+            self.transport.step_rate_up,
+            "L",
+        )
+
+        # Home/End: no transport button, call player directly
+        _act(
+            "Jump to start",
+            "Playback",
             lambda: self.player.seek(self.clock.state.bounds[0]),
-            context=_win,
+            Qt.Key.Key_Home,
         )
-        QShortcut(
-            QKeySequence(Qt.Key.Key_End),
-            self,
+        _act(
+            "Jump to end",
+            "Playback",
             lambda: self.player.seek(self.clock.state.bounds[1]),
-            context=_win,
+            Qt.Key.Key_End,
         )
 
-        # A/B Loop
-        QShortcut(
-            QKeySequence(Qt.Key.Key_BracketLeft), self, self.transport._on_ab_in, context=_win
+        # ── Marking ───────────────────────────────────────────────────
+        # A/B in/out: same internal method as the transport buttons
+        _act(
+            "Set A/B in-point",
+            "Marking",
+            self.transport._on_ab_in,
+            Qt.Key.Key_BracketLeft,
+            "I",
         )
-        QShortcut(
-            QKeySequence(Qt.Key.Key_BracketRight), self, self.transport._on_ab_out, context=_win
+        _act(
+            "Set A/B out-point",
+            "Marking",
+            self.transport._on_ab_out,
+            Qt.Key.Key_BracketRight,
+            "O",
+        )
+        _act(
+            "Add marker at playhead",
+            "Marking",
+            self._on_annotate_requested,
+            "M",
         )
 
-        # Annotation
-        QShortcut(QKeySequence(Qt.Key.Key_M), self, self._on_annotate_requested, context=_win)
+        # ── View ──────────────────────────────────────────────────────
+        # Ctrl+T: cycle theme (no menu item)
+        _act("Cycle theme", "View", self._cycle_theme, "Ctrl+T")
 
-        # Export / theme / help / zoom
-        QShortcut(QKeySequence("Ctrl+E"), self, self._export_snapshot, context=_win)
-        QShortcut(QKeySequence("Ctrl+T"), self, self._cycle_theme, context=_win)
-        QShortcut(QKeySequence("?"), self, self._show_shortcuts, context=_win)
-        QShortcut(QKeySequence("Ctrl+0"), self, self.plot_pane.reset_zoom, context=_win)
+        # Plot zoom in/out (D-022)
+        _act("Plot zoom in", "View", self.plot_pane.zoom_in, "+")
+        _act("Plot zoom out", "View", self.plot_pane.zoom_out, "-")
+
+        # "?" as alias for F1 shortcuts dialog (StandardKey.HelpContents already on menu action)
+        _act(
+            "Keyboard shortcuts (alias)",
+            "View",
+            self._show_shortcuts,
+            "?",
+        )
 
     # ── Window close ─────────────────────────────────────────────────
 
@@ -621,43 +710,62 @@ class MainWindow(QMainWindow):
     # ── Menu ─────────────────────────────────────────────────────────
 
     def _setup_menu(self) -> None:
+        from PySide6.QtGui import QActionGroup, QKeySequence
+
+        # Collects every QAction with a shortcut — read by _show_shortcuts().
+        self._all_actions: list[QAction] = []
+
+        def _reg(act: QAction, category: str) -> QAction:
+            """Tag an action with its shortcuts-dialog category."""
+            act.setProperty("kc_category", category)
+            if act.shortcuts():
+                self._all_actions.append(act)
+            return act
+
         menu = self.menuBar()
 
-        # ── File ──
+        # ── File ──────────────────────────────────────────────────────
         file_menu = menu.addMenu("File")
 
+        # Ctrl+Shift+V (not Ctrl+V — system Paste collision, D-022.7 / Trap §18)
         act = file_menu.addAction("Open Video(s)…")
-        act.setShortcut("Ctrl+V")
+        act.setShortcut(QKeySequence("Ctrl+Shift+V"))
         act.triggered.connect(self._open_video)
+        _reg(act, "File")
 
+        # Ctrl+Shift+D (not Ctrl+D — bookmark/dock collision, D-022.7 / Trap §18)
         act = file_menu.addAction("Open Sensor/Ephys Data…")
-        act.setShortcut("Ctrl+D")
+        act.setShortcut(QKeySequence("Ctrl+Shift+D"))
         act.triggered.connect(self._open_data)
+        _reg(act, "File")
 
         file_menu.addSeparator()
 
         act = file_menu.addAction("Save Session…")
-        act.setShortcut("Ctrl+S")
+        act.setShortcut(QKeySequence(QKeySequence.StandardKey.Save))
         act.triggered.connect(self._save_session)
+        _reg(act, "File")
 
         act = file_menu.addAction("Open Session…")
-        act.setShortcut("Ctrl+O")
+        act.setShortcut(QKeySequence(QKeySequence.StandardKey.Open))
         act.triggered.connect(self._open_session)
+        _reg(act, "File")
 
         file_menu.addSeparator()
 
         act = file_menu.addAction("Export Annotations (CSV)…")
         act.triggered.connect(self._export_annotations)
 
-        # Recent files submenu
         self._recent_menu = file_menu.addMenu("Recent Sessions")
         self._rebuild_recent_menu()
 
         file_menu.addSeparator()
 
-        act = file_menu.addAction("Export Snapshot…")
-        act.setShortcut("Ctrl+E")
-        act.triggered.connect(self._export_snapshot)
+        # Export Snapshot — Ctrl+E is the single authority; no duplicate QShortcut
+        self._act_snapshot = file_menu.addAction("Export Snapshot…")
+        self._act_snapshot.setShortcut(QKeySequence("Ctrl+E"))
+        self._act_snapshot.triggered.connect(self._export_snapshot)
+        _reg(self._act_snapshot, "File")
 
         act = file_menu.addAction("Export Trimmed Video Clip…")
         act.triggered.connect(self._export_video_clip)
@@ -668,58 +776,79 @@ class MainWindow(QMainWindow):
         act = file_menu.addAction("Generate Proxy…")
         act.triggered.connect(self._generate_proxy)
 
-        # ── View ──
+        file_menu.addSeparator()
+
+        # Quit — macOS QuitRole moves this to the app menu (D-022.3)
+        act = file_menu.addAction("Quit")
+        act.setShortcut(QKeySequence(QKeySequence.StandardKey.Quit))
+        act.setMenuRole(QAction.MenuRole.QuitRole)
+        act.triggered.connect(self.close)
+        _reg(act, "File")
+
+        # ── View ──────────────────────────────────────────────────────
         view_menu = menu.addMenu("View")
 
         theme_menu = view_menu.addMenu("Theme")
-        from PySide6.QtGui import QActionGroup
-
         self._theme_group = QActionGroup(self)
-        for label, key in [
-            ("System", "system"),
-            ("Dark", "dark"),
-            ("Light", "light"),
-        ]:
-            act = theme_menu.addAction(label)
-            act.setCheckable(True)
-            act.setData(key)
-            self._theme_group.addAction(act)
+        for label, key in [("System", "system"), ("Dark", "dark"), ("Light", "light")]:
+            ta = theme_menu.addAction(label)
+            ta.setCheckable(True)
+            ta.setData(key)
+            self._theme_group.addAction(ta)
         self._theme_group.triggered.connect(self._on_theme_selected)
         self._sync_theme_menu()
 
         time_menu = view_menu.addMenu("Time Display")
-        from PySide6.QtGui import QActionGroup
         self._time_mode_group = QActionGroup(self)
         for label, mode in [
             ("Relative (HH:MM:SS)", TimeDisplayMode.RELATIVE),
             ("UTC", TimeDisplayMode.UTC),
             ("Local time of day", TimeDisplayMode.LOCAL_TOD),
         ]:
-            act = time_menu.addAction(label)
-            act.setCheckable(True)
-            act.setData(mode)
-            act.setChecked(mode == TimeDisplayMode.RELATIVE)
-            self._time_mode_group.addAction(act)
-        self._time_mode_group.triggered.connect(
-            lambda a: self._set_time_mode(a.data())
-        )
+            ta = time_menu.addAction(label)
+            ta.setCheckable(True)
+            ta.setData(mode)
+            ta.setChecked(mode == TimeDisplayMode.RELATIVE)
+            self._time_mode_group.addAction(ta)
+        self._time_mode_group.triggered.connect(lambda a: self._set_time_mode(a.data()))
 
-        act = view_menu.addAction("Reset Plot Zoom")
-        act.setShortcut("Ctrl+0")
-        act.triggered.connect(self.plot_pane.reset_zoom)
+        view_menu.addSeparator()
+
+        # Reset Plot Zoom — single authority (D-022.1); QShortcut removed from _setup_shortcuts
+        self._act_reset_zoom = view_menu.addAction("Reset Plot Zoom")
+        self._act_reset_zoom.setShortcut(QKeySequence("Ctrl+0"))
+        self._act_reset_zoom.triggered.connect(self.plot_pane.reset_zoom)
+        _reg(self._act_reset_zoom, "View")
 
         act = view_menu.addAction("Follow Playhead")
         act.setCheckable(True)
         act.toggled.connect(self.plot_pane.set_follow_playhead)
 
-        # ── Help ──
+        # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS (D-022.2)
+        self._act_fullscreen = view_menu.addAction("Toggle Pane Fullscreen")
+        self._act_fullscreen.setShortcut(QKeySequence(QKeySequence.StandardKey.FullScreen))
+        self._act_fullscreen.triggered.connect(self._toggle_fullscreen)
+        _reg(self._act_fullscreen, "View")
+
+        # Pass reset-zoom action to plot pane so the context menu uses the same object (D-022)
+        self.plot_pane.set_context_actions([self._act_reset_zoom])
+
+        # ── Help ──────────────────────────────────────────────────────
         help_menu = menu.addMenu("Help")
 
-        act = help_menu.addAction("Keyboard Shortcuts…")
-        act.triggered.connect(self._show_shortcuts)
+        # Shortcuts dialog: F1 primary (HelpContents); "?" alias added in _setup_shortcuts
+        self._act_shortcuts = help_menu.addAction("Keyboard Shortcuts…")
+        self._act_shortcuts.setShortcut(QKeySequence(QKeySequence.StandardKey.HelpContents))
+        self._act_shortcuts.triggered.connect(self._show_shortcuts)
+        _reg(self._act_shortcuts, "View")
 
         act = help_menu.addAction("Diagnostics…")
         act.triggered.connect(self._show_diagnostics)
+
+        # About — macOS AboutRole moves this to the app menu (D-022.3)
+        act = help_menu.addAction("About KinoChronix")
+        act.setMenuRole(QAction.MenuRole.AboutRole)
+        act.triggered.connect(self._show_about)
 
     def _rebuild_recent_menu(self) -> None:
         self._recent_menu.clear()
@@ -787,12 +916,115 @@ class MainWindow(QMainWindow):
             apply_theme(app, new_pref)
         self._sync_theme_menu()
 
+    # ── Fullscreen / jump / pane context menu ───────────────────────
+
+    def _toggle_fullscreen(self) -> None:
+        """Toggle fullscreen for the first (or only) pane (D-022)."""
+        self.video_grid.toggle_fullscreen()
+
+    def _on_jump_requested(self, delta: float) -> None:
+        """Clamp and seek relative to the current playhead (D-022)."""
+        t = self.clock.state.t + delta
+        bounds = self.clock.state.bounds
+        self.player.seek(max(bounds[0], min(bounds[1], t)), exact=True)
+
+    def _on_pane_right_clicked(self, path: str, pos: Any) -> None:
+        """Show a per-pane context menu on video right-click (D-022)."""
+        from PySide6.QtWidgets import QApplication, QMenu
+
+        menu = QMenu(self)
+
+        act_fs = menu.addAction("Fullscreen this camera")
+        act_snap = menu.addAction("Snapshot this camera")
+        menu.addSeparator()
+        act_props = menu.addAction("Properties…")
+        act_copy = menu.addAction("Copy frame info")
+
+        chosen = menu.exec(pos)
+        if chosen == act_fs:
+            self.video_grid.toggle_fullscreen(path)
+        elif chosen == act_snap:
+            self._export_snapshot_for_pane(path)
+        elif chosen == act_props:
+            self._show_video_properties(path)
+        elif chosen == act_copy:
+            records = self.video_grid.frame_records_at(self.clock.state.t)
+            info_lines = []
+            for r in records:
+                if r["path"] == path:
+                    info_lines.append(
+                        f"path={r['path']}\n"
+                        f"frame={r['frame_index']}\n"
+                        f"media_t={r['media_timestamp']:.6f}"
+                    )
+            text = "\n".join(info_lines) if info_lines else f"path={path}"
+            cb = QApplication.clipboard()
+            if cb:
+                cb.setText(text)
+
+    def _export_snapshot_for_pane(self, path: str) -> None:
+        """Export a snapshot of a single video pane."""
+        try:
+            idx = self.video_grid._paths.index(path)
+        except ValueError:
+            return
+        pane = self.video_grid.panes[idx]
+        from kinochronix.engine.export import snapshot_widget
+
+        px = snapshot_widget(pane)
+        out_path, _ = QFileDialog.getSaveFileName(
+            self,
+            f"Snapshot — {Path(path).name}",
+            f"snapshot_{Path(path).stem}.png",
+            "PNG Images (*.png)",
+        )
+        if not out_path:
+            return
+        from kinochronix.engine.export import save_snapshot
+
+        try:
+            save_snapshot(px, None, Path(out_path))
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", str(e))
+
+    def _on_annotate_at_requested(self, t: float) -> None:
+        """Add a point marker at the clicked time on the plot (D-022)."""
+        from kinochronix.ui.annotations import VideoFrame
+
+        video_frames = [
+            VideoFrame(
+                path=str(r["path"]),
+                frame_index=int(r["frame_index"]),
+                media_timestamp=float(r["media_timestamp"]),
+            )
+            for r in self.video_grid.frame_records_at(t)
+        ]
+        self.annotation_store.add_point(t, video_frames=video_frames)
+        self.statusBar().showMessage(f"Marked frame at {t:.3f}s", 2000)
+
+    # ── About dialog ─────────────────────────────────────────────────
+
+    def _show_about(self) -> None:
+        QMessageBox.about(
+            self,
+            "About KinoChronix",
+            "KinoChronix — multi-camera video + time-series scrubber.\nApache-2.0 licence.",
+        )
+
     # ── Shortcuts dialog ─────────────────────────────────────────────
 
     def _show_shortcuts(self) -> None:
         from kinochronix.ui.shortcuts_dialog import ShortcutsDialog
 
-        dlg = ShortcutsDialog(self)
+        # Group all registered QActions by category tag (D-022.6)
+        groups: dict[str, list[QAction]] = {}
+        for act in getattr(self, "_all_actions", []):
+            if not act.shortcuts():
+                continue
+            cat = str(act.property("kc_category") or "Other")
+            groups.setdefault(cat, []).append(act)
+
+        dlg = ShortcutsDialog(groups, self)
         dlg.exec()
 
     # ── Diagnostics dialog ───────────────────────────────────────────

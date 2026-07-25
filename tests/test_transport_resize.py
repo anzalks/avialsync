@@ -19,6 +19,7 @@ def transport(qtbot):
 
 # ── helper: compute expected pin x at current slider geometry ──────────────
 
+
 def _expected_pin_x(transport: Transport, frac: float) -> int:
     """Return the correct x for a pin at *frac* given the slider's current geometry."""
     opt = QStyleOptionSlider()
@@ -34,6 +35,7 @@ def _expected_pin_x(transport: Transport, frac: float) -> int:
 
 
 # ── tests ──────────────────────────────────────────────────────────────────
+
 
 def test_pin_in_realigns_after_resize(qtbot, transport):
     """A/B in-pin must sit at the correct groove fraction after a resize."""
@@ -51,9 +53,7 @@ def test_pin_in_realigns_after_resize(qtbot, transport):
 
     expected = _expected_pin_x(transport, 0.5)
     actual = transport._pin_in.geometry().x()
-    assert actual == expected, (
-        f"Pin did not realign: actual={actual}, expected={expected}"
-    )
+    assert actual == expected, f"Pin did not realign: actual={actual}, expected={expected}"
 
 
 def test_pin_out_realigns_after_resize(qtbot, transport):
@@ -69,8 +69,7 @@ def test_pin_out_realigns_after_resize(qtbot, transport):
 
     expected = _expected_pin_x(transport, 0.75)
     assert transport._pin_out.geometry().x() == expected, (
-        f"Out-pin did not realign: actual={transport._pin_out.geometry().x()}, "
-        f"expected={expected}"
+        f"Out-pin did not realign: actual={transport._pin_out.geometry().x()}, expected={expected}"
     )
 
 
@@ -78,7 +77,7 @@ def test_both_pins_realign_after_resize(qtbot, transport):
     """Both A/B pins realign independently after a single resize."""
     transport.set_bounds(0.0, 10.0)
     transport.set_time(2.0)
-    transport._on_ab_in()   # frac 0.2
+    transport._on_ab_in()  # frac 0.2
     transport.set_time(8.0)
     transport._on_ab_out()  # frac 0.8
 

@@ -87,12 +87,14 @@ class ImportWorker(QObject):
 
             if self._cancel_flag:
                 import shutil
+
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 return
 
             t0, t1 = 0.0, 0.0
             if channel_names:
                 from kinochronix.core.pyramid import PyramidReader
+
                 pr = PyramidReader(temp_dir, channel_names[0])
                 t, _, _, _ = pr._load_level(1)
                 if len(t) > 0:

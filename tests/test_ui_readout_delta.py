@@ -12,12 +12,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     return QApplication.instance() or QApplication([])
 
 
 @pytest.fixture
 def panel(app):
     from kinochronix.ui.readout_panel import ReadoutPanel
+
     p = ReadoutPanel()
     p.show()
     return p

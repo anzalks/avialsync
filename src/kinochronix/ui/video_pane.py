@@ -76,6 +76,7 @@ class VideoPane(QWidget):
     """
 
     double_clicked = Signal(object)
+    right_clicked = Signal(object)  # emits QPoint (global position)
     _osd_update = Signal(float, float)  # time, fps
 
     def __init__(self, parent: QWidget | None = None):
@@ -277,8 +278,12 @@ class VideoPane(QWidget):
         if obj == self._video_widget:
             try:
                 # Compare integer values to avoid PySide6 EnumType.__call__ exceptions
-                if int(event.type()) == 4:  # QEvent.Type.MouseButtonDblClick is 4
+                ev_type = int(event.type())
+                if ev_type == 4:  # QEvent.Type.MouseButtonDblClick
                     self.double_clicked.emit(self)
+                elif ev_type == 82:  # QEvent.Type.ContextMenu
+                    self.right_clicked.emit(event.globalPos())
+                    return True  # consume; MainWindow builds the menu
             except Exception:
                 pass
         return super().eventFilter(obj, event)

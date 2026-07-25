@@ -132,9 +132,8 @@ class SensorInfoWidget(QFrame):
         layout.addLayout(report_row)
 
         from kinochronix.ui.source_properties import SensorPropertiesPanel
-        self._props_panel = SensorPropertiesPanel(
-            _make_empty_inspection(path), parent=self
-        )
+
+        self._props_panel = SensorPropertiesPanel(_make_empty_inspection(path), parent=self)
         layout.addWidget(self._props_panel)
 
     def _on_item_changed(self, item: QTreeWidgetItem, column: int) -> None:
@@ -165,6 +164,7 @@ class SensorInfoWidget(QFrame):
 
 def _make_empty_inspection(path: str) -> object:
     from kinochronix.core.inspection import SourceInspection
+
     return SourceInspection(path=path)
 
 
@@ -243,6 +243,7 @@ class VideoInfoWidget(QFrame):
 
         # Properties panel (collapsible, from source_properties.py)
         from kinochronix.ui.source_properties import VideoPropertiesPanel
+
         self._props_panel = VideoPropertiesPanel(loader=None, parent=self)
         self._loader: object = None
         layout.addWidget(self._props_panel)
@@ -254,6 +255,7 @@ class VideoInfoWidget(QFrame):
         """Attach the VideoStandardLoader for metadata display."""
         self._loader = loader
         from kinochronix.ui.source_properties import VideoPropertiesPanel
+
         self._props_panel.setParent(None)
         self._props_panel.deleteLater()
         self._props_panel = VideoPropertiesPanel(loader=loader, parent=self)

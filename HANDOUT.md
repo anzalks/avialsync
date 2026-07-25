@@ -341,6 +341,7 @@ class VideoFrame:
     frame_index: int
     media_timestamp: float
 
+
 @dataclasses.dataclass
 class Marker:
     t_start: float

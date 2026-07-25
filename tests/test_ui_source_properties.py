@@ -12,6 +12,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     instance = QApplication.instance() or QApplication([])
     return instance
 

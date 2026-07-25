@@ -56,45 +56,81 @@ class _ABPin(QFrame):
         self.show()
 
 
+def _sep(parent: QWidget) -> QFrame:
+    """Thin vertical separator for the transport bar."""
+    sep = QFrame(parent)
+    sep.setFrameShape(QFrame.Shape.VLine)
+    sep.setFrameShadow(QFrame.Shadow.Sunken)
+    sep.setFixedWidth(6)
+    return sep
+
+
 class Transport(QWidget):
     """Transport bar: play/pause, frame step, scrub slider,
-    A/B loop, rate control, and inline time display / jump."""
+    A/B loop, rate control, and inline time display / jump.
+
+    New signals (D-022):
+      snapshot_requested   — snapshot button or Ctrl+E
+      fullscreen_requested — fullscreen button or F11
+      jump_requested(float)— jump ±Ns (negative = back)
+    """
 
     play_toggled = Signal(bool)
     seek_requested = Signal(float, bool)  # t, exact
     rate_changed = Signal(float)
     frame_step_requested = Signal(int)  # -1 or +1
-    annotate_requested = Signal()  # Fired when user wants to mark current frame
+    annotate_requested = Signal()
     ab_loop_changed = Signal(object, object)  # t_in|None, t_out|None
+    snapshot_requested = Signal()
+    fullscreen_requested = Signal()
+    jump_requested = Signal(float)  # delta in seconds
+
+    # Ordered playback-rate steps (J/K/L model, D-022.4)
+    _RATE_STEPS = [0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 10.0]
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setLayout(QHBoxLayout())
         self.layout().setContentsMargins(5, 5, 5, 5)
 
-        # Frame step back
+        # ── Jump back 1 s ─────────────────────────────────────────────
+        self._jump_back_btn = QPushButton("–1s")
+        self._jump_back_btn.setFixedWidth(36)
+        self._jump_back_btn.setToolTip("Jump back 1 second (J or Shift+←)")
+        self._jump_back_btn.clicked.connect(lambda: self.jump_requested.emit(-1.0))
+        self.layout().addWidget(self._jump_back_btn)
+
+        # ── Frame step back ───────────────────────────────────────────
         self._step_back_btn = QPushButton("◀")
         self._step_back_btn.setFixedWidth(28)
-        self._step_back_btn.setToolTip("Step back 1 frame (← arrow)")
+        self._step_back_btn.setToolTip("Step back 1 frame (← or ,)")
         self._step_back_btn.clicked.connect(lambda: self.frame_step_requested.emit(-1))
         self.layout().addWidget(self._step_back_btn)
 
-        # Play / Pause
+        # ── Play / Pause ──────────────────────────────────────────────
         self.play_btn = QPushButton("Play")
         self.play_btn.setCheckable(True)
+        self.play_btn.setToolTip("Play / Pause (Space)")
         self.play_btn.clicked.connect(self._on_play_clicked)
         self.layout().addWidget(self.play_btn)
 
-        # Frame step forward
+        # ── Frame step forward ────────────────────────────────────────
         self._step_fwd_btn = QPushButton("▶")
         self._step_fwd_btn.setFixedWidth(28)
-        self._step_fwd_btn.setToolTip("Step forward 1 frame (→ arrow)")
+        self._step_fwd_btn.setToolTip("Step forward 1 frame (→ or .)")
         self._step_fwd_btn.clicked.connect(lambda: self.frame_step_requested.emit(1))
         self.layout().addWidget(self._step_fwd_btn)
 
-        # Unified time display / jump input
-        # Editable: type a time and press Enter to jump.
-        # Otherwise shows the current playhead position.
+        # ── Jump forward 1 s ──────────────────────────────────────────
+        self._jump_fwd_btn = QPushButton("+1s")
+        self._jump_fwd_btn.setFixedWidth(36)
+        self._jump_fwd_btn.setToolTip("Jump forward 1 second (Shift+→)")
+        self._jump_fwd_btn.clicked.connect(lambda: self.jump_requested.emit(1.0))
+        self.layout().addWidget(self._jump_fwd_btn)
+
+        self.layout().addWidget(_sep(self))
+
+        # ── Time display / jump input ──────────────────────────────────
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self._time_edit = QLineEdit("00:00:00.000")
         self._time_edit.setFixedWidth(110)
@@ -109,7 +145,7 @@ class Transport(QWidget):
         self._time_edit.textEdited.connect(self._on_text_edited)
         self.layout().addWidget(self._time_edit)
 
-        # Scrub slider
+        # ── Scrub slider ──────────────────────────────────────────────
         self.slider = JumpSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 10000)
         self.slider.sliderPressed.connect(self._on_slider_pressed)
@@ -117,17 +153,21 @@ class Transport(QWidget):
         self.slider.sliderReleased.connect(self._on_slider_released)
         self.layout().addWidget(self.slider)
 
-        # A/B loop buttons
+        self.layout().addWidget(_sep(self))
+
+        # ── A/B loop buttons (checkable — D-022.5) ────────────────────
         self._ab_in_btn = QPushButton("[")
-        self._ab_in_btn.setFixedWidth(24)
-        self._ab_in_btn.setToolTip("Set loop in-point here")
-        self._ab_in_btn.clicked.connect(self._on_ab_in)
+        self._ab_in_btn.setFixedWidth(28)
+        self._ab_in_btn.setCheckable(True)
+        self._ab_in_btn.setToolTip("Set loop in-point here ([ or I)")
+        self._ab_in_btn.clicked.connect(self._on_ab_in_clicked)
         self.layout().addWidget(self._ab_in_btn)
 
         self._ab_out_btn = QPushButton("]")
-        self._ab_out_btn.setFixedWidth(24)
-        self._ab_out_btn.setToolTip("Set loop out-point here")
-        self._ab_out_btn.clicked.connect(self._on_ab_out)
+        self._ab_out_btn.setFixedWidth(28)
+        self._ab_out_btn.setCheckable(True)
+        self._ab_out_btn.setToolTip("Set loop out-point here (] or O)")
+        self._ab_out_btn.clicked.connect(self._on_ab_out_clicked)
         self.layout().addWidget(self._ab_out_btn)
 
         self._ab_clear_btn = QPushButton("✕")
@@ -136,19 +176,38 @@ class Transport(QWidget):
         self._ab_clear_btn.clicked.connect(self._on_ab_clear)
         self.layout().addWidget(self._ab_clear_btn)
 
-        # Annotate button
+        self.layout().addWidget(_sep(self))
+
+        # ── Annotate ──────────────────────────────────────────────────
         self._annotate_btn = QPushButton("⚑")
-        self._annotate_btn.setFixedWidth(24)
-        self._annotate_btn.setToolTip("Mark current frame for export (Shortcut: M)")
+        self._annotate_btn.setFixedWidth(28)
+        self._annotate_btn.setToolTip("Add marker at playhead (M)")
         self._annotate_btn.clicked.connect(self.annotate_requested.emit)
         self.layout().addWidget(self._annotate_btn)
 
-        # Rate combo — 0.01x to 10x
+        # ── Snapshot ──────────────────────────────────────────────────
+        self._snapshot_btn = QPushButton("⊙")
+        self._snapshot_btn.setFixedWidth(28)
+        self._snapshot_btn.setToolTip("Export snapshot (Ctrl+E)")
+        self._snapshot_btn.clicked.connect(self.snapshot_requested.emit)
+        self.layout().addWidget(self._snapshot_btn)
+
+        # ── Fullscreen toggle ─────────────────────────────────────────
+        self._fullscreen_btn = QPushButton("⤢")
+        self._fullscreen_btn.setFixedWidth(28)
+        self._fullscreen_btn.setToolTip("Toggle pane fullscreen (F11)")
+        self._fullscreen_btn.clicked.connect(self.fullscreen_requested.emit)
+        self.layout().addWidget(self._fullscreen_btn)
+
+        self.layout().addWidget(_sep(self))
+
+        # ── Rate combo (0.01× – 10×) ──────────────────────────────────
         self.rate_combo = QComboBox()
-        for r in [0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 10.0]:
+        for r in self._RATE_STEPS:
             label = f"{r}x" if r >= 0.1 else f"{r:.2f}x"
             self.rate_combo.addItem(label, r)
         self.rate_combo.setCurrentText("1.0x")
+        self.rate_combo.setToolTip("Playback rate (L = step up, K = pause)")
         self.rate_combo.currentIndexChanged.connect(self._on_rate_changed)
         self.layout().addWidget(self.rate_combo)
 
@@ -163,7 +222,7 @@ class Transport(QWidget):
         self._pin_in = _ABPin("#2a9d8f", self)
         self._pin_out = _ABPin("#e76f51", self)
 
-        # Prevent buttons/combos from stealing the Spacebar shortcut
+        # Prevent buttons/combos/sliders from stealing the Spacebar shortcut
         for widget in self.findChildren(QWidget):
             if isinstance(widget, (QPushButton, QComboBox, QSlider)):
                 widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -198,6 +257,11 @@ class Transport(QWidget):
         self.play_btn.setChecked(playing)
         self.play_btn.setText("Pause" if playing else "Play")
         self.play_btn.blockSignals(False)
+
+    def step_rate_up(self) -> None:
+        """Advance the rate combo to the next higher step (L key, D-022.4)."""
+        idx = min(self.rate_combo.currentIndex() + 1, self.rate_combo.count() - 1)
+        self.rate_combo.setCurrentIndex(idx)
 
     # ── Internal helpers ──────────────────────────────────────────────
 
@@ -252,18 +316,32 @@ class Transport(QWidget):
         self._time_editing = False
 
     def _on_ab_in(self) -> None:
+        """Set A/B in-point at current slider position."""
         self._ab_in_t = self._t_from_slider(self.slider.value())
+        self._ab_in_btn.setChecked(True)
         self._pin_in.pin_to_slider(self.slider, self._time_to_frac(self._ab_in_t))
         self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
 
+    def _on_ab_in_clicked(self, _checked: bool = False) -> None:
+        """Button click — set A/B in-point (button state managed here)."""
+        self._on_ab_in()
+
     def _on_ab_out(self) -> None:
+        """Set A/B out-point at current slider position."""
         self._ab_out_t = self._t_from_slider(self.slider.value())
+        self._ab_out_btn.setChecked(True)
         self._pin_out.pin_to_slider(self.slider, self._time_to_frac(self._ab_out_t))
         self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
+
+    def _on_ab_out_clicked(self, _checked: bool = False) -> None:
+        """Button click — set A/B out-point (button state managed here)."""
+        self._on_ab_out()
 
     def _on_ab_clear(self) -> None:
         self._ab_in_t = None
         self._ab_out_t = None
+        self._ab_in_btn.setChecked(False)
+        self._ab_out_btn.setChecked(False)
         self._pin_in.hide()
         self._pin_out.hide()
         self.ab_loop_changed.emit(None, None)

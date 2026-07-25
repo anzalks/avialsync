@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
 
 from kinochronix.ui.video_pane import VideoPane
@@ -16,6 +16,10 @@ class VideoGrid(QWidget):
     Uses a single QGridLayout and re-arranges children when the mode
     changes, avoiding the Qt limitation that prevents swapping layouts.
     """
+
+    # Emitted when the user right-clicks inside any video pane.
+    # path = the pane's video path; pos = QPoint (global screen position).
+    pane_right_clicked = Signal(str, object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -58,9 +62,7 @@ class VideoGrid(QWidget):
                 mpv = getattr(pane, "mpv", None)
                 fps = float(getattr(mpv, "estimated_vf_fps", 0.0) or 30.0) if mpv else 30.0
             frame_index = max(0, int(t_video * fps))
-            records.append(
-                {"path": path, "frame_index": frame_index, "media_timestamp": t_video}
-            )
+            records.append({"path": path, "frame_index": frame_index, "media_timestamp": t_video})
         return records
 
     def set_tracking_readers(self, readers: list) -> None:
@@ -79,6 +81,8 @@ class VideoGrid(QWidget):
         """Add a new video pane to the grid and open the video."""
         pane = VideoPane(self)
         pane.double_clicked.connect(self._on_pane_double_clicked)
+        # Forward right-click with path so MainWindow can build a context menu.
+        pane.right_clicked.connect(lambda pos, _p=path: self.pane_right_clicked.emit(_p, pos))
         self.panes.append(pane)
         self._paths.append(path)
         pane.open(path)
@@ -198,6 +202,22 @@ class VideoGrid(QWidget):
                 self.panes[i].set_label("")
             else:
                 self.panes[i].set_label(label)
+
+    def toggle_fullscreen(self, path: str | None = None) -> None:
+        """Toggle fullscreen for the pane identified by *path*.
+
+        If *path* is None, the first pane is used (for toolbar/shortcut use).
+        """
+        if not self.panes:
+            return
+        if path is not None:
+            try:
+                pane = self.panes[self._paths.index(path)]
+            except ValueError:
+                return
+        else:
+            pane = self.panes[0]
+        self._on_pane_double_clicked(pane)
 
     def _on_pane_double_clicked(self, pane: VideoPane) -> None:
         """Toggle fullscreen for the clicked pane."""

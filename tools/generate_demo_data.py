@@ -18,8 +18,14 @@ def _ffmpeg(*args: str, check: bool = True) -> None:
 
 def _make_camera(path: Path, duration: float = 10.0, fps: int = 30) -> None:
     _ffmpeg(
-        "-f", "lavfi", "-i", f"testsrc=duration={duration}:size=640x360:rate={fps}",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-f",
+        "lavfi",
+        "-i",
+        f"testsrc=duration={duration}:size=640x360:rate={fps}",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
         str(path),
     )
 
@@ -27,10 +33,18 @@ def _make_camera(path: Path, duration: float = 10.0, fps: int = 30) -> None:
 def _make_camera_vfr(path: Path) -> None:
     """VFR video: drop every 7th frame using select filter, encode with vsync vfr."""
     _ffmpeg(
-        "-f", "lavfi", "-i", "testsrc=duration=10:size=640x360:rate=30",
-        "-vf", r"select=not(mod(n\,7))",
-        "-vsync", "vfr",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=duration=10:size=640x360:rate=30",
+        "-vf",
+        r"select=not(mod(n\,7))",
+        "-vsync",
+        "vfr",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
         str(path),
     )
 
@@ -77,11 +91,17 @@ def _make_pose_csv(path: Path) -> None:
     x_tail = 320.0 - 40 * np.sin(2 * np.pi * frames / 150) + RNG.normal(0, 2, n_frames)
     y_tail = 180.0 - 20 * np.cos(2 * np.pi * frames / 150) + RNG.normal(0, 2, n_frames)
     like_tail = np.clip(RNG.uniform(0.7, 1.0, n_frames), 0.0, 1.0)
-    pl.DataFrame({
-        "frame": frames,
-        "x_nose": x_nose, "y_nose": y_nose, "likelihood_nose": like_nose,
-        "x_tail": x_tail, "y_tail": y_tail, "likelihood_tail": like_tail,
-    }).write_csv(path)
+    pl.DataFrame(
+        {
+            "frame": frames,
+            "x_nose": x_nose,
+            "y_nose": y_nose,
+            "likelihood_nose": like_nose,
+            "x_tail": x_tail,
+            "y_tail": y_tail,
+            "likelihood_tail": like_tail,
+        }
+    ).write_csv(path)
 
 
 def main():

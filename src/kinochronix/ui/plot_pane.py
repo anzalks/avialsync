@@ -48,6 +48,8 @@ class PlotPane(QWidget):
     sources_changed = Signal(list)  # list[PyramidReader]
     # Emitted when both measure points are set (t_a, t_b)
     measure_changed = Signal(float, float)
+    # Emitted when user picks "Add marker here" from the plot context menu (D-022)
+    annotate_at_requested = Signal(float)  # t in master-clock seconds
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -93,6 +95,10 @@ class PlotPane(QWidget):
 
         # We will use the first channel's X axis as the master for linking
         self._master_plot: pg.PlotItem | None = None
+
+        # Extra QAction objects injected by MainWindow (e.g. reset-zoom) so
+        # the context menu shares the exact same action instances as the menu bar.
+        self._extra_context_actions: list = []
 
         # Right-click context menu on the plot scene
         self.graphics_layout.scene().sigMouseClicked.connect(self._on_scene_clicked)
@@ -269,6 +275,25 @@ class PlotPane(QWidget):
         for ch in self.channels:
             ch.plot_item.enableAutoRange(axis="y")
 
+    def zoom_in(self) -> None:
+        """Zoom the X-axis in by ~30 % (+ key, D-022)."""
+        if self._master_plot:
+            self._master_plot.vb.scaleBy((0.7, 1.0))
+
+    def zoom_out(self) -> None:
+        """Zoom the X-axis out by ~40 % (- key, D-022)."""
+        if self._master_plot:
+            self._master_plot.vb.scaleBy((1.4, 1.0))
+
+    def set_context_actions(self, actions: list) -> None:
+        """Register extra QAction objects to appear in the right-click context menu.
+
+        MainWindow passes its own QAction instances (e.g. the View→Reset Zoom
+        action) so the context menu shares the exact same object — enabling
+        the object-identity test mandated by D-022.
+        """
+        self._extra_context_actions = list(actions)
+
     # ── Measure markers ──────────────────────────────────────────────
 
     def set_measure_a(self, t: float) -> None:
@@ -276,18 +301,14 @@ class PlotPane(QWidget):
         self._measure_a = t
         self._redraw_measure_lines()
         if self._measure_b is not None:
-            self.measure_changed.emit(
-                min(t, self._measure_b), max(t, self._measure_b)
-            )
+            self.measure_changed.emit(min(t, self._measure_b), max(t, self._measure_b))
 
     def set_measure_b(self, t: float) -> None:
         """Place measure pin B at time *t* on all channels."""
         self._measure_b = t
         self._redraw_measure_lines()
         if self._measure_a is not None:
-            self.measure_changed.emit(
-                min(self._measure_a, t), max(self._measure_a, t)
-            )
+            self.measure_changed.emit(min(self._measure_a, t), max(self._measure_a, t))
 
     def clear_measure(self) -> None:
         """Remove both measure pins."""
@@ -329,18 +350,36 @@ class PlotPane(QWidget):
             return
         view_pos = self._master_plot.vb.mapSceneToView(scene_pos)
         t = float(view_pos.x())
+
         menu = QMenu()
+
+        # Annotate at clicked position (D-022)
+        act_annot = menu.addAction(f"Add marker here  ({t:.3f} s)")
+        menu.addSeparator()
+
+        # Measure sub-group
         act_a = menu.addAction(f"Set Measure A  ({t:.3f} s)")
         act_b = menu.addAction(f"Set Measure B  ({t:.3f} s)")
         menu.addSeparator()
         act_clear = menu.addAction("Clear Measure")
+
+        # Extra actions injected by MainWindow (e.g. Reset Zoom — same QAction
+        # object as the View menu item, verified by identity in tests).
+        if self._extra_context_actions:
+            menu.addSeparator()
+            for extra in self._extra_context_actions:
+                menu.addAction(extra)
+
         chosen = menu.exec(ev.screenPos().toPoint())
-        if chosen == act_a:
+        if chosen == act_annot:
+            self.annotate_at_requested.emit(t)
+        elif chosen == act_a:
             self.set_measure_a(t)
         elif chosen == act_b:
             self.set_measure_b(t)
         elif chosen == act_clear:
             self.clear_measure()
+        # Extra actions fire through their own triggered signal — no elif needed.
         ev.accept()
 
     # ── Gap markers ──────────────────────────────────────────────────

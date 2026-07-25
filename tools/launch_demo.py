@@ -63,10 +63,14 @@ def load_data(win: MainWindow) -> None:
     if sensors_path.exists():
         print(f"Loading {sensors_path.name}  (1 kHz, 4 channels, with units)")
         config = {
-            "time_col": "time", "time_unit": "s", "separator": ",",
+            "time_col": "time",
+            "time_unit": "s",
+            "separator": ",",
             "units": {
-                "Accel_X": "m/s²", "Accel_Y": "m/s²",
-                "Gyro_Z": "deg/s", "Steering_Angle": "deg",
+                "Accel_X": "m/s²",
+                "Accel_Y": "m/s²",
+                "Gyro_Z": "deg/s",
+                "Steering_Angle": "deg",
             },
         }
         worker = ImportWorker(sensors_path, config)
@@ -75,8 +79,10 @@ def load_data(win: MainWindow) -> None:
         channels = ["Accel_X", "Accel_Y", "Gyro_Z", "Steering_Angle"]
         # Build a minimal SourceInspection so units reach ReadoutPanel via _inspections
         inspection = SourceInspection(
-            path=str(sensors_path), loader_id="CSVLoader",
-            import_config=config, integrity_flags=IntegrityFlags(),
+            path=str(sensors_path),
+            loader_id="CSVLoader",
+            import_config=config,
+            integrity_flags=IntegrityFlags(),
         )
         win._on_import_finished(
             str(sensors_path), str(cache_dir), channels, (0.0, 10.0), inspection
@@ -86,20 +92,26 @@ def load_data(win: MainWindow) -> None:
     gaps_path = base_dir / "sensors_gaps.csv"
     if gaps_path.exists():
         print(f"Loading {gaps_path.name}  (10 kHz, 3 gaps, NaN, sentinel=-9999)")
-        config2 = {"time_col": "time", "time_unit": "s", "separator": ",",
-                   "sentinel": -9999.0,
-                   "units": {"Accel_X": "m/s²", "Gyro_Z": "deg/s"}}
+        config2 = {
+            "time_col": "time",
+            "time_unit": "s",
+            "separator": ",",
+            "sentinel": -9999.0,
+            "units": {"Accel_X": "m/s²", "Gyro_Z": "deg/s"},
+        }
         worker2 = ImportWorker(gaps_path, config2)
         worker2.run()
         cache_dir2 = CacheManager(loader_version=1).get_cache_dir(gaps_path)
         inspection2 = SourceInspection(
-            path=str(gaps_path), loader_id="CSVLoader",
+            path=str(gaps_path),
+            loader_id="CSVLoader",
             import_config=config2,
             import_report=ImportReport(rows_parsed=94_500, gap_count=3, nan_count=94),
             integrity_flags=IntegrityFlags(has_gaps=True),
         )
-        win._on_import_finished(str(gaps_path), str(cache_dir2), ["Accel_X", "Gyro_Z"],
-                                (0.0, 10.0), inspection2)
+        win._on_import_finished(
+            str(gaps_path), str(cache_dir2), ["Accel_X", "Gyro_Z"], (0.0, 10.0), inspection2
+        )
 
     print("\nDemo ready — all fixtures loaded. Playing…")
     win.player.play()

@@ -12,12 +12,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 @pytest.fixture(scope="module")
 def app():
     from PySide6.QtWidgets import QApplication
+
     return QApplication.instance() or QApplication([])
 
 
 @pytest.fixture
 def plot_pane(app):
     from kinochronix.ui.plot_pane import PlotPane
+
     return PlotPane()
 
 
@@ -64,6 +66,7 @@ class TestMeasureMarkers:
 
     def test_signal_not_emitted_with_only_a(self, app):
         from kinochronix.ui.plot_pane import PlotPane
+
         p = PlotPane()
         received = []
         p.measure_changed.connect(lambda a, b: received.append((a, b)))

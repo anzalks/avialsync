@@ -248,6 +248,7 @@ class ReadoutPanel(QGroupBox):
             return
 
         from kinochronix.engine.export import compute_region_stats
+
         stats_list = compute_region_stats(self._readers, t0, t1)
 
         self._stats_label.setVisible(True)

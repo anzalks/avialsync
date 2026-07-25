@@ -68,6 +68,7 @@ class ImportReportDialog(QDialog):
         rep = ins.import_report
         if rep:
             import datetime as _dt
+
             ts = _dt.datetime.fromtimestamp(rep.import_timestamp).strftime("%Y-%m-%d %H:%M:%S")
             lines += [
                 "",
