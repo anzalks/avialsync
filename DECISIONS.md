@@ -435,3 +435,18 @@ GitHub Actions verifies the representative three-camera, four-stream workload fo
 The local `pytest --benchmark-only` command enforces the raw 2.5 s / 5 ms / 2 ms / 250 ms timing
 marks, without any multiplier. The cross-platform matrix never claims shared hosted hardware can
 certify user-facing speed. Per-test multipliers remain prohibited.
+
+## 2026-07 · D-030 · Test-level watchdog for cross-platform Qt verification
+
+### Context
+
+Two Windows test jobs remained inside pytest for more than fifteen hours, despite the workflow's
+job timeout. A job-level timeout only tells us a runner is wedged; it does not identify the test or
+provide the stack needed to fix a Qt, worker, or subprocess deadlock.
+
+### Decision
+
+The development-only `pytest-timeout` dependency (MIT) runs every CI test with a 60-second,
+thread-based watchdog. It reports the exact stuck test and its Python stack, then fails the job.
+The timeout applies to correctness tests only; local performance benchmarks retain their own timing
+marks and are not weakened. Raising a workflow timeout or skipping a timed-out test is forbidden.

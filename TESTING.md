@@ -71,6 +71,8 @@ not speed: shared CI hardware is not a valid stand-in for the machines scientist
 ## 5. GUI test conventions
 
 - `QT_QPA_PLATFORM=offscreen`; use `qtbot.waitSignal` — never `time.sleep`.
+- `pytest-timeout` stops any individual test after 60 seconds in CI. A timeout is a bug report with
+  a stack trace, never a reason to raise the job timeout or silently skip the test.
 - Every bug fix adds a regression test reproducing the bug first.
 - Error-path tests: corrupt CSV, missing file at session load, unsupported codec → assert the
   actionable dialog text appears and app stays alive.

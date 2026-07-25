@@ -91,9 +91,9 @@ jobs:
           '
         
       - name: Run Tests
-        # A Qt/platform deadlock must identify itself in the log rather than
+        # A Qt/platform deadlock must fail at the specific test instead of
         # consuming the whole job timeout with no diagnostic evidence.
-        run: pytest -x -q --durations=20 --ignore=tests/benchmarks -o faulthandler_timeout=60
+        run: pytest -x -q --durations=20 --timeout=60 --timeout-method=thread --ignore=tests/benchmarks
 
   docs:
     name: Read the Docs build
