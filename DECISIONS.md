@@ -450,3 +450,8 @@ The development-only `pytest-timeout` dependency (MIT) runs every CI test with a
 thread-based watchdog. It reports the exact stuck test and its Python stack, then fails the job.
 The timeout applies to correctness tests only; local performance benchmarks retain their own timing
 marks and are not weakened. Raising a workflow timeout or skipping a timed-out test is forbidden.
+
+**Platform correction:** Qt documents its `offscreen` platform plugin as fully supported only on
+X11. Windows CI therefore overrides the global headless setting with the native `qwindows` backend
+for its QWidget tests. Linux and macOS continue to use offscreen testing. This is a test-platform
+selection fix, not an application behavior change.
