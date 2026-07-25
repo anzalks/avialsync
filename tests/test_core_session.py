@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from kinochronix.core.session import (
+from avialview.core.session import (
     MarkerEntry,
     SensorEntry,
     SessionState,
@@ -13,9 +13,9 @@ from kinochronix.core.session import (
     VideoEntry,
 )
 
-FIXTURE_V1 = Path(__file__).parent / "fixtures" / "session_v1.kcx"
-FIXTURE_V2 = Path(__file__).parent / "fixtures" / "session_v2.kcx"
-FIXTURE_V3 = Path(__file__).parent / "fixtures" / "session_v3.kcx"
+FIXTURE_V1 = Path(__file__).parent / "fixtures" / "session_v1.avv"
+FIXTURE_V2 = Path(__file__).parent / "fixtures" / "session_v2.avv"
+FIXTURE_V3 = Path(__file__).parent / "fixtures" / "session_v3.avv"
 
 
 # ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@ FIXTURE_V3 = Path(__file__).parent / "fixtures" / "session_v3.kcx"
 
 
 def test_v1_session_loads_under_v4_schema():
-    """A v1 .kcx file must load correctly after the v2-v4 schema changes."""
+    """A v1 .avv file must load correctly after the v2-v4 schema changes."""
     state = SessionState.load(FIXTURE_V1)
 
     assert len(state.videos) == 1
@@ -52,7 +52,7 @@ def test_v1_session_loads_under_v4_schema():
 def test_v1_session_roundtrips_as_v4(tmp_path: Path) -> None:
     """Loading a v1 session then saving it should produce a valid v4 file."""
     state = SessionState.load(FIXTURE_V1)
-    out = tmp_path / "out.kcx"
+    out = tmp_path / "out.avv"
     state.save(out)
 
     data = json.loads(out.read_text())
@@ -70,7 +70,7 @@ def test_v1_session_roundtrips_as_v4(tmp_path: Path) -> None:
 
 
 def test_v2_session_loads_under_v4_schema() -> None:
-    """A v2 .kcx file must load without error; video_frames defaults to []."""
+    """A v2 .avv file must load without error; video_frames defaults to []."""
     state = SessionState.load(FIXTURE_V2)
     assert len(state.markers) == 2
     assert state.markers[0].video_frames == []
@@ -83,7 +83,7 @@ def test_v2_session_loads_under_v4_schema() -> None:
 
 
 def test_v3_session_loads_correctly() -> None:
-    """A v3 .kcx file must preserve video_frames on load."""
+    """A v3 .avv file must preserve video_frames on load."""
     state = SessionState.load(FIXTURE_V3)
     assert len(state.markers) == 2
 
@@ -102,7 +102,7 @@ def test_v3_session_loads_correctly() -> None:
 def test_v3_session_roundtrips(tmp_path: Path) -> None:
     """A v3 session must survive a save/load cycle with video_frames intact."""
     state = SessionState.load(FIXTURE_V3)
-    out = tmp_path / "v3_rt.kcx"
+    out = tmp_path / "v3_rt.avv"
     state.save(out)
     loaded = SessionState.load(out)
 
@@ -159,7 +159,7 @@ def test_v4_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
             )
         ],
     )
-    out = tmp_path / "v4.kcx"
+    out = tmp_path / "v4.avv"
     state.save(out)
 
     data = json.loads(out.read_text())
@@ -192,7 +192,7 @@ def test_unsupported_version_raises() -> None:
 def test_empty_session_roundtrip(tmp_path: Path) -> None:
     """An empty session should save and load without error."""
     state = SessionState()
-    out = tmp_path / "empty.kcx"
+    out = tmp_path / "empty.avv"
     state.save(out)
     loaded = SessionState.load(out)
     assert loaded.videos == []

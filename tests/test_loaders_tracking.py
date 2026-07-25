@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from kinochronix.loaders.tracking_loader import TrackingLoader
+from avialview.loaders.tracking_loader import TrackingLoader
 
 
 def test_loader():

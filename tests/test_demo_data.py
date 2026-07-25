@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from kinochronix.loaders.tracking_loader import TrackingLoader
+from avialview.loaders.tracking_loader import TrackingLoader
 from tools.generate_demo_data import _is_dlc_pose_csv, _make_pose_csv
 
 

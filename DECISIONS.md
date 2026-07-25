@@ -31,7 +31,7 @@ GStreamer (dependency pain on Windows/macOS). Consequence: bundle LGPL mpv in in
 Enables commercialization and permissive reuse. PyQt (GPL) banned; PySide6 (LGPL) allowed.
 
 ## 2026-07 · D-004 · Sidecar cache format
-Parsed time series → `<file>.kcache/` dir: `meta.json`, `t.npy`-style raw mmap arrays per channel,
+Parsed time series → `<file>.avialcache/` dir: `meta.json`, `t.npy`-style raw mmap arrays per channel,
 `pyr_16.bin`/`pyr_256.bin`/`pyr_4096.bin` min/max pairs. Invalidation key: (path, size, mtime, loader
 version). Alternatives: HDF5 (heavy dep), Parquet-only (no mmap random access win for pyramids).
 
@@ -76,7 +76,7 @@ traceback at launch is a release-blocking bug.
 ## 2026-07 · D-014 · Windows pip auto-fetch of libmpv
 First run without libmpv on Windows: offer one-click download of the pinned LGPL libmpv build
 (URL + SHA256 hardcoded per release) into the app data dir; loaded from there. Makes pip on
-Windows effectively zero-step. Optional `kinochronix[media]` binary companion wheel is post-1.0.
+Windows effectively zero-step. Optional `avialview[media]` binary companion wheel is post-1.0.
 
 ## 2026-07 · D-015 · LGPL-configured libmpv ONLY in bundles
 libmpv is dual GPL/LGPL; bundling a GPL-configured build would poison D-003. Packaging must use
@@ -93,13 +93,13 @@ first commercial interest or when Mac-user friction reports appear.
 Dependency is `python-mpv` on PyPI; imported module is `mpv`. The unrelated PyPI package named
 `mpv` must never be installed. Pin in pyproject: python-mpv>=1.0.7.
 
-## 2026-07 · D-018 · Product name = KinoChronix (final)
-Brand/display: `KinoChronix`. Package/module/CLI/entry-point group/paths: `kinochronix`
-(lowercase, single word). Session ext `.kcx`; cache sidecar `<file>.kcache/`; installers
-`KinoChronix-Setup.exe` / `KinoChronix.dmg` / `KinoChronix.AppImage`; env vars `KINOCHRONIX_*`;
-third-party plugins `kinochronix-plugin-<name>`. Casing table is binding (AGENTS.md §Naming).
+## 2026-07 · D-018 · Product name = AvialView (final)
+Brand/display: `AvialView`. Package/module/CLI/entry-point group/paths: `avialview`
+(lowercase, single word). Session ext `.avv`; cache sidecar `<file>.avialcache/`; installers
+`AvialView-Setup.exe` / `AvialView.dmg` / `AvialView.AppImage`; env vars `AVIALVIEW_*`;
+third-party plugins `avialview-plugin-<name>`. Casing table is binding (AGENTS.md §Naming).
 Agents must not introduce spelling variants or rename anything. ACTION FOR OWNER: register
-`kinochronix` on PyPI (stub 0.0.1) and the GitHub org/repo before Phase 0 work begins.
+`avialview` on PyPI (stub 0.0.1) and the GitHub org/repo before Phase 0 work begins.
 
 ## 2026-07 · D-019 · Frame-indexed sources — is_frame_indexed() pre-freeze API addition
 `TimeSeriesSource` (core/source.py) gains a non-abstract `is_frame_indexed() → bool` method
@@ -186,7 +186,7 @@ No parallel hierarchy — source_properties panels are children of the existing 
 TimeDisplayMode enum: RELATIVE (default) | UTC | LOCAL_TOD.
 ui/time_format.py: format_time(t_seconds: float, mode: TimeDisplayMode, t_epoch: float) → str
   where t_epoch is the recording start epoch (0.0 if unknown → RELATIVE always from 0).
-Stored as a singleton in MainWindow, persisted in QSettings("KinoChronix","KinoChronix","time_mode").
+Stored as a singleton in MainWindow, persisted in QSettings("AvialView","AvialView","time_mode").
 MainWindow emits time_mode_changed(mode) signal. Transport, VideoPane OSD, ReadoutPanel, and
 all properties panels subscribe. format_time() is the ONLY place time is formatted — no inline
 HH:MM:SS formatting scattered through widgets.
@@ -248,7 +248,7 @@ headless and plugin configuration is JSON-serialisable host-provided data rather
 
 `VideoSource` retains `needs_conversion()` and `prepare()` (D-006), gains abstract
 `time_bounds()`, and is opened through the registry in a worker thread before mpv receives its
-prepared media path. Discovery supports Python entry points plus `~/.kinochronix/plugins/` drop-ins.
+prepared media path. Discovery supports Python entry points plus `~/.avialview/plugins/` drop-ins.
 The removed methods must not be reintroduced without a versioned API decision.
 
 ## 2026-07 · D-022 · Interaction standard — visible surface, depth in menus, shortcuts as accelerators
@@ -390,14 +390,14 @@ the loader_version in the cache key (D-008) so stale caches are automatically in
 
 **Decision:** Increase the Pyramid build budget for 180M samples from 2.0s to 2.5s.
 
-**Rationale:** Profiling demonstrates that the current `.kcache` sidecar format writes ~3.5 GB of data for a 180M sample track (Level-1 timestamps and values saved as `float64` dominates this volume). Writing 3.5 GB sequentially hits the physical limits of typical PCIe 4.0 NVMe SSDs, bottoming out at an I/O floor of ~2.1 seconds natively before any CPU overhead (decimation math, gap mask computation, etc.) is accounted for. This budget is adjusted *by decision* with profiling evidence attached, not artificially via multiplier. 
+**Rationale:** Profiling demonstrates that the current `.avialcache` sidecar format writes ~3.5 GB of data for a 180M sample track (Level-1 timestamps and values saved as `float64` dominates this volume). Writing 3.5 GB sequentially hits the physical limits of typical PCIe 4.0 NVMe SSDs, bottoming out at an I/O floor of ~2.1 seconds natively before any CPU overhead (decimation math, gap mask computation, etc.) is accounted for. This budget is adjusted *by decision* with profiling evidence attached, not artificially via multiplier.
 
 **Future Optimization (Format Migration deferred post-1.0):**
 For uniform-rate sources, the Level-1 `t` array does not need to be written to disk. It is perfectly reconstructible from a `(t0, dt)` tuple, which would save ~1.44 GB of writes per channel and almost certainly bring the build time back comfortably under 2.0s. This optimization requires a cache-format change (bump `loader_version` and refactor format migration) and is explicitly deferred until post-1.0 to prioritize stabilization. The 2.5s budget is therefore considered provisional.
 
 ## 2026-07 · D-026 · Synchronization is evidence-based, plugin-extensible, and user-accepted
 
-KinoChronix is a visual-inspection tool, not an acquisition system or a built-in scientific-analysis
+AvialView is a visual-inspection tool, not an acquisition system or a built-in scientific-analysis
 suite. It must align independently-clocked cameras, sensors, electrodes, and tracking data using
 TTL/event evidence without changing the raw recordings.
 
@@ -408,6 +408,6 @@ matching. Lab-specific file formats and event encodings belong in plugins.
 
 The UI must show the evidence and fit quality, detect ambiguity/outliers, permit manual fallback,
 and require explicit user acceptance before updating a `TimeMap`. Accepted provenance is persisted
-in `.kcx` so an alignment is reproducible and auditable. Sync accuracy and throughput are release
+in `.avv` so an alignment is reproducible and auditable. Sync accuracy and throughput are release
 criteria: every implementation requires ground-truth fixtures and benchmarks, and may not regress
 existing playback, import, or plotting budgets.

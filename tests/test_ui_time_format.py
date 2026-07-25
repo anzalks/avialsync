@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 
-from kinochronix.ui.time_format import TimeDisplayMode, format_time
+from avialview.ui.time_format import TimeDisplayMode, format_time
 
 
 class TestFormatTimeRelative:

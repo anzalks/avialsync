@@ -5,12 +5,12 @@ from __future__ import annotations
 import pathlib
 
 
-def test_clean_generated_preserves_kcx_files(tmp_path: pathlib.Path) -> None:
-    """_clean_generated() deletes generated subdirs but leaves .kcx files intact."""
+def test_clean_generated_preserves_session_files(tmp_path: pathlib.Path) -> None:
+    """_clean_generated() deletes generated subdirs but leaves .avv files intact."""
     from tools.make_fixtures import _GENERATED_SUBDIRS, _clean_generated
 
-    # Create permanent .kcx fixtures
-    for name in ("session_v1.kcx", "session_v2.kcx", "session_v3.kcx"):
+    # Create permanent .avv fixtures
+    for name in ("session_v1.avv", "session_v2.avv", "session_v3.avv"):
         (tmp_path / name).write_text('{"version": 1}')
 
     # Create generated subdirectories
@@ -21,8 +21,8 @@ def test_clean_generated_preserves_kcx_files(tmp_path: pathlib.Path) -> None:
 
     _clean_generated(tmp_path)
 
-    # All .kcx files must survive
-    for name in ("session_v1.kcx", "session_v2.kcx", "session_v3.kcx"):
+    # All .avv files must survive
+    for name in ("session_v1.avv", "session_v2.avv", "session_v3.avv"):
         assert (tmp_path / name).exists(), f"{name} was deleted by _clean_generated"
 
     # All generated subdirs must be gone
@@ -34,18 +34,18 @@ def test_clean_generated_is_idempotent(tmp_path: pathlib.Path) -> None:
     """Running _clean_generated twice must not error (no dirs to remove second time)."""
     from tools.make_fixtures import _clean_generated
 
-    (tmp_path / "session_v1.kcx").write_text('{"version": 1}')
+    (tmp_path / "session_v1.avv").write_text('{"version": 1}')
 
     _clean_generated(tmp_path)
     _clean_generated(tmp_path)  # must not raise
 
-    assert (tmp_path / "session_v1.kcx").exists()
+    assert (tmp_path / "session_v1.avv").exists()
 
 
 def test_permanent_fixtures_exist_in_repo() -> None:
-    """session_v1.kcx, session_v2.kcx, session_v3.kcx must be committed in tests/fixtures/."""
+    """session_v1.avv, session_v2.avv, session_v3.avv must be committed in tests/fixtures/."""
     fixtures = pathlib.Path(__file__).parent / "fixtures"
-    for name in ("session_v1.kcx", "session_v2.kcx", "session_v3.kcx"):
+    for name in ("session_v1.avv", "session_v2.avv", "session_v3.avv"):
         path = fixtures / name
         assert path.exists(), (
             f"{name} missing from tests/fixtures/ — commit it or run: python tools/make_fixtures.py"

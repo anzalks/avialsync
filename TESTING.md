@@ -71,7 +71,7 @@ Store baselines with `--benchmark-autosave`; compare with `--benchmark-compare`.
 - Every bug fix adds a regression test reproducing the bug first.
 - Error-path tests: corrupt CSV, missing file at session load, unsupported codec → assert the
   actionable dialog text appears and app stays alive.
-- Headless-core guard test: `import kinochronix.core` in a subprocess with PySide6 uninstalled
+- Headless-core guard test: `import avialview.core` in a subprocess with PySide6 uninstalled
   (or import-hook blocked) must succeed.
 - Transport layout tests verify the seek-row placement of playhead, A/B, end-time, and labelled Speed
   controls; Flag/Snapshot/Fullscreen/Reset header actions with explanatory tooltips; non-blocking

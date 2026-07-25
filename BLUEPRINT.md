@@ -1,8 +1,8 @@
-# KinoChronix — Project Blueprint (v1)
+# AvialView — Project Blueprint (v1)
 
-> Name: **KinoChronix** (final). Casing rules are binding — see AGENTS.md §Naming.
+> Name: **AvialView** (final). Casing rules are binding — see AGENTS.md §Naming.
 > Open-source, GUI-first tool to scrub time-synced multi-camera video + dense time series.
-> License: Apache-2.0 (commercial-friendly). Stack: Python 3.11+, PySide6, libmpv, pyqtgraph, numpy, polars.
+> License: Apache-2.0 (commercial-friendly). Stack: Python 3.11–3.12, PySide6, libmpv, pyqtgraph, numpy, polars.
 
 ---
 
@@ -14,7 +14,7 @@
 4. **Modular loaders.** Every data source (video or time series) enters through a plugin interface. CSV and standard video are just the built-in plugins.
 5. **No GPL dependencies.** PySide6 (LGPL), mpv/ffmpeg LGPL builds, pyqtgraph (MIT), numpy/polars (BSD/MIT) only. New deps require a license check in the PR.
 6. **Sync correctness > frame completeness** during playback; exact frames when paused/stepping.
-7. **Binary sidecar cache.** Text formats are parsed once → cached as mmap-able binary (`.kcache/` sidecar dir: raw arrays + pyramid levels + metadata JSON).
+7. **Binary sidecar cache.** Text formats are parsed once → cached as mmap-able binary (`.avialcache/` sidecar dir: raw arrays + pyramid levels + metadata JSON).
 8. **Evidence-based alignment.** TTL/event alignment preserves raw timestamps and presents the
    matched evidence, offset/drift fit, residuals, and confidence before the user accepts it.
    Ambiguous evidence is surfaced, never silently guessed.
@@ -45,7 +45,7 @@ Deliverables:
 - Repo layout (see ARCHITECTURE.md), `pyproject.toml` (hatchling), `pip install -e .[dev]` works.
 - Tooling: ruff (lint+format), mypy (strict on `core/`), pre-commit, pytest + pytest-qt + pytest-benchmark.
 - CI matrix (ubuntu/windows/macos): lint → type → test → build PyInstaller artifact.
-- `kinochronix` entry point opens an empty PySide6 main window.
+- `avialview` entry point opens an empty PySide6 main window.
 - **Synthetic data generator** `tools/make_fixtures.py`: ffmpeg test videos with burned-in frame counter + known start timestamps (8-bit and 12-bit variants, short & long GOP), numpy 50 kHz multi-channel signals with a known event (step at exact t) → this is the ground truth for all sync tests forever.
 
 Exit criteria: green CI on 3 OSes; artifacts download and open; fixtures generate deterministically **including the edge-case variants (TESTING.md §7): VFR, dropped-frame, no-metadata video, image sequence, timestamp-pathology CSVs, NaN/gap/sentinel signals, split recording**.
@@ -100,7 +100,7 @@ Exit criteria: benchmark session (3× 1080p fixtures + 4× 50 kHz × 1 h synthet
 **Goal:** everything a daily user expects.
 
 Deliverables:
-- Session save/load (.kcx JSON) incl. layout, zoom, visibility; recent files; autosave.
+- Session save/load (.avv JSON) incl. layout, zoom, visibility; recent files; autosave.
 - Keyboard map (arrows = frame step, shift+arrows = 1 s, home/end, [ ] = A/B loop, m = marker…), discoverable via a shortcuts dialog.
 - Frame step fwd/back (exact seek ±1/fps of the reference camera), jump-to-time input.
 - Annotations: point + range markers with label/comment, list panel, CSV export.
@@ -125,7 +125,7 @@ Exit criteria: scripted UX walkthrough (pytest-qt integration test) covering ope
 **Goal:** third parties can add proprietary formats; normal users can install in one click.
 
 Deliverables:
-- Public plugin API v1: Drop-in directory system (`~/.kinochronix/plugins/` and bundled `examples/plugins/`); document + freeze the `TimeSeriesSource`/`VideoSource` ABCs; PluginManager uses `sys._MEIPASS` for compiled bundles.
+- Public plugin API v1: Drop-in directory system (`~/.avialview/plugins/` and bundled `examples/plugins/`); document + freeze the `TimeSeriesSource`/`VideoSource` ABCs; PluginManager uses `sys._MEIPASS` for compiled bundles.
 - Loader capability negotiation (can_open(path) → score). Plugin configuration is a
   JSON-serialisable dictionary supplied by the host; plugins do not return Qt widgets (D-025).
 - Packaging per ARCHITECTURE §6 / D-012..D-017: PyPI wheel + sdist; PyInstaller **one-dir**
@@ -134,10 +134,10 @@ Deliverables:
   signing/notarization steps stubbed behind secrets-present conditionals; conda-forge recipe.
 - `release.yml`: single tag builds installers AND publishes PyPI atomically (all-or-nothing —
   a failed channel fails the release; no version skew between channels).
-- `kinochronix open <folder>` CLI; sample dataset auto-download command.
-- Docs site (mkdocs-material): quickstart ≤ 5 min, plugin author guide, format notes (short-GOP advice), troubleshooting.
+- `avialview open <folder>` CLI; sample dataset auto-download command.
+- Docs site (Read the Docs/Sphinx): quickstart ≤ 5 min, plugin author guide, format notes (short-GOP advice), troubleshooting.
 
-Exit criteria: a stranger can `pip install kinochronix` **on a machine WITHOUT mpv installed**
+Exit criteria: a stranger can `pip install avialview` **on a machine WITHOUT mpv installed**
 (guided dialog / auto-fetch gets them running) or download an installer, and open the sample
 dataset in < 5 minutes with zero manual dependency steps; users can drop a `.py` plugin into their folder and it appears in the import dialog; installers verified to contain LGPL-flavor binaries.
 
@@ -145,7 +145,7 @@ dataset in < 5 minutes with zero manual dependency steps; users can drop a `.py`
 
 **Goal:** let a scientist align independently-clocked cameras, sensors, electrodes, and tracking
 data through a simple visual workflow, while retaining enough evidence to trust and reproduce the
-result. KinoChronix remains a visual-inspection tool: acquisition and scientific analysis stay out of
+result. AvialView remains a visual-inspection tool: acquisition and scientific analysis stay out of
 the core and may be supplied by plugins.
 
 Deliverables:
@@ -156,7 +156,7 @@ Deliverables:
 - Deterministic matching for common periodic pulses, camera-frame TTLs, and sparse event sequences;
   robust affine offset/drift fitting, outlier rejection, ambiguity detection, and manual fallback.
 - A synchronization wizard: select source evidence, preview paired events and residuals, accept or
-  reject the proposal, then persist the accepted mapping and evidence summary in `.kcx`.
+  reject the proposal, then persist the accepted mapping and evidence summary in `.avv`.
 - Plugin extension points for lab-specific file formats and event semantics; core provides no lab
   acquisition drivers and no scientific-analysis algorithms.
 - Synthetic fixtures and golden tests for common-clock drift, camera-frame triggers, sparse pulses,

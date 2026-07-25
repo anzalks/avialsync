@@ -9,7 +9,7 @@ Break each phase into the numbered tasks; run ONE task per agent session for cle
 ## Universal preamble (prepend to every session)
 
 ```
-You are working on KinoChronix. Before doing anything:
+You are working on AvialView. Before doing anything:
 1. Read AGENTS.md fully — these are binding rules.
 2. Read the current phase in BLUEPRINT.md and DECISIONS.md.
 3. State a short plan (files, tests, risks) and wait for nothing — proceed unless the plan
@@ -24,9 +24,9 @@ Work in small increments and run `pytest -x -q` + `ruff check .` after each incr
 - **P0.1 Scaffold**: "Create the repository skeleton exactly as in ARCHITECTURE.md §1:
   pyproject.toml (hatchling, PySide6/pyqtgraph/python-mpv/numpy/polars deps, dev extras with
   pytest/pytest-qt/pytest-benchmark/hypothesis/ruff/mypy), ruff+mypy config, pre-commit,
-  empty-but-importable modules with docstrings, `kinochronix` entry point opening an empty
-  QMainWindow titled 'KinoChronix'. Add the headless-core guard test from TESTING.md §5.
-  Everything must pass `pytest -x`, `ruff check .`, `mypy src/kinochronix/core`."
+  empty-but-importable modules with docstrings, `avialview` entry point opening an empty
+  QMainWindow titled 'AvialView'. Add the headless-core guard test from TESTING.md §5.
+  Everything must pass `pytest -x`, `ruff check .`, `mypy src/avialview/core`."
 - **P0.2 CI**: "Implement .github/workflows/ci.yml per TESTING.md §7 (3-OS matrix, ffmpeg install
   per OS, offscreen Qt env, artifact build via PyInstaller on all OSes). Keep jobs < 15 min."
 - **P0.3 Fixtures**: "Implement tools/make_fixtures.py per TESTING.md §2 AND the edge-case
@@ -45,7 +45,7 @@ Work in small increments and run `pytest -x -q` + `ruff check .` after each incr
   mmap write/read) and core/cache.py per D-004. Add benchmarks bench_pyramid.py with the ≤2 s /
   ≤5 ms budgets. Query API: given (t0,t1,max_points) choose the level and return (t,vmin,vmax)."
 - **P1.3 Source ABCs + registry**: "Implement core/source.py ABCs exactly per ARCHITECTURE.md §4
-  and core/registry.py using importlib.metadata entry points group 'kinochronix.loaders'.
+  and core/registry.py using importlib.metadata entry points group 'avialview.loaders'.
   Unit-test discovery with a dummy in-repo plugin."
 - **P1.4 Built-in loaders**: "Implement loaders/csv_loader.py (polars, explicit timestamp schema,
   units s/ms/µs/ns, ISO8601, tz, chunked ingest per D-005, sort-or-raise on non-monotonic,
@@ -107,7 +107,7 @@ and one failure path. Update docs/user-guide stub. Keyboard-first where sensible
 
 - **P5.1 API freeze**: "Review core/source.py against every built-in loader; finalize as Plugin
   API v1; write docs/plugin-guide.md with a full walkthrough; create the external
-  kinochronix-plugin-example repo content under examples/ reading a toy binary format;
+  avialview-plugin-example repo content under examples/ reading a toy binary format;
   test it installs via pip and appears in the import dialog."
 - **P5.2 Packaging**: "Implement ARCHITECTURE §6 exactly: one-dir PyInstaller specs per OS
   bundling LGPL-verified mpv/ffmpeg (CI asserts build flavor, D-015); Inno Setup; arm64 dmg;
@@ -116,15 +116,15 @@ and one failure path. Update docs/user-guide stub. Keyboard-first where sensible
   auto-fetch with pinned SHA256 (D-014); conda-forge recipe skeleton. Packaging smoke test:
   each bundle launches headless, opens sample session, exits 0; plus a pip-install test in a
   clean container WITHOUT libmpv asserting the guided dialog appears (D-013)."
-- **P5.3 Docs site**: "mkdocs-material site: 5-minute quickstart with the sample dataset,
+- **P5.3 Docs site**: "Read the Docs/Sphinx site: 5-minute quickstart with the sample dataset,
   format advice (short GOP!), troubleshooting (slow drive, no hwdec, timestamp formats),
-  plugin guide. CI deploy to GitHub Pages."
+  plugin guide. CI validates warnings as errors; Read the Docs deploys from its project integration."
 - **P5.4 Evidence-based synchronization**: "Implement D-026 and BLUEPRINT P5.4. First add
   ground-truth fixtures and failing tests for periodic TTL clocks, camera-frame triggers, sparse
   pulses, drift, missing pulses, ambiguity, and outliers. Keep `core/` headless. Extract events
   chunkwise in a worker; preserve raw timestamps; use deterministic matching and robust affine
   offset/drift fitting. Build a Sync Wizard that previews paired evidence, residuals, and confidence,
-  requires explicit user acceptance, persists provenance in `.kcx`, and offers manual fallback.
+  requires explicit user acceptance, persists provenance in `.avv`, and offers manual fallback.
   Do not add acquisition drivers or built-in scientific analysis; expose lab-specific event formats
   through plugins. Add benchmarks before release: speed and declared timing accuracy are equal gates."
 

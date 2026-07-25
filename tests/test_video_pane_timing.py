@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from kinochronix.ui.video_pane import displayed_frame_rate, instantaneous_frame_rate
+from avialview.ui.video_pane import displayed_frame_rate, instantaneous_frame_rate
 
 
 def test_vfr_readout_reports_the_current_frame_interval() -> None:

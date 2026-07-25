@@ -6,8 +6,8 @@ from pathlib import Path
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
-from kinochronix.ui.main_window import MainWindow
-from kinochronix.ui.theme import load_saved_font_size, load_saved_theme
+from avialview.ui.main_window import MainWindow
+from avialview.ui.theme import load_saved_font_size, load_saved_theme
 
 
 def load_data(win: MainWindow) -> None:
@@ -15,7 +15,7 @@ def load_data(win: MainWindow) -> None:
     if not base_dir.exists():
         print(
             "examples/data not found — run:\n"
-            "  conda run -n kinochronix python tools/generate_demo_data.py"
+            "  conda run -n avialview python tools/generate_demo_data.py"
         )
         return
 
@@ -55,9 +55,9 @@ def load_data(win: MainWindow) -> None:
         win._load_video(cam_vfr)
 
     # ── Step 6: load sensors.csv (clean 1 kHz, with explicit units) ──────────
-    from kinochronix.core.cache import CacheManager
-    from kinochronix.core.inspection import ImportReport, IntegrityFlags, SourceInspection
-    from kinochronix.engine.importer import ImportWorker
+    from avialview.core.cache import CacheManager
+    from avialview.core.inspection import ImportReport, IntegrityFlags, SourceInspection
+    from avialview.engine.importer import ImportWorker
 
     sensors_path = base_dir / "sensors.csv"
     if sensors_path.exists():

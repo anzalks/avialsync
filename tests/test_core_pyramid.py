@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from kinochronix.core.pyramid import (
+from avialview.core.pyramid import (
     PyramidBuilder,
     PyramidReader,
     build_gap_mask,
@@ -32,7 +32,7 @@ def test_build_pyramid_level():
 
 
 def test_pyramid_nan_inf():
-    from kinochronix.core.pyramid import build_pyramid_level
+    from avialview.core.pyramid import build_pyramid_level
 
     t = np.arange(16.0)
     v = np.ones(16)
@@ -49,7 +49,7 @@ def test_pyramid_nan_inf():
 
 
 def test_pyramid_gap_mask():
-    from kinochronix.core.pyramid import build_gap_mask
+    from avialview.core.pyramid import build_gap_mask
 
     t = np.array(
         [0.0, 0.1, 0.2, 0.3, 1.5, 1.6, 1.7]

@@ -1,8 +1,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from kinochronix.core.registry import LoaderRegistry
-from kinochronix.core.source import TimeSeriesSource, VideoSource
+from avialview.core.registry import LoaderRegistry
+from avialview.core.source import TimeSeriesSource, VideoSource
 
 
 class DummyTimeSeriesLoader(TimeSeriesSource):
@@ -57,7 +57,7 @@ class DummyVideoLoader(VideoSource):
         return "cam"
 
 
-@patch("kinochronix.core.registry.entry_points")
+@patch("avialview.core.registry.entry_points")
 def test_loader_discovery(mock_eps):
     # Mock entry points return
     ep1 = MagicMock()

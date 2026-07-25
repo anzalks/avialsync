@@ -10,13 +10,13 @@ from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QThread, QUrl, Signa
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication, QSplitter
 
-from kinochronix.core.session import SensorEntry, SessionState
-from kinochronix.core.sync import SyncFit, SyncMatch, SyncProposal
-from kinochronix.loaders.csv_loader import CSVLoader
-from kinochronix.loaders.neo_loader import NeoLoader
-from kinochronix.loaders.tracking_loader import TrackingLoader
-from kinochronix.loaders.video_standard import VideoStandardLoader
-from kinochronix.ui.main_window import MainWindow
+from avialview.core.session import SensorEntry, SessionState
+from avialview.core.sync import SyncFit, SyncMatch, SyncProposal
+from avialview.loaders.csv_loader import CSVLoader
+from avialview.loaders.neo_loader import NeoLoader
+from avialview.loaders.tracking_loader import TrackingLoader
+from avialview.loaders.video_standard import VideoStandardLoader
+from avialview.ui.main_window import MainWindow
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def test_annotate_with_pane_present_no_error(main_window: MainWindow) -> None:
     """
     from unittest.mock import MagicMock
 
-    from kinochronix.core.timeline import TimeMap
+    from avialview.core.timeline import TimeMap
 
     fake_pane = MagicMock()
     fake_pane.time_map = TimeMap()  # real TimeMap — to_source() works, no .path
@@ -74,7 +74,7 @@ def test_accepted_sync_mapping_updates_video_and_session(main_window: MainWindow
     """A user-accepted proposal changes only the target TimeMap and is persisted."""
     from unittest.mock import MagicMock
 
-    from kinochronix.core.timeline import TimeMap
+    from avialview.core.timeline import TimeMap
 
     pane = MagicMock()
     pane.time_map = TimeMap()
@@ -100,10 +100,10 @@ def test_programmatic_import_completion_needs_no_progress_dialog(
     main_window: MainWindow, tmp_path: Path
 ) -> None:
     """Demo/programmatic imports may finish without an interactive progress dialog."""
-    from kinochronix.core.inspection import SourceInspection
-    from kinochronix.core.pyramid import PyramidBuilder
+    from avialview.core.inspection import SourceInspection
+    from avialview.core.pyramid import PyramidBuilder
 
-    cache_dir = tmp_path / "demo.kcache"
+    cache_dir = tmp_path / "demo.avialcache"
     cache_dir.mkdir()
     PyramidBuilder(cache_dir, "ttl").build_and_save(np.array([0.0, 1.0]), np.array([0.0, 1.0]))
     main_window._on_import_finished(
@@ -159,7 +159,7 @@ def test_drop_routing_uses_loader_capability(
     path = tmp_path / f"recording{suffix}"
     path.touch()
     monkeypatch.setattr(
-        "kinochronix.core.registry.LoaderRegistry.find_best_loader",
+        "avialview.core.registry.LoaderRegistry.find_best_loader",
         lambda _registry, _path: loader_class,
     )
     video_paths: list[Path] = []
@@ -193,7 +193,7 @@ def test_drop_directory_routes_each_supported_child(
     def find_loader(_registry, path: Path):
         return VideoStandardLoader if path == video else CSVLoader if path == sensor else None
 
-    monkeypatch.setattr("kinochronix.core.registry.LoaderRegistry.find_best_loader", find_loader)
+    monkeypatch.setattr("avialview.core.registry.LoaderRegistry.find_best_loader", find_loader)
     video_paths: list[Path] = []
     data_calls: list[tuple[Path, type]] = []
     monkeypatch.setattr(main_window, "_load_video", video_paths.append)
@@ -227,7 +227,7 @@ def test_video_load_keeps_worker_alive_until_thread_finishes(
         def run(self) -> None:
             return
 
-    monkeypatch.setattr("kinochronix.engine.video_worker.VideoOpenWorker", _IdleWorker)
+    monkeypatch.setattr("avialview.engine.video_worker.VideoOpenWorker", _IdleWorker)
 
     main_window._load_video(Path("camera.mp4"))
 
@@ -271,7 +271,7 @@ def test_video_sidebar_summary_receives_probed_codec(
     """A successfully probed video must not fall back to UNKNOWN in the sidebar."""
     from unittest.mock import MagicMock
 
-    from kinochronix.loaders.video_standard import VideoStandardLoader
+    from avialview.loaders.video_standard import VideoStandardLoader
 
     loader = VideoStandardLoader()
     loader._codec = "h264"

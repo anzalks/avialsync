@@ -11,7 +11,7 @@ import pytest
 
 def test_base_class_is_frame_indexed_defaults_false():
     """TimeSeriesSource.is_frame_indexed() should default to False."""
-    from kinochronix.core.source import TimeSeriesSource
+    from avialview.core.source import TimeSeriesSource
 
     class _Minimal(TimeSeriesSource):
         @classmethod
@@ -32,7 +32,7 @@ def test_base_class_is_frame_indexed_defaults_false():
 
 def test_tracking_loader_is_frame_indexed():
     """TrackingLoader.is_frame_indexed() must return True."""
-    from kinochronix.loaders.tracking_loader import TrackingLoader
+    from avialview.loaders.tracking_loader import TrackingLoader
 
     assert TrackingLoader().is_frame_indexed() is True
 
@@ -63,7 +63,7 @@ def _write_dlc_csv(path: Path, n_frames: int = 10) -> Path:
 
 def test_tracking_loader_chunk_times_scale_with_fps(tmp_path):
     """Frame-indexed chunk timestamps must scale with configured fps."""
-    from kinochronix.loaders.tracking_loader import TrackingLoader
+    from avialview.loaders.tracking_loader import TrackingLoader
 
     csv = _write_dlc_csv(tmp_path / "pose.csv", n_frames=31)
 
@@ -78,7 +78,7 @@ def test_tracking_loader_chunk_times_scale_with_fps(tmp_path):
 
 def test_tracking_loader_chunk_times_rebind(tmp_path):
     """Opening with a different fps must change chunk timestamps."""
-    from kinochronix.loaders.tracking_loader import TrackingLoader
+    from avialview.loaders.tracking_loader import TrackingLoader
 
     csv = _write_dlc_csv(tmp_path / "pose.csv", n_frames=31)
 
@@ -103,9 +103,9 @@ def test_tracking_loader_chunk_times_rebind(tmp_path):
 @pytest.mark.usefixtures("qapp")
 def test_provisional_dlc_stored_when_no_video(tmp_path):
     """_frame_indexed_sources accumulates provisional entries when no video is loaded."""
-    from kinochronix.core.registry import LoaderRegistry
-    from kinochronix.loaders.tracking_loader import TrackingLoader
-    from kinochronix.ui.main_window import MainWindow
+    from avialview.core.registry import LoaderRegistry
+    from avialview.loaders.tracking_loader import TrackingLoader
+    from avialview.ui.main_window import MainWindow
 
     csv = _write_dlc_csv(tmp_path / "pose.csv", n_frames=10)
     win = MainWindow()
@@ -128,7 +128,7 @@ def test_provisional_dlc_stored_when_no_video(tmp_path):
 @pytest.mark.usefixtures("qapp")
 def test_rebind_clears_provisional_list(tmp_path, monkeypatch):
     """_rebind_frame_indexed_sources should clear the provisional list."""
-    from kinochronix.ui.main_window import MainWindow
+    from avialview.ui.main_window import MainWindow
 
     win = MainWindow()
 
@@ -155,7 +155,7 @@ def test_rebind_clears_provisional_list(tmp_path, monkeypatch):
 @pytest.mark.usefixtures("qapp")
 def test_rebind_uses_new_fps(tmp_path, monkeypatch):
     """After rebind, re-enqueued import uses the video fps, not the provisional fps."""
-    from kinochronix.ui.main_window import MainWindow
+    from avialview.ui.main_window import MainWindow
 
     win = MainWindow()
 

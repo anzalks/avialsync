@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from kinochronix.ui import diagnostics
+from avialview.ui import diagnostics
 
 
 def test_startup_diagnostics_starts_one_background_probe(monkeypatch) -> None:

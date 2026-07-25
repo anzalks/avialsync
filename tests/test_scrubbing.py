@@ -10,11 +10,11 @@ def player_with_mocks():
     """Return a Player wired to mock collaborators (no Qt event loop needed)."""
     from PySide6.QtCore import QObject
 
-    from kinochronix.core.timeline import MasterClock
-    from kinochronix.engine.player import Player
-    from kinochronix.ui.plot_pane import PlotPane
-    from kinochronix.ui.transport import Transport
-    from kinochronix.ui.video_grid import VideoGrid
+    from avialview.core.timeline import MasterClock
+    from avialview.engine.player import Player
+    from avialview.ui.plot_pane import PlotPane
+    from avialview.ui.transport import Transport
+    from avialview.ui.video_grid import VideoGrid
 
     qapp_obj = QObject()  # keep Qt alive
 

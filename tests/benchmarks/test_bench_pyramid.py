@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from kinochronix.core.pyramid import PyramidBuilder, PyramidReader
+from avialview.core.pyramid import PyramidBuilder, PyramidReader
 
 # ── CI budget multiplier (D-023) ────────────────────────────────────────────
 # CI GitHub Actions runners are significantly slower than developer machines
@@ -54,7 +54,7 @@ def test_bench_pyramid_build(benchmark, tmp_path: Path, large_dataset):
 
     def setup():
         gc.collect()
-        cache_dir = tmp_path / "bench.kcache"
+        cache_dir = tmp_path / "bench.avialcache"
         cache_dir.mkdir(exist_ok=True)
         builder = PyramidBuilder(cache_dir, "ch0")
         return (builder, t, v), {}
@@ -75,7 +75,7 @@ def test_bench_pyramid_build(benchmark, tmp_path: Path, large_dataset):
 def test_bench_pyramid_query(benchmark, tmp_path: Path, large_dataset):
     t, v = large_dataset
 
-    cache_dir = tmp_path / "bench_q.kcache"
+    cache_dir = tmp_path / "bench_q.avialcache"
     cache_dir.mkdir(exist_ok=True)
     builder = PyramidBuilder(cache_dir, "ch0")
     builder.build_and_save(t, v)
@@ -105,9 +105,9 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
 
     QApplication.instance() or QApplication([])
 
-    from kinochronix.ui.plot_pane import PlotPane
-    from kinochronix.ui.readout_panel import ReadoutPanel
-    from kinochronix.ui.transport import Transport
+    from avialview.ui.plot_pane import PlotPane
+    from avialview.ui.readout_panel import ReadoutPanel
+    from avialview.ui.transport import Transport
 
     N = 50_000  # 1 s of 50 kHz data — small enough to build instantly
     N_CAMS = 4
@@ -116,7 +116,7 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
     # Build N_CHANNELS worth of pyramid data
     readers = []
     for ch_idx in range(N_CHANNELS):
-        cache_dir = tmp_path / f"ch{ch_idx}.kcache"
+        cache_dir = tmp_path / f"ch{ch_idx}.avialcache"
         cache_dir.mkdir(exist_ok=True)
         t = np.linspace(0.0, 1.0, N, dtype=np.float64)
         v = np.random.default_rng(ch_idx).standard_normal(N)

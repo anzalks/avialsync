@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from kinochronix.core.cache import CacheManager
+from avialview.core.cache import CacheManager
 
 
 def test_cache_manager_keys(tmp_path: Path):

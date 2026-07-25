@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from kinochronix.core.pyramid import PyramidBuilder
-from kinochronix.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec, SyncWorker
+from avialview.core.pyramid import PyramidBuilder
+from avialview.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec, SyncWorker
 
 
 def test_sync_worker_extracts_cached_ttl_and_fits_frame_events(tmp_path: Path) -> None:

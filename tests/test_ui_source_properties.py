@@ -21,7 +21,7 @@ class TestVideoPropertiesPanel:
     def test_as_plain_text_contains_title(self, app):
         from unittest.mock import MagicMock
 
-        from kinochronix.ui.source_properties import VideoPropertiesPanel
+        from avialview.ui.source_properties import VideoPropertiesPanel
 
         loader = MagicMock()
         loader._container = "mp4"
@@ -43,7 +43,7 @@ class TestVideoPropertiesPanel:
     def test_as_plain_text_contains_codec(self, app):
         from unittest.mock import MagicMock
 
-        from kinochronix.ui.source_properties import VideoPropertiesPanel
+        from avialview.ui.source_properties import VideoPropertiesPanel
 
         loader = MagicMock()
         loader._container = "mov"
@@ -65,7 +65,7 @@ class TestVideoPropertiesPanel:
     def test_as_plain_text_resolution(self, app):
         from unittest.mock import MagicMock
 
-        from kinochronix.ui.source_properties import VideoPropertiesPanel
+        from avialview.ui.source_properties import VideoPropertiesPanel
 
         loader = MagicMock()
         loader._container = "mkv"
@@ -88,8 +88,8 @@ class TestVideoPropertiesPanel:
 
 class TestSensorPropertiesPanel:
     def test_as_plain_text_contains_title(self, app):
-        from kinochronix.core.inspection import ImportReport, IntegrityFlags, SourceInspection
-        from kinochronix.ui.source_properties import SensorPropertiesPanel
+        from avialview.core.inspection import ImportReport, IntegrityFlags, SourceInspection
+        from avialview.ui.source_properties import SensorPropertiesPanel
 
         ins = SourceInspection(
             path="/data/sensors.csv",
@@ -103,8 +103,8 @@ class TestSensorPropertiesPanel:
         assert "Sensor Properties" in text
 
     def test_as_plain_text_contains_path(self, app):
-        from kinochronix.core.inspection import SourceInspection
-        from kinochronix.ui.source_properties import SensorPropertiesPanel
+        from avialview.core.inspection import SourceInspection
+        from avialview.ui.source_properties import SensorPropertiesPanel
 
         ins = SourceInspection(path="/data/my_sensor.csv", loader_id="CSVLoader")
         panel = SensorPropertiesPanel(ins)
@@ -112,8 +112,8 @@ class TestSensorPropertiesPanel:
         assert "/data/my_sensor.csv" in text
 
     def test_as_plain_text_contains_loader(self, app):
-        from kinochronix.core.inspection import SourceInspection
-        from kinochronix.ui.source_properties import SensorPropertiesPanel
+        from avialview.core.inspection import SourceInspection
+        from avialview.ui.source_properties import SensorPropertiesPanel
 
         ins = SourceInspection(path="/data/x.csv", loader_id="NeoLoader")
         panel = SensorPropertiesPanel(ins)
@@ -121,8 +121,8 @@ class TestSensorPropertiesPanel:
         assert "NeoLoader" in text
 
     def test_as_plain_text_has_integrity_line(self, app):
-        from kinochronix.core.inspection import IntegrityFlags, SourceInspection
-        from kinochronix.ui.source_properties import SensorPropertiesPanel
+        from avialview.core.inspection import IntegrityFlags, SourceInspection
+        from avialview.ui.source_properties import SensorPropertiesPanel
 
         ins = SourceInspection(
             path="/x.csv",

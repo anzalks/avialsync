@@ -3,11 +3,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kinochronix"
+name = "avialview"
 version = "0.0.1"
 description = "GUI desktop app to scrub time-synchronized multi-camera video and dense time series."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 license = { text = "Apache-2.0" }
 dependencies = [
     "PySide6",
@@ -28,19 +28,22 @@ dev = [
     "ruff",
     "mypy"
 ]
-docs = []
+docs = [
+    "sphinx>=7.2",
+    "myst-parser>=2.0",
+]
 
 [project.scripts]
-kinochronix = "kinochronix.__main__:main"
+avialview = "avialview.__main__:main"
 
-[project.entry-points."kinochronix.loaders"]
-csv = "kinochronix.loaders.csv_loader:CSVLoader"
-video = "kinochronix.loaders.video_standard:VideoStandardLoader"
-tracking = "kinochronix.loaders.tracking_loader:TrackingLoader"
-neo = "kinochronix.loaders.neo_loader:NeoLoader"
+[project.entry-points."avialview.loaders"]
+csv = "avialview.loaders.csv_loader:CSVLoader"
+video = "avialview.loaders.video_standard:VideoStandardLoader"
+tracking = "avialview.loaders.tracking_loader:TrackingLoader"
+neo = "avialview.loaders.neo_loader:NeoLoader"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/kinochronix"]
+packages = ["src/avialview"]
 
 [tool.ruff]
 line-length = 100
@@ -63,45 +66,45 @@ pythonpath = ["."]
 
 
 [[tool.mypy.overrides]]
-module = "kinochronix.ui.transport"
+module = "avialview.ui.transport"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "kinochronix.ui.sidebar"
+module = "avialview.ui.sidebar"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "kinochronix.ui.relink_dialog"
+module = "avialview.ui.relink_dialog"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "kinochronix.ui.diagnostics"
+module = "avialview.ui.diagnostics"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "kinochronix.ui.plot_pane"
+module = "avialview.ui.plot_pane"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "kinochronix.ui.video_pane"
+module = "avialview.ui.video_pane"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "kinochronix.ui.readout_panel"
+module = "avialview.ui.readout_panel"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "kinochronix.ui.video_grid"
+module = "avialview.ui.video_grid"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "kinochronix.engine.export"
+module = "avialview.engine.export"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "kinochronix.loaders.neo_loader"
+module = "avialview.loaders.neo_loader"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "kinochronix.loaders.csv_loader"
+module = "avialview.loaders.csv_loader"
 ignore_errors = true

@@ -18,7 +18,7 @@ def app():
 
 @pytest.fixture
 def plot_pane(app):
-    from kinochronix.ui.plot_pane import PlotPane
+    from avialview.ui.plot_pane import PlotPane
 
     return PlotPane()
 
@@ -65,7 +65,7 @@ class TestMeasureMarkers:
         assert ta < tb  # always emitted in (min, max) order
 
     def test_signal_not_emitted_with_only_a(self, app):
-        from kinochronix.ui.plot_pane import PlotPane
+        from avialview.ui.plot_pane import PlotPane
 
         p = PlotPane()
         received = []

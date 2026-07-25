@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from kinochronix.core.inspection import (
+from avialview.core.inspection import (
     ImportReport,
     IntegrityFlags,
     SourceInspection,

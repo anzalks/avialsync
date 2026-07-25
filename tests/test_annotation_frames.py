@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from kinochronix.core.timeline import TimeMap
-from kinochronix.ui.annotations import AnnotationStore, VideoFrame
+from avialview.core.timeline import TimeMap
+from avialview.ui.annotations import AnnotationStore, VideoFrame
 
 # ── VideoFrame dataclass ──────────────────────────────────────────────
 
@@ -101,7 +101,7 @@ def test_export_csv_columns(tmp_path: Path) -> None:
 
 
 def test_frame_records_at_empty_grid(qapp) -> None:
-    from kinochronix.ui.video_grid import VideoGrid
+    from avialview.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
     records = grid.frame_records_at(5.0)
@@ -109,7 +109,7 @@ def test_frame_records_at_empty_grid(qapp) -> None:
 
 
 def test_frame_records_at_single_pane(qapp) -> None:
-    from kinochronix.ui.video_grid import VideoGrid
+    from avialview.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
 
@@ -128,7 +128,7 @@ def test_frame_records_at_single_pane(qapp) -> None:
 
 
 def test_frame_records_at_offset_applied(qapp) -> None:
-    from kinochronix.ui.video_grid import VideoGrid
+    from avialview.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
 
@@ -145,7 +145,7 @@ def test_frame_records_at_offset_applied(qapp) -> None:
 
 
 def test_frame_records_at_two_panes(qapp) -> None:
-    from kinochronix.ui.video_grid import VideoGrid
+    from avialview.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
 

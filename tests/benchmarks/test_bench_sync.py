@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 
-from kinochronix.core.sync import fit_sync_events
+from avialview.core.sync import fit_sync_events
 
 CI_BUDGET_MULTIPLIER = 1.5
 _ACTUAL_MULTIPLIER = CI_BUDGET_MULTIPLIER if os.environ.get("CI") == "true" else 1.0

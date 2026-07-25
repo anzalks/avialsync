@@ -18,7 +18,7 @@ import pytest
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication
 
-from kinochronix.ui.transport import Transport
+from avialview.ui.transport import Transport
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ def transport(qtbot):
 
 @pytest.fixture
 def main_window(qapp: QApplication):
-    from kinochronix.ui.main_window import MainWindow
+    from avialview.ui.main_window import MainWindow
 
     win = MainWindow()
     win.show()
@@ -236,13 +236,13 @@ def test_space_action_emits_play_toggled(main_window) -> None:
 
 def test_shortcuts_dialog_shows_registered_actions(main_window, qtbot) -> None:
     """ShortcutsDialog must show rows derived from live _all_actions, not a static table."""
-    from kinochronix.ui.shortcuts_dialog import ShortcutsDialog
+    from avialview.ui.shortcuts_dialog import ShortcutsDialog
 
     groups: dict[str, list[QAction]] = {}
     for act in main_window._all_actions:
         if not act.shortcuts():
             continue
-        cat = str(act.property("kc_category") or "Other")
+        cat = str(act.property("av_category") or "Other")
         groups.setdefault(cat, []).append(act)
 
     dlg = ShortcutsDialog(groups, main_window)
@@ -263,13 +263,13 @@ def test_shortcuts_dialog_includes_every_registered_action(main_window, qtbot) -
     """Every action in _all_actions with shortcuts must appear in the dialog."""
     from PySide6.QtWidgets import QTableWidget
 
-    from kinochronix.ui.shortcuts_dialog import ShortcutsDialog
+    from avialview.ui.shortcuts_dialog import ShortcutsDialog
 
     groups: dict[str, list[QAction]] = {}
     for act in main_window._all_actions:
         if not act.shortcuts():
             continue
-        cat = str(act.property("kc_category") or "Other")
+        cat = str(act.property("av_category") or "Other")
         groups.setdefault(cat, []).append(act)
 
     n_expected = sum(len(v) for v in groups.values())

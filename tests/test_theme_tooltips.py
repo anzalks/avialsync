@@ -5,7 +5,7 @@ from pathlib import Path
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
-from kinochronix.ui import theme
+from avialview.ui import theme
 
 
 def test_tooltip_styles_define_explicit_foreground_and_background() -> None:
@@ -79,7 +79,7 @@ def test_toggle_applies_light_then_restores_system_palette(monkeypatch) -> None:
     theme.apply_theme(app, theme.THEME_LIGHT)
     assert values["theme/preference"] == theme.THEME_LIGHT
     assert app.palette().color(QPalette.ColorRole.Link) == native_accent
-    assert bool(app.property("kinochronix_theme_dark")) is False
+    assert bool(app.property("avialview_theme_dark")) is False
 
     theme.apply_theme(app, theme.THEME_SYSTEM)
     assert app.palette().color(QPalette.ColorRole.Highlight) == native_accent

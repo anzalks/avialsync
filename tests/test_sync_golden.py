@@ -9,7 +9,7 @@ from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
 from util_framestrip import decode_frame_strip
 
-from kinochronix.ui.main_window import MainWindow
+from avialview.ui.main_window import MainWindow
 
 
 @pytest.fixture

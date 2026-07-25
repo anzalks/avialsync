@@ -1,4 +1,4 @@
-# AGENTS.md — KinoChronix agent instructions (canonical)
+# AGENTS.md — AvialView agent instructions (canonical)
 
 This file is the single source of truth for ALL coding agents (Claude Code, Codex, Gemini/Antigravity,
 Cursor, Copilot, etc.). `CLAUDE.md` and `GEMINI.md` are thin pointers to this file — never duplicate
@@ -19,22 +19,21 @@ DECISIONS.md entry in the PR description instead of silently diverging.
 
 | Context | Exact form |
 |---|---|
-| Brand / UI / window title / docs prose / installer filenames | `KinoChronix` |
-| PyPI package, import module, CLI command, repo dir, entry-point group, paths | `kinochronix` (all lowercase, one word, no hyphen/underscore) |
-| Python identifiers derived from it | `kinochronix` (e.g. `from kinochronix.core import ...`) |
-| Env vars / constants | `KINOCHRONIX_*` |
-| Session file extension | `.kcx` |
-| Sidecar cache dir | `<file>.kcache/` |
-| Installer artifacts | `KinoChronix-Setup.exe`, `KinoChronix.dmg`, `KinoChronix.AppImage` |
-| Plugin packages (3rd party convention) | `kinochronix-plugin-<name>` on PyPI |
+| Brand / UI / window title / docs prose / installer filenames | `AvialView` |
+| PyPI package, import module, CLI command, repo dir, entry-point group, paths | `avialview` (all lowercase, one word, no hyphen/underscore) |
+| Python identifiers derived from it | `avialview` (e.g. `from avialview.core import ...`) |
+| Env vars / constants | `AVIALVIEW_*` |
+| Session file extension | `.avv` |
+| Sidecar cache dir | `<file>.avialcache/` |
+| Installer artifacts | `AvialView-Setup.exe`, `AvialView.dmg`, `AvialView.AppImage` |
+| Plugin packages (3rd party convention) | `avialview-plugin-<name>` on PyPI |
 
-FORBIDDEN spellings: `KinoChronix` in code identifiers, `Kinochronix`, `kinoChronix`,
-`kino_chronix`, `kino-chronix`, `KINOchronix`, or any earlier project name. If you see one,
-fix it in the same PR. A rename is never "improved" by an agent (D-018).
+Use `AvialView` only for the displayed product name and `avialview` for technical identifiers.
+Do not invent alternative spellings. A rename is never "improved" by an agent (D-018).
 
 ## Tech stack — FIXED
 
-- Python 3.11+ · PySide6 (never PyQt5/PyQt6 — license) · libmpv via `python-mpv` (PyPI name; import `mpv`) for ALL video
+- Python 3.11–3.12 · PySide6 (never PyQt5/PyQt6 — license) · libmpv via `python-mpv` (PyPI name; import `mpv`) for ALL video
   playback (never QtMultimedia, never OpenCV for playback) · pyqtgraph for plots · numpy + polars
   for data · hatchling build · pytest / pytest-qt / pytest-benchmark / hypothesis.
 - Dependency policy: no GPL/AGPL. Adding any dependency requires: license named in PR description,
@@ -93,24 +92,24 @@ fix it in the same PR. A rename is never "improved" by an agent (D-018).
 
 ## How to run things
 
-ALL commands must be prefixed with `conda run -n kinochronix` when working inside the
-`kinochronix` conda environment. Never run project commands (pytest, ruff, mypy, pip,
-kinochronix) without this prefix — the system Python may differ from the env Python.
+ALL commands must be prefixed with `conda run -n avialview` when working inside the
+`avialview` conda environment. Never run project commands (pytest, ruff, mypy, pip,
+avialview) without this prefix — the system Python may differ from the env Python.
 
 ```bash
-conda run -n kinochronix pip install -e .[dev]          # setup
-conda run -n kinochronix python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
-QT_QPA_PLATFORM=offscreen conda run -n kinochronix pytest -x -q   # tests
-conda run -n kinochronix pytest --benchmark-only                   # perf budgets
-conda run -n kinochronix kinochronix                                # run the app
-conda run -n kinochronix kinochronix open tests/fixtures/sample_session/
+conda run -n avialview pip install -e .[dev]          # setup
+conda run -n avialview python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
+QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -x -q   # tests
+conda run -n avialview pytest --benchmark-only                   # perf budgets
+conda run -n avialview avialview                                # run the app
+conda run -n avialview avialview open tests/fixtures/sample_session/
 
 # Type checking — run BOTH; strict mode applies only to core/
-conda run -n kinochronix mypy src/kinochronix/core    # strict (enforced)
-conda run -n kinochronix mypy src/kinochronix          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
+conda run -n avialview mypy src/avialview/core    # strict (enforced)
+conda run -n avialview mypy src/avialview          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
 
 # Lint + format
-conda run -n kinochronix ruff check --fix . && conda run -n kinochronix ruff format .
+conda run -n avialview ruff check --fix . && conda run -n avialview ruff format .
 ```
 
 ## Task protocol for agents
@@ -142,7 +141,7 @@ conda run -n kinochronix ruff check --fix . && conda run -n kinochronix ruff for
 
 ## Known traps (learned the hard way — do not rediscover)
 
-- `.gitignore` ignores `*.spec` files by default. If you create or modify `packaging/kinochronix.spec`, you must force-add it or it will be silently excluded from commits and break CI.
+- `.gitignore` ignores `*.spec` files by default. If you create or modify `packaging/avialview.spec`, you must force-add it or it will be silently excluded from commits and break CI.
 - GitHub Actions `windows-latest` does not have `ffmpeg` pre-installed (unlike Ubuntu/macOS). Any script that invokes `ffmpeg` (like `make_fixtures.py`) will fail with `FileNotFoundError` unless `choco install ffmpeg` is in the CI workflow.
 
 - mpv `wid` embedding must be set before mpv initializes video output; on macOS use the documented

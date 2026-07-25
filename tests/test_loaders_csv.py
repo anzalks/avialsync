@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from kinochronix.core.errors import NonMonotonicTimeError
-from kinochronix.loaders.csv_loader import CSVLoader
+from avialview.core.errors import NonMonotonicTimeError
+from avialview.loaders.csv_loader import CSVLoader
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "signals"
 

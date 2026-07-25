@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from kinochronix.core.registry import LoaderRegistry
-from kinochronix.core.source import TimeSeriesSource
+from avialview.core.registry import LoaderRegistry
+from avialview.core.source import TimeSeriesSource
 
 
 def test_registry_discovers_loose_time_series_plugin(tmp_path: Path) -> None:
@@ -15,7 +15,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 import numpy as np
-from kinochronix.core.source import ChannelInfo, TimeSeriesSource
+from avialview.core.source import ChannelInfo, TimeSeriesSource
 
 class LooseToySource(TimeSeriesSource):
     @classmethod

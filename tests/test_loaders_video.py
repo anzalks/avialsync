@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from kinochronix.loaders.video_standard import VideoStandardLoader
+from avialview.loaders.video_standard import VideoStandardLoader
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "videos"
 

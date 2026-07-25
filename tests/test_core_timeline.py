@@ -3,7 +3,7 @@ import math
 from hypothesis import given
 from hypothesis import strategies as st
 
-from kinochronix.core.timeline import MasterClock, TimeMap
+from avialview.core.timeline import MasterClock, TimeMap
 
 
 def test_master_clock_basic():

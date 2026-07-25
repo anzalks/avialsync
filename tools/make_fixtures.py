@@ -1,4 +1,4 @@
-"""Synthetic ground-truth data generator for KinoChronix fixtures.
+"""Synthetic ground-truth data generator for AvialView fixtures.
 
 This script creates video and time-series data with known properties for sync testing.
 All videos have a binary frame-index strip encoded in the top row.
@@ -484,7 +484,7 @@ _GENERATED_SUBDIRS = {"videos", "signals", "openephys_mock", "sample_session"}
 
 
 def _clean_generated(fixtures_dir: pathlib.Path) -> None:
-    """Delete only auto-generated subdirs; permanent .kcx fixture files are never touched."""
+    """Delete only auto-generated subdirs; permanent .avv fixture files are never touched."""
     for name in _GENERATED_SUBDIRS:
         p = fixtures_dir / name
         if p.exists():

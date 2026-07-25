@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from kinochronix.core.errors import SyncAmbiguityError, SyncEvidenceError
-from kinochronix.core.sync import extract_ttl_edges, fit_sync_events
+from avialview.core.errors import SyncAmbiguityError, SyncEvidenceError
+from avialview.core.sync import extract_ttl_edges, fit_sync_events
 
 
 def test_extract_ttl_edges_preserves_chunk_boundaries() -> None:

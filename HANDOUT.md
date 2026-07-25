@@ -1,9 +1,9 @@
-# KinoChronix — Model Handout
+# AvialView — Model Handout
 
 Desktop tool for scrubbing time-synchronized multi-camera video with dense time-series data on a single master timeline.  
-**Stack:** Python 3.11+, PySide6, libmpv (python-mpv), pyqtgraph, polars, numpy  
+**Stack:** Python 3.11–3.12, PySide6, libmpv (python-mpv), pyqtgraph, polars, numpy
 **License:** Apache-2.0  
-**Env:** `conda run -n kinochronix <cmd>` — every command without exception
+**Env:** `conda run -n avialview <cmd>` — every command without exception
 
 ---
 
@@ -11,12 +11,12 @@ Desktop tool for scrubbing time-synchronized multi-camera video with dense time-
 
 | Context | Form |
 |---|---|
-| Brand / UI / window title | `KinoChronix` |
-| Module / CLI / PyPI / import paths | `kinochronix` (lowercase, one word) |
-| Session files | `.kcx` |
-| Cache sidecar dirs | `<file>.kcache/` |
+| Brand / UI / window title | `AvialView` |
+| Module / CLI / PyPI / import paths | `avialview` (lowercase, one word) |
+| Session files | `.avv` |
+| Cache sidecar dirs | `<file>.avialcache/` |
 
-Forbidden spellings: `Kinochronix`, `kinoChronix`, `kino_chronix`, `kino-chronix`, any prior project name.
+Use `AvialView` for displayed text and `avialview` for technical identifiers. Do not invent variants.
 
 ---
 
@@ -44,7 +44,7 @@ P5.4 has an initial implementation: cached TTL-channel extraction and video fram
 with explicit user acceptance and session provenance. Native plugin event providers remain unfrozen.
 
 ### Done (Phase 4)
-- Session save/load `.kcx`, autosave 2 min, recent files, relink dialog
+- Session save/load `.avv`, autosave 2 min, recent files, relink dialog
 - Transport: unified `QLineEdit` 110px fixed, `HH:MM:SS.fff`, `_time_editing` guard
 - Theme: System/Dark/Light radio group in View menu; Ctrl+T cycles; System retains the platform
   style, palette, accent, and font, and follows Qt-reported palette changes while open. Explicit
@@ -112,10 +112,11 @@ with explicit user acceptance and session provenance. Native plugin event provid
   available in the Sync Wizard.
 
 ### Pending
-- P5.2 packaging, P5.3 docs site, native synchronization plugin API (D-026).
-- D-027 Data Streams legibility: replace the current implicit coloured strip with the named,
-  conditional, inspectable lanes defined in ARCHITECTURE §2b. Do not add a second timeline or put
-  scientific interpretation in `core/`; preserve click-to-seek and the ≤2 ms cursor path.
+- P5.2 release packaging: validate one-directory media bundles, platform installers, and PyPI trusted
+  publishing through the tag-only GitHub workflow.
+- P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
+  documentation warnings as errors.
+- Native synchronization plugin API (D-026).
 
 ### Fixed (this PR — Phase 4 stabilization)
 - Left-pane vertical QSplitter: `_left_splitter` in `main_window.py`; state persisted in QSettings `splitter/left`
@@ -158,7 +159,7 @@ with explicit user acceptance and session provenance. Native plugin event provid
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
 | `core/source.py` | Plugin ABCs — frozen API | `TimeSeriesSource`, `VideoSource` |
-| `core/session.py` | `.kcx` session JSON, schema v2 | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry` |
+| `core/session.py` | `.avv` session JSON, schema v2 | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
 | `engine/player.py` | 60 Hz QTimer tick; MasterClock ↔ mpv ↔ UI | `Player.seek()`, `.set_playing()`, `.step_frame()` |
@@ -321,7 +322,7 @@ The correct dependency is `python-mpv` on PyPI, imported as `import mpv`. The pa
 
 ### 12. ruff `line-length = 100` — IDE diagnostics at 79 chars are false positives
 `pyproject.toml` sets `line-length = 100`. Editor/Pylance red-underline at 79 chars is wrong.
-Only `conda run -n kinochronix ruff check .` is authoritative.
+Only `conda run -n avialview ruff check .` is authoritative.
 
 ### 13. `_load_level()` on PyramidReader is private — do not call outside ReadoutPanel
 `ReadoutPanel.set_cursor` calls `reader._load_level(1)` directly because the public API
@@ -443,28 +444,28 @@ Plain CSV for DLC/LightningPose retraining pipelines.
 
 ```bash
 # Install
-conda run -n kinochronix pip install -e .[dev]
+conda run -n avialview pip install -e .[dev]
 
 # Run the app
-conda run -n kinochronix kinochronix
+conda run -n avialview avialview
 
 # Run with sample data
-conda run -n kinochronix kinochronix open tests/fixtures/sample_session/
+conda run -n avialview avialview open tests/fixtures/sample_session/
 
 # Generate test fixtures (needs ffmpeg in PATH)
-conda run -n kinochronix python tools/make_fixtures.py
+conda run -n avialview python tools/make_fixtures.py
 
 # Tests (offscreen)
-QT_QPA_PLATFORM=offscreen conda run -n kinochronix pytest -x -q
+QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -x -q
 
 # Lint + format
-conda run -n kinochronix ruff check --fix . && conda run -n kinochronix ruff format .
+conda run -n avialview ruff check --fix . && conda run -n avialview ruff format .
 
 # Type check
-conda run -n kinochronix mypy src/kinochronix/core/
+conda run -n avialview mypy src/avialview/core/
 
 # Performance benchmarks
-QT_QPA_PLATFORM=offscreen conda run -n kinochronix pytest --benchmark-only
+QT_QPA_PLATFORM=offscreen conda run -n avialview pytest --benchmark-only
 ```
 
 ---
