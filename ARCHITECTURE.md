@@ -210,6 +210,15 @@ frame triggers, or sparse experimental pulses, while lab-specific event encoding
   property observation on its own threads, then one UI update is gathered.
 - Proxy generation: QProcess (ffmpeg), non-blocking, progress parsed from stderr.
 
+### Appearance boundary
+
+`ui/theme.py` owns appearance preferences only: Qt palette roles, the operating-system accent, and
+the selected application font scale. Theme changes must preserve the platform widget style and all
+interaction state: seek-slider geometry/value/semantics, splitter and scrollbar behavior, plot
+range/follow state, playback, shortcuts, and view layout. Application-level QSS is prohibited for
+theme controls because it replaces native style metrics; custom-painted views read colours from the
+active palette and never infer or reset state from a palette change.
+
 ### Playback ownership and proof of exact frames
 
 `VideoPane` is the ownership boundary for its libmpv client. Exact seek commands are issued from

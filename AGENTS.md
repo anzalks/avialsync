@@ -67,6 +67,9 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
 - Type hints everywhere; dataclasses/pydantic-free core (plain dataclasses OK).
 - Qt: signals/slots over polling; no `QApplication.processEvents()` hacks; objects have parents or
   documented ownership.
+- Themes are appearance-only: palette roles, platform accent, and the selected application font may
+  change; widget style, control metrics, shortcut/input behavior, seek semantics, plot navigation,
+  playback state, and layout/view state may not. Do not use application-level QSS to restyle controls.
 - Docstrings: module + public API, Google style. Comments explain WHY, not what.
 - No new module > ~500 lines; split. No function > ~60 lines without justification.
 - Naming: `snake_case`, Qt widget classes end in their role (`VideoPane`, `TransportBar`).
@@ -173,6 +176,9 @@ conda run -n avialview ruff check --fix . && conda run -n avialview ruff format 
 - PyInstaller evaluates `SPECPATH` as the spec directory, not the project root. Resolve the root
   from it, and stage media only from a non-empty, validated `AVIALVIEW_MEDIA_ROOT`; an unset value
   must never accidentally package the current working directory.
+- Theme changes must not restyle sliders, splitters, scrollbars, plot interaction, or layout. A
+  global QSS changes Qt's style engine and can alter those controls; use `QPalette` only for theme
+  colours and verify seek/plot state survives a theme switch.
 - Playback drift correction needs hysteresis: re-seek only after N consecutive off-target ticks,
   or late Qt timers cause re-seek/stutter cascades under UI load.
 - Frame stepping: always mpv's actual frame timestamps; never `t += 1/fps` (breaks on VFR and

@@ -3,7 +3,8 @@
 System appearance deliberately preserves Qt's platform palette and widget style.  That
 means AvialView follows the user's accent colour, contrast settings, and font choice
 instead of imitating an operating-system theme with fixed colours.  The optional Dark
-and Light appearances use a restrained palette while retaining that same accent.
+and Light appearances use a restrained palette while retaining that same accent. Theme
+selection never changes widget geometry, input behaviour, view state, or playback state.
 """
 
 from __future__ import annotations
@@ -11,9 +12,9 @@ from __future__ import annotations
 import subprocess
 import sys
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QSettings, QTimer
 from PySide6.QtGui import QColor, QFont, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
@@ -28,6 +29,10 @@ _palette_listeners_installed: set[int] = set()
 _applying_palette: set[int] = set()
 _macos_accent: QColor | None = None
 _system_fonts: dict[int, QFont] = {}
+_font_scales: dict[int, float] = {}
+_font_requests: dict[int, int] = {}
+_BASE_FONT_PROPERTY = "avialview_base_font"
+_FONT_FAMILY_PROPERTY = "avialview_font_family"
 
 
 def _is_dark_palette(palette: QPalette) -> bool:
@@ -49,6 +54,51 @@ def _system_font(app: QApplication) -> QFont:
     if app_id not in _system_fonts:
         _system_fonts[app_id] = QFont(app.font())
     return QFont(_system_fonts[app_id])
+
+
+def set_font_family(widget: QWidget, family: str) -> None:
+    """Use *family* without opting a widget out of application font scaling."""
+    widget.setProperty(_FONT_FAMILY_PROPERTY, family)
+    font = QFont(widget.font())
+    font.setFamily(family)
+    widget.setFont(font)
+
+
+def _scaled_font(font: QFont, factor: float) -> QFont:
+    """Return *font* with its defined size scaled by the selected preference."""
+    scaled = QFont(font)
+    if scaled.pointSizeF() > 0:
+        scaled.setPointSizeF(max(8.0, scaled.pointSizeF() * factor))
+    elif scaled.pixelSize() > 0:
+        scaled.setPixelSize(max(8, round(scaled.pixelSize() * factor)))
+    return scaled
+
+
+def _capture_widget_base_fonts(app: QApplication) -> None:
+    """Record live widget fonts before Qt propagates a new application font."""
+    previous_factor = _font_scales.get(id(app), 1.0)
+    for widget in app.allWidgets():
+        base = widget.property(_BASE_FONT_PROPERTY)
+        if not isinstance(base, QFont):
+            base = _scaled_font(QFont(widget.font()), 1.0 / previous_factor)
+            widget.setProperty(_BASE_FONT_PROPERTY, QFont(base))
+
+
+def _apply_font_to_existing_widgets(app: QApplication, factor: float) -> None:
+    """Scale live widgets from their unscaled base fonts without changing their roles."""
+    for widget in app.allWidgets():
+        base = widget.property(_BASE_FONT_PROPERTY)
+        if not isinstance(base, QFont):
+            # A widget created after the preference was applied inherits the app
+            # font; derive its unscaled base before applying the next preference.
+            base = _scaled_font(QFont(widget.font()), 1.0 / _font_scales.get(id(app), 1.0))
+            widget.setProperty(_BASE_FONT_PROPERTY, QFont(base))
+        target = _scaled_font(base, factor)
+        family = widget.property(_FONT_FAMILY_PROPERTY)
+        if isinstance(family, str) and family:
+            target.setFamily(family)
+        widget.setFont(target)
+    _font_scales[id(app)] = factor
 
 
 def _accent(palette: QPalette) -> QColor:
@@ -139,68 +189,6 @@ def _palette_with_surfaces(dark: bool, accent: QColor) -> QPalette:
     return p
 
 
-def _qss(
-    palette: QPalette,
-    *,
-    dark: bool,
-    native: bool,
-    accent: QColor | None = None,
-) -> str:
-    """Return only styling Qt cannot consistently derive from a palette."""
-    tooltip_base = palette.color(QPalette.ColorRole.ToolTipBase).name()
-    tooltip_text = palette.color(QPalette.ColorRole.ToolTipText).name()
-    border = palette.color(QPalette.ColorRole.Mid).name()
-    accent_name = (accent or palette.color(QPalette.ColorRole.Link)).name()
-    if native:
-        return f"""
-QSlider::handle:horizontal {{
-    background: {accent_name}; width: 14px; margin: -4px 0; border-radius: 7px;
-}}
-QSlider::sub-page:horizontal {{ background: {accent_name}; border-radius: 3px; }}
-QToolTip {{
-    background-color: {tooltip_base}; color: {tooltip_text};
-    border: 1px solid {border}; padding: 4px;
-}}
-"""
-
-    accent_qss = accent_name
-    groove = "#3b3b3b" if dark else "#c8c8c8"
-    handle = "#5a5a5a" if dark else "#858585"
-    surface = palette.color(QPalette.ColorRole.Window).name()
-    base = palette.color(QPalette.ColorRole.Base).name()
-    selected = palette.color(QPalette.ColorRole.Highlight).name()
-    return f"""
-QSlider::groove:horizontal {{
-    background: {groove}; height: 6px; border-radius: 3px;
-}}
-QSlider::handle:horizontal {{
-    background: {accent_qss}; width: 14px; margin: -4px 0; border-radius: 7px;
-}}
-QSlider::sub-page:horizontal {{ background: {accent_qss}; border-radius: 3px; }}
-QSplitter::handle {{ background-color: {groove}; }}
-QGroupBox {{
-    border: 1px solid {border}; border-radius: 4px;
-    margin-top: 0.5em; padding-top: 0.6em;
-}}
-QGroupBox::title {{ subcontrol-origin: margin; left: 8px; padding: 0 4px; }}
-QHeaderView::section {{ background-color: {base}; border: 1px solid {border}; padding: 3px; }}
-QTableWidget {{ gridline-color: {border}; border: 1px solid {border}; }}
-QProgressBar {{ border: 1px solid {border}; border-radius: 3px; text-align: center; }}
-QProgressBar::chunk {{ background-color: {accent_qss}; border-radius: 3px; }}
-QScrollBar:vertical {{ background: {surface}; width: 10px; }}
-QScrollBar::handle:vertical {{ background: {handle}; border-radius: 5px; min-height: 20px; }}
-QScrollBar:horizontal {{ background: {surface}; height: 10px; }}
-QScrollBar::handle:horizontal {{ background: {handle}; border-radius: 5px; min-width: 20px; }}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
-QComboBox QAbstractItemView {{ background-color: {base}; selection-background-color: {selected}; }}
-QToolTip {{
-    background-color: {tooltip_base}; color: {tooltip_text};
-    border: 1px solid {border}; padding: 4px;
-}}
-"""
-
-
 def _install_system_appearance_listener(app: QApplication) -> None:
     """Follow platform palette changes while the System preference is active."""
     app_id = id(app)
@@ -231,9 +219,11 @@ def _apply(app: QApplication, pref: str, *, persist: bool) -> None:
     _applying_palette.add(app_id)
     try:
         app.setPalette(palette)
-        app.setStyleSheet(
-            _qss(palette, dark=dark, native=native, accent=system_accent(system_palette))
-        )
+        # A QApplication stylesheet wraps Qt's native style and selector rules can alter
+        # control metrics and interaction affordances.  Palette roles cover all allowed
+        # theme variation (surfaces, text, selection, accent, and tooltips) without
+        # changing seek/scrollbar/splitter geometry or platform control behaviour.
+        app.setStyleSheet("")
     finally:
         _applying_palette.discard(app_id)
 
@@ -257,7 +247,7 @@ def apply_theme(app: QApplication, pref: str = THEME_SYSTEM) -> None:
 
 
 def apply_font_size(app: QApplication, pref: str = FONT_SYSTEM) -> None:
-    """Apply and persist a system-relative application font-size preference."""
+    """Apply and persist a system-relative font preference to live and future widgets."""
     factors = {FONT_SYSTEM: 1.0, FONT_SMALL: 0.9, FONT_MEDIUM: 1.0, FONT_LARGE: 1.15}
     if pref not in factors:
         pref = FONT_SYSTEM
@@ -267,7 +257,17 @@ def apply_font_size(app: QApplication, pref: str = FONT_SYSTEM) -> None:
         if point_size <= 0:
             point_size = 12.0
         font.setPointSizeF(max(8.0, point_size * factors[pref]))
+    _capture_widget_base_fonts(app)
     app.setFont(font)
+    app_id = id(app)
+    request = _font_requests.get(app_id, 0) + 1
+    _font_requests[app_id] = request
+
+    def apply_to_live_widgets() -> None:
+        if _font_requests.get(app_id) == request:
+            _apply_font_to_existing_widgets(app, factors[pref])
+
+    QTimer.singleShot(0, apply_to_live_widgets)
     QSettings("AvialView", "AvialView").setValue("font/preference", pref)
 
 

@@ -43,12 +43,12 @@ class SensorInfoWidget(QFrame):
         header = QHBoxLayout()
         name_lbl = QLabel(Path(path).name)
         name_lbl.setToolTip(path)
-        name_lbl.setStyleSheet("font-weight: bold; font-size: 12px;")
+        name_lbl.setStyleSheet("font-weight: bold;")
 
         self._badge_btn = QPushButton("⚠")
         self._badge_btn.setFixedSize(18, 18)
         self._badge_btn.setFlat(True)
-        self._badge_btn.setStyleSheet("color: #e9c46a; font-weight: bold; font-size: 11px;")
+        self._badge_btn.setStyleSheet("color: #e9c46a; font-weight: bold;")
         self._badge_btn.setVisible(False)
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
 
@@ -64,13 +64,11 @@ class SensorInfoWidget(QFrame):
 
         # ── Metadata: path + channel count ──────────────────────────
         path_lbl = QLabel(path)
-        path_lbl.setStyleSheet("font-size: 9px;")
         path_lbl.setWordWrap(True)
         layout.addWidget(path_lbl)
 
         n_ch = len(channels)
         ch_count_lbl = QLabel(f"{n_ch} channel{'s' if n_ch != 1 else ''}")
-        ch_count_lbl.setStyleSheet("font-size: 10px;")
         layout.addWidget(ch_count_lbl)
 
         # ── Separator ────────────────────────────────────────────────
@@ -124,7 +122,6 @@ class SensorInfoWidget(QFrame):
         report_row = QHBoxLayout()
         self._report_btn = QPushButton("Report…")
         self._report_btn.setFixedHeight(20)
-        self._report_btn.setStyleSheet("font-size: 10px;")
         self._report_btn.setVisible(False)
         self._report_btn.clicked.connect(lambda: self.report_requested.emit(self.path))
         report_row.addWidget(self._report_btn)
@@ -215,7 +212,6 @@ class VideoInfoWidget(QFrame):
         duration = metadata.get("duration", 0.0)
 
         meta_lbl = QLabel(f"{codec.upper()} | {fps:.2f} fps | {duration:.1f}s")
-        meta_lbl.setStyleSheet("font-size: 11px;")
         layout.addWidget(meta_lbl)
 
         # Sync controls
@@ -236,7 +232,7 @@ class VideoInfoWidget(QFrame):
         self._badge_btn = QPushButton("⚠")
         self._badge_btn.setFixedSize(18, 18)
         self._badge_btn.setFlat(True)
-        self._badge_btn.setStyleSheet("color: #e9c46a; font-weight: bold; font-size: 11px;")
+        self._badge_btn.setStyleSheet("color: #e9c46a; font-weight: bold;")
         self._badge_btn.setVisible(False)
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
         header_layout.insertWidget(2, self._badge_btn)  # between name and close

@@ -37,7 +37,6 @@ class VideoGrid(QWidget):
             "files here.\nDouble-click a pane to maximise."
         )
         self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_empty.setStyleSheet("font-size: 18px;")
         self.lbl_empty.setMinimumHeight(200)
         self._layout.addWidget(self.lbl_empty, 0, 0)
 

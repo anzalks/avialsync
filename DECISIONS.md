@@ -523,3 +523,27 @@ is responsible for providing and licence-verifying the explicit media inputs.
 
 Build failures identify a path or declared-input defect early without making CI artifacts equivalent
 to release installers. Keep the spec force-added despite the repository-wide `*.spec` ignore rule.
+
+## 2026-07 · D-034 · Themes are palette/font appearance, never interaction redesign
+
+### Context
+
+The original theme stylesheet styled slider grooves/handles, splitters, scrollbars, and other
+standard controls. Qt application stylesheets replace parts of the native style engine, so selecting
+Dark or Light could change the seek bar's geometry and other interaction affordances. For scientific
+inspection, a colour preference must not change how the shared timeline or plot navigation behaves.
+
+### Decision
+
+`ui/theme.py` changes only `QPalette` roles and the explicit application-font preference. It retains
+the native Qt widget style and applies no application-level QSS. Palette-aware custom views read
+their colours from the current palette. A theme change must preserve seek-slider geometry, range,
+value, and exact-seek semantics; plot range/follow state; playback; shortcuts; splitter and scrollbar
+behavior; and window/view layout. Accessibility font scaling may reflow text, but it cannot change
+those behaviors or stored view state.
+
+### Consequences
+
+Tests switch through System, Dark, and Light while asserting seek and plot state remains intact.
+Future visual refinements use palette roles or local, non-interaction decoration; they must not
+reintroduce global control selectors.

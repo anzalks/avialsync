@@ -8,6 +8,7 @@ from PySide6.QtGui import QColor, QFontDatabase, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from avialview.ui.diagnostics import probe_libmpv
+from avialview.ui.theme import set_font_family
 
 
 def instantaneous_frame_rate(frame_times: np.ndarray | None, t: float, fallback: float) -> float:
@@ -295,8 +296,9 @@ class VideoPane(QWidget):
         self.lbl_name.setVisible(False)
 
         self.lbl_osd = QLabel("Time: 00:00:00.000\nFPS:  0.0")
+        mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self.lbl_osd.setStyleSheet("color: white; background-color: rgba(0,0,0,128); padding: 4px;")
-        self.lbl_osd.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+        set_font_family(self.lbl_osd, mono_font)
 
         top_layout = QHBoxLayout()
         _top = Qt.AlignmentFlag.AlignTop
@@ -307,9 +309,7 @@ class VideoPane(QWidget):
         olayout.addLayout(top_layout)
 
         self.lbl_no_footage = QLabel("No Footage")
-        self.lbl_no_footage.setStyleSheet(
-            "color: white; background-color: rgb(0,0,0); font-size: 24px;"
-        )
+        self.lbl_no_footage.setStyleSheet("color: white; background-color: rgb(0,0,0);")
         self.lbl_no_footage.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_no_footage.setVisible(False)
         olayout.addWidget(self.lbl_no_footage, 1)  # stretch

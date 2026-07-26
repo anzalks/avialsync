@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialview.ui.theme import system_accent
+from avialview.ui.theme import set_font_family, system_accent
 from avialview.ui.time_format import TimeDisplayMode, format_time
 
 
@@ -435,9 +435,9 @@ class Transport(QWidget):
         # ── Timeline row: playhead controls, scrub bar, A/B, end time, rate ──
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self._time_edit = QLineEdit("00:00:00.000")
-        self._time_edit.setFixedWidth(110)
+        self._time_edit.setMinimumWidth(110)
         self._time_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._time_edit.setStyleSheet(f"font-family: '{mono_font}'; font-size: 12px;")
+        set_font_family(self._time_edit, mono_font)
         self._time_edit.setToolTip(
             "Current time — click to edit.\nFormats: HH:MM:SS.fff, MM:SS, or seconds."
         )
@@ -456,9 +456,9 @@ class Transport(QWidget):
         self._timeline_layout.addWidget(self.slider, 1)
 
         self._end_time_label = QLabel("00:00:00.000", self)
-        self._end_time_label.setFixedWidth(110)
+        self._end_time_label.setMinimumWidth(110)
         self._end_time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._end_time_label.setStyleSheet(f"font-family: '{mono_font}'; font-size: 12px;")
+        set_font_family(self._end_time_label, mono_font)
         self._end_time_label.setToolTip("End of the loaded master timeline")
         self._timeline_layout.addWidget(self._end_time_label)
 

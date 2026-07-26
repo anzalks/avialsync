@@ -45,7 +45,7 @@ class _PropertiesBase(QGroupBox):
         hdr = QHBoxLayout()
         self._toggle_btn = QPushButton("▶ " + title)
         self._toggle_btn.setFlat(True)
-        self._toggle_btn.setStyleSheet("text-align:left; font-size:11px;")
+        self._toggle_btn.setStyleSheet("text-align:left;")
         self._toggle_btn.clicked.connect(self._toggle)
         hdr.addWidget(self._toggle_btn, stretch=1)
 
@@ -76,9 +76,8 @@ class _PropertiesBase(QGroupBox):
 
     def _add_row(self, label: str, value: str) -> QLabel:
         lbl = QLabel(label)
-        lbl.setStyleSheet("font-size:10px; color: #888;")
+        lbl.setStyleSheet("color: #888;")
         val = QLabel(value)
-        val.setStyleSheet("font-size:10px;")
         val.setWordWrap(True)
         self._form.addRow(lbl, val)
         self._rows.append((label, val))

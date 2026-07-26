@@ -18,3 +18,10 @@
 - **A/B** marks a time range for inspection or export.
 
 Use tooltips by resting the pointer over any button if you are unsure what it does.
+
+## Appearance and font size
+
+Use **View → Theme** to choose System, Dark, or Light, and **View → Font Size** to select a
+system-relative text size. These choices change colours, accent, and text presentation only. They do
+not reset or reinterpret your shared time, seek bar, plot navigation, playback, layout, or loaded
+data. A larger font may naturally reflow labels to remain readable.

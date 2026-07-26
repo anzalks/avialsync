@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialview.core.inspection import SourceInspection
+from avialview.ui.theme import set_font_family
 
 
 class ImportReportDialog(QDialog):
@@ -31,7 +32,8 @@ class ImportReportDialog(QDialog):
 
         self._text = QTextEdit()
         self._text.setReadOnly(True)
-        self._text.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+        mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
+        set_font_family(self._text, mono_font)
         self._text.setPlainText(self.as_plain_text())
 
         scroll = QScrollArea()

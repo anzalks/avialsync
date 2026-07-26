@@ -45,12 +45,15 @@ with explicit user acceptance and session provenance. Native plugin event provid
 
 ### Done (Phase 4)
 - Session save/load `.avv`, autosave 2 min, recent files, relink dialog
-- Transport: unified `QLineEdit` 110px fixed, `HH:MM:SS.fff`, `_time_editing` guard
+- Transport: unified `QLineEdit` 110px minimum, `HH:MM:SS.fff`, `_time_editing` guard
 - Theme: System/Dark/Light radio group in View menu; Ctrl+T cycles; System retains the platform
   style, palette, accent, and font, and follows Qt-reported palette changes while open. Explicit
-  Dark/Light use the same platform accent with readable application surfaces.
+  Dark/Light use the same platform accent with readable application surfaces. Themes are
+  palette/font-only: they must not alter seek-bar geometry or semantics, plot range/follow state,
+  splitter/scrollbar behavior, playback, shortcuts, or layout state.
 - Font size: View → Font Size offers System, Small, Medium, and Large; each non-System choice is a
-  persisted scale relative to the platform application font.
+  persisted scale relative to the platform application font and applies to already-open controls.
+  Fixed-width readouts retain their monospaced family while inheriting that scale.
 - Video/channel visibility checkboxes (hide without unloading)
 - A/B loop + region stats in ReadoutPanel
 - Annotations (point + range markers, M key, CSV export)
@@ -196,7 +199,7 @@ with explicit user acceptance and session provenance. Native plugin event provid
 | `ui/offsets_panel.py` | Stub — offset editing stays in `VideoInfoWidget.offset_spin`; not filled by D-020 | — |
 | `ui/readout_panel.py` | Live per-channel values + units + sample index + Δ section | `update_sources()`, `set_cursor()`, `show_region_stats()`, `show_delta()` |
 | `ui/annotations.py` | Annotation store + list panel | `AnnotationStore`, `AnnotationPanel` |
-| `ui/theme.py` | QPalette + QSS; system/dark/light | `apply_theme()`, `load_saved_theme()`, `current_preference()`, `THEME_SYSTEM/DARK/LIGHT` |
+| `ui/theme.py` | QPalette + system/dark/light appearance only | `apply_theme()`, `load_saved_theme()`, `current_preference()`, `THEME_SYSTEM/DARK/LIGHT` |
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
 | `ui/diagnostics.py` | Startup probe (hw-decode, disk speed) — async daemon thread | `run_startup_diagnostics()` |
 | `loaders/csv_loader.py` | polars CSV ingest; epoch/time-of-day/datetime, euro-decimal, sentinel, BOM | `CSVLoader` |
@@ -299,7 +302,8 @@ _start_data_import(path)
 
 ### 1. No bare `QWidget { }` QSS selector — blacks out video panes
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  
-**Fix:** Use QPalette for all base widget colors. QSS only for sliders, scrollbars, group boxes, header sections, progress bars. `ui/theme.py` — neither `_DARK_QSS` nor `_LIGHT_QSS` contains a bare `QWidget` selector.
+**Fix:** Use QPalette for all theme colours. Application-level QSS changes native control metrics and
+can change seek/scrollbar/splitter behavior, so `ui/theme.py` sets no theme stylesheet at all.
 
 ### 2. `setParent(None)` makes a widget a popup window
 Detaches the widget from its parent, promoting it to a standalone window with its own frame.  

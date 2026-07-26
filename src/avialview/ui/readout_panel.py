@@ -15,11 +15,13 @@ from PySide6.QtWidgets import (
 )
 
 from avialview.core.pyramid import PyramidReader
+from avialview.ui.theme import set_font_family
 
 
-def _mono_style() -> str:
+def _set_monospace(widget: QWidget) -> None:
+    """Preserve a fixed-width family while inheriting the application font size."""
     family = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
-    return f"font-size: 11px; font-family: '{family}';"
+    set_font_family(widget, family)
 
 
 class _ChannelReadout(QWidget):
@@ -33,15 +35,14 @@ class _ChannelReadout(QWidget):
 
         self._name_lbl = QLabel(name)
         self._name_lbl.setFixedWidth(130)
-        self._name_lbl.setStyleSheet("font-size: 11px;")
 
         self._val_lbl = QLabel("—")
-        self._val_lbl.setStyleSheet(_mono_style())
+        _set_monospace(self._val_lbl)
         self._val_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         self._idx_lbl = QLabel("")
         self._idx_lbl.setFixedWidth(60)
-        self._idx_lbl.setStyleSheet("font-size: 9px; color: #777;")
+        self._idx_lbl.setStyleSheet("color: #777;")
         self._idx_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         layout.addWidget(self._name_lbl)
@@ -68,10 +69,9 @@ class _StatsRow(QWidget):
 
         self._name_lbl = QLabel(name)
         self._name_lbl.setFixedWidth(80)
-        self._name_lbl.setStyleSheet("font-size: 10px;")
 
         self._stats_lbl = QLabel("—")
-        self._stats_lbl.setStyleSheet(f"font-size: 10px; {_mono_style()}")
+        _set_monospace(self._stats_lbl)
         self._stats_lbl.setWordWrap(True)
 
         layout.addWidget(self._name_lbl)
@@ -97,10 +97,9 @@ class _CameraRow(QWidget):
 
         lbl = QLabel(label)
         lbl.setFixedWidth(90)
-        lbl.setStyleSheet("font-size: 10px;")
 
         self._info_lbl = QLabel("—")
-        self._info_lbl.setStyleSheet(f"font-size: 10px; {_mono_style()}")
+        _set_monospace(self._info_lbl)
 
         layout.addWidget(lbl)
         layout.addWidget(self._info_lbl, stretch=1)
@@ -124,10 +123,9 @@ class _DeltaRow(QWidget):
 
         lbl = QLabel(f"Δ {name}")
         lbl.setFixedWidth(130)
-        lbl.setStyleSheet("font-size: 10px;")
 
         self._val_lbl = QLabel("—")
-        self._val_lbl.setStyleSheet(f"font-size: 10px; {_mono_style()}")
+        _set_monospace(self._val_lbl)
         self._val_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         layout.addWidget(lbl)
@@ -171,21 +169,21 @@ class ReadoutPanel(QGroupBox):
 
         # Section labels + rows for optional sections
         self._cam_label = QLabel("Camera Positions")
-        self._cam_label.setStyleSheet("font-weight: bold; font-size: 10px;")
+        self._cam_label.setStyleSheet("font-weight: bold;")
         self._cam_label.setVisible(False)
         self._cam_rows: list[_CameraRow] = []
 
         self._stats_label = QLabel("Region Stats")
-        self._stats_label.setStyleSheet("font-weight: bold; font-size: 11px;")
+        self._stats_label.setStyleSheet("font-weight: bold;")
         self._stats_label.setVisible(False)
         self._stats_rows: dict[str, _StatsRow] = {}
 
         self._delta_label = QLabel("Δ Measurement")
-        self._delta_label.setStyleSheet("font-weight: bold; font-size: 11px;")
+        self._delta_label.setStyleSheet("font-weight: bold;")
         self._delta_label.setVisible(False)
         self._delta_rows: dict[str, _DeltaRow] = {}
         self._delta_t_lbl = QLabel("Δt = —")
-        self._delta_t_lbl.setStyleSheet(f"font-size: 11px; {_mono_style()}")
+        _set_monospace(self._delta_t_lbl)
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -293,12 +291,11 @@ class ReadoutPanel(QGroupBox):
 
         if camera_states:
             fps_row = QLabel("Frames between:")
-            fps_row.setStyleSheet("font-size: 10px; font-weight: bold;")
+            fps_row.setStyleSheet("font-weight: bold;")
             self._layout.insertWidget(self._layout.count() - 1, fps_row)
             for label, _tp, fps in camera_states:
                 n = int(round(dt * fps)) if fps > 0 else "—"
                 r = QLabel(f"  {label}: {n} frames")
-                r.setStyleSheet("font-size: 10px;")
                 self._layout.insertWidget(self._layout.count() - 1, r)
 
     def clear_region_stats(self) -> None:

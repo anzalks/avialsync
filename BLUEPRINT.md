@@ -118,7 +118,8 @@ Deliverables:
 - No-footage/no-data placeholder states (D-010); timeline coverage shading; channel tree +
   grouping for many-channel sources (ARCHITECTURE §5c).
 - Error handling pass: unreadable file, missing column, codec unsupported → actionable dialogs; "copy diagnostics" button.
-- Dark/light theme; window state persistence.
+- Dark/light theme limited to palette/accent/font appearance; it must preserve native control style,
+  seek and plot interaction state, playback state, shortcuts, and window/view state. Window state persistence.
 - Timeline Evidence overview (D-027): named, conditional Coverage / Sync-TTL / Gaps / Annotations
   lanes under the **Data Streams** header; event hover/focus details; click-to-seek; standard section
   splitter handles matching the video/plot boundary plus a collapse control. A fixed label gutter
