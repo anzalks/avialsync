@@ -10,3 +10,12 @@ def test_spec_resolves_the_project_root_from_packaging_directory() -> None:
     assert "project_root = Path(SPECPATH).parent" in spec
     assert "project_root = Path(SPECPATH).parent.parent" not in spec
     assert "project_root / 'src' / 'avialview' / '__main__.py'" in spec
+
+
+def test_spec_only_includes_explicitly_staged_media() -> None:
+    """An unset media path must not accidentally mean the working directory."""
+    spec = Path("packaging/avialview.spec").read_text(encoding="utf-8")
+
+    assert 'media_root_value = os.environ.get("AVIALVIEW_MEDIA_ROOT")' in spec
+    assert "if media_root_value:" in spec
+    assert 'Path(os.environ.get("AVIALVIEW_MEDIA_ROOT", ""))' not in spec

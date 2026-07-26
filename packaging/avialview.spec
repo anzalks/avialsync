@@ -6,9 +6,12 @@ from PyInstaller.utils.hooks import collect_submodules
 
 # PyInstaller supplies SPECPATH as the directory containing this spec.
 project_root = Path(SPECPATH).parent
-media_root = Path(os.environ.get("AVIALVIEW_MEDIA_ROOT", ""))
 media_binaries = []
-if media_root.is_dir():
+media_root_value = os.environ.get("AVIALVIEW_MEDIA_ROOT")
+if media_root_value:
+    media_root = Path(media_root_value)
+    if not media_root.is_dir():
+        raise RuntimeError(f"AVIALVIEW_MEDIA_ROOT is not a directory: {media_root}")
     media_binaries = [(str(path), ".") for path in media_root.iterdir() if path.is_file()]
 
 hidden_imports = []
