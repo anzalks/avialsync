@@ -19,9 +19,15 @@ def app_with_main_window(qapp: QApplication) -> MainWindow:
     return win
 
 
-def _capture_frame(pane) -> np.ndarray:
-    """Return libmpv's current decoded video frame without an OSD render race."""
-    screenshot = pane.mpv.command("screenshot-raw", "video")
+def _capture_frame(pane) -> np.ndarray | None:
+    """Return the decoded frame, or None while libmpv is still seeking."""
+    try:
+        screenshot = pane.mpv.command("screenshot-raw", "video")
+    except SystemError:
+        # libmpv reports -12 while a seek has not produced a frame yet.  The
+        # caller retries through Qt's event loop rather than treating stale
+        # data as a settled frame.
+        return None
     assert screenshot["format"] == "bgr0"
     pixels = np.frombuffer(screenshot["data"], np.uint8).reshape(
         (screenshot["h"], screenshot["stride"] // 4, 4)
@@ -35,11 +41,27 @@ def _wait_for_decoded_frame(pane, expected_frame: int, qtbot) -> int:
 
     def is_expected_frame() -> bool:
         nonlocal decoded_frame
-        decoded_frame = decode_frame_strip(_capture_frame(pane))
+        frame = _capture_frame(pane)
+        if frame is None:
+            return False
+        decoded_frame = decode_frame_strip(frame)
         return decoded_frame == expected_frame
 
     qtbot.waitUntil(is_expected_frame, timeout=2000)
     return decoded_frame
+
+
+def test_capture_frame_retries_when_mpv_is_busy() -> None:
+    """A transient exact-seek command error must not become stale evidence."""
+
+    class BusyMpv:
+        def command(self, *_args: str) -> None:
+            raise SystemError("mpv is seeking")
+
+    class BusyPane:
+        mpv = BusyMpv()
+
+    assert _capture_frame(BusyPane()) is None
 
 
 def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
