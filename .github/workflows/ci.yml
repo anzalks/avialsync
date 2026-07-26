@@ -71,7 +71,7 @@ jobs:
           choco install --no-progress ffmpeg
           $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
           $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
-          Invoke-WebRequest -Uri 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download' -OutFile $archive
+          curl.exe --fail --location --silent --show-error --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
           if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
             throw 'Downloaded libmpv archive did not match its pinned SHA-256'
           }

@@ -2,11 +2,9 @@
 
 import pathlib
 import random
-import tempfile
 
 import numpy as np
 import pytest
-from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
 from util_framestrip import decode_frame_strip
 
@@ -21,17 +19,14 @@ def app_with_main_window(qapp: QApplication) -> MainWindow:
     return win
 
 
-def _capture_frame(pane, image_path: pathlib.Path, qtbot) -> np.ndarray:
-    """Capture a frame after libmpv has written the requested screenshot."""
-    pane.mpv.command("screenshot-to-file", str(image_path))
-    qtbot.waitUntil(
-        lambda: image_path.is_file() and not QImage(str(image_path)).isNull(), timeout=2000
-    )
-
-    image = QImage(str(image_path)).convertToFormat(QImage.Format.Format_Grayscale8)
-    ptr = image.bits()
-    pixels = np.frombuffer(ptr, np.uint8).reshape((image.height(), image.bytesPerLine()))
-    return pixels[:, : image.width()].copy()
+def _capture_frame(pane) -> np.ndarray:
+    """Return libmpv's current decoded video frame without an OSD render race."""
+    screenshot = pane.mpv.command("screenshot-raw", "video")
+    assert screenshot["format"] == "bgr0"
+    pixels = np.frombuffer(screenshot["data"], np.uint8).reshape(
+        (screenshot["h"], screenshot["stride"] // 4, 4)
+    )[:, : screenshot["w"], :3]
+    return np.rint(pixels @ np.array([0.114, 0.587, 0.299])).astype(np.uint8)
 
 
 def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
@@ -70,8 +65,7 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
 
         qtbot.waitUntil(is_settled, timeout=2000)
 
-        with tempfile.TemporaryDirectory() as td:
-            arr = _capture_frame(pane, pathlib.Path(td) / "screenshot.png", qtbot)
+        arr = _capture_frame(pane)
 
         # Decode
         decoded = decode_frame_strip(arr)
@@ -129,21 +123,19 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
         qtbot.waitUntil(is_settled, timeout=2000)
 
         # Check each pane's exact frame via decoding
-        with tempfile.TemporaryDirectory() as td:
-            for i, pane in enumerate(panes):
-                arr = _capture_frame(pane, pathlib.Path(td) / f"screenshot_{i}.png", qtbot)
+        for i, pane in enumerate(panes):
+            arr = _capture_frame(pane)
 
-                decoded = decode_frame_strip(arr)
+            decoded = decode_frame_strip(arr)
 
-                # The expected frame is the target frame for pane 0.
-                # For pane 1 and 2, it is shifted by offset.
-                # wait, if Master is at target_time, and pane 1 has offset 1.234,
-                # source time = target_time + 1.234.
-                # frame = round(source_time * 30.0)
-                expected_source_t = pane.time_map.to_source(target_time)
-                expected_frame = round(expected_source_t * 30.0)
+            # The expected frame is the target frame for pane 0.
+            # For pane 1 and 2, it is shifted by offset.
+            # wait, if Master is at target_time, and pane 1 has offset 1.234,
+            # source time = target_time + 1.234.
+            # frame = round(source_time * 30.0)
+            expected_source_t = pane.time_map.to_source(target_time)
+            expected_frame = round(expected_source_t * 30.0)
 
-                assert decoded == expected_frame, (
-                    f"Pane {i}: Expected {expected_frame}, got {decoded} "
-                    f"at {target_time}s master time"
-                )
+            assert decoded == expected_frame, (
+                f"Pane {i}: Expected {expected_frame}, got {decoded} at {target_time}s master time"
+            )
