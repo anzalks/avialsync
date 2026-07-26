@@ -68,12 +68,13 @@ with explicit user acceptance and session provenance. Native plugin event provid
   thread. libmpv itself remains asynchronous; this avoids macOS property observers getting stuck
   in a seeking state when commands are issued from a Qt worker thread. Observer callbacks use
   their delivered values rather than querying libmpv recursively, avoiding Windows callback-thread
-  crashes. Golden tests first wait for `seeking=False` and `time-pos` at the intended fixture
-  interval, then decode `screenshot-raw video` until it provides the expected raw frame—the only
-  definitive frame-accuracy evidence. An unavailable or stale pre-seek raw snapshot is rejected,
-  never accepted; retry uses the Qt event loop at a bounded interval. Fixture seeks use a timestamp
-  within the known decoded-frame interval, never an ambiguous presentation-time boundary that
-  another libmpv backend may resolve to the adjacent frame. Every pane sets libmpv
+  crashes. Golden tests decode `screenshot-raw video` until it provides the expected raw frame—the
+  only definitive frame-accuracy evidence; they do not treat advisory `seeking`/`time-pos`
+  notifications as proof that a Windows libmpv client has painted its target. An unavailable or
+  stale pre-seek raw snapshot is rejected, never accepted; retry uses the Qt event loop at a bounded
+  interval. Fixture seeks use a timestamp within the known decoded-frame interval, never an
+  ambiguous presentation-time boundary that another libmpv backend may resolve to the adjacent
+  frame. Every pane sets libmpv
   `hr-seek-framedrop=no`, so a paused exact seek decodes to its target instead of allowing the
   decoder to discard target-adjacent frames.
 - **Headless Windows video CI**: GitHub-hosted Windows runners use the global Qt `offscreen`
