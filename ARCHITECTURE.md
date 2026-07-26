@@ -226,7 +226,9 @@ the Qt-owning thread and queue work in libmpv; decoder and observer work remain 
 observer consumes the value it was given rather than re-entering libmpv from its callback thread.
 At window close, ownership unwinds explicitly: `MainWindow.closeEvent()` calls
 `VideoGrid.shutdown()`, which closes every pane and lets `mpv.terminate()` join its event thread
-before Qt tears down widgets.
+before Qt tears down widgets. On macOS the pane first frees its libmpv render context while the
+`QOpenGLWidget` is current; only then may it terminate libmpv. That ordering prevents the render
+widget from dereferencing a destroyed client during process exit.
 
 Runtime coordination uses observed `seeking=False` and target `time-pos`, without sleeps. That is
 not sufficient evidence for a scientific golden test: the test captures `screenshot-raw video`,

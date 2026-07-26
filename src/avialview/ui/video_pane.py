@@ -1,6 +1,7 @@
 """Video rendering pane using libmpv."""
 
 import sys
+from typing import Any
 
 import numpy as np
 from PySide6.QtCore import Qt, Signal
@@ -27,6 +28,35 @@ def instantaneous_frame_rate(frame_times: np.ndarray | None, t: float, fallback:
         index = len(frame_times) - 1
     interval = float(frame_times[index] - frame_times[index - 1])
     return 1.0 / interval if interval > 1e-9 else fallback
+
+
+def _release_mpv_render_context(widget: object) -> None:
+    """Free a libmpv OpenGL render context before its client is terminated."""
+    context = getattr(widget, "ctx", None)
+    if context is None:
+        return
+    widget.makeCurrent()
+    try:
+        context.free()
+    finally:
+        widget.ctx = None
+        widget.doneCurrent()
+
+
+def _shutdown_mpv_client(player: Any, gl_widget: Any | None = None) -> None:
+    """Release a macOS render client, then terminate its libmpv handle once."""
+    if gl_widget is not None:
+        try:
+            _release_mpv_render_context(gl_widget)
+        except RuntimeError:
+            # A failed GL cleanup must not leave libmpv's event thread alive.
+            pass
+    try:
+        player.terminate()
+    except Exception:
+        pass
+    if gl_widget is not None:
+        gl_widget.mpv = None
 
 
 def displayed_frame_rate(
@@ -435,10 +465,9 @@ class VideoPane(QWidget):
 
     def close(self) -> None:
         """Terminate mpv before closing the widget."""
-        if self.mpv:
-            try:
-                self.mpv.terminate()
-            except Exception:
-                pass
+        player = self.mpv
+        if player:
+            gl_widget = getattr(self, "gl_widget", None)
+            _shutdown_mpv_client(player, gl_widget)
             self.mpv = None
         super().close()

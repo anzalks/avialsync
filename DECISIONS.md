@@ -504,6 +504,13 @@ CI certifies cross-platform timeline/decode correctness and catches lifecycle fa
 claiming a hosted runner certifies native compositing or performance. D-029 remains the authority
 for local timing marks.
 
+### macOS render-client teardown amendment
+
+For the native macOS render API, the libmpv OpenGL render context is explicitly freed while its
+`QOpenGLWidget` is current, before `mpv.terminate()` destroys the client. The opposite order leaves
+the Qt render object holding an invalid mpv client and aborts the process on exit. This is a lifecycle
+ordering rule only; it does not alter seek, decode, or rendering behavior while the app is open.
+
 ## 2026-07 · D-033 · Packaging inputs are explicit and CI artifact builds are a separate gate
 
 ### Context

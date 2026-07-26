@@ -173,6 +173,8 @@ conda run -n avialview ruff check --fix . && conda run -n avialview ruff format 
 - Libmpv has an event thread that outlives a QWidget destructor. Shutdown ownership is explicit:
   `MainWindow.closeEvent()` → `VideoGrid.shutdown()` → `VideoPane.close()` → `mpv.terminate()`.
   Do not rely on garbage collection or Qt child destruction to join it.
+- On macOS render-API panes, free the libmpv render context while the `QOpenGLWidget` is current
+  before terminating mpv. Reversing that order aborts the process during app exit.
 - PyInstaller evaluates `SPECPATH` as the spec directory, not the project root. Resolve the root
   from it, and stage media only from a non-empty, validated `AVIALVIEW_MEDIA_ROOT`; an unset value
   must never accidentally package the current working directory.
