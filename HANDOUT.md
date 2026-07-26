@@ -35,7 +35,8 @@ Use `AvialView` for displayed text and `avialview` for technical identifiers. Do
 
 ## Development graph
 
-`graphify-out/` is a committed, portable structural map. Refresh it with
+`graphify-out/` is a committed, portable structural map. Install its separately-versioned optional
+tool with `conda run -n avialview pip install -e ".[dev,graph]"`, then refresh it with
 `conda run -n avialview python tools/update_graph.py`; it is AST-only and must consume zero API
 tokens. New clones enable the reviewed post-commit hook with
 `conda run -n avialview python tools/install_git_hooks.py`. The hook leaves generated changes

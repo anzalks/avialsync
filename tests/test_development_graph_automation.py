@@ -30,3 +30,12 @@ def test_hook_leaves_graph_updates_for_manual_review() -> None:
     assert "python tools/update_graph.py" in hook
     assert "git add" not in hook
     assert "git commit" not in hook
+
+
+def test_graph_tool_is_outside_the_shared_ci_dependency_set() -> None:
+    """Application CI installs ``dev`` and must not install Graphify."""
+    pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+
+    dev_section = pyproject.split("graph = [", maxsplit=1)[0]
+    assert '"graphifyy' not in dev_section
+    assert "graph = [" in pyproject

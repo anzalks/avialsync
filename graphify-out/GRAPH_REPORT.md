@@ -1,11 +1,11 @@
 # Graph Report - .  (2026-07-26)
 
 ## Corpus Check
-- 127 files · ~69,510 words
+- 127 files · ~69,576 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1932 nodes · 3155 edges · 40 communities (31 shown, 9 thin omitted)
+- 1934 nodes · 3157 edges · 40 communities (31 shown, 9 thin omitted)
 - Extraction: 91% EXTRACTED · 9% INFERRED · 0% AMBIGUOUS · INFERRED: 272 edges (avg confidence: 0.62)
 - Token cost: 0 input · 0 output
 
@@ -116,20 +116,20 @@ Cohesion: 0.36
 Nodes (7): discover_media_files(), main(), Path, Stage locally installed LGPL media libraries for a release bundle.  Downloads ar, Find mpv/ffmpeg runtime files in the supplied package-manager directories., Copy discovered runtime media files into a clean bundle-local directory., stage_media_files()
 
 ### Community 11 - "Community 11"
+Cohesion: 0.25
+Nodes (7): Regression checks for the token-free development graph automation., The committed updater must not grow API-backed graph features., The local hook refreshes only; it never changes Git history or staging., Application CI installs ``dev`` and must not install Graphify., test_graph_tool_is_outside_the_shared_ci_dependency_set(), test_graph_updater_stays_structural_and_offline(), test_hook_leaves_graph_updates_for_manual_review()
+
+### Community 12 - "Community 12"
 Cohesion: 0.29
 Nodes (6): Architecture, Loading and viewing a source, Main parts, Master timeline, Session and extension boundaries, Synchronization design
 
-### Community 12 - "Community 12"
+### Community 13 - "Community 13"
 Cohesion: 0.33
 Nodes (5): Data handling, Gaps and missing values, Sessions and provenance, Source files and caches, Time and precision
 
-### Community 13 - "Community 13"
+### Community 14 - "Community 14"
 Cohesion: 0.40
 Nodes (5): build_bundle(), main(), Path, Build a one-directory AvialView bundle for the current platform., Run PyInstaller with only staged, local media libraries included.
-
-### Community 14 - "Community 14"
-Cohesion: 0.33
-Nodes (5): Regression checks for the token-free development graph automation., The committed updater must not grow API-backed graph features., The local hook refreshes only; it never changes Git history or staging., test_graph_updater_stays_structural_and_offline(), test_hook_leaves_graph_updates_for_manual_review()
 
 ### Community 15 - "Community 15"
 Cohesion: 0.47

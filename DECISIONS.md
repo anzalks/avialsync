@@ -15,8 +15,9 @@ extraction, transcription, web ingestion, or any API-backed Graphify feature.
 **Alternatives rejected:** opaque local caches as the shared graph; automatic commits from a local
 hook; manually maintained graph artifacts; token-backed semantic graph generation.
 
-**Consequences:** `graphifyy` is a pinned MIT development dependency. The graph is reviewable and
-portable; developers choose whether and when to commit a refresh. It must never become a background task.
+**Consequences:** `graphifyy` is a pinned MIT `graph` optional dependency, kept out of the shared
+`dev` dependency set used by application CI. The graph is reviewable and portable; developers choose
+whether and when to commit a refresh. It must never become a background task.
 
 ## 2026-07 · D-027 · Timeline Evidence must be named and conditional
 

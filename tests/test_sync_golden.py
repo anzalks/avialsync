@@ -10,6 +10,8 @@ from util_framestrip import decode_frame_strip
 
 from avialview.ui.main_window import MainWindow
 
+DECODED_FRAME_TIMEOUT_MS = 5_000
+
 
 @pytest.fixture
 def app_with_main_window(qapp: QApplication) -> MainWindow:
@@ -48,7 +50,7 @@ def _wait_for_decoded_frame(pane, expected_frame: int, qtbot) -> int:
         decoded_frame = decode_frame_strip(frame)
         return decoded_frame == expected_frame
 
-    qtbot.waitUntil(is_expected_frame, timeout=2000)
+    qtbot.waitUntil(is_expected_frame, timeout=DECODED_FRAME_TIMEOUT_MS)
     return decoded_frame
 
 

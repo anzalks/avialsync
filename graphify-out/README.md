@@ -10,8 +10,9 @@ The committed graph is an offline structural extraction of the source tree: it c
 and their relationships without any API-backed semantic extraction. Local interpreter selection,
 absolute scan paths, caches, and temporary extraction files are intentionally ignored.
 
-Run `conda run -n avialview python tools/update_graph.py` to refresh it locally. New clones can
-enable the versioned post-commit hook with `conda run -n avialview python tools/install_git_hooks.py`.
+Install this optional tool with `conda run -n avialview pip install -e ".[dev,graph]"`, then run
+`conda run -n avialview python tools/update_graph.py` to refresh it locally. New clones can enable
+the versioned post-commit hook with `conda run -n avialview python tools/install_git_hooks.py`.
 The hook refreshes the working tree after relevant commits but never stages or commits automatically;
 review and commit graph changes manually when wanted. No graph-generation step may enable semantic
 extraction, transcription, web ingestion, or any API-backed feature.

@@ -98,7 +98,7 @@ def main() -> int:
     except ImportError as error:
         print(
             "Graphify is unavailable. Install the versioned dev stack with "
-            "`conda run -n avialview pip install -e .[dev]`.",
+            "`conda run -n avialview pip install -e .[dev,graph]`.",
             file=sys.stderr,
         )
         print(error, file=sys.stderr)

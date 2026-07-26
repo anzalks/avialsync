@@ -27,7 +27,9 @@ dev = [
     "pytest-timeout>=2.3",
     "hypothesis",
     "ruff",
-    "mypy",
+    "mypy"
+]
+graph = [
     # MIT; offline AST extraction for the committed development graph.
     "graphifyy==0.9.23"
 ]
