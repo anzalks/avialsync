@@ -45,26 +45,32 @@ def _capture_frame(pane) -> np.ndarray | None:
     return np.rint(pixels @ np.array([0.114, 0.587, 0.299])).astype(np.uint8)
 
 
-def _wait_for_decoded_frame(pane, expected_frame: int, qtbot) -> int:
-    """Wait until libmpv's decoded frame is the requested exact frame."""
-    decoded_frame = -1
+def _wait_for_decoded_frame(pane, expected_frame: int, expected_time: float, qtbot) -> int:
+    """Capture the exact decoded frame after libmpv has settled at its target."""
+    frame_tolerance = 0.5 / FIXTURE_FRAME_RATE
 
-    def is_expected_frame() -> bool:
-        nonlocal decoded_frame
-        frame = _capture_frame(pane)
-        if frame is None:
-            return False
-        decoded_frame = decode_frame_strip(frame)
-        return decoded_frame == expected_frame
+    def is_settled_at_target() -> bool:
+        return not pane.is_seeking and abs(pane.time_pos - expected_time) <= frame_tolerance
+
+    qtbot.waitUntil(is_settled_at_target, timeout=DECODED_FRAME_TIMEOUT_MS)
+
+    captured_frame: np.ndarray | None = None
+
+    def is_capture_available() -> bool:
+        nonlocal captured_frame
+        captured_frame = _capture_frame(pane)
+        return captured_frame is not None
 
     try:
-        qtbot.waitUntil(is_expected_frame, timeout=DECODED_FRAME_TIMEOUT_MS)
+        qtbot.waitUntil(is_capture_available, timeout=DECODED_FRAME_TIMEOUT_MS)
     except QtTimeoutError as error:
         raise AssertionError(
-            f"Expected decoded frame {expected_frame}; last decoded frame was {decoded_frame}; "
-            f"mpv time-pos was {pane.time_pos}."
+            f"libmpv settled at {pane.time_pos}, but did not provide a raw frame for "
+            f"expected frame {expected_frame}."
         ) from error
-    return decoded_frame
+
+    assert captured_frame is not None
+    return decode_frame_strip(captured_frame)
 
 
 def test_capture_frame_retries_when_mpv_is_busy() -> None:
@@ -111,7 +117,7 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
 
         # The decoded frame is the definitive seek-settle evidence.  The
         # seeking property is advisory and may not transition on every mpv VO.
-        decoded = _wait_for_decoded_frame(pane, target_frame, qtbot)
+        decoded = _wait_for_decoded_frame(pane, target_frame, target_time, qtbot)
 
         assert decoded == target_frame, f"Expected {target_frame}, got {decoded} at {target_time}s"
 
@@ -165,7 +171,7 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
             # frame = round(source_time * 30.0)
             expected_source_t = pane.time_map.to_source(target_time)
             expected_frame = round(expected_source_t * 30.0)
-            decoded = _wait_for_decoded_frame(pane, expected_frame, qtbot)
+            decoded = _wait_for_decoded_frame(pane, expected_frame, expected_source_t, qtbot)
 
             assert decoded == expected_frame, (
                 f"Pane {i}: Expected {expected_frame}, got {decoded} at {target_time}s master time"

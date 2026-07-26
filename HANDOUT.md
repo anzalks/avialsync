@@ -68,10 +68,11 @@ with explicit user acceptance and session provenance. Native plugin event provid
   thread. libmpv itself remains asynchronous; this avoids macOS property observers getting stuck
   in a seeking state when commands are issued from a Qt worker thread. Observer callbacks use
   their delivered values rather than querying libmpv recursively, avoiding Windows callback-thread
-  crashes. Golden tests settle on the decoded frame itself—the only definitive frame-accuracy
-  evidence—rather than assuming every video output reports a `seeking` transition. Fixture seeks
-  use a timestamp within the known decoded-frame interval, never an ambiguous presentation-time
-  boundary that another libmpv backend may resolve to the adjacent frame.
+  crashes. Golden tests first wait for `seeking=False` and `time-pos` at the intended fixture
+  interval, then decode exactly one `screenshot-raw video` frame—the only definitive
+  frame-accuracy evidence. Fixture seeks use a timestamp within the known decoded-frame interval,
+  never an ambiguous presentation-time boundary that another libmpv backend may resolve to the
+  adjacent frame.
 - **Headless Windows video CI**: GitHub-hosted Windows runners use the global Qt `offscreen`
   platform, so `VideoPane` selects libmpv's `vo=null` test path. Do not force native `wid` embedding
   in a headless job; production Windows continues to use the native embedding path.
