@@ -543,6 +543,22 @@ For the native macOS render API, the libmpv OpenGL render context is explicitly 
 the Qt render object holding an invalid mpv client and aborts the process on exit. This is a lifecycle
 ordering rule only; it does not alter seek, decode, or rendering behavior while the app is open.
 
+## 2026-07 · D-034 · Exact seeks decode without frame dropping
+
+**Context:** libmpv permits decoder frame dropping during high-resolution seeks by default. Its
+reported target time can therefore advance before the raw decoded frame has replaced the prior
+frame, producing stale-frame evidence in cross-platform golden tests.
+
+**Decision:** every `VideoPane` configures `hr-seek-framedrop=no`. Paused exact seeks decode through
+the requested frame before the raw-frame golden assertion is made. Playback retains its normal
+frame-dropping behavior, so synchronization correctness during playback is unaffected.
+
+**Alternatives rejected:** accepting a stale screenshot; a fixed sleep; a test-only mpv setting
+that would leave the shipped paused-seek path unverified.
+
+**Consequences:** exact paused seeks can take longer on long-GOP media, by design. This is the
+explicit fidelity side of the application's speed-and-timing release criteria.
+
 ## 2026-07 · D-033 · Packaging inputs are explicit and CI artifact builds are a separate gate
 
 ### Context

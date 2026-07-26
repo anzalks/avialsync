@@ -185,6 +185,7 @@ class VideoPane(QWidget):
                     # Use vo="libmpv" so it renders via the API instead of a standalone window
                     self.mpv = mpv.MPV(
                         hwdec="auto-safe",
+                        hr_seek_framedrop=False,
                         keep_open="yes",
                         vo="libmpv",
                         input_default_bindings="no",
@@ -271,6 +272,7 @@ class VideoPane(QWidget):
                 self.mpv = mpv.MPV(
                     vo="null",
                     hwdec="auto-safe",
+                    hr_seek_framedrop=False,
                     keep_open="yes",
                     input_default_bindings="no",
                     input_vo_keyboard="no",
@@ -280,6 +282,7 @@ class VideoPane(QWidget):
                 self.mpv = mpv.MPV(
                     wid=wid,
                     hwdec="auto-safe",
+                    hr_seek_framedrop=False,
                     keep_open="yes",
                     input_default_bindings="no",
                     input_vo_keyboard="no",

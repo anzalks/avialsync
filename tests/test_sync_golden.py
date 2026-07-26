@@ -11,7 +11,7 @@ from util_framestrip import decode_frame_strip
 
 from avialview.ui.main_window import MainWindow
 
-DECODED_FRAME_TIMEOUT_MS = 5_000
+DECODED_FRAME_TIMEOUT_MS = 10_000
 FIXTURE_FRAME_RATE = 30.0
 
 

@@ -72,7 +72,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
   interval, then decode exactly one `screenshot-raw video` frame—the only definitive
   frame-accuracy evidence. Fixture seeks use a timestamp within the known decoded-frame interval,
   never an ambiguous presentation-time boundary that another libmpv backend may resolve to the
-  adjacent frame.
+  adjacent frame. Every pane sets libmpv `hr-seek-framedrop=no`, so a paused exact seek decodes to
+  its target instead of allowing the decoder to discard target-adjacent frames.
 - **Headless Windows video CI**: GitHub-hosted Windows runners use the global Qt `offscreen`
   platform, so `VideoPane` selects libmpv's `vo=null` test path. Do not force native `wid` embedding
   in a headless job; production Windows continues to use the native embedding path.
