@@ -117,6 +117,7 @@ class VideoPane(QWidget):
         self._is_vfr = False
         self._frame_times: np.ndarray | None = None
         self._nominal_fps = 0.0
+        self._decoder_fps = 0.0
         self.is_seeking = False
         self.mpv = None
         self._video_widget = None
@@ -168,9 +169,14 @@ class VideoPane(QWidget):
                                 value,
                                 self.parent_pane._is_vfr,
                                 self.parent_pane._nominal_fps,
-                                getattr(self.mpv, "estimated_vf_fps", 0.0) or 0.0,
+                                self.parent_pane._decoder_fps,
                             )
                             self.parent_pane._osd_update.emit(value, fps)
+
+                    @self.mpv.property_observer("estimated-vf-fps")
+                    def fps_observer(_name: str, value: float) -> None:
+                        if value is not None:
+                            self.parent_pane._decoder_fps = value
 
                     @self.mpv.property_observer("seeking")
                     def seeking_observer(_name: str, value: bool) -> None:
@@ -257,9 +263,14 @@ class VideoPane(QWidget):
                         value,
                         self._is_vfr,
                         self._nominal_fps,
-                        getattr(self.mpv, "estimated_vf_fps", 0.0) or 0.0,
+                        self._decoder_fps,
                     )
                     self._osd_update.emit(value, fps)
+
+            @self.mpv.property_observer("estimated-vf-fps")
+            def fps_observer(_name: str, value: float) -> None:
+                if value is not None:
+                    self._decoder_fps = value
 
             @self.mpv.property_observer("seeking")
             def seeking_observer(_name: str, value: bool) -> None:
@@ -321,7 +332,7 @@ class VideoPane(QWidget):
     def set_vfr(self, is_vfr: bool) -> None:
         """Mark the on-video readout so its instantaneous rate is contextualized."""
         self._is_vfr = is_vfr
-        self._update_osd(self.time_pos, getattr(self.mpv, "estimated_vf_fps", 0.0) or 0.0)
+        self._update_osd(self.time_pos, self._decoder_fps)
 
     def set_frame_times(self, frame_times: np.ndarray | None) -> None:
         """Supply decoded frame timestamps for instantaneous VFR readout."""
@@ -405,10 +416,13 @@ class VideoPane(QWidget):
             return
         precision = "exact" if exact else "keyframes"
         try:
+            # libmpv reports seeking asynchronously.  Set this first so a
+            # previous settled position cannot be mistaken for this seek.
+            self.is_seeking = True
             self.mpv.seek(t, reference="absolute", precision=precision)
         except Exception:
             # mpv may raise SystemError -12 if we seek before it has finished loading the file
-            pass
+            self.is_seeking = False
 
     def frame_step(self, forward: bool = True) -> None:
         """Step one frame forward or backward."""

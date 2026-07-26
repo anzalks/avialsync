@@ -29,6 +29,19 @@ def _capture_frame(pane) -> np.ndarray:
     return np.rint(pixels @ np.array([0.114, 0.587, 0.299])).astype(np.uint8)
 
 
+def _wait_for_decoded_frame(pane, expected_frame: int, qtbot) -> int:
+    """Wait until libmpv's decoded frame is the requested exact frame."""
+    decoded_frame = -1
+
+    def is_expected_frame() -> bool:
+        nonlocal decoded_frame
+        decoded_frame = decode_frame_strip(_capture_frame(pane))
+        return decoded_frame == expected_frame
+
+    qtbot.waitUntil(is_expected_frame, timeout=2000)
+    return decoded_frame
+
+
 def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
     """Test video frame accuracy via framestrip."""
     win = app_with_main_window
@@ -65,10 +78,7 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
 
         qtbot.waitUntil(is_settled, timeout=2000)
 
-        arr = _capture_frame(pane)
-
-        # Decode
-        decoded = decode_frame_strip(arr)
+        decoded = _wait_for_decoded_frame(pane, target_frame, qtbot)
 
         assert decoded == target_frame, f"Expected {target_frame}, got {decoded} at {target_time}s"
 
@@ -124,10 +134,6 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
 
         # Check each pane's exact frame via decoding
         for i, pane in enumerate(panes):
-            arr = _capture_frame(pane)
-
-            decoded = decode_frame_strip(arr)
-
             # The expected frame is the target frame for pane 0.
             # For pane 1 and 2, it is shifted by offset.
             # wait, if Master is at target_time, and pane 1 has offset 1.234,
@@ -135,6 +141,7 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
             # frame = round(source_time * 30.0)
             expected_source_t = pane.time_map.to_source(target_time)
             expected_frame = round(expected_source_t * 30.0)
+            decoded = _wait_for_decoded_frame(pane, expected_frame, qtbot)
 
             assert decoded == expected_frame, (
                 f"Pane {i}: Expected {expected_frame}, got {decoded} at {target_time}s master time"
