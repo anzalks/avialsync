@@ -1,0 +1,8 @@
+# Commit portable graph artifacts only. The remaining files contain a local
+# interpreter, absolute scan root, caches, or transient extraction work.
+*
+!.gitignore
+!README.md
+!graph.json
+!graph.html
+!GRAPH_REPORT.md
