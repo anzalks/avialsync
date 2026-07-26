@@ -26,6 +26,8 @@ dev = [
     "pytest-benchmark",
     "pytest-timeout>=2.3",
     "hypothesis",
+    "build",  # MIT; release helper builds the wheel and sdist before tagging.
+    "twine",  # Apache-2.0; release helper validates distribution metadata.
     "ruff",
     "mypy"
 ]

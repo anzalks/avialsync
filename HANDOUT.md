@@ -500,6 +500,10 @@ conda run -n avialview mypy src/avialview/core/
 
 # Performance benchmarks
 QT_QPA_PLATFORM=offscreen conda run -n avialview pytest --benchmark-only
+
+# Release preflight, version commit, annotated tag, and push (tag workflow publishes)
+conda run -n avialview python tools/prepare_release.py 0.1.0b1 --dry-run
+conda run -n avialview python tools/prepare_release.py 0.1.0b1
 ```
 
 ---

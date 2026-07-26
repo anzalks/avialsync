@@ -82,3 +82,16 @@ creates the release last.
 Release administrators configure PyPI trusted publishing. The release workflow itself pins and
 verifies the AppImage build tool before creating the Linux AppImage; no package-upload token or
 repository variable is needed.
+
+To prepare a future tag release from a clean `main` checkout, use the guarded helper rather than
+editing versions or creating tags by hand:
+
+```bash
+conda run -n avialview python tools/prepare_release.py 0.1.0b1 --dry-run
+conda run -n avialview python tools/prepare_release.py 0.1.0b1
+```
+
+It validates the version, updates both package-version authorities, builds and checks wheel/sdist,
+commits the change, creates annotated `v0.1.0b1`, and pushes it. GitHub Actions remains the sole
+publisher. The helper permits only the offline `graphify-out/graph.json` as a pre-existing dirty
+file; commit or resolve every other change first.
