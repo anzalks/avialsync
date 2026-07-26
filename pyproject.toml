@@ -29,10 +29,6 @@ dev = [
     "ruff",
     "mypy"
 ]
-graph = [
-    # MIT; offline AST extraction for the committed development graph.
-    "graphifyy==0.9.23"
-]
 docs = [
     "sphinx>=7.2",
     "myst-parser>=2.0",

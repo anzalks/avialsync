@@ -1,17 +1,7 @@
 #!/bin/sh
-# Refresh the local, committed architecture graph after relevant commits.
-# The hook deliberately does not stage or commit its output: graph changes are
-# reviewed and committed manually, independently of the application workflow.
-
-set -eu
-
-if ! git diff --name-only HEAD^ HEAD | grep -qv '^graphify-out/'; then
-    exit 0
+# Local developer convenience only. It never stages, commits, pushes, or runs in CI.
+if command -v graphify >/dev/null 2>&1; then
+    graphify . --update --no-viz
+else
+    printf '%s\n' 'graphify is not installed; graph was not refreshed.' >&2
 fi
-
-if ! git diff --name-only HEAD^ HEAD | grep -Eq '^(src/|tests/|tools/|docs/|\.github/|AGENTS\.md|ARCHITECTURE\.md|BLUEPRINT\.md|DECISIONS\.md|HANDOUT\.md|PROMPTS\.md|pyproject\.toml)'; then
-    exit 0
-fi
-
-conda run -n avialview python tools/update_graph.py
-printf '%s\n' 'Offline development graph refreshed; include graphify-out changes in your next commit.'
