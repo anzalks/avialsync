@@ -67,6 +67,38 @@ pip users get everything Python-side automatically; libmpv/ffmpeg gap handled by
 (D-013) and Windows auto-fetch (D-014). conda-forge recipe as supplementary channel.
 Never ship a release where installers and PyPI are out of version sync.
 
+## 2026-07 · D-028 · Release wheel smoke test gates installers and PyPI
+
+**Context:** a tag release needs one deterministic package-level proof before spending time on
+three platform installer builds or publishing to PyPI, while retaining cross-platform correctness
+as the first gate.
+
+**Decision:** the tag workflow runs the full cross-platform quality matrix, documentation build,
+and distribution build first. It then installs the built wheel into a clean environment and proves
+the package imports. Only that successful smoke test unlocks the three installer jobs. OIDC PyPI
+upload starts only after every installer passes, and the GitHub Release is created last.
+
+**Alternatives rejected:** TestPyPI as an extra public index and delayed-CI smoke test; a manual
+approval gate; publishing to PyPI before every installer has passed.
+
+**Consequences:** a failed installer prevents PyPI publishing and GitHub Release creation. A tag
+is therefore complete only when all three installer artifacts and the matching PyPI distribution
+have passed their gates.
+
+## 2026-07 · D-029 · AppImage build tool is pinned in the release workflow
+
+**Context:** release access must require no mutable repository variables, matching the hands-off
+tag workflow model, but an unverified moving download would violate the release supply-chain gate.
+
+**Decision:** `release.yml` records the fixed AppImageTool release URL and SHA-256 next to the
+download-and-verify step. No repository variable or secret is required for AppImage packaging.
+
+**Alternatives rejected:** a mutable `continuous` tool download without checksum verification;
+administrator-maintained URL/checksum variables.
+
+**Consequences:** updating AppImageTool is a reviewable source change that updates both values in
+one commit. A tag release remains fully hands-off after PyPI Trusted Publishing is configured.
+
 ## 2026-07 · D-013 · Lazy mpv import + startup probe (never crash on missing libmpv)
 `import mpv` is FORBIDDEN at module top level anywhere. video_pane imports lazily after
 diagnostics probes for libmpv. Missing lib → app still opens, shows an OS-detected dialog with

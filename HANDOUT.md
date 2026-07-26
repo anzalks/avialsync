@@ -133,9 +133,11 @@ with explicit user acceptance and session provenance. Native plugin event provid
   available in the Sync Wizard.
 
 ### Pending
-- P5.2 release packaging: CI already builds a media-free one-directory artifact on every OS; still
-  validate release-media bundles, platform installers, and PyPI trusted publishing through the
-  tag-only GitHub workflow.
+- P5.2 release packaging: CI already builds a media-free one-directory artifact on every OS; the
+  tag-only release workflow runs its cross-platform quality matrix, then smoke-tests the built
+  wheel in a clean environment before building release-media installers. OIDC PyPI publishing
+  starts only after every installer passes, and the GitHub Release is created last. The AppImage
+  tool URL and checksum are pinned in the reviewed workflow, not set as repository variables.
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
 - Native synchronization plugin API (D-026).

@@ -74,8 +74,11 @@ QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -x -q
 ```
 
 GitHub Actions is the sole publisher for release artifacts and PyPI distributions. Do not upload
-packages from a developer workstation.
+packages from a developer workstation. A release tag runs cross-platform validation, builds the
+wheel and source distribution, and smoke-tests the wheel in a clean environment before building
+the platform installers. PyPI publishing starts only after every installer succeeds, and GitHub
+creates the release last.
 
-Release administrators configure PyPI trusted publishing and the repository variables
-`APPIMAGETOOL_URL` and `APPIMAGETOOL_SHA256`; the release workflow verifies the latter before
-creating the Linux AppImage.
+Release administrators configure PyPI trusted publishing. The release workflow itself pins and
+verifies the AppImage build tool before creating the Linux AppImage; no package-upload token or
+repository variable is needed.

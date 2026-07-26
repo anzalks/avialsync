@@ -4,17 +4,18 @@ on:
   push:
     tags: ["v*"]
 
-permissions:
-  contents: write
-  id-token: write
+permissions: {}
 
 jobs:
   quality:
-    name: Release quality · Python ${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+    name: Release quality · ${{ matrix.os }} · Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.11", "3.12"]
     env:
       QT_QPA_PLATFORM: offscreen
@@ -25,9 +26,35 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
+      - name: Install media dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg libmpv2 libegl1
+      - name: Install media dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg mpv
+      - name: Install media dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install --no-progress ffmpeg
+          $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
+          $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
+          curl.exe --fail --location --silent --show-error --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
+          if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
+            throw 'Downloaded libmpv archive did not match its pinned SHA-256'
+          }
+          & "$env:ChocolateyInstall\tools\7z.exe" x $archive "-o$destination" -y | Out-Null
+          $libmpv = Get-ChildItem $destination -Filter 'libmpv-2.dll' -File -Recurse | Select-Object -First 1
+          if ($null -eq $libmpv) {
+            throw 'Pinned libmpv archive did not contain libmpv-2.dll'
+          }
+          $libmpv.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - run: pip install -e ".[dev]"
+      - name: Verify libmpv is importable (Windows)
+        if: runner.os == 'Windows'
+        run: python -c "import mpv; print('libmpv import succeeded')"
       - name: Lint and type check
-        if: matrix.python-version == '3.12'
+        if: runner.os == 'Linux' && matrix.python-version == '3.12'
         run: |
           ruff check .
           ruff format --check .
@@ -39,6 +66,8 @@ jobs:
   docs:
     name: Release documentation
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,6 +82,8 @@ jobs:
     name: Build Python distributions
     needs: [quality, docs]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -62,15 +93,38 @@ jobs:
           cache-dependency-path: pyproject.toml
       - run: pip install build
       - run: python -m build
+      - run: python -m pip install twine && twine check dist/*
       - uses: actions/upload-artifact@v4
         with:
           name: python-distributions
           path: dist/*
 
+  smoke_test:
+    name: Smoke test release wheel
+    needs: distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist
+      - name: Install the built wheel in a clean environment
+        run: |
+          python -m venv smoke-venv
+          smoke-venv/bin/python -m pip install --upgrade pip
+          smoke-venv/bin/python -m pip install dist/*.whl
+      - name: Verify package import
+        run: smoke-venv/bin/python -c "import avialview; print('avialview import succeeded')"
+
   packages:
     name: Bundle ${{ matrix.os }}
-    needs: [quality, docs, distributions]
+    needs: smoke_test
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -122,11 +176,9 @@ jobs:
       - name: Build Linux AppImage from the verified repository tool source
         if: runner.os == 'Linux'
         env:
-          APPIMAGETOOL_URL: ${{ vars.APPIMAGETOOL_URL }}
-          APPIMAGETOOL_SHA256: ${{ vars.APPIMAGETOOL_SHA256 }}
+          APPIMAGETOOL_URL: https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage
+          APPIMAGETOOL_SHA256: d918b4df547b388ef253f3c9e7f6529ca81a885395c31f619d9aaf7030499a13
         run: |
-          test -n "$APPIMAGETOOL_URL"
-          test -n "$APPIMAGETOOL_SHA256"
           mkdir -p installer-output tooling
           curl --fail --location --silent --show-error "$APPIMAGETOOL_URL" --output tooling/appimagetool
           echo "$APPIMAGETOOL_SHA256  tooling/appimagetool" | sha256sum --check --status
@@ -137,26 +189,37 @@ jobs:
           name: ${{ matrix.artifact }}
           path: installer-output/*
 
-  publish:
-    name: Publish release
+  pypi_publish:
+    name: Publish to PyPI
     needs: packages
     runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/p/avialview
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist
+      - name: Publish wheel and source distribution through PyPI trusted publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github_release:
+    name: Create GitHub release
+    needs: [packages, pypi_publish]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
           pattern: AvialView-*-bundle
           path: release-assets
-      - uses: actions/download-artifact@v4
-        with:
-          name: python-distributions
-          path: dist
-      - name: Create GitHub release after all build gates pass
+      - name: Create GitHub release after installers and PyPI publish pass
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: release-assets/**
-      - name: Publish wheel and source distribution through PyPI trusted publishing
-        uses: pypa/gh-action-pypi-publish@release/v1
