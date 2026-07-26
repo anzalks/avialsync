@@ -206,7 +206,8 @@ frame triggers, or sparse experimental pulses, while lab-specific event encoding
 - UI thread: Qt event loop only.
 - mpv: own internal threads per instance (3–4 instances).
 - Import worker: QThread per import job (parse → cache → pyramid), progress via signals, cancellable.
-- Seeker: thread-pool fanout of seek commands; completion gathered, then one UI update.
+- Seeker: UI-thread fanout of non-blocking libmpv seek commands; libmpv performs decode and
+  property observation on its own threads, then one UI update is gathered.
 - Proxy generation: QProcess (ffmpeg), non-blocking, progress parsed from stderr.
 
 ## 4. Plugin contract (frozen at Phase 5 as API v1)

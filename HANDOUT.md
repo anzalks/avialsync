@@ -61,6 +61,9 @@ with explicit user acceptance and session provenance. Native plugin event provid
 
 ### Done (Phase 4 UX / loader fixes)
 - **Live scrubbing coalescing**: During slider drag `Player.seek(exact=False)` coalesces in-flight keyframe seeks — if a seek is already dispatched, the newest target is held in `_pending_scrub_t` and flushed in `_on_tick` as soon as `SeekGroup.is_settled()`. Plot cursor and readout panel update every drag event. Exact seek fires on release as before.
+- **Cross-platform exact seek dispatch**: `SeekGroup` queues libmpv commands from the Qt-owning
+  thread. libmpv itself remains asynchronous; this avoids macOS property observers getting stuck
+  in a seeking state when commands are issued from a Qt worker thread.
 - **Frame-indexed sources (D-019)**: `TimeSeriesSource.is_frame_indexed()` added (default False). `TrackingLoader` overrides to True. Import fps resolution: 1 video → pre-filled confirm; multiple videos → dropdown; no video → manual entry + auto-rebind when first video is added.
 - **NeoLoader.can_open tightening**: `SUPPORTED_EXTENSIONS` whitelist added; `can_open` returns 0.0 immediately for any file not in the whitelist. Never claims `.csv` or acts as a fallback for unknown files.
 

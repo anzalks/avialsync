@@ -1,37 +1,24 @@
-"""Parallel seek coordinator."""
-
-from PySide6.QtCore import QRunnable, QThreadPool
+"""Asynchronous seek coordinator."""
 
 from avialview.ui.video_pane import VideoPane
 
 
-class SeekTask(QRunnable):
-    """Background task to seek a single video pane."""
-
-    def __init__(self, pane: VideoPane, target_t: float, exact: bool):
-        super().__init__()
-        self.pane = pane
-        self.target_t = target_t
-        self.exact = exact
-
-    def run(self) -> None:
-        self.pane.seek(self.target_t, exact=self.exact)
-
-
 class SeekGroup:
-    """Manages parallel seeks across N video panes."""
+    """Fan out non-blocking libmpv seek commands across video panes.
+
+    ``mpv.seek`` queues work in libmpv and returns immediately.  It must be
+    called from the Qt thread that owns the embedded pane: dispatching it via
+    ``QThreadPool`` can leave macOS property observers stuck in ``seeking``.
+    """
 
     def __init__(self, panes: list[VideoPane]) -> None:
         self.panes = panes
 
     def seek_pane(self, pane: VideoPane, target_t: float, exact: bool = True) -> None:
-        """Seek a single pane asynchronously."""
+        """Queue a seek on one pane without blocking the UI thread."""
         if not pane.mpv:
             return
-        pane.is_seeking = True  # Preemptively set to avoid double-triggering
-        pool = QThreadPool.globalInstance()
-        task = SeekTask(pane, target_t, exact)
-        pool.start(task)
+        pane.seek(target_t, exact=exact)
 
     def seek(self, t: float, exact: bool = True) -> None:
         """Issue parallel seek commands to all active panes."""

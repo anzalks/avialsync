@@ -455,3 +455,18 @@ marks and are not weakened. Raising a workflow timeout or skipping a timed-out t
 X11. Windows CI therefore overrides the global headless setting with the native `qwindows` backend
 for its QWidget tests. Linux and macOS continue to use offscreen testing. This is a test-platform
 selection fix, not an application behavior change.
+
+## 2026-07 · D-031 · Libmpv commands stay on the Qt-owning thread
+
+### Context
+
+The macOS Python 3.12 CI job could load libmpv but intermittently left the observed `seeking`
+property true after an exact seek. The command had been sent from a `QThreadPool` worker while the
+embedded video pane and its property observers belonged to the Qt UI thread.
+
+### Decision
+
+`SeekGroup` fans out `mpv.seek` calls from the Qt-owning thread. The call only queues an operation
+in libmpv; decode and property observation remain on libmpv's own threads. Settling continues to
+require the observed `seeking=False` state and target `time-pos`, never a sleep. This preserves a
+responsive UI without cross-thread access to an embedded libmpv client.

@@ -66,10 +66,21 @@ jobs:
         
       - name: Install System Dependencies (Windows)
         if: runner.os == 'Windows'
-        run: choco install ffmpeg mpv
-        
+        shell: pwsh
+        run: |
+          choco install --no-progress ffmpeg mpv
+          $libmpv = Get-ChildItem 'C:\ProgramData\chocolatey\lib\mpvio.install\tools' -Filter 'mpv-2.dll' -File -Recurse | Select-Object -First 1
+          if ($null -eq $libmpv) {
+            throw 'Chocolatey did not install mpv-2.dll'
+          }
+          $libmpv.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Install Project Dependencies
         run: pip install -e ".[dev]"
+
+      - name: Verify libmpv is importable (Windows)
+        if: runner.os == 'Windows'
+        run: python -c "import mpv; print('libmpv import succeeded')"
         
       - name: Make Fixtures
         run: python tools/make_fixtures.py --small
