@@ -69,11 +69,13 @@ with explicit user acceptance and session provenance. Native plugin event provid
   in a seeking state when commands are issued from a Qt worker thread. Observer callbacks use
   their delivered values rather than querying libmpv recursively, avoiding Windows callback-thread
   crashes. Golden tests first wait for `seeking=False` and `time-pos` at the intended fixture
-  interval, then decode exactly one `screenshot-raw video` frame—the only definitive
-  frame-accuracy evidence. Fixture seeks use a timestamp within the known decoded-frame interval,
-  never an ambiguous presentation-time boundary that another libmpv backend may resolve to the
-  adjacent frame. Every pane sets libmpv `hr-seek-framedrop=no`, so a paused exact seek decodes to
-  its target instead of allowing the decoder to discard target-adjacent frames.
+  interval, then decode `screenshot-raw video` until it provides the expected raw frame—the only
+  definitive frame-accuracy evidence. An unavailable or stale pre-seek raw snapshot is rejected,
+  never accepted; retry uses the Qt event loop at a bounded interval. Fixture seeks use a timestamp
+  within the known decoded-frame interval, never an ambiguous presentation-time boundary that
+  another libmpv backend may resolve to the adjacent frame. Every pane sets libmpv
+  `hr-seek-framedrop=no`, so a paused exact seek decodes to its target instead of allowing the
+  decoder to discard target-adjacent frames.
 - **Headless Windows video CI**: GitHub-hosted Windows runners use the global Qt `offscreen`
   platform, so `VideoPane` selects libmpv's `vo=null` test path. Do not force native `wid` embedding
   in a headless job; production Windows continues to use the native embedding path.
@@ -139,6 +141,10 @@ with explicit user acceptance and session provenance. Native plugin event provid
   wheel in a clean environment before building release-media installers. OIDC PyPI publishing
   starts only after every installer passes, and the GitHub Release is created last. The AppImage
   tool URL and checksum are pinned in the reviewed workflow, not set as repository variables.
+  The PR and tag quality matrices share the same 3-OS × 2-Python headless test command, fixture
+  determinism check, explicit ffmpeg/libmpv dependencies, and 60-second per-test watchdog. Windows
+  quality and Windows bundling both use the same checksum-verified libmpv archive; only the
+  platform-native package-manager commands remain intentionally different.
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
 - Native synchronization plugin API (D-026).

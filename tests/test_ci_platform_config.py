@@ -1,16 +1,44 @@
-"""Regression checks for the Qt platform selection in CI."""
+"""Regression checks for the shared cross-platform CI and release contract."""
 
 from pathlib import Path
 
+WORKFLOW_PATHS = (
+    Path(".github/workflows/ci.yml"),
+    Path(".github/workflows/release.yml"),
+)
+TEST_COMMAND = (
+    "pytest -x -q --durations=20 --timeout=60 --timeout-method=thread --ignore=tests/benchmarks"
+)
+WINDOWS_LIBMPV_SHA256 = "FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6"
 
-def test_windows_ci_uses_headless_video_backend() -> None:
-    """Displayless Windows CI must select VideoPane's null-video backend."""
-    workflow_path = Path(".github/workflows/ci.yml")
-    workflow = workflow_path.read_text(encoding="utf-8")
+
+def test_cross_platform_quality_workflows_share_headless_media_contract() -> None:
+    """CI and tag quality runs must exercise the same supported media boundary."""
     video_pane_path = Path("src/avialview/ui/video_pane.py")
     video_pane = video_pane_path.read_text(encoding="utf-8")
 
-    assert "QT_QPA_PLATFORM: offscreen" in workflow
-    assert "QT_QPA_PLATFORM: windows" not in workflow
+    for workflow_path in WORKFLOW_PATHS:
+        workflow = workflow_path.read_text(encoding="utf-8")
+        assert "QT_QPA_PLATFORM: offscreen" in workflow
+        assert "QT_QPA_PLATFORM: windows" not in workflow
+        assert "os: [ubuntu-latest, macos-latest, windows-latest]" in workflow
+        assert 'python-version: ["3.11", "3.12"]' in workflow
+        assert "ffmpeg libmpv2 libegl1" in workflow
+        assert "brew install ffmpeg mpv" in workflow
+        assert WINDOWS_LIBMPV_SHA256 in workflow
+        assert "libmpv import succeeded" in workflow
+        assert TEST_COMMAND in workflow
+        assert "actions/checkout@v5" in workflow
+        assert "actions/setup-python@v6" in workflow
+
     assert "if is_offscreen:" in video_pane
     assert 'vo="null"' in video_pane
+
+
+def test_release_bundle_uses_the_verified_windows_libmpv() -> None:
+    """Release installers must not switch to an unverified mpv source on Windows."""
+    release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
+
+    assert "choco install --no-progress ffmpeg mpv" not in release_workflow
+    assert "Join-Path $env:RUNNER_TEMP 'libmpv'" in release_workflow
+    assert '--source "$env:RUNNER_TEMP\\libmpv"' in release_workflow

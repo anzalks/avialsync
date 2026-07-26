@@ -10,6 +10,7 @@ jobs:
   quality:
     name: Release quality · ${{ matrix.os }} · Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     permissions:
       contents: read
     strategy:
@@ -18,10 +19,11 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.11", "3.12"]
     env:
+      PYTHONUTF8: 1
       QT_QPA_PLATFORM: offscreen
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -60,8 +62,26 @@ jobs:
           ruff format --check .
           mypy src/avialview/core
           mypy src/avialview
-      - run: python tools/make_fixtures.py --small
-      - run: pytest -x -q --ignore=tests/benchmarks
+      - name: Make fixtures
+        run: python tools/make_fixtures.py --small
+      - name: Verify fixture determinism
+        run: |
+          cp -r tests/fixtures tests/fixtures_first_run
+          python tools/make_fixtures.py --small
+          python -c '
+          import pathlib, filecmp, sys
+          p1 = pathlib.Path("tests/fixtures")
+          p2 = pathlib.Path("tests/fixtures_first_run")
+          for f1 in p1.rglob("*.json"):
+              f2 = p2 / f1.relative_to(p1)
+              if not f2.exists() or not filecmp.cmp(f1, f2, shallow=False):
+                  print(f"Mismatch in {f1}")
+                  sys.exit(1)
+          print("Determinism check passed!")
+          '
+      - name: Run tests
+        # Keep the release matrix diagnostically identical to PR CI.
+        run: pytest -x -q --durations=20 --timeout=60 --timeout-method=thread --ignore=tests/benchmarks
 
   docs:
     name: Release documentation
@@ -69,8 +89,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -85,8 +105,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -104,7 +124,7 @@ jobs:
     needs: distributions
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - uses: actions/download-artifact@v4
@@ -136,8 +156,8 @@ jobs:
           - os: ubuntu-latest
             artifact: AvialView-linux-bundle
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - run: pip install -e . pyinstaller
@@ -149,7 +169,24 @@ jobs:
         run: brew install ffmpeg mpv
       - name: Install media dependencies (Windows)
         if: runner.os == 'Windows'
-        run: choco install --no-progress ffmpeg mpv
+        shell: pwsh
+        run: |
+          choco install --no-progress ffmpeg
+          $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
+          $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
+          curl.exe --fail --location --silent --show-error --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
+          if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
+            throw 'Downloaded libmpv archive did not match its pinned SHA-256'
+          }
+          & "$env:ChocolateyInstall\tools\7z.exe" x $archive "-o$destination" -y | Out-Null
+          $libmpv = Get-ChildItem $destination -Filter 'libmpv-2.dll' -File -Recurse | Select-Object -First 1
+          if ($null -eq $libmpv) {
+            throw 'Pinned libmpv archive did not contain libmpv-2.dll'
+          }
+          $libmpv.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Verify libmpv is importable (Windows)
+        if: runner.os == 'Windows'
+        run: python -c "import mpv; print('libmpv import succeeded')"
       - name: Stage media libraries (Linux)
         if: runner.os == 'Linux'
         run: python packaging/fetch_media_libs.py --source /usr/lib --source /usr/bin --destination packaging/media
@@ -159,7 +196,7 @@ jobs:
       - name: Stage media libraries (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: python packaging/fetch_media_libs.py --source 'C:\ProgramData\chocolatey\lib' --destination packaging/media
+        run: python packaging/fetch_media_libs.py --source "$env:RUNNER_TEMP\libmpv" --source 'C:\ProgramData\chocolatey\lib' --destination packaging/media
       - run: python packaging/build_bundle.py --media-root packaging/media --dist-dir dist
       - name: Build Windows installer
         if: runner.os == 'Windows'

@@ -520,10 +520,11 @@ This supersedes only D-030's platform correction. GitHub Actions uses global
 Windows CI provisions a pinned libmpv archive, verifies its SHA-256, and runs `import mpv` before
 the suite.
 
-Exact-frame golden tests use `screenshot-raw video`, decode the frame-strip fixture, and retry only
-the transient raw-capture-unavailable result while an exact seek settles. They never sleep, skip, or
-accept a stale displayed frame. Runtime seek coordination continues to use delivered observer
-values and target properties; callbacks must not re-enter libmpv.
+Exact-frame golden tests use `screenshot-raw video` and decode the frame-strip fixture. An
+unavailable or stale pre-seek raw snapshot is rejected and retried through the Qt event loop at a
+bounded interval; they never sleep, skip, or accept a stale displayed frame. Runtime seek
+coordination continues to use delivered observer values and target properties; callbacks must not
+re-enter libmpv.
 
 Shutdown is owned by the widget hierarchy: `MainWindow.closeEvent()` calls
 `VideoGrid.shutdown()`, which closes each `VideoPane` and terminates libmpv before Qt destroys the
@@ -543,7 +544,7 @@ For the native macOS render API, the libmpv OpenGL render context is explicitly 
 the Qt render object holding an invalid mpv client and aborts the process on exit. This is a lifecycle
 ordering rule only; it does not alter seek, decode, or rendering behavior while the app is open.
 
-## 2026-07 · D-034 · Exact seeks decode without frame dropping
+## 2026-07 · D-035 · Exact seeks decode without frame dropping
 
 **Context:** libmpv permits decoder frame dropping during high-resolution seeks by default. Its
 reported target time can therefore advance before the raw decoded frame has replaced the prior
@@ -602,3 +603,30 @@ those behaviors or stored view state.
 Tests switch through System, Dark, and Light while asserting seek and plot state remains intact.
 Future visual refinements use palette roles or local, non-interaction decoration; they must not
 reintroduce global control selectors.
+
+## 2026-07 · D-036 · PR and tag quality use one cross-platform test contract
+
+### Context
+
+The tag workflow is the release authority, but it had gradually diverged from pull-request CI:
+fixture generation relied on runner defaults, its test command omitted the per-test Qt watchdog,
+and Windows installer staging sourced mpv from a different, unverified package path. Those gaps
+can make a green PR fail late on a tag or let a release test a different media boundary.
+
+### Decision
+
+Both quality matrices run Ubuntu, macOS, and Windows on Python 3.11 and 3.12 with global Qt
+offscreen mode; explicit ffmpeg/libmpv dependencies; deterministic fixture regeneration; and the
+same 60-second `pytest-timeout` command. They use checkout v5 and setup-python v6 on GitHub-hosted
+runners. Windows quality and installer staging use the same checksum-verified libmpv archive and
+an import probe; ffmpeg remains sourced from Chocolatey.
+
+The platform installation commands remain local to each OS rather than being hidden behind a
+generic action, because their package layout and DLL discovery semantics differ. A Python
+regression test asserts the shared contract in both workflow files.
+
+### Consequences
+
+A change to the quality gate that affects PR and release behavior must update both workflows and
+the parity assertion in the same review. A tag failure is now evidence of an OS-specific packaging
+or release-only operation, not a silently weaker test invocation.

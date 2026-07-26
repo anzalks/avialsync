@@ -2,17 +2,18 @@
 
 import pathlib
 import random
+import time
 
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
-from pytestqt.exceptions import TimeoutError as QtTimeoutError
 from util_framestrip import decode_frame_strip
 
 from avialview.ui.main_window import MainWindow
 
 DECODED_FRAME_TIMEOUT_MS = 10_000
 FIXTURE_FRAME_RATE = 30.0
+RAW_CAPTURE_RETRY_MS = 50
 
 
 def _fixture_frame_time(frame_index: int) -> float:
@@ -54,23 +55,23 @@ def _wait_for_decoded_frame(pane, expected_frame: int, expected_time: float, qtb
 
     qtbot.waitUntil(is_settled_at_target, timeout=DECODED_FRAME_TIMEOUT_MS)
 
-    captured_frame: np.ndarray | None = None
-
-    def is_capture_available() -> bool:
-        nonlocal captured_frame
+    deadline = time.monotonic() + DECODED_FRAME_TIMEOUT_MS / 1_000
+    last_decoded_frame: int | None = None
+    while time.monotonic() < deadline:
         captured_frame = _capture_frame(pane)
-        return captured_frame is not None
+        if captured_frame is not None:
+            last_decoded_frame = decode_frame_strip(captured_frame)
+            if last_decoded_frame == expected_frame:
+                return last_decoded_frame
+        # A raw snapshot can transiently expose the pre-seek frame even after
+        # the observer settles. Treat it as unavailable evidence, never as a
+        # successful capture, and yield through Qt rather than sleeping.
+        qtbot.wait(RAW_CAPTURE_RETRY_MS)
 
-    try:
-        qtbot.waitUntil(is_capture_available, timeout=DECODED_FRAME_TIMEOUT_MS)
-    except QtTimeoutError as error:
-        raise AssertionError(
-            f"libmpv settled at {pane.time_pos}, but did not provide a raw frame for "
-            f"expected frame {expected_frame}."
-        ) from error
-
-    assert captured_frame is not None
-    return decode_frame_strip(captured_frame)
+    raise AssertionError(
+        f"libmpv settled at {pane.time_pos}, but raw capture never reached expected frame "
+        f"{expected_frame}; last decoded frame was {last_decoded_frame}."
+    )
 
 
 def test_capture_frame_retries_when_mpv_is_busy() -> None:
