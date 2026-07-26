@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "avialview"
-version = "0.1.0b1"
+version = "0.1.0b2"
 description = "GUI desktop app to scrub time-synchronized multi-camera video and dense time series."
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
