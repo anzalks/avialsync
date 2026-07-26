@@ -522,11 +522,10 @@ the suite.
 
 Exact-frame golden tests use `screenshot-raw video` and decode the frame-strip fixture. An
 unavailable or stale pre-seek raw snapshot is rejected and retried through the Qt event loop at a
-bounded interval; they never sleep, skip, or accept a stale displayed frame. The test does not
-require advisory `seeking`/`time-pos` notifications before accepting its matching raw frame;
-Windows libmpv can leave those notifications delayed after decoding is already complete. Runtime
-seek coordination continues to use delivered observer values and target properties; callbacks must
-not re-enter libmpv.
+bounded interval; they never sleep, skip, or accept a stale displayed frame. They require delivered
+`seeking`/`time-pos` target evidence and, if a Windows observer is delayed, repeat the same exact
+seek once before failing. Runtime seek coordination continues to use delivered observer values and
+target properties; callbacks must not re-enter libmpv.
 
 Shutdown is owned by the widget hierarchy: `MainWindow.closeEvent()` calls
 `VideoGrid.shutdown()`, which closes each `VideoPane` and terminates libmpv before Qt destroys the

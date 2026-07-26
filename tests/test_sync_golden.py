@@ -3,15 +3,18 @@
 import pathlib
 import random
 import time
+from collections.abc import Callable
 
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
+from pytestqt.exceptions import TimeoutError as QtTimeoutError
 from util_framestrip import decode_frame_strip
 
 from avialview.ui.main_window import MainWindow
 
 DECODED_FRAME_TIMEOUT_MS = 10_000
+OBSERVER_SETTLE_TIMEOUT_MS = 5_000
 FIXTURE_FRAME_RATE = 30.0
 RAW_CAPTURE_RETRY_MS = 50
 
@@ -46,8 +49,23 @@ def _capture_frame(pane) -> np.ndarray | None:
     return np.rint(pixels @ np.array([0.114, 0.587, 0.299])).astype(np.uint8)
 
 
-def _wait_for_decoded_frame(pane, expected_frame: int, qtbot) -> int:
-    """Capture the exact requested frame without trusting advisory seek state."""
+def _wait_for_decoded_frame(
+    pane, expected_frame: int, expected_time: float, qtbot, retry_seek: Callable[[], None]
+) -> int:
+    """Capture the exact decoded frame after a bounded observer-settle retry."""
+    frame_tolerance = 0.5 / FIXTURE_FRAME_RATE
+
+    def is_settled_at_target() -> bool:
+        return not pane.is_seeking and abs(pane.time_pos - expected_time) <= frame_tolerance
+
+    try:
+        qtbot.waitUntil(is_settled_at_target, timeout=OBSERVER_SETTLE_TIMEOUT_MS)
+    except QtTimeoutError:
+        # A duplicated exact command is safe and gives a delayed Windows
+        # libmpv observer one bounded opportunity to report its target.
+        retry_seek()
+        qtbot.waitUntil(is_settled_at_target, timeout=OBSERVER_SETTLE_TIMEOUT_MS)
+
     deadline = time.monotonic() + DECODED_FRAME_TIMEOUT_MS / 1_000
     last_decoded_frame: int | None = None
     while time.monotonic() < deadline:
@@ -56,15 +74,14 @@ def _wait_for_decoded_frame(pane, expected_frame: int, qtbot) -> int:
             last_decoded_frame = decode_frame_strip(captured_frame)
             if last_decoded_frame == expected_frame:
                 return last_decoded_frame
-        # A raw snapshot can transiently expose the pre-seek frame. Treat it
-        # as unavailable evidence, never as a successful capture, and yield
-        # through Qt rather than sleeping. The decoded target is stronger
-        # evidence than libmpv's advisory seeking/time-pos notifications.
+        # A raw snapshot can transiently expose the pre-seek frame even after
+        # the observer settles. Treat it as unavailable evidence, never as a
+        # successful capture, and yield through Qt rather than sleeping.
         qtbot.wait(RAW_CAPTURE_RETRY_MS)
 
     raise AssertionError(
-        f"Raw capture never reached expected frame {expected_frame}; last decoded frame was "
-        f"{last_decoded_frame}."
+        f"libmpv settled at {pane.time_pos}, but raw capture never reached expected frame "
+        f"{expected_frame}; last decoded frame was {last_decoded_frame}."
     )
 
 
@@ -112,7 +129,13 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
 
         # The decoded frame is the definitive seek-settle evidence.  The
         # seeking property is advisory and may not transition on every mpv VO.
-        decoded = _wait_for_decoded_frame(pane, target_frame, qtbot)
+        decoded = _wait_for_decoded_frame(
+            pane,
+            target_frame,
+            target_time,
+            qtbot,
+            lambda pane=pane, target_time=target_time: pane.seek(target_time, exact=True),
+        )
 
         assert decoded == target_frame, f"Expected {target_frame}, got {decoded} at {target_time}s"
 
@@ -166,7 +189,15 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
             # frame = round(source_time * 30.0)
             expected_source_t = pane.time_map.to_source(target_time)
             expected_frame = round(expected_source_t * 30.0)
-            decoded = _wait_for_decoded_frame(pane, expected_frame, qtbot)
+            decoded = _wait_for_decoded_frame(
+                pane,
+                expected_frame,
+                expected_source_t,
+                qtbot,
+                lambda pane=pane, expected_source_t=expected_source_t: pane.seek(
+                    expected_source_t, exact=True
+                ),
+            )
 
             assert decoded == expected_frame, (
                 f"Pane {i}: Expected {expected_frame}, got {decoded} at {target_time}s master time"
