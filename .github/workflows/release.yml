@@ -182,7 +182,9 @@ jobs:
       - run: pip install -e . pyinstaller
       - name: Install media dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg libmpv2
+        # AppImageTool release 12 loads libfuse.so.2. Ubuntu 24.04 provides
+        # that ABI as libfuse2t64; do not install the obsolete fuse package.
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg libmpv2 libfuse2t64
       - name: Install media dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install ffmpeg mpv

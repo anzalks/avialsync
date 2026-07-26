@@ -146,6 +146,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
   quality and Windows bundling both use the same checksum-verified libmpv archive; only the
   platform-native package-manager commands remain intentionally different. A tag workflow first
   proves its commit is reachable from `main`; side-branch or detached tags cannot build or publish.
+  The Ubuntu 24.04 AppImage build installs `libfuse2t64` because the pinned AppImageTool requires
+  the `libfuse.so.2` ABI; never substitute the obsolete `fuse` package.
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
 - Native synchronization plugin API (D-026).

@@ -44,6 +44,13 @@ def test_release_bundle_uses_the_verified_windows_libmpv() -> None:
     assert '--source "$env:RUNNER_TEMP\\libmpv"' in release_workflow
 
 
+def test_release_appimage_tool_has_ubuntu_fuse_2_compatibility() -> None:
+    """Ubuntu 24.04 must provide AppImageTool's libfuse.so.2 runtime ABI."""
+    release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
+
+    assert "libfuse2t64" in release_workflow
+
+
 def test_release_tags_must_reference_main() -> None:
     """A version tag must not release a side branch or detached commit."""
     release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
