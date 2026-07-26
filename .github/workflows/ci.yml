@@ -68,10 +68,17 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install --no-progress ffmpeg mpv
-          $libmpv = Get-ChildItem 'C:\ProgramData\chocolatey\lib\mpvio.install\tools' -Filter 'libmpv-2.dll' -File -Recurse | Select-Object -First 1
+          choco install --no-progress ffmpeg
+          $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
+          $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
+          Invoke-WebRequest -Uri 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download' -OutFile $archive
+          if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
+            throw 'Downloaded libmpv archive did not match its pinned SHA-256'
+          }
+          & "$env:ChocolateyInstall\tools\7z.exe" x $archive "-o$destination" -y | Out-Null
+          $libmpv = Get-ChildItem $destination -Filter 'libmpv-2.dll' -File -Recurse | Select-Object -First 1
           if ($null -eq $libmpv) {
-            throw 'Chocolatey did not install libmpv-2.dll'
+            throw 'Pinned libmpv archive did not contain libmpv-2.dll'
           }
           $libmpv.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 

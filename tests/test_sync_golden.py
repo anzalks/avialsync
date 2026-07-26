@@ -2,6 +2,7 @@
 
 import pathlib
 import random
+import tempfile
 
 import numpy as np
 import pytest
@@ -18,6 +19,19 @@ def app_with_main_window(qapp: QApplication) -> MainWindow:
     win = MainWindow()
     win.show()
     return win
+
+
+def _capture_frame(pane, image_path: pathlib.Path, qtbot) -> np.ndarray:
+    """Capture a frame after libmpv has written the requested screenshot."""
+    pane.mpv.command("screenshot-to-file", str(image_path))
+    qtbot.waitUntil(
+        lambda: image_path.is_file() and not QImage(str(image_path)).isNull(), timeout=2000
+    )
+
+    image = QImage(str(image_path)).convertToFormat(QImage.Format.Format_Grayscale8)
+    ptr = image.bits()
+    pixels = np.frombuffer(ptr, np.uint8).reshape((image.height(), image.bytesPerLine()))
+    return pixels[:, : image.width()].copy()
 
 
 def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
@@ -56,26 +70,8 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
 
         qtbot.waitUntil(is_settled, timeout=2000)
 
-        # Give one more tick for OpenGL to swap buffer
-        qtbot.wait(100)
-
-        # Extract pixel data via mpv screenshot
-        import os
-        import tempfile
-
         with tempfile.TemporaryDirectory() as td:
-            img_path = os.path.join(td, "screenshot.png")
-            pane.mpv.command("screenshot-to-file", img_path)
-
-            # Read via QImage
-            img = QImage(img_path)
-            assert not img.isNull(), "Grabbed null frame"
-
-            # Convert QImage to numpy
-            img = img.convertToFormat(QImage.Format.Format_Grayscale8)
-            ptr = img.bits()
-            arr = np.frombuffer(ptr, np.uint8).reshape((img.height(), img.bytesPerLine()))
-            arr = arr[:, : img.width()].copy()
+            arr = _capture_frame(pane, pathlib.Path(td) / "screenshot.png", qtbot)
 
         # Decode
         decoded = decode_frame_strip(arr)
@@ -131,24 +127,11 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
             return True
 
         qtbot.waitUntil(is_settled, timeout=2000)
-        qtbot.wait(100)
 
         # Check each pane's exact frame via decoding
-        import os
-        import tempfile
-
         with tempfile.TemporaryDirectory() as td:
             for i, pane in enumerate(panes):
-                img_path = os.path.join(td, f"screenshot_{i}.png")
-                pane.mpv.command("screenshot-to-file", img_path)
-
-                img = QImage(img_path)
-                assert not img.isNull(), f"Grabbed null frame on pane {i}"
-
-                img = img.convertToFormat(QImage.Format.Format_Grayscale8)
-                ptr = img.bits()
-                arr = np.frombuffer(ptr, np.uint8).reshape((img.height(), img.bytesPerLine()))
-                arr = arr[:, : img.width()].copy()
+                arr = _capture_frame(pane, pathlib.Path(td) / f"screenshot_{i}.png", qtbot)
 
                 decoded = decode_frame_strip(arr)
 
