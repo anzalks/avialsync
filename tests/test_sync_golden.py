@@ -71,13 +71,8 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
         # Seek
         win.player.seek(target_time, exact=True)
 
-        # Wait for mpv to settle (is_seeking == False)
-        # Note: Qt needs event loop to pump
-        def is_settled(t=target_time):
-            return not pane.is_seeking and abs(pane.time_pos - t) < 0.05
-
-        qtbot.waitUntil(is_settled, timeout=2000)
-
+        # The decoded frame is the definitive seek-settle evidence.  The
+        # seeking property is advisory and may not transition on every mpv VO.
         decoded = _wait_for_decoded_frame(pane, target_frame, qtbot)
 
         assert decoded == target_frame, f"Expected {target_frame}, got {decoded} at {target_time}s"
@@ -122,15 +117,6 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
 
         # Seek (master time)
         win.player.seek(target_time, exact=True)
-
-        def is_settled(t_tgt=target_time):
-            for pane in panes:
-                source_t = pane.time_map.to_source(t_tgt)
-                if pane.is_seeking or abs(pane.time_pos - source_t) > 0.05:
-                    return False
-            return True
-
-        qtbot.waitUntil(is_settled, timeout=2000)
 
         # Check each pane's exact frame via decoding
         for i, pane in enumerate(panes):

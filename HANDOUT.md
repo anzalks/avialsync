@@ -63,10 +63,13 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - **Live scrubbing coalescing**: During slider drag `Player.seek(exact=False)` coalesces in-flight keyframe seeks — if a seek is already dispatched, the newest target is held in `_pending_scrub_t` and flushed in `_on_tick` as soon as `SeekGroup.is_settled()`. Plot cursor and readout panel update every drag event. Exact seek fires on release as before.
 - **Cross-platform exact seek dispatch**: `SeekGroup` queues libmpv commands from the Qt-owning
   thread. libmpv itself remains asynchronous; this avoids macOS property observers getting stuck
-  in a seeking state when commands are issued from a Qt worker thread. `VideoPane.seek()` marks
-  the seek pending before submitting the command, and observer callbacks use their delivered
-  values rather than querying libmpv recursively; this prevents stale-settle checks and Windows
-  callback-thread crashes.
+  in a seeking state when commands are issued from a Qt worker thread. Observer callbacks use
+  their delivered values rather than querying libmpv recursively, avoiding Windows callback-thread
+  crashes. Golden tests settle on the decoded frame itself—the only definitive frame-accuracy
+  evidence—rather than assuming every video output reports a `seeking` transition.
+- **Headless Windows video CI**: GitHub-hosted Windows runners use the global Qt `offscreen`
+  platform, so `VideoPane` selects libmpv's `vo=null` test path. Do not force native `wid` embedding
+  in a headless job; production Windows continues to use the native embedding path.
 - **Frame-indexed sources (D-019)**: `TimeSeriesSource.is_frame_indexed()` added (default False). `TrackingLoader` overrides to True. Import fps resolution: 1 video → pre-filled confirm; multiple videos → dropdown; no video → manual entry + auto-rebind when first video is added.
 - **NeoLoader.can_open tightening**: `SUPPORTED_EXTENSIONS` whitelist added; `can_open` returns 0.0 immediately for any file not in the whitelist. Never claims `.csv` or acts as a fallback for unknown files.
 
@@ -145,6 +148,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - Bug: `Any` not imported from `typing` in `main_window.py`
 - Bug: `_start_csv_import` → `_start_data_import` (AttributeError on session restore with sensors)
 - Bug: `_update_window_title()` called but never defined — removed phantom call in `_on_channel_remove_requested`
+- Bug: source-property copy text preserves the serialized path spelling instead of normalizing a
+  foreign-platform path with the runner's `pathlib` implementation.
 - Drag/drop routes files and directories through `LoaderRegistry` capability negotiation. Video
   workers are retained until their QThread finishes, so dropped videos now open reliably; Neo,
   tracking, sensor, and third-party source types route to their matching import pipeline.

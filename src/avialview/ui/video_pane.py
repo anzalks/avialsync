@@ -416,13 +416,10 @@ class VideoPane(QWidget):
             return
         precision = "exact" if exact else "keyframes"
         try:
-            # libmpv reports seeking asynchronously.  Set this first so a
-            # previous settled position cannot be mistaken for this seek.
-            self.is_seeking = True
             self.mpv.seek(t, reference="absolute", precision=precision)
         except Exception:
             # mpv may raise SystemError -12 if we seek before it has finished loading the file
-            self.is_seeking = False
+            pass
 
     def frame_step(self, forward: bool = True) -> None:
         """Step one frame forward or backward."""

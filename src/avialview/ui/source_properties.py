@@ -8,7 +8,6 @@ Both implement as_plain_text() for the Copy-as-text button.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtWidgets import (
@@ -165,8 +164,9 @@ class SensorPropertiesPanel(_PropertiesBase):
 
     def _populate(self, channel_infos: list[Any]) -> None:
         ins = self._inspection
-        path = Path(ins.path)
-        self._add_row("Path", str(path))
+        # This is provenance, not a path operation.  Preserve the serialized
+        # spelling so a session created on another OS remains inspectable.
+        self._add_row("Path", ins.path)
         self._add_row("Loader", ins.loader_id or "—")
         self._add_row("FPS binding", ins.fps_binding or "—")
 

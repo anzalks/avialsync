@@ -109,17 +109,8 @@ jobs:
           '
         
       - name: Run Tests
-        if: runner.os != 'Windows'
         # A Qt/platform deadlock must fail at the specific test instead of
         # consuming the whole job timeout with no diagnostic evidence.
-        run: pytest -x -q --durations=20 --timeout=60 --timeout-method=thread --ignore=tests/benchmarks
-
-      - name: Run Tests (native Windows Qt backend)
-        if: runner.os == 'Windows'
-        # Qt documents the offscreen plugin as fully supported only on X11.
-        # Windows CI therefore uses the installed qwindows platform plugin.
-        env:
-          QT_QPA_PLATFORM: windows
         run: pytest -x -q --durations=20 --timeout=60 --timeout-method=thread --ignore=tests/benchmarks
 
   docs:
