@@ -1,7 +1,7 @@
 #!/bin/sh
 # Local developer convenience only. It never stages, commits, pushes, or runs in CI.
 if command -v graphify >/dev/null 2>&1; then
-    graphify . --update --no-viz
+    graphify update . --no-cluster
 else
     printf '%s\n' 'graphify is not installed; graph was not refreshed.' >&2
 fi
