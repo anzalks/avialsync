@@ -42,3 +42,13 @@ def test_release_bundle_uses_the_verified_windows_libmpv() -> None:
     assert "choco install --no-progress ffmpeg mpv" not in release_workflow
     assert "Join-Path $env:RUNNER_TEMP 'libmpv'" in release_workflow
     assert '--source "$env:RUNNER_TEMP\\libmpv"' in release_workflow
+
+
+def test_release_tags_must_reference_main() -> None:
+    """A version tag must not release a side branch or detached commit."""
+    release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
+
+    assert "verify_release_ref:" in release_workflow
+    assert "git fetch origin main" in release_workflow
+    assert 'git merge-base --is-ancestor "$GITHUB_SHA" origin/main' in release_workflow
+    assert "needs: verify_release_ref" in release_workflow

@@ -7,9 +7,27 @@ on:
 permissions: {}
 
 jobs:
+  verify_release_ref:
+    name: Verify tag is reachable from main
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Require the tagged commit on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "Release tag $GITHUB_REF_NAME does not point to a commit reachable from main." >&2
+            exit 1
+          }
+
   quality:
     name: Release quality · ${{ matrix.os }} · Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
+    needs: verify_release_ref
     timeout-minutes: 15
     permissions:
       contents: read
@@ -86,6 +104,7 @@ jobs:
   docs:
     name: Release documentation
     runs-on: ubuntu-latest
+    needs: verify_release_ref
     permissions:
       contents: read
     steps:
@@ -100,7 +119,7 @@ jobs:
 
   distributions:
     name: Build Python distributions
-    needs: [quality, docs]
+    needs: [verify_release_ref, quality, docs]
     runs-on: ubuntu-latest
     permissions:
       contents: read

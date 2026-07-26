@@ -630,3 +630,21 @@ regression test asserts the shared contract in both workflow files.
 A change to the quality gate that affects PR and release behavior must update both workflows and
 the parity assertion in the same review. A tag failure is now evidence of an OS-specific packaging
 or release-only operation, not a silently weaker test invocation.
+
+## 2026-07 · D-037 · Releases require a tag reachable from main
+
+### Context
+
+Git tags are repository-wide references, not branch-owned objects. A `v*` tag can otherwise point
+to an unreviewed side-branch or detached commit while still matching the release trigger.
+
+### Decision
+
+The tag workflow first fetches `origin/main` and proves the tagged commit is its ancestor with
+`git merge-base --is-ancestor`. Release quality and documentation jobs depend on this gate, so no
+distribution, installer, PyPI upload, or GitHub Release can run from a non-main tag.
+
+### Consequences
+
+Create release tags only after the intended release commit is pushed to `main`. The local
+`prepare_release.py` helper enforces the same branch requirement before it creates a tag.
