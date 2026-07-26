@@ -28,3 +28,15 @@ def test_media_staging_copies_only_runtime_media_files(tmp_path: Path) -> None:
 
     assert [path.name for path in staged] == ["ffmpeg", "libmpv.dylib"]
     assert not (destination / "unrelated.txt").exists()
+
+
+def test_appimage_declares_and_stages_its_desktop_icon() -> None:
+    """AppImageTool receives the icon named by the desktop entry."""
+    script = Path("packaging/linux/make_appimage.sh")
+    icon = Path("packaging/linux/avialview.svg")
+
+    content = script.read_text(encoding="utf-8")
+
+    assert "Icon=avialview" in content
+    assert '"$script_dir/avialview.svg" "$appdir/avialview.svg"' in content
+    assert icon.is_file()

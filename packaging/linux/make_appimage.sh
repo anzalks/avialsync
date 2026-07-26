@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 bundle_dir=${1:?"usage: make_appimage.sh <one-dir bundle> <output AppImage>"}
 output_appimage=${2:?"usage: make_appimage.sh <one-dir bundle> <output AppImage>"}
 : "${APPIMAGETOOL:?Set APPIMAGETOOL to a verified appimagetool binary path.}"
@@ -19,7 +20,9 @@ cat > "$appdir/avialview.desktop" <<'EOF'
 Type=Application
 Name=AvialView
 Exec=avialview
+Icon=avialview
 Categories=Science;Video;
 Terminal=false
 EOF
+install -m 644 "$script_dir/avialview.svg" "$appdir/avialview.svg"
 "$APPIMAGETOOL" "$appdir" "$output_appimage"

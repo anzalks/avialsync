@@ -655,3 +655,7 @@ Create release tags only after the intended release commit is pushed to `main`. 
 The pinned AppImageTool release uses the FUSE 2 ABI. GitHub's Ubuntu 24.04 image provides that
 ABI through `libfuse2t64`, which must be installed in the Linux installer job before executing the
 tool. Do not install the obsolete `fuse` package; it is not needed for this headless build.
+
+The AppDir must also stage the reviewed `avialview.svg` icon declared by `avialview.desktop`.
+AppImageTool treats a missing declared icon as an artifact-integrity error, so the packaging test
+asserts both the declaration and staged source asset.
