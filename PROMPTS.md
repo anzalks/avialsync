@@ -16,6 +16,9 @@ You are working on AvialView. Before doing anything:
    conflicts with AGENTS.md, in which case stop and report the conflict.
 Hard rules recap: core/ never imports PySide6; UI thread never blocks; all plotting via the
 pyramid; libmpv only for video; no GPL deps; tests ship with code; never weaken failing tests.
+For CI, playback, or packaging work, distinguish hosted-runner correctness from local performance
+certification and release validation. Preserve exact-frame evidence; do not hide a platform or
+lifecycle failure with sleeps, skips, a native CI display override, or a weaker assertion.
 Work in small increments and run `pytest -x -q` + `ruff check .` after each increment.
 ```
 
@@ -28,7 +31,9 @@ Work in small increments and run `pytest -x -q` + `ruff check .` after each incr
   QMainWindow titled 'AvialView'. Add the headless-core guard test from TESTING.md §5.
   Everything must pass `pytest -x`, `ruff check .`, `mypy src/avialview/core`."
 - **P0.2 CI**: "Implement .github/workflows/ci.yml per TESTING.md §7 (3-OS matrix, ffmpeg install
-  per OS, offscreen Qt env, artifact build via PyInstaller on all OSes). Keep jobs < 15 min."
+  per OS, global offscreen Qt env, artifact build via PyInstaller on all OSes). Windows provisions
+  a pinned SHA-verified libmpv DLL and proves `import mpv`; headless VideoPane uses `vo=null`, never
+  a forced native `wid`. Keep jobs < 15 min; CI proves correctness, not performance certification."
 - **P0.3 Fixtures**: "Implement tools/make_fixtures.py per TESTING.md §2 AND the edge-case
   fixture list at the end of TESTING.md §7 (VFR, dropped-frame, no-metadata, image sequence,
   timestamp pathologies, NaN/gap/sentinel, split recording, euro CSV). The binary frame-strip
@@ -69,8 +74,9 @@ Work in small increments and run `pytest -x -q` + `ruff check .` after each incr
   slider drag = keyframe seeks / release = exact seek, play/pause/space, speed 0.1–8×.
   Wire main_window.py minimal: one video + one CSV via open dialogs and drag-drop."
 - **P2.4 Golden sync v1**: "Implement tests/test_sync_golden.py items 1–4 from TESTING.md §3
-  for the single-camera case using the frame-strip decoder. This test is sacred; make it robust
-  (settle-wait via mpv property observation, not sleeps)."
+  for the single-camera case using the frame-strip decoder. This test is sacred: coordinate with
+  mpv property observation, then prove the exact decoded `screenshot-raw video` frame. Retry only
+  transient raw-capture unavailability; never sleep, skip, or accept a stale rendered screenshot."
 
 ## Phase 3 prompts
 
@@ -115,7 +121,10 @@ and one failure path. Update docs/user-guide stub. Keyboard-first where sensible
   notarization steps stubbed behind secrets-present conditionals (D-016); Windows libmpv
   auto-fetch with pinned SHA256 (D-014); conda-forge recipe skeleton. Packaging smoke test:
   each bundle launches headless, opens sample session, exits 0; plus a pip-install test in a
-  clean container WITHOUT libmpv asserting the guided dialog appears (D-013)."
+  clean container WITHOUT libmpv asserting the guided dialog appears (D-013). `SPECPATH` is the
+  spec directory, so derive the project root from it. Stage media only from a non-empty, validated
+  `AVIALVIEW_MEDIA_ROOT`; an unset value must include no media. Keep PR CI artifact builds separate
+  from release media/licence verification."
 - **P5.3 Docs site**: "Read the Docs/Sphinx site: 5-minute quickstart with the sample dataset,
   format advice (short GOP!), troubleshooting (slow drive, no hwdec, timestamp formats),
   plugin guide. CI validates warnings as errors; Read the Docs deploys from its project integration."
@@ -145,4 +154,7 @@ and one failure path. Update docs/user-guide stub. Keyboard-first where sensible
 Bug: <symptom>. Repro: <steps/fixture>. Expected vs actual: <...>.
 First write a failing test that reproduces it, then fix, then show the test passing.
 Do not touch golden sync assertions. If the fix changes behavior, update docs and DECISIONS.md.
+For CI failures, also identify the boundary that failed (dependency/runtime, headless compositor,
+decode evidence, lifecycle, or packaging); do not paper over it with retries outside the known
+transient raw-capture case.
 ```

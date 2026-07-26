@@ -210,6 +210,29 @@ frame triggers, or sparse experimental pulses, while lab-specific event encoding
   property observation on its own threads, then one UI update is gathered.
 - Proxy generation: QProcess (ffmpeg), non-blocking, progress parsed from stderr.
 
+### Playback ownership and proof of exact frames
+
+`VideoPane` is the ownership boundary for its libmpv client. Exact seek commands are issued from
+the Qt-owning thread and queue work in libmpv; decoder and observer work remain asynchronous. An
+observer consumes the value it was given rather than re-entering libmpv from its callback thread.
+At window close, ownership unwinds explicitly: `MainWindow.closeEvent()` calls
+`VideoGrid.shutdown()`, which closes every pane and lets `mpv.terminate()` join its event thread
+before Qt tears down widgets.
+
+Runtime coordination uses observed `seeking=False` and target `time-pos`, without sleeps. That is
+not sufficient evidence for a scientific golden test: the test captures `screenshot-raw video`,
+decodes the fixture frame strip, and compares it with the requested exact frame. A transient raw
+screenshot-unavailable result may be retried while the exact seek is settling; a stale displayed
+image may never be accepted as proof.
+
+### CI video boundary
+
+Production uses the platform-native embedding path (with the documented macOS render API path).
+Hosted CI is deliberately displayless on all three platforms: global Qt `offscreen` selects
+libmpv `vo=null` in `VideoPane`. This exercises timeline, seek, decode, and exact-frame correctness
+without claiming to validate a native compositor. CI must not force `qwindows` or a `wid` merely to
+make a Windows runner behave like a desktop.
+
 ## 4. Plugin contract (frozen at Phase 5 as API v1)
 
 ```python
@@ -349,3 +372,11 @@ wheel/sdist before either is published. The Linux AppImage tool URL and SHA256 a
 configuration values, verified before use. PyPI uses GitHub OIDC trusted publishing; no developer
 workstation token or upload is permitted. Signing/notarization steps exist in release.yml behind
 `if: secrets present` (D-016).
+
+The pull-request CI quality gate runs lint/type checks, documentation with warnings as errors,
+fixture-backed cross-platform correctness tests, and a PyInstaller build on each OS. A successful
+artifact build proves the spec can locate project code and package its declared inputs; it does not
+prove an installer release or native-window rendering. `SPECPATH` is the `packaging/` directory, so
+the spec derives the project root from it. Optional media is included only when
+`AVIALVIEW_MEDIA_ROOT` is non-empty and names a directory; release workflows separately provide and
+verify licensed media.

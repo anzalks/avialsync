@@ -46,11 +46,13 @@ session's correctness across platforms but does not use shared hosted machines t
 Deliverables:
 - Repo layout (see ARCHITECTURE.md), `pyproject.toml` (hatchling), `pip install -e .[dev]` works.
 - Tooling: ruff (lint+format), mypy (strict on `core/`), pre-commit, pytest + pytest-qt + pytest-benchmark.
-- CI matrix (ubuntu/windows/macos): lint → type → test → build PyInstaller artifact.
+- CI matrix (ubuntu/windows/macos): lint → type → warnings-as-errors docs → fixture-backed test →
+  build PyInstaller artifact. Hosted tests use one global offscreen Qt boundary; Windows also
+  provisions a pinned, SHA-verified libmpv DLL and proves `import mpv` before tests.
 - `avialview` entry point opens an empty PySide6 main window.
 - **Synthetic data generator** `tools/make_fixtures.py`: ffmpeg test videos with burned-in frame counter + known start timestamps (8-bit and 12-bit variants, short & long GOP), numpy 50 kHz multi-channel signals with a known event (step at exact t) → this is the ground truth for all sync tests forever.
 
-Exit criteria: green CI on 3 OSes; artifacts download and open; fixtures generate deterministically **including the edge-case variants (TESTING.md §7): VFR, dropped-frame, no-metadata video, image sequence, timestamp-pathology CSVs, NaN/gap/sentinel signals, split recording**.
+Exit criteria: green CI on 3 OSes; every artifact build completes; fixtures generate deterministically **including the edge-case variants (TESTING.md §7): VFR, dropped-frame, no-metadata video, image sequence, timestamp-pathology CSVs, NaN/gap/sentinel signals, split recording**. A CI artifact build is a packaging gate, not proof of a release installer or hosted-runner performance.
 
 ## Phase 1 — Core engine, headless (Week 1–2)
 
@@ -70,13 +72,13 @@ Exit criteria: 100 % branch coverage on timeline math; pyramid benchmark ★ pas
 **Goal:** one video + one CSV, shared slider, play/pause, cursor. The "it works!" demo.
 
 Deliverables:
-- mpv embedded in a Qt widget (`ui/video_pane.py`) — **build the macOS render-API path FIRST (D-011), then wid on Win/Linux**; settle detection via property observation, no sleeps.
+- mpv embedded in a Qt widget (`ui/video_pane.py`) — **build the macOS render-API path FIRST (D-011), then wid on Win/Linux**; settle coordination via property observation, no sleeps. Exact-frame tests prove the decoded `screenshot-raw video` frame-strip result and retry only transient raw-capture unavailability.
 - `ui/plot_pane.py`: pyqtgraph plot fed by pyramid, vertical playhead cursor (single InfiniteLine, cursor-only updates).
 - Transport bar: play/pause (space), slider, time readout, speed 0.1–8×.
 - Playback loop: QTimer @ 60 Hz advances MasterClock; mpv follows via rate-matched play + drift correction (re-seek if |video_t − target| > 40 ms **for N consecutive ticks — hysteresis, see AGENTS traps**); slider drag = keyframe seeks, release = exact seek; frame stepping via actual frame timestamps (D-007).
 - Open file dialogs + drag-and-drop for one video, one CSV (minimal import dialog: pick timestamp column, format, unit).
 
-Exit criteria: **golden sync test** — for fixture video (burned frame counter) at 20 random `t`, OCR/pixel-decode the paused frame counter and assert |frame_time − t| ≤ 1 frame; manual scrub feels smooth on dev machines.
+Exit criteria: **golden sync test** — for fixture video (burned frame counter) at 20 random `t`, decode the paused raw video frame and assert |frame_time − t| ≤ 1 frame; manual scrub feels smooth on dev machines. The test never treats a seek return, a timer delay, or a stale rendered image as frame evidence.
 
 ## Phase 3 — Multi-source + performance (Week 4–7)
 
@@ -136,6 +138,10 @@ Deliverables:
   bundles with LGPL-verified mpv/ffmpeg (build-flavor assertion in CI); Inno Setup installer;
   arm64 .dmg; AppImage; **Windows pip auto-fetch of libmpv (pinned URL + SHA256)**;
   signing/notarization steps stubbed behind secrets-present conditionals; conda-forge recipe.
+- PyInstaller hardening: derive the source root from `SPECPATH`; stage media only from an explicit,
+  validated `AVIALVIEW_MEDIA_ROOT`; fail on an invalid supplied directory and never stage the current
+  working directory when the variable is absent. CI builds each OS artifact, while the tag workflow
+  alone supplies and licence-verifies release media.
 - `release.yml`: single tag builds installers AND publishes PyPI atomically (all-or-nothing —
   a failed channel fails the release; no version skew between channels).
 - `avialview open <folder>` CLI; sample dataset auto-download command.

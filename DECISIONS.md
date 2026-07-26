@@ -470,3 +470,56 @@ embedded video pane and its property observers belonged to the Qt UI thread.
 in libmpv; decode and property observation remain on libmpv's own threads. Settling continues to
 require the observed `seeking=False` state and target `time-pos`, never a sleep. This preserves a
 responsive UI without cross-thread access to an embedded libmpv client.
+
+## 2026-07 · D-032 · Headless CI uses null video, decoded-frame evidence, and explicit mpv ownership
+
+### Context
+
+The D-030 Windows `qwindows` correction still required a hosted runner to behave like a desktop
+compositor and led to failures inside native embedding. Separately, a successful exact-seek command
+or a rendered screenshot could represent an old frame, and leaving pane shutdown to QWidget
+destruction left libmpv event threads alive during test teardown.
+
+### Decision
+
+This supersedes only D-030's platform correction. GitHub Actions uses global
+`QT_QPA_PLATFORM=offscreen` on all OSes. `VideoPane` detects that boundary and selects libmpv
+`vo=null`; production native Windows/Linux embedding and the macOS render-API path are unchanged.
+Windows CI provisions a pinned libmpv archive, verifies its SHA-256, and runs `import mpv` before
+the suite.
+
+Exact-frame golden tests use `screenshot-raw video`, decode the frame-strip fixture, and retry only
+the transient raw-capture-unavailable result while an exact seek settles. They never sleep, skip, or
+accept a stale displayed frame. Runtime seek coordination continues to use delivered observer
+values and target properties; callbacks must not re-enter libmpv.
+
+Shutdown is owned by the widget hierarchy: `MainWindow.closeEvent()` calls
+`VideoGrid.shutdown()`, which closes each `VideoPane` and terminates libmpv before Qt destroys the
+widgets. Decode and property handling remain libmpv-owned during playback; explicit ownership makes
+teardown deterministic.
+
+### Consequences
+
+CI certifies cross-platform timeline/decode correctness and catches lifecycle faults without
+claiming a hosted runner certifies native compositing or performance. D-029 remains the authority
+for local timing marks.
+
+## 2026-07 · D-033 · Packaging inputs are explicit and CI artifact builds are a separate gate
+
+### Context
+
+PyInstaller sets `SPECPATH` to the directory containing a spec. Treating it as the repository root
+breaks source discovery. Converting an unset `AVIALVIEW_MEDIA_ROOT` directly to `Path` also maps it
+to the current working directory, allowing unrelated files to enter an artifact.
+
+### Decision
+
+The spec derives the project root from `Path(SPECPATH).parent`. It stages media only when
+`AVIALVIEW_MEDIA_ROOT` is non-empty and is a directory; an invalid supplied path is a hard error.
+Pull-request CI builds a media-free PyInstaller artifact on every OS. The tag-only release workflow
+is responsible for providing and licence-verifying the explicit media inputs.
+
+### Consequences
+
+Build failures identify a path or declared-input defect early without making CI artifacts equivalent
+to release installers. Keep the spec force-added despite the repository-wide `*.spec` ignore rule.

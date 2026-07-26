@@ -36,6 +36,13 @@ Video playback is provided by libmpv. Dense traces use precomputed decimation py
 passing full recordings to a plotting widget. This keeps navigating a long recording responsive
 without reducing the precision used for readouts and exports.
 
+For exact paused-frame verification, AvialView checks decoded raw video against a fixture's frame
+strip rather than trusting a returned seek command or a displayed image. Production embeds video
+with the platform path; displayless continuous integration uses libmpv's null video output so it can
+verify decoding and timeline correctness without pretending to certify native-window rendering.
+Video clients are closed explicitly while the main window is still alive, allowing libmpv's event
+thread to stop cleanly.
+
 ## Synchronization design
 
 Synchronization is evidence-based. The system stores raw event times, proposed matched event pairs,

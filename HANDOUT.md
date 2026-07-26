@@ -119,13 +119,15 @@ with explicit user acceptance and session provenance. Native plugin event provid
   mapping, then explicitly accept it. Never silently alter a `TimeMap`.
 - `SyncWorker` extracts chunks off the UI thread; matching is deterministic. Unit/Qt coverage includes
   chunk boundaries, drift, missing/spurious/ambiguous pulses, session round-trip, and acceptance.
-  `test_bench_sync.py` gates a 10,000-event preview at ≤250 ms locally (CI multiplier applies).
+  `test_bench_sync.py` gates a 10,000-event preview at ≤250 ms locally; GitHub Actions checks the
+  representative workload for correctness only and uses no timing multiplier.
 - Follow-up: native plugin event providers remain separate API work; manual offset/drift fallback is
   available in the Sync Wizard.
 
 ### Pending
-- P5.2 release packaging: validate one-directory media bundles, platform installers, and PyPI trusted
-  publishing through the tag-only GitHub workflow.
+- P5.2 release packaging: CI already builds a media-free one-directory artifact on every OS; still
+  validate release-media bundles, platform installers, and PyPI trusted publishing through the
+  tag-only GitHub workflow.
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
 - Native synchronization plugin API (D-026).

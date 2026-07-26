@@ -11,8 +11,9 @@ the 10,000-event synchronization preview. The test suite checks all four.
 
 Every change and release verifies the representative scientific workload across supported operating
 systems: three cameras and four dense data streams can be opened, cached, queried, and synchronized.
-This is a functional integration check. It deliberately does not treat a shared GitHub machine as a
-speed authority.
+This is a functional integration check, including exact decoded-frame fixtures and a build artifact
+on each platform. It deliberately does not treat a shared GitHub machine as a speed authority, a
+native-compositor test, or a release installer test.
 
 ## Engineering certification
 

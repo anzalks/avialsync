@@ -86,6 +86,9 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
 - [ ] `pytest -x`, `ruff check .`, `mypy` all pass locally on the files touched.
 - [ ] Golden sync tests (`tests/test_sync_golden.py`) untouched-and-passing for any change in
       `core/timeline.py`, playback loop, or seek logic.
+- [ ] CI, playback, or packaging changes preserve the full quality gate: cross-platform correctness,
+      exact-frame fixtures where applicable, documentation warnings-as-errors, and all PyInstaller
+      artifact builds. A build artifact is not a release or a speed certification.
 - [ ] No performance budget regressed (> 20 % on touched benchmarks).
 - [ ] Docs updated if public API or user-visible behavior changed.
 - [ ] Conventional commit message: `feat(scope): …` / `fix:` / `perf:` / `test:` / `docs:` / `chore:`.
@@ -143,6 +146,11 @@ conda run -n avialview ruff check --fix . && conda run -n avialview ruff format 
 
 - `.gitignore` ignores `*.spec` files by default. If you create or modify `packaging/avialview.spec`, you must force-add it or it will be silently excluded from commits and break CI.
 - GitHub Actions `windows-latest` does not have `ffmpeg` pre-installed (unlike Ubuntu/macOS). Any script that invokes `ffmpeg` (like `make_fixtures.py`) will fail with `FileNotFoundError` unless `choco install ffmpeg` is in the CI workflow.
+- Windows CI also needs an explicit, pinned libmpv DLL archive with SHA-256 verification and an
+  `import mpv` probe. Do not assume a runner image provides a compatible DLL.
+- Hosted CI is headless on every OS: keep `QT_QPA_PLATFORM=offscreen` global and make
+  `VideoPane` select `vo=null` there. Never force `qwindows` or native `wid` embedding merely to
+  make a Windows job pass; production Windows retains native embedding.
 
 - mpv `wid` embedding must be set before mpv initializes video output; on macOS use the documented
   render-API path if `wid` misbehaves.
@@ -155,8 +163,16 @@ conda run -n avialview ruff check --fix . && conda run -n avialview ruff format 
 - macOS mpv embedding: `wid` is deprecated/flaky there — use the mpv render API path on macOS;
   build and verify the macOS path FIRST in Phase 2 (highest-risk integration in the project).
 - Seek settle: "seek command returned" ≠ "frame painted". Detect settle via mpv property
-  observation (`seeking`=False + `time-pos` at target) — never sleeps. Flaky golden tests get
-  ignored, which defeats their purpose; keep them rock solid.
+  observation (`seeking`=False + `time-pos` at target) for runtime coordination — never sleeps.
+  Golden frame tests must additionally decode `screenshot-raw video` and match the fixture frame;
+  retry only transient screenshot unavailability, never accept a stale rendered frame. Flaky golden
+  tests get ignored, which defeats their purpose; keep them rock solid.
+- Libmpv has an event thread that outlives a QWidget destructor. Shutdown ownership is explicit:
+  `MainWindow.closeEvent()` → `VideoGrid.shutdown()` → `VideoPane.close()` → `mpv.terminate()`.
+  Do not rely on garbage collection or Qt child destruction to join it.
+- PyInstaller evaluates `SPECPATH` as the spec directory, not the project root. Resolve the root
+  from it, and stage media only from a non-empty, validated `AVIALVIEW_MEDIA_ROOT`; an unset value
+  must never accidentally package the current working directory.
 - Playback drift correction needs hysteresis: re-seek only after N consecutive off-target ticks,
   or late Qt timers cause re-seek/stutter cascades under UI load.
 - Frame stepping: always mpv's actual frame timestamps; never `t += 1/fps` (breaks on VFR and
