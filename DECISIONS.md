@@ -660,4 +660,5 @@ The AppDir must also stage the reviewed `avialview.png` icon declared by `avialv
 `assets/icons/avialview-source.png` is the canonical artwork; `tools/generate_icons.py` produces
 the Linux PNG, Windows ICO, macOS ICNS, and runtime PNG from it. AppImageTool treats a missing
 declared icon as an artifact-integrity error, so the packaging test asserts both the declaration
-and staged source asset.
+and staged source asset. The AppDir also provides the required `.DirIcon` symlink and validates
+its desktop file with `desktop-file-validate` before AppImageTool runs.

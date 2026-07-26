@@ -25,4 +25,6 @@ Categories=Science;Video;
 Terminal=false
 EOF
 install -m 644 "$script_dir/avialview.png" "$appdir/avialview.png"
+ln -s avialview.png "$appdir/.DirIcon"
+desktop-file-validate "$appdir/avialview.desktop"
 "$APPIMAGETOOL" "$appdir" "$output_appimage"

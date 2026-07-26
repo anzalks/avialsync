@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -43,7 +44,52 @@ def test_appimage_declares_and_stages_its_desktop_icon() -> None:
 
     assert "Icon=avialview" in content
     assert '"$script_dir/avialview.png" "$appdir/avialview.png"' in content
+    assert 'ln -s avialview.png "$appdir/.DirIcon"' in content
+    assert 'desktop-file-validate "$appdir/avialview.desktop"' in content
     assert icon.is_file()
+
+
+def test_linux_release_installs_desktop_entry_validator() -> None:
+    """The AppImage desktop entry is validated before AppImageTool consumes it."""
+    workflow = Path(".github/workflows/release.yml").read_text(encoding="utf-8")
+
+    assert "desktop-file-utils ffmpeg libmpv2 libfuse2t64" in workflow
+
+
+def test_appimage_builder_stages_all_required_root_entries(tmp_path: Path) -> None:
+    """The manually assembled AppDir conforms before AppImageTool receives it."""
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "avialview").write_text("bundle executable", encoding="utf-8")
+    helpers = tmp_path / "helpers"
+    helpers.mkdir()
+    validator = helpers / "desktop-file-validate"
+    validator.write_text('#!/usr/bin/env sh\ntest -f "$1"\n', encoding="utf-8")
+    appimagetool = helpers / "appimagetool"
+    appimagetool.write_text(
+        "#!/usr/bin/env sh\n"
+        'test -f "$1/AppRun"\n'
+        'test -f "$1/avialview.desktop"\n'
+        'test -f "$1/avialview.png"\n'
+        'test -L "$1/.DirIcon"\n'
+        'touch "$2"\n',
+        encoding="utf-8",
+    )
+    validator.chmod(0o755)
+    appimagetool.chmod(0o755)
+    output = tmp_path / "AvialView.AppImage"
+    environment = os.environ | {
+        "APPIMAGETOOL": str(appimagetool),
+        "PATH": f"{helpers}:{os.environ['PATH']}",
+    }
+
+    subprocess.run(
+        ["bash", "packaging/linux/make_appimage.sh", str(bundle), str(output)],
+        check=True,
+        env=environment,
+    )
+
+    assert output.is_file()
 
 
 def test_native_packagers_use_the_generated_icons() -> None:

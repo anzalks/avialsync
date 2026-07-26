@@ -152,6 +152,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
   reviewed `avialview.png` icon named by its desktop entry; AppImageTool rejects an undeclared or
   missing desktop icon. `assets/icons/avialview-source.png` is the canonical source. Regenerate
   Linux PNG, Windows ICO, macOS ICNS, and runtime PNG assets with `tools/generate_icons.py`.
+  The AppDir also includes its required `.DirIcon` symlink and runs `desktop-file-validate` before
+  AppImageTool, so malformed desktop metadata fails before artifact construction.
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
 - Native synchronization plugin API (D-026).
