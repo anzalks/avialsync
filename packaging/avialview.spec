@@ -4,7 +4,8 @@ from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
 
-project_root = Path(SPECPATH).parent.parent
+# PyInstaller supplies SPECPATH as the directory containing this spec.
+project_root = Path(SPECPATH).parent
 media_root = Path(os.environ.get("AVIALVIEW_MEDIA_ROOT", ""))
 media_binaries = []
 if media_root.is_dir():
