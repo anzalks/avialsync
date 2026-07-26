@@ -2,6 +2,22 @@
 Format per entry: date · decision · context · alternatives rejected · consequences.
 Agents: read before coding; append when making irreversible choices; never silently reverse entries.
 
+## 2026-07 · D-035 · Development graph is offline, structural, and reproducible
+
+**Context:** the repository needs a portable architecture map that stays current without spending
+tokens or depending on user-local paths/services.
+
+**Decision:** `tools/update_graph.py` uses only local AST extraction and emits the three portable
+artifacts in `graphify-out/`. A versioned post-commit hook refreshes a developer's working tree but
+never stages, commits, or enters the application's CI workflow. Neither path may run semantic
+extraction, transcription, web ingestion, or any API-backed Graphify feature.
+
+**Alternatives rejected:** opaque local caches as the shared graph; automatic commits from a local
+hook; manually maintained graph artifacts; token-backed semantic graph generation.
+
+**Consequences:** `graphifyy` is a pinned MIT development dependency. The graph is reviewable and
+portable; developers choose whether and when to commit a refresh. It must never become a background task.
+
 ## 2026-07 · D-027 · Timeline Evidence must be named and conditional
 
 **Context:** coverage, sync/TTL events, gaps, and annotations share the master timeline, but an

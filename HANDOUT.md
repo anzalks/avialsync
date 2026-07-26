@@ -33,6 +33,15 @@ Use `AvialView` for displayed text and `avialview` for technical identifiers. Do
 | Lint | `ruff` | `ruff check --fix . && ruff format .` before finishing |
 | Types | `mypy` | `--strict` on `core/`; standard on `ui/` and `loaders/` |
 
+## Development graph
+
+`graphify-out/` is a committed, portable structural map. Refresh it with
+`conda run -n avialview python tools/update_graph.py`; it is AST-only and must consume zero API
+tokens. New clones enable the reviewed post-commit hook with
+`conda run -n avialview python tools/install_git_hooks.py`. The hook leaves generated changes
+unstaged so graph changes can be reviewed and committed manually, independently of the application
+workflow. Never add semantic extraction, transcription, web ingestion, or API credentials to this path.
+
 ---
 
 ## Phase Status
