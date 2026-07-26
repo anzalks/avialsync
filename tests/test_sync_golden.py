@@ -6,11 +6,18 @@ import random
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
+from pytestqt.exceptions import TimeoutError as QtTimeoutError
 from util_framestrip import decode_frame_strip
 
 from avialview.ui.main_window import MainWindow
 
 DECODED_FRAME_TIMEOUT_MS = 5_000
+FIXTURE_FRAME_RATE = 30.0
+
+
+def _fixture_frame_time(frame_index: int) -> float:
+    """Return a timestamp inside the known decoded interval for a fixture frame."""
+    return (frame_index - 0.25) / FIXTURE_FRAME_RATE
 
 
 @pytest.fixture
@@ -50,7 +57,13 @@ def _wait_for_decoded_frame(pane, expected_frame: int, qtbot) -> int:
         decoded_frame = decode_frame_strip(frame)
         return decoded_frame == expected_frame
 
-    qtbot.waitUntil(is_expected_frame, timeout=DECODED_FRAME_TIMEOUT_MS)
+    try:
+        qtbot.waitUntil(is_expected_frame, timeout=DECODED_FRAME_TIMEOUT_MS)
+    except QtTimeoutError as error:
+        raise AssertionError(
+            f"Expected decoded frame {expected_frame}; last decoded frame was {decoded_frame}; "
+            f"mpv time-pos was {pane.time_pos}."
+        ) from error
     return decoded_frame
 
 
@@ -91,7 +104,7 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
     # Test 5 random frames
     for _ in range(5):
         target_frame = random.randint(10, 100)
-        target_time = target_frame / 30.0
+        target_time = _fixture_frame_time(target_frame)
 
         # Seek
         win.player.seek(target_time, exact=True)
@@ -138,7 +151,7 @@ def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
     # Test 3 random frames
     for _ in range(3):
         target_frame = random.randint(10, 100)
-        target_time = target_frame / 30.0
+        target_time = _fixture_frame_time(target_frame)
 
         # Seek (master time)
         win.player.seek(target_time, exact=True)
