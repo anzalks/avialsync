@@ -28,6 +28,7 @@ dev = [
     "hypothesis",
     "build",  # MIT; release helper builds the wheel and sdist before tagging.
     "twine",  # Apache-2.0; release helper validates distribution metadata.
+    "Pillow",  # HPND; reproducibly generates PNG, ICO, and ICNS icon assets.
     "ruff",
     "mypy"
 ]
@@ -47,6 +48,7 @@ neo = "avialview.loaders.neo_loader:NeoLoader"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/avialview"]
+include = ["src/avialview/resources/avialview.png"]
 
 [tool.ruff]
 line-length = 100

@@ -24,5 +24,5 @@ Icon=avialview
 Categories=Science;Video;
 Terminal=false
 EOF
-install -m 644 "$script_dir/avialview.svg" "$appdir/avialview.svg"
+install -m 644 "$script_dir/avialview.png" "$appdir/avialview.png"
 "$APPIMAGETOOL" "$appdir" "$output_appimage"

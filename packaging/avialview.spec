@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -7,6 +8,12 @@ from PyInstaller.utils.hooks import collect_submodules
 # PyInstaller supplies SPECPATH as the directory containing this spec.
 project_root = Path(SPECPATH).parent
 media_binaries = []
+icon_extension = ".ico" if sys.platform == "win32" else ".icns" if sys.platform == "darwin" else ".png"
+application_icon = project_root / "packaging" / {
+    ".ico": "windows",
+    ".icns": "macos",
+    ".png": "linux",
+}[icon_extension] / f"avialview{icon_extension}"
 media_root_value = os.environ.get("AVIALVIEW_MEDIA_ROOT")
 if media_root_value:
     media_root = Path(media_root_value)
@@ -22,7 +29,7 @@ a = Analysis(
     [str(project_root / 'src' / 'avialview' / '__main__.py')],
     pathex=[str(project_root / 'src')],
     binaries=media_binaries,
-    datas=[],
+    datas=[(str(project_root / "src" / "avialview" / "resources" / "avialview.png"), "avialview/resources")],
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
@@ -39,6 +46,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name='avialview',
+    icon=str(application_icon),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

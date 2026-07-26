@@ -16,6 +16,7 @@ OutputBaseFilename=AvialView-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=avialview.ico
 ArchitecturesInstallIn64BitMode=x64 arm64
 
 [Files]

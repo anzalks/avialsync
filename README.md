@@ -23,9 +23,10 @@ workflows through plugins.
 
 ## Install and open your first experiment
 
-The simplest route is the desktop installer from the [GitHub Releases page](https://github.com/anzalks/avialview/releases).
-Install it,
-then open **AvialView** like any other desktop application.
+The simplest route is the desktop artifact from the [GitHub Releases page](https://github.com/anzalks/avialview/releases):
+use `AvialView-Setup.exe` on Windows, open `AvialView.dmg` on macOS, or mark
+`AvialView.AppImage` executable and open it on Linux. The AppImage is portable: no system-wide
+installation is required. Then open **AvialView** like any other desktop application.
 
 If you use Python, install it from PyPI with Python 3.11 or 3.12:
 

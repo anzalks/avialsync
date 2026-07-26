@@ -656,6 +656,8 @@ The pinned AppImageTool release uses the FUSE 2 ABI. GitHub's Ubuntu 24.04 image
 ABI through `libfuse2t64`, which must be installed in the Linux installer job before executing the
 tool. Do not install the obsolete `fuse` package; it is not needed for this headless build.
 
-The AppDir must also stage the reviewed `avialview.svg` icon declared by `avialview.desktop`.
-AppImageTool treats a missing declared icon as an artifact-integrity error, so the packaging test
-asserts both the declaration and staged source asset.
+The AppDir must also stage the reviewed `avialview.png` icon declared by `avialview.desktop`.
+`assets/icons/avialview-source.png` is the canonical artwork; `tools/generate_icons.py` produces
+the Linux PNG, Windows ICO, macOS ICNS, and runtime PNG from it. AppImageTool treats a missing
+declared icon as an artifact-integrity error, so the packaging test asserts both the declaration
+and staged source asset.
