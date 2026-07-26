@@ -127,6 +127,24 @@ def test_frame_records_at_single_pane(qapp) -> None:
     assert records[0]["media_timestamp"] == pytest.approx(1.0)
 
 
+def test_shutdown_terminates_all_video_panes(qapp) -> None:
+    """Pane-owned libmpv event threads must stop before Qt destroys the grid."""
+    from avialview.ui.video_grid import VideoGrid
+
+    grid = VideoGrid()
+    panes = [MagicMock(), MagicMock()]
+    grid.panes.extend(panes)
+    grid._paths.extend(["/cam/a.mp4", "/cam/b.mp4"])
+
+    grid.shutdown()
+
+    for pane in panes:
+        pane.close.assert_called_once_with()
+        pane.deleteLater.assert_called_once_with()
+    assert grid.panes == []
+    assert grid.pane_paths() == []
+
+
 def test_frame_records_at_offset_applied(qapp) -> None:
     from avialview.ui.video_grid import VideoGrid
 

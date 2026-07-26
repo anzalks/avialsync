@@ -16,7 +16,8 @@ def app_with_main_window(qapp: QApplication) -> MainWindow:
     """Fixture providing an initialized main window."""
     win = MainWindow()
     win.show()
-    return win
+    yield win
+    win.close()
 
 
 def _capture_frame(pane) -> np.ndarray | None:

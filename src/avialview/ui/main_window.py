@@ -709,6 +709,7 @@ class MainWindow(QMainWindow):
         if self._video_load_jobs:
             event.ignore()
             return
+        self.video_grid.shutdown()
         self._save_geometry()
         self._autosave()
         super().closeEvent(event)

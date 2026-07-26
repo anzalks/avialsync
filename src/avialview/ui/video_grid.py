@@ -109,6 +109,15 @@ class VideoGrid(QWidget):
         self._relayout()
         self._update_labels()
 
+    def shutdown(self) -> None:
+        """Terminate all libmpv panes before their Qt parent is destroyed."""
+        for pane in self.panes:
+            pane.close()
+            pane.deleteLater()
+        self.panes.clear()
+        self._paths.clear()
+        self._fullscreen_pane = None
+
     def set_offset(self, path: str, offset: float) -> None:
         """Update the time offset for a specific video."""
         try:

@@ -70,6 +70,9 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - **Headless Windows video CI**: GitHub-hosted Windows runners use the global Qt `offscreen`
   platform, so `VideoPane` selects libmpv's `vo=null` test path. Do not force native `wid` embedding
   in a headless job; production Windows continues to use the native embedding path.
+- **Video pane shutdown**: `MainWindow.closeEvent()` calls `VideoGrid.shutdown()` before Qt destroys
+  child widgets. That method closes every `VideoPane`, so python-mpv can join its event thread;
+  never rely on QWidget destruction or Python garbage collection to stop libmpv.
 - **Frame-indexed sources (D-019)**: `TimeSeriesSource.is_frame_indexed()` added (default False). `TrackingLoader` overrides to True. Import fps resolution: 1 video → pre-filled confirm; multiple videos → dropdown; no video → manual entry + auto-rebind when first video is added.
 - **NeoLoader.can_open tightening**: `SUPPORTED_EXTENSIONS` whitelist added; `can_open` returns 0.0 immediately for any file not in the whitelist. Never claims `.csv` or acts as a fallback for unknown files.
 
