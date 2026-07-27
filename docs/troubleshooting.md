@@ -6,6 +6,13 @@ This is usually correct: the selected master time is outside that camera’s rec
 in **Data Streams** and its offset in the left panel. It is safer than displaying the last frame from
 another time.
 
+## Video viewer remains grey on Windows
+
+AvialView uses libmpv's Qt OpenGL render path on Windows and macOS, and native `wid` embedding on Linux.
+If the viewer is grey, open **Help → Diagnostics** and confirm libmpv is available; then update your GPU driver
+and restart. The demo's test-pattern videos should be visible before you add your own files. In a headless
+environment, video output is intentionally disabled (`vo=null`), so use the time-series and metadata checks only.
+
 ## Videos and traces do not line up
 
 First check that the relevant files overlap in **Data Streams**. Then adjust a visible event manually

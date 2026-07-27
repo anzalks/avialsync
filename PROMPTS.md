@@ -64,8 +64,9 @@ Work in small increments and run `pytest -x -q` + `ruff check .` after each incr
 ## Phase 2 prompts
 
 - **P2.1 Video pane**: "Implement ui/video_pane.py embedding libmpv via python-mpv into a Qt
-  widget (wid embedding; isolate per-OS logic here; hwdec=auto-safe; keep-open=yes; exact-seek
-  helper method; frame-step helpers). Manual run instructions in the module docstring."
+  widget (Qt OpenGL render API on Windows/macOS; native `wid` on Linux; isolate per-OS logic here;
+  hwdec=auto-safe; keep-open=yes; exact-seek helper method; frame-step helpers). Manual run
+  instructions in the module docstring."
 - **P2.2 Plot pane**: "Implement ui/plot_pane.py: pyqtgraph PlotWidget fed exclusively by
   pyramid queries for the visible range; playhead InfiniteLine updated independently of curve
   redraws; 'follow playhead' toggle. Bench cursor update ≤ 2 ms offscreen."

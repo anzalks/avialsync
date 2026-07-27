@@ -37,9 +37,10 @@ passing full recordings to a plotting widget. This keeps navigating a long recor
 without reducing the precision used for readouts and exports.
 
 For exact paused-frame verification, AvialView checks decoded raw video against a fixture's frame
-strip rather than trusting a returned seek command or a displayed image. Production embeds video
-with the platform path; displayless continuous integration uses libmpv's null video output so it can
-verify decoding and timeline correctness without pretending to certify native-window rendering.
+strip rather than trusting a returned seek command or a displayed image. Production uses libmpv's
+Qt OpenGL render API on Windows/macOS and native `wid` embedding on Linux; displayless continuous
+integration uses libmpv's null video output so it can verify decoding and timeline correctness
+without pretending to certify desktop rendering.
 Video clients are closed explicitly while the main window is still alive, allowing libmpv's event
 thread to stop cleanly.
 

@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 
@@ -56,6 +57,9 @@ def test_linux_release_installs_desktop_entry_validator() -> None:
     assert "desktop-file-utils ffmpeg libmpv2 libfuse2t64" in workflow
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="AppImage assembly requires a Linux shell environment"
+)
 def test_appimage_builder_stages_all_required_root_entries(tmp_path: Path) -> None:
     """The manually assembled AppDir conforms before AppImageTool receives it."""
     bundle = tmp_path / "bundle"

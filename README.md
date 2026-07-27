@@ -35,6 +35,30 @@ python -m pip install avialview
 avialview
 ```
 
+### Windows source checkout prerequisites
+
+The release installer bundles its media runtime. If you run AvialView from a Git checkout instead,
+install Python 3.11 or 3.12, FFmpeg (for `ffprobe.exe`), and libmpv before starting the application.
+Create the project environment and install its dependencies with:
+
+```powershell
+conda create -n avialview python=3.12 -y
+conda run -n avialview python -m pip install -e ".[dev]"
+```
+
+Install a standalone shared FFmpeg build (for example, `winget install --id Gyan.FFmpeg.Shared -e`)
+and ensure the directory containing `ffprobe.exe` is on `PATH`. Install a compatible Windows libmpv
+build and put its `libmpv-2.dll` in the conda environment's `Library\bin` directory, or otherwise
+ensure that DLL is on `PATH`. Do not use conda's FFmpeg package for this checkout: it can conflict
+with the Qt DLLs. A current GPU driver is also required for the Windows OpenGL video renderer.
+
+Run the application or its demo with:
+
+```powershell
+conda run -n avialview avialview
+conda run -n avialview python tools/launch_demo.py
+```
+
 When the window opens:
 
 1. Drag video and recording files into the window, or use **Open Videos** and **Open Sensor/Ephys Data**.

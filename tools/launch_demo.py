@@ -114,7 +114,10 @@ def load_data(win: MainWindow) -> None:
         )
 
     print("\nDemo ready — all fixtures loaded. Playing…")
-    win.player.play()
+    # The fixtures last ten seconds. Starting paused at their common beginning
+    # keeps the first visible state useful instead of showing ``No Footage``
+    # after an unattended launch reaches the end.
+    win.player.seek(0.0)
 
 
 def main():

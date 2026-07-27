@@ -72,7 +72,7 @@ Exit criteria: 100 % branch coverage on timeline math; pyramid benchmark ★ pas
 **Goal:** one video + one CSV, shared slider, play/pause, cursor. The "it works!" demo.
 
 Deliverables:
-- mpv embedded in a Qt widget (`ui/video_pane.py`) — **build the macOS render-API path FIRST (D-011), then wid on Win/Linux**; settle coordination via property observation, no sleeps. Exact-frame tests prove the decoded `screenshot-raw video` frame-strip result and retry only transient raw-capture unavailability.
+- mpv embedded in a Qt widget (`ui/video_pane.py`) — **build the Windows/macOS Qt OpenGL render-API paths FIRST (D-011, D-038), then native `wid` on Linux**; settle coordination via property observation, no sleeps. Exact-frame tests prove the decoded `screenshot-raw video` frame-strip result and retry only transient raw-capture unavailability.
 - `ui/plot_pane.py`: pyqtgraph plot fed by pyramid, vertical playhead cursor (single InfiniteLine, cursor-only updates).
 - Transport bar: play/pause (space), slider, time readout, speed 0.1–8×.
 - Playback loop: QTimer @ 60 Hz advances MasterClock; mpv follows via rate-matched play + drift correction (re-seek if |video_t − target| > 40 ms **for N consecutive ticks — hysteresis, see AGENTS traps**); slider drag = keyframe seeks, release = exact seek; frame stepping via actual frame timestamps (D-007).

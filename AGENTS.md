@@ -153,18 +153,19 @@ conda run -n avialview ruff check --fix . && conda run -n avialview ruff format 
   `import mpv` probe. Do not assume a runner image provides a compatible DLL.
 - Hosted CI is headless on every OS: keep `QT_QPA_PLATFORM=offscreen` global and make
   `VideoPane` select `vo=null` there. Never force `qwindows` or native `wid` embedding merely to
-  make a Windows job pass; production Windows retains native embedding.
+  make a Windows job pass; interactive Windows and macOS use the Qt OpenGL render API, while Linux
+  retains native `wid` embedding.
 
-- mpv `wid` embedding must be set before mpv initializes video output; on macOS use the documented
-  render-API path if `wid` misbehaves.
+- mpv `wid` embedding must be set before mpv initializes video output on Linux. Windows and macOS
+  use the documented render-API path; free their render context while the `QOpenGLWidget` is current.
 - pyqtgraph `setDownsampling` is not enough at 180 M points — always go through our pyramid.
 - QTimer drift: drive MasterClock from `time.monotonic()` deltas, never by accumulating timer intervals.
 - polars `read_csv` infers types per-chunk; always pass explicit schema for the timestamp column.
 - ffprobe start times lie for some machine-vision containers; treat metadata start time as a default,
   never as truth — the user offset always wins.
 - 12-bit video: never assume hw decode; probe once at startup (`ui/diagnostics.py`) and surface it.
-- macOS mpv embedding: `wid` is deprecated/flaky there — use the mpv render API path on macOS;
-  build and verify the macOS path FIRST in Phase 2 (highest-risk integration in the project).
+- Windows/macOS mpv embedding: use the Qt OpenGL render API; native `wid` is retained for Linux.
+  Build and verify both the Windows and macOS render paths FIRST in Phase 2 (highest-risk integration).
 - Seek settle: "seek command returned" ≠ "frame painted". Detect settle via mpv property
   observation (`seeking`=False + `time-pos` at target) for runtime coordination — never sleeps.
   Golden frame tests must additionally decode `screenshot-raw video` and match the fixture frame;
@@ -173,7 +174,7 @@ conda run -n avialview ruff check --fix . && conda run -n avialview ruff format 
 - Libmpv has an event thread that outlives a QWidget destructor. Shutdown ownership is explicit:
   `MainWindow.closeEvent()` → `VideoGrid.shutdown()` → `VideoPane.close()` → `mpv.terminate()`.
   Do not rely on garbage collection or Qt child destruction to join it.
-- On macOS render-API panes, free the libmpv render context while the `QOpenGLWidget` is current
+- On Windows/macOS render-API panes, free the libmpv render context while the `QOpenGLWidget` is current
   before terminating mpv. Reversing that order aborts the process during app exit.
 - PyInstaller evaluates `SPECPATH` as the spec directory, not the project root. Resolve the root
   from it, and stage media only from a non-empty, validated `AVIALVIEW_MEDIA_ROOT`; an unset value

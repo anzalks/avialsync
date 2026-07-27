@@ -1394,6 +1394,10 @@ class MainWindow(QMainWindow):
         pane.set_source_bounds(bounds)
         is_vfr = bool(getattr(loader, "is_vfr", lambda: False)())
         pane.set_vfr(is_vfr)
+        # The pane is added asynchronously, after the current master-time seek
+        # may already have run. Synchronize it now so paused media decodes its
+        # first visible frame and availability reflects the active timeline.
+        self.player.seek(self.clock.state.t, exact=True)
         from avialview.core.inspection import IntegrityFlags
 
         inspection = SourceInspection(

@@ -69,20 +69,24 @@ with explicit user acceptance and session provenance. Native plugin event provid
   in a seeking state when commands are issued from a Qt worker thread. Observer callbacks use
   their delivered values rather than querying libmpv recursively, avoiding Windows callback-thread
   crashes. Golden tests require delivered `seeking=False`/`time-pos` evidence at the target, retry
-  one delayed exact command if Windows has not delivered it, then decode `screenshot-raw video`
+  one delayed exact command if the observer has not delivered it, then decode `screenshot-raw video`
   until it provides the expected raw frame—the only definitive frame-accuracy evidence. An
   unavailable or stale pre-seek raw snapshot is rejected, never accepted; retry uses the Qt event
   loop at a bounded interval. Fixture seeks use a timestamp within the known decoded-frame interval,
   never an ambiguous presentation-time boundary that another libmpv backend may resolve to the
   adjacent frame. Every pane sets libmpv
   `hr-seek-framedrop=no`, so a paused exact seek decodes to its target instead of allowing the
-  decoder to discard target-adjacent frames.
+  decoder to discard target-adjacent frames. Raw-frame golden tests run on Linux/macOS headless CI;
+  Windows skips them because libmpv cannot safely provide raw captures under Qt's `offscreen` platform.
+  Interactive Windows rendering is separately verified through the Qt OpenGL renderer.
 - **Headless Windows video CI**: GitHub-hosted Windows runners use the global Qt `offscreen`
   platform, so `VideoPane` selects libmpv's `vo=null` test path. Do not force native `wid` embedding
-  in a headless job; production Windows continues to use the native embedding path.
+  in a headless job. Interactive Windows panes use libmpv's Qt OpenGL render API: the native `wid`
+  path can decode while presenting only a gray child surface on affected Windows compositor/driver
+  combinations.
 - **Video pane shutdown**: `MainWindow.closeEvent()` calls `VideoGrid.shutdown()` before Qt destroys
   child widgets. That method closes every `VideoPane`, so python-mpv can join its event thread;
-  never rely on QWidget destruction or Python garbage collection to stop libmpv. On macOS, free the
+  never rely on QWidget destruction or Python garbage collection to stop libmpv. On Windows/macOS, free the
   libmpv OpenGL render context while its `QOpenGLWidget` is current **before** `mpv.terminate()`;
   reversing that order aborts the process during app exit.
 - **Frame-indexed sources (D-019)**: `TimeSeriesSource.is_frame_indexed()` added (default False). `TrackingLoader` overrides to True. Import fps resolution: 1 video → pre-filled confirm; multiple videos → dropdown; no video → manual entry + auto-rebind when first video is added.

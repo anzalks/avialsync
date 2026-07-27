@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Keep this file LF-terminated; Bash on a Windows checkout rejects CRLF options.
 set -euo pipefail
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)

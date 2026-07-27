@@ -289,10 +289,13 @@ def test_video_sidebar_summary_receives_probed_codec(
     monkeypatch.setattr(main_window.sidebar, "set_video_pane", lambda *_args: None)
     monkeypatch.setattr(main_window.sidebar, "set_video_inspection", lambda *_args: None)
     monkeypatch.setattr(main_window, "_update_bounds", lambda *_args: None)
+    synchronize_pane = MagicMock()
+    monkeypatch.setattr(main_window.player, "seek", synchronize_pane)
 
     main_window._on_video_opened("camera.mp4", loader, "camera.mp4")
 
     assert metadata["codec"] == "h264"
+    synchronize_pane.assert_called_once_with(main_window.clock.state.t, exact=True)
 
 
 def test_video_coverage_is_projected_onto_master_time(main_window: MainWindow, monkeypatch) -> None:

@@ -33,6 +33,7 @@ def test_cross_platform_quality_workflows_share_headless_media_contract() -> Non
 
     assert "if is_offscreen:" in video_pane
     assert 'vo="null"' in video_pane
+    assert 'sys.platform in ("darwin", "win32")' in video_pane
 
 
 def test_release_bundle_uses_the_verified_windows_libmpv() -> None:

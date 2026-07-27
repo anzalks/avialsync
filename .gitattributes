@@ -1,2 +1,5 @@
 # Generated developer visualisation; retain it in Git without affecting language statistics.
 graphify-out/graph.html linguist-generated
+
+# Shell packaging helpers are executed by Bash in Windows checkout tests too.
+*.sh text eol=lf

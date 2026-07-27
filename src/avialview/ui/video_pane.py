@@ -44,7 +44,7 @@ def _release_mpv_render_context(widget: object) -> None:
 
 
 def _shutdown_mpv_client(player: Any, gl_widget: Any | None = None) -> None:
-    """Release a macOS render client, then terminate its libmpv handle once."""
+    """Release a Qt OpenGL render client, then terminate its libmpv handle once."""
     if gl_widget is not None:
         try:
             _release_mpv_render_context(gl_widget)
@@ -77,7 +77,10 @@ class PaintCanvas(QWidget):
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAutoFillBackground(False)
         self.readers = []
         self.t = 0.0
 
@@ -133,8 +136,8 @@ class VideoPane(QWidget):
     """
     Video rendering pane.
 
-    Uses macOS Render API via QOpenGLWidget on Darwin,
-    and native window embedding (wid) on Windows/Linux.
+    Uses libmpv's Qt OpenGL render API on Windows/macOS and native
+    window embedding (wid) on Linux.
     """
 
     double_clicked = Signal(object)
@@ -172,7 +175,7 @@ class VideoPane(QWidget):
 
         is_offscreen = os.environ.get("QT_QPA_PLATFORM") == "offscreen"
 
-        if sys.platform == "darwin" and not is_offscreen:
+        if sys.platform in ("darwin", "win32") and not is_offscreen:
             from PySide6.QtGui import QOpenGLContext
             from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
@@ -279,6 +282,9 @@ class VideoPane(QWidget):
                 )
             else:
                 wid = int(self.video_container.winId())
+                if sys.platform == "win32":
+                    # libmpv's Win32 embedding API expects an unsigned 32-bit HWND.
+                    wid &= 0xFFFFFFFF
                 self.mpv = mpv.MPV(
                     wid=wid,
                     hwdec="auto-safe",

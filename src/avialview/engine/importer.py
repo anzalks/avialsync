@@ -52,6 +52,7 @@ class ImportWorker(QObject):
             total_nan = 0
             all_gap_locations: list[float] = []
             gap_count = 0
+            t0, t1 = 0.0, 0.0
 
             for i, ch_name in enumerate(channel_names):
                 if self._cancel_flag:
@@ -76,6 +77,7 @@ class ImportWorker(QObject):
                     # Accumulate stats from first channel only (all channels share the same t)
                     if i == 0:
                         total_rows = int(len(full_t))
+                        t0, t1 = float(full_t[0]), float(full_t[-1])
                         gap_mask = build_gap_mask(full_t)
                         gap_count = int(np.sum(gap_mask))
                         if gap_count:
@@ -90,15 +92,6 @@ class ImportWorker(QObject):
 
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 return
-
-            t0, t1 = 0.0, 0.0
-            if channel_names:
-                from avialview.core.pyramid import PyramidReader
-
-                pr = PyramidReader(temp_dir, channel_names[0])
-                t, _, _, _ = pr._load_level(1)
-                if len(t) > 0:
-                    t0, t1 = float(t[0]), float(t[-1])
 
             cache_mgr.commit_cache(self.path, temp_dir)
             final_dir = cache_mgr.get_cache_dir(self.path)

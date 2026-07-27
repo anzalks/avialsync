@@ -2,8 +2,10 @@
 
 import numpy as np
 import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
 
-from avialview.ui.video_pane import displayed_frame_rate, instantaneous_frame_rate
+from avialview.ui.video_pane import PaintCanvas, displayed_frame_rate, instantaneous_frame_rate
 
 
 def test_vfr_readout_reports_the_current_frame_interval() -> None:
@@ -19,3 +21,12 @@ def test_cfr_readout_stays_at_the_nominal_rate() -> None:
     frame_times = np.array([0.0, 1 / 30, 2 / 30, 3 / 30])
 
     assert displayed_frame_rate(frame_times, 0.048, False, 30.0, 58.0) == 30.0
+
+
+def test_tracking_overlay_is_visually_transparent(qapp: QApplication) -> None:
+    """An idle tracking layer must not cover the native mpv child surface."""
+    canvas = PaintCanvas()
+
+    assert canvas.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+    assert canvas.testAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+    assert not canvas.autoFillBackground()

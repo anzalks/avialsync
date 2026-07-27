@@ -226,7 +226,7 @@ the Qt-owning thread and queue work in libmpv; decoder and observer work remain 
 observer consumes the value it was given rather than re-entering libmpv from its callback thread.
 At window close, ownership unwinds explicitly: `MainWindow.closeEvent()` calls
 `VideoGrid.shutdown()`, which closes every pane and lets `mpv.terminate()` join its event thread
-before Qt tears down widgets. On macOS the pane first frees its libmpv render context while the
+before Qt tears down widgets. On Windows and macOS the pane first frees its libmpv render context while the
 `QOpenGLWidget` is current; only then may it terminate libmpv. That ordering prevents the render
 widget from dereferencing a destroyed client during process exit.
 
@@ -238,10 +238,10 @@ image may never be accepted as proof.
 
 ### CI video boundary
 
-Production uses the platform-native embedding path (with the documented macOS render API path).
-Hosted CI is deliberately displayless on all three platforms: global Qt `offscreen` selects
+Production uses native `wid` embedding on Linux and the libmpv Qt OpenGL render API on Windows and
+macOS. Hosted CI is deliberately displayless on all three platforms: global Qt `offscreen` selects
 libmpv `vo=null` in `VideoPane`. This exercises timeline, seek, decode, and exact-frame correctness
-without claiming to validate a native compositor. CI must not force `qwindows` or a `wid` merely to
+without claiming to validate a desktop compositor. CI must not force `qwindows` or a `wid` merely to
 make a Windows runner behave like a desktop.
 
 ## 4. Plugin contract (frozen at Phase 5 as API v1)

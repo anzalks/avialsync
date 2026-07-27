@@ -662,3 +662,25 @@ the Linux PNG, Windows ICO, macOS ICNS, and runtime PNG from it. AppImageTool tr
 declared icon as an artifact-integrity error, so the packaging test asserts both the declaration
 and staged source asset. The AppDir also provides the required `.DirIcon` symlink and validates
 its desktop file with `desktop-file-validate` before AppImageTool runs.
+
+## 2026-07 · D-038 · Windows video panes use libmpv's Qt OpenGL render API
+
+### Context
+
+On affected Windows compositor/driver combinations, libmpv's native `wid` child window decodes
+media and reports advancing timestamps but presents a uniform gray surface inside Qt. The tracking
+overlay must be visually transparent so it never covers an otherwise working video surface.
+
+### Decision
+
+Interactive Windows and macOS panes use the libmpv OpenGL render API through `QOpenGLWidget`.
+Headless Windows continues to use `vo=null`. The Win32 `wid` value remains safely cast to an
+unsigned 32-bit HWND for any future native embedding fallback, but it is not the default renderer.
+`PaintCanvas` uses transparent/no-system-background attributes and does not autofill its background.
+
+### Consequences
+
+Windows video rendering shares the explicit render-context lifecycle already required on macOS.
+Any renderer change must verify visible decoded frames in an interactive window, not only mpv
+timestamps or `screenshot-raw` evidence. The gray-surface failure and overlay opacity are covered
+by the pane configuration and timing tests.

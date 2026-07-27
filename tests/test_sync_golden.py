@@ -2,6 +2,7 @@
 
 import pathlib
 import random
+import sys
 import time
 from collections.abc import Callable
 
@@ -98,6 +99,10 @@ def test_capture_frame_retries_when_mpv_is_busy() -> None:
     assert _capture_frame(BusyPane()) is None
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows libmpv cannot safely capture raw frames with Qt's offscreen platform",
+)
 def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
     """Test video frame accuracy via framestrip."""
     win = app_with_main_window
@@ -140,6 +145,10 @@ def test_golden_sync_basic(app_with_main_window: MainWindow, qtbot) -> None:
         assert decoded == target_frame, f"Expected {target_frame}, got {decoded} at {target_time}s"
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows libmpv cannot safely capture raw frames with Qt's offscreen platform",
+)
 def test_golden_sync_multi(app_with_main_window: MainWindow, qtbot) -> None:
     """Test multi-camera golden sync with offsets."""
     win = app_with_main_window
