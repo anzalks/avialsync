@@ -179,27 +179,47 @@ def _write_ephys(path: Path) -> None:
 
 
 def _write_tracking(path: Path) -> None:
-    """Write a minimal deterministic DLC-style tracking table."""
+    """Write a deterministic DLC-style tracking table with 3D coordinates.
+
+    Five body parts (nose, head, spine, hip, tail) trace an elliptical path
+    in XY with sinusoidal vertical motion so the 3D tracking pane has
+    complete ``name_x`` / ``name_y`` / ``name_z`` triplets to display.
+    """
     rng = np.random.default_rng(44)
-    frames = np.arange(300)
+    n_frames = 300
+    frames = np.arange(n_frames)
     phase = 2 * np.pi * frames / 150
-    data = np.column_stack(
-        (
-            frames,
-            320.0 + 40 * np.sin(phase) + rng.normal(0, 2, len(frames)),
-            180.0 + 20 * np.cos(phase) + rng.normal(0, 2, len(frames)),
-            rng.uniform(0.7, 1.0, len(frames)),
-            320.0 - 40 * np.sin(phase) + rng.normal(0, 2, len(frames)),
-            180.0 - 20 * np.cos(phase) + rng.normal(0, 2, len(frames)),
-            rng.uniform(0.7, 1.0, len(frames)),
-        )
-    )
+
+    # Body-part offsets along a virtual spine (phase lag in the travelling wave)
+    parts = ("nose", "head", "spine", "hip", "tail")
+    lag = np.array([0.0, 0.15, 0.30, 0.50, 0.70])
+
+    columns = [frames.astype(float)]
+    scorer_fields = ["scorer"]
+    bodyparts_fields = ["bodyparts"]
+    coords_fields = ["coords"]
+
+    for i, name in enumerate(parts):
+        p = phase - lag[i]
+        x = 320.0 + (40 - 5 * i) * np.sin(p) + rng.normal(0, 1.5, n_frames)
+        y = 180.0 + (20 - 3 * i) * np.cos(p) + rng.normal(0, 1.5, n_frames)
+        z = 50.0 + 15 * np.sin(p * 0.5 + i * 0.4) + rng.normal(0, 1.0, n_frames)
+        lk = rng.uniform(0.75, 1.0, n_frames)
+        columns.extend([x, y, z, lk])
+        scorer_fields.extend(["DLC"] * 4)
+        bodyparts_fields.extend([name] * 4)
+        coords_fields.extend(["x", "y", "z", "likelihood"])
+
+    data = np.column_stack(columns)
     headers = (
-        "scorer,DLC,DLC,DLC,DLC,DLC,DLC",
-        "bodyparts,nose,nose,nose,tail,tail,tail",
-        "coords,x,y,likelihood,x,y,likelihood",
+        ",".join(scorer_fields),
+        ",".join(bodyparts_fields),
+        ",".join(coords_fields),
     )
-    rows = [",".join([str(int(row[0])), *(f"{value:.8f}" for value in row[1:])]) for row in data]
+    rows = [
+        ",".join([str(int(row[0])), *(f"{value:.8f}" for value in row[1:])])
+        for row in data
+    ]
     path.write_text("\n".join((*headers, *rows)) + "\n", encoding="utf-8")
 
 
@@ -260,7 +280,7 @@ def ensure_demo_data(
             "time,Accel_X,Accel_Y,Gyro_Z,Steering_Angle",
         ),
         (ephys, _write_ephys, 88, "ephys trace", "time,Electrode_1,TTL"),
-        (tracking, _write_tracking, 96, "tracking data", "scorer,DLC,DLC,DLC,DLC,DLC,DLC"),
+        (tracking, _write_tracking, 96, "tracking data", ",".join(["scorer"] + ["DLC"] * 20)),
     )
     for path, writer, value, label, header in generated_tables:
         if is_cancelled():

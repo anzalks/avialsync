@@ -22,12 +22,26 @@ def test_generated_pose_csv_is_importable_dlc_data(tmp_path: Path) -> None:
     assert [channel.name for channel in channels] == [
         "nose_x",
         "nose_y",
+        "nose_z",
         "nose_likelihood",
+        "head_x",
+        "head_y",
+        "head_z",
+        "head_likelihood",
+        "spine_x",
+        "spine_y",
+        "spine_z",
+        "spine_likelihood",
+        "hip_x",
+        "hip_y",
+        "hip_z",
+        "hip_likelihood",
         "tail_x",
         "tail_y",
+        "tail_z",
         "tail_likelihood",
     ]
-    times, values = next(loader.read_chunks("nose_x"))
+    times, values = next(loader.read_chunks("nose_z"))
     assert times[0] == 0.0
     assert times[-1] == 299 / 30
     assert len(times) == len(values) == 300
