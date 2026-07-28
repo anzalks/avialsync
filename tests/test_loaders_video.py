@@ -62,7 +62,7 @@ def test_video_standard_uses_presentation_order_frame_timestamps(monkeypatch) ->
     loader = VideoStandardLoader()
     loader._extract_frame_times(Path("presentation-order.mp4"))
 
-    assert "frame=best_effort_timestamp_time" in captured
+    assert "packet=pts_time" in captured
     assert loader.frame_times() is not None
     np.testing.assert_allclose(loader.frame_times(), [0.0, 0.05, 0.066667])
 

@@ -189,8 +189,13 @@ class Player(QObject):
                 self._pending_scrub_t = None
 
         if self.clock.state.playing and not self._is_scrubbing:
-            # Advance clock
-            self.clock.advance(now)
+            if not self.seeker.is_settled():
+                # Freeze the master clock while the video is seeking to prevent death spirals.
+                self.clock._last_monotonic = now
+            else:
+                # Advance clock
+                self.clock.advance(now)
+            
             t = self.clock.state.t
 
             # A/B loop enforcement
@@ -213,13 +218,30 @@ class Player(QObject):
                     source_t = pane.time_map.to_source(t)
                     drift = vid_t - source_t
 
-                    if abs(drift) > 0.040:
+                    if abs(drift) > 1.000:
+                        # Huge drift (e.g. delayed start), hard seek after brief hysteresis
                         self._drift_counts[idx] = self._drift_counts.get(idx, 0) + 1
                         if self._drift_counts[idx] > 5:
+                            print(f"DEBUG: Huge drift {drift*1000:.1f}ms, hard seeking!")
                             self.seeker.seek_pane(pane, source_t, exact=True)
                             self._drift_counts[idx] = 0
-                    else:
+                            pane._sync_correction = 1.0
+                            pane._apply_rate()
+                    elif abs(drift) > 0.050:
+                        # Moderate drift: Soft PLL speed correction
                         self._drift_counts[idx] = 0
+                        # If vid_t < source_t, drift is negative -> need to speed up
+                        correction = 1.0 - (drift * 0.5) 
+                        correction = max(0.8, min(1.2, correction))
+                        if abs(getattr(pane, "_sync_correction", 1.0) - correction) > 0.01:
+                            pane._sync_correction = correction
+                            pane._apply_rate()
+                    else:
+                        # In sync
+                        self._drift_counts[idx] = 0
+                        if getattr(pane, "_sync_correction", 1.0) != 1.0:
+                            pane._sync_correction = 1.0
+                            pane._apply_rate()
 
             # Update UI
             self._update_timeline_views(t)

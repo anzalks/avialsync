@@ -5,6 +5,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
 
@@ -134,11 +136,23 @@ class VideoGrid(QWidget):
         except ValueError:
             pass
 
-    def set_sync_mapping(self, path: str, offset: float, drift_ppm: float) -> None:
+    def set_sync_mapping(
+        self, 
+        path: str, 
+        offset: float, 
+        drift_ppm: float,
+        exact_master: np.ndarray | None = None,
+        exact_source: np.ndarray | None = None,
+    ) -> None:
         """Apply a user-accepted absolute synchronization mapping to one video."""
         try:
             idx = self._paths.index(path)
-            self.panes[idx].time_map.set_mapping(offset, drift_ppm)
+            pane = self.panes[idx]
+            pane.time_map.set_mapping(offset, drift_ppm)
+            if exact_master is not None and exact_source is not None:
+                pane.time_map.set_exact_mapping(exact_master, exact_source)
+            # Reassign to trigger property setter and re-apply libmpv speed
+            pane.time_map = pane.time_map
         except ValueError:
             pass
 

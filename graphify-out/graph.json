@@ -4742,7 +4742,7 @@
       "label": "._build_category_map()",
       "file_type": "code",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L88",
+      "source_location": "L94",
       "_origin": "ast"
     },
     {
@@ -4750,7 +4750,7 @@
       "label": ".get_selections()",
       "file_type": "code",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L105",
+      "source_location": "L111",
       "_origin": "ast"
     },
     {
@@ -4770,19 +4770,19 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_batch_import_dialog_rationale_89",
+      "id": "src_avialview_ui_batch_import_dialog_rationale_95",
       "label": "Map semantic labels to actual loader classes.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L89",
+      "source_location": "L95",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_batch_import_dialog_rationale_106",
+      "id": "src_avialview_ui_batch_import_dialog_rationale_112",
       "label": "Return the user-approved (Path, Loader) pairs.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L106",
+      "source_location": "L112",
       "_origin": "ast"
     },
     {
@@ -5054,7 +5054,7 @@
       "label": "._select_format()",
       "file_type": "code",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L291",
+      "source_location": "L296",
       "_origin": "ast"
     },
     {
@@ -5062,7 +5062,7 @@
       "label": "._on_format_changed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L306",
+      "source_location": "L311",
       "_origin": "ast"
     },
     {
@@ -5070,7 +5070,7 @@
       "label": "._on_separator_changed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L310",
+      "source_location": "L315",
       "_origin": "ast"
     },
     {
@@ -5078,7 +5078,7 @@
       "label": "._on_has_headers_toggled()",
       "file_type": "code",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L339",
+      "source_location": "L344",
       "_origin": "ast"
     },
     {
@@ -5086,7 +5086,7 @@
       "label": "._on_sentinel_changed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L343",
+      "source_location": "L348",
       "_origin": "ast"
     },
     {
@@ -5094,7 +5094,7 @@
       "label": "._validate_and_accept()",
       "file_type": "code",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L347",
+      "source_location": "L352",
       "_origin": "ast"
     },
     {
@@ -5102,7 +5102,7 @@
       "label": ".config()",
       "file_type": "code",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L363",
+      "source_location": "L368",
       "_origin": "ast"
     },
     {
@@ -5162,19 +5162,19 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_import_wizard_rationale_292",
+      "id": "src_avialview_ui_import_wizard_rationale_297",
       "label": "Select the matching format in the combo, or fall back to auto.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L292",
+      "source_location": "L297",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_import_wizard_rationale_364",
+      "id": "src_avialview_ui_import_wizard_rationale_369",
       "label": "Return the import configuration dict for the pipeline.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L364",
+      "source_location": "L369",
       "_origin": "ast"
     },
     {
@@ -7086,7 +7086,7 @@
       "label": "._on_item_changed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L136",
+      "source_location": "L135",
       "_origin": "ast"
     },
     {
@@ -7102,7 +7102,7 @@
       "label": "._on_channel_remove()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L142",
+      "source_location": "L141",
       "_origin": "ast"
     },
     {
@@ -7110,7 +7110,7 @@
       "label": ".set_inspection()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L149",
+      "source_location": "L148",
       "_origin": "ast"
     },
     {
@@ -7118,7 +7118,7 @@
       "label": "_make_empty_inspection()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L162",
+      "source_location": "L161",
       "_origin": "ast"
     },
     {
@@ -7126,7 +7126,7 @@
       "label": "VideoInfoWidget",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L168",
+      "source_location": "L167",
       "_origin": "ast"
     },
     {
@@ -7134,7 +7134,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L176",
+      "source_location": "L175",
       "_origin": "ast"
     },
     {
@@ -7142,7 +7142,7 @@
       "label": "._on_offset_changed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L247",
+      "source_location": "L246",
       "_origin": "ast"
     },
     {
@@ -7150,7 +7150,7 @@
       "label": ".set_loader()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L250",
+      "source_location": "L249",
       "_origin": "ast"
     },
     {
@@ -7158,7 +7158,7 @@
       "label": ".set_pane()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L260",
+      "source_location": "L259",
       "_origin": "ast"
     },
     {
@@ -7166,7 +7166,7 @@
       "label": ".set_inspection()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L264",
+      "source_location": "L263",
       "_origin": "ast"
     },
     {
@@ -7174,7 +7174,7 @@
       "label": "SidebarPane",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L275",
+      "source_location": "L274",
       "_origin": "ast"
     },
     {
@@ -7182,7 +7182,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L292",
+      "source_location": "L291",
       "_origin": "ast"
     },
     {
@@ -7190,7 +7190,7 @@
       "label": ".add_video()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L347",
+      "source_location": "L346",
       "_origin": "ast"
     },
     {
@@ -7198,7 +7198,7 @@
       "label": ".remove_video()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L361",
+      "source_location": "L360",
       "_origin": "ast"
     },
     {
@@ -7206,7 +7206,7 @@
       "label": ".add_sensor()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L368",
+      "source_location": "L367",
       "_origin": "ast"
     },
     {
@@ -7214,7 +7214,7 @@
       "label": ".remove_sensor()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L386",
+      "source_location": "L385",
       "_origin": "ast"
     },
     {
@@ -7222,7 +7222,7 @@
       "label": ".set_video_loader()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L399",
+      "source_location": "L398",
       "_origin": "ast"
     },
     {
@@ -7230,7 +7230,7 @@
       "label": ".set_video_pane()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L405",
+      "source_location": "L404",
       "_origin": "ast"
     },
     {
@@ -7238,7 +7238,7 @@
       "label": ".set_video_inspection()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L411",
+      "source_location": "L410",
       "_origin": "ast"
     },
     {
@@ -7246,7 +7246,7 @@
       "label": ".set_sensor_inspection()",
       "file_type": "code",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L417",
+      "source_location": "L416",
       "_origin": "ast"
     },
     {
@@ -7266,115 +7266,115 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_150",
+      "id": "src_avialview_ui_sidebar_rationale_149",
       "label": "Update badge and properties panel from a SourceInspection.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L150",
+      "source_location": "L149",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_169",
+      "id": "src_avialview_ui_sidebar_rationale_168",
       "label": "Displays metadata and controls for a single loaded video.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L169",
+      "source_location": "L168",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_251",
+      "id": "src_avialview_ui_sidebar_rationale_250",
       "label": "Attach the VideoStandardLoader for metadata display.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L251",
+      "source_location": "L250",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_261",
+      "id": "src_avialview_ui_sidebar_rationale_260",
       "label": "Attach the VideoPane for live mpv property reads.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L261",
+      "source_location": "L260",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_265",
+      "id": "src_avialview_ui_sidebar_rationale_264",
       "label": "Show badge if integrity flags are set.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L265",
+      "source_location": "L264",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_276",
+      "id": "src_avialview_ui_sidebar_rationale_275",
       "label": "The left sidebar for file management and metadata.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L276",
+      "source_location": "L275",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_348",
+      "id": "src_avialview_ui_sidebar_rationale_347",
       "label": "Add a video info widget to the sidebar.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L348",
+      "source_location": "L347",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_362",
+      "id": "src_avialview_ui_sidebar_rationale_361",
       "label": "Remove a video info widget.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L362",
+      "source_location": "L361",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_369",
+      "id": "src_avialview_ui_sidebar_rationale_368",
       "label": "Add a sensor info widget to the sidebar.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L369",
+      "source_location": "L368",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_387",
+      "id": "src_avialview_ui_sidebar_rationale_386",
       "label": "Remove a sensor info widget.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L387",
+      "source_location": "L386",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_400",
+      "id": "src_avialview_ui_sidebar_rationale_399",
       "label": "Forward loader reference to VideoInfoWidget for properties panel.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L400",
+      "source_location": "L399",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_406",
+      "id": "src_avialview_ui_sidebar_rationale_405",
       "label": "Forward VideoPane reference to VideoInfoWidget for live mpv reads.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L406",
+      "source_location": "L405",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_412",
+      "id": "src_avialview_ui_sidebar_rationale_411",
       "label": "Forward SourceInspection to the VideoInfoWidget badge.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L412",
+      "source_location": "L411",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_sidebar_rationale_418",
+      "id": "src_avialview_ui_sidebar_rationale_417",
       "label": "Forward SourceInspection to the SensorInfoWidget badge + panel.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L418",
+      "source_location": "L417",
       "_origin": "ast"
     },
     {
@@ -28635,7 +28635,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L88",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -28645,7 +28645,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L105",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -28656,7 +28656,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L105",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -28667,7 +28667,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L105",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -28678,7 +28678,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L105",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -28689,7 +28689,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L47",
+      "source_location": "L53",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -28714,22 +28714,22 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_batch_import_dialog_rationale_89",
+      "source": "src_avialview_ui_batch_import_dialog_rationale_95",
       "target": "src_avialview_ui_batch_import_dialog_batchimportdialog_build_category_map",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L89",
+      "source_location": "L95",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_batch_import_dialog_rationale_106",
+      "source": "src_avialview_ui_batch_import_dialog_rationale_112",
       "target": "src_avialview_ui_batch_import_dialog_batchimportdialog_get_selections",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L106",
+      "source_location": "L112",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29284,7 +29284,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L291",
+      "source_location": "L296",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29294,7 +29294,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L306",
+      "source_location": "L311",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29304,7 +29304,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L310",
+      "source_location": "L315",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29314,7 +29314,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L339",
+      "source_location": "L344",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29324,7 +29324,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L343",
+      "source_location": "L348",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29334,7 +29334,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L347",
+      "source_location": "L352",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29344,7 +29344,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L363",
+      "source_location": "L368",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29355,7 +29355,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L363",
+      "source_location": "L368",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29410,7 +29410,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L230",
+      "source_location": "L232",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_import_wizard_importwizard_init",
+      "target": "src_avialview_ui_import_wizard_importwizard_on_separator_changed",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/import_wizard.py",
+      "source_location": "L294",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29421,7 +29432,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L336",
+      "source_location": "L341",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29432,7 +29443,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L341",
+      "source_location": "L346",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -29497,22 +29508,22 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_import_wizard_rationale_292",
+      "source": "src_avialview_ui_import_wizard_rationale_297",
       "target": "src_avialview_ui_import_wizard_importwizard_select_format",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L292",
+      "source_location": "L297",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_import_wizard_rationale_364",
+      "source": "src_avialview_ui_import_wizard_rationale_369",
       "target": "src_avialview_ui_import_wizard_importwizard_config",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L364",
+      "source_location": "L369",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33713,7 +33724,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L136",
+      "source_location": "L135",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33724,7 +33735,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L136",
+      "source_location": "L135",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33734,7 +33745,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L142",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33744,7 +33755,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L149",
+      "source_location": "L148",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33754,7 +33765,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L162",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33764,7 +33775,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L168",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33774,7 +33785,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L168",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33784,7 +33795,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L176",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33795,7 +33806,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L176",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33805,7 +33816,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L247",
+      "source_location": "L246",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33815,7 +33826,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L250",
+      "source_location": "L249",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33825,7 +33836,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L260",
+      "source_location": "L259",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33835,7 +33846,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L264",
+      "source_location": "L263",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33845,7 +33856,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L275",
+      "source_location": "L274",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33855,7 +33866,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L275",
+      "source_location": "L274",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33865,7 +33876,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L292",
+      "source_location": "L291",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33876,7 +33887,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L292",
+      "source_location": "L291",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33886,7 +33897,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L347",
+      "source_location": "L346",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33896,7 +33907,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L361",
+      "source_location": "L360",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33906,7 +33917,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L368",
+      "source_location": "L367",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33916,7 +33927,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L386",
+      "source_location": "L385",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33926,7 +33937,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L399",
+      "source_location": "L398",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33936,7 +33947,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L405",
+      "source_location": "L404",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33946,7 +33957,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L411",
+      "source_location": "L410",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -33956,7 +33967,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L417",
+      "source_location": "L416",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34000,7 +34011,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L133",
+      "source_location": "L132",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34011,7 +34022,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L177",
+      "source_location": "L176",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34022,7 +34033,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L303",
+      "source_location": "L302",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34033,7 +34044,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L352",
+      "source_location": "L351",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34044,7 +34055,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L378",
+      "source_location": "L377",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34055,7 +34066,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L391",
+      "source_location": "L390",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34066,7 +34077,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L403",
+      "source_location": "L402",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34077,7 +34088,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L409",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34088,7 +34099,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L415",
+      "source_location": "L414",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34099,7 +34110,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L421",
+      "source_location": "L420",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34110,7 +34121,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L422",
+      "source_location": "L421",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -34135,142 +34146,142 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_150",
+      "source": "src_avialview_ui_sidebar_rationale_149",
       "target": "src_avialview_ui_sidebar_sensorinfowidget_set_inspection",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L150",
+      "source_location": "L149",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_169",
+      "source": "src_avialview_ui_sidebar_rationale_168",
       "target": "src_avialview_ui_sidebar_videoinfowidget",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L169",
+      "source_location": "L168",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_251",
+      "source": "src_avialview_ui_sidebar_rationale_250",
       "target": "src_avialview_ui_sidebar_videoinfowidget_set_loader",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L251",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_261",
+      "source": "src_avialview_ui_sidebar_rationale_260",
       "target": "src_avialview_ui_sidebar_videoinfowidget_set_pane",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L261",
+      "source_location": "L260",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_265",
+      "source": "src_avialview_ui_sidebar_rationale_264",
       "target": "src_avialview_ui_sidebar_videoinfowidget_set_inspection",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L265",
+      "source_location": "L264",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_276",
+      "source": "src_avialview_ui_sidebar_rationale_275",
       "target": "src_avialview_ui_sidebar_sidebarpane",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L276",
+      "source_location": "L275",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_348",
+      "source": "src_avialview_ui_sidebar_rationale_347",
       "target": "src_avialview_ui_sidebar_sidebarpane_add_video",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L348",
+      "source_location": "L347",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_362",
+      "source": "src_avialview_ui_sidebar_rationale_361",
       "target": "src_avialview_ui_sidebar_sidebarpane_remove_video",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L362",
+      "source_location": "L361",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_369",
+      "source": "src_avialview_ui_sidebar_rationale_368",
       "target": "src_avialview_ui_sidebar_sidebarpane_add_sensor",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L369",
+      "source_location": "L368",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_387",
+      "source": "src_avialview_ui_sidebar_rationale_386",
       "target": "src_avialview_ui_sidebar_sidebarpane_remove_sensor",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L387",
+      "source_location": "L386",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_400",
+      "source": "src_avialview_ui_sidebar_rationale_399",
       "target": "src_avialview_ui_sidebar_sidebarpane_set_video_loader",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L400",
+      "source_location": "L399",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_406",
+      "source": "src_avialview_ui_sidebar_rationale_405",
       "target": "src_avialview_ui_sidebar_sidebarpane_set_video_pane",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L406",
+      "source_location": "L405",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_412",
+      "source": "src_avialview_ui_sidebar_rationale_411",
       "target": "src_avialview_ui_sidebar_sidebarpane_set_video_inspection",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L412",
+      "source_location": "L411",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_sidebar_rationale_418",
+      "source": "src_avialview_ui_sidebar_rationale_417",
       "target": "src_avialview_ui_sidebar_sidebarpane_set_sensor_inspection",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L418",
+      "source_location": "L417",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -55908,7 +55919,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L131",
+      "source_location": "L130",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -55919,7 +55930,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L163",
+      "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -55930,7 +55941,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L241",
+      "source_location": "L240",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -56293,7 +56304,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L165",
+      "source_location": "L164",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -57589,7 +57600,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L131",
+      "source_location": "L130",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -57599,7 +57610,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L131",
+      "source_location": "L130",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -57609,7 +57620,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L131",
+      "source_location": "L130",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -57619,7 +57630,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L163",
+      "source_location": "L162",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -57629,7 +57640,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L163",
+      "source_location": "L162",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -57639,7 +57650,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L163",
+      "source_location": "L162",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -57649,7 +57660,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L241",
+      "source_location": "L240",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -57659,7 +57670,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L241",
+      "source_location": "L240",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -57669,7 +57680,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L241",
+      "source_location": "L240",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -58613,7 +58624,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L46",
+      "source_location": "L52",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -58625,7 +58636,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/batch_import_dialog.py",
-      "source_location": "L62",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -58649,7 +58660,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/import_wizard.py",
-      "source_location": "L330",
+      "source_location": "L335",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -59597,7 +59608,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L133",
+      "source_location": "L132",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -59609,7 +59620,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L152",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -59621,7 +59632,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L196",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -59633,7 +59644,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L243",
+      "source_location": "L242",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -59645,7 +59656,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L257",
+      "source_location": "L256",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -59657,7 +59668,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L267",
+      "source_location": "L266",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -59669,7 +59680,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L322",
+      "source_location": "L321",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -59681,7 +59692,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/sidebar.py",
-      "source_location": "L397",
+      "source_location": "L396",
       "weight": 1.0,
       "_origin": "ast"
     },

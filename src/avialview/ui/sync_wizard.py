@@ -15,8 +15,10 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
+    QCheckBox,
 )
 
 from avialview.core.sync import SyncFit, SyncProposal
@@ -62,6 +64,29 @@ class SyncWizard(QDialog):
         self._threshold.setValue(0.5)
         self._threshold.setToolTip("Logical high threshold for a signal-channel TTL reference")
         form.addRow("TTL high threshold:", self._threshold)
+        
+        self._use_all_times_chk = QCheckBox("Use all samples as events (ignore threshold)")
+        self._use_all_times_chk.setToolTip(
+            "Check this if your reference data is just a list of event timestamps (like a CSV of frame triggers) rather than a continuous voltage signal."
+        )
+        self._use_all_times_chk.toggled.connect(lambda checked: self._threshold.setEnabled(not checked))
+        form.addRow("", self._use_all_times_chk)
+        
+        self._strategy_combo = QComboBox(self)
+        self._strategy_combo.addItem("Affine Fit (Drift Compensation)", "affine")
+        self._strategy_combo.addItem("Exact Index (1:1 Frame Mapping)", "exact_index")
+        form.addRow("Alignment Strategy:", self._strategy_combo)
+        
+        self._index_offset = QSpinBox(self)
+        self._index_offset.setRange(-1000000, 1000000)
+        self._index_offset.setValue(0)
+        self._index_offset.setToolTip("Video Frame 0 maps to CSV Index N. Default is 0.")
+        self._index_offset.setEnabled(False)
+        self._strategy_combo.currentIndexChanged.connect(
+            lambda: self._index_offset.setEnabled(self._strategy_combo.currentData() == "exact_index")
+        )
+        form.addRow("Index Offset:", self._index_offset)
+        
         self._manual_offset = QDoubleSpinBox(self)
         self._manual_offset.setRange(-1e9, 1e9)
         self._manual_offset.setDecimals(6)
@@ -110,14 +135,20 @@ class SyncWizard(QDialog):
         reference = self._references[self._reference_combo.currentIndex()]
         target = self._targets[self._target_combo.currentIndex()]
         if isinstance(reference, SignalEvidenceSpec):
-            reference = dataclasses.replace(reference, threshold=self._threshold.value())
+            reference = dataclasses.replace(
+                reference, 
+                threshold=self._threshold.value(),
+                use_all_times=self._use_all_times_chk.isChecked(),
+            )
         self._proposal = None
         self._preview_button.setEnabled(False)
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         self._summary.setText("Extracting event evidence and fitting alignment…")
 
         self._thread = QThread(self)
-        self._worker = SyncWorker(reference, target)
+        mode = self._strategy_combo.currentData()
+        index_offset = self._index_offset.value()
+        self._worker = SyncWorker(reference, target, mode=mode, index_offset=index_offset)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.finished.connect(self._on_finished)
@@ -143,6 +174,7 @@ class SyncWizard(QDialog):
             ),
             matches=(),
             tolerance=0.0,
+            unmatched_references=(),
         )
         self._summary.setText("Manual mapping selected. Accept it to apply and persist it.")
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)

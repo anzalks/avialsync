@@ -109,10 +109,10 @@ class VideoStandardLoader(VideoSource):
             "-select_streams",
             "v:0",
             "-show_entries",
-            # Packet order follows decode order for codecs with B-frames.  Frame
-            # timestamps are presentation-order timestamps, which are the only
-            # timestamps suitable for stepping and VFR detection.
-            "frame=best_effort_timestamp_time",
+            # Packet order follows decode order for codecs with B-frames.
+            # We extract packet PTS which is much faster than decoding frame metadata,
+            # and sort the resulting array to recover the presentation-order timestamps.
+            "packet=pts_time",
             "-of",
             "csv=p=0",
             str(path),
@@ -128,9 +128,15 @@ class VideoStandardLoader(VideoSource):
                     except ValueError:
                         pass
             if times:
-                self._frame_times = np.array(times)
-        except Exception:
+                self._frame_times = np.sort(np.array(times))
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to extract frame times: %s", e)
             self._frame_times = None
+            
+        if self._frame_times is None or len(self._frame_times) == 0:
+            import logging
+            logging.getLogger(__name__).warning("Frame times empty or extraction failed for %s", path)
 
     def needs_conversion(self) -> bool:
         return False

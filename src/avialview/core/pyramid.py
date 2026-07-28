@@ -29,10 +29,17 @@ def _nan_envelope(
         return np.nanmin(values_min, axis=axis), np.nanmax(values_max, axis=axis)
 
 
+def _safe_save(path: Path, arr: np.ndarray) -> None:
+    """Save array to disk using memmap to bypass NumPy's C-level fwrite EINTR bug on macOS."""
+    mm = np.lib.format.open_memmap(path, mode='w+', dtype=arr.dtype, shape=arr.shape)
+    mm[:] = arr[:]
+    mm.flush()
+    # Memory map is automatically closed when mm goes out of scope
+
 def _save_arrays(arrays: list[tuple[Path, np.ndarray]]) -> None:
     """Persist independent sidecar arrays with bounded storage concurrency."""
     with ThreadPoolExecutor(max_workers=_SAVE_WORKERS) as pool:
-        futures = [pool.submit(np.save, path, values) for path, values in arrays]
+        futures = [pool.submit(_safe_save, path, values) for path, values in arrays]
         for future in futures:
             future.result()
 

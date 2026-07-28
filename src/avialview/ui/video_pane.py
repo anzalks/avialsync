@@ -476,8 +476,32 @@ class VideoPane(QWidget):
 
     def set_rate(self, rate: float) -> None:
         """Set playback rate."""
+        self._current_rate = rate
+        self._apply_rate()
+
+    def _apply_rate(self) -> None:
         if self.mpv:
-            self.mpv.speed = rate
+            slope = 1.0
+            if getattr(self, "time_map", None) is not None:
+                exact_m = getattr(self.time_map, "_exact_master", None)
+                exact_s = getattr(self.time_map, "_exact_source", None)
+                if exact_m is not None and exact_s is not None and len(exact_m) >= 2:
+                    # For exact (VFR) mapping, use the overall average slope
+                    # to keep the video player roughly in sync without constant seeking.
+                    slope = (exact_s[-1] - exact_s[0]) / (exact_m[-1] - exact_m[0])
+                else:
+                    slope = 1.0 + (self.time_map.drift_ppm * 1e-6)
+            correction = getattr(self, "_sync_correction", 1.0)
+            self.mpv.speed = getattr(self, "_current_rate", 1.0) * slope * correction
+
+    @property
+    def time_map(self):
+        return self._time_map
+
+    @time_map.setter
+    def time_map(self, new_map):
+        self._time_map = new_map
+        self._apply_rate()
 
     @Slot()
     def _on_file_loaded(self) -> None:

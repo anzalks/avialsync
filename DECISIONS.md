@@ -767,3 +767,13 @@ No skeleton edges are inferred from point names because doing so would invent sc
 Explicit topology can be added later through versioned plugin/configuration metadata. PyOpenGL and
 GPU-specific scene libraries were rejected here: the bounded QPainter projection is portable,
 adds no dependency, follows the active palette, and is substantially below the cursor budget.
+
+## 2026-07 · D-041 · TimeMap exact piecewise interpolation
+
+**Context:** The application previously strictly enforced a single affine (`offset` + `drift_ppm`) mapping for all sources. While mathematically sound for slightly-drifting clocks, this cannot correctly map dropped frames (gaps) from a Variable Frame Rate (VFR) container back to a continuous hardware trigger sequence (e.g. CSV frame timestamps). An affine mapping causes progressive visual drift during playback and seeking when frames are dropped.
+
+**Decision:** `TimeMap` accepts an optional `_exact_master` and `_exact_source` interpolation array pair. When present, `to_source` and `to_master` evaluate the exact timestamp mapping via `numpy.interp`, entirely overriding the affine fallback.
+
+**Alternatives rejected:** Passing a custom TimeMap subclass (violates static type expectations and UI decoupling); rewriting the media container's timestamps on disk using ffmpeg (modifies user data, slow); generating a temporary mpv `--tcfile` (causes OSD and internal app state to misalign with true frame timestamps).
+
+**Consequences:** `SyncWizard` provides an "Exact Index (1:1 Frame Mapping)" mode. If chosen, `SyncWorker` maps the reference index to the video index (with a user-supplied offset) 1-to-1. Video playback natively pauses on missing frames exactly when the CSV indicates a gap, preserving 0 drift across the entire timeline regardless of container defects.

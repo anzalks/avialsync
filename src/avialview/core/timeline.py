@@ -3,6 +3,8 @@
 import dataclasses
 from collections.abc import Callable
 
+import numpy as np
+
 
 @dataclasses.dataclass(frozen=True)
 class PlaybackState:
@@ -116,6 +118,8 @@ class TimeMap:
         self._drift_ppm: float = float(drift_ppm)
         self._t_ref: float = 0.0
         self._base_offset: float = self._offset  # The effective offset at t_ref
+        self._exact_master: np.ndarray | None = None
+        self._exact_source: np.ndarray | None = None
 
     @property
     def offset(self) -> float:
@@ -125,17 +129,29 @@ class TimeMap:
     def offset(self, value: float) -> None:
         self._offset = float(value)
         self._base_offset = float(value)  # reset drift anchor too
+        self._exact_master = None
+        self._exact_source = None
 
     @property
     def drift_ppm(self) -> float:
         return self._drift_ppm
+        
+    @drift_ppm.setter
+    def drift_ppm(self, value: float) -> None:
+        self._drift_ppm = float(value)
 
     def to_source(self, t_master: float) -> float:
         t_master = float(t_master)
+        if self._exact_master is not None and self._exact_source is not None:
+            import numpy as np
+            return float(np.interp(t_master, self._exact_master, self._exact_source))
         return t_master + self._base_offset + (self._drift_ppm * 1e-6) * (t_master - self._t_ref)
 
     def to_master(self, t_source: float) -> float:
         t_source = float(t_source)
+        if self._exact_master is not None and self._exact_source is not None:
+            import numpy as np
+            return float(np.interp(t_source, self._exact_source, self._exact_master))
         # to_source: ts = tm + offset + drift*(tm - t_ref)
         # ts = tm*(1 + drift) + offset - drift*t_ref
         # tm*(1 + drift) = ts - offset + drift*t_ref
@@ -177,3 +193,13 @@ class TimeMap:
         self._base_offset = float(offset)
         self._drift_ppm = float(drift_ppm)
         self._t_ref = float(t_ref)
+        self._exact_master = None
+        self._exact_source = None
+
+    def set_exact_mapping(self, master_times: np.ndarray, source_times: np.ndarray) -> None:
+        """Set a piecewise interpolation array for exact non-affine mapping.
+        
+        This overrides offset/drift parameters during to_source and to_master evaluations.
+        """
+        self._exact_master = np.asarray(master_times, dtype=np.float64)
+        self._exact_source = np.asarray(source_times, dtype=np.float64)

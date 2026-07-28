@@ -46,6 +46,20 @@ class SyncFit:
 
 
 @dataclass(frozen=True)
+class ExactSyncFit(SyncFit):
+    """Piecewise exact target-time fit that honors nonlinear gaps/drops."""
+
+    exact_master: np.ndarray | None = None
+    exact_source: np.ndarray | None = None
+
+    def to_time_map(self) -> TimeMap:
+        tm = super().to_time_map()
+        if self.exact_master is not None and self.exact_source is not None:
+            tm.set_exact_mapping(self.exact_master, self.exact_source)
+        return tm
+
+
+@dataclass(frozen=True)
 class SyncMatch:
     """A matched reference and target event, preserving both raw timestamps."""
 
@@ -63,6 +77,7 @@ class SyncProposal:
     fit: SyncFit
     matches: tuple[SyncMatch, ...]
     tolerance: float
+    unmatched_references: tuple[float, ...] = ()
 
     @property
     def acceptable(self) -> bool:
@@ -125,6 +140,65 @@ def extract_ttl_edges(
             previous_time = float(time)
 
     return tuple(events)
+
+def fit_exact_index_mapping(
+    reference_times: np.ndarray,
+    target_times: np.ndarray,
+    *,
+    reference_id: str,
+    target_id: str,
+    index_offset: int = 0,
+) -> SyncProposal:
+    """Create a deterministic exact index mapping, overriding affine limits.
+    
+    Frames are paired exactly 1-to-1 based on index_offset.
+    """
+    reference = _validated_times(reference_times, "reference")
+    target = _validated_times(target_times, "target")
+    
+    if reference_id == target_id:
+        raise SyncEvidenceError("Reference and target synchronization sources must differ.")
+        
+    if index_offset < 0:
+        target = target[-index_offset:]
+    elif index_offset > 0:
+        reference = reference[index_offset:]
+        
+    length = min(len(reference), len(target))
+    if length < 2:
+        raise SyncEvidenceError("Not enough overlapping frames for an exact index mapping.")
+        
+    matched_ref = reference[:length]
+    matched_tgt = target[:length]
+    
+    matches = tuple(
+        SyncMatch(ref, tgt, 0.0) 
+        for ref, tgt in zip(matched_ref, matched_tgt, strict=False)
+    )
+    
+    fit = ExactSyncFit(
+        offset=0.0,
+        drift_ppm=0.0,
+        rms_residual=0.0,
+        max_residual=0.0,
+        matched_count=length,
+        rejected_count=len(reference_times) + len(target_times) - 2 * length,
+        exact_master=matched_ref,
+        exact_source=matched_tgt,
+    )
+    
+    matched_ref_set = set(matched_ref)
+    unmatched_references = tuple(float(t) for t in reference if t not in matched_ref_set)
+    
+    return SyncProposal(
+        reference_id=reference_id,
+        target_id=target_id,
+        fit=fit,
+        matches=matches,
+        tolerance=np.inf,
+        unmatched_references=unmatched_references,
+    )
+
 
 
 def fit_sync_events(
@@ -199,7 +273,9 @@ def fit_sync_events(
         matched_count=len(matches),
         rejected_count=len(reference) + len(target) - 2 * len(matches),
     )
-    return SyncProposal(reference_id, target_id, fit, matches, float(tolerance))
+    matched_indices = set(best_pairs[:, 0])
+    unmatched_references = tuple(float(reference[i]) for i in range(len(reference)) if i not in matched_indices)
+    return SyncProposal(reference_id, target_id, fit, matches, float(tolerance), unmatched_references)
 
 
 def _validated_times(times: np.ndarray, name: str) -> np.ndarray:

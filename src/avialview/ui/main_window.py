@@ -6,6 +6,8 @@ from collections import deque
 from pathlib import Path
 from typing import Any, cast
 
+import numpy as np
+
 from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
@@ -794,7 +796,7 @@ class MainWindow(QMainWindow):
                 elif issubclass(loader_cls, TimeSeriesSource):
                     self._start_data_import(path, loader_cls)
 
-    def _collect_drop_candidates(self, path: Path) -> list[tuple[Path, type | None]]:
+    def _collect_drop_candidates(self, path: Path, registry: Any = None) -> list[tuple[Path, type | None]]:
         """Collect paths and their best-guess loaders recursively, avoiding session files."""
         if path.suffix.lower() == ".avv":
             try:
@@ -803,9 +805,11 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Session Error", str(error))
             return []
 
-        from avialview.core.registry import LoaderRegistry
+        if registry is None:
+            from avialview.core.registry import LoaderRegistry
+            registry = LoaderRegistry()
 
-        loader_class = LoaderRegistry().find_best_loader(path)
+        loader_class = registry.find_best_loader(path)
         
         if loader_class is not None:
             return [(path, loader_class)]
@@ -814,10 +818,10 @@ class MainWindow(QMainWindow):
         if path.is_dir():
             session_files = list(path.glob("*.avv"))
             if session_files:
-                return self._collect_drop_candidates(session_files[0])
+                return self._collect_drop_candidates(session_files[0], registry=registry)
             for child in path.iterdir():
                 if not child.name.startswith("."):
-                    candidates.extend(self._collect_drop_candidates(child))
+                    candidates.extend(self._collect_drop_candidates(child, registry=registry))
         else:
             candidates.append((path, None))
             
@@ -1417,13 +1421,18 @@ class MainWindow(QMainWindow):
         source_bounds: tuple[float, float],
         offset: float,
         drift_ppm: float,
+        exact_master: np.ndarray | None = None,
+        exact_source: np.ndarray | None = None,
     ) -> None:
         """Project media bounds through its TimeMap before drawing master-time coverage."""
-        mapping = TimeMap(offset, drift_ppm)
-        master_bounds = (
-            mapping.to_master(source_bounds[0]),
-            mapping.to_master(source_bounds[1]),
-        )
+        if exact_master is not None and exact_source is not None and len(exact_master) >= 2:
+            master_bounds = (float(exact_master[0]), float(exact_master[-1]))
+        else:
+            mapping = TimeMap(offset, drift_ppm)
+            master_bounds = (
+                mapping.to_master(source_bounds[0]),
+                mapping.to_master(source_bounds[1]),
+            )
         self._video_source_bounds[path] = source_bounds
         self._video_time_mappings[path] = (offset, drift_ppm)
         self._update_bounds(*master_bounds)
@@ -1519,7 +1528,7 @@ class MainWindow(QMainWindow):
 
         references = [
             SignalEvidenceSpec(
-                source_id=f"{channel.reader.cache_dir}:{channel.reader.channel_id}",
+                source_id=f"{channel.reader.cache_dir.name.removesuffix('.avialcache')} : {channel.reader.channel_id}",
                 cache_dir=channel.reader.cache_dir,
                 channel_id=channel.reader.channel_id,
             )
@@ -1552,13 +1561,21 @@ class MainWindow(QMainWindow):
             raise ValueError(f"Synchronization target is not a loaded video: {target_path}")
 
         fit = proposal.fit
-        self.video_grid.set_sync_mapping(target_path, fit.offset, fit.drift_ppm)
+        
+        exact_master = getattr(fit, "exact_master", None)
+        exact_source = getattr(fit, "exact_source", None)
+
+        self.video_grid.set_sync_mapping(
+            target_path, fit.offset, fit.drift_ppm, exact_master, exact_source
+        )
         if target_path in self._video_source_bounds:
             self._set_video_coverage(
                 target_path,
                 self._video_source_bounds[target_path],
                 fit.offset,
                 fit.drift_ppm,
+                exact_master,
+                exact_source,
             )
         provenance = SyncProvenance(
             reference_id=proposal.reference_id,
@@ -1595,6 +1612,14 @@ class MainWindow(QMainWindow):
                 for match in proposal.matches
             ]
         )
+        
+        # Merge missing video frames into the global overview gaps dictionary
+        self._overview_gaps.update({
+            time: "Missing video frame"
+            for time in getattr(proposal, "unmatched_references", ())
+        })
+        self.transport.set_gap_events(sorted(self._overview_gaps.items()))
+        
         self.statusBar().showMessage(
             f"Accepted TTL/event alignment for {Path(target_path).name}: "
             f"{fit.max_residual * 1000:.3f} ms maximum residual.",

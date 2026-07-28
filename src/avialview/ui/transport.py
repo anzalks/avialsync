@@ -40,7 +40,7 @@ class TimelineOverview(QWidget):
 
     seek_requested = Signal(float)
     evidence_changed = Signal()
-    _LABEL_WIDTH = 168
+    _LABEL_WIDTH = 220
     _MIN_LANE_HEIGHT = 18
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -320,7 +320,7 @@ class TimelineEvidence(QWidget):
         header.addWidget(self.reset_zoom_button)
         self._status_label = QLabel(self)
         self._status_label.setAccessibleName("Application status")
-        self._status_label.setMinimumWidth(180)
+        self._status_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._status_label.setToolTip("Non-blocking application status")
         self._status_label.hide()

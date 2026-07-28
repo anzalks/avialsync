@@ -183,6 +183,27 @@ class NeoLoader(TimeSeriesSource):
                     )
                     self._channel_map[unique_name] = (seg_idx, asig_idx, ch_idx)
 
+        self._event_map = {}
+        for seg_idx, segment in enumerate(self._block.segments):
+            for ev_idx, event in enumerate(segment.events):
+                ch_names = event.name
+                if isinstance(ch_names, str) and ch_names:
+                    ch_names = [f"Evt-{ch_names}"]
+                else:
+                    ch_names = [f"Event_{seg_idx}_{ev_idx}"]
+
+                for ch_name in ch_names:
+                    unique_name = str(ch_name)
+                    counter = 1
+                    while unique_name in self._channel_map or unique_name in self._event_map:
+                        unique_name = f"{ch_name}_{counter}"
+                        counter += 1
+
+                    self._schema_channels.append(
+                        ChannelInfo(name=unique_name, unit="TTL", dtype="float32", rate_hz=30000.0)
+                    )
+                    self._event_map[unique_name] = (seg_idx, ev_idx)
+
         if t_start == float("inf"):
             t_start, t_stop = 0.0, 0.0
 
@@ -190,27 +211,61 @@ class NeoLoader(TimeSeriesSource):
         return self._schema_channels
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
-        if self._block is None or ch not in self._channel_map:
+        if self._block is None:
             raise RuntimeError(f"Cannot read channel {ch}")
 
-        seg_idx, asig_idx, ch_idx = self._channel_map[ch]
-        asig = self._block.segments[seg_idx].analogsignals[asig_idx]
+        if ch in self._channel_map:
+            seg_idx, asig_idx, ch_idx = self._channel_map[ch]
+            asig = self._block.segments[seg_idx].analogsignals[asig_idx]
 
-        batch_size = 100000
-        length = asig.shape[0]
-        sr = float(asig.sampling_rate.magnitude)
-        start_time = float(asig.t_start.magnitude)
+            batch_size = 100000
+            length = asig.shape[0]
+            sr = float(asig.sampling_rate.magnitude)
+            start_time = float(asig.t_start.magnitude)
 
-        # Extract the specific column for this channel as a standard numpy array
-        # to strip neo's Quantity wrapper which can cause issues with downstream math.
-        # We also .ravel() it to flatten the (N, 1) shape returned by AnalogSignal indexing to (N,)
-        data = np.asarray(asig[:, ch_idx].magnitude).ravel()
+            data = np.asarray(asig[:, ch_idx].magnitude).ravel()
 
-        for i in range(0, length, batch_size):
-            end_idx = min(i + batch_size, length)
-            chunk_data = data[i:end_idx]
+            for i in range(0, length, batch_size):
+                end_idx = min(i + batch_size, length)
+                chunk_data = data[i:end_idx]
+                t_chunk = start_time + (np.arange(i, end_idx) / sr)
+                yield t_chunk, chunk_data
 
-            # Generate deterministic time chunk
-            t_chunk = start_time + (np.arange(i, end_idx) / sr)
+        elif ch in self._event_map:
+            seg_idx, ev_idx = self._event_map[ch]
+            event = self._block.segments[seg_idx].events[ev_idx]
+            ev_times = np.asarray(event.times.magnitude, dtype=np.float64)
 
-            yield t_chunk, chunk_data
+            # Determine bounds and rate from analogous signals or fallback
+            sr = 30000.0
+            start_time = 0.0
+            length = 0
+            if self._block.segments[seg_idx].analogsignals:
+                asig = self._block.segments[seg_idx].analogsignals[0]
+                sr = float(asig.sampling_rate.magnitude)
+                start_time = float(asig.t_start.magnitude)
+                length = asig.shape[0]
+            else:
+                start_time = float(np.min(ev_times)) if len(ev_times) > 0 else 0.0
+                end_time = float(np.max(ev_times)) if len(ev_times) > 0 else 1.0
+                length = int((end_time - start_time) * sr) + 1
+
+            batch_size = 100000
+            for i in range(0, length, batch_size):
+                end_idx = min(i + batch_size, length)
+                t_chunk = start_time + (np.arange(i, end_idx) / sr)
+                chunk_data = np.zeros(end_idx - i, dtype=np.float32)
+
+                if len(ev_times) > 0:
+                    chunk_start = t_chunk[0]
+                    chunk_end = t_chunk[-1]
+                    # We add a tiny margin to avoid missing boundary events
+                    mask = (ev_times >= chunk_start - 1.0/sr) & (ev_times <= chunk_end + 1.0/sr)
+                    for et in ev_times[mask]:
+                        idx = int(np.round((et - chunk_start) * sr))
+                        if 0 <= idx < len(chunk_data):
+                            chunk_data[idx] = 1.0
+
+                yield t_chunk, chunk_data
+        else:
+            raise RuntimeError(f"Cannot read channel {ch}")
