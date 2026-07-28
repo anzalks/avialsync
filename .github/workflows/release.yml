@@ -217,7 +217,7 @@ jobs:
       - name: Stage media libraries (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: python packaging/fetch_media_libs.py --source "$env:RUNNER_TEMP\libmpv" --source 'C:\ProgramData\chocolatey\lib' --destination packaging/media
+        run: python packaging/fetch_media_libs.py --source "$env:RUNNER_TEMP\libmpv" --source 'C:\ProgramData\chocolatey\lib\ffmpeg' --destination packaging/media
       - run: python packaging/build_bundle.py --media-root packaging/media --dist-dir dist
       - name: Build Windows installer
         if: runner.os == 'Windows'

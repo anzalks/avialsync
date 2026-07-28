@@ -50,7 +50,9 @@ Install a standalone shared FFmpeg build (for example, `winget install --id Gyan
 and ensure the directory containing `ffprobe.exe` is on `PATH`. Install a compatible Windows libmpv
 build and put its `libmpv-2.dll` in the conda environment's `Library\bin` directory, or otherwise
 ensure that DLL is on `PATH`. Do not use conda's FFmpeg package for this checkout: it can conflict
-with the Qt DLLs. A current GPU driver is also required for the Windows OpenGL video renderer.
+with the Qt DLLs. A current GPU driver is also required for the Windows OpenGL video renderer. These
+two native components cannot be supplied by the Python `.[dev]` install; the desktop installer bundles
+and validates them, so end users do not perform these steps.
 
 Run the application or its demo with:
 
@@ -58,6 +60,11 @@ Run the application or its demo with:
 conda run -n avialview avialview
 conda run -n avialview python tools/launch_demo.py
 ```
+
+After `conda activate avialview`, the equivalent commands are `avialview` and
+`python C:\path\to\avialview\tools\launch_demo.py`. The `python` prefix is required for the demo
+script; running a `.py` file directly can use Windows' unrelated file association. The launcher finds
+its repository demo data from its own location, so its behavior does not depend on the current directory.
 
 When the window opens:
 

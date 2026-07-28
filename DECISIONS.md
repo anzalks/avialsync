@@ -684,3 +684,25 @@ Windows video rendering shares the explicit render-context lifecycle already req
 Any renderer change must verify visible decoded frames in an interactive window, not only mpv
 timestamps or `screenshot-raw` evidence. The gray-surface failure and overlay opacity are covered
 by the pane configuration and timing tests.
+
+## 2026-07 · D-039 · Release bundles own the complete media runtime
+
+### Context
+
+An end user must not configure Conda, `PATH`, FFmpeg, or libmpv after installing AvialView. Source
+checkouts still use locally supplied native tools, but a release bundle must include both playback
+and metadata-probing executables plus the dynamic libraries they require.
+
+### Decision
+
+Release staging rejects a media directory that lacks `ffmpeg`, `ffprobe`, or libmpv. On Windows and
+macOS it copies the dynamic libraries from the dedicated media-package roots; Windows keeps the
+libmpv dependency DLLs together with `libmpv-2.dll`. At startup, `avialview.runtime` gives bundled
+media precedence and configures it before the lazy `mpv` import. Video inspection resolves an
+explicit `ffprobe` executable rather than relying on the process working directory.
+
+### Consequences
+
+`AvialView-Setup.exe` is the supported plug-and-play route. A source checkout documents its two
+unavoidable native prerequisites separately. Any future packaging change must retain the staging
+validation and a clean-environment installer smoke test.

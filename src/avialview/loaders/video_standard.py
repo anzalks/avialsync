@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from avialview.core.source import VideoSource
+from avialview.runtime import MediaRuntimeError, require_ffprobe
 
 
 class VideoStandardLoader(VideoSource):
@@ -45,7 +46,7 @@ class VideoStandardLoader(VideoSource):
 
         # Probe metadata
         cmd = [
-            "ffprobe",
+            str(require_ffprobe()),
             "-v",
             "quiet",
             "-print_format",
@@ -58,7 +59,9 @@ class VideoStandardLoader(VideoSource):
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             meta = json.loads(result.stdout)
-        except Exception as e:
+        except MediaRuntimeError as e:
+            raise ValueError(str(e)) from e
+        except (json.JSONDecodeError, subprocess.CalledProcessError) as e:
             raise ValueError(f"Failed to probe video: {path}") from e
 
         format_info = meta.get("format", {})
@@ -100,7 +103,7 @@ class VideoStandardLoader(VideoSource):
 
     def _extract_frame_times(self, path: Path) -> None:
         cmd = [
-            "ffprobe",
+            str(require_ffprobe()),
             "-v",
             "quiet",
             "-select_streams",

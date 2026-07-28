@@ -4,6 +4,8 @@ import locale
 import sys
 from importlib.resources import files
 
+from avialview.runtime import configure_media_runtime
+
 
 def main() -> None:
     from PySide6.QtGui import QIcon
@@ -12,6 +14,7 @@ def main() -> None:
     from avialview.ui.main_window import MainWindow
     from avialview.ui.theme import load_saved_font_size, load_saved_theme
 
+    configure_media_runtime()
     app = QApplication(sys.argv)
     app_icon = QIcon(str(files("avialview.resources").joinpath("avialview.png")))
     app.setWindowIcon(app_icon)

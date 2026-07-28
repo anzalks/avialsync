@@ -9,9 +9,11 @@ from PySide6.QtWidgets import QApplication
 from avialview.ui.main_window import MainWindow
 from avialview.ui.theme import load_saved_font_size, load_saved_theme
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 
 def load_data(win: MainWindow) -> None:
-    base_dir = Path("examples/data")
+    base_dir = PROJECT_ROOT / "examples" / "data"
     if not base_dir.exists():
         print(
             "examples/data not found — run:\n"

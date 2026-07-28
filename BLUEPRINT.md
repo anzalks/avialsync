@@ -135,9 +135,10 @@ Deliverables:
 - Public plugin API v1: Drop-in directory system (`~/.avialview/plugins/` and bundled `examples/plugins/`); document + freeze the `TimeSeriesSource`/`VideoSource` ABCs; PluginManager uses `sys._MEIPASS` for compiled bundles.
 - Loader capability negotiation (can_open(path) → score). Plugin configuration is a
   JSON-serialisable dictionary supplied by the host; plugins do not return Qt widgets (D-025).
-- Packaging per ARCHITECTURE §6 / D-012..D-017: PyPI wheel + sdist; PyInstaller **one-dir**
-  bundles with LGPL-verified mpv/ffmpeg (build-flavor assertion in CI); Inno Setup installer;
-  arm64 .dmg; AppImage; **Windows pip auto-fetch of libmpv (pinned URL + SHA256)**;
+- Packaging per ARCHITECTURE §6 / D-012..D-017/D-039: PyPI wheel + sdist; PyInstaller **one-dir**
+  bundles with LGPL-verified complete mpv/ffmpeg runtimes (including `ffprobe` and dependency DLLs,
+  validated in CI); Inno Setup installer; arm64 .dmg; AppImage; source-checkout native-prerequisite
+  guidance rather than Windows pip auto-fetch of libmpv;
   signing/notarization steps stubbed behind secrets-present conditionals; conda-forge recipe.
 - PyInstaller hardening: derive the source root from `SPECPATH`; stage media only from an explicit,
   validated `AVIALVIEW_MEDIA_ROOT`; fail on an invalid supplied directory and never stage the current

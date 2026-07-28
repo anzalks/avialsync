@@ -84,6 +84,11 @@ with explicit user acceptance and session provenance. Native plugin event provid
   in a headless job. Interactive Windows panes use libmpv's Qt OpenGL render API: the native `wid`
   path can decode while presenting only a gray child surface on affected Windows compositor/driver
   combinations.
+- **Portable media runtime and demo launch**: `avialview.runtime` configures bundled media or the
+  active conda environment before the lazy libmpv import, and `VideoStandardLoader` resolves an
+  explicit `ffprobe` path rather than trusting the current directory. `tools/launch_demo.py` resolves
+  its data relative to the repository root, so `python <repo>\\tools\\launch_demo.py` works from any
+  current directory. Release staging rejects a bundle without `ffmpeg`, `ffprobe`, and libmpv.
 - **Video pane shutdown**: `MainWindow.closeEvent()` calls `VideoGrid.shutdown()` before Qt destroys
   child widgets. That method closes every `VideoPane`, so python-mpv can join its event thread;
   never rely on QWidget destruction or Python garbage collection to stop libmpv. On Windows/macOS, free the

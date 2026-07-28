@@ -33,7 +33,7 @@ def test_generated_pose_csv_is_importable_dlc_data(tmp_path: Path) -> None:
     assert len(times) == len(values) == 300
 
 
-def test_demo_launcher_starts_at_the_visible_beginning(monkeypatch) -> None:
+def test_demo_launcher_starts_at_the_visible_beginning(monkeypatch, tmp_path: Path) -> None:
     """The launcher leaves short demo media visible instead of playing to its end."""
     from avialview.engine import importer
 
@@ -63,6 +63,7 @@ def test_demo_launcher_starts_at_the_visible_beginning(monkeypatch) -> None:
         player=player,
     )
     monkeypatch.setattr(importer, "ImportWorker", FakeImportWorker)
+    monkeypatch.chdir(tmp_path)
 
     launch_demo.load_data(window)
 

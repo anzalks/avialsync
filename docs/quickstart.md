@@ -25,6 +25,10 @@ conda run -n avialview avialview
 conda FFmpeg package for this checkout because it can conflict with Qt DLLs. Windows uses libmpv's
 Qt OpenGL video renderer, so keep your GPU driver current.
 
+The Python `.[dev]` install supplies every Python dependency. FFmpeg and libmpv are native programs,
+not Python packages, so a source checkout needs the separate setup above. The desktop installer bundles
+and validates those runtime files; a normal user only installs `AvialView-Setup.exe`.
+
 ## Open files
 
 Start AvialView. Drag files onto the main window, or use the buttons in the left panel.

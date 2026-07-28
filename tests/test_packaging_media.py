@@ -27,13 +27,44 @@ def test_media_staging_copies_only_runtime_media_files(tmp_path: Path) -> None:
     source.mkdir()
     (source / "libmpv.dylib").write_bytes(b"mpv")
     (source / "ffmpeg").write_bytes(b"ffmpeg")
+    (source / "ffprobe").write_bytes(b"ffprobe")
     (source / "unrelated.txt").write_text("ignore", encoding="utf-8")
     destination = tmp_path / "media"
 
     staged = _media_stager().stage_media_files([source], destination)
 
-    assert [path.name for path in staged] == ["ffmpeg", "libmpv.dylib"]
+    assert [path.name for path in staged] == ["ffmpeg", "ffprobe", "libmpv.dylib"]
     assert not (destination / "unrelated.txt").exists()
+
+
+def test_media_staging_rejects_a_runtime_without_ffprobe(tmp_path: Path) -> None:
+    """A release cannot ship video playback without metadata probing."""
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "libmpv.dylib").write_bytes(b"mpv")
+    (source / "ffmpeg").write_bytes(b"ffmpeg")
+
+    with pytest.raises(RuntimeError, match="ffprobe"):
+        _media_stager().stage_media_files([source], tmp_path / "media")
+
+
+def test_windows_media_staging_keeps_dependency_dlls(monkeypatch, tmp_path: Path) -> None:
+    """A Windows libmpv bundle needs its adjacent dependency DLLs as well."""
+    source = tmp_path / "source"
+    source.mkdir()
+    for name in ("libmpv-2.dll", "ffmpeg.exe", "ffprobe.exe", "dependency.dll"):
+        (source / name).write_bytes(b"runtime")
+    stager = _media_stager()
+    monkeypatch.setattr(stager.sys, "platform", "win32")
+
+    staged = stager.stage_media_files([source], tmp_path / "media")
+
+    assert {path.name for path in staged} == {
+        "dependency.dll",
+        "ffmpeg.exe",
+        "ffprobe.exe",
+        "libmpv-2.dll",
+    }
 
 
 def test_appimage_declares_and_stages_its_desktop_icon() -> None:

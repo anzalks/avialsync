@@ -42,6 +42,7 @@ def test_release_bundle_uses_the_verified_windows_libmpv() -> None:
 
     assert "choco install --no-progress ffmpeg mpv" not in release_workflow
     assert "Join-Path $env:RUNNER_TEMP 'libmpv'" in release_workflow
+    assert "C:\\ProgramData\\chocolatey\\lib\\ffmpeg" in release_workflow
     assert '--source "$env:RUNNER_TEMP\\libmpv"' in release_workflow
 
 

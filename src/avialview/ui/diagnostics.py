@@ -11,6 +11,8 @@ import time
 
 from PySide6.QtWidgets import QMessageBox
 
+from avialview.runtime import configure_media_runtime
+
 _LIBMPV_AVAILABLE: bool | None = None
 _STARTUP_DIAGNOSTICS: dict | None = None
 _STARTUP_DIAGNOSTICS_LOCK = threading.Lock()
@@ -35,6 +37,7 @@ def probe_libmpv(parent=None) -> bool:
     if _LIBMPV_AVAILABLE is not None:
         return _LIBMPV_AVAILABLE
 
+    configure_media_runtime()
     _configure_macos_env()
 
     try:
@@ -52,7 +55,10 @@ def probe_libmpv(parent=None) -> bool:
         if sys.platform == "darwin":
             install_cmd = "brew install mpv"
         elif sys.platform == "win32":
-            install_cmd = "Auto-fetch will be implemented in future phase."
+            install_cmd = (
+                "Install AvialView-Setup.exe for the bundled runtime. For a source checkout, "
+                "place libmpv-2.dll in the conda environment's Library\\bin directory."
+            )
         else:
             install_cmd = "sudo apt install libmpv-dev OR sudo dnf install mpv-libs"
 
