@@ -181,7 +181,10 @@ class VideoPane(QWidget):
 
             class MpvGLWidget(QOpenGLWidget):
                 def __init__(self, parent_pane: "VideoPane"):
-                    super().__init__()
+                    # A Windows QOpenGLWidget must be parented before its native
+                    # surface/context is created.  Relying on QGridLayout to
+                    # reparent it later can leave libmpv with no render target.
+                    super().__init__(parent_pane)
                     self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
                     self.parent_pane = parent_pane
                     self.ctx = None
