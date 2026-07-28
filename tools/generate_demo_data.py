@@ -12,7 +12,7 @@ def _make_pose_csv(path: Path) -> None:
 
 def _is_dlc_pose_csv(path: Path) -> bool:
     """Return whether a pose file satisfies the demo's DLC header contract."""
-    return _has_header(path, ",".join(["scorer"] + ["DLC"] * 20))
+    return _has_header(path, ",".join(["scorer"] + ["DLC"] * 36))
 
 
 def main() -> DemoData:

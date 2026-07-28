@@ -122,17 +122,31 @@ class PaintCanvas(QWidget):
                     points[base] = {}
                 points[base]["y"] = val
 
-        # To accurately map, we assume tracking is in video dimensions and scale to widget size.
-        # But mpv may letterbox. For now, we will draw directly on the widget width/height.
-        # A more precise mapping would query mpv.dwidth/dheight and compute letterbox offset.
+        try:
+            pane = self.parent()
+            if not hasattr(pane, "mpv") or pane.mpv is None:
+                return
+            vw = pane.mpv.dwidth
+            vh = pane.mpv.dheight
+        except Exception:
+            # Fallback if properties not yet available
+            return
+
+        if not vw or not vh:
+            return
+
+        ww = self.width()
+        wh = self.height()
+        
+        scale = min(ww / vw, wh / vh)
+        offset_x = (ww - vw * scale) / 2.0
+        offset_y = (wh - vh * scale) / 2.0
+
         for _name, pt in points.items():
             if "x" in pt and "y" in pt:
-                # Basic absolute mapping (assuming tracking X/Y is pixel coords on original video)
-                # But since we don't have video dimensions instantly without querying mpv,
-                # we'll scale them if they are normalized (0-1), or draw raw if absolute.
-                # Usually tracking data is in absolute pixels (e.g. 320x180).
-                # We'll just draw them raw for the fixture, and we can scale later when integrated.
-                painter.drawEllipse(int(pt["x"]), int(pt["y"]), 6, 6)
+                x = offset_x + pt["x"] * scale
+                y = offset_y + pt["y"] * scale
+                painter.drawEllipse(int(x) - 3, int(y) - 3, 6, 6)
 
 
 class VideoPane(QWidget):

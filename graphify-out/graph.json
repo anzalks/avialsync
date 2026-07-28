@@ -2438,7 +2438,7 @@
       "label": "DemoWindow",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "_origin": "ast"
     },
     {
@@ -2454,7 +2454,7 @@
       "label": "._load_video()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L39",
+      "source_location": "L42",
       "_origin": "ast"
     },
     {
@@ -2470,7 +2470,7 @@
       "label": "._enqueue_import()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L41",
+      "source_location": "L44",
       "_origin": "ast"
     },
     {
@@ -2486,7 +2486,7 @@
       "label": "DemoData",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L47",
+      "source_location": "L50",
       "_origin": "ast"
     },
     {
@@ -2494,7 +2494,7 @@
       "label": "demo_data_dir()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L56",
+      "source_location": "L59",
       "_origin": "ast"
     },
     {
@@ -2502,7 +2502,7 @@
       "label": "_generate_video()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L70",
+      "source_location": "L73",
       "_origin": "ast"
     },
     {
@@ -2526,7 +2526,7 @@
       "label": "_write_sensors()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L136",
+      "source_location": "L139",
       "_origin": "ast"
     },
     {
@@ -2534,7 +2534,7 @@
       "label": "_write_ephys()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L158",
+      "source_location": "L161",
       "_origin": "ast"
     },
     {
@@ -2542,7 +2542,7 @@
       "label": "_write_tracking()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L181",
+      "source_location": "L184",
       "_origin": "ast"
     },
     {
@@ -2550,7 +2550,7 @@
       "label": "_has_header()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L226",
+      "source_location": "L229",
       "_origin": "ast"
     },
     {
@@ -2558,7 +2558,7 @@
       "label": "ensure_demo_data()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L235",
+      "source_location": "L238",
       "_origin": "ast"
     },
     {
@@ -2566,7 +2566,7 @@
       "label": "load_demo()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L299",
+      "source_location": "L302",
       "_origin": "ast"
     },
     {
@@ -2574,7 +2574,7 @@
       "label": "DemoProgressDialog",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L338",
+      "source_location": "L351",
       "_origin": "ast"
     },
     {
@@ -2590,7 +2590,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L343",
+      "source_location": "L356",
       "_origin": "ast"
     },
     {
@@ -2606,7 +2606,7 @@
       "label": ".update_progress()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L365",
+      "source_location": "L378",
       "_origin": "ast"
     },
     {
@@ -2614,7 +2614,7 @@
       "label": "DemoGenerationWorker",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L372",
+      "source_location": "L385",
       "_origin": "ast"
     },
     {
@@ -2630,7 +2630,7 @@
       "label": ".run()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L380",
+      "source_location": "L393",
       "_origin": "ast"
     },
     {
@@ -2638,7 +2638,7 @@
       "label": "DemoLaunch",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L391",
+      "source_location": "L404",
       "_origin": "ast"
     },
     {
@@ -2646,7 +2646,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L394",
+      "source_location": "L407",
       "_origin": "ast"
     },
     {
@@ -2654,7 +2654,7 @@
       "label": ".start()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L410",
+      "source_location": "L423",
       "_origin": "ast"
     },
     {
@@ -2662,7 +2662,7 @@
       "label": "._on_cancelled()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L416",
+      "source_location": "L429",
       "_origin": "ast"
     },
     {
@@ -2670,7 +2670,7 @@
       "label": "._on_finished()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L423",
+      "source_location": "L436",
       "_origin": "ast"
     },
     {
@@ -2678,7 +2678,7 @@
       "label": "._on_failed()",
       "file_type": "code",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L430",
+      "source_location": "L443",
       "_origin": "ast"
     },
     {
@@ -2690,155 +2690,155 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_37",
+      "id": "src_avialview_demo_rationale_38",
       "label": "The source-loading surface the demo needs from the main window.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L37",
+      "source_location": "L38",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_48",
+      "id": "src_avialview_demo_rationale_51",
       "label": "Paths comprising the installed inspection demo.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L48",
+      "source_location": "L51",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_57",
+      "id": "src_avialview_demo_rationale_60",
       "label": "Return the platform-appropriate directory for generated demo inputs.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L57",
+      "source_location": "L60",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_80",
+      "id": "src_avialview_demo_rationale_83",
       "label": "Generate one camera while translating FFmpeg progress into a percentage.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L80",
+      "source_location": "L83",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_137",
+      "id": "src_avialview_demo_rationale_140",
       "label": "Write a deterministic 1 kHz four-channel sensor trace.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L137",
+      "source_location": "L140",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_159",
+      "id": "src_avialview_demo_rationale_162",
       "label": "Write a deterministic dense trace with gaps, NaNs, and sentinel values.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L159",
+      "source_location": "L162",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_182",
+      "id": "src_avialview_demo_rationale_185",
       "label": "Write a deterministic DLC-style tracking table with 3D coordinates.      Five bo",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L182",
+      "source_location": "L185",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_227",
+      "id": "src_avialview_demo_rationale_230",
       "label": "Return whether a cached demo table matches the current data contract.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L227",
+      "source_location": "L230",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_240",
+      "id": "src_avialview_demo_rationale_243",
       "label": "Create or reuse the complete deterministic inspection demo.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L240",
+      "source_location": "L243",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_300",
+      "id": "src_avialview_demo_rationale_303",
       "label": "Load the complete synchronized demo through normal asynchronous paths.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L300",
+      "source_location": "L303",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_339",
+      "id": "src_avialview_demo_rationale_352",
       "label": "Show demo generation progress and an inspectable activity log.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L339",
+      "source_location": "L352",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_366",
+      "id": "src_avialview_demo_rationale_379",
       "label": "Display a worker status event.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L366",
+      "source_location": "L379",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_373",
+      "id": "src_avialview_demo_rationale_386",
       "label": "Generate or reuse demo inputs outside the UI thread.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L373",
+      "source_location": "L386",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_381",
+      "id": "src_avialview_demo_rationale_394",
       "label": "Generate inputs and report the resulting paths.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L381",
+      "source_location": "L394",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_392",
+      "id": "src_avialview_demo_rationale_405",
       "label": "Coordinate visible demo preparation with a worker thread.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L392",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialview_demo_rationale_411",
-      "label": "Show progress UI and start generation.",
-      "file_type": "rationale",
-      "source_file": "src/avialview/demo.py",
-      "source_location": "L411",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialview_demo_rationale_417",
-      "label": "Request cancellation without touching the worker from the UI thread.",
-      "file_type": "rationale",
-      "source_file": "src/avialview/demo.py",
-      "source_location": "L417",
+      "source_location": "L405",
       "_origin": "ast"
     },
     {
       "id": "src_avialview_demo_rationale_424",
-      "label": "Close progress UI and load the newly available demo files.",
+      "label": "Show progress UI and start generation.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
       "source_location": "L424",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_demo_rationale_431",
+      "id": "src_avialview_demo_rationale_430",
+      "label": "Request cancellation without touching the worker from the UI thread.",
+      "file_type": "rationale",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L430",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_demo_rationale_437",
+      "label": "Close progress UI and load the newly available demo files.",
+      "file_type": "rationale",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L437",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_demo_rationale_444",
       "label": "Surface the failed command's diagnostic text to the user.",
       "file_type": "rationale",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L431",
+      "source_location": "L444",
       "_origin": "ast"
     },
     {
@@ -8086,7 +8086,7 @@
       "label": ".point_count()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L141",
+      "source_location": "L142",
       "_origin": "ast"
     },
     {
@@ -8094,7 +8094,7 @@
       "label": ".point_names()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L146",
+      "source_location": "L147",
       "_origin": "ast"
     },
     {
@@ -8102,7 +8102,7 @@
       "label": ".positions()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L151",
+      "source_location": "L152",
       "_origin": "ast"
     },
     {
@@ -8110,7 +8110,15 @@
       "label": ".set_readers()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L155",
+      "source_location": "L156",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_set_skeleton",
+      "label": ".set_skeleton()",
+      "file_type": "code",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L165",
       "_origin": "ast"
     },
     {
@@ -8118,7 +8126,7 @@
       "label": ".set_cursor()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L164",
+      "source_location": "L175",
       "_origin": "ast"
     },
     {
@@ -8126,7 +8134,7 @@
       "label": ".fit_current_pose()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L182",
+      "source_location": "L193",
       "_origin": "ast"
     },
     {
@@ -8134,7 +8142,7 @@
       "label": ".reset_view()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L194",
+      "source_location": "L205",
       "_origin": "ast"
     },
     {
@@ -8142,7 +8150,7 @@
       "label": "._expand_scene_bounds()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L200",
+      "source_location": "L211",
       "_origin": "ast"
     },
     {
@@ -8150,7 +8158,7 @@
       "label": "._update_camera_bounds()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L215",
+      "source_location": "L226",
       "_origin": "ast"
     },
     {
@@ -8158,7 +8166,7 @@
       "label": "._camera_basis()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L220",
+      "source_location": "L231",
       "_origin": "ast"
     },
     {
@@ -8166,7 +8174,7 @@
       "label": "._project()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L233",
+      "source_location": "L244",
       "_origin": "ast"
     },
     {
@@ -8174,7 +8182,7 @@
       "label": ".paintEvent()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L243",
+      "source_location": "L254",
       "_origin": "ast"
     },
     {
@@ -8186,11 +8194,11 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid_and_axes",
-      "label": "._draw_grid_and_axes()",
+      "id": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_skeleton",
+      "label": "._draw_skeleton()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L281",
+      "source_location": "L298",
       "_origin": "ast"
     },
     {
@@ -8202,11 +8210,27 @@
       "_origin": "ast"
     },
     {
+      "id": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid",
+      "label": "._draw_grid()",
+      "file_type": "code",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L314",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_corner_axes",
+      "label": "._draw_corner_axes()",
+      "file_type": "code",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L343",
+      "_origin": "ast"
+    },
+    {
       "id": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_mousepressevent",
       "label": ".mousePressEvent()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L334",
+      "source_location": "L361",
       "_origin": "ast"
     },
     {
@@ -8222,7 +8246,7 @@
       "label": ".mouseMoveEvent()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L342",
+      "source_location": "L369",
       "_origin": "ast"
     },
     {
@@ -8230,7 +8254,7 @@
       "label": ".mouseReleaseEvent()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L357",
+      "source_location": "L384",
       "_origin": "ast"
     },
     {
@@ -8238,7 +8262,7 @@
       "label": ".wheelEvent()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L365",
+      "source_location": "L392",
       "_origin": "ast"
     },
     {
@@ -8254,7 +8278,7 @@
       "label": ".mouseDoubleClickEvent()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L372",
+      "source_location": "L399",
       "_origin": "ast"
     },
     {
@@ -8262,7 +8286,7 @@
       "label": "_qcolor()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L381",
+      "source_location": "L408",
       "_origin": "ast"
     },
     {
@@ -8270,7 +8294,7 @@
       "label": "Tracking3DPane",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L388",
+      "source_location": "L413",
       "_origin": "ast"
     },
     {
@@ -8278,7 +8302,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L391",
+      "source_location": "L416",
       "_origin": "ast"
     },
     {
@@ -8286,7 +8310,15 @@
       "label": ".set_readers()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L418",
+      "source_location": "L443",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_ui_tracking_3d_pane_tracking3dpane_set_skeleton",
+      "label": ".set_skeleton()",
+      "file_type": "code",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L453",
       "_origin": "ast"
     },
     {
@@ -8294,7 +8326,7 @@
       "label": ".set_cursor()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L428",
+      "source_location": "L457",
       "_origin": "ast"
     },
     {
@@ -8302,7 +8334,7 @@
       "label": "._fit_view()",
       "file_type": "code",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L432",
+      "source_location": "L461",
       "_origin": "ast"
     },
     {
@@ -8362,139 +8394,179 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_142",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_143",
       "label": "Number of complete XYZ points available to the view.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L142",
+      "source_location": "L143",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_147",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_148",
       "label": "Names of complete XYZ coordinate triplets.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L147",
+      "source_location": "L148",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_152",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_153",
       "label": "Copy of the currently sampled XYZ positions, including NaN placeholders.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L152",
+      "source_location": "L153",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_156",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_157",
       "label": "Select complete XYZ triplets and retain only their mmap-backed arrays.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L156",
+      "source_location": "L157",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_165",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_166",
+      "label": "Set explicit skeleton edges between named points.          Each edge is a ``(nam",
+      "file_type": "rationale",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L166",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_176",
       "label": "Sample and display the pose nearest to the master-clock time.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L165",
+      "source_location": "L176",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_183",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_194",
       "label": "Fit the camera to the valid points at the current master time.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L183",
+      "source_location": "L194",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_195",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_206",
       "label": "Restore the default orbit and fit the current pose.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L195",
+      "source_location": "L206",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_244",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_255",
       "label": "Draw a bounded current pose; trajectory history is never rendered here.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L244",
+      "source_location": "L255",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_335",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_303",
+      "label": "Draw explicit edges between connected named points.",
+      "file_type": "rationale",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L303",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_315",
+      "label": "Draw a light ground-plane grid behind the pose.",
+      "file_type": "rationale",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L315",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_344",
+      "label": "Draw a compact orientation indicator in the bottom-left corner.",
+      "file_type": "rationale",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L344",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_362",
       "label": "Begin orbiting on a primary-button drag.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L335",
+      "source_location": "L362",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_343",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_370",
       "label": "Orbit around the stable scene bounds.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L343",
+      "source_location": "L370",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_358",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_385",
       "label": "Finish an orbit gesture.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L358",
+      "source_location": "L385",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_366",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_393",
       "label": "Zoom around the current scene center.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L366",
+      "source_location": "L393",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_373",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_400",
       "label": "Fit the current pose on double click.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L373",
+      "source_location": "L400",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_382",
-      "label": "Construct QColor lazily to keep the paint code concise.",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_409",
+      "label": "Construct QColor from an RGB tuple.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L382",
+      "source_location": "L409",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_389",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_414",
       "label": "Timeline-synchronized 3D tracking pane.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L389",
+      "source_location": "L414",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_419",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_444",
       "label": "Use complete XYZ channel triplets from the active cached readers.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L419",
+      "source_location": "L444",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_tracking_3d_pane_rationale_429",
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_454",
+      "label": "Set explicit skeleton connectivity for the 3D view.",
+      "file_type": "rationale",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L454",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_ui_tracking_3d_pane_rationale_458",
       "label": "Update from the same master-clock value used by video and 2D plots.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L429",
+      "source_location": "L458",
       "_origin": "ast"
     },
     {
@@ -10526,7 +10598,7 @@
       "label": "test_demo_loads_alignment_and_sources_through_normal_paths()",
       "file_type": "code",
       "source_file": "tests/test_cli_demo.py",
-      "source_location": "L152",
+      "source_location": "L158",
       "_origin": "ast"
     },
     {
@@ -10594,11 +10666,11 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_cli_demo_rationale_153",
+      "id": "tests_test_cli_demo_rationale_159",
       "label": "The demo applies known mappings and queues sensor/ephys/tracking sources.",
       "file_type": "rationale",
       "source_file": "tests/test_cli_demo.py",
-      "source_location": "L153",
+      "source_location": "L159",
       "_origin": "ast"
     },
     {
@@ -23185,11 +23257,22 @@
     },
     {
       "source": "src_avialview_demo",
+      "target": "src_avialview_ui_tracking_3d_pane",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L31",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_demo",
       "target": "src_avialview_demo_demowindow",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23199,7 +23282,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23209,7 +23292,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L39",
+      "source_location": "L42",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23220,7 +23303,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L39",
+      "source_location": "L42",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23230,7 +23313,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L41",
+      "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23241,7 +23324,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L41",
+      "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23252,7 +23335,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L41",
+      "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23262,7 +23345,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L47",
+      "source_location": "L50",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23272,7 +23355,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L56",
+      "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23283,7 +23366,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L56",
+      "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23293,7 +23376,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L70",
+      "source_location": "L73",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23304,7 +23387,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L70",
+      "source_location": "L73",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23315,7 +23398,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L70",
+      "source_location": "L73",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23326,7 +23409,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L70",
+      "source_location": "L73",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23336,7 +23419,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L136",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23347,7 +23430,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L136",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23357,7 +23440,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L158",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23368,7 +23451,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L158",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23378,7 +23461,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L181",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23389,7 +23472,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L181",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23399,7 +23482,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L226",
+      "source_location": "L229",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23410,7 +23493,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L226",
+      "source_location": "L229",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23420,7 +23503,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L235",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23431,7 +23514,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L235",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23442,7 +23525,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L235",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23453,7 +23536,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L235",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23464,7 +23547,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L235",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23474,7 +23557,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L299",
+      "source_location": "L302",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23485,7 +23568,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L299",
+      "source_location": "L302",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23496,7 +23579,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L299",
+      "source_location": "L302",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23506,7 +23589,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L338",
+      "source_location": "L351",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23516,7 +23599,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L338",
+      "source_location": "L351",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23526,7 +23609,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L343",
+      "source_location": "L356",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23537,7 +23620,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L343",
+      "source_location": "L356",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23547,7 +23630,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L365",
+      "source_location": "L378",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23557,7 +23640,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L372",
+      "source_location": "L385",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23567,7 +23650,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L372",
+      "source_location": "L385",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23577,7 +23660,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L380",
+      "source_location": "L393",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23587,7 +23670,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L391",
+      "source_location": "L404",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23597,7 +23680,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L391",
+      "source_location": "L404",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23607,7 +23690,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L394",
+      "source_location": "L407",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23618,7 +23701,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L394",
+      "source_location": "L407",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23628,7 +23711,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L410",
+      "source_location": "L423",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23638,7 +23721,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L416",
+      "source_location": "L429",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23648,7 +23731,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L423",
+      "source_location": "L436",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23658,7 +23741,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L430",
+      "source_location": "L443",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23669,7 +23752,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L60",
+      "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23680,7 +23763,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L241",
+      "source_location": "L244",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23691,7 +23774,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L264",
+      "source_location": "L267",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23702,7 +23785,7 @@
       "context": "collection",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L277",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23713,7 +23796,7 @@
       "context": "collection",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L282",
+      "source_location": "L285",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23724,7 +23807,7 @@
       "context": "collection",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L283",
+      "source_location": "L286",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23735,7 +23818,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L288",
+      "source_location": "L291",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23746,7 +23829,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L296",
+      "source_location": "L299",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23757,7 +23840,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L305",
+      "source_location": "L308",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23768,7 +23851,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L309",
+      "source_location": "L312",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23779,7 +23862,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L344",
+      "source_location": "L357",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23790,7 +23873,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L384",
+      "source_location": "L397",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23801,7 +23884,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L397",
+      "source_location": "L410",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23812,7 +23895,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L399",
+      "source_location": "L412",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23823,7 +23906,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L419",
+      "source_location": "L432",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23834,7 +23917,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L426",
+      "source_location": "L439",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23845,7 +23928,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L427",
+      "source_location": "L440",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -23860,178 +23943,158 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_37",
+      "source": "src_avialview_demo_rationale_38",
       "target": "src_avialview_demo_demowindow",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L37",
+      "source_location": "L38",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_48",
+      "source": "src_avialview_demo_rationale_51",
       "target": "src_avialview_demo_demodata",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L48",
+      "source_location": "L51",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_57",
+      "source": "src_avialview_demo_rationale_60",
       "target": "src_avialview_demo_demo_data_dir",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L57",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_80",
+      "source": "src_avialview_demo_rationale_83",
       "target": "src_avialview_demo_generate_video",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L80",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_137",
+      "source": "src_avialview_demo_rationale_140",
       "target": "src_avialview_demo_write_sensors",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L137",
+      "source_location": "L140",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_159",
+      "source": "src_avialview_demo_rationale_162",
       "target": "src_avialview_demo_write_ephys",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L159",
+      "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_182",
+      "source": "src_avialview_demo_rationale_185",
       "target": "src_avialview_demo_write_tracking",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L182",
+      "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_227",
+      "source": "src_avialview_demo_rationale_230",
       "target": "src_avialview_demo_has_header",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L227",
+      "source_location": "L230",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_240",
+      "source": "src_avialview_demo_rationale_243",
       "target": "src_avialview_demo_ensure_demo_data",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L240",
+      "source_location": "L243",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_300",
+      "source": "src_avialview_demo_rationale_303",
       "target": "src_avialview_demo_load_demo",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L300",
+      "source_location": "L303",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_339",
+      "source": "src_avialview_demo_rationale_352",
       "target": "src_avialview_demo_demoprogressdialog",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L339",
+      "source_location": "L352",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_366",
+      "source": "src_avialview_demo_rationale_379",
       "target": "src_avialview_demo_demoprogressdialog_update_progress",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L366",
+      "source_location": "L379",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_373",
+      "source": "src_avialview_demo_rationale_386",
       "target": "src_avialview_demo_demogenerationworker",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L373",
+      "source_location": "L386",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_381",
+      "source": "src_avialview_demo_rationale_394",
       "target": "src_avialview_demo_demogenerationworker_run",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L381",
+      "source_location": "L394",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_392",
+      "source": "src_avialview_demo_rationale_405",
       "target": "src_avialview_demo_demolaunch",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L392",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialview_demo_rationale_411",
-      "target": "src_avialview_demo_demolaunch_start",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialview/demo.py",
-      "source_location": "L411",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialview_demo_rationale_417",
-      "target": "src_avialview_demo_demolaunch_on_cancelled",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialview/demo.py",
-      "source_location": "L417",
+      "source_location": "L405",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialview_demo_rationale_424",
-      "target": "src_avialview_demo_demolaunch_on_finished",
+      "target": "src_avialview_demo_demolaunch_start",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
@@ -24040,12 +24103,32 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_demo_rationale_431",
+      "source": "src_avialview_demo_rationale_430",
+      "target": "src_avialview_demo_demolaunch_on_cancelled",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L430",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_demo_rationale_437",
+      "target": "src_avialview_demo_demolaunch_on_finished",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L437",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_demo_rationale_444",
       "target": "src_avialview_demo_demolaunch_on_failed",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L431",
+      "source_location": "L444",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35666,7 +35749,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L141",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35676,7 +35759,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L146",
+      "source_location": "L147",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35686,7 +35769,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L151",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35697,7 +35780,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L151",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35707,7 +35790,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L155",
+      "source_location": "L156",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35718,7 +35801,17 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L155",
+      "source_location": "L156",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_set_skeleton",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L165",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35728,7 +35821,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L164",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35738,7 +35831,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L182",
+      "source_location": "L193",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35748,7 +35841,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L194",
+      "source_location": "L205",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35758,7 +35851,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L200",
+      "source_location": "L211",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35768,7 +35861,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L215",
+      "source_location": "L226",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35778,7 +35871,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L220",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35789,7 +35882,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L220",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35799,7 +35892,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L233",
+      "source_location": "L244",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35810,7 +35903,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L233",
+      "source_location": "L244",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35820,7 +35913,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L243",
+      "source_location": "L254",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35831,28 +35924,70 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L243",
+      "source_location": "L254",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas",
-      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid_and_axes",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_skeleton",
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L281",
+      "source_location": "L298",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid_and_axes",
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_skeleton",
       "target": "qpainter",
       "relation": "references",
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L281",
+      "source_location": "L298",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L314",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid",
+      "target": "qpainter",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L314",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_corner_axes",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L343",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_corner_axes",
+      "target": "qpainter",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L343",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35862,7 +35997,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L334",
+      "source_location": "L361",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35873,7 +36008,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L334",
+      "source_location": "L361",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35883,7 +36018,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L342",
+      "source_location": "L369",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35894,7 +36029,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L342",
+      "source_location": "L369",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35904,7 +36039,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L357",
+      "source_location": "L384",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35915,7 +36050,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L357",
+      "source_location": "L384",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35925,7 +36060,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L365",
+      "source_location": "L392",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35936,7 +36071,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L365",
+      "source_location": "L392",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35946,7 +36081,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L372",
+      "source_location": "L399",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35957,7 +36092,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L372",
+      "source_location": "L399",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35967,7 +36102,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L381",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35977,7 +36112,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L388",
+      "source_location": "L413",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35987,7 +36122,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L388",
+      "source_location": "L413",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -35997,7 +36132,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L391",
+      "source_location": "L416",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36008,7 +36143,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L391",
+      "source_location": "L416",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36018,7 +36153,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L418",
+      "source_location": "L443",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36029,7 +36164,17 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L418",
+      "source_location": "L443",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dpane",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane_set_skeleton",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L453",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36039,7 +36184,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L428",
+      "source_location": "L457",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36049,7 +36194,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L432",
+      "source_location": "L461",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36104,7 +36249,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L157",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36115,7 +36260,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L162",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36126,7 +36271,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L169",
+      "source_location": "L180",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36137,7 +36282,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L179",
+      "source_location": "L190",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36148,7 +36293,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L190",
+      "source_location": "L201",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36159,7 +36304,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L198",
+      "source_location": "L209",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36170,7 +36315,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L213",
+      "source_location": "L224",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36181,7 +36326,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L234",
+      "source_location": "L245",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36192,18 +36337,29 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L246",
+      "source_location": "L257",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_paintevent",
-      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid_and_axes",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L249",
+      "source_location": "L260",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_paintevent",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_corner_axes",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L271",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36214,7 +36370,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L262",
+      "source_location": "L275",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_paintevent",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_skeleton",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L281",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36225,29 +36392,40 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L274",
+      "source_location": "L290",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid_and_axes",
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_project",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L299",
+      "source_location": "L332",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid_and_axes",
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_corner_axes",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_camera_basis",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L345",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_corner_axes",
       "target": "src_avialview_ui_tracking_3d_pane_qcolor",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L325",
+      "source_location": "L357",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36258,7 +36436,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L375",
+      "source_location": "L402",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36269,7 +36447,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L400",
+      "source_location": "L425",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36280,7 +36458,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L414",
+      "source_location": "L439",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36291,7 +36469,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L433",
+      "source_location": "L462",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -36366,172 +36544,222 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_142",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_143",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_point_count",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L142",
+      "source_location": "L143",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_147",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_148",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_point_names",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L147",
+      "source_location": "L148",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_152",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_153",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_positions",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L152",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_156",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_157",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_set_readers",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L156",
+      "source_location": "L157",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_165",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_166",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_set_skeleton",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L166",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_176",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_set_cursor",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L165",
+      "source_location": "L176",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_183",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_194",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_fit_current_pose",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L183",
+      "source_location": "L194",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_195",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_206",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_reset_view",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L195",
+      "source_location": "L206",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_244",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_255",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_paintevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L244",
+      "source_location": "L255",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_335",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_303",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_skeleton",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L303",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_315",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L315",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_344",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_corner_axes",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L344",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_362",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_mousepressevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L335",
+      "source_location": "L362",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_343",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_370",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_mousemoveevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L343",
+      "source_location": "L370",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_358",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_385",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_mousereleaseevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L358",
+      "source_location": "L385",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_366",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_393",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_wheelevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L366",
+      "source_location": "L393",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_373",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_400",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_mousedoubleclickevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L373",
+      "source_location": "L400",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_382",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_409",
       "target": "src_avialview_ui_tracking_3d_pane_qcolor",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L382",
+      "source_location": "L409",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_389",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_414",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L389",
+      "source_location": "L414",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_419",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_444",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane_set_readers",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L419",
+      "source_location": "L444",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_tracking_3d_pane_rationale_429",
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_454",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane_set_skeleton",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L454",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_rationale_458",
       "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane_set_cursor",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L429",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -40520,7 +40748,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_cli_demo.py",
-      "source_location": "L152",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -40531,7 +40759,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_cli_demo.py",
-      "source_location": "L152",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -40627,12 +40855,12 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_cli_demo_rationale_153",
+      "source": "tests_test_cli_demo_rationale_159",
       "target": "tests_test_cli_demo_test_demo_loads_alignment_and_sources_through_normal_paths",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_cli_demo.py",
-      "source_location": "L153",
+      "source_location": "L159",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -53961,12 +54189,23 @@
     },
     {
       "source": "src_avialview_demo",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L31",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_demo",
       "target": "src_avialview_loaders_csv_loader_csvloader",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L301",
+      "source_location": "L304",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -53977,7 +54216,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L302",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -55341,7 +55580,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L84",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -55706,11 +55945,61 @@
     },
     {
       "source": "src_avialview_demo_demowindow",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L31",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_demo_demodata",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L31",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_demo_demoprogressdialog",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L31",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_demo_demogenerationworker",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L31",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_demo_demolaunch",
+      "target": "src_avialview_ui_tracking_3d_pane_tracking3dpane",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialview/demo.py",
+      "source_location": "L31",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_demo_demowindow",
       "target": "src_avialview_loaders_csv_loader_csvloader",
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L301",
+      "source_location": "L304",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -55720,7 +56009,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L301",
+      "source_location": "L304",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -55730,7 +56019,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L301",
+      "source_location": "L304",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -55740,7 +56029,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L301",
+      "source_location": "L304",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -55750,7 +56039,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L301",
+      "source_location": "L304",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -55760,7 +56049,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L302",
+      "source_location": "L305",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -55770,7 +56059,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L302",
+      "source_location": "L305",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -55780,7 +56069,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L302",
+      "source_location": "L305",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -55790,7 +56079,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L302",
+      "source_location": "L305",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -55800,7 +56089,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialview/demo.py",
-      "source_location": "L302",
+      "source_location": "L305",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -57316,7 +57605,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/demo.py",
-      "source_location": "L311",
+      "source_location": "L314",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -57328,7 +57617,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/demo.py",
-      "source_location": "L335",
+      "source_location": "L338",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -57340,7 +57629,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/demo.py",
-      "source_location": "L349",
+      "source_location": "L362",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -58665,6 +58954,42 @@
       "_origin": "ast"
     },
     {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_paintevent",
+      "target": "qcolor",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L264",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_skeleton",
+      "target": "qcolor",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L306",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_tracking_3d_pane_tracking3dcanvas_draw_grid",
+      "target": "qcolor",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/avialview/ui/tracking_3d_pane.py",
+      "source_location": "L318",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "src_avialview_ui_tracking_3d_pane_qcolor",
       "target": "qcolor",
       "relation": "calls",
@@ -58672,7 +58997,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L385",
+      "source_location": "L410",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -58684,7 +59009,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/tracking_3d_pane.py",
-      "source_location": "L403",
+      "source_location": "L428",
       "weight": 1.0,
       "_origin": "ast"
     },

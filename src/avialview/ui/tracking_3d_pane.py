@@ -238,7 +238,7 @@ class Tracking3DCanvas(QWidget):
             ]
         )
         right = np.array([-math.sin(self._azimuth), math.cos(self._azimuth), 0.0])
-        up = np.cross(right, direction)
+        up = np.cross(direction, right)
         return right, up, direction
 
     def _project(self, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
