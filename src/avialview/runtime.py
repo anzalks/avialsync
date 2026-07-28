@@ -78,12 +78,22 @@ def find_media_executable(name: str) -> Path | None:
     return Path(resolved) if resolved else None
 
 
-def require_ffprobe() -> Path:
-    """Return ffprobe or raise an actionable runtime dependency error."""
-    ffprobe = find_media_executable("ffprobe")
-    if ffprobe is None:
+def require_media_executable(name: str) -> Path:
+    """Return a media executable or raise an actionable runtime dependency error."""
+    executable = find_media_executable(name)
+    if executable is None:
         raise MediaRuntimeError(
-            "ffprobe was not found. Install the AvialView desktop release, or for a source "
+            f"{name} was not found. Install the AvialView desktop release, or for a source "
             "install a standalone FFmpeg build and make its bin directory available on PATH."
         )
-    return ffprobe
+    return executable
+
+
+def require_ffprobe() -> Path:
+    """Return ffprobe or raise an actionable runtime dependency error."""
+    return require_media_executable("ffprobe")
+
+
+def require_ffmpeg() -> Path:
+    """Return ffmpeg or raise an actionable runtime dependency error."""
+    return require_media_executable("ffmpeg")

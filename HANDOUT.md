@@ -88,7 +88,9 @@ with explicit user acceptance and session provenance. Native plugin event provid
   active conda environment before the lazy libmpv import, and `VideoStandardLoader` resolves an
   explicit `ffprobe` path rather than trusting the current directory. `tools/launch_demo.py` resolves
   its data relative to the repository root, so `python <repo>\\tools\\launch_demo.py` works from any
-  current directory. Release staging rejects a bundle without `ffmpeg`, `ffprobe`, and libmpv.
+  current directory. The installed `avialview demo` command generates a portable minimal demo under
+  the platform application-data folder and loads it through the normal asynchronous source paths.
+  Release staging rejects a bundle without `ffmpeg`, `ffprobe`, and libmpv.
 - **Video pane shutdown**: `MainWindow.closeEvent()` calls `VideoGrid.shutdown()` before Qt destroys
   child widgets. That method closes every `VideoPane`, so python-mpv can join its event thread;
   never rely on QWidget destruction or Python garbage collection to stop libmpv. On Windows/macOS, free the

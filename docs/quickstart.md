@@ -29,6 +29,10 @@ The Python `.[dev]` install supplies every Python dependency. FFmpeg and libmpv 
 not Python packages, so a source checkout needs the separate setup above. The desktop installer bundles
 and validates those runtime files; a normal user only installs `AvialView-Setup.exe`.
 
+Run `avialview demo` to create and open a small generated video and sensor-data session. It stores
+the generated inputs in the platform application-data directory and works from the installer, a pip
+installation with its native prerequisites, or an editable source checkout.
+
 ## Open files
 
 Start AvialView. Drag files onto the main window, or use the buttons in the left panel.

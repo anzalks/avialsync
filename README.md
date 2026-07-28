@@ -59,12 +59,15 @@ Run the application or its demo with:
 ```powershell
 conda run -n avialview avialview
 conda run -n avialview python tools/launch_demo.py
+conda run -n avialview avialview demo
 ```
 
 After `conda activate avialview`, the equivalent commands are `avialview` and
 `python C:\path\to\avialview\tools\launch_demo.py`. The `python` prefix is required for the demo
 script; running a `.py` file directly can use Windows' unrelated file association. The launcher finds
 its repository demo data from its own location, so its behavior does not depend on the current directory.
+Use `avialview demo` for the supported installed demo: it creates a small video and sensor trace in
+your platform application-data folder, then opens them through the normal import paths.
 
 When the window opens:
 
