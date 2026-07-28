@@ -237,6 +237,27 @@ def test_video_load_keeps_worker_alive_until_thread_finishes(
         assert thread.wait(1_000)
 
 
+def test_multiple_data_imports_are_serialized(
+    main_window: MainWindow, qtbot, tmp_path: Path
+) -> None:
+    """Demo sensor, ephys, and tracking imports must not replace one another's workers."""
+    first = tmp_path / "first.csv"
+    second = tmp_path / "second.csv"
+    first.write_text("time,value\n0,1\n1,2\n", encoding="utf-8")
+    second.write_text("time,value\n0,3\n1,4\n", encoding="utf-8")
+    config = {"time_col": "time", "time_unit": "s", "separator": ","}
+
+    main_window._enqueue_import(first, CSVLoader, config)
+    main_window._enqueue_import(second, CSVLoader, config)
+
+    qtbot.waitUntil(
+        lambda: main_window._import_thread is None and not main_window._pending_imports,
+        timeout=10_000,
+    )
+    assert str(first) in main_window._inspections
+    assert str(second) in main_window._inspections
+
+
 def test_drop_real_video_completes_async_open(
     main_window: MainWindow, qtbot, monkeypatch: pytest.MonkeyPatch
 ) -> None:

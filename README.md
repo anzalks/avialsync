@@ -65,12 +65,12 @@ conda run -n avialview avialview demo
 
 After `conda activate avialview`, the equivalent commands are `avialview` and
 `python C:\path\to\avialview\tools\launch_demo.py`. The `python` prefix is required for the demo
-script; running a `.py` file directly can use Windows' unrelated file association. The launcher finds
-its repository demo data from its own location, so its behavior does not depend on the current directory.
-Use `avialview demo` for the supported installed demo: it creates a small video and sensor trace in
-your platform application-data folder, then opens them through the normal import paths. On a first
-run, AvialView immediately shows a progress-and-log dialog while FFmpeg creates the video; later runs
-reuse the same files without regenerating them.
+script; running a `.py` file directly can use Windows' unrelated file association. The launcher
+delegates to `avialview demo`, so both launch paths have identical behavior.
+The demo creates three 30 fps CFR cameras, one VFR camera, a four-channel sensor trace, a dense
+ephys/TTL trace with gaps, and DLC-style tracking in your platform application-data folder. Camera 2
+has a known +1.234 s mapping and camera 3 a known 1000 ppm drift mapping. First-run generation is
+shown in the progress-and-log dialog; later runs validate and reuse the cached files.
 
 When the window opens:
 

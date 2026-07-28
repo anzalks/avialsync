@@ -30,10 +30,10 @@ The Python `.[dev]` install supplies every Python dependency. FFmpeg and libmpv 
 not Python packages, so a source checkout needs the separate setup above. The desktop installer bundles
 and validates those runtime files; a normal user only installs `AvialView-Setup.exe`.
 
-Run `avialview demo` to create and open a small generated video and sensor-data session. It stores
-the generated inputs in the platform application-data directory and works from the installer, a pip
-installation with its native prerequisites, or an editable source checkout. A first run displays a
-progress-and-log dialog while the video is generated; subsequent runs reuse the files.
+Run `avialview demo` to create and open the complete synchronized example: three 30 fps CFR cameras,
+one VFR camera, sensor and dense ephys/TTL traces, and frame-indexed tracking. It works from the
+installer, a pip installation with its native prerequisites, or an editable source checkout. A first
+run displays generation progress; subsequent runs validate and reuse the application-data cache.
 
 ## Open files
 

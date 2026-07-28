@@ -1,6 +1,7 @@
 """Main window for AvialView."""
 
 import dataclasses
+from collections import deque
 from pathlib import Path
 from typing import Any, cast
 
@@ -63,6 +64,8 @@ class MainWindow(QMainWindow):
         self._overview_gaps: dict[float, str] = {}
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
         self._frame_indexed_sources: list[tuple[Path, float]] = []
+        self._pending_imports: deque[tuple[Path, type, dict[str, Any]]] = deque()
+        self._import_thread: QThread | None = None
         # Inspection data keyed by str(path)
         self._inspections: dict[str, SourceInspection] = {}
         # Units dict keyed by channel_id; populated from import config or wizard
@@ -1650,7 +1653,14 @@ class MainWindow(QMainWindow):
         return fps, ok
 
     def _enqueue_import(self, path: Path, loader_cls: type, config: dict[str, Any]) -> None:
-        """Start a background ImportWorker for the given path/loader/config."""
+        """Queue a source import so only one worker owns the import UI at a time."""
+        if self._import_thread is not None:
+            self._pending_imports.append((path, loader_cls, config))
+            return
+        self._start_import(path, loader_cls, config)
+
+    def _start_import(self, path: Path, loader_cls: type, config: dict[str, Any]) -> None:
+        """Start the next queued background import."""
         from PySide6.QtCore import QThread
         from PySide6.QtWidgets import QProgressDialog
 
@@ -1676,12 +1686,22 @@ class MainWindow(QMainWindow):
         self._import_worker.finished.connect(self._import_thread.quit)
         self._import_worker.finished.connect(self._import_worker.deleteLater)
         self._import_thread.finished.connect(self._import_thread.deleteLater)
+        self._import_thread.finished.connect(self._on_import_thread_finished)
 
         self._import_worker.error.connect(self._on_import_error)
         self._import_worker.error.connect(self._import_thread.quit)
 
         self._progress_dialog.show()
         self._import_thread.start()
+
+    @Slot()
+    def _on_import_thread_finished(self) -> None:
+        """Release the completed import and begin the next queued source."""
+        self._import_thread = None
+        if not self._pending_imports:
+            return
+        path, loader_cls, config = self._pending_imports.popleft()
+        QTimer.singleShot(0, lambda: self._start_import(path, loader_cls, config))
 
     def _rebind_frame_indexed_sources(self, fps: float) -> None:
         """Re-import all provisional frame-indexed sources using the video fps."""

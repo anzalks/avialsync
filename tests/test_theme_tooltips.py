@@ -208,5 +208,7 @@ def test_font_preference_scales_from_and_restores_the_system_font(monkeypatch, q
 def test_demo_launcher_uses_the_application_theme() -> None:
     """The demo must use the same saved appearance as the production app."""
     launcher = Path("tools/launch_demo.py").read_text(encoding="utf-8")
-    assert "load_saved_theme(app)" in launcher
+    application = Path("src/avialview/__main__.py").read_text(encoding="utf-8")
+    assert "from avialview.__main__ import main" in launcher
+    assert "load_saved_theme(app)" in application
     assert "ToolTipBase" not in launcher

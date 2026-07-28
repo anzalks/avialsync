@@ -87,10 +87,10 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - **Portable media runtime and demo launch**: `avialview.runtime` configures bundled media or the
   active conda environment before the lazy libmpv import, and `VideoStandardLoader` resolves an
   explicit `ffprobe` path rather than trusting the current directory or activated-shell PATH; on
-  Windows it also finds the standard WinGet FFmpeg package path. `tools/launch_demo.py` resolves
-  its data relative to the repository root, so `python <repo>\\tools\\launch_demo.py` works from any
-  current directory. The installed `avialview demo` command generates a portable minimal demo under
-  the platform application-data folder and loads it through the normal asynchronous source paths.
+  Windows it also finds the standard WinGet FFmpeg package path. `tools/launch_demo.py` delegates to
+  the installed command so the two paths cannot drift. `avialview demo` generates the full three-CFR
+  plus one-VFR camera demo under the platform application-data folder and serially imports its sensor,
+  dense ephys/TTL, and tracking tables through the normal asynchronous source paths.
   Generation runs in `DemoGenerationWorker`, with a modal progress/log dialog, FFmpeg diagnostic
   errors, cancellation, and explicit reuse of already-created files. FFmpeg uses `-progress pipe:1`
   with `-loglevel error`; never read progress while leaving verbose stderr unread, or first-run demo
