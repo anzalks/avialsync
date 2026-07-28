@@ -751,3 +751,19 @@ directory and must generate and load four videos and all 12 channels within 120 
 
 Native window compositing still requires installer smoke tests on physical Windows, macOS, and Linux;
 hosted offscreen CI certifies decode/timeline/lifecycle correctness, not desktop-driver behavior.
+
+## 2026-07 - D-041 - 3D tracking is a cache-backed current-pose view
+
+The 3D view consumes complete `name_x` / `name_y` / `name_z` channel triplets from the same
+`PyramidReader` objects used by plots and readouts. It is not a new source type, does not alter the
+frozen plugin API, and receives time only from `Player`'s `MasterClock` update path.
+
+`VideoGrid` and `Tracking3DPane` share a native horizontal `QSplitter`, producing a draggable
+vertical handle whose local geometry is stored in QSettings. The view samples one nearest cached
+pose, groups shared timestamps per source, and custom-paints only that pose; it never loads or draws
+a full trajectory on a clock tick. The 128-point cursor benchmark retains the 2 ms budget.
+
+No skeleton edges are inferred from point names because doing so would invent scientific semantics.
+Explicit topology can be added later through versioned plugin/configuration metadata. PyOpenGL and
+GPU-specific scene libraries were rejected here: the bounded QPainter projection is portable,
+adds no dependency, follows the active palette, and is substantially below the cursor budget.

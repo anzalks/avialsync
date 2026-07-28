@@ -35,6 +35,7 @@ from avialview.ui.annotations import AnnotationPanel, AnnotationStore
 from avialview.ui.plot_pane import PlotPane
 from avialview.ui.readout_panel import ReadoutPanel
 from avialview.ui.time_format import TimeDisplayMode
+from avialview.ui.tracking_3d_pane import Tracking3DPane
 from avialview.ui.transport import Transport
 from avialview.ui.video_grid import VideoGrid
 
@@ -82,6 +83,7 @@ class MainWindow(QMainWindow):
 
         # UI Components
         self.video_grid = VideoGrid(self)
+        self.tracking_3d_pane = Tracking3DPane(self)
         self.plot_pane = PlotPane(self)
         self.transport = Transport(self)
         self.data_streams = self.transport.detach_data_streams()
@@ -94,6 +96,7 @@ class MainWindow(QMainWindow):
             self.plot_pane,
             self.transport,
             self,
+            tracking_3d_pane=self.tracking_3d_pane,
         )
 
         # Annotations
@@ -150,8 +153,15 @@ class MainWindow(QMainWindow):
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
+        self._media_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._media_splitter.setAccessibleName("Video and 3D tracking splitter")
+        self._media_splitter.addWidget(self.video_grid)
+        self._media_splitter.addWidget(self.tracking_3d_pane)
+        self._media_splitter.setStretchFactor(0, 2)
+        self._media_splitter.setStretchFactor(1, 1)
+
         v_splitter = QSplitter(Qt.Orientation.Vertical)
-        v_splitter.addWidget(self.video_grid)
+        v_splitter.addWidget(self._media_splitter)
         v_splitter.addWidget(self.plot_pane)
         v_splitter.setStretchFactor(0, 3)
         v_splitter.setStretchFactor(1, 1)
@@ -174,7 +184,13 @@ class MainWindow(QMainWindow):
 
         # Child widgets receive drag events before QMainWindow. Forward those
         # events to the single capability-routing implementation below.
-        for drop_target in (central_widget, right_widget, self.video_grid, self.plot_pane):
+        for drop_target in (
+            central_widget,
+            right_widget,
+            self.video_grid,
+            self.tracking_3d_pane,
+            self.plot_pane,
+        ):
             drop_target.setAcceptDrops(True)
             drop_target.installEventFilter(self)
 
@@ -219,6 +235,8 @@ class MainWindow(QMainWindow):
     def _on_sources_changed(self, readers: list[Any]) -> None:
         """Forward to ReadoutPanel with accumulated units for known channels."""
         self.readout_panel.update_sources(readers, self._channel_units)
+        self.tracking_3d_pane.set_readers(readers)
+        self.tracking_3d_pane.set_cursor(self.clock.state.t)
 
     def _update_timeline_annotations(self) -> None:
         """Mirror annotations to the overview without adding another time model."""
@@ -306,6 +324,9 @@ class MainWindow(QMainWindow):
         v_state = settings.value("splitter/vertical")
         if v_state:
             self._v_splitter.restoreState(v_state)
+        media_state = settings.value("splitter/media")
+        if media_state:
+            self._media_splitter.restoreState(media_state)
         content_state = settings.value("splitter/content")
         if content_state:
             self._content_splitter.restoreState(content_state)
@@ -325,6 +346,7 @@ class MainWindow(QMainWindow):
             self._v_splitter.saveState(),
         )
         settings.setValue("splitter/content", self._content_splitter.saveState())
+        settings.setValue("splitter/media", self._media_splitter.saveState())
         settings.setValue("splitter/left", self._left_splitter.saveState())
 
     # ── Session save / load ──────────────────────────────────────────
@@ -1171,7 +1193,7 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
-        video_px = snapshot_widget(self.video_grid)
+        video_px = snapshot_widget(self._media_splitter)
         plot_px = snapshot_widget(self.plot_pane)
         try:
             save_snapshot(video_px, plot_px, Path(path))

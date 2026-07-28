@@ -6,6 +6,9 @@ test affects its result.
 The engineering marks are the product requirements: 2.5 seconds to build the 180-million-sample
 pyramid, 5 milliseconds to query it, 2 milliseconds for a cursor update, and 250 milliseconds for
 the 10,000-event synchronization preview. The test suite checks all four.
+The 3D current-pose sampler has its own 2 millisecond guard at 128 XYZ points. It reuses one
+timestamp lookup for all coordinate channels in a source and never reads or projects a full
+trajectory during playback.
 
 ## GitHub workload verification
 

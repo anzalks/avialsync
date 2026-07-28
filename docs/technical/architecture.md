@@ -8,6 +8,8 @@ desktop interface, and so laboratories can add readers without changing the view
 
 `MasterClock` is the only owner of the current experiment time. Video panes, plots, annotations,
 the data-stream coverage view, and exports subscribe to it; they do not each keep a competing clock.
+The 3D tracking pane is another observer on that same update path; it has no timer or playback
+state of its own.
 
 Each source has a `TimeMap` that converts its own timestamps to the master timeline. The map can
 contain an offset and an optional drift term. The raw source timestamps are retained. This separation
@@ -35,6 +37,13 @@ recording on disk.
 Video playback is provided by libmpv. Dense traces use precomputed decimation pyramids instead of
 passing full recordings to a plotting widget. This keeps navigating a long recording responsive
 without reducing the precision used for readouts and exports.
+
+The 3D pane is a view over the same cache, not a new loader or source type. It groups complete
+`name_x`, `name_y`, and `name_z` triplets, performs one nearest-timestamp lookup per source, and
+custom-paints only the current pose. It does not scan or render a full trajectory on a clock tick.
+The 3D pane and video grid sit in a native side-by-side splitter, whose size is a local view
+preference. Point names do not imply scientific topology, so the viewer never invents skeleton
+connections.
 
 For exact paused-frame verification, AvialView checks decoded raw video against a fixture's frame
 strip rather than trusting a returned seek command or a displayed image. Production uses libmpv's

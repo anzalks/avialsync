@@ -16,6 +16,7 @@ from avialview.ui.video_pane import VideoPane
 
 if TYPE_CHECKING:
     from avialview.ui.readout_panel import ReadoutPanel
+    from avialview.ui.tracking_3d_pane import Tracking3DPane
 
 
 class Player(QObject):
@@ -28,12 +29,15 @@ class Player(QObject):
         plot_pane: PlotPane,
         transport: Transport,
         parent: QObject | None = None,
+        *,
+        tracking_3d_pane: Tracking3DPane | None = None,
     ):
         super().__init__(parent)
         self.clock = clock
         self.video_grid = video_grid
         self.plot_pane = plot_pane
         self.transport = transport
+        self.tracking_3d_pane = tracking_3d_pane
         self._readout_panel: ReadoutPanel | None = None
         self.seeker = SeekGroup(self.video_grid.panes)
 
@@ -109,10 +113,7 @@ class Player(QObject):
 
         # Update UI instantly (cursor + readout follow live during drag)
         t_now = self.clock.state.t
-        self.plot_pane.set_cursor(t_now)
-        self.transport.set_time(t_now)
-        if self._readout_panel:
-            self._readout_panel.set_cursor(t_now)
+        self._update_timeline_views(t_now)
 
         # Reset drift hysteresis
         self._drift_counts.clear()
@@ -157,8 +158,7 @@ class Player(QObject):
             return
         t_pos = pane.time_map.to_master(pane.time_pos or self.clock.state.t)
         self.clock.seek(t_pos)
-        self.plot_pane.set_cursor(t_pos)
-        self.transport.set_time(t_pos)
+        self._update_timeline_views(t_pos)
 
     def set_ab_loop(self, t_in: float | None, t_out: float | None) -> None:
         """Set or clear the A/B loop region on the master clock."""
@@ -222,9 +222,15 @@ class Player(QObject):
                         self._drift_counts[idx] = 0
 
             # Update UI
-            self.plot_pane.set_cursor(t)
-            self.transport.set_time(t)
-            if self._readout_panel:
-                self._readout_panel.set_cursor(t)
+            self._update_timeline_views(t)
 
         self._last_tick_monotonic = now
+
+    def _update_timeline_views(self, t_master: float) -> None:
+        """Move every lightweight timeline observer from one master-time value."""
+        self.plot_pane.set_cursor(t_master)
+        self.transport.set_time(t_master)
+        if self.tracking_3d_pane is not None:
+            self.tracking_3d_pane.set_cursor(t_master)
+        if self._readout_panel:
+            self._readout_panel.set_cursor(t_master)

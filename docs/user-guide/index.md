@@ -3,6 +3,8 @@
 ## Main areas of the window
 
 - **Videos** show each available camera at the selected experiment time.
+- **3D Tracking** shows complete XYZ tracking points beside the videos at the same experiment time.
+  Drag the vertical splitter handle to give either view more space.
 - **Plots** show sensor, electrode, and tracking values over time.
 - **Data Streams** shows when every loaded file is available. A coloured span means the source has
   data; an empty span means it does not.
@@ -18,6 +20,16 @@
 - **A/B** marks a time range for inspection or export.
 
 Use tooltips by resting the pointer over any button if you are unsure what it does.
+
+## 3D tracking controls
+
+Tracking files use the existing import path. Every complete channel triplet named `point_x`,
+`point_y`, and `point_z` becomes one point in the 3D pane; incomplete triplets remain ordinary
+time-series plots. The 3D pane does not guess connections between points.
+
+- Drag with the left mouse button to orbit.
+- Use the mouse wheel to zoom.
+- Select **Fit View**, or double-click the view, to frame the current pose again.
 
 ## Appearance and font size
 

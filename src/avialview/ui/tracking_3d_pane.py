@@ -1,0 +1,433 @@
+"""Interactive 3D view for cached tracking-coordinate channels."""
+
+from __future__ import annotations
+
+import math
+from collections.abc import Iterable
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QMouseEvent, QPainter, QPaintEvent, QPen, QWheelEvent
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+
+from avialview.core.pyramid import PyramidReader
+
+_POINT_COLORS = (
+    (0, 188, 212),
+    (255, 152, 0),
+    (156, 39, 176),
+    (76, 175, 80),
+    (233, 30, 99),
+    (63, 81, 181),
+)
+_MAX_LABELS = 24
+_SAMPLE_TOLERANCE_S = 0.1
+
+
+@dataclass(frozen=True)
+class _PointChannels:
+    """Memory-mapped coordinate arrays for one named point."""
+
+    name: str
+    values: tuple[np.ndarray, np.ndarray, np.ndarray]
+    gaps: tuple[np.ndarray, np.ndarray, np.ndarray]
+
+
+@dataclass(frozen=True)
+class _SourceSamples:
+    """Tracking points whose coordinates share one source timestamp array."""
+
+    times: np.ndarray
+    points: tuple[_PointChannels, ...]
+
+
+def _coordinate_name(channel_id: str) -> tuple[str, str] | None:
+    """Return ``(point_name, axis)`` for the standard ``name_axis`` convention."""
+    name, separator, axis = channel_id.rpartition("_")
+    axis = axis.lower()
+    if separator and name and axis in {"x", "y", "z"}:
+        return name, axis
+    return None
+
+
+def _nearest_index(times: np.ndarray, target: float) -> int | None:
+    """Find the nearest timestamp without scanning a trajectory."""
+    if len(times) == 0:
+        return None
+    right = int(np.searchsorted(times, target))
+    if right == 0:
+        index = 0
+    elif right == len(times):
+        index = len(times) - 1
+    elif target - float(times[right - 1]) <= float(times[right]) - target:
+        index = right - 1
+    else:
+        index = right
+    if abs(float(times[index]) - target) > _SAMPLE_TOLERANCE_S:
+        return None
+    return index
+
+
+def _build_sources(readers: Iterable[PyramidReader]) -> tuple[_SourceSamples, ...]:
+    """Group complete XYZ triplets by source cache and pre-warm their mmap arrays."""
+    by_source: dict[Path, dict[str, dict[str, PyramidReader]]] = {}
+    for reader in readers:
+        coordinate = _coordinate_name(reader.channel_id)
+        if coordinate is None:
+            continue
+        point_name, axis = coordinate
+        source_points = by_source.setdefault(reader.cache_dir, {})
+        source_points.setdefault(point_name, {})[axis] = reader
+
+    sources: list[_SourceSamples] = []
+    for source_points in by_source.values():
+        points: list[_PointChannels] = []
+        reference_times: np.ndarray | None = None
+        reference_length = -1
+        for point_name, axes in source_points.items():
+            if set(axes) != {"x", "y", "z"}:
+                continue
+            arrays = [axes[axis]._load_level(1) for axis in ("x", "y", "z")]
+            lengths = {len(item[0]) for item in arrays}
+            if len(lengths) != 1:
+                continue
+            sample_count = lengths.pop()
+            if reference_times is None:
+                reference_times = arrays[0][0]
+                reference_length = sample_count
+            if sample_count != reference_length:
+                continue
+            points.append(
+                _PointChannels(
+                    name=point_name,
+                    values=(arrays[0][1], arrays[1][1], arrays[2][1]),
+                    gaps=(arrays[0][3], arrays[1][3], arrays[2][3]),
+                )
+            )
+        if reference_times is not None and points:
+            sources.append(_SourceSamples(times=reference_times, points=tuple(points)))
+    return tuple(sources)
+
+
+class Tracking3DCanvas(QWidget):
+    """Custom-painted current-pose view with mouse orbit and wheel zoom."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setMinimumSize(200, 180)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAccessibleName("Interactive 3D tracking plot")
+        self.setMouseTracking(True)
+
+        self._sources: tuple[_SourceSamples, ...] = ()
+        self._names: tuple[str, ...] = ()
+        self._positions = np.empty((0, 3), dtype=np.float64)
+        self._valid = np.empty(0, dtype=bool)
+        self._time = 0.0
+
+        self._azimuth = math.radians(40.0)
+        self._elevation = math.radians(25.0)
+        self._zoom = 1.0
+        self._center = np.zeros(3, dtype=np.float64)
+        self._radius = 1.0
+        self._scene_min = np.zeros(3, dtype=np.float64)
+        self._scene_max = np.zeros(3, dtype=np.float64)
+        self._has_scene_bounds = False
+        self._drag_origin: QPoint | None = None
+
+    @property
+    def point_count(self) -> int:
+        """Number of complete XYZ points available to the view."""
+        return len(self._names)
+
+    @property
+    def point_names(self) -> tuple[str, ...]:
+        """Names of complete XYZ coordinate triplets."""
+        return self._names
+
+    @property
+    def positions(self) -> np.ndarray:
+        """Copy of the currently sampled XYZ positions, including NaN placeholders."""
+        return self._positions.copy()
+
+    def set_readers(self, readers: Iterable[PyramidReader]) -> None:
+        """Select complete XYZ triplets and retain only their mmap-backed arrays."""
+        self._sources = _build_sources(readers)
+        self._names = tuple(point.name for source in self._sources for point in source.points)
+        self._positions = np.full((len(self._names), 3), np.nan, dtype=np.float64)
+        self._valid = np.zeros(len(self._names), dtype=bool)
+        self._has_scene_bounds = False
+        self.set_cursor(self._time)
+
+    def set_cursor(self, t_master: float) -> None:
+        """Sample and display the pose nearest to the master-clock time."""
+        self._time = t_master
+        position_index = 0
+        for source in self._sources:
+            sample_index = _nearest_index(source.times, t_master)
+            for point in source.points:
+                values = np.full(3, np.nan, dtype=np.float64)
+                if sample_index is not None:
+                    for axis in range(3):
+                        if not point.gaps[axis][sample_index]:
+                            values[axis] = point.values[axis][sample_index]
+                self._positions[position_index] = values
+                position_index += 1
+        self._valid = np.all(np.isfinite(self._positions), axis=1)
+        self._expand_scene_bounds()
+        self.update()
+
+    def fit_current_pose(self) -> None:
+        """Fit the camera to the valid points at the current master time."""
+        valid_positions = self._positions[self._valid]
+        if len(valid_positions) == 0:
+            return
+        self._scene_min = np.min(valid_positions, axis=0)
+        self._scene_max = np.max(valid_positions, axis=0)
+        self._has_scene_bounds = True
+        self._update_camera_bounds()
+        self._zoom = 1.0
+        self.update()
+
+    def reset_view(self) -> None:
+        """Restore the default orbit and fit the current pose."""
+        self._azimuth = math.radians(40.0)
+        self._elevation = math.radians(25.0)
+        self.fit_current_pose()
+
+    def _expand_scene_bounds(self) -> None:
+        valid_positions = self._positions[self._valid]
+        if len(valid_positions) == 0:
+            return
+        current_min = np.min(valid_positions, axis=0)
+        current_max = np.max(valid_positions, axis=0)
+        if self._has_scene_bounds:
+            self._scene_min = np.minimum(self._scene_min, current_min)
+            self._scene_max = np.maximum(self._scene_max, current_max)
+        else:
+            self._scene_min = current_min
+            self._scene_max = current_max
+            self._has_scene_bounds = True
+        self._update_camera_bounds()
+
+    def _update_camera_bounds(self) -> None:
+        self._center = (self._scene_min + self._scene_max) / 2.0
+        span = self._scene_max - self._scene_min
+        self._radius = max(float(np.max(span)) * 0.65, 1e-6)
+
+    def _camera_basis(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        cos_elevation = math.cos(self._elevation)
+        direction = np.array(
+            [
+                cos_elevation * math.cos(self._azimuth),
+                cos_elevation * math.sin(self._azimuth),
+                math.sin(self._elevation),
+            ]
+        )
+        right = np.array([-math.sin(self._azimuth), math.cos(self._azimuth), 0.0])
+        up = np.cross(right, direction)
+        return right, up, direction
+
+    def _project(self, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        right, up, direction = self._camera_basis()
+        relative = points - self._center
+        scale = 0.38 * min(self.width(), self.height()) * self._zoom / self._radius
+        screen = np.column_stack((relative @ right, relative @ up))
+        screen *= scale
+        screen[:, 0] += self.width() / 2.0
+        screen[:, 1] = self.height() / 2.0 - screen[:, 1]
+        return screen, relative @ direction
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        """Draw a bounded current pose; trajectory history is never rendered here."""
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(), self.palette().color(self.palette().ColorRole.Base))
+        self._draw_grid_and_axes(painter)
+
+        valid_indices = np.flatnonzero(self._valid)
+        if len(valid_indices) == 0:
+            painter.setPen(self.palette().color(self.palette().ColorRole.PlaceholderText))
+            message = (
+                "Load tracking channels ending in _x, _y, and _z"
+                if self.point_count == 0
+                else "No 3D tracking at the current time"
+            )
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, message)
+            return
+
+        screen, depth = self._project(self._positions[valid_indices])
+        order = np.argsort(depth)
+        text_color = self.palette().color(self.palette().ColorRole.Text)
+        for draw_order in order:
+            point_index = int(valid_indices[draw_order])
+            x, y = screen[draw_order]
+            color = _POINT_COLORS[point_index % len(_POINT_COLORS)]
+            painter.setPen(QPen(Qt.GlobalColor.black, 1))
+            painter.setBrush(Qt.GlobalColor.transparent)
+            painter.setBrush(
+                self.palette().color(self.palette().ColorRole.Highlight)
+                if point_index == 0
+                else _qcolor(color)
+            )
+            painter.drawEllipse(QPoint(round(float(x)), round(float(y))), 5, 5)
+            if len(valid_indices) <= _MAX_LABELS:
+                painter.setPen(text_color)
+                painter.drawText(round(float(x)) + 7, round(float(y)) - 5, self._names[point_index])
+
+    def _draw_grid_and_axes(self, painter: QPainter) -> None:
+        if not self._has_scene_bounds:
+            return
+        grid_color = self.palette().color(self.palette().ColorRole.Mid)
+        grid_color.setAlpha(90)
+        painter.setPen(QPen(grid_color, 1))
+
+        radius = self._radius
+        grid_points: list[np.ndarray] = []
+        for step in np.linspace(-radius, radius, 7):
+            grid_points.extend(
+                [
+                    self._center + np.array([-radius, step, 0.0]),
+                    self._center + np.array([radius, step, 0.0]),
+                    self._center + np.array([step, -radius, 0.0]),
+                    self._center + np.array([step, radius, 0.0]),
+                ]
+            )
+        grid_screen, _ = self._project(np.asarray(grid_points))
+        for index in range(0, len(grid_screen), 2):
+            start = grid_screen[index]
+            end = grid_screen[index + 1]
+            painter.drawLine(
+                round(float(start[0])),
+                round(float(start[1])),
+                round(float(end[0])),
+                round(float(end[1])),
+            )
+
+        origin = self._center
+        axes = np.asarray(
+            [
+                origin,
+                origin + np.array([radius, 0.0, 0.0]),
+                origin,
+                origin + np.array([0.0, radius, 0.0]),
+                origin,
+                origin + np.array([0.0, 0.0, radius]),
+            ]
+        )
+        axis_screen, _ = self._project(axes)
+        for axis, color in enumerate(((220, 70, 70), (70, 180, 90), (70, 120, 230))):
+            start = axis_screen[axis * 2]
+            end = axis_screen[axis * 2 + 1]
+            painter.setPen(QPen(_qcolor(color), 2))
+            painter.drawLine(
+                round(float(start[0])),
+                round(float(start[1])),
+                round(float(end[0])),
+                round(float(end[1])),
+            )
+            painter.drawText(round(float(end[0])) + 3, round(float(end[1])) - 3, "XYZ"[axis])
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        """Begin orbiting on a primary-button drag."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_origin = event.position().toPoint()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        """Orbit around the stable scene bounds."""
+        if self._drag_origin is None or not event.buttons() & Qt.MouseButton.LeftButton:
+            super().mouseMoveEvent(event)
+            return
+        current = event.position().toPoint()
+        delta = current - self._drag_origin
+        self._drag_origin = current
+        self._azimuth += math.radians(delta.x() * 0.5)
+        self._elevation = float(
+            np.clip(self._elevation + math.radians(delta.y() * 0.5), -1.48, 1.48)
+        )
+        self.update()
+        event.accept()
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        """Finish an orbit gesture."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_origin = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        """Zoom around the current scene center."""
+        steps = event.angleDelta().y() / 120.0
+        self._zoom = float(np.clip(self._zoom * (1.15**steps), 0.1, 20.0))
+        self.update()
+        event.accept()
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        """Fit the current pose on double click."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.reset_view()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
+
+
+def _qcolor(rgb: tuple[int, int, int]):
+    """Construct QColor lazily to keep the paint code concise."""
+    from PySide6.QtGui import QColor
+
+    return QColor(*rgb)
+
+
+class Tracking3DPane(QWidget):
+    """Timeline-synchronized 3D tracking pane."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("tracking_3d_pane")
+        self.setAccessibleName("3D Tracking pane")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        header = QWidget(self)
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(8, 4, 8, 4)
+        self.title_label = QLabel("3D Tracking", header)
+        self.status_label = QLabel("No XYZ tracking channels", header)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.fit_button = QPushButton("Fit View", header)
+        self.fit_button.setToolTip("Fit the 3D camera to the current tracked pose")
+        self.fit_button.clicked.connect(self._fit_view)
+        header_layout.addWidget(self.title_label)
+        header_layout.addStretch()
+        header_layout.addWidget(self.status_label)
+        header_layout.addWidget(self.fit_button)
+
+        self.canvas = Tracking3DCanvas(self)
+        layout.addWidget(header)
+        layout.addWidget(self.canvas, 1)
+
+    def set_readers(self, readers: list[PyramidReader]) -> None:
+        """Use complete XYZ channel triplets from the active cached readers."""
+        self.canvas.set_readers(readers)
+        count = self.canvas.point_count
+        suffix = "" if count == 1 else "s"
+        self.status_label.setText(
+            f"{count} tracked point{suffix}" if count else "No XYZ tracking channels"
+        )
+        self.fit_button.setEnabled(count > 0)
+
+    def set_cursor(self, t_master: float) -> None:
+        """Update from the same master-clock value used by video and 2D plots."""
+        self.canvas.set_cursor(t_master)
+
+    def _fit_view(self) -> None:
+        self.canvas.reset_view()

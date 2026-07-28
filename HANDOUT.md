@@ -203,6 +203,10 @@ with explicit user acceptance and session provenance. Native plugin event provid
 
 ### Fixed (this PR — Phase 4 stabilization)
 - Left-pane vertical QSplitter: `_left_splitter` in `main_window.py`; state persisted in QSettings `splitter/left`
+- Video/3D horizontal QSplitter: `_media_splitter` gives the video grid and `Tracking3DPane` a
+  draggable vertical handle; state is persisted in QSettings `splitter/media`. Complete cached
+  `name_x` / `name_y` / `name_z` triplets render as the current pose with orbit, wheel zoom, and
+  Fit View controls (D-041). No skeleton connectivity is inferred.
 - Reset Zoom: wired to View → Reset Plot Zoom (Ctrl+0), timeline-row button, and shortcuts dialog
 - Transport UX: the full-width **Data Streams** section is distinct from both plots and the
   seek/transport section with the native splitter handles used for video/plot resizing. Its header owns Hide, Flag Frame, Snapshot,
@@ -259,6 +263,7 @@ outside that invocation; that message does not mean the full-package overrides a
 | `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane` |
 | `ui/video_grid.py` | N VideoPanes; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `set_grid_mode()` |
 | `ui/plot_pane.py` | pyqtgraph multi-row plot; pyramid-fed; X-linked; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
+| `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit | `Tracking3DPane.set_readers()`, `set_cursor()` |
 | `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status | `set_time()`, `set_bounds()`, `set_source_coverage()`, `set_ttl_events()`, `set_gap_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
@@ -330,8 +335,10 @@ All connections established in `MainWindow.__init__` unless noted.
 | Source | Target |
 |---|---|
 | `plot_pane.sources_changed(readers)` | `readout_panel.update_sources` + `video_grid.set_tracking_readers` |
+| `plot_pane.sources_changed(readers)` | `tracking_3d_pane.set_readers` for complete XYZ triplets |
 | `plot_pane.measure_changed(t_a, t_b)` | `readout_panel.show_delta(t_a, t_b, panes)` |
 | `player._on_tick()` — direct calls | `plot_pane.set_cursor(t)`, `transport.set_time(t)`, `readout_panel.set_cursor(t)` via `player._readout_panel` attr |
+| `Player._update_timeline_views(t)` | `tracking_3d_pane.set_cursor(t)` when the optional pane is present |
 
 ### Time display mode (D-020)
 
@@ -413,6 +420,11 @@ The correct dependency is `python-mpv` on PyPI, imported as `import mpv`. The pa
 Only `conda run -n avialview ruff check .` is authoritative.
 
 ### 13. `_load_level()` on PyramidReader is private — do not call outside ReadoutPanel
+
+**D-041 amendment:** `Tracking3DPane` is the other intentional nearest-sample UI consumer. It
+pre-warms the same cached level once on source changes and reuses one timestamp lookup per source;
+neither consumer scans a full recording during a clock tick.
+
 `ReadoutPanel.set_cursor` calls `reader._load_level(1)` directly because the public API
 `query()` and `value_at()` involve unnecessary range arguments for the nearest-sample use case.
 This is a known coupling. If PyramidReader grows a public `nearest(t)` method, migrate ReadoutPanel.
@@ -629,6 +641,7 @@ for correctness only; it is not a speed authority. Never add per-test multiplier
 | Scrub response (3 cams, exact seek) | ≤ 250 ms |
 | Plot pan/zoom frame time ★ | ≤ 16 ms |
 | Cursor update per tick ★ | ≤ 2 ms |
+| 3D pose sample (128 points) | <= 2 ms |
 | Cached session open (3 cams + 4×50 kHz) | ≤ 3 s |
 | First CSV import 1 GB | ≤ 60 s |
 | Pyramid build 180 M samples ★ | ≤ 2.5 s (revised, D-024) |

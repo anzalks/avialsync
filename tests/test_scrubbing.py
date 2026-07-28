@@ -191,3 +191,16 @@ def test_play_starts_playback_for_programmatic_callers(player_with_mocks):
     player.play()
 
     player.set_playing.assert_called_once_with(True)
+
+
+def test_3d_tracking_updated_during_drag(player_with_mocks):
+    """The 3D view follows the same master time during live scrubbing."""
+    player, _clock = player_with_mocks
+
+    tracking_3d = MagicMock()
+    player.tracking_3d_pane = tracking_3d
+    player.seeker.is_settled.return_value = True
+
+    player.seek(4.25, exact=False)
+
+    tracking_3d.set_cursor.assert_called_once_with(4.25)

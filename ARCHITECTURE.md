@@ -52,6 +52,7 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
 │   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
+|   |   |-- tracking_3d_pane.py       # cache-backed current-pose projection; orbit/zoom (D-041)
 │   │   ├── transport.py              # two-row timeline + named evidence lanes, controls, status, A/B loop
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
 │   │   ├── sync_wizard.py            # evidence selection, residual preview, explicit acceptance (D-026)
@@ -139,6 +140,12 @@ flat at repo root so every model finds them without searching. Dependency direct
 
 Time series never "play": plots render pyramid slices for the visible window; only the playhead
 line moves per tick (≤ 2 ms budget).
+The 3D tracking view follows the same rule: it recognizes complete `name_x`, `name_y`, `name_z`
+channel triplets already imported through a `TimeSeriesSource`, samples only the nearest mmap-backed
+cache row at `t_master`, and paints only the current pose. Coordinates sharing one source reuse one
+timestamp lookup. It never sends a full trajectory to a widget, never creates an independent timer,
+and never infers skeleton connectivity from names. The video grid and 3D view share a native
+side-by-side splitter whose geometry is a local QSettings preference (D-041).
 
 ### 2b. Timeline Evidence overview (D-027)
 
