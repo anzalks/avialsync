@@ -194,22 +194,19 @@ class ImportWizard(QDialog):
         preview_group = QGroupBox("Preview (first 20 rows)")
         preview_layout = QVBoxLayout(preview_group)
 
-        ncols = len(self._headers)
-        self._preview_table = QTableWidget(min(20, len(self._sample_rows)), ncols)
-        self._preview_table.setHorizontalHeaderLabels(self._headers)
-        self._preview_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self._preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._has_headers = True
+        self._has_headers_cb = QCheckBox("File has headers")
+        self._has_headers_cb.setChecked(self._has_headers)
+        self._has_headers_cb.toggled.connect(self._on_has_headers_toggled)
+        preview_layout.addWidget(self._has_headers_cb)
 
-        for r, row_data in enumerate(self._sample_rows[:20]):
-            for c, val in enumerate(row_data[:ncols]):
-                self._preview_table.setItem(r, c, QTableWidgetItem(val.strip()))
-
+        self._preview_table = QTableWidget()
         preview_layout.addWidget(self._preview_table)
         main_layout.addWidget(preview_group)
 
         # Config form
         config_group = QGroupBox("Import Settings")
-        form = QFormLayout(config_group)
+        self._form = QFormLayout(config_group)
 
         # Separator
         self._sep_combo = QComboBox()
@@ -220,34 +217,31 @@ class ImportWizard(QDialog):
                 self._sep_combo.setCurrentIndex(i)
                 break
         self._sep_combo.currentIndexChanged.connect(self._on_separator_changed)
-        form.addRow("Separator:", self._sep_combo)
+        self._form.addRow("Separator:", self._sep_combo)
 
         # Time column
         self._time_col_combo = QComboBox()
-        for h in self._headers:
-            self._time_col_combo.addItem(h.strip())
-        self._time_col_combo.setCurrentIndex(time_col_idx)
-        form.addRow("Time column:", self._time_col_combo)
+        self._form.addRow("Time column:", self._time_col_combo)
 
         # Timestamp format
         self._fmt_combo = QComboBox()
         for label, val in _COMMON_FORMATS:
             self._fmt_combo.addItem(label, val)
-        # Select the guessed format
         self._select_format(guessed_fmt)
-        form.addRow("Format:", self._fmt_combo)
+        self._form.addRow("Format:", self._fmt_combo)
 
-        # Custom format input (shown only for "Custom…")
+        # Custom format input
         self._custom_fmt = QLineEdit()
         self._custom_fmt.setPlaceholderText("e.g. %Y-%m-%d %H:%M:%S.%f")
         self._custom_fmt.setVisible(False)
         self._fmt_combo.currentIndexChanged.connect(self._on_format_changed)
-        form.addRow("", self._custom_fmt)
+        self._form.addRow("", self._custom_fmt)
 
-        # Time unit (for numeric epochs)
+        # Time unit
         self._unit_combo = QComboBox()
         for label, val in _TIME_UNITS:
             self._unit_combo.addItem(label, val)
+
         form.addRow("Numeric unit:", self._unit_combo)
 
         # Timezone
@@ -317,8 +311,13 @@ class ImportWizard(QDialog):
         sep = self._sep_combo.currentData()
         reader = csv.reader(io.StringIO("\n".join(self._raw_lines[:50])), delimiter=sep)
         rows = list(reader)
-        self._headers = rows[0] if rows else []
-        self._sample_rows = rows[1:21] if len(rows) > 1 else []
+        if self._has_headers:
+            self._headers = rows[0] if rows else []
+            self._sample_rows = rows[1:21] if len(rows) > 1 else []
+        else:
+            ncols = len(rows[0]) if rows else 0
+            self._headers = [f"column_{i+1}" for i in range(ncols)]
+            self._sample_rows = rows[:20]
 
         ncols = len(self._headers)
         self._preview_table.setColumnCount(ncols)
@@ -336,6 +335,10 @@ class ImportWizard(QDialog):
             self._time_col_combo.addItem(h.strip())
         time_col_idx = _guess_time_column(self._headers)
         self._time_col_combo.setCurrentIndex(time_col_idx)
+
+    def _on_has_headers_toggled(self, checked: bool) -> None:
+        self._has_headers = checked
+        self._on_separator_changed(0)
 
     def _on_sentinel_changed(self, idx: int) -> None:
         val = self._sentinel_combo.currentData()
@@ -365,19 +368,16 @@ class ImportWizard(QDialog):
 
         sentinel = self._sentinel_combo.currentData()
         if sentinel == "custom":
-            sentinel = self._sentinel_custom.text()
+            sentinel = self._sentinel_custom.text().strip()
 
-        cfg: dict[str, Any] = {
+        return {
             "separator": self._sep_combo.currentData(),
+            "has_headers": self._has_headers,
             "time_col": self._time_col_combo.currentText(),
             "time_format": fmt_val,
             "time_unit": self._unit_combo.currentData(),
             "timezone": self._tz_combo.currentData(),
+            "anchor_date": self._anchor_date.text().strip() if self._anchor_chk.isChecked() else "",
             "sentinel": sentinel if sentinel else None,
             "euro_decimal": self._euro_chk.isChecked(),
         }
-
-        if self._anchor_chk.isChecked():
-            cfg["anchor_date"] = self._anchor_date.text().strip()
-
-        return cfg

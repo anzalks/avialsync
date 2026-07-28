@@ -92,7 +92,17 @@ class NeoLoader(TimeSeriesSource):
         prevents neo from claiming .csv, .txt, or unknown binaries.
         """
         if path.is_dir():
-            return 1.0 if cls._find_dataset_root(path) is not None else 0.0
+            root = cls._find_dataset_root(path)
+            if root is not None:
+                # Prevent neo from aggressively swallowing a parent folder (e.g. dragging a whole
+                # session folder containing videos and an ephys sub-sub-folder) by only claiming
+                # the directory if the dataset root is the directory itself or an immediate child.
+                try:
+                    if len(root.relative_to(path).parts) <= 1:
+                        return 1.0
+                except ValueError:
+                    pass
+            return 0.0
 
         if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
             return 0.0

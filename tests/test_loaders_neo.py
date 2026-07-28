@@ -82,8 +82,10 @@ def test_neoloader_openephys(tmp_path: Path):
     loader = NeoLoader()
 
     # 1. Test can_open logic
-    # The root folder should return 1.0 because of our recursive check
-    assert NeoLoader.can_open(fixture_path) == 1.0
+    # The root folder should return 0.0 because it's too high up (prevents swallowing)
+    assert NeoLoader.can_open(fixture_path) == 0.0
+    # The experiment folder is within depth 1 of the dataset root, so it returns 1.0
+    assert NeoLoader.can_open(fixture_path / "experiment1") == 1.0
 
     # 2. Test open and channel discovery
     loader.open(fixture_path, {})

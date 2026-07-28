@@ -36,11 +36,14 @@ class CSVLoader(TimeSeriesSource):
         time_col = config.get("time_col", "time")
         euro_decimal = config.get("euro_decimal", False)
 
+        has_headers = config.get("has_headers", True)
+
         try:
             sample = pl.read_csv(
                 path,
                 separator=separator,
                 n_rows=100,
+                has_header=has_headers,
                 infer_schema_length=100,
                 decimal_comma=euro_decimal or (separator == ";"),
             )
@@ -174,10 +177,13 @@ class CSVLoader(TimeSeriesSource):
             except (ValueError, TypeError):
                 sentinel = None
 
+        has_headers = self._config.get("has_headers", True)
+
         # Read in batches
         reader = pl.read_csv_batched(
             self._path,
             separator=separator,
+            has_header=has_headers,
             batch_size=50000,
             decimal_comma=euro_decimal or (separator == ";"),
         )

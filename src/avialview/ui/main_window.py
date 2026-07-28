@@ -765,45 +765,63 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         event.acceptProposedAction()
+        
+        candidates = []
         for url in event.mimeData().urls():
             path = Path(url.toLocalFile())
             if not path.exists():
                 continue
+            candidates.extend(self._collect_drop_candidates(path))
+            
+        if not candidates:
+            return
 
-            self._route_dropped_path(path)
+        # Defer dialogs to avoid blocking the macOS drag-and-drop OS loop (prevents beachball)
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: self._process_drop_candidates(candidates))
 
-    def _route_dropped_path(self, path: Path) -> None:
-        """Route a dropped path by plugin capability rather than filename suffix."""
+    def _process_drop_candidates(self, candidates: list[tuple[Path, type | None]]) -> None:
+        """Present the batch import dialog and route accepted items."""
+        from PySide6.QtWidgets import QDialog
+        from avialview.ui.batch_import_dialog import BatchImportDialog
+        
+        dialog = BatchImportDialog(candidates, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            selections = dialog.get_selections()
+            for path, loader_cls in selections:
+                if issubclass(loader_cls, VideoSource):
+                    self._load_video(path)
+                elif issubclass(loader_cls, TimeSeriesSource):
+                    self._start_data_import(path, loader_cls)
+
+    def _collect_drop_candidates(self, path: Path) -> list[tuple[Path, type | None]]:
+        """Collect paths and their best-guess loaders recursively, avoiding session files."""
         if path.suffix.lower() == ".avv":
             try:
                 self._restore_session(SessionState.load(path))
             except (OSError, ValueError) as error:
                 QMessageBox.critical(self, "Session Error", str(error))
-            return
+            return []
 
         from avialview.core.registry import LoaderRegistry
 
         loader_class = LoaderRegistry().find_best_loader(path)
+        
         if loader_class is not None:
-            if issubclass(loader_class, VideoSource):
-                self._load_video(path)
-                return
-            if issubclass(loader_class, TimeSeriesSource):
-                self._start_data_import(path, loader_class)
-                return
+            return [(path, loader_class)]
 
+        candidates = []
         if path.is_dir():
             session_files = list(path.glob("*.avv"))
             if session_files:
-                self._route_dropped_path(session_files[0])
-                return
+                return self._collect_drop_candidates(session_files[0])
             for child in path.iterdir():
-                if child.is_file():
-                    self._route_dropped_path(child)
-            return
-
-        QMessageBox.warning(self, "Unsupported File", f"No suitable loader found for:\n{path}")
-
+                if not child.name.startswith("."):
+                    candidates.extend(self._collect_drop_candidates(child))
+        else:
+            candidates.append((path, None))
+            
+        return candidates
     # ── Menu ─────────────────────────────────────────────────────────
 
     def _setup_menu(self) -> None:

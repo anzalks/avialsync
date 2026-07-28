@@ -163,23 +163,8 @@ def test_drop_routing_uses_loader_capability(
         "avialview.core.registry.LoaderRegistry.find_best_loader",
         lambda _registry, _path: loader_class,
     )
-    video_paths: list[Path] = []
-    data_calls: list[tuple[Path, type]] = []
-    monkeypatch.setattr(main_window, "_load_video", video_paths.append)
-    monkeypatch.setattr(
-        main_window,
-        "_start_data_import",
-        lambda data_path, selected: data_calls.append((data_path, selected)),
-    )
-
-    main_window._route_dropped_path(path)
-
-    if target == "video":
-        assert video_paths == [path]
-        assert data_calls == []
-    else:
-        assert video_paths == []
-        assert data_calls == [(path, loader_class)]
+    candidates = main_window._collect_drop_candidates(path)
+    assert candidates == [(path, loader_class)]
 
 
 def test_drop_directory_routes_each_supported_child(
@@ -195,19 +180,8 @@ def test_drop_directory_routes_each_supported_child(
         return VideoStandardLoader if path == video else CSVLoader if path == sensor else None
 
     monkeypatch.setattr("avialview.core.registry.LoaderRegistry.find_best_loader", find_loader)
-    video_paths: list[Path] = []
-    data_calls: list[tuple[Path, type]] = []
-    monkeypatch.setattr(main_window, "_load_video", video_paths.append)
-    monkeypatch.setattr(
-        main_window,
-        "_start_data_import",
-        lambda data_path, selected: data_calls.append((data_path, selected)),
-    )
-
-    main_window._route_dropped_path(tmp_path)
-
-    assert video_paths == [video]
-    assert data_calls == [(sensor, CSVLoader)]
+    candidates = main_window._collect_drop_candidates(tmp_path)
+    assert set(candidates) == {(video, VideoStandardLoader), (sensor, CSVLoader)}
 
 
 def test_video_load_keeps_worker_alive_until_thread_finishes(
@@ -319,7 +293,7 @@ def test_drop_real_video_completes_async_open(
     monkeypatch.setattr(main_window.sidebar, "set_video_inspection", lambda *args: None)
     monkeypatch.setattr(main_window, "_update_bounds", lambda *args: None)
 
-    main_window._route_dropped_path(video)
+    main_window._load_video(video)
 
     qtbot.waitUntil(lambda: not main_window._video_load_jobs, timeout=10_000)
     assert str(video) in main_window._video_fps

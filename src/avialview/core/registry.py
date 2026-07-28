@@ -90,3 +90,7 @@ class LoaderRegistry:
                 best_loader = loader
 
         return best_loader
+
+    def loaders(self) -> list[type[TimeSeriesSource | VideoSource]]:
+        """Return all discovered source loaders."""
+        return list(self._loaders)

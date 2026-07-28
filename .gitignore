@@ -145,3 +145,6 @@ docs/_build/
 # Local release tooling and credentials
 .pypirc
 .release/
+
+# User raw data directories
+TENSS26_Anzal/
