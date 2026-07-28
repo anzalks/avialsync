@@ -138,7 +138,7 @@ def test_native_packagers_use_the_generated_icons() -> None:
 
 def test_icon_generator_writes_all_platform_formats(tmp_path: Path) -> None:
     """The checked-in source deterministically produces every packaged icon."""
-    source = Path("assets/icons/avialview-source.png")
+    source = Path("assets/avial_view.png")
 
     subprocess.run(
         [

@@ -168,7 +168,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
   The Ubuntu 24.04 AppImage build installs `libfuse2t64` because the pinned AppImageTool requires
   the `libfuse.so.2` ABI; never substitute the obsolete `fuse` package. The AppDir stages the
   reviewed `avialview.png` icon named by its desktop entry; AppImageTool rejects an undeclared or
-  missing desktop icon. `assets/icons/avialview-source.png` is the canonical source. Regenerate
+  missing desktop icon. `assets/avial_view.png` is the canonical source; the generator transparently
+  center-pads non-square artwork rather than stretching or cropping it. Regenerate
   Linux PNG, Windows ICO, macOS ICNS, and runtime PNG assets with `tools/generate_icons.py`.
   The AppDir also includes its required `.DirIcon` symlink and runs `desktop-file-validate` before
   AppImageTool, so malformed desktop metadata fails before artifact construction.

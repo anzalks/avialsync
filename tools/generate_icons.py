@@ -14,12 +14,14 @@ ICNS_SIZES = [(16, 16), (32, 32), (64, 64), (128, 128), (256, 256), (512, 512), 
 
 
 def _square_icon(source: Path, size: int) -> Image.Image:
-    """Return a high-quality square icon image without changing its composition."""
+    """Return a high-quality square icon without stretching or cropping artwork."""
     with Image.open(source) as image:
-        if image.width != image.height:
-            message = f"Icon source must be square, got {image.width}x{image.height}: {source}"
-            raise ValueError(message)
-        return image.convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
+        artwork = image.convert("RGBA")
+        square_size = max(artwork.size)
+        square = Image.new("RGBA", (square_size, square_size), (0, 0, 0, 0))
+        offset = ((square_size - artwork.width) // 2, (square_size - artwork.height) // 2)
+        square.alpha_composite(artwork, offset)
+        return square.resize((size, size), Image.Resampling.LANCZOS)
 
 
 def generate(source: Path, output_root: Path) -> None:
@@ -48,8 +50,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--source",
         type=Path,
-        default=ROOT / "assets/icons/avialview-source.png",
-        help="canonical square PNG source",
+        default=ROOT / "assets/avial_view.png",
+        help="canonical PNG source (non-square artwork is transparently center-padded)",
     )
     parser.add_argument(
         "--output-root",
