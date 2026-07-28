@@ -201,6 +201,8 @@ class ImportWizard(QDialog):
         preview_layout.addWidget(self._has_headers_cb)
 
         self._preview_table = QTableWidget()
+        self._preview_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self._preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         preview_layout.addWidget(self._preview_table)
         main_layout.addWidget(preview_group)
 
@@ -242,13 +244,13 @@ class ImportWizard(QDialog):
         for label, val in _TIME_UNITS:
             self._unit_combo.addItem(label, val)
 
-        form.addRow("Numeric unit:", self._unit_combo)
+        self._form.addRow("Numeric unit:", self._unit_combo)
 
         # Timezone
         self._tz_combo = QComboBox()
         for label, val in _TIMEZONES:
             self._tz_combo.addItem(label, val)
-        form.addRow("Timezone:", self._tz_combo)
+        self._form.addRow("Timezone:", self._tz_combo)
 
         # Anchor date (for time-only formats)
         anchor_row = QHBoxLayout()
@@ -259,7 +261,7 @@ class ImportWizard(QDialog):
         self._anchor_date.setEnabled(False)
         anchor_row.addWidget(self._anchor_chk)
         anchor_row.addWidget(self._anchor_date, stretch=1)
-        form.addRow("Anchor:", anchor_row)
+        self._form.addRow("Anchor:", anchor_row)
 
         # Sentinel → NaN mapping
         sentinel_row = QHBoxLayout()
@@ -272,11 +274,11 @@ class ImportWizard(QDialog):
         self._sentinel_combo.currentIndexChanged.connect(self._on_sentinel_changed)
         sentinel_row.addWidget(self._sentinel_combo)
         sentinel_row.addWidget(self._sentinel_custom)
-        form.addRow("Sentinel → NaN:", sentinel_row)
+        self._form.addRow("Sentinel → NaN:", sentinel_row)
 
         # Euro decimal (comma as decimal separator)
         self._euro_chk = QCheckBox("European decimals (comma = decimal separator)")
-        form.addRow("", self._euro_chk)
+        self._form.addRow("", self._euro_chk)
 
         main_layout.addWidget(config_group)
 
@@ -287,6 +289,9 @@ class ImportWizard(QDialog):
         btn_box.accepted.connect(self._validate_and_accept)
         btn_box.rejected.connect(self.reject)
         main_layout.addWidget(btn_box)
+        
+        # Populate initial preview and column choices
+        self._on_separator_changed(0)
 
     def _select_format(self, fmt: str) -> None:
         """Select the matching format in the combo, or fall back to auto."""

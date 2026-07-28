@@ -121,7 +121,6 @@ class SensorInfoWidget(QFrame):
         # ── Report button + Properties panel ─────────────────────────
         report_row = QHBoxLayout()
         self._report_btn = QPushButton("Report…")
-        self._report_btn.setFixedHeight(20)
         self._report_btn.setVisible(False)
         self._report_btn.clicked.connect(lambda: self.report_requested.emit(self.path))
         report_row.addWidget(self._report_btn)

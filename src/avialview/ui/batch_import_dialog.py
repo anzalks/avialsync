@@ -42,13 +42,19 @@ class BatchImportDialog(QDialog):
         self.setWindowTitle("Review Import Candidates")
         self.setMinimumSize(600, 400)
 
-        self._candidates = candidates
+        # Sort candidates: group by detected loader type, then alphabetically by filename
+        def sort_key(item: tuple[Path, type[TimeSeriesSource | VideoSource] | None]) -> tuple[str, str]:
+            path, loader_cls = item
+            type_name = loader_cls.__name__ if loader_cls else "zzz_none"
+            return (type_name, path.name.lower())
+
+        self._candidates = sorted(candidates, key=sort_key)
         self._registry = LoaderRegistry()
         self._build_category_map()
 
         layout = QVBoxLayout(self)
 
-        self._table = QTableWidget(len(candidates), 2)
+        self._table = QTableWidget(len(self._candidates), 2)
         self._table.setHorizontalHeaderLabels(["File / Group", "Detected Type"])
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
@@ -58,7 +64,7 @@ class BatchImportDialog(QDialog):
 
         self._combos: list[QComboBox] = []
 
-        for row, (path, default_loader) in enumerate(candidates):
+        for row, (path, default_loader) in enumerate(self._candidates):
             name_item = QTableWidgetItem(path.name)
             name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             name_item.setToolTip(str(path))
