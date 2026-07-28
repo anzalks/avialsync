@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
-from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -171,6 +171,7 @@ class DemoProgressDialog(QDialog):
         layout.addLayout(buttons)
         self._cancel.clicked.connect(self.cancelled)
 
+    @Slot(int, str)
     def update_progress(self, value: int, message: str) -> None:
         """Display a worker status event."""
         self._progress.setValue(value)
@@ -235,7 +236,7 @@ class DemoLaunch(QObject):
         """Close progress UI and load the newly available demo files."""
         self._dialog.close()
         if isinstance(video_path, Path) and isinstance(csv_path, Path):
-            load_demo(self._window, video_path, csv_path)
+            QTimer.singleShot(0, lambda: load_demo(self._window, video_path, csv_path))
 
     @Slot(str)
     def _on_failed(self, message: str) -> None:

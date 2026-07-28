@@ -75,6 +75,7 @@ def test_demo_progress_dialog_shows_status_and_log(qtbot) -> None:
     assert dialog._progress.value() == 42
     assert dialog._status.text() == "Generating demo video…"
     assert "Generating demo video" in dialog._log.toPlainText()
+    assert dialog.metaObject().indexOfSlot("update_progress(int,QString)") >= 0
 
 
 def test_demo_launch_generates_first_run_inputs_in_a_worker(
