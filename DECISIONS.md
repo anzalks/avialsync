@@ -706,3 +706,48 @@ explicit `ffprobe` executable rather than relying on the process working directo
 `AvialView-Setup.exe` is the supported plug-and-play route. A source checkout documents its two
 unavoidable native prerequisites separately. Any future packaging change must retain the staging
 validation and a clean-environment installer smoke test.
+
+## 2026-07 · D-040 · Sidecar writes use bounded concurrency and failures remain observable
+
+### Context
+
+The 180-million-sample pyramid retained exact values and the settled sidecar format, but a Windows
+audit measured a repeatable 3.25-second build against the 2.5-second engineering mark. Profiling
+showed that independent NumPy sidecar writes dominated the path. The same audit found broad
+exception handlers that could turn diagnostic, autosave, seek, or shutdown failures into blank UI
+state without evidence.
+The Windows demo also started four metadata workers and then constructed four libmpv/OpenGL panes
+in one burst. It could freeze before any pane appeared. Its initial exact seeks raced libmpv file
+loading, and a fast tiny file could emit readiness before the queue handler was connected, leaving
+the remaining videos permanently queued.
+
+
+### Decision
+
+`PyramidBuilder` reduces every published level deterministically, then persists independent arrays
+through one bounded three-worker pool. Every future is joined and its exception propagated before
+the builder returns. The file layout, dtypes, gap semantics, and cache loader version do not change.
+All-NaN envelope blocks remain valid but no longer emit `RuntimeWarning`.
+Video metadata probes and native pane initialization are serialized. A pane retains seeks until
+libmpv emits `file-loaded`; queue advancement is connected before playback begins and occurs only
+after that readiness signal. Failed probes advance when their worker exits. Decode and rendering
+remain libmpv-threaded after initialization.
+
+
+Production-code architecture tests reject `QApplication.processEvents()`, `shell=True`, and
+`except Exception: pass`. Expected transient failures may be handled at adapter/UI boundaries, but
+they must be narrowed, logged, returned in diagnostics, or surfaced through an actionable signal.
+Disk diagnostics use unique temporary files and always clean them up.
+
+### Consequences
+
+The five-round Windows build mean measured 2.07 seconds with the unchanged 2.5-second assertion.
+The worker count remains a small constant; do not scale it with channel count or CPU count. The
+native Windows release-demo probe completed with four ready video panes, 12 data channels,
+empty video/data queues, and 175 event-loop ticks during its bounded 20-second run.
+
+CI bundles must start and exit cleanly. Staged-media release bundles receive a fresh isolated demo
+directory and must generate and load four videos and all 12 channels within 120 seconds.
+
+Native window compositing still requires installer smoke tests on physical Windows, macOS, and Linux;
+hosted offscreen CI certifies decode/timeline/lifecycle correctness, not desktop-driver behavior.

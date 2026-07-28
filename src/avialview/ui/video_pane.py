@@ -1,15 +1,18 @@
 """Video rendering pane using libmpv."""
 
+import logging
 import sys
 from typing import Any
 
 import numpy as np
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QColor, QFontDatabase, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from avialview.ui.diagnostics import probe_libmpv
 from avialview.ui.theme import set_font_family
+
+logger = logging.getLogger(__name__)
 
 
 def instantaneous_frame_rate(frame_times: np.ndarray | None, t: float, fallback: float) -> float:
@@ -50,11 +53,11 @@ def _shutdown_mpv_client(player: Any, gl_widget: Any | None = None) -> None:
             _release_mpv_render_context(gl_widget)
         except RuntimeError:
             # A failed GL cleanup must not leave libmpv's event thread alive.
-            pass
+            logger.warning("Could not release the mpv render context", exc_info=True)
     try:
         player.terminate()
     except Exception:
-        pass
+        logger.warning("Could not terminate the mpv client", exc_info=True)
     if gl_widget is not None:
         gl_widget.mpv = None
 
@@ -143,6 +146,7 @@ class VideoPane(QWidget):
     double_clicked = Signal(object)
     right_clicked = Signal(object)  # emits QPoint (global position)
     _osd_update = Signal(float, float)  # time, fps
+    file_loaded = Signal()
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -155,6 +159,9 @@ class VideoPane(QWidget):
         self.is_seeking = False
         self.mpv = None
         self._video_widget = None
+        self._media_loaded = False
+        self._pending_seek: tuple[float, bool] | None = None
+        self._target_pause = True
 
         from avialview.core.timeline import TimeMap
 
@@ -321,6 +328,10 @@ class VideoPane(QWidget):
                     self.is_seeking = value
 
         # Set up PaintCanvas for tracking
+        @self.mpv.event_callback("file-loaded")
+        def file_loaded(_event: object) -> None:
+            self.file_loaded.emit()
+
         self.paint_canvas = PaintCanvas(self)
         self.layout().addWidget(self.paint_canvas, 0, 0)
 
@@ -361,6 +372,7 @@ class VideoPane(QWidget):
         self._osd_update.connect(self._update_osd)
 
         if self._video_widget:
+            self.file_loaded.connect(self._on_file_loaded)
             self._video_widget.installEventFilter(self)
 
     def _update_osd(self, t: float, fps: float) -> None:
@@ -409,8 +421,8 @@ class VideoPane(QWidget):
                 elif ev_type == 82:  # QEvent.Type.ContextMenu
                     self.right_clicked.emit(event.globalPos())
                     return True  # consume; MainWindow builds the menu
-            except Exception:
-                pass
+            except (AttributeError, RuntimeError, TypeError):
+                logger.debug("Ignored invalid video-pane event", exc_info=True)
         return super().eventFilter(obj, event)
 
     def set_label(self, text: str) -> None:
@@ -429,6 +441,7 @@ class VideoPane(QWidget):
     def open(self, path: str) -> None:
         """Open a video file."""
         if self.mpv:
+            self._media_loaded = False
             if hasattr(self, "gl_widget") and self.gl_widget.ctx is None:
                 self._pending_play = path
             else:
@@ -452,16 +465,29 @@ class VideoPane(QWidget):
         if self.mpv:
             self.mpv.speed = rate
 
+    @Slot()
+    def _on_file_loaded(self) -> None:
+        """Dispatch a seek only after libmpv confirms that commands are accepted."""
+        self._media_loaded = True
+        pending = self._pending_seek
+        self._pending_seek = None
+        if pending is not None:
+            target, exact = pending
+            self.seek(target, exact=exact)
+
     def seek(self, t: float, exact: bool = True) -> None:
         """Seek to a specific time. Exact seek or keyframe."""
         if not self.mpv:
+            return
+        if not self._media_loaded:
+            self._pending_seek = (t, exact)
             return
         precision = "exact" if exact else "keyframes"
         try:
             self.mpv.seek(t, reference="absolute", precision=precision)
         except Exception:
             # mpv may raise SystemError -12 if we seek before it has finished loading the file
-            pass
+            logger.warning("Video seek failed at %.6f seconds", t, exc_info=True)
 
     def frame_step(self, forward: bool = True) -> None:
         """Step one frame forward or backward."""
@@ -473,7 +499,7 @@ class VideoPane(QWidget):
             else:
                 self.mpv.command("frame-back-step")
         except Exception:
-            pass
+            logger.warning("Video frame step failed", exc_info=True)
 
     def close(self) -> None:
         """Terminate mpv before closing the widget."""

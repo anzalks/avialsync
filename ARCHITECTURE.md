@@ -87,7 +87,7 @@ avialview/                          # repo root = GitHub repo `avialview`
 ├── packaging/                        # everything release.yml/ci.yml call — nothing else lives here
 │   ├── avialview.spec              # PyInstaller one-DIR spec (all OSes)
 │   ├── fetch_media_libs.py           # downloads pinned LGPL libmpv/ffmpeg, --verify-lgpl (D-015)
-│   ├── smoke_test.py                 # launch built bundle headless, open sample session, exit 0
+│   ├── smoke_test.py                 # bounded bundle startup; staged releases load a fresh full demo
 │   ├── probe_dialog_test.py          # pip-without-libmpv guided-dialog assertion (D-013)
 │   ├── windows/
 │   │   ├── avialview.iss           # Inno Setup → AvialView-Setup.exe
@@ -110,9 +110,8 @@ avialview/                          # repo root = GitHub repo `avialview`
 │
 └── .github/
     ├── workflows/
-    │   ├── ci.yml                    # PR gate: lint→type→test→fast benchmarks→artifact build (3 OS)
+    │   ├── ci.yml                    # PR gate: lint→type→test→docs→artifact build (3 OS)
     │   ├── release.yml               # tag → installers + PyPI, all-or-nothing (D-012)
-    │   └── nightly.yml               # big-fixture benchmarks + packaging smoke (Phase 5)
     ├── ISSUE_TEMPLATE/  PULL_REQUEST_TEMPLATE.md   # Phase 6
     └── CONTRIBUTING.md  CODE_OF_CONDUCT.md         # Phase 6
 ```

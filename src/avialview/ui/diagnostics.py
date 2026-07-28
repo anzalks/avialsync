@@ -84,6 +84,7 @@ def probe_hwdec() -> dict:
     if not _LIBMPV_AVAILABLE:
         return result
 
+    player = None
     try:
         import mpv
 
@@ -92,9 +93,14 @@ def probe_hwdec() -> dict:
         result["available"] = hwdec not in (None, "no", "")
         if result["available"]:
             result["decoders"] = [str(hwdec)]
-        player.terminate()
-    except Exception:
-        pass
+    except Exception as error:
+        result["error"] = f"{type(error).__name__}: {error}"
+    finally:
+        if player is not None:
+            try:
+                player.terminate()
+            except Exception as error:
+                result["error"] = f"{type(error).__name__}: {error}"
 
     return result
 
@@ -109,13 +115,16 @@ def probe_disk_speed(path: str | None = None) -> float:
 
     target_dir = path or tempfile.gettempdir()
 
+    tmp_path: str | None = None
     try:
-        tmp_path = os.path.join(target_dir, ".avv_speed_test")
+        with tempfile.NamedTemporaryFile(
+            dir=target_dir, prefix=".avv_speed_test_", delete=False
+        ) as tmp:
+            tmp_path = tmp.name
 
-        with open(tmp_path, "wb") as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
+            tmp.write(data)
+            tmp.flush()
+            os.fsync(tmp.fileno())
 
         # Drop caches as much as possible (open fresh)
         start = time.monotonic()
@@ -123,13 +132,17 @@ def probe_disk_speed(path: str | None = None) -> float:
             _ = f.read()
         elapsed = time.monotonic() - start
 
-        os.unlink(tmp_path)
-
         if elapsed > 0:
             return (size / (1024 * 1024)) / elapsed
         return 0.0
-    except Exception:
+    except OSError:
         return 0.0
+    finally:
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except FileNotFoundError:
+                pass
 
 
 def run_startup_diagnostics(parent=None) -> dict:

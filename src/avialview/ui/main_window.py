@@ -1,6 +1,7 @@
 """Main window for AvialView."""
 
 import dataclasses
+import logging
 from collections import deque
 from pathlib import Path
 from typing import Any, cast
@@ -37,6 +38,8 @@ from avialview.ui.time_format import TimeDisplayMode
 from avialview.ui.transport import Transport
 from avialview.ui.video_grid import VideoGrid
 
+logger = logging.getLogger(__name__)
+
 _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
 
 
@@ -57,6 +60,8 @@ class MainWindow(QMainWindow):
         self._video_load_jobs: dict[QThread, object] = {}
         self._video_load_offsets: dict[str, float] = {}
         self._video_load_drifts: dict[str, float] = {}
+        self._pending_video_loads: deque[tuple[Path, float, float]] = deque()
+        self._video_pane_initializing: object | None = None
         self._video_frame_times: dict[str, Any] = {}
         self._video_source_bounds: dict[str, tuple[float, float]] = {}
         self._video_time_mappings: dict[str, tuple[float, float]] = {}
@@ -523,7 +528,7 @@ class MainWindow(QMainWindow):
             state = self._build_session_state()
             state.save(self._session_path)
         except Exception:
-            pass
+            logger.exception("Autosave failed for %s", self._session_path)
 
     # ── A/B loop stats ───────────────────────────────────────────────
 
@@ -1328,15 +1333,30 @@ class MainWindow(QMainWindow):
     # ── Source loading ───────────────────────────────────────────────
 
     def _load_video(self, path: Path, offset: float = 0.0, drift_ppm: float = 0.0) -> None:
-        """Open a registry-selected video source without blocking the UI thread."""
+        """Queue a video source so native render panes are initialized one at a time."""
+        self._pending_video_loads.append((path, offset, drift_ppm))
+        self._start_next_video_load()
+
+    def _start_next_video_load(self) -> None:
+        """Start one asynchronous probe, preserving a bounded native-render lifecycle."""
+        if (
+            self._video_load_jobs
+            or self._video_pane_initializing is not None
+            or not self._pending_video_loads
+        ):
+            return
+
         from avialview.engine.video_worker import VideoOpenWorker
 
+        path, offset, drift_ppm = self._pending_video_loads.popleft()
         thread = QThread(self)
         worker = VideoOpenWorker(path)
         self._video_load_jobs[thread] = worker
         self._video_load_offsets[str(path)] = offset
         self._video_load_drifts[str(path)] = drift_ppm
-        self.transport.set_status(f"Loading video: {path.name}", "busy")
+        remaining = len(self._pending_video_loads)
+        suffix = f" ({remaining} queued)" if remaining else ""
+        self.transport.set_status(f"Loading video: {path.name}{suffix}", "busy")
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         # These QObject slots are queued onto MainWindow's UI thread.  Do not
@@ -1379,7 +1399,12 @@ class MainWindow(QMainWindow):
             return
         bounds = loader.time_bounds()
         self._set_video_coverage(original_path, bounds, offset, drift_ppm)
-        pane = self.video_grid.add_pane(original_path, media_path=media_path)
+        self._video_pane_initializing = original_path
+        pane = self.video_grid.add_pane(
+            original_path,
+            media_path=media_path,
+            on_file_loaded=self._on_video_pane_ready,
+        )
         metadata = {
             "codec": getattr(loader, "_codec", "unknown"),
             "fps": loader.fps(),
@@ -1431,6 +1456,13 @@ class MainWindow(QMainWindow):
         if isinstance(thread, QThread):
             self._video_load_jobs.pop(thread, None)
             thread.deleteLater()
+            QTimer.singleShot(0, self._start_next_video_load)
+
+    @Slot()
+    def _on_video_pane_ready(self) -> None:
+        """Advance the queue only after the native pane accepts media commands."""
+        self._video_pane_initializing = None
+        self._start_next_video_load()
 
     def _on_video_offset_changed(self, path: str, offset: float) -> None:
         self.video_grid.set_offset(path, offset)

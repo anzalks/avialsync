@@ -26,3 +26,8 @@ QT_QPA_PLATFORM=offscreen conda run -n avialview pytest --benchmark-only
 
 Do not tune an individual threshold to make a slow machine pass. A changed product requirement
 needs a documented decision and a new ground-truth benchmark.
+
+Pyramid sidecars keep their exact level-1 arrays and published envelope format. Their independent
+array writes use a bounded three-worker pool so storage I/O overlaps without creating an
+unbounded number of threads during large imports. A write failure is propagated to the import
+worker; it must never leave the UI reporting a successful cache.

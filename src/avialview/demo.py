@@ -55,6 +55,9 @@ class DemoData:
 
 def demo_data_dir() -> Path:
     """Return the platform-appropriate directory for generated demo inputs."""
+    override = os.environ.get("AVIALVIEW_DEMO_DIR")
+    if override:
+        return Path(override)
     if sys.platform == "win32":
         root = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
     elif sys.platform == "darwin":

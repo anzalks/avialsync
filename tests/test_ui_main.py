@@ -1,6 +1,7 @@
 """Main Window regression tests."""
 
 import tempfile
+import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -235,6 +236,46 @@ def test_video_load_keeps_worker_alive_until_thread_finishes(
     for thread in main_window._video_load_jobs:
         thread.quit()
         assert thread.wait(1_000)
+
+
+def test_multiple_video_loads_are_serialized(
+    main_window: MainWindow, monkeypatch: pytest.MonkeyPatch, qtbot
+) -> None:
+    """Burst loading must never initialize multiple native video panes at once."""
+    started: list[Path] = []
+    release_first = threading.Event()
+
+    class _IdleWorker(QObject):
+        opened = Signal(str, object, str)
+        error = Signal(str, str)
+        cancelled = Signal()
+
+        def __init__(self, path: Path) -> None:
+            super().__init__()
+            self.path = path
+
+        @Slot()
+        def run(self) -> None:
+            started.append(self.path)
+            release_first.wait(timeout=2.0)
+            self.cancelled.emit()
+
+    monkeypatch.setattr("avialview.engine.video_worker.VideoOpenWorker", _IdleWorker)
+    first = Path("camera_1.mp4")
+    second = Path("camera_2.mp4")
+
+    main_window._load_video(first)
+    main_window._load_video(second)
+
+    qtbot.waitUntil(lambda: started == [first], timeout=2_000)
+    assert len(main_window._video_load_jobs) == 1
+    assert list(main_window._pending_video_loads) == [(second, 0.0, 0.0)]
+
+    release_first.set()
+
+    qtbot.waitUntil(lambda: started == [first, second], timeout=2_000)
+    qtbot.waitUntil(lambda: not main_window._video_load_jobs, timeout=2_000)
+    assert not main_window._pending_video_loads
 
 
 def test_multiple_data_imports_are_serialized(

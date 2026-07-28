@@ -219,6 +219,9 @@ jobs:
         shell: pwsh
         run: python packaging/fetch_media_libs.py --source "$env:RUNNER_TEMP\libmpv" --source 'C:\ProgramData\chocolatey\lib\ffmpeg' --destination packaging/media
       - run: python packaging/build_bundle.py --media-root packaging/media --dist-dir dist
+      - name: Smoke test staged-media bundle
+        run: python packaging/smoke_test.py dist/avialview --demo --timeout 120
+
       - name: Build Windows installer
         if: runner.os == 'Windows'
         shell: pwsh

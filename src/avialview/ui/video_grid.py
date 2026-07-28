@@ -1,6 +1,7 @@
 """Video grid layout manager."""
 
 import math
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -76,11 +77,19 @@ class VideoGrid(QWidget):
         self._grid_mode = enabled
         self._relayout()
 
-    def add_pane(self, path: str, *, media_path: str | None = None) -> VideoPane:
+    def add_pane(
+        self,
+        path: str,
+        *,
+        media_path: str | None = None,
+        on_file_loaded: Callable[[], None] | None = None,
+    ) -> VideoPane:
         """Add a pane identified by original *path*, playing *media_path* if supplied."""
         pane = VideoPane(self)
         pane.double_clicked.connect(self._on_pane_double_clicked)
         # Forward right-click with path so MainWindow can build a context menu.
+        if on_file_loaded is not None:
+            pane.file_loaded.connect(on_file_loaded)
         pane.right_clicked.connect(lambda pos, _p=path: self.pane_right_clicked.emit(_p, pos))
         self.panes.append(pane)
         self._paths.append(path)

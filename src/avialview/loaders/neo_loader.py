@@ -102,7 +102,7 @@ class NeoLoader(TimeSeriesSource):
             if neo.io.get_io(str(path)) is not None:
                 return 1.0
         except Exception:
-            pass
+            logger.debug("Neo rejected candidate %s", path, exc_info=True)
 
         return 0.0
 

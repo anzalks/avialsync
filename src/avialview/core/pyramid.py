@@ -1,6 +1,8 @@
 """Pyramid module for decimation and plotting."""
 
 import math
+import warnings
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +17,24 @@ LEVELS = [1, 16, 256, 4096]
 # detected correctly because the subsample captures global dt statistics.)
 _MEDIAN_SAMPLE_STRIDE = 10_000
 _GAP_CHUNK_SIZE = 1_000_000
+_SAVE_WORKERS = 3
+
+
+def _nan_envelope(
+    values_min: np.ndarray, values_max: np.ndarray, axis: int | None = None
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return NaN-aware bounds without warning for intentionally empty blocks."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return np.nanmin(values_min, axis=axis), np.nanmax(values_max, axis=axis)
+
+
+def _save_arrays(arrays: list[tuple[Path, np.ndarray]]) -> None:
+    """Persist independent sidecar arrays with bounded storage concurrency."""
+    with ThreadPoolExecutor(max_workers=_SAVE_WORKERS) as pool:
+        futures = [pool.submit(np.save, path, values) for path, values in arrays]
+        for future in futures:
+            future.result()
 
 
 def build_pyramid_level(
@@ -43,17 +63,14 @@ def build_pyramid_level(
 
     t_dec = t_view[:, 0]  # take the first timestamp of the block
 
-    # Use suppress warnings for all-NaN slices
-    with np.errstate(invalid="ignore"):
-        v_min = np.nanmin(v_view, axis=1)
-        v_max = np.nanmax(v_view, axis=1)
+    v_min, v_max = _nan_envelope(v_view, v_view, axis=1)
 
     # Handle remainder if exists
     if remainder > 0:
         t_rem = np.array([t[n_trunc]])
-        with np.errstate(invalid="ignore"):
-            v_rem_min = np.array([np.nanmin(v[n_trunc:])])
-            v_rem_max = np.array([np.nanmax(v[n_trunc:])])
+        rem_min, rem_max = _nan_envelope(v[n_trunc:], v[n_trunc:])
+        v_rem_min = np.array([rem_min])
+        v_rem_max = np.array([rem_max])
 
         t_dec = np.concatenate([t_dec, t_rem])
         v_min = np.concatenate([v_min, v_rem_min])
@@ -102,13 +119,17 @@ def _aggregate_pyramid_level(
     n_trunc = n - remainder
 
     t_dec = t[:n_trunc:factor]
-    min_dec = np.nanmin(v_min[:n_trunc].reshape(-1, factor), axis=1)
-    max_dec = np.nanmax(v_max[:n_trunc].reshape(-1, factor), axis=1)
+    min_dec, max_dec = _nan_envelope(
+        v_min[:n_trunc].reshape(-1, factor),
+        v_max[:n_trunc].reshape(-1, factor),
+        axis=1,
+    )
 
     if remainder:
         t_dec = np.concatenate((t_dec, t[n_trunc : n_trunc + 1]))
-        min_dec = np.concatenate((min_dec, [np.nanmin(v_min[n_trunc:])]))
-        max_dec = np.concatenate((max_dec, [np.nanmax(v_max[n_trunc:])]))
+        rem_min, rem_max = _nan_envelope(v_min[n_trunc:], v_max[n_trunc:])
+        min_dec = np.concatenate((min_dec, [rem_min]))
+        max_dec = np.concatenate((max_dec, [rem_max]))
 
     return t_dec, min_dec, max_dec
 
@@ -124,9 +145,11 @@ class PyramidBuilder:
         gap_mask = build_gap_mask(t)
 
         # Save exact level 1 (full resolution, float64 time; float64 values)
-        np.save(self.cache_dir / f"{self.channel_id}_t.npy", t)
-        np.save(self.cache_dir / f"{self.channel_id}_v.npy", v)
-        np.save(self.cache_dir / f"{self.channel_id}_gap.npy", gap_mask)
+        arrays_to_save = [
+            (self.cache_dir / f"{self.channel_id}_t.npy", t),
+            (self.cache_dir / f"{self.channel_id}_v.npy", v),
+            (self.cache_dir / f"{self.channel_id}_gap.npy", gap_mask),
+        ]
 
         # Build and save decimated levels.
         # vmin/vmax stored as float32 conditionally (D-023): if source is float64
@@ -143,19 +166,25 @@ class PyramidBuilder:
                 previous_t, previous_min, previous_max, factor=16
             )
             gap_lvl = build_gap_mask(t_lvl)
-            np.save(self.cache_dir / f"{self.channel_id}_pyr_{level}_t.npy", t_lvl)
-            np.save(
-                self.cache_dir / f"{self.channel_id}_pyr_{level}_vmin.npy",
-                vmin_lvl.astype(save_dtype, copy=False),
+            arrays_to_save.extend(
+                (
+                    (self.cache_dir / f"{self.channel_id}_pyr_{level}_t.npy", t_lvl),
+                    (
+                        self.cache_dir / f"{self.channel_id}_pyr_{level}_vmin.npy",
+                        vmin_lvl.astype(save_dtype, copy=False),
+                    ),
+                    (
+                        self.cache_dir / f"{self.channel_id}_pyr_{level}_vmax.npy",
+                        vmax_lvl.astype(save_dtype, copy=False),
+                    ),
+                    (self.cache_dir / f"{self.channel_id}_pyr_{level}_gap.npy", gap_lvl),
+                )
             )
-            np.save(
-                self.cache_dir / f"{self.channel_id}_pyr_{level}_vmax.npy",
-                vmax_lvl.astype(save_dtype, copy=False),
-            )
-            np.save(self.cache_dir / f"{self.channel_id}_pyr_{level}_gap.npy", gap_lvl)
             previous_t = t_lvl
             previous_min = vmin_lvl
             previous_max = vmax_lvl
+
+        _save_arrays(arrays_to_save)
 
 
 class PyramidReader:

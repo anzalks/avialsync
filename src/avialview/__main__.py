@@ -3,6 +3,7 @@
 import argparse
 import locale
 import sys
+import time
 from importlib.resources import files
 
 from avialview.runtime import configure_media_runtime
@@ -12,6 +13,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the supported AvialView command-line arguments."""
     parser = argparse.ArgumentParser(prog="avialview")
     parser.add_argument("command", nargs="?", choices=("demo",))
+    parser.add_argument("--smoke-test", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args(argv)
 
 
@@ -42,6 +44,40 @@ def main() -> None:
     demo_launch = DemoLaunch(win) if args.command == "demo" else None
     if demo_launch is not None:
         QTimer.singleShot(0, demo_launch.start)
+
+    if args.smoke_test and demo_launch is None:
+        QTimer.singleShot(250, win.close)
+    elif args.smoke_test:
+        smoke_started = time.monotonic()
+
+        def poll_demo_ready() -> None:
+            panes = win.video_grid.panes
+            videos_ready = (
+                len(panes) == 4
+                and all(pane._media_loaded for pane in panes)
+                and not win._pending_video_loads
+                and not win._video_load_jobs
+                and win._video_pane_initializing is None
+            )
+            data_ready = (
+                len(win.plot_pane.channels) == 12
+                and not win._pending_imports
+                and win._import_thread is None
+            )
+            if videos_ready and data_ready:
+                win.close()
+                return
+            if time.monotonic() - smoke_started >= 110.0:
+                print(
+                    "Demo smoke timed out: "
+                    f"videos={len(panes)}/4, channels={len(win.plot_pane.channels)}/12",
+                    file=sys.stderr,
+                )
+                app.exit(2)
+                return
+            QTimer.singleShot(50, poll_demo_ready)
+
+        QTimer.singleShot(50, poll_demo_ready)
     sys.exit(app.exec())
 
 

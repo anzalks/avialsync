@@ -1,5 +1,6 @@
 """Tracking Data (DLC/LightningPose) Loader."""
 
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,8 @@ import polars as pl
 
 from avialview.core.errors import NonMonotonicTimeError
 from avialview.core.source import ChannelInfo, TimeSeriesSource
+
+logger = logging.getLogger(__name__)
 
 
 class TrackingLoader(TimeSeriesSource):
@@ -36,8 +39,8 @@ class TrackingLoader(TimeSeriesSource):
                 # Check for DLC/LP multi-index signatures
                 if line1.startswith("scorer") and line2.startswith("bodyparts"):
                     return 1.0
-        except Exception:
-            pass
+        except (OSError, UnicodeError):
+            logger.debug("Tracking loader could not inspect %s", path, exc_info=True)
 
         return 0.0
 

@@ -1,6 +1,8 @@
+import warnings
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from avialview.core.pyramid import (
     PyramidBuilder,
@@ -48,6 +50,19 @@ def test_pyramid_nan_inf():
     assert vmin[0] == -np.inf
 
 
+def test_all_nan_blocks_do_not_emit_runtime_warnings():
+    """Missing-data blocks are valid pyramid input, not diagnostic noise."""
+    t = np.arange(16.0)
+    v = np.full(16, np.nan)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        _, vmin, vmax = build_pyramid_level(t, v, level=16)
+
+    assert np.isnan(vmin[0])
+    assert np.isnan(vmax[0])
+
+
 def test_pyramid_gap_mask():
     from avialview.core.pyramid import build_gap_mask
 
@@ -91,6 +106,20 @@ def test_pyramid_builder_and_reader(tmp_path: Path):
     )  # 1000 pts // 16 = 62 > 50; 1000 pts // 256 = 3 <= 50. So it picks level 256.
     assert len(t_c) == 4  # 1000 // 256 = 3 + 1 remainder block = 4
     assert t_c[0] == 0.0
+
+
+def test_pyramid_builder_propagates_sidecar_write_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A background sidecar failure must fail the import, never look successful."""
+
+    def fail_save(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(np, "save", fail_save)
+
+    with pytest.raises(OSError, match="disk full"):
+        PyramidBuilder(tmp_path, "ch0").build_and_save(np.arange(16.0), np.arange(16.0))
 
 
 def test_pathological_gap_mask():

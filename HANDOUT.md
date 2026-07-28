@@ -177,6 +177,30 @@ with explicit user acceptance and session provenance. Native plugin event provid
   documentation warnings as errors.
 - Native synchronization plugin API (D-026).
 
+### Cross-platform pressure audit (D-040)
+- Interactive rendering is intentionally platform-specific at one isolated boundary:
+  Windows/macOS use libmpv's Qt OpenGL render API; Linux uses native `wid`; headless tests use
+  `vo=null` on all three OSes. Timeline, seek, decoder, shutdown, and packaging contracts are
+  exercised by the 3-OS × 2-Python workflow. A Windows-only local run cannot certify native
+  compositing on physical macOS/Linux desktops, so release installers still require their native
+  smoke tests.
+- Burst video opens are serialized through native pane readiness, not merely through ffprobe
+  completion. `VideoPane.file_loaded` is connected before playback, early seeks are retained until
+  libmpv accepts commands, and the next Windows/macOS OpenGL pane is not constructed before the
+  current pane is ready. The native Windows demo probe verifies four ready videos, 12 data channels,
+  empty queues, and a responsive event loop.
+- Every CI PyInstaller bundle must pass bounded headless startup before upload. Each staged-media
+  release bundle additionally generates the demo in a fresh isolated directory and must load four
+  ready video panes plus all 12 data channels before the smoke process exits successfully.
+- Pyramid sidecar writes use a bounded three-worker pool. The unchanged 180 M-sample engineering
+  benchmark dropped from 3.25 s to 2.07 s on the audited Windows machine; write failures propagate
+  instead of reporting a successful import, and all-NaN blocks no longer emit misleading warnings.
+- Hardware-decode probe errors are retained in diagnostics, every created mpv probe is terminated,
+  and disk probes use unique temporary files so concurrent app instances cannot collide.
+- Production-code guards reject `QApplication.processEvents()`, `shell=True`, and
+  `except Exception: pass`. Expected transient media failures are logged rather than silently
+  becoming a blank pane.
+
 ### Fixed (this PR — Phase 4 stabilization)
 - Left-pane vertical QSplitter: `_left_splitter` in `main_window.py`; state persisted in QSettings `splitter/left`
 - Reset Zoom: wired to View → Reset Plot Zoom (Ctrl+0), timeline-row button, and shortcuts dialog
@@ -204,11 +228,13 @@ with explicit user acceptance and session provenance. Native plugin event provid
   workers are retained until their QThread finishes, so dropped videos now open reliably; Neo,
   tracking, sensor, and third-party source types route to their matching import pipeline.
 
-### Pre-existing mypy errors (suppressed in pyproject.toml — cleanup is a separate task)
-10 modules have `ignore_errors = true` in `[[tool.mypy.overrides]]`:
-`ui/transport` (11), `ui/sidebar` (11), `ui/relink_dialog` (2), `ui/diagnostics` (10),
-`ui/video_pane` (25+), `ui/readout_panel` (1), `ui/video_grid` (1),
-`engine/export` (6), `loaders/neo_loader` (1), `loaders/csv_loader` (1) — total ~75 errors.
+### Pre-existing mypy errors (suppressed in pyproject.toml — cleanup is separate)
+The standard full-package check still relies on module overrides for `ui/transport`, `ui/sidebar`,
+`ui/relink_dialog`, `ui/diagnostics`, `ui/plot_pane`, `ui/video_pane`, `ui/readout_panel`,
+`ui/video_grid`, `engine/export`, `loaders/neo_loader`, and `loaders/csv_loader`. Removing them
+exposes 56 pre-existing Qt-stub, third-party-stub, and annotation errors. Strict `core/` checking
+remains unsuppressed. A core-only mypy run reports UI overrides as unused because those modules are
+outside that invocation; that message does not mean the full-package overrides are obsolete.
 
 ---
 

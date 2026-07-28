@@ -153,6 +153,9 @@ jobs:
         
       - name: Build with PyInstaller
         run: pyinstaller packaging/avialview.spec
+      - name: Smoke test built bundle
+        run: python packaging/smoke_test.py dist/avialview
+
         
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

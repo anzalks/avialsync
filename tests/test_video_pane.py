@@ -10,10 +10,16 @@ def test_windows_render_widget_has_video_pane_parent(monkeypatch, qapp) -> None:
 
     class FakeMpv:
         def __init__(self, **_options: object) -> None:
-            pass
+            self.seek_calls: list[tuple[float, dict[str, object]]] = []
 
         def property_observer(self, _name: str):
             return lambda callback: callback
+
+        def event_callback(self, _name: str):
+            return lambda callback: callback
+
+        def seek(self, target: float, **kwargs: object) -> None:
+            self.seek_calls.append((target, kwargs))
 
     monkeypatch.setattr(video_pane, "probe_libmpv", lambda _parent: True)
     monkeypatch.setattr(video_pane.sys, "platform", "win32")
@@ -23,3 +29,8 @@ def test_windows_render_widget_has_video_pane_parent(monkeypatch, qapp) -> None:
     pane = video_pane.VideoPane()
 
     assert pane.gl_widget.parentWidget() is pane
+    pane.seek(2.5, exact=True)
+    assert pane.mpv.seek_calls == []
+
+    pane._on_file_loaded()
+    assert pane.mpv.seek_calls == [(2.5, {"reference": "absolute", "precision": "exact"})]

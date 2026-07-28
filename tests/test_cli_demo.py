@@ -15,6 +15,13 @@ def test_demo_command_is_accepted() -> None:
     assert _parse_args(["demo"]).command == "demo"
 
 
+def test_demo_directory_can_be_isolated_for_release_smoke(monkeypatch, tmp_path: Path) -> None:
+    """The staged bundle gate must generate fresh media outside user data."""
+    monkeypatch.setenv("AVIALVIEW_DEMO_DIR", str(tmp_path))
+
+    assert demo.demo_data_dir() == tmp_path
+
+
 def test_demo_generation_builds_four_cameras_and_all_tables(monkeypatch, tmp_path: Path) -> None:
     """The installed demo retains the full inspection fixture contract."""
     calls: list[list[str]] = []

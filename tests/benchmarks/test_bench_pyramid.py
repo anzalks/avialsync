@@ -1,13 +1,13 @@
-"""Pyramid and cursor-path benchmarks with CI-enforced budget gates.
+"""Pyramid and cursor-path benchmarks with local engineering budget gates.
 
 Budget-★ items (BLUEPRINT.md / HANDOUT.md):
-  - Pyramid build 180 M samples: ≤ 2.5 s  (★ CI-gated)
-  - Cursor update per tick:       ≤ 2 ms (★ CI-gated)
+  - Pyramid build 180 M samples: ≤ 2.5 s
+  - Cursor update per tick:       ≤ 2 ms
 
 These are local engineering checks. GitHub Actions verifies the same workload's
 correctness but does not claim shared hosted machines can certify runtime speed.
 
-D-023: benchmarks are CI-gated, budget-assertion pattern established here.
+D-029: raw timing is certified locally; hosted CI verifies workload correctness.
 """
 
 import gc

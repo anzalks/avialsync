@@ -1,5 +1,6 @@
 """Plot rendering pane using pyqtgraph and decimation pyramids."""
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from avialview.core.pyramid import PyramidReader
+
+logger = logging.getLogger(__name__)
 
 # Predefined color palette for channels
 CHANNEL_COLORS = [
@@ -318,8 +321,8 @@ class PlotPane(QWidget):
             for ch in self.channels:
                 try:
                     ch.plot_item.removeItem(line)
-                except Exception:
-                    pass
+                except RuntimeError:
+                    logger.debug("Plot item was already deleted", exc_info=True)
         self._measure_a_lines.clear()
         self._measure_b_lines.clear()
 
