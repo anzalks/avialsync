@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QMouseEvent, QPainter, QPaintEvent, QPen, QWheelEvent
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QWheelEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from avialview.core.pyramid import PyramidReader
@@ -126,6 +126,7 @@ class Tracking3DCanvas(QWidget):
         self._positions = np.empty((0, 3), dtype=np.float64)
         self._valid = np.empty(0, dtype=bool)
         self._time = 0.0
+        self._skeleton_edges: list[tuple[str, str]] = []
 
         self._azimuth = math.radians(40.0)
         self._elevation = math.radians(25.0)
@@ -160,6 +161,16 @@ class Tracking3DCanvas(QWidget):
         self._valid = np.zeros(len(self._names), dtype=bool)
         self._has_scene_bounds = False
         self.set_cursor(self._time)
+
+    def set_skeleton(self, edges: list[tuple[str, str]]) -> None:
+        """Set explicit skeleton edges between named points.
+
+        Each edge is a ``(name_a, name_b)`` pair referencing point names.
+        Edges whose endpoints are not both present/valid are silently skipped.
+        This never infers topology from names (D-041).
+        """
+        self._skeleton_edges = list(edges)
+        self.update()
 
     def set_cursor(self, t_master: float) -> None:
         """Sample and display the pose nearest to the master-clock time."""
@@ -245,44 +256,66 @@ class Tracking3DCanvas(QWidget):
         del event
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.fillRect(self.rect(), self.palette().color(self.palette().ColorRole.Base))
-        self._draw_grid_and_axes(painter)
+        painter.fillRect(self.rect(), Qt.GlobalColor.white)
+        self._draw_grid(painter)
 
         valid_indices = np.flatnonzero(self._valid)
         if len(valid_indices) == 0:
-            painter.setPen(self.palette().color(self.palette().ColorRole.PlaceholderText))
+            painter.setPen(QColor(120, 120, 120))
             message = (
                 "Load tracking channels ending in _x, _y, and _z"
                 if self.point_count == 0
                 else "No 3D tracking at the current time"
             )
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, message)
+            self._draw_corner_axes(painter)
             return
 
+        # Build a name→screen-position map for skeleton drawing.
         screen, depth = self._project(self._positions[valid_indices])
+        name_to_screen: dict[str, tuple[float, float]] = {}
+        for i, vi in enumerate(valid_indices):
+            name_to_screen[self._names[int(vi)]] = (float(screen[i, 0]), float(screen[i, 1]))
+
+        # Draw skeleton edges behind the points.
+        self._draw_skeleton(painter, name_to_screen)
+
+        # Draw points depth-sorted (back to front).
         order = np.argsort(depth)
-        text_color = self.palette().color(self.palette().ColorRole.Text)
         for draw_order in order:
             point_index = int(valid_indices[draw_order])
             x, y = screen[draw_order]
             color = _POINT_COLORS[point_index % len(_POINT_COLORS)]
-            painter.setPen(QPen(Qt.GlobalColor.black, 1))
-            painter.setBrush(Qt.GlobalColor.transparent)
-            painter.setBrush(
-                self.palette().color(self.palette().ColorRole.Highlight)
-                if point_index == 0
-                else _qcolor(color)
-            )
+            painter.setPen(QPen(QColor(80, 80, 80), 1))
+            painter.setBrush(_qcolor(color))
             painter.drawEllipse(QPoint(round(float(x)), round(float(y))), 5, 5)
             if len(valid_indices) <= _MAX_LABELS:
-                painter.setPen(text_color)
+                painter.setPen(QColor(40, 40, 40))
                 painter.drawText(round(float(x)) + 7, round(float(y)) - 5, self._names[point_index])
 
-    def _draw_grid_and_axes(self, painter: QPainter) -> None:
+        self._draw_corner_axes(painter)
+
+    def _draw_skeleton(
+        self,
+        painter: QPainter,
+        name_to_screen: dict[str, tuple[float, float]],
+    ) -> None:
+        """Draw explicit edges between connected named points."""
+        if not self._skeleton_edges:
+            return
+        bone_pen = QPen(QColor(100, 100, 100), 2)
+        painter.setPen(bone_pen)
+        for name_a, name_b in self._skeleton_edges:
+            pos_a = name_to_screen.get(name_a)
+            pos_b = name_to_screen.get(name_b)
+            if pos_a is not None and pos_b is not None:
+                painter.drawLine(QPointF(*pos_a), QPointF(*pos_b))
+
+    def _draw_grid(self, painter: QPainter) -> None:
+        """Draw a light ground-plane grid behind the pose."""
         if not self._has_scene_bounds:
             return
-        grid_color = self.palette().color(self.palette().ColorRole.Mid)
-        grid_color.setAlpha(90)
+        grid_color = QColor(200, 200, 200, 80)
         painter.setPen(QPen(grid_color, 1))
 
         radius = self._radius
@@ -307,29 +340,23 @@ class Tracking3DCanvas(QWidget):
                 round(float(end[1])),
             )
 
-        origin = self._center
-        axes = np.asarray(
-            [
-                origin,
-                origin + np.array([radius, 0.0, 0.0]),
-                origin,
-                origin + np.array([0.0, radius, 0.0]),
-                origin,
-                origin + np.array([0.0, 0.0, radius]),
-            ]
-        )
-        axis_screen, _ = self._project(axes)
-        for axis, color in enumerate(((220, 70, 70), (70, 180, 90), (70, 120, 230))):
-            start = axis_screen[axis * 2]
-            end = axis_screen[axis * 2 + 1]
-            painter.setPen(QPen(_qcolor(color), 2))
-            painter.drawLine(
-                round(float(start[0])),
-                round(float(start[1])),
-                round(float(end[0])),
-                round(float(end[1])),
-            )
-            painter.drawText(round(float(end[0])) + 3, round(float(end[1])) - 3, "XYZ"[axis])
+    def _draw_corner_axes(self, painter: QPainter) -> None:
+        """Draw a compact orientation indicator in the bottom-left corner."""
+        right, up, _direction = self._camera_basis()
+        ax_len = 28  # pixels
+        margin = 40
+        cx = margin
+        cy = self.height() - margin
+
+        axes_3d = np.eye(3)  # unit X, Y, Z
+        labels = ("X", "Y", "Z")
+        colors = ((220, 70, 70), (70, 180, 90), (70, 120, 230))
+        for i in range(3):
+            dx = float(np.dot(axes_3d[i], right)) * ax_len
+            dy = -float(np.dot(axes_3d[i], up)) * ax_len  # screen Y is flipped
+            painter.setPen(QPen(_qcolor(colors[i]), 2))
+            painter.drawLine(cx, cy, round(cx + dx), round(cy + dy))
+            painter.drawText(round(cx + dx * 1.25) - 3, round(cy + dy * 1.25) + 4, labels[i])
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """Begin orbiting on a primary-button drag."""
@@ -378,10 +405,8 @@ class Tracking3DCanvas(QWidget):
         super().mouseDoubleClickEvent(event)
 
 
-def _qcolor(rgb: tuple[int, int, int]):
-    """Construct QColor lazily to keep the paint code concise."""
-    from PySide6.QtGui import QColor
-
+def _qcolor(rgb: tuple[int, int, int]) -> QColor:
+    """Construct QColor from an RGB tuple."""
     return QColor(*rgb)
 
 
@@ -424,6 +449,10 @@ class Tracking3DPane(QWidget):
             f"{count} tracked point{suffix}" if count else "No XYZ tracking channels"
         )
         self.fit_button.setEnabled(count > 0)
+
+    def set_skeleton(self, edges: list[tuple[str, str]]) -> None:
+        """Set explicit skeleton connectivity for the 3D view."""
+        self.canvas.set_skeleton(edges)
 
     def set_cursor(self, t_master: float) -> None:
         """Update from the same master-clock value used by video and 2D plots."""

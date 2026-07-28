@@ -28,6 +28,7 @@ from avialview.runtime import require_ffmpeg
 
 if TYPE_CHECKING:
     from avialview.ui.main_window import MainWindow
+    from avialview.ui.tracking_3d_pane import Tracking3DPane
 
 ProgressCallback = Callable[[int, str], None]
 CancelledCallback = Callable[[], bool]
@@ -35,6 +36,8 @@ CancelledCallback = Callable[[], bool]
 
 class DemoWindow(Protocol):
     """The source-loading surface the demo needs from the main window."""
+
+    tracking_3d_pane: Tracking3DPane
 
     def _load_video(self, path: Path, offset: float = 0.0, drift_ppm: float = 0.0) -> None: ...
 
@@ -333,6 +336,16 @@ def load_demo(window: DemoWindow, data: DemoData) -> None:
         },
     )
     window._enqueue_import(data.tracking, TrackingLoader, {"fps": 30.0})
+
+    # Explicit skeleton for the demo's five body parts (D-041: never inferred).
+    window.tracking_3d_pane.set_skeleton(
+        [
+            ("nose", "head"),
+            ("head", "spine"),
+            ("spine", "hip"),
+            ("hip", "tail"),
+        ]
+    )
 
 
 class DemoProgressDialog(QDialog):

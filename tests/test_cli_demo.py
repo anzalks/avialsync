@@ -122,7 +122,13 @@ def test_demo_launch_generates_first_run_inputs_in_a_worker(
     """The first run remains event-driven while FFmpeg creates every input."""
     loaded: list[Path] = []
 
+    class _Tracking3DStub:
+        def set_skeleton(self, _edges: list[tuple[str, str]]) -> None:
+            pass
+
     class Window(QWidget):
+        tracking_3d_pane = _Tracking3DStub()
+
         def _load_video(self, path: Path, offset: float = 0.0, drift_ppm: float = 0.0) -> None:
             loaded.append(path)
 
@@ -161,7 +167,13 @@ def test_demo_loads_alignment_and_sources_through_normal_paths(tmp_path: Path) -
     loaded_videos: list[tuple[Path, float, float]] = []
     imports: list[tuple[Path, type, dict[str, Any]]] = []
 
+    class _Tracking3DStub:
+        def set_skeleton(self, _edges: list[tuple[str, str]]) -> None:
+            pass
+
     class Window:
+        tracking_3d_pane = _Tracking3DStub()
+
         def _load_video(self, path: Path, offset: float = 0.0, drift_ppm: float = 0.0) -> None:
             loaded_videos.append((path, offset, drift_ppm))
 
