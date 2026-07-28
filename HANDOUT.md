@@ -90,6 +90,10 @@ with explicit user acceptance and session provenance. Native plugin event provid
   its data relative to the repository root, so `python <repo>\\tools\\launch_demo.py` works from any
   current directory. The installed `avialview demo` command generates a portable minimal demo under
   the platform application-data folder and loads it through the normal asynchronous source paths.
+  Generation runs in `DemoGenerationWorker`, with a modal progress/log dialog, FFmpeg diagnostic
+  errors, cancellation, and explicit reuse of already-created files. FFmpeg uses `-progress pipe:1`
+  with `-loglevel error`; never read progress while leaving verbose stderr unread, or first-run demo
+  generation can deadlock after the child process fills its stderr pipe.
   Release staging rejects a bundle without `ffmpeg`, `ffprobe`, and libmpv.
 - **Video pane shutdown**: `MainWindow.closeEvent()` calls `VideoGrid.shutdown()` before Qt destroys
   child widgets. That method closes every `VideoPane`, so python-mpv can join its event thread;

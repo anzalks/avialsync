@@ -31,7 +31,8 @@ and validates those runtime files; a normal user only installs `AvialView-Setup.
 
 Run `avialview demo` to create and open a small generated video and sensor-data session. It stores
 the generated inputs in the platform application-data directory and works from the installer, a pip
-installation with its native prerequisites, or an editable source checkout.
+installation with its native prerequisites, or an editable source checkout. A first run displays a
+progress-and-log dialog while the video is generated; subsequent runs reuse the files.
 
 ## Open files
 

@@ -67,7 +67,9 @@ After `conda activate avialview`, the equivalent commands are `avialview` and
 script; running a `.py` file directly can use Windows' unrelated file association. The launcher finds
 its repository demo data from its own location, so its behavior does not depend on the current directory.
 Use `avialview demo` for the supported installed demo: it creates a small video and sensor trace in
-your platform application-data folder, then opens them through the normal import paths.
+your platform application-data folder, then opens them through the normal import paths. On a first
+run, AvialView immediately shows a progress-and-log dialog while FFmpeg creates the video; later runs
+reuse the same files without regenerating them.
 
 When the window opens:
 
