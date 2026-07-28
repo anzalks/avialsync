@@ -46,8 +46,9 @@ conda create -n avialview python=3.12 -y
 conda run -n avialview python -m pip install -e ".[dev]"
 ```
 
-Install a standalone shared FFmpeg build (for example, `winget install --id Gyan.FFmpeg.Shared -e`)
-and ensure the directory containing `ffprobe.exe` is on `PATH`. Install a compatible Windows libmpv
+Install a standalone shared FFmpeg build (for example, `winget install --id Gyan.FFmpeg.Shared -e`).
+AvialView discovers the standard WinGet FFmpeg location even if `conda activate` changes `PATH`.
+Install a compatible Windows libmpv
 build and put its `libmpv-2.dll` in the conda environment's `Library\bin` directory, or otherwise
 ensure that DLL is on `PATH`. Do not use conda's FFmpeg package for this checkout: it can conflict
 with the Qt DLLs. A current GPU driver is also required for the Windows OpenGL video renderer. These

@@ -86,7 +86,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
   combinations.
 - **Portable media runtime and demo launch**: `avialview.runtime` configures bundled media or the
   active conda environment before the lazy libmpv import, and `VideoStandardLoader` resolves an
-  explicit `ffprobe` path rather than trusting the current directory. `tools/launch_demo.py` resolves
+  explicit `ffprobe` path rather than trusting the current directory or activated-shell PATH; on
+  Windows it also finds the standard WinGet FFmpeg package path. `tools/launch_demo.py` resolves
   its data relative to the repository root, so `python <repo>\\tools\\launch_demo.py` works from any
   current directory. The installed `avialview demo` command generates a portable minimal demo under
   the platform application-data folder and loads it through the normal asynchronous source paths.

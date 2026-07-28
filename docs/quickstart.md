@@ -11,8 +11,8 @@ provide a plugin for its own recording format.
 ## Windows: running from a source checkout
 
 This section is only for developers running the repository, not people using `AvialView-Setup.exe`.
-Install Python 3.11 or 3.12, a standalone shared FFmpeg build (so `ffprobe.exe` is on `PATH`), and a
-compatible libmpv build. Put `libmpv-2.dll` in the active conda environment's `Library\\bin` directory,
+Install Python 3.11 or 3.12, a standalone shared FFmpeg build, and a compatible libmpv build. Put
+`libmpv-2.dll` in the active conda environment's `Library\\bin` directory,
 or otherwise make it available on `PATH`.
 
 ```powershell
@@ -21,7 +21,8 @@ conda run -n avialview python -m pip install -e ".[dev]"
 conda run -n avialview avialview
 ```
 
-`winget install --id Gyan.FFmpeg.Shared -e` is a suitable FFmpeg installation route. Do not use the
+`winget install --id Gyan.FFmpeg.Shared -e` is a suitable FFmpeg installation route. AvialView finds
+that standard WinGet location even when activation changes `PATH`. Do not use the
 conda FFmpeg package for this checkout because it can conflict with Qt DLLs. Windows uses libmpv's
 Qt OpenGL video renderer, so keep your GPU driver current.
 

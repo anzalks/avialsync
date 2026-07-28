@@ -42,6 +42,31 @@ def media_search_dirs() -> tuple[Path, ...]:
     return tuple(unique)
 
 
+def _windows_winget_media_dirs() -> tuple[Path, ...]:
+    """Return FFmpeg bin directories installed by WinGet outside the active PATH.
+
+    ``conda activate`` can replace rather than extend the user PATH.  WinGet's
+    package directory is stable, so inspect only its direct package children
+    and their conventional ``bin`` directories as a bounded fallback.
+    """
+    if sys.platform != "win32":
+        return ()
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if not local_app_data:
+        return ()
+    package_root = Path(local_app_data) / "Microsoft" / "WinGet" / "Packages"
+    if not package_root.is_dir():
+        return ()
+    candidates: list[Path] = []
+    for package in package_root.iterdir():
+        if not package.is_dir() or "ffmpeg" not in package.name.lower():
+            continue
+        for directory in package.glob("**/bin"):
+            if directory.is_dir():
+                candidates.append(directory)
+    return tuple(candidates)
+
+
 def configure_media_runtime() -> None:
     """Make bundled and conda media libraries discoverable before importing mpv."""
     global _DLL_DIRECTORIES, _DLL_DIRECTORY_PATHS
@@ -75,7 +100,14 @@ def find_media_executable(name: str) -> Path | None:
             if candidate.is_file():
                 return candidate
     resolved = shutil.which(name)
-    return Path(resolved) if resolved else None
+    if resolved:
+        return Path(resolved)
+    for directory in _windows_winget_media_dirs():
+        for candidate_name in names:
+            candidate = directory / candidate_name
+            if candidate.is_file():
+                return candidate
+    return None
 
 
 def require_media_executable(name: str) -> Path:
