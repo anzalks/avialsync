@@ -6,7 +6,8 @@ recordings.
 ## 1. Load the camera
 
 Drag the video into the window. Its name appears in the left panel and its image appears in the video
-area. Open **Video Properties** if you want to check resolution, codec, duration, or frame rate.
+area. The readout over the video shows its time, timestamp-derived CFR/VFR rate, nominal rate, codec,
+and file size. Open **Video Properties** for resolution, duration, and the complete timing evidence.
 
 ## 2. Load the recording
 

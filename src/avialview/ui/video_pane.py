@@ -6,31 +6,16 @@ from typing import Any
 
 import numpy as np
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QColor, QFontDatabase, QPainter, QPaintEvent, QPen
+from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from avialview.core.source import VideoMetadata
 from avialview.ui.diagnostics import probe_libmpv
 from avialview.ui.theme import set_font_family
+from avialview.ui.video_overlay import PaintCanvas
+from avialview.ui.video_timing import VideoTimingMixin, format_video_osd
 
 logger = logging.getLogger(__name__)
-
-
-def instantaneous_frame_rate(frame_times: np.ndarray | None, t: float, fallback: float) -> float:
-    """Return the displayed frame's rate from its timestamp interval.
-
-    VFR does not have one truthful FPS value.  The rate is therefore derived
-    from the current frame and its successor, with the decoder estimate only
-    used before timestamp evidence is available.
-    """
-    if frame_times is None or len(frame_times) < 2:
-        return fallback
-    index = int(np.searchsorted(frame_times, t, side="right"))
-    if index <= 0:
-        index = 1
-    if index >= len(frame_times):
-        index = len(frame_times) - 1
-    interval = float(frame_times[index] - frame_times[index - 1])
-    return 1.0 / interval if interval > 1e-9 else fallback
 
 
 def _release_mpv_render_context(widget: object) -> None:
@@ -62,94 +47,7 @@ def _shutdown_mpv_client(player: Any, gl_widget: Any | None = None) -> None:
         gl_widget.mpv = None
 
 
-def displayed_frame_rate(
-    frame_times: np.ndarray | None,
-    t: float,
-    is_vfr: bool,
-    nominal_fps: float,
-    fallback: float,
-) -> float:
-    """Use a stable nominal rate for CFR and timestamp evidence for VFR."""
-    if is_vfr:
-        return instantaneous_frame_rate(frame_times, t, fallback)
-    return nominal_fps if nominal_fps > 0 else fallback
-
-
-class PaintCanvas(QWidget):
-    """Transparent overlay for drawing tracking markers."""
-
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.setAutoFillBackground(False)
-        self.readers = []
-        self.t = 0.0
-
-    def set_readers(self, readers) -> None:
-        self.readers = readers
-        self.update()
-
-    def update_time(self, t: float) -> None:
-        self.t = t
-        self.update()
-
-    def paintEvent(self, event: QPaintEvent) -> None:
-        if not self.readers:
-            return
-
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor(0, 255, 255), 3)
-        painter.setPen(pen)
-        painter.setBrush(QColor(0, 255, 255))
-
-        points = {}
-        for r in self.readers:
-            val = r.value_at(self.t)
-            if np.isnan(val):
-                continue
-
-            if r.channel_id.endswith("_x"):
-                base = r.channel_id[:-2]
-                if base not in points:
-                    points[base] = {}
-                points[base]["x"] = val
-            elif r.channel_id.endswith("_y"):
-                base = r.channel_id[:-2]
-                if base not in points:
-                    points[base] = {}
-                points[base]["y"] = val
-
-        try:
-            pane = self.parent()
-            if not hasattr(pane, "mpv") or pane.mpv is None:
-                return
-            vw = pane.mpv.dwidth
-            vh = pane.mpv.dheight
-        except Exception:
-            # Fallback if properties not yet available
-            return
-
-        if not vw or not vh:
-            return
-
-        ww = self.width()
-        wh = self.height()
-
-        scale = min(ww / vw, wh / vh)
-        offset_x = (ww - vw * scale) / 2.0
-        offset_y = (wh - vh * scale) / 2.0
-
-        for _name, pt in points.items():
-            if "x" in pt and "y" in pt:
-                x = offset_x + pt["x"] * scale
-                y = offset_y + pt["y"] * scale
-                painter.drawEllipse(int(x) - 3, int(y) - 3, 6, 6)
-
-
-class VideoPane(QWidget):
+class VideoPane(VideoTimingMixin, QWidget):
     """
     Video rendering pane.
 
@@ -160,6 +58,7 @@ class VideoPane(QWidget):
     double_clicked = Signal(object)
     right_clicked = Signal(object)  # emits QPoint (global position)
     _osd_update = Signal(float, float)  # time, fps
+    frame_presented = Signal(float)  # delivered source timestamp
     file_loaded = Signal()
 
     def __init__(self, parent: QWidget | None = None):
@@ -170,13 +69,19 @@ class VideoPane(QWidget):
         self._frame_times: np.ndarray | None = None
         self._nominal_fps = 0.0
         self._decoder_fps = 0.0
+        self._metadata = VideoMetadata()
         self.is_seeking = False
+        self._mpv_seeking = False
+        self._seek_pending = False
+        self._seek_target = 0.0
+        self._seek_exact = True
         self.mpv = None
         self._video_widget = None
         self._media_loaded = False
         self._pending_seek: tuple[float, bool] | None = None
         self._target_pause = True
         self._current_rate = 1.0
+        self._mapping_rate_scale = 1.0
         self._sync_correction = 1.0
 
         from avialview.core.timeline import TimeMap
@@ -224,25 +129,17 @@ class VideoPane(QWidget):
                     @self.mpv.property_observer("time-pos")
                     def time_observer(_name: str, value: float) -> None:
                         if value is not None:
-                            self.parent_pane.time_pos = value
-                            fps = displayed_frame_rate(
-                                self.parent_pane._frame_times,
-                                value,
-                                self.parent_pane._is_vfr,
-                                self.parent_pane._nominal_fps,
-                                self.parent_pane._decoder_fps,
-                            )
-                            self.parent_pane._osd_update.emit(value, fps)
+                            self.parent_pane._observe_time(float(value))
 
                     @self.mpv.property_observer("estimated-vf-fps")
                     def fps_observer(_name: str, value: float) -> None:
                         if value is not None:
-                            self.parent_pane._decoder_fps = value
+                            self.parent_pane._decoder_fps = float(value)
 
                     @self.mpv.property_observer("seeking")
                     def seeking_observer(_name: str, value: bool) -> None:
                         if value is not None:
-                            self.parent_pane.is_seeking = value
+                            self.parent_pane._observe_seeking(bool(value))
 
                 def initializeGL(self) -> None:
                     ctx = QOpenGLContext.currentContext()
@@ -323,25 +220,17 @@ class VideoPane(QWidget):
             @self.mpv.property_observer("time-pos")
             def time_observer(_name: str, value: float) -> None:
                 if value is not None:
-                    self.time_pos = value
-                    fps = displayed_frame_rate(
-                        self._frame_times,
-                        value,
-                        self._is_vfr,
-                        self._nominal_fps,
-                        self._decoder_fps,
-                    )
-                    self._osd_update.emit(value, fps)
+                    self._observe_time(float(value))
 
             @self.mpv.property_observer("estimated-vf-fps")
             def fps_observer(_name: str, value: float) -> None:
                 if value is not None:
-                    self._decoder_fps = value
+                    self._decoder_fps = float(value)
 
             @self.mpv.property_observer("seeking")
             def seeking_observer(_name: str, value: bool) -> None:
                 if value is not None:
-                    self.is_seeking = value
+                    self._observe_seeking(bool(value))
 
         # Set up PaintCanvas for tracking
         @self.mpv.event_callback("file-loaded")
@@ -364,7 +253,7 @@ class VideoPane(QWidget):
         )
         self.lbl_name.setVisible(False)
 
-        self.lbl_osd = QLabel("Time: 00:00:00.000\nFPS:  0.0")
+        self.lbl_osd = QLabel(format_video_osd(0.0, 0.0, self._metadata))
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self.lbl_osd.setStyleSheet("color: white; background-color: rgba(0,0,0,128); padding: 4px;")
         set_font_family(self.lbl_osd, mono_font)
@@ -391,33 +280,14 @@ class VideoPane(QWidget):
             self.file_loaded.connect(self._on_file_loaded)
             self._video_widget.installEventFilter(self)
 
-    def _update_osd(self, t: float, fps: float) -> None:
-        h = int(t // 3600)
-        m = int((t % 3600) // 60)
-        s = t % 60
-        fps_text = f"{fps:.1f} (VFR)" if self._is_vfr else f"{fps:.1f}"
-        self.lbl_osd.setText(f"Time: {h:02d}:{m:02d}:{s:06.3f}\nFPS:  {fps_text}")
-        self.paint_canvas.update_time(t)
-
-    def set_vfr(self, is_vfr: bool) -> None:
-        """Mark the on-video readout so its instantaneous rate is contextualized."""
-        self._is_vfr = is_vfr
-        self._update_osd(self.time_pos, self._decoder_fps)
-
-    def set_frame_times(self, frame_times: np.ndarray | None) -> None:
-        """Supply decoded frame timestamps for instantaneous VFR readout."""
-        self._frame_times = frame_times
-
-    def set_nominal_fps(self, fps: float) -> None:
-        """Supply the stream's nominal rate for stable CFR readout."""
-        self._nominal_fps = fps
-
     def set_source_bounds(self, bounds: tuple[float, float]) -> None:
         """Set the source-time interval that contains decodable media."""
         self._source_bounds = tuple(sorted(bounds))
 
     def has_footage_at_master(self, t_master: float) -> bool:
         """Return whether this pane has media at the supplied master time."""
+        if not self.time_map.contains_master_time(t_master):
+            return False
         if self._source_bounds is None:
             return True
         t_source = self.time_map.to_source(t_master)
@@ -493,7 +363,7 @@ class VideoPane(QWidget):
 
     def _apply_rate(self) -> None:
         if self.mpv:
-            self.mpv.speed = self._current_rate * self.time_map.rate_scale * self._sync_correction
+            self.mpv.speed = self._current_rate * self._mapping_rate_scale * self._sync_correction
 
     @property
     def time_map(self):
@@ -502,6 +372,7 @@ class VideoPane(QWidget):
     @time_map.setter
     def time_map(self, new_map):
         self._time_map = new_map
+        self._mapping_rate_scale = new_map.rate_scale
         self._apply_rate()
 
     @Slot()
@@ -523,9 +394,17 @@ class VideoPane(QWidget):
             return
         precision = "exact" if exact else "keyframes"
         try:
+            self._seek_target = float(t)
+            self._seek_exact = exact
+            self._seek_pending = True
+            self._mpv_seeking = True
+            self.is_seeking = True
             self.mpv.seek(t, reference="absolute", precision=precision)
         except Exception:
             # mpv may raise SystemError -12 if we seek before it has finished loading the file
+            self._seek_pending = False
+            self._mpv_seeking = False
+            self.is_seeking = False
             logger.warning("Video seek failed at %.6f seconds", t, exc_info=True)
 
     def frame_step(self, forward: bool = True) -> None:

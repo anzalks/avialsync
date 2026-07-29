@@ -19,6 +19,32 @@ class ChannelInfo:
     rate_hz: float | None  # None indicates irregular sampling
 
 
+@dataclass(frozen=True, slots=True)
+class VideoMetadata:
+    """Format-neutral video metadata exposed by every video source.
+
+    Timestamp-derived rate fields are authoritative when present.  The nominal
+    rate remains visible because containers commonly declare a CFR rate even
+    when their presentation timestamps prove that the media is VFR.
+    """
+
+    container: str = ""
+    codec: str = "unknown"
+    profile: str = ""
+    pixel_format: str = ""
+    width: int = 0
+    height: int = 0
+    nominal_fps: float = 0.0
+    measured_fps: float = 0.0
+    min_frame_rate: float = 0.0
+    max_frame_rate: float = 0.0
+    is_vfr: bool = False
+    frame_count: int | None = None
+    duration: float = 0.0
+    start_time: float | None = None
+    file_size_bytes: int = 0
+
+
 class TimeSeriesSource(ABC):
     """Frozen v1 plugin contract for chunked time-series ingestion.
 
@@ -125,6 +151,21 @@ class VideoSource(ABC):
     def fps(self) -> float:
         """Nominal frames per second."""
         pass
+
+    def video_metadata(self) -> VideoMetadata:
+        """Return format-neutral inspection metadata.
+
+        This additive default preserves compatibility with frozen v1 video
+        plugins.  Loaders should override it when they can provide richer
+        stream and timestamp evidence.
+        """
+        start, end = self.time_bounds()
+        return VideoMetadata(
+            nominal_fps=self.fps(),
+            measured_fps=self.fps(),
+            duration=max(0.0, end - start),
+            start_time=self.start_time(),
+        )
 
     @abstractmethod
     def label(self) -> str:

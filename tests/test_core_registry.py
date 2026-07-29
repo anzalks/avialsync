@@ -57,6 +57,15 @@ class DummyVideoLoader(VideoSource):
         return "cam"
 
 
+def test_legacy_video_plugin_receives_default_metadata() -> None:
+    """The additive inspection API must not add an abstract plugin requirement."""
+    metadata = DummyVideoLoader().video_metadata()
+
+    assert metadata.nominal_fps == 30.0
+    assert metadata.measured_fps == 30.0
+    assert metadata.duration == 1.0
+
+
 @patch("avialview.core.registry.entry_points")
 def test_loader_discovery(mock_eps):
     # Mock entry points return

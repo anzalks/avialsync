@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from avialview.core.timeline import TimeMap
 from avialview.ui.annotations import AnnotationStore, VideoFrame
 
 # ── VideoFrame dataclass ──────────────────────────────────────────────
@@ -114,8 +113,7 @@ def test_frame_records_at_single_pane(qapp) -> None:
     grid = VideoGrid()
 
     fake_pane = MagicMock()
-    fake_pane.time_map = TimeMap(offset=0.0)
-    fake_pane._fps = 30.0
+    fake_pane.frame_record_at.return_value = (30, 1.0)
 
     grid.panes.append(fake_pane)
     grid._paths.append("/cam/a.mp4")
@@ -183,8 +181,7 @@ def test_frame_records_at_offset_applied(qapp) -> None:
     grid = VideoGrid()
 
     fake_pane = MagicMock()
-    fake_pane.time_map = TimeMap(offset=2.0)  # source = master + 2
-    fake_pane._fps = 10.0
+    fake_pane.frame_record_at.return_value = (50, 5.0)
 
     grid.panes.append(fake_pane)
     grid._paths.append("/cam/b.mp4")
@@ -201,8 +198,7 @@ def test_frame_records_at_two_panes(qapp) -> None:
 
     for i, path in enumerate(["/a.mp4", "/b.mp4"]):
         p = MagicMock()
-        p.time_map = TimeMap(offset=float(i))
-        p._fps = 25.0
+        p.frame_record_at.return_value = (25 * (i + 1), float(i + 1))
         grid.panes.append(p)
         grid._paths.append(path)
 
@@ -210,3 +206,19 @@ def test_frame_records_at_two_panes(qapp) -> None:
     assert len(records) == 2
     assert records[0]["media_timestamp"] == pytest.approx(1.0)
     assert records[1]["media_timestamp"] == pytest.approx(2.0)
+
+
+def test_frame_records_use_real_vfr_timestamp_index(qapp) -> None:
+    """Annotation frame numbers must never use t*fps arithmetic for VFR media."""
+    from avialview.ui.video_grid import VideoGrid
+
+    grid = VideoGrid()
+    pane = MagicMock()
+    pane.frame_record_at.return_value = (2, 0.100)
+    grid.panes.append(pane)
+    grid._paths.append("/cam/vfr.mp4")
+
+    records = grid.frame_records_at(0.11)
+
+    pane.frame_record_at.assert_called_once_with(0.11)
+    assert records == [{"path": "/cam/vfr.mp4", "frame_index": 2, "media_timestamp": 0.1}]

@@ -7,7 +7,9 @@ support, while plugins can add other recordings without changing the application
 
 Open standard video files supported by your installed mpv/ffmpeg stack, including common MP4, MOV,
 MKV, AVI, and WebM files. AvialView reads the video timing and uses actual frame timestamps where
-available, which matters for variable-frame-rate recordings.
+available, which matters for variable-frame-rate recordings. Presentation timestamps override a
+misleading container CFR declaration. They are cached beside the video after the first probe, so
+subsequent opens do not scan every frame again.
 
 ## Sensor and tracking data
 

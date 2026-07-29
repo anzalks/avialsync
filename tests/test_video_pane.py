@@ -34,3 +34,8 @@ def test_windows_render_widget_has_video_pane_parent(monkeypatch, qapp) -> None:
 
     pane._on_file_loaded()
     assert pane.mpv.seek_calls == [(2.5, {"reference": "absolute", "precision": "exact"})]
+    assert pane.is_seeking
+
+    pane._observe_seeking(False)
+    pane._observe_time(2.5)
+    assert not pane.is_seeking

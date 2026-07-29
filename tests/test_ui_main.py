@@ -64,7 +64,7 @@ def test_annotate_with_pane_present_no_error(main_window: MainWindow) -> None:
 
     fake_pane = MagicMock()
     fake_pane.time_map = TimeMap()  # real TimeMap — to_source() works, no .path
-    fake_pane._fps = 30.0
+    fake_pane.frame_record_at.return_value = (0, 0.0)
 
     main_window.video_grid.panes.append(fake_pane)
     main_window.video_grid._paths.append("/fake/video.mp4")
@@ -351,6 +351,7 @@ def test_video_sidebar_summary_receives_probed_codec(
     loader._codec = "h264"
     loader._duration = 10.0
     loader._fps = 30.0
+    loader._file_size = 12_345_678
     pane = MagicMock()
     metadata: dict[str, object] = {}
     monkeypatch.setattr(main_window.video_grid, "add_pane", lambda *_args, **_kwargs: pane)
@@ -369,6 +370,8 @@ def test_video_sidebar_summary_receives_probed_codec(
     main_window._on_video_opened("camera.mp4", loader, "camera.mp4")
 
     assert metadata["codec"] == "h264"
+    assert metadata["file_size_bytes"] == 12_345_678
+    pane.set_video_metadata.assert_called_once_with(loader.video_metadata())
     synchronize_pane.assert_called_once_with(main_window.clock.state.t, exact=True)
 
 

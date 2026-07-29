@@ -1,4 +1,4 @@
-"""Tests for the shared continuous plot-window slider."""
+"""Tests for the shared bounded plot-window slider."""
 
 from __future__ import annotations
 
@@ -32,6 +32,46 @@ def test_programmatic_window_change_keeps_slider_and_label_in_sync(qtbot) -> Non
     assert pane.window_duration == pytest.approx(7.25)
     assert pane.window_slider.value() == pane._sweep_control.slider_from_duration(7.25)
     assert pane.window_value_label.text() == "7.250 s"
+
+
+@pytest.mark.parametrize(
+    ("unit", "limit", "expected_seconds"),
+    [
+        ("ms", 250.0, 0.25),
+        ("s", 45.0, 45.0),
+        ("min", 2.0, 120.0),
+        ("h", 1.5, 5400.0),
+    ],
+)
+def test_limit_unit_sets_linear_slider_scale(
+    qtbot,
+    unit: str,
+    limit: float,
+    expected_seconds: float,
+) -> None:
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    pane.set_timeline_bounds(0.0, 10_000.0)
+
+    pane.window_unit_combo.setCurrentText(unit)
+    pane.window_limit_spin.setValue(limit)
+    pane.window_slider.setValue(pane.window_slider.maximum())
+
+    assert pane.window_duration == pytest.approx(expected_seconds)
+    expected_label = f"{limit:.1f} ms" if unit == "ms" else f"{limit:.3f} {unit}"
+    assert pane.window_value_label.text() == expected_label
+
+
+def test_limit_change_preserves_window_until_slider_moves(qtbot) -> None:
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    pane.set_timeline_bounds(0.0, 3600.0)
+    pane.set_window_duration(8.0)
+
+    pane.window_limit_spin.setValue(60.0)
+
+    assert pane.window_duration == pytest.approx(8.0)
+    assert pane.window_slider.value() == pane._sweep_control.slider_from_duration(8.0)
 
 
 def test_transport_has_no_second_plot_zoom_control(qtbot) -> None:

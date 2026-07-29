@@ -22,6 +22,7 @@ from avialview.core.pyramid import PyramidBuilder, PyramidReader
 _PYRAMID_BUILD_BUDGET_S = 2.5  # ≤ 2.5 s (D-024)
 _PYRAMID_QUERY_BUDGET_S = 0.005  # ≤ 5 ms
 _CURSOR_UPDATE_BUDGET_S = 0.002  # ≤ 2 ms
+_WINDOW_REFRESH_BUDGET_S = 0.030  # UI work must stay below worker threshold
 
 
 @pytest.fixture(scope="session")
@@ -158,5 +159,49 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
     plot_pane.deleteLater()
     transport.deleteLater()
     readout.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
+
+
+def test_bench_four_channel_window_refresh(benchmark, tmp_path: Path):
+    """A committed shared-window change stays below the 30 ms UI budget."""
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+
+    from avialview.ui.plot_pane import PlotPane
+
+    sample_count = 50_000
+    pane = PlotPane()
+    pane.resize(1000, 600)
+    pane.set_timeline_bounds(0.0, 1.0)
+    for channel_index in range(4):
+        cache_dir = tmp_path / f"window_ch{channel_index}.avialcache"
+        cache_dir.mkdir(exist_ok=True)
+        times = np.linspace(0.0, 1.0, sample_count, dtype=np.float64)
+        values = np.sin(times * (channel_index + 1))
+        PyramidBuilder(cache_dir, f"window_ch{channel_index}").build_and_save(times, values)
+        pane.load_channels(cache_dir, [f"window_ch{channel_index}"])
+
+    duration = 0.20
+
+    def refresh_window() -> None:
+        nonlocal duration
+        duration = 0.25 if duration == 0.20 else 0.20
+        pane.set_window_duration(duration)
+
+    benchmark(refresh_window)
+
+    assert benchmark.stats["mean"] <= _WINDOW_REFRESH_BUDGET_S, (
+        f"Four-channel window refresh mean {benchmark.stats['mean'] * 1000:.3f}ms "
+        f"exceeds UI budget {_WINDOW_REFRESH_BUDGET_S * 1000:.1f}ms."
+    )
+    pane.close()
+    pane.deleteLater()
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     app.processEvents()

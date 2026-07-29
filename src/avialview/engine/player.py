@@ -6,7 +6,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, Qt, QTimer
 
 from avialview.core.timeline import MasterClock
 from avialview.engine.seeker import SeekGroup
@@ -67,6 +67,8 @@ class Player(QObject):
 
         # Coalescing: newest pending keyframe-seek target during drag; flushed when seeker settles
         self._pending_scrub_t: float | None = None
+        self._frame_step_reference: VideoPane | None = None
+        self._queued_frame_steps = 0
 
     def start(self) -> None:
         self._last_tick_monotonic = time.monotonic()
@@ -85,14 +87,14 @@ class Player(QObject):
             self._last_tick_monotonic = time.monotonic()
             self.clock.play()
             for pane in self._update_pane_footage(self.clock.state.t):
+                pane.set_mapping_rate_at(self.clock.state.t)
                 pane.play()
         else:
             self.clock.pause()
             for pane in self.video_grid.panes:
                 pane.pause()
-            # Force exact seek on pause to ensure frames align perfectly
-            self.seeker.panes = self.video_grid.panes
-            self.seeker.seek(self.clock.state.t, exact=True)
+            # Pause on accepted frame-trigger evidence, then decode that frame exactly.
+            self.seek(self.clock.state.t, exact=True)
 
         self.transport.set_playing(playing)
 
@@ -102,6 +104,8 @@ class Player(QObject):
 
     def seek(self, t: float, exact: bool = True) -> None:
         self._is_scrubbing = not exact
+        if exact:
+            t = self._snap_to_frame_evidence(t)
         self.clock.seek(t)
 
         # Coalesce fast keyframe seeks: if a seek is already in flight and this
@@ -122,6 +126,15 @@ class Player(QObject):
         self._drift_counts.clear()
         self._last_tick_monotonic = time.monotonic()
 
+    def _snap_to_frame_evidence(self, t_master: float) -> float:
+        """Use the first active exact mapping as the reference frame clock."""
+        for pane in self.video_grid.panes:
+            if not pane.has_footage_at_master(t_master):
+                continue
+            if getattr(pane.time_map, "has_exact_mapping", False) is True:
+                return float(pane.time_map.snap_master_time(t_master))
+        return t_master
+
     def set_rate(self, rate: float) -> None:
         self.clock.set_rate(rate)
         for pane in self.video_grid.panes:
@@ -138,30 +151,31 @@ class Player(QObject):
         if was_playing:
             self.set_playing(False)
 
-        for pane in self._update_pane_footage(self.clock.state.t):
-            if not pane.mpv:
-                continue
-            if direction > 0:
-                pane.mpv.command("frame-step")
-            else:
-                pane.mpv.command("frame-back-step")
-
-        # Snap master clock to first pane's position after a short delay
-        # (mpv frame-step is async so we defer 50 ms)
-        from PySide6.QtCore import QTimer
-
-        QTimer.singleShot(50, self._snap_clock_to_first_pane)
-
-    def _snap_clock_to_first_pane(self) -> None:
-        """Read first pane's time_pos and seek master clock to match."""
-        if not self.video_grid.panes:
+        panes = self._update_pane_footage(self.clock.state.t)
+        if not panes:
             return
-        pane = self.video_grid.panes[0]
-        if pane.mpv is None:
+        target = panes[0].frame_step_master_target(self.clock.state.t, direction)
+        if target is not None:
+            self.seek(target, exact=True)
             return
-        t_pos = pane.time_map.to_master(pane.time_pos or self.clock.state.t)
-        self.clock.seek(t_pos)
-        self._update_timeline_views(t_pos)
+        reference = panes[0]
+        if self._frame_step_reference is not None:
+            self._queued_frame_steps += 1 if direction > 0 else -1
+            return
+        self._frame_step_reference = reference
+        reference.frame_presented.connect(
+            self._on_reference_frame_presented,
+            Qt.ConnectionType.SingleShotConnection,
+        )
+        reference.frame_step(forward=direction > 0)
+
+    def _on_reference_frame_presented(self, source_time: float) -> None:
+        """Synchronize all panes after mpv steps a source without an index."""
+        reference = self._frame_step_reference
+        self._frame_step_reference = None
+        if reference is None:
+            return
+        self.seek(reference.time_map.to_master(source_time), exact=True)
 
     def set_ab_loop(self, t_in: float | None, t_out: float | None) -> None:
         """Set or clear the A/B loop region on the master clock."""
@@ -183,6 +197,15 @@ class Player(QObject):
 
     def _on_tick(self) -> None:
         now = time.monotonic()
+
+        if (
+            self._queued_frame_steps
+            and self._frame_step_reference is None
+            and self.seeker.is_settled()
+        ):
+            direction = 1 if self._queued_frame_steps > 0 else -1
+            self._queued_frame_steps -= direction
+            self.step_frame(direction)
 
         # Flush a coalesced pending scrub seek as soon as the seeker is free
         if self._pending_scrub_t is not None:
@@ -220,8 +243,11 @@ class Player(QObject):
 
                     source_t = pane.time_map.to_source(t)
                     drift = vid_t - source_t
+                    pane.set_mapping_rate_at(t)
+                    tolerance = pane.sync_tolerance_at_master(t)
+                    hard_threshold = max(0.25, tolerance * 8.0)
 
-                    if abs(drift) > 1.000:
+                    if abs(drift) > hard_threshold:
                         # Huge drift (e.g. delayed start), hard seek after brief hysteresis
                         self._drift_counts[idx] = self._drift_counts.get(idx, 0) + 1
                         if self._drift_counts[idx] > 5:
@@ -232,7 +258,7 @@ class Player(QObject):
                             self.seeker.seek_pane(pane, source_t, exact=True)
                             self._drift_counts[idx] = 0
                             pane.set_sync_correction(1.0)
-                    elif abs(drift) > 0.050:
+                    elif abs(drift) > tolerance:
                         # Moderate drift: Soft PLL speed correction
                         self._drift_counts[idx] = 0
                         # If vid_t < source_t, drift is negative -> need to speed up

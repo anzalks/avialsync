@@ -239,3 +239,30 @@ def test_affine_edit_explicitly_replaces_exact_mapping() -> None:
 
     assert tmap.to_source(1.0) == pytest.approx(1.00001)
     assert tmap.rate_scale == pytest.approx(1.00001)
+
+
+def test_exact_mapping_snaps_to_nearest_master_frame_trigger() -> None:
+    mapping = TimeMap()
+    mapping.set_exact_mapping(
+        np.array([10.0, 10.1, 10.3]),
+        np.array([0.0, 0.1, 0.2]),
+    )
+
+    assert mapping.has_exact_mapping
+    assert mapping.snap_master_time(10.04) == pytest.approx(10.0)
+    assert mapping.snap_master_time(10.06) == pytest.approx(10.1)
+    assert mapping.snap_master_time(99.0) == pytest.approx(10.3)
+
+
+def test_exact_mapping_reports_local_rate_scale() -> None:
+    mapping = TimeMap()
+    mapping.set_exact_mapping(
+        np.array([0.0, 0.1, 0.3]),
+        np.array([0.0, 0.2, 0.3]),
+    )
+
+    assert mapping.rate_scale_at(0.05) == pytest.approx(2.0)
+    assert mapping.rate_scale_at(0.2) == pytest.approx(0.5)
+    assert mapping.contains_master_time(0.1)
+    assert not mapping.contains_master_time(-0.01)
+    assert not mapping.contains_master_time(0.31)

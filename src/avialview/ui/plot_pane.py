@@ -3,12 +3,18 @@
 import logging
 from pathlib import Path
 
-import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
-from avialview.ui.plot_row import ChannelPlot, create_channel_plot
+from avialview.ui.plot_row import (
+    ChannelPlot,
+    create_channel_plot,
+    point_budget_for_width,
+    refresh_channel_plot,
+    update_channel_coverage,
+)
 from avialview.ui.plot_sweep import SweepWindowControl
 
 logger = logging.getLogger(__name__)
@@ -47,9 +53,16 @@ class PlotPane(QWidget):
 
         self._sweep_control = SweepWindowControl(self)
         self._sweep_control.window_changed.connect(self._on_window_changed)
+        self.window_limit_spin = self._sweep_control.limit_spin
+        self.window_unit_combo = self._sweep_control.unit_combo
         self.window_slider = self._sweep_control.slider
         self.window_value_label = self._sweep_control.value_label
         _layout.addWidget(self._sweep_control)
+        self._resize_refresh_timer = QTimer(self)
+        self._resize_refresh_timer.setSingleShot(True)
+        self._resize_refresh_timer.setInterval(75)
+        self._resize_refresh_timer.timeout.connect(self._refresh_after_resize)
+        self._last_point_budget = 0
 
         # State
         self.channels: list[ChannelPlot] = []
@@ -79,6 +92,12 @@ class PlotPane(QWidget):
         super().changeEvent(event)
         if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange):
             self._apply_palette()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        """Coalesce resize storms before selecting a new pyramid resolution."""
+        super().resizeEvent(event)
+        if self.channels and self.sweep_start is not None:
+            self._resize_refresh_timer.start()
 
     def _apply_palette(self) -> None:
         """Apply the active Qt palette to pyqtgraph's global canvas settings."""
@@ -156,18 +175,13 @@ class PlotPane(QWidget):
 
         t0 = self.sweep_start
         t1 = t0 + self.window_duration
-        viewport_width = max(2, int(self.graphics_layout.viewport().width()))
+        point_budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
+        self._last_point_budget = point_budget
 
         for ch in self.channels:
-            t, vmin, vmax, gap = ch.reader.query(t0, t1, max_points=viewport_width)
-
-            if len(t) == 0:
-                ch.curve.setData([], [])
+            if not ch.visible:
                 continue
-
-            v_mean = (vmin + vmax) / 2.0
-            v_mean[gap] = np.nan
-            ch.curve.setData(t - t0, v_mean)
+            refresh_channel_plot(ch, t0, t1, point_budget)
 
     def set_cursor(self, t: float) -> None:
         """Advance the fixed sweep from the master-clock time."""
@@ -193,16 +207,25 @@ class PlotPane(QWidget):
         for ch in self.channels:
             if ch.name == channel_id:
                 if visible:
+                    ch.visible = True
                     ch.plot_item.show()
                     ch.close_proxy.show()
                     ch.plot_item.setMaximumHeight(16777215)
                     ch.close_proxy.setMaximumHeight(16777215)
+                    if self.sweep_start is not None:
+                        refresh_channel_plot(
+                            ch,
+                            self.sweep_start,
+                            self.sweep_start + self.window_duration,
+                            point_budget_for_width(int(self.graphics_layout.viewport().width())),
+                        )
+                        self._redraw_sweep_overlays()
                 else:
+                    ch.visible = False
                     ch.plot_item.hide()
                     ch.close_proxy.hide()
                     ch.plot_item.setMaximumHeight(0)
                     ch.close_proxy.setMaximumHeight(0)
-                # When showing/hiding, the layout updates automatically
                 break
 
     def reset_zoom(self) -> None:
@@ -237,6 +260,11 @@ class PlotPane(QWidget):
         self._configure_shared_x_range()
         self._set_sweep_for_time(self._sweep_control.last_master_time, force=True)
 
+    def _refresh_after_resize(self) -> None:
+        point_budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
+        if point_budget != self._last_point_budget:
+            self.update_plots()
+
     def _configure_shared_x_range(self) -> None:
         if self._master_plot is None or self.window_duration <= 0:
             return
@@ -258,8 +286,9 @@ class PlotPane(QWidget):
             self._redraw_sweep_overlays()
 
         for ch in self.channels:
-            ch.cursor_line.setValue(position.phase)
-            ch.curve.set_sweep_position(position.phase)
+            if ch.visible:
+                ch.cursor_line.setValue(position.phase)
+                ch.curve.set_sweep_position(position.phase)
         return position.phase
 
     def _request_channel_close(self, channel_id: str) -> None:
@@ -285,21 +314,7 @@ class PlotPane(QWidget):
             return
         sweep_end = self.sweep_start + self.window_duration
         for ch in self.channels:
-            if ch.coverage_region is None:
-                continue
-            t, _, _, _ = ch.reader._load_level(1)
-            if len(t) == 0:
-                ch.coverage_region.hide()
-                continue
-            overlap_start = max(self.sweep_start, float(t[0]))
-            overlap_end = min(sweep_end, float(t[-1]))
-            if overlap_end < overlap_start:
-                ch.coverage_region.hide()
-                continue
-            ch.coverage_region.setRegion(
-                [overlap_start - self.sweep_start, overlap_end - self.sweep_start]
-            )
-            ch.coverage_region.show()
+            update_channel_coverage(ch, self.sweep_start, sweep_end)
 
     def set_context_actions(self, actions: list) -> None:
         """Register extra QAction objects to appear in the right-click context menu.

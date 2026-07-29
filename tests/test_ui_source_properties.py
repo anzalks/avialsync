@@ -19,71 +19,95 @@ def app():
 
 class TestVideoPropertiesPanel:
     def test_as_plain_text_contains_title(self, app):
-        from unittest.mock import MagicMock
-
+        from avialview.core.source import VideoMetadata
         from avialview.ui.source_properties import VideoPropertiesPanel
 
-        loader = MagicMock()
-        loader._container = "mp4"
-        loader._codec = "h264"
-        loader._profile = "High"
-        loader._pix_fmt = "yuv420p"
-        loader._width = 1920
-        loader._height = 1080
-        loader._fps = 29.97
-        loader._frame_count = 1000
-        loader._duration = 33.367
-        loader._start_time = 1700000000.0
-        loader._file_size = 50_000_000
+        class Loader:
+            def video_metadata(self) -> VideoMetadata:
+                return VideoMetadata(
+                    container="mp4",
+                    codec="h264",
+                    profile="High",
+                    pixel_format="yuv420p",
+                    width=1920,
+                    height=1080,
+                    nominal_fps=29.97,
+                    measured_fps=29.97,
+                    frame_count=1000,
+                    duration=33.367,
+                    start_time=1700000000.0,
+                    file_size_bytes=50_000_000,
+                )
 
-        panel = VideoPropertiesPanel(loader)
+        panel = VideoPropertiesPanel(Loader())
         text = panel.as_plain_text()
         assert "Video Properties" in text
 
     def test_as_plain_text_contains_codec(self, app):
-        from unittest.mock import MagicMock
-
+        from avialview.core.source import VideoMetadata
         from avialview.ui.source_properties import VideoPropertiesPanel
 
-        loader = MagicMock()
-        loader._container = "mov"
-        loader._codec = "prores"
-        loader._profile = ""
-        loader._pix_fmt = "yuv422p10le"
-        loader._width = 3840
-        loader._height = 2160
-        loader._fps = 23.976
-        loader._frame_count = None
-        loader._duration = 120.0
-        loader._start_time = None
-        loader._file_size = 0
+        class Loader:
+            def video_metadata(self) -> VideoMetadata:
+                return VideoMetadata(
+                    container="mov",
+                    codec="prores",
+                    pixel_format="yuv422p10le",
+                    width=3840,
+                    height=2160,
+                    nominal_fps=23.976,
+                    measured_fps=23.976,
+                    duration=120.0,
+                )
 
-        panel = VideoPropertiesPanel(loader)
+        panel = VideoPropertiesPanel(Loader())
         text = panel.as_plain_text()
         assert "prores" in text
 
     def test_as_plain_text_resolution(self, app):
-        from unittest.mock import MagicMock
-
+        from avialview.core.source import VideoMetadata
         from avialview.ui.source_properties import VideoPropertiesPanel
 
-        loader = MagicMock()
-        loader._container = "mkv"
-        loader._codec = "hevc"
-        loader._profile = ""
-        loader._pix_fmt = "yuv420p"
-        loader._width = 1280
-        loader._height = 720
-        loader._fps = 60.0
-        loader._frame_count = 600
-        loader._duration = 10.0
-        loader._start_time = None
-        loader._file_size = 1_000_000
+        class Loader:
+            def video_metadata(self) -> VideoMetadata:
+                return VideoMetadata(
+                    container="mkv",
+                    codec="hevc",
+                    pixel_format="yuv420p",
+                    width=1280,
+                    height=720,
+                    nominal_fps=60.0,
+                    measured_fps=60.0,
+                    frame_count=600,
+                    duration=10.0,
+                    file_size_bytes=1_000_000,
+                )
 
-        panel = VideoPropertiesPanel(loader)
+        panel = VideoPropertiesPanel(Loader())
         text = panel.as_plain_text()
         assert "1280" in text
         assert "720" in text
+
+    def test_vfr_rates_are_timestamp_derived(self, app):
+        from avialview.core.source import VideoMetadata
+        from avialview.ui.source_properties import VideoPropertiesPanel
+
+        class Loader:
+            def video_metadata(self) -> VideoMetadata:
+                return VideoMetadata(
+                    codec="h264",
+                    nominal_fps=30.0,
+                    measured_fps=24.0,
+                    min_frame_rate=15.0,
+                    max_frame_rate=30.0,
+                    is_vfr=True,
+                )
+
+        text = VideoPropertiesPanel(Loader()).as_plain_text()
+
+        assert "VFR" in text
+        assert "15.000–30.000" in text
+        assert "30.000 fps" in text
 
 
 class TestSensorPropertiesPanel:

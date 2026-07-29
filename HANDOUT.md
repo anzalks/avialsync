@@ -61,13 +61,24 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - Snapshot / data slice / video clip export
 - Import wizard (CSV format/TZ/sentinel/euro-decimal) + proxy worker
 - `plot_pane.reset_zoom()` method exists
-- Plots use one fixed oscilloscope-style `0…window` sweep shared by every row. The continuous
-  window slider lives below the plots; ordinary clock ticks move only the playhead/reveal clip,
-  and the pyramid is queried only when the sweep wraps or the window changes. Each row's small
-  close button unchecks the existing sidebar visibility control.
+- Plots use one fixed oscilloscope-style `0…window` sweep shared by every row. A numeric
+  **Window limit** plus `ms` / `s` / `min` / `h` unit selector sets the scale for one linear
+  slider below the complete plot stack. Slider refreshes are capped at the display cadence and
+  resize storms are trailing-edge coalesced into quantized density updates. Hidden rows are not
+  queried, and ordinary clock ticks move only the playhead/reveal clip. The pyramid is queried only
+  when the sweep wraps, a coalesced window changes, or the viewport density changes. Each row's
+  small close button unchecks the existing sidebar visibility control.
 
 ### Done (Phase 4 UX / loader fixes)
 - **Live scrubbing coalescing**: During slider drag `Player.seek(exact=False)` coalesces in-flight keyframe seeks — if a seek is already dispatched, the newest target is held in `_pending_scrub_t` and flushed in `_on_tick` as soon as `SeekGroup.is_settled()`. Plot cursor and readout panel update every drag event. Exact seek fires on release as before.
+- **Frame-trigger exact interaction**: after exact-index alignment, release-of-scrub, pause, and
+  frame-step snap to the first active accepted trigger clock. Every pane maps that master trigger
+  through its own `TimeMap`; playback applies the local piecewise slope and frame-aware drift
+  tolerance. Frame stepping uses the cached presentation index immediately—no fixed-delay timer.
+- **Fast timestamp index + truthful OSD**: `VideoStandardLoader` probes presentation timestamps
+  off-thread once and stores them in the content-hash-validated video sidecar. Reopens mmap the
+  index. Timestamp intervals—not a container CFR declaration—decide CFR/VFR. The video pane shows
+  nominal CFR, measured/VFR range and current rate, codec, and file size below its time readout.
 - **Cross-platform exact seek dispatch**: `SeekGroup` queues libmpv commands from the Qt-owning
   thread. libmpv itself remains asynchronous; this avoids macOS property observers getting stuck
   in a seeking state when commands are issued from a Qt worker thread. Observer callbacks use
@@ -221,8 +232,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
   never the seek/controls area. A fixed source-label
   gutter prevents coverage from painting beneath labels. It uses the
   system accent for video/TTL evidence.
-- VFR: integrity is derived from decoded frame timestamps; its on-video OSD reports the current
-  timestamp-derived rate plus `(VFR)`, never a misleading single average rate.
+- VFR: integrity is derived from presentation timestamps; its on-video OSD reports the current
+  timestamp-derived rate, range, and nominal declaration, never a misleading single average rate.
 - Bug: `video_grid._panes` → `video_grid.panes` (AttributeError on annotate)
 - Bug: compact video summaries now receive the codec already probed by the video loader (no false `UNKNOWN`)
 - Video availability: panes outside their mapped source bounds pause and show `No Footage`, matching Data Streams coverage
@@ -253,7 +264,7 @@ outside that invocation; that message does not mean the full-package overrides a
 | `core/timeline.py` | Single master clock — HEADLESS, no PySide6 | `MasterClock`, `TimeMap`, `ClockState` |
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
-| `core/source.py` | Plugin ABCs — frozen API | `TimeSeriesSource`, `VideoSource` |
+| `core/source.py` | Plugin ABCs — frozen API plus compatible video inspection extension | `TimeSeriesSource`, `VideoSource`, `VideoMetadata` |
 | `core/session.py` | `.avv` session JSON, schema v5 | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
@@ -265,10 +276,12 @@ outside that invocation; that message does not mean the full-package overrides a
 | `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `ui/main_window.py` | Top-level; wires all signals; session lifecycle; `_inspections` dict | `MainWindow` |
 | `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane`, `set_sync_correction()` |
+| `ui/video_timing.py` | Timestamp rate/readout/frame-index helpers and pane timing mixin | `VideoTimingMixin`, `format_video_osd()` |
+| `ui/video_overlay.py` | Transparent current-frame tracking paint layer | `PaintCanvas` |
 | `ui/video_grid.py` | N VideoPanes; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `set_grid_mode()` |
-| `ui/plot_pane.py` | pyqtgraph multi-row fixed sweeps; pyramid-fed; one shared window slider; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `set_timeline_bounds()`, `set_window_duration()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
+| `ui/plot_pane.py` | pyqtgraph multi-row fixed sweeps; pyramid-fed; one shared bounded window slider; coalesced resize refresh; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `set_timeline_bounds()`, `set_window_duration()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
 | `ui/plot_row.py` | One channel row's pyramid reader, curve, cursor, coverage, and close-control construction | `ChannelPlot`, `create_channel_plot()` |
-| `ui/plot_sweep.py` | Shared window slider and master-time-derived sweep state | `SweepWindowControl`, `SweepCurveItem` |
+| `ui/plot_sweep.py` | Shared value/unit window limit, linear coalesced slider, and master-time-derived sweep state | `SweepWindowControl`, `SweepCurveItem` |
 | `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit | `Tracking3DPane.set_readers()`, `set_cursor()` |
 | `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status | `set_time()`, `set_bounds()`, `set_source_coverage()`, `set_ttl_events()`, `set_gap_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |

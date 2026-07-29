@@ -791,18 +791,58 @@ visual comparison.
 
 Every time-series row shares one fixed `0…window` X range. The master-clock time deterministically
 selects a sweep anchored at the master timeline start: the trace is revealed from left to right,
-then the next bounded pyramid slice starts at the left edge. A single logarithmically mapped,
-fine-grained slider below the complete plot stack controls the window duration continuously. Plot
-rows do not pan or zoom independently. Their small close buttons route through the existing sidebar
-checkbox and do not create a second visibility state.
+then the next bounded pyramid slice starts at the left edge. A numeric window limit and
+`ms` / `s` / `min` / `h` unit selector define the scale for one linearly mapped, fine-grained
+slider below the complete plot stack. Plot rows do not pan or zoom independently. Their small close
+buttons route through the existing sidebar checkbox and do not create a second visibility state.
 
 Ordinary clock ticks update only the playhead and a paint clip over pre-decimated curve data.
 Pyramid queries occur when a sweep boundary is crossed, when the shared duration changes, or when
 sources change. Absolute master timestamps remain authoritative for annotations, gaps, coverage,
 and measurement points; they are converted to sweep-relative display positions only at render time.
+Slider drags expose the pending value immediately but cap pyramid refreshes to the display cadence;
+release always commits the newest value. Resize storms similarly issue one deferred refresh at a
+quantized final viewport width, and hidden rows are skipped.
 
 ### Consequences
 
-All plots retain one X-link, one duration, and one navigation control. Session `plot_x0`/`plot_x1`
-compatibility fields persist `0` and the shared duration without a schema bump. The cursor benchmark
-uses populated plot rows and retains the 2 ms release budget.
+All plots retain one X-link, one duration, and one navigation control. The explicit limit makes
+millisecond inspection and hour-scale coarse adjustment predictable without a second scrollbar.
+Session `plot_x0`/`plot_x1` compatibility fields persist `0` and the shared duration without a
+schema bump. The cursor benchmark uses populated plot rows and retains the 2 ms release budget;
+a four-channel committed-window refresh must remain below the 30 ms UI-worker threshold.
+
+## 2026-07 · D-043 · Presentation timestamps own video timing and exact interaction
+
+### Context
+
+Containers can declare a constant nominal rate while their presentation timestamps are variable.
+Repeatedly extracting every packet timestamp also makes long-video reloads unnecessarily slow.
+After a user accepts a 1:1 frame-trigger mapping, arbitrary exact scrub times and fixed-delay
+frame-step callbacks can leave the master cursor between the evidence timestamps.
+
+### Decision
+
+`VideoMetadata` is an additive, defaulted `VideoSource` v1 extension. Standard video classifies
+CFR/VFR and computes measured/range rates from presentation timestamps; the container's rate remains
+visible only as nominal evidence. The timestamp array is stored in the normal content-hash-validated
+sidecar and mmap-read on later opens. The OSD and properties panel consume this format-neutral
+metadata and show timing classification, both nominal and measured evidence, codec, and byte size.
+
+For an accepted exact mapping, the first active exact-mapped pane is the reference frame clock.
+Exact scrub release, pause, and stepping snap the master clock to its nearest/adjacent accepted
+trigger timestamp, then all panes receive their own `TimeMap` target. Playback uses the local
+piecewise mapping slope and half-frame drift tolerance. libmpv commands remain on the Qt-owning
+thread and exact settling still requires delivered seek-state and target-time evidence.
+
+### Alternatives rejected
+
+Trusting `r_frame_rate`; showing only one average VFR number; decoding frame metadata on every open;
+`time × fps` frame indices; a 50 ms frame-step timer; issuing one exact seek per playback frame.
+
+### Consequences
+
+Existing third-party video plugins remain source-compatible because `video_metadata()` has a
+default implementation. Timestamp-aware plugins can override it. Cached timestamp format changes
+must bump its loader version. The four-video application-side exact-mapping dispatch benchmark must
+remain below 2 ms; real decode still owns the existing 250 ms three-camera exact-seek budget.

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import numpy as np
+
 from avialview.core.timeline import TimeMap
 from avialview.engine.seeker import SeekGroup
 
@@ -34,3 +36,17 @@ def test_seek_group_fans_out_commands_without_marking_panes_stuck() -> None:
     assert first.calls == [(4.0, True)]
     assert second.calls == [(5.25, True)]
     assert group.is_settled()
+
+
+def test_seek_group_maps_one_master_trigger_to_each_video_frame() -> None:
+    """Accepted per-video evidence must fan out one shared trigger without drift."""
+    trigger_times = np.array([100.0, 100.1, 100.2])
+    first = _Pane()
+    first.time_map.set_exact_mapping(trigger_times, np.array([0.0, 0.033, 0.066]))
+    second = _Pane()
+    second.time_map.set_exact_mapping(trigger_times, np.array([2.0, 2.050, 2.100]))
+
+    SeekGroup([first, second]).seek(100.1, exact=True)
+
+    assert first.calls == [(0.033, True)]
+    assert second.calls == [(2.050, True)]

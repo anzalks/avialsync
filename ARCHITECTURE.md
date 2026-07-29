@@ -28,7 +28,7 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   ├── core/                         # HEADLESS — must never import PySide6 (test-enforced)
 │   │   ├── timeline.py               # MasterClock, TimeMap(offset, drift), PlaybackState
 │   │   ├── session.py                # Session model + .avv JSON (versioned schema v5)
-│   │   ├── source.py                 # ABCs: TimeSeriesSource, VideoSource (plugin contract, §4)
+│   │   ├── source.py                 # ABCs + VideoMetadata (plugin contract, §4)
 │   │   ├── pyramid.py                # NaN/gap-aware min-max pyramid build + query (D-009)
 │   │   ├── cache.py                  # .avialcache/ sidecar manager, content-hash key (D-008), atomic writes
 │   │   ├── registry.py               # directory scanner and dynamic module loader (`~/.avialview/plugins/`)
@@ -37,7 +37,7 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   │   └── errors.py                 # typed exceptions (NonMonotonicTimeError, ...)
 │   ├── loaders/                      # built-in plugins (use ONLY the public core API)
 │   │   ├── csv_loader.py             # polars; chunked ingest (D-005); tz/anchor/sentinel config
-│   │   ├── video_standard.py         # ffprobe metadata, frame_times(), needs_conversion=False
+│   │   ├── video_standard.py         # ffprobe metadata + mmap-cached presentation timestamps
 │   │   ├── tracking_loader.py        # DeepLabCut CSV; multi-scorer, bodypart/coord flat-headers
 │   │   └── neo_loader.py             # Neo electrophysiology; OpenEphys/NCS/NIX; BFS root detect
 │   ├── engine/                       # playback machinery (imports core + mpv, no widgets)
@@ -50,6 +50,8 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   ├── ui/                           # PySide6 widgets only; no business logic
 │   │   ├── main_window.py            # Left sidebar (metadata, offsets, file management) + right content (video grid, plots)
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
+│   │   ├── video_timing.py           # timestamp rates, OSD text, frame lookup/step behavior
+│   │   ├── video_overlay.py          # transparent current-frame tracking overlay
 │   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
 │   │   ├── plot_row.py               # one channel row's plot/curve/close-control construction
@@ -135,9 +137,9 @@ flat at repo root so every model finds them without searching. Dependency direct
   PlaybackEngine (engine/player.py)             │ UI observers        │
    for each VideoSource:                        │  transport readout  │
      target = TimeMap(t)                        │  plot playhead line │
-     play-rate match; if |Δ|>40ms → seek        │  readout panel      │
+     local exact-map rate + frame-aware PLL     │  readout panel      │
    scrub: keyframe seeks while dragging,        └─────────────────────┘
-          parallel exact seek on release (seeker.py)
+          snap to accepted trigger + exact seek on release
 ```
 
 Time series never "play": plots render one pyramid-decimated slice for the current fixed-duration
@@ -209,8 +211,12 @@ Plugin/raw signal → chunked TTL edge extraction or native event timestamps
 
 The raw recordings are never resampled, rewritten, or altered. The accepted result only changes the
 source-to-master `TimeMap`. Event extraction and fitting run off the UI thread; preview data is
-bounded and decimated where needed. The workflow is designed for a common periodic clock, camera
-frame triggers, or sparse experimental pulses, while lab-specific event encodings remain plugins.
+bounded and decimated where needed. Exact index acceptance makes the first active exact mapping the
+reference frame clock: exact scrub release, pause, and stepping snap to its accepted trigger times,
+while every pane receives its own mapped presentation timestamp. During playback, each pane applies
+the local piecewise mapping slope and a half-frame drift tolerance. The workflow supports a common
+periodic clock, camera frame triggers, or sparse experimental pulses, while lab-specific event
+encodings remain plugins.
 
 ## 3. Threading model
 
@@ -246,6 +252,13 @@ not sufficient evidence for a scientific golden test: the test captures `screens
 decodes the fixture frame strip, and compares it with the requested exact frame. A transient raw
 screenshot-unavailable result may be retried while the exact seek is settling; a stale displayed
 image may never be accepted as proof.
+
+Standard-video probing happens off the UI thread. Presentation timestamps are authoritative for
+CFR/VFR classification even when container metadata declares CFR, and are stored once in the
+content-hash-validated `<video>.avialcache/` sidecar. Later opens mmap that timestamp index. The
+video overlay reports nominal CFR, timestamp-derived VFR/measurement rates, codec, and file size;
+annotations and stepping derive frame indices from the same timestamp array, never `time × fps`
+when timestamp evidence exists.
 
 ### CI video boundary
 
@@ -309,6 +322,10 @@ class VideoSource(ABC):
     def fps(self) -> float:
         ...  # nominal; mixed fps across cameras is
         # normal (25/29.97/30) — never assumed equal
+
+    def video_metadata(
+        self,
+    ) -> VideoMetadata: ...  # optional compatible extension; timestamp-derived timing evidence
 
     def label(self) -> str:
         ...  # UI ensures uniqueness (adds parent dir

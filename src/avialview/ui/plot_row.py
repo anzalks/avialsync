@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGraphicsProxyWidget, QToolButton
@@ -37,8 +38,53 @@ class ChannelPlot:
     close_button: QToolButton
     close_proxy: QGraphicsProxyWidget
     coverage_region: pg.LinearRegionItem | None = None
+    coverage_bounds: tuple[float, float] | None = None
     gap_markers: list[pg.InfiniteLine] = field(default_factory=list)
     gap_times: tuple[float, ...] = ()
+    visible: bool = True
+
+
+def point_budget_for_width(width: int) -> int:
+    """Quantize viewport width to avoid re-querying for every resize pixel."""
+    bounded_width = max(64, width)
+    return min(8192, ((bounded_width + 63) // 64) * 64)
+
+
+def refresh_channel_plot(
+    channel: ChannelPlot,
+    t0: float,
+    t1: float,
+    point_budget: int,
+) -> None:
+    """Replace one curve with the appropriate bounded pyramid slice."""
+    t, vmin, vmax, gap = channel.reader.query(t0, t1, max_points=point_budget)
+    if len(t) == 0:
+        channel.curve.setData([], [])
+        return
+    v_mean = (vmin + vmax) / 2.0
+    v_mean[gap] = np.nan
+    channel.curve.setData(t - t0, v_mean)
+
+
+def update_channel_coverage(
+    channel: ChannelPlot,
+    sweep_start: float,
+    sweep_end: float,
+) -> None:
+    """Move one cached coverage region into the current sweep coordinates."""
+    if not channel.visible or channel.coverage_region is None:
+        return
+    if channel.coverage_bounds is None:
+        channel.coverage_region.hide()
+        return
+    coverage_start, coverage_end = channel.coverage_bounds
+    overlap_start = max(sweep_start, coverage_start)
+    overlap_end = min(sweep_end, coverage_end)
+    if overlap_end < overlap_start:
+        channel.coverage_region.hide()
+        return
+    channel.coverage_region.setRegion([overlap_start - sweep_start, overlap_end - sweep_start])
+    channel.coverage_region.show()
 
 
 def create_channel_plot(
@@ -82,9 +128,11 @@ def create_channel_plot(
 
     times, _, _, _ = reader._load_level(1)
     coverage_region = None
+    coverage_bounds = None
     if len(times) > 0:
+        coverage_bounds = (float(times[0]), float(times[-1]))
         coverage_region = pg.LinearRegionItem(
-            values=[float(times[0]), float(times[-1])],
+            values=list(coverage_bounds),
             movable=False,
             brush=pg.mkBrush(255, 255, 255, 15),
         )
@@ -100,4 +148,5 @@ def create_channel_plot(
         close_button=close_button,
         close_proxy=close_proxy,
         coverage_region=coverage_region,
+        coverage_bounds=coverage_bounds,
     )

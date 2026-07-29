@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialview.core.inspection import SourceInspection
+from avialview.core.source import VideoMetadata
 
 if TYPE_CHECKING:
     pass
@@ -107,22 +108,47 @@ class VideoPropertiesPanel(_PropertiesBase):
 
     def _populate(self) -> None:
         lo = self._loader
-        self._add_row("Container", getattr(lo, "_container", "") or "—")
-        self._add_row("Codec", getattr(lo, "_codec", "—"))
-        self._add_row("Profile", getattr(lo, "_profile", "") or "—")
-        self._add_row("Pixel format", getattr(lo, "_pix_fmt", "") or "—")
-        w = getattr(lo, "_width", 0)
-        h = getattr(lo, "_height", 0)
+        metadata = lo.video_metadata() if hasattr(lo, "video_metadata") else None
+        if not isinstance(metadata, VideoMetadata):
+            metadata = VideoMetadata(
+                container=getattr(lo, "_container", ""),
+                codec=getattr(lo, "_codec", "unknown"),
+                profile=getattr(lo, "_profile", ""),
+                pixel_format=getattr(lo, "_pix_fmt", ""),
+                width=getattr(lo, "_width", 0),
+                height=getattr(lo, "_height", 0),
+                nominal_fps=getattr(lo, "_fps", 0.0),
+                frame_count=getattr(lo, "_frame_count", None),
+                duration=getattr(lo, "_duration", 0.0),
+                start_time=getattr(lo, "_start_time", None),
+                file_size_bytes=getattr(lo, "_file_size", 0),
+            )
+        self._metadata = metadata
+        self._add_row("Container", metadata.container or "—")
+        self._add_row("Codec", metadata.codec or "—")
+        self._add_row("Profile", metadata.profile or "—")
+        self._add_row("Pixel format", metadata.pixel_format or "—")
+        w = metadata.width
+        h = metadata.height
         self._add_row("Resolution", f"{w}×{h}" if w and h else "—")
-        self._add_row("Nominal fps", f"{getattr(lo, '_fps', 0):.3f}")
-        self._add_row("Measured fps", "—")
+        self._add_row("Timing", "VFR" if metadata.is_vfr else "CFR")
+        self._add_row("Nominal CFR", f"{metadata.nominal_fps:.3f} fps")
+        if metadata.is_vfr:
+            measured = (
+                f"{metadata.measured_fps:.3f} fps average "
+                f"({metadata.min_frame_rate:.3f}–{metadata.max_frame_rate:.3f})"
+            )
+        else:
+            measured = f"{metadata.measured_fps:.3f} fps"
+        self._add_row("Timestamp rate", measured)
+        self._add_row("Decoder fps", "—")
         self._add_row("Decode mode", "—")
-        fc = getattr(lo, "_frame_count", None)
+        fc = metadata.frame_count
         self._add_row("Frame count", str(fc) if fc is not None else "—")
-        self._add_row("Duration", f"{getattr(lo, '_duration', 0):.3f} s")
-        st = getattr(lo, "_start_time", None)
+        self._add_row("Duration", f"{metadata.duration:.3f} s")
+        st = metadata.start_time
         self._add_row("Metadata start", f"{st:.6f} s" if st is not None else "—")
-        sz = getattr(lo, "_file_size", 0)
+        sz = metadata.file_size_bytes
         self._add_row("File size", f"{sz / 1_048_576:.1f} MB" if sz else "—")
         self._add_row("Drift (ppm)", "—")
 
@@ -134,7 +160,7 @@ class VideoPropertiesPanel(_PropertiesBase):
         if self._pane is None or self._pane.mpv is None:
             return
         fps = getattr(self._pane.mpv, "estimated_vf_fps", None) or 0.0
-        self._update_row("Measured fps", f"{fps:.3f}")
+        self._update_row("Decoder fps", f"{fps:.3f}")
         hw = str(getattr(self._pane.mpv, "hwdec_current", "") or "software")
         self._update_row("Decode mode", hw)
 

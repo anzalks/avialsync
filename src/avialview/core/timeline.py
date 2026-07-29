@@ -150,6 +150,51 @@ class TimeMap:
             return float((self._exact_source[-1] - self._exact_source[0]) / master_span)
         return 1.0 + self._drift_ppm * 1e-6
 
+    @property
+    def has_exact_mapping(self) -> bool:
+        """Return whether accepted per-frame evidence owns this mapping."""
+        return self._exact_master is not None and self._exact_source is not None
+
+    def rate_scale_at(self, t_master: float) -> float:
+        """Return the local source/master rate around ``t_master``.
+
+        Exact frame-trigger mappings can be nonlinear, so their overall rate
+        is insufficient for drift-free playback through VFR intervals.
+        """
+        if self._exact_master is None or self._exact_source is None:
+            return 1.0 + self._drift_ppm * 1e-6
+        index = int(np.searchsorted(self._exact_master, float(t_master), side="right")) - 1
+        index = max(0, min(index, len(self._exact_master) - 2))
+        master_delta = self._exact_master[index + 1] - self._exact_master[index]
+        source_delta = self._exact_source[index + 1] - self._exact_source[index]
+        return float(source_delta / master_delta)
+
+    def snap_master_time(self, t_master: float) -> float:
+        """Snap to the nearest accepted frame-trigger timestamp, if available."""
+        if self._exact_master is None:
+            return float(t_master)
+        value = float(t_master)
+        right = int(np.searchsorted(self._exact_master, value, side="left"))
+        if right <= 0:
+            return float(self._exact_master[0])
+        if right >= len(self._exact_master):
+            return float(self._exact_master[-1])
+        left = right - 1
+        if value - self._exact_master[left] <= self._exact_master[right] - value:
+            return float(self._exact_master[left])
+        return float(self._exact_master[right])
+
+    def contains_master_time(self, t_master: float) -> bool:
+        """Return whether exact evidence covers ``t_master``.
+
+        Affine mappings are unbounded; exact interpolation must not make its
+        clamped endpoints look like footage beyond the accepted trigger range.
+        """
+        if self._exact_master is None:
+            return True
+        value = float(t_master)
+        return bool(self._exact_master[0] <= value <= self._exact_master[-1])
+
     def to_source(self, t_master: float) -> float:
         t_master = float(t_master)
         if self._exact_master is not None and self._exact_source is not None:

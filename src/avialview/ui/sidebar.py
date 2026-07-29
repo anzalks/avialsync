@@ -218,8 +218,13 @@ class VideoInfoWidget(QFrame):
         fps = metadata.get("fps", 0.0)
         codec = metadata.get("codec", "unknown")
         duration = metadata.get("duration", 0.0)
+        file_size = metadata.get("file_size_bytes", 0)
+        is_vfr = metadata.get("is_vfr", False)
+        measured_fps = metadata.get("measured_fps", fps)
 
-        meta_lbl = QLabel(f"{codec.upper()} | {fps:.2f} fps | {duration:.1f}s")
+        timing = f"VFR {measured_fps:.2f} avg (nominal {fps:.2f})" if is_vfr else f"CFR {fps:.2f}"
+        size = f" | {file_size / 1_048_576:.1f} MB" if file_size else ""
+        meta_lbl = QLabel(f"{codec.upper()} | {timing} | {duration:.1f}s{size}")
         layout.addWidget(meta_lbl)
 
         # Sync controls

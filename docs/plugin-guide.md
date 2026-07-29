@@ -33,6 +33,10 @@ create an mpv-playable cached file and return it; AvialView opens only
 otherwise `(0.0, duration)`. `start_time()` is only a metadata guess: the user
 offset always takes precedence.
 
+`video_metadata()` is an optional, source-compatible extension with a default implementation.
+Override it to return `VideoMetadata` when the format exposes codec, byte size, and
+timestamp-derived CFR/VFR evidence.
+
 ## Synchronization and future plugins
 
 AvialView currently extracts rising TTL edges from cached time-series channels

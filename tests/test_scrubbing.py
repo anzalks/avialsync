@@ -204,3 +204,48 @@ def test_3d_tracking_updated_during_drag(player_with_mocks):
     player.seek(4.25, exact=False)
 
     tracking_3d.set_cursor.assert_called_once_with(4.25)
+
+
+def test_exact_scrub_snaps_master_clock_to_accepted_frame_trigger(player_with_mocks):
+    """Releasing the scrubber selects an evidence-backed frame boundary."""
+    player, clock = player_with_mocks
+    pane = MagicMock()
+    pane.has_footage_at_master.return_value = True
+    pane.time_map.has_exact_mapping = True
+    pane.time_map.snap_master_time.return_value = 4.2
+    player.video_grid.panes = [pane]
+    player.seeker.is_settled.return_value = True
+
+    player.seek(4.19, exact=True)
+
+    assert clock.state.t == pytest.approx(4.2)
+    player.seeker.seek.assert_called_once_with(4.2, exact=True)
+
+
+def test_frame_step_uses_timestamp_target_without_fixed_delay(player_with_mocks):
+    """Frame stepping seeks from the reference pane's real timestamp index immediately."""
+    player, _clock = player_with_mocks
+    pane = MagicMock()
+    pane.has_footage_at_master.return_value = True
+    pane.frame_step_master_target.return_value = 1.133
+    player.video_grid.panes = [pane]
+    player.seek = MagicMock()
+
+    player.step_frame(1)
+
+    pane.frame_step_master_target.assert_called_once()
+    player.seek.assert_called_once_with(1.133, exact=True)
+
+
+def test_frame_step_without_index_waits_for_real_mpv_timestamp(player_with_mocks):
+    """A legacy plugin still uses mpv evidence, never nominal-fps arithmetic."""
+    player, _clock = player_with_mocks
+    pane = MagicMock()
+    pane.has_footage_at_master.return_value = True
+    pane.frame_step_master_target.return_value = None
+    player.video_grid.panes = [pane]
+
+    player.step_frame(-1)
+
+    pane.frame_presented.connect.assert_called_once()
+    pane.frame_step.assert_called_once_with(forward=False)

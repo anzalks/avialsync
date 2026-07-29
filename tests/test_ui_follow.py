@@ -75,6 +75,73 @@ def test_pyramid_is_not_requeried_on_every_master_clock_tick(sweep_pane, monkeyp
     assert calls == 1
 
 
+def test_slider_drag_coalesces_pyramid_refreshes(qtbot, sweep_pane, monkeypatch) -> None:
+    pane = sweep_pane
+    calls = 0
+    original = pane.channels[0].reader.query
+
+    def counted_query(t0: float, t1: float, max_points: int):
+        nonlocal calls
+        calls += 1
+        return original(t0, t1, max_points)
+
+    monkeypatch.setattr(pane.channels[0].reader, "query", counted_query)
+    pane.window_slider.sliderPressed.emit()
+    for value in range(200, 1200, 20):
+        pane.window_slider.setValue(value)
+
+    assert calls == 0
+    qtbot.wait(pane._sweep_control._DRAG_REFRESH_MS + 10)
+    assert calls == 1
+
+    pane.window_slider.setValue(1300)
+    pane.window_slider.setValue(1400)
+    pane.window_slider.sliderReleased.emit()
+
+    assert calls == 2
+
+
+def test_hidden_rows_are_not_queried(sweep_pane, monkeypatch) -> None:
+    pane = sweep_pane
+    calls = 0
+    original = pane.channels[1].reader.query
+
+    def counted_query(t0: float, t1: float, max_points: int):
+        nonlocal calls
+        calls += 1
+        return original(t0, t1, max_points)
+
+    monkeypatch.setattr(pane.channels[1].reader, "query", counted_query)
+    pane.set_channel_visible("beta", False)
+    pane.set_cursor(106.0)
+
+    assert calls == 0
+
+
+def test_resize_storm_triggers_one_deferred_redecimation(
+    qtbot,
+    sweep_pane,
+    monkeypatch,
+) -> None:
+    pane = sweep_pane
+    pane.show()
+    qtbot.wait(100)
+    calls = 0
+    original = pane.update_plots
+
+    def counted_update() -> None:
+        nonlocal calls
+        calls += 1
+        original()
+
+    monkeypatch.setattr(pane, "update_plots", counted_update)
+    for width in range(920, 1021, 10):
+        pane.resize(width, 500)
+    qtbot.wait(100)
+
+    assert calls == 1
+
+
 def test_measure_markers_keep_absolute_time_but_render_in_current_sweep(sweep_pane) -> None:
     pane = sweep_pane
     pane.set_cursor(106.0)

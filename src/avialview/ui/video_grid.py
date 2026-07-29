@@ -57,13 +57,14 @@ class VideoGrid(QWidget):
         """
         records: list[dict[str, Any]] = []
         for path, pane in zip(self._paths, self.panes, strict=False):
-            t_video: float = pane.time_map.to_source(t_master)
-            fps: float = float(getattr(pane, "_fps", 0.0) or 0.0)
-            if fps <= 0.0:
-                mpv = getattr(pane, "mpv", None)
-                fps = float(getattr(mpv, "estimated_vf_fps", 0.0) or 30.0) if mpv else 30.0
-            frame_index = max(0, int(t_video * fps))
-            records.append({"path": path, "frame_index": frame_index, "media_timestamp": t_video})
+            frame_index, media_timestamp = pane.frame_record_at(t_master)
+            records.append(
+                {
+                    "path": path,
+                    "frame_index": frame_index,
+                    "media_timestamp": media_timestamp,
+                }
+            )
         return records
 
     def set_tracking_readers(self, readers: list) -> None:

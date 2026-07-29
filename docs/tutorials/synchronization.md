@@ -15,6 +15,9 @@ event. This changes how AvialView views the recording; it never rewrites the ori
 When recordings include repeated pulses or camera-frame events, open the synchronization wizard.
 Choose the evidence sources, inspect the proposed matches and timing error, then explicitly accept or
 reject the mapping. Accepted mappings are saved with the session so another person can review them.
+With **Exact Index (1:1 Frame Mapping)** accepted, exact scrubbing, pause, and frame stepping use the
+accepted frame-trigger timestamps. All videos seek from the same master trigger while retaining
+their own original presentation timestamps.
 
 ## Check the result
 

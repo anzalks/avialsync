@@ -1485,10 +1485,14 @@ class MainWindow(QMainWindow):
             media_path=media_path,
             on_file_loaded=self._on_video_pane_ready,
         )
+        video_metadata = loader.video_metadata()
         metadata = {
-            "codec": getattr(loader, "_codec", "unknown"),
-            "fps": loader.fps(),
-            "duration": bounds[1] - bounds[0],
+            "codec": video_metadata.codec,
+            "fps": video_metadata.nominal_fps,
+            "measured_fps": video_metadata.measured_fps,
+            "is_vfr": video_metadata.is_vfr,
+            "duration": video_metadata.duration,
+            "file_size_bytes": video_metadata.file_size_bytes,
         }
         self.sidebar.add_video(original_path, metadata)
         self.sidebar.set_video_loader(original_path, loader)
@@ -1504,9 +1508,9 @@ class MainWindow(QMainWindow):
         self._video_fps[original_path] = loader.fps()
         frame_times = loader.frame_times()
         pane.set_frame_times(frame_times)
-        pane.set_nominal_fps(loader.fps())
+        pane.set_video_metadata(video_metadata)
         pane.set_source_bounds(bounds)
-        is_vfr = bool(getattr(loader, "is_vfr", lambda: False)())
+        is_vfr = video_metadata.is_vfr
         pane.set_vfr(is_vfr)
         # The pane is added asynchronously, after the current master-time seek
         # may already have run. Synchronize it now so paused media decodes its
@@ -1664,6 +1668,7 @@ class MainWindow(QMainWindow):
             {time: "Missing video frame" for time in getattr(proposal, "unmatched_references", ())}
         )
         self.transport.set_gap_events(sorted(self._overview_gaps.items()))
+        self.player.seek(self.clock.state.t, exact=True)
 
         self.statusBar().showMessage(
             f"Accepted TTL/event alignment for {Path(target_path).name}: "

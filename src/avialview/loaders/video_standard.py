@@ -1,15 +1,24 @@
 """Standard Video Loader."""
 
 import json
+import logging
+import shutil
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
-from avialview.core.source import VideoSource
+from avialview.core.cache import CacheManager
+from avialview.core.errors import CacheError
+from avialview.core.source import VideoMetadata, VideoSource
 from avialview.runtime import MediaRuntimeError, require_ffprobe
+
+logger = logging.getLogger(__name__)
+
+_VIDEO_FRAME_CACHE_VERSION = 1
+_FRAME_TIMES_NAME = "video_frame_times.npy"
 
 
 class VideoStandardLoader(VideoSource):
@@ -21,6 +30,8 @@ class VideoStandardLoader(VideoSource):
         self._start_time: float | None = None
         self._fps: float = 30.0
         self._frame_times: np.ndarray | None = None
+        self._timing_stats_source: np.ndarray | None = None
+        self._timing_stats: tuple[bool, float, float, float] = (False, 30.0, 30.0, 30.0)
         # Extended metadata (D-020) — all probed from the existing ffprobe JSON
         self._codec: str = "unknown"
         self._duration: float = 0.0
@@ -75,7 +86,7 @@ class VideoStandardLoader(VideoSource):
         self._duration = float(d) if d is not None else 0.0
         self._container = format_info.get("format_name", "").split(",")[0]
         size_str = format_info.get("size")
-        self._file_size = int(size_str) if size_str else 0
+        self._file_size = int(size_str) if size_str else path.stat().st_size
 
         # Parse fields from first video stream
         streams = meta.get("streams", [])
@@ -96,10 +107,48 @@ class VideoStandardLoader(VideoSource):
         else:
             self._codec = "unknown"
 
-        # Parse frame times (to ensure correct frame stepping for VFR/dropped-frames)
-        # Note: This is an expensive operation for large videos, so we could defer it
-        # However, for correct stepping we need it
-        self._extract_frame_times(path)
+        # Frame timestamps are correctness evidence for VFR, stepping, and exact
+        # trigger alignment.  Cache them once because ffprobe output is O(frames).
+        self._frame_times = self._load_cached_frame_times(path)
+        if self._frame_times is None:
+            self._extract_frame_times(path)
+            if self._frame_times is not None:
+                self._save_frame_times_cache(path, self._frame_times)
+        if self._frame_count is None and self._frame_times is not None:
+            self._frame_count = len(self._frame_times)
+        self._frame_rate_statistics()
+
+    @staticmethod
+    def _cache_manager() -> CacheManager:
+        return CacheManager(loader_version=_VIDEO_FRAME_CACHE_VERSION)
+
+    def _load_cached_frame_times(self, path: Path) -> np.ndarray | None:
+        manager = self._cache_manager()
+        cache_path = manager.get_cache_dir(path) / _FRAME_TIMES_NAME
+        if not manager.is_cache_valid(path) or not cache_path.is_file():
+            return None
+        try:
+            times = np.load(cache_path, mmap_mode="r", allow_pickle=False)
+        except (OSError, ValueError):
+            logger.warning("Ignoring invalid video timestamp cache for %s", path, exc_info=True)
+            return None
+        if times.ndim != 1 or len(times) == 0 or not np.all(np.isfinite(times)):
+            return None
+        if len(times) > 1 and np.any(np.diff(times) <= 0):
+            return None
+        return cast(np.ndarray, times)
+
+    def _save_frame_times_cache(self, path: Path, frame_times: np.ndarray) -> None:
+        manager = self._cache_manager()
+        temp_dir = manager.get_temp_cache_dir(path)
+        try:
+            np.save(temp_dir / _FRAME_TIMES_NAME, frame_times, allow_pickle=False)
+            manager.commit_cache(path, temp_dir)
+        except (CacheError, OSError):
+            # Timestamp caching is an optimization.  Read-only acquisition
+            # media must remain loadable with the in-memory evidence.
+            logger.warning("Could not cache video frame timestamps for %s", path, exc_info=True)
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     def _extract_frame_times(self, path: Path) -> None:
         cmd = [
@@ -128,19 +177,13 @@ class VideoStandardLoader(VideoSource):
                     except ValueError:
                         pass
             if times:
-                self._frame_times = np.sort(np.array(times))
-        except Exception as e:
-            import logging
-
-            logging.getLogger(__name__).warning("Failed to extract frame times: %s", e)
+                self._frame_times = np.unique(np.asarray(times, dtype=np.float64))
+        except (MediaRuntimeError, OSError, subprocess.CalledProcessError) as error:
+            logger.warning("Failed to extract frame times for %s: %s", path, error)
             self._frame_times = None
 
         if self._frame_times is None or len(self._frame_times) == 0:
-            import logging
-
-            logging.getLogger(__name__).warning(
-                "Frame times empty or extraction failed for %s", path
-            )
+            logger.warning("Frame times empty or extraction failed for %s", path)
 
     def needs_conversion(self) -> bool:
         return False
@@ -163,13 +206,49 @@ class VideoStandardLoader(VideoSource):
 
     def is_vfr(self) -> bool:
         """Return whether decoded frame timestamps have variable intervals."""
-        if self._frame_times is None or len(self._frame_times) < 3:
-            return False
-        intervals = np.diff(np.sort(self._frame_times))
-        intervals = intervals[intervals > 1e-9]
-        if len(intervals) < 2:
-            return False
-        return not np.allclose(intervals, np.median(intervals), rtol=1e-3, atol=1e-6)
+        return self._frame_rate_statistics()[0]
+
+    def _frame_rate_statistics(self) -> tuple[bool, float, float, float]:
+        if self._timing_stats_source is self._frame_times:
+            return self._timing_stats
+        if self._frame_times is None or len(self._frame_times) < 2:
+            stats = (False, self._fps, self._fps, self._fps)
+        else:
+            intervals = np.diff(self._frame_times)
+            intervals = intervals[intervals > 1e-9]
+            if len(intervals) == 0:
+                stats = (False, self._fps, self._fps, self._fps)
+            else:
+                median_interval = float(np.median(intervals))
+                tolerance = max(2e-6, median_interval * 5e-3)
+                is_vfr = bool(np.any(np.abs(intervals - median_interval) > tolerance))
+                measured = float(len(intervals) / np.sum(intervals))
+                rates = 1.0 / intervals
+                stats = (is_vfr, measured, float(np.min(rates)), float(np.max(rates)))
+        self._timing_stats_source = self._frame_times
+        self._timing_stats = stats
+        return stats
+
+    def video_metadata(self) -> VideoMetadata:
+        """Return timestamp-authoritative stream metadata for inspection and OSD."""
+        is_vfr, measured, min_rate, max_rate = self._frame_rate_statistics()
+        return VideoMetadata(
+            container=self._container,
+            codec=self._codec,
+            profile=self._profile,
+            pixel_format=self._pix_fmt,
+            width=self._width,
+            height=self._height,
+            nominal_fps=self._fps,
+            measured_fps=measured,
+            min_frame_rate=min_rate,
+            max_frame_rate=max_rate,
+            is_vfr=is_vfr,
+            frame_count=self._frame_count,
+            duration=self._duration,
+            start_time=self._start_time,
+            file_size_bytes=self._file_size,
+        )
 
     def time_bounds(self) -> tuple[float, float]:
         st = self._start_time or 0.0
