@@ -178,6 +178,30 @@ with explicit user acceptance and session provenance. Native plugin event provid
   available in the Sync Wizard.
 
 ### Pending
+- P3.5 performance/accurate-streaming hardening (full audit 2026-07-29):
+  - P0 correctness: plot the pyramid's min/max envelope rather than its midpoint; propagate raw
+    gap evidence through every decimation level; enforce explicit CSV timestamp schemas,
+    cross-chunk chronology/duplicate validation, and the wizard's selected timezone; give every
+    time-series source a `TimeMap`.
+  - P0 throughput: parse CSV/tracking sources once rather than once per channel, build sidecars
+    with bounded buffers, reuse a valid cache on session reopen, and avoid Neo full-block
+    materialization. Peak memory must be bounded and measured.
+  - P0 responsiveness: move session save/load/autosave, exact-mapping serialization, region
+    statistics, data/annotation/snapshot export, and ffmpeg trimming out of the UI thread. Job
+    setup/completion slots retain a 30 ms hard ceiling and need Qt heartbeat tests.
+  - P0 scale: exact frame-trigger proposals must not allocate a `SyncMatch` plus JSON floats for
+    every frame. Store compact arrays in a validated binary sidecar and keep a bounded
+    human-readable evidence sample.
+  - P1 scale: source-scope channel identity; index/pool timeline, gap, and annotation graphics;
+    skip/rate-limit collapsed readout/3D/overlay consumers; batch widget-row creation; decouple
+    bounded parallel video probing from serialized native pane construction.
+  - P1 durability: cache replacement currently deletes the valid sidecar before rename. Add a
+    recoverable cross-platform swap with fault-injection tests.
+  - Complete findings and acceptance gates live in `BLUEPRINT.md`,
+    `docs/technical/performance.md`, and `docs/technical/data-handling.md`. Existing
+    microbenchmarks are baselines, not freeze-free certification: the cursor test has an empty
+    readout and no delivered paints, and the video tests do not measure decoder settle plus
+    rendered-frame proof.
 - P5.2 release packaging: CI already builds a media-free one-directory artifact on every OS; the
   tag-only release workflow runs its cross-platform quality matrix, then smoke-tests the built
   wheel in a clean environment before building release-media installers. OIDC PyPI publishing
@@ -440,7 +464,9 @@ healthy panes continue, and no decoder may freeze `MasterClock`.
 
 ### 9. polars `read_csv` type inference flips per-chunk
 Without an explicit schema, the timestamp column type can change between chunks.  
-**Fix:** `CSVLoader` always passes an explicit dtype for the time column.
+**Current audit finding:** `CSVLoader` does not yet pass that schema. P3.5 must derive an explicit
+timestamp dtype from the accepted wizard configuration and test a file whose later batch would
+otherwise infer a different type.
 
 ### 10. `python-mpv` (PyPI) ≠ `mpv` (PyPI)
 The correct dependency is `python-mpv` on PyPI, imported as `import mpv`. The package named `mpv` on PyPI is a different unrelated project (D-017).
@@ -449,15 +475,12 @@ The correct dependency is `python-mpv` on PyPI, imported as `import mpv`. The pa
 `pyproject.toml` sets `line-length = 100`. Editor/Pylance red-underline at 79 chars is wrong.
 Only `conda run -n avialview ruff check .` is authoritative.
 
-### 13. `_load_level()` on PyramidReader is private — do not call outside ReadoutPanel
+### 13. `_load_level()` is private but currently leaks across UI/engine code
 
-**D-041 amendment:** `Tracking3DPane` is the other intentional nearest-sample UI consumer. It
-pre-warms the same cached level once on source changes and reuses one timestamp lookup per source;
-neither consumer scans a full recording during a clock tick.
-
-`ReadoutPanel.set_cursor` calls `reader._load_level(1)` directly because the public API
-`query()` and `value_at()` involve unnecessary range arguments for the nearest-sample use case.
-This is a known coupling. If PyramidReader grows a public `nearest(t)` method, migrate ReadoutPanel.
+`PyramidReader._load_level(1)` is called by readout, tracking, synchronization, export, and plot
+construction. Do not add more callers. P3.5 must replace these leaks with explicit `value_at`,
+bounded raw-slice/chunk-iterator, coverage, and synchronization-evidence APIs so workers can
+enforce sampling policy, source `TimeMap`, cancellation, and memory bounds.
 
 ### 14. Session v1 → v2 migration: SensorEntry / VideoEntry gain new optional fields
 `SourceInspection` data is stored as dict in SensorEntry. When loading a v1 session, these fields
@@ -662,7 +685,7 @@ and returns focus to the containing playback surface, so the next Space immediat
 
 ---
 
-## Performance Budgets (CI-enforced where ★)
+## Performance Budgets (engineering-certified where ★)
 
 ★ budgets are asserted in `tests/benchmarks/test_bench_pyramid.py` via
 `benchmark.stats["mean"] <= budget` without any multiplier. Run them locally on the intended
@@ -673,14 +696,17 @@ for correctness only; it is not a speed authority. Never add per-test multiplier
 |---|---|
 | Scrub response (3 cams, exact seek) | ≤ 250 ms |
 | Plot pan/zoom frame time ★ | ≤ 16 ms |
-| Cursor update per tick ★ | ≤ 2 ms |
-| 3D pose sample (128 points) | <= 2 ms |
+| Full populated cursor update per tick ★ | ≤ 2 ms |
+| 3D pose sample (128 points) ★ | ≤ 2 ms |
 | Cached session open (3 cams + 4×50 kHz) | ≤ 3 s |
 | First CSV import 1 GB | ≤ 60 s |
 | Pyramid build 180 M samples ★ | ≤ 2.5 s (revised, D-024) |
 | Idle RAM, session loaded | ≤ 2.5 GB |
+| Any UI-thread callback | target ≤ 8 ms, hard ceiling 30 ms |
 
 The pyramid builder creates the 16× level from raw data, then derives 256× and
 4096× levels from the preceding min/max envelopes. This preserves exact envelopes
-while avoiding repeated full-resolution passes; the gap mask is chunked to avoid a
-large temporary timestamp-difference allocation.
+while avoiding repeated full-resolution passes. Its current coarse gap masks are
+recomputed from coarse timestamps, however, so P3.5 must OR-reduce raw gap evidence
+into parent buckets. The raw gap scan is chunked to avoid a large temporary
+timestamp-difference allocation.

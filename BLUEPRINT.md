@@ -21,21 +21,54 @@
 9. **Speed and timing accuracy are co-equal.** Synchronization extraction is chunked, matching is
    deterministic, and every new timing path requires a ground-truth fixture and benchmark.
 
-## Performance budgets (CI-enforced where marked ★)
+## Performance budgets (engineering-certified where marked ★)
 
 | Metric | Budget |
 |---|---|
 | Scrub response (3 cams, exact seek, release-of-slider) | ≤ 250 ms |
 | Plot pan/zoom frame time ★ | ≤ 16 ms |
-| Cursor update per tick ★ | ≤ 2 ms |
+| Full populated cursor update per tick ★ | ≤ 2 ms |
+| 3D pose sample (128 XYZ points) ★ | ≤ 2 ms |
 | Cached session open (3 cams + 4×50 kHz ch) | ≤ 3 s |
 | First CSV import 1 GB (with progress) | ≤ 60 s |
 | Pyramid build 180 M samples ★ | ≤ 2.5 s (revised, D-024) |
 | Idle RAM, session loaded | ≤ 2.5 GB |
+| Any UI-thread callback | target ≤ 8 ms, hard ceiling 30 ms |
 
 Benchmarks live in `tests/benchmarks/`, run locally via `pytest --benchmark-only`, where the raw
 ★ marks are enforced without a multiplier. GitHub Actions verifies the representative scientific
 session's correctness across platforms but does not use shared hosted machines to certify speed.
+
+### Full performance and accurate-streaming audit (2026-07-29)
+
+The architecture is sound at its main boundaries: the monotonic master clock does not wait for a
+decoder, libmpv owns decoding, video callbacks and scrub requests are coalesced, hidden video panes
+are removed from synchronization work, data/video/sync/proxy preparation has worker entry points,
+and plots query bounded mmap-backed pyramid slices. Those protections must be retained.
+
+The current implementation is **not yet certified freeze-free or scientifically faithful at the
+target scale**. The following hardening work is part of Phase 3/P3.5, in priority order:
+
+| Priority | Audited gap | Required outcome and release evidence |
+|---|---|---|
+| P0 accuracy | Plot rows render `(vmin + vmax) / 2`, so a decimated spike can disappear. Coarse gap masks are recomputed from coarse timestamps instead of propagating the raw gap evidence. | Render a bounded min/max envelope without inventing samples; OR-reduce raw gap masks into every pyramid level. Add spike, NaN-block, and just-over-threshold gap golden tests at every level. |
+| P0 accuracy | CSV chronology and duplicate checks stop at batch boundaries, timestamp dtype is inferred per batch, and the wizard's timezone choice is not applied. Time-series sources also lack the per-source `TimeMap` used by video. | Enforce an explicit timestamp schema and timezone, validate strict chronology across chunks, preserve raw source time, and map every source through the master timeline. Add boundary, DST/timezone, multi-source offset/drift, and round-trip fixtures. |
+| P0 streaming | CSV/tracking input is parsed once **per channel**, every chunk is retained and concatenated, an existing valid sidecar is not reused on reopen, and Neo's default path materializes a full block. | One source pass feeds bounded channel builders; peak memory is independent of recording duration apart from bounded buffers; a valid cache opens without reparsing. Benchmark 1 GB/4-channel and 180 M-sample imports, peak RSS, cancellation, and second-open latency. |
+| P0 UI freeze | Session save/load/autosave, exact-mapping JSON conversion, region statistics, CSV/Parquet export, PNG encoding, annotation export, and ffmpeg clip trimming can run directly on the UI thread. | Snapshot immutable job inputs in ≤30 ms, then perform IO/CPU/subprocess work in cancellable workers with progress and atomic completion. Add a Qt heartbeat test proving continued input/playback during every long job. |
+| P0 scale | Exact frame-trigger alignment creates a Python `SyncMatch` for every paired frame and later converts full mappings to Python lists/indented JSON. | Keep exact mappings in a compact binary sidecar referenced by the session; retain bounded human-readable provenance samples. Benchmark one million frame pairs for accept, autosave, reload, seek, and memory. |
+| P1 identity | Channel IDs are treated as globally unique in plots, readouts, units, visibility, and Parquet export. Two files with the same channel name can overwrite or control each other; Parquet also assumes equal time axes. | Use a stable `(source_id, channel_id)` identity throughout. Export long-form data or prove identical axes before wide-form output. Add duplicate-name and irregular-time-axis fixtures. |
+| P1 hot path | The 60 Hz tick formats every readout label and samples 3D/overlay data even when panels are collapsed. Timeline evidence paint/hover and plot annotation/gap item rebuilds scale with all events. | Keep authoritative time at 60 Hz but rate-limit presentation, skip hidden consumers, index visible events by time, and reuse graphics items. Certify populated 4/32/128-channel, 128-point, 100k-event, and 10k-annotation workloads including actual paint events. |
+| P1 loading | Video probing is off-thread but serialized with native pane creation, and ffprobe frame timestamps are captured as a full text result based on packet PTS. Plot/readout/sidebar row construction and recursive drop classification are synchronous. | Bound parallel metadata/timestamp probing separately from serialized native pane creation; stream probe output; validate presentation timestamps against decoded-frame ground truth; batch/virtualize row creation and move recursive discovery off-thread. |
+| P1 cache durability | Replacing a sidecar removes the valid cache before renaming the new one, so the documented atomic-cache guarantee has a failure window. | Commit with a cross-platform recoverable swap/rollback protocol and fault-injection tests; never discard the last valid cache until the replacement is durable. |
+| P2 maintainability | `ui/main_window.py` is 1,900+ lines and owns loading, persistence, synchronization, export, and widget orchestration. This makes accidental UI-thread work difficult to review. | Split bounded job controllers/services along existing architecture seams; no new module over ~500 lines. Add a static/runtime guard for prohibited UI-thread file and subprocess work. |
+
+The existing microbenchmarks remain useful but do not close these items. In particular, the cursor
+benchmark constructs an empty `ReadoutPanel`, does not process the queued paint events, the video
+callback benchmark uses a fake signal, and the exact-seek benchmark measures command fan-out rather
+than decoder settle/paint latency. P3.5 is complete only when the representative workload exercises
+populated widgets, real event-loop paints, cold and warm storage, decoder settle plus decoded-frame
+proof, cancellation, and peak memory. A fast median alone is insufficient: record p50/p95/p99 and
+maximum UI heartbeat delay, and fail on timing/data mismatches even when throughput passes.
 
 ---
 
@@ -105,7 +138,9 @@ Deliverables:
   - Per-file metadata readouts (codec, resolution, sample rate, channels).
   - Per-source offset spinboxes (live preview) + optional drift rate; persisted in session.
 - Global Session Summary (Master timeline absolute times, duration).
-- Async parallel seeking across mpv instances (QThreadPool or asyncio bridge); frame-drop tolerance during play.
+- Non-blocking seek fan-out from the Qt thread that owns each embedded pane; libmpv decoders perform
+  the work concurrently. Never move pane commands to `QThreadPool`/asyncio; frame-drop tolerance
+  applies during play.
 - Accepted exact frame-trigger mappings snap exact scrubs/pauses/steps to evidence timestamps and
   apply their local piecewise rate during multi-video playback.
 - Import pipeline: background parse → binary sidecar → pyramid, with progress + cancel.
@@ -123,7 +158,8 @@ a real mid-spec machine; golden sync test now runs across 3 cameras simultaneous
 Deliverables:
 - Session save/load (.avv JSON) incl. layout, zoom, visibility; recent files; autosave.
 - Keyboard map (arrows = frame step, shift+arrows = 1 s, home/end, [ ] = A/B loop, m = marker…), discoverable via a shortcuts dialog.
-- Frame step fwd/back (exact seek ±1/fps of the reference camera), jump-to-time input.
+- Frame step fwd/back using the reference camera's adjacent real presentation timestamp (never
+  `±1/fps`), jump-to-time input.
 - Annotations: point + range markers with label/comment, list panel, CSV export.
 - Cursor readout panel: value of every visible channel at `t_master`.
 - Region select → export data slice (CSV/Parquet) and optionally trimmed video clips (ffmpeg copy).
