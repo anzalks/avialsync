@@ -75,6 +75,25 @@ def test_pyramid_is_not_requeried_on_every_master_clock_tick(sweep_pane, monkeyp
     assert calls == 1
 
 
+def test_decimated_plot_preserves_minimum_and_maximum_envelope(sweep_pane) -> None:
+    """A narrow spike remains visible instead of being averaged into a midpoint."""
+    pane = sweep_pane
+    channel = pane.channels[0]
+    times = np.linspace(100.0, 140.0, 4096)
+    values = np.zeros_like(times)
+    values[100] = 100.0
+    PyramidBuilder(channel.reader.cache_dir, channel.name).build_and_save(times, values)
+    channel.reader._arrays.clear()
+
+    pane.update_plots()
+    lower_x, lower_y = channel.curve.getData()
+    upper_x, upper_y = channel.envelope_upper.getData()
+
+    assert lower_x is not None and upper_x is not None
+    assert np.nanmax(upper_y) == pytest.approx(100.0)
+    assert np.nanmin(lower_y) == pytest.approx(0.0)
+
+
 def test_slider_drag_coalesces_pyramid_refreshes(qtbot, sweep_pane, monkeypatch) -> None:
     pane = sweep_pane
     calls = 0

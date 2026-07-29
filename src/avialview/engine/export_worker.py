@@ -1,0 +1,138 @@
+"""Background workers for cached-data export and A/B-region statistics."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtGui import QImage
+
+from avialview.core.pyramid import PyramidReader
+from avialview.engine.export import (
+    compute_region_stats,
+    export_data_slice_csv,
+    export_data_slice_parquet,
+    save_snapshot_images,
+    trim_video_clip,
+)
+
+
+@dataclass(frozen=True)
+class ReaderReference:
+    """The stable information needed to open one pyramid reader in a worker."""
+
+    cache_dir: Path
+    channel_id: str
+
+    def open(self) -> PyramidReader:
+        """Open a fresh mmap reader owned by the calling thread."""
+        return PyramidReader(self.cache_dir, self.channel_id)
+
+
+class DataExportWorker(QObject):
+    """Write a requested data range without blocking the Qt event loop."""
+
+    finished = Signal(str)
+    error = Signal(str)
+
+    def __init__(
+        self,
+        readers: list[ReaderReference],
+        t0: float,
+        t1: float,
+        path: Path,
+    ) -> None:
+        super().__init__()
+        self._readers = readers
+        self._t0 = t0
+        self._t1 = t1
+        self._path = path
+
+    @Slot()
+    def run(self) -> None:
+        """Open worker-local readers and persist the requested range."""
+        try:
+            readers = [reference.open() for reference in self._readers]
+            if self._path.suffix.lower() == ".parquet":
+                export_data_slice_parquet(readers, self._t0, self._t1, self._path)
+            else:
+                export_data_slice_csv(readers, self._t0, self._t1, self._path)
+            self.finished.emit(str(self._path))
+        except (OSError, RuntimeError, ValueError) as error:
+            self.error.emit(str(error))
+
+
+class RegionStatsWorker(QObject):
+    """Calculate A/B-region statistics from worker-local pyramid readers."""
+
+    finished = Signal(int, object)  # request id, list[dict[str, float | str]]
+    error = Signal(int, str)
+
+    def __init__(
+        self,
+        request_id: int,
+        readers: list[ReaderReference],
+        t0: float,
+        t1: float,
+    ) -> None:
+        super().__init__()
+        self._request_id = request_id
+        self._readers = readers
+        self._t0 = t0
+        self._t1 = t1
+
+    @Slot()
+    def run(self) -> None:
+        """Calculate region statistics and tag the result with its request id."""
+        try:
+            readers = [reference.open() for reference in self._readers]
+            stats = compute_region_stats(readers, self._t0, self._t1)
+            self.finished.emit(self._request_id, stats)
+        except (OSError, RuntimeError, ValueError) as error:
+            self.error.emit(self._request_id, str(error))
+
+
+class VideoClipWorker(QObject):
+    """Run ffmpeg clipping jobs outside the Qt event loop."""
+
+    finished = Signal(int, int)  # successful, total
+    error = Signal(str)
+
+    def __init__(self, clips: list[tuple[str, float, float, Path]]) -> None:
+        super().__init__()
+        self._clips = clips
+
+    @Slot()
+    def run(self) -> None:
+        """Trim every requested clip sequentially without blocking UI input."""
+        try:
+            successful = sum(
+                trim_video_clip(video_path, t0, t1, output_path)
+                for video_path, t0, t1, output_path in self._clips
+            )
+            self.finished.emit(successful, len(self._clips))
+        except (OSError, RuntimeError, ValueError) as error:
+            self.error.emit(str(error))
+
+
+class SnapshotWorker(QObject):
+    """Encode UI-captured images without blocking the Qt event loop."""
+
+    finished = Signal(str)
+    error = Signal(str)
+
+    def __init__(self, video_image: QImage | None, plot_image: QImage | None, path: Path) -> None:
+        super().__init__()
+        self._video_image = video_image
+        self._plot_image = plot_image
+        self._path = path
+
+    @Slot()
+    def run(self) -> None:
+        """Compose and save the immutable image copies on this worker thread."""
+        try:
+            save_snapshot_images(self._video_image, self._plot_image, self._path)
+            self.finished.emit(str(self._path))
+        except OSError as error:
+            self.error.emit(str(error))

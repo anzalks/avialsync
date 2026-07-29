@@ -24,15 +24,16 @@ The following paths already have the correct ownership model:
 - Current-pose 3D sampling shares one timestamp lookup per source and never loads a trajectory into
   the paint path.
 
-Those protections do not make the entire application freeze-free. The audited remaining work is:
+Those protections do not make the entire application freeze-free. The implemented hardening and
+remaining work are:
 
 | Severity | Path | Why it can stall or lose responsiveness | Required fix |
 |---|---|---|---|
-| P0 | Session save/load and two-minute autosave | JSON conversion and file replacement run on the UI thread. Exact mappings can contain one entry per frame. | Snapshot state quickly; serialize/write/read in a worker; compact exact mappings into a binary sidecar; coalesce autosaves and commit atomically. |
-| P0 | Region statistics and data export | Full-resolution boolean masks, reductions, Python CSV row loops, and Parquet writes run synchronously. | Use searchsorted bounds, chunked reductions/writes, progress/cancel, and a worker. |
-| P0 | Video clip and snapshot export | ffmpeg is awaited on the UI thread; PNG composition/encoding and disk IO are synchronous. | Keep only the Qt widget grab on the UI thread; move image encoding, IO, and subprocess lifetime to workers. |
-| P0 | First import and session reopen | CSV/tracking data is reread once per channel, all chunks are retained before concatenate, and valid time-series caches are not reused. Neo can materialize a full block. | Parse a source once into bounded per-channel builders; stream plugin data; take the cache fast path; measure peak RSS and warm reopen. |
-| P0 | Exact alignment acceptance | Exact fitting builds one Python object per frame, then the UI builds more Python lists for provenance/session JSON. | Keep NumPy arrays through the worker boundary; store bounded evidence samples plus compact sidecar arrays. |
+| P0 | Session save/load and two-minute autosave | Large exact mappings now use compressed, checksum-validated sidecars instead of JSON float lists. Session serialization and IO still run on the UI thread. | Snapshot state quickly; serialize/write/read in a worker; coalesce autosaves and commit atomically. |
+| P0 | Region statistics and data export | Searchsorted range slices and worker-owned readers move reductions, CSV, and Parquet work out of the UI event loop. | Add cancellable/chunked writers, progress, and a Qt heartbeat integration test. |
+| P0 | Video clip and snapshot export | ffmpeg trimming and PNG composition/encoding run in workers; widget grabbing stays on the UI thread by Qt requirement. | Add cancellable/progress-aware jobs and a Qt heartbeat integration test. |
+| P0 | First import and session reopen | CSV/tracking use one bulk parser pass and a valid cache manifest reopens without parsing. Import still accumulates complete channels; Neo can materialize a full block. | Parse into bounded per-channel builders; stream plugin data; measure peak RSS and warm reopen. |
+| P0 | Exact alignment acceptance | Exact fitting retains bounded display evidence; UI acceptance keeps NumPy arrays and session save writes large arrays to a compact sidecar. | Benchmark one-million-frame accept/save/load/seek memory and move session IO to workers. |
 | P1 | 60 Hz observers | Every readout label is reformatted each tick; readout and 3D sampling continue when their panels are collapsed; tracking overlay performs a lookup per reader during paint. | Retain the latest master time, skip hidden consumers, sample once per source, batch label updates, and cap presentation rate without changing clock accuracy. |
 | P1 | Evidence and plot overlays | Timeline paint/hover scans all TTL/gap/annotation evidence. Sweep boundaries remove and recreate every visible gap/annotation graphics item. | Index by timestamp, query only the visible range, deduplicate by pixel, and pool/reposition graphics items. |
 | P1 | Source materialization | Plot, readout, sidebar, and tracking structures are built synchronously for every imported channel. Recursive drop classification and plugin discovery also run on the UI thread. | Prepare metadata off-thread, add/virtualize rows in event-loop-sized batches, and cancel obsolete work. |

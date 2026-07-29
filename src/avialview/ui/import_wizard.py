@@ -7,8 +7,9 @@ import csv
 import io
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+from PySide6.QtCore import QTimeZone
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -375,13 +376,18 @@ class ImportWizard(QDialog):
         if sentinel == "custom":
             sentinel = self._sentinel_custom.text().strip()
 
+        timezone = str(self._tz_combo.currentData())
+        if timezone == "local":
+            system_id = cast(bytes, QTimeZone.systemTimeZoneId()).decode("utf-8")
+            timezone = system_id or "UTC"
+
         return {
             "separator": self._sep_combo.currentData(),
             "has_headers": self._has_headers,
             "time_col": self._time_col_combo.currentText(),
             "time_format": fmt_val,
             "time_unit": self._unit_combo.currentData(),
-            "timezone": self._tz_combo.currentData(),
+            "timezone": timezone,
             "anchor_date": self._anchor_date.text().strip() if self._anchor_chk.isChecked() else "",
             "sentinel": sentinel if sentinel else None,
             "euro_decimal": self._euro_chk.isChecked(),

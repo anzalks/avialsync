@@ -239,15 +239,11 @@ class ReadoutPanel(QGroupBox):
             self._layout.insertWidget(1 + i, row)
             self._cam_rows.append(row)
 
-    def show_region_stats(self, t0: float, t1: float) -> None:
-        """Compute and display stats for the A/B loop region."""
+    def display_region_stats(self, stats_list: list[dict[str, float | str]]) -> None:
+        """Display A/B-region statistics computed by a background worker."""
         self._clear_stats()
-        if t0 >= t1 or not self._readers:
+        if not stats_list:
             return
-
-        from avialview.engine.export import compute_region_stats
-
-        stats_list = compute_region_stats(self._readers, t0, t1)
 
         self._stats_label.setVisible(True)
         self._layout.insertWidget(self._layout.count() - 1, self._stats_label)

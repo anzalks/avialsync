@@ -1,6 +1,10 @@
+import os
 from pathlib import Path
 
+import pytest
+
 from avialview.core.cache import CacheManager
+from avialview.core.errors import CacheError
 
 
 def test_cache_manager_keys(tmp_path: Path):
@@ -81,3 +85,32 @@ def test_cache_stale_on_loader_version_bump(tmp_path: Path):
 
     manager_new = CacheManager(loader_version=3)
     assert not manager_new.is_cache_valid(source), "Cache must be stale after loader_version bump"
+
+
+def test_cache_commit_restores_previous_valid_sidecar_on_swap_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
+    manager = CacheManager(loader_version=1)
+    source = tmp_path / "data.csv"
+    source.write_text("source", encoding="utf-8")
+    initial = manager.get_temp_cache_dir(source)
+    (initial / "payload.txt").write_text("old", encoding="utf-8")
+    manager.commit_cache(source, initial)
+
+    replacement = manager.get_temp_cache_dir(source)
+    (replacement / "payload.txt").write_text("new", encoding="utf-8")
+    original_replace = os.replace
+
+    def fail_replacement(src, dst):
+        if str(src) == str(replacement):
+            raise OSError("simulated replacement failure")
+        return original_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", fail_replacement)
+
+    with pytest.raises(CacheError, match="simulated replacement failure"):
+        manager.commit_cache(source, replacement)
+
+    cache_dir = manager.get_cache_dir(source)
+    assert manager.is_cache_valid(source)
+    assert (cache_dir / "payload.txt").read_text(encoding="utf-8") == "old"

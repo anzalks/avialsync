@@ -108,6 +108,19 @@ def test_pyramid_builder_and_reader(tmp_path: Path):
     assert t_c[0] == 0.0
 
 
+def test_pyramid_builder_propagates_raw_gap_evidence_to_coarse_levels(tmp_path: Path):
+    """A valid short raw gap cannot disappear merely because the view is coarse."""
+    t = np.arange(256, dtype=np.float64) * 0.1
+    # The raw 10x-median threshold is 1.0s. This 1.1s gap is much smaller
+    # than the 16x-level threshold that a recomputation would have used.
+    t[17:] += 1.1
+    PyramidBuilder(tmp_path, "ch0").build_and_save(t, np.sin(t))
+
+    coarse_gap = np.load(tmp_path / "ch0_pyr_16_gap.npy")
+
+    assert coarse_gap[1]
+
+
 def test_pyramid_builder_propagates_sidecar_write_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):

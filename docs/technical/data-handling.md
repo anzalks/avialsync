@@ -12,15 +12,13 @@ Importers process data in chunks. A time-series plugin yields time/value chunks 
 the importer validates them, records import statistics, and builds the cache away from the interface
 thread. Video loaders provide an mpv-playable media path and frame timing metadata when available.
 
-The 2026-07-29 audit found that the time-series implementation does not yet meet the full contract.
-It starts a new source scan for every channel, retains all chunks for that channel before
-concatenation, and rebuilds the sidecar instead of taking a valid-cache fast path. Neo's default
-reader can also materialize a complete recording block. These are worker-thread operations, so they
-usually do not stop Qt directly, but they multiply import time, create high memory/storage pressure,
-and make the documented cached-session-open budget unattainable at target scale. The required design
-is a single source pass feeding bounded per-channel cache builders, with backpressure, cancellation,
-recoverable partial output, and peak memory independent of recording duration apart from fixed
-buffers.
+The 2026-07-29 hardening now gives CSV and tracking loaders a single bulk parser pass and gives
+ImportWorker a content/config-validated manifest cache fast path. The worker still retains complete
+channels before constructing their pyramids, and Neo's default reader can materialize a complete
+recording block. These are worker-thread operations, so they usually do not stop Qt directly, but
+they create memory/storage pressure and prevent target-scale certification. The remaining design is
+bounded per-channel cache builders with backpressure, cancellation, recoverable partial output, and
+peak memory independent of recording duration apart from fixed buffers.
 
 Replacing a cache must preserve the last valid sidecar until the new sidecar is durable. The current
 remove-then-rename sequence has a failure window and must be replaced by a cross-platform
@@ -70,10 +68,11 @@ synchronization provenance. It does not copy or alter the original recordings. L
 and presentation preferences remain local to each user. When a source has moved, the session can ask
 the user to relink it instead of guessing a replacement.
 
-Exact per-frame mappings can contain millions of timestamp pairs. They must live in a compact,
-content-validated binary sidecar; session JSON stores its reference, summary, checksum, accepted fit
-metrics, and a bounded evidence sample. Converting the full arrays to Python lists and indented JSON
-causes avoidable pauses, memory amplification, and very large autosaves.
+Exact per-frame mappings can contain millions of timestamp pairs. Large accepted mappings now live
+in a compact, checksum-validated compressed session sidecar while session JSON retains its summary
+and bounded evidence sample. The remaining work is to move session serialization and IO itself to
+workers. Converting the full arrays to Python lists and indented JSON is prohibited because it causes
+avoidable pauses, memory amplification, and very large autosaves.
 
 ## Identity and export correctness
 

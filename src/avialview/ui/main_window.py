@@ -8,7 +8,7 @@ from typing import Any, cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QThread, QTimer, Signal, Slot
-from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent, QImage
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -31,6 +31,7 @@ from avialview.core.session import (
 )
 from avialview.core.source import TimeSeriesSource, VideoSource
 from avialview.core.timeline import MasterClock, TimeMap
+from avialview.engine.export_worker import ReaderReference
 from avialview.engine.player import Player
 from avialview.ui.annotations import AnnotationPanel, AnnotationStore
 from avialview.ui.plot_pane import PlotPane
@@ -74,6 +75,11 @@ class MainWindow(QMainWindow):
         self._frame_indexed_sources: list[tuple[Path, float]] = []
         self._pending_imports: deque[tuple[Path, type, dict[str, Any]]] = deque()
         self._import_thread: QThread | None = None
+        self._data_export_jobs: dict[QThread, object] = {}
+        self._region_stats_jobs: dict[QThread, object] = {}
+        self._video_clip_jobs: dict[QThread, object] = {}
+        self._snapshot_jobs: dict[QThread, object] = {}
+        self._region_stats_request = 0
         # Inspection data keyed by str(path)
         self._inspections: dict[str, SourceInspection] = {}
         # Units dict keyed by channel_id; populated from import config or wizard
@@ -492,7 +498,7 @@ class MainWindow(QMainWindow):
         self._sync_provenance = list(state.sync_provenance)
         self._pending_exact_mappings.clear()
         for provenance in state.sync_provenance:
-            if provenance.exact_master and provenance.exact_source:
+            if len(provenance.exact_master) and len(provenance.exact_source):
                 target = relink_map.get(provenance.target_id, provenance.target_id)
                 self._pending_exact_mappings[target] = (
                     np.asarray(provenance.exact_master, dtype=np.float64),
@@ -566,9 +572,63 @@ class MainWindow(QMainWindow):
     def _on_ab_loop_changed(self, t_in: float | None, t_out: float | None) -> None:
         if t_in is not None and t_out is not None:
             lo, hi = min(t_in, t_out), max(t_in, t_out)
-            self.readout_panel.show_region_stats(lo, hi)
+            self._start_region_stats(lo, hi)
         else:
+            self._region_stats_request += 1
             self.readout_panel.clear_region_stats()
+
+    def _reader_references(self) -> list[ReaderReference]:
+        """Return worker-safe references for the currently visible data channels."""
+        return [
+            ReaderReference(channel.reader.cache_dir, channel.reader.channel_id)
+            for channel in self.plot_pane.channels
+        ]
+
+    def _start_region_stats(self, t0: float, t1: float) -> None:
+        """Calculate A/B statistics in a dedicated worker thread."""
+        if t0 >= t1:
+            self.readout_panel.clear_region_stats()
+            return
+
+        from avialview.engine.export_worker import RegionStatsWorker
+
+        self._region_stats_request += 1
+        request_id = self._region_stats_request
+        thread = QThread(self)
+        worker = RegionStatsWorker(request_id, self._reader_references(), t0, t1)
+        self._region_stats_jobs[thread] = worker
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_region_stats_finished)
+        worker.error.connect(self._on_region_stats_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(self._on_region_stats_thread_finished)
+        thread.start()
+
+    @Slot(int, object)
+    def _on_region_stats_finished(self, request_id: int, stats: object) -> None:
+        """Display only the newest completed region-statistics request."""
+        if request_id != self._region_stats_request:
+            return
+        if isinstance(stats, list):
+            self.readout_panel.display_region_stats(stats)
+
+    @Slot(int, str)
+    def _on_region_stats_error(self, request_id: int, error: str) -> None:
+        """Keep stale or failed background requests out of the readout."""
+        if request_id == self._region_stats_request:
+            logger.warning("Could not calculate A/B region statistics: %s", error)
+            self.readout_panel.clear_region_stats()
+
+    @Slot()
+    def _on_region_stats_thread_finished(self) -> None:
+        """Release ownership of a completed region-statistics worker."""
+        thread = self.sender()
+        if isinstance(thread, QThread):
+            self._region_stats_jobs.pop(thread, None)
+            thread.deleteLater()
 
     # ── Annotations ──────────────────────────────────────────────────
 
@@ -745,7 +805,14 @@ class MainWindow(QMainWindow):
     # ── Window close ─────────────────────────────────────────────────
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        if self._video_load_jobs:
+        if (
+            self._video_load_jobs
+            or self._data_export_jobs
+            or self._region_stats_jobs
+            or self._video_clip_jobs
+            or self._snapshot_jobs
+        ):
+            self.transport.set_status("Waiting for background work to finish", "busy")
             event.ignore()
             return
         self.player.stop()
@@ -1158,12 +1225,7 @@ class MainWindow(QMainWindow):
         )
         if not out_path:
             return
-        from avialview.engine.export import save_snapshot
-
-        try:
-            save_snapshot(px, None, Path(out_path))
-        except Exception as e:
-            QMessageBox.critical(self, "Export Error", str(e))
+        self._start_snapshot_export(px.toImage().copy(), None, Path(out_path))
 
     def _on_annotate_at_requested(self, t: float) -> None:
         """Add a point marker at the clicked time on the plot (D-022)."""
@@ -1223,10 +1285,7 @@ class MainWindow(QMainWindow):
     # ── Snapshot export ──────────────────────────────────────────────
 
     def _export_snapshot(self) -> None:
-        from avialview.engine.export import (
-            save_snapshot,
-            snapshot_widget,
-        )
+        from avialview.engine.export import snapshot_widget
 
         path, _ = QFileDialog.getSaveFileName(
             self,
@@ -1239,10 +1298,46 @@ class MainWindow(QMainWindow):
 
         video_px = snapshot_widget(self._media_splitter)
         plot_px = snapshot_widget(self.plot_pane)
-        try:
-            save_snapshot(video_px, plot_px, Path(path))
-        except Exception as e:
-            QMessageBox.critical(self, "Export Error", str(e))
+        self._start_snapshot_export(video_px.toImage().copy(), plot_px.toImage().copy(), Path(path))
+
+    def _start_snapshot_export(
+        self, video_image: QImage | None, plot_image: QImage | None, path: Path
+    ) -> None:
+        """Hand immutable UI captures to a background PNG encoder."""
+        from avialview.engine.export_worker import SnapshotWorker
+
+        thread = QThread(self)
+        worker = SnapshotWorker(video_image, plot_image, path)
+        self._snapshot_jobs[thread] = worker
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_snapshot_finished)
+        worker.error.connect(self._on_snapshot_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(self._on_snapshot_thread_finished)
+        self.transport.set_status(f"Exporting snapshot: {path.name}", "busy")
+        thread.start()
+
+    @Slot(str)
+    def _on_snapshot_finished(self, path: str) -> None:
+        """Report background snapshot completion on the UI thread."""
+        self.transport.set_status(f"Exported snapshot: {Path(path).name}")
+
+    @Slot(str)
+    def _on_snapshot_error(self, error: str) -> None:
+        """Report background snapshot failure on the UI thread."""
+        self.transport.set_status("Snapshot export failed", "error")
+        QMessageBox.critical(self, "Export Error", error)
+
+    @Slot()
+    def _on_snapshot_thread_finished(self) -> None:
+        """Release ownership of a completed snapshot encoder."""
+        thread = self.sender()
+        if isinstance(thread, QThread):
+            self._snapshot_jobs.pop(thread, None)
+            thread.deleteLater()
 
     # ── Data slice export ────────────────────────────────────────────
 
@@ -1270,19 +1365,45 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
-        from avialview.engine.export import (
-            export_data_slice_csv,
-            export_data_slice_parquet,
-        )
+        self._start_data_export(t0, t1, Path(path))
 
-        readers = [ch.reader for ch in self.plot_pane.channels]
-        try:
-            if path.endswith(".parquet"):
-                export_data_slice_parquet(readers, t0, t1, Path(path))
-            else:
-                export_data_slice_csv(readers, t0, t1, Path(path))
-        except Exception as e:
-            QMessageBox.critical(self, "Export Error", str(e))
+    def _start_data_export(self, t0: float, t1: float, path: Path) -> None:
+        """Write a cached data slice on a worker thread."""
+        from avialview.engine.export_worker import DataExportWorker
+
+        thread = QThread(self)
+        worker = DataExportWorker(self._reader_references(), t0, t1, path)
+        self._data_export_jobs[thread] = worker
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_data_export_finished)
+        worker.error.connect(self._on_data_export_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(self._on_data_export_thread_finished)
+        self.transport.set_status(f"Exporting data: {path.name}", "busy")
+        thread.start()
+
+    @Slot(str)
+    def _on_data_export_finished(self, path: str) -> None:
+        """Report a completed data export on the UI thread."""
+        self.transport.set_status(f"Exported data: {Path(path).name}")
+        QMessageBox.information(self, "Export Complete", f"Data exported to:\n{path}")
+
+    @Slot(str)
+    def _on_data_export_error(self, error: str) -> None:
+        """Show a worker-side export failure on the UI thread."""
+        self.transport.set_status("Data export failed", "error")
+        QMessageBox.critical(self, "Export Error", error)
+
+    @Slot()
+    def _on_data_export_thread_finished(self) -> None:
+        """Release ownership of a completed data-export worker."""
+        thread = self.sender()
+        if isinstance(thread, QThread):
+            self._data_export_jobs.pop(thread, None)
+            thread.deleteLater()
 
     def _export_video_clip(self) -> None:
         """Export a trimmed video clip for all loaded videos based on A/B loop."""
@@ -1301,41 +1422,73 @@ class MainWindow(QMainWindow):
         if t0 > t1:
             t0, t1 = t1, t0
 
-        from pathlib import Path
-
-        from avialview.engine.export import trim_video_clip
-
         if len(self.video_grid._paths) == 1:
             path, _ = QFileDialog.getSaveFileName(
                 self, "Export Trimmed Video", "", "Video files (*.mp4 *.mkv *.mov *.avi)"
             )
             if not path:
                 return
-            success = trim_video_clip(self.video_grid._paths[0], t0, t1, Path(path))
-            if success:
-                QMessageBox.information(self, "Export Complete", "Video clip exported.")
-            else:
-                QMessageBox.critical(self, "Export Failed", "ffmpeg failed to trim the video.")
+            clips = [(self.video_grid._paths[0], t0, t1, Path(path))]
         else:
             dir_path = QFileDialog.getExistingDirectory(self, "Select Directory for Trimmed Clips")
             if not dir_path:
                 return
 
             out_dir = Path(dir_path)
-            success_count = 0
-            for orig_path in self.video_grid._paths:
-                p = Path(orig_path)
-                out_path = out_dir / f"{p.stem}_trim{p.suffix}"
-                if trim_video_clip(orig_path, t0, t1, out_path):
-                    success_count += 1
-
-            if success_count == len(self.video_grid._paths):
-                QMessageBox.information(self, "Export Complete", f"Exported {success_count} clips.")
-            else:
-                n_total = len(self.video_grid._paths)
-                QMessageBox.warning(
-                    self, "Export Incomplete", f"Exported {success_count} of {n_total} clips."
+            clips = [
+                (
+                    orig_path,
+                    t0,
+                    t1,
+                    out_dir / f"{Path(orig_path).stem}_trim{Path(orig_path).suffix}",
                 )
+                for orig_path in self.video_grid._paths
+            ]
+        self._start_video_clip_export(clips)
+
+    def _start_video_clip_export(self, clips: list[tuple[str, float, float, Path]]) -> None:
+        """Run ffmpeg trim work in a worker thread."""
+        from avialview.engine.export_worker import VideoClipWorker
+
+        thread = QThread(self)
+        worker = VideoClipWorker(clips)
+        self._video_clip_jobs[thread] = worker
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_video_clip_finished)
+        worker.error.connect(self._on_video_clip_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(self._on_video_clip_thread_finished)
+        self.transport.set_status("Exporting video clip", "busy")
+        thread.start()
+
+    @Slot(int, int)
+    def _on_video_clip_finished(self, successful: int, total: int) -> None:
+        """Show ffmpeg trim results once all worker jobs finish."""
+        if successful == total:
+            self.transport.set_status("Video clip export complete")
+            QMessageBox.information(self, "Export Complete", f"Exported {successful} clips.")
+        else:
+            self.transport.set_status("Video clip export incomplete", "error")
+            QMessageBox.warning(
+                self, "Export Incomplete", f"Exported {successful} of {total} clips."
+            )
+
+    @Slot(str)
+    def _on_video_clip_error(self, error: str) -> None:
+        """Show an ffmpeg worker failure on the UI thread."""
+        self.transport.set_status("Video clip export failed", "error")
+        QMessageBox.critical(self, "Export Failed", error)
+
+    @Slot()
+    def _on_video_clip_thread_finished(self) -> None:
+        """Release ownership of a completed ffmpeg worker."""
+        thread = self.sender()
+        if isinstance(thread, QThread):
+            self._video_clip_jobs.pop(thread, None)
+            thread.deleteLater()
 
     # ── Proxy generation ─────────────────────────────────────────────
 
@@ -1641,10 +1794,14 @@ class MainWindow(QMainWindow):
                 for match in proposal.matches[:500]
             ],
             exact_master=(
-                [float(value) for value in exact_master] if exact_master is not None else []
+                np.asarray(exact_master, dtype=np.float64).copy()
+                if exact_master is not None
+                else []
             ),
             exact_source=(
-                [float(value) for value in exact_source] if exact_source is not None else []
+                np.asarray(exact_source, dtype=np.float64).copy()
+                if exact_source is not None
+                else []
             ),
         )
         self._sync_provenance = [

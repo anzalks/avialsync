@@ -17,6 +17,7 @@ from avialview.core.errors import SyncAmbiguityError, SyncEvidenceError
 from avialview.core.timeline import TimeMap
 
 Edge = Literal["rising", "falling"]
+_MAX_PRESENTED_EVIDENCE = 500
 
 
 @dataclass(frozen=True)
@@ -70,7 +71,7 @@ class SyncMatch:
 
 @dataclass(frozen=True)
 class SyncProposal:
-    """A deterministic, inspectable synchronization proposal."""
+    """A deterministic synchronization proposal with bounded display evidence."""
 
     reference_id: str
     target_id: str
@@ -175,9 +176,10 @@ def fit_exact_index_mapping(
             "per-frame trigger timestamps rather than dense signal samples."
         )
 
+    evidence_indices = _evidence_indices(length)
     matches = tuple(
-        SyncMatch(float(ref), float(tgt), 0.0)
-        for ref, tgt in zip(matched_ref, matched_tgt, strict=False)
+        SyncMatch(float(matched_ref[index]), float(matched_tgt[index]), 0.0)
+        for index in evidence_indices
     )
 
     fit = ExactSyncFit(
@@ -191,11 +193,11 @@ def fit_exact_index_mapping(
         exact_source=matched_tgt,
     )
 
-    matched_reference_indices = set(range(reference_start, reference_start + length))
+    unmatched_values = np.concatenate(
+        (reference[:reference_start], reference[reference_start + length :])
+    )
     unmatched_references = tuple(
-        float(time)
-        for index, time in enumerate(reference)
-        if index not in matched_reference_indices
+        float(value) for value in unmatched_values[_evidence_indices(len(unmatched_values))]
     )
 
     return SyncProposal(
@@ -206,6 +208,13 @@ def fit_exact_index_mapping(
         tolerance=0.0,
         unmatched_references=unmatched_references,
     )
+
+
+def _evidence_indices(length: int) -> np.ndarray:
+    """Return every small evidence set or an evenly distributed bounded sample."""
+    if length <= _MAX_PRESENTED_EVIDENCE:
+        return np.arange(length, dtype=np.intp)
+    return np.unique(np.linspace(0, length - 1, _MAX_PRESENTED_EVIDENCE, dtype=np.intp))
 
 
 def fit_sync_events(

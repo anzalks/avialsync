@@ -60,3 +60,22 @@ def test_exact_index_rejects_dense_samples_mistaken_for_frame_triggers() -> None
             reference_id="dense signal",
             target_id="camera",
         )
+
+
+def test_exact_index_mapping_bounds_display_evidence_but_keeps_full_mapping() -> None:
+    reference = np.arange(100_000, dtype=np.float64)
+    target = reference + 0.002
+
+    proposal = fit_exact_index_mapping(
+        reference,
+        target,
+        reference_id="trigger",
+        target_id="camera",
+    )
+
+    assert proposal.fit.matched_count == len(reference)
+    assert len(proposal.matches) == 500
+    assert proposal.matches[0].reference_time == 0.0
+    assert proposal.matches[-1].reference_time == 99_999.0
+    assert proposal.fit.exact_master is not None
+    assert len(proposal.fit.exact_master) == len(reference)

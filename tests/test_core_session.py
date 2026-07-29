@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from avialview.core.session import (
@@ -202,3 +203,42 @@ def test_empty_session_roundtrip(tmp_path: Path) -> None:
     assert loaded.videos == []
     assert loaded.sensors == []
     assert loaded.markers == []
+
+
+def test_large_exact_mapping_is_stored_in_a_validated_binary_sidecar(tmp_path: Path) -> None:
+    master = np.arange(10_000, dtype=np.float64) * 0.01
+    source = master + 2.5
+    state = SessionState(
+        sync_provenance=[
+            SyncProvenance(
+                reference_id="sensor:ttl",
+                target_id="video:cam1",
+                offset=2.5,
+                drift_ppm=0.0,
+                rms_residual=0.0,
+                max_residual=0.0,
+                matched_count=len(master),
+                rejected_count=0,
+                tolerance=0.01,
+                exact_master=master,
+                exact_source=source,
+            )
+        ]
+    )
+    path = tmp_path / "session.avv"
+
+    state.save(path)
+
+    serialized = json.loads(path.read_text(encoding="utf-8"))
+    mapping = serialized["sync_provenance"][0]["exact_mapping"]
+    assert serialized["sync_provenance"][0]["exact_master"] == []
+    assert (tmp_path / mapping["file"]).is_file()
+
+    loaded = SessionState.load(path)
+    np.testing.assert_array_equal(loaded.sync_provenance[0].exact_master, master)
+    np.testing.assert_array_equal(loaded.sync_provenance[0].exact_source, source)
+
+    sidecar = tmp_path / mapping["file"]
+    sidecar.write_bytes(b"not a mapping")
+    with pytest.raises(ValueError, match="Invalid exact synchronization sidecar"):
+        SessionState.load(path)

@@ -132,8 +132,8 @@ def test_session_restore_queues_exact_mapping_for_async_video_open(
                 matched_count=3,
                 rejected_count=0,
                 tolerance=0.0,
-                exact_master=[100.0, 101.0, 102.0],
-                exact_source=[0.0, 1.0, 2.0],
+                exact_master=np.asarray([100.0, 101.0, 102.0]),
+                exact_source=np.asarray([0.0, 1.0, 2.0]),
             )
         ],
     )

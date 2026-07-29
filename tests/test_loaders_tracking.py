@@ -49,3 +49,27 @@ def test_loader_exposes_3d_coordinate_triplets(tmp_path: Path) -> None:
     times, values = next(loader.read_chunks("nose_z"))
     assert times.tolist() == [0.0, 0.05]
     assert values.tolist() == [3.0, 6.0]
+
+
+def test_loader_bulk_api_yields_every_coordinate_from_one_batch(tmp_path: Path) -> None:
+    path = tmp_path / "tracking.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "scorer,DLC,DLC",
+                "bodyparts,nose,nose",
+                "coords,x,y",
+                "0,1.0,2.0",
+                "1,3.0,4.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    loader = TrackingLoader()
+    loader.open(path, {"fps": 10.0})
+
+    batch = next(loader.read_all_chunks())
+
+    assert sorted(batch) == ["nose_x", "nose_y"]
+    assert batch["nose_x"][0].tolist() == [0.0, 0.1]
+    assert batch["nose_y"][1].tolist() == [2.0, 4.0]

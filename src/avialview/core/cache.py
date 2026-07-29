@@ -4,7 +4,10 @@ import json
 import os
 import shutil
 import tempfile
+import uuid
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import xxhash
 
@@ -14,8 +17,13 @@ from avialview.core.errors import CacheError
 class CacheManager:
     """Manages .avialcache sidecar directories with atomic writes and hardened keys."""
 
-    def __init__(self, loader_version: int = 1):
+    def __init__(
+        self,
+        loader_version: int = 1,
+        cache_config: Mapping[str, Any] | None = None,
+    ):
         self.loader_version = loader_version
+        self._cache_config = dict(cache_config or {})
 
     def _hash_file_edges(self, path: Path) -> str:
         """Hash the first and last 64KB of the file."""
@@ -55,6 +63,7 @@ class CacheManager:
             "size": stat.st_size,
             "mtime": stat.st_mtime,
             "loader_version": self.loader_version,
+            "cache_config": self._cache_config,
             "hash": edge_hash,
         }
 
@@ -67,6 +76,7 @@ class CacheManager:
     def is_cache_valid(self, source_path: Path) -> bool:
         """Check if the cache directory exists and the key matches."""
         cache_dir = self.get_cache_dir(source_path)
+        self._recover_interrupted_swap(cache_dir)
         meta_path = cache_dir / "meta.json"
 
         if not cache_dir.exists() or not meta_path.exists():
@@ -88,7 +98,7 @@ class CacheManager:
         return Path(temp_dir)
 
     def commit_cache(self, source_path: Path, temp_dir: Path) -> None:
-        """Atomically commit the temporary cache directory to the final sidecar path."""
+        """Commit a replacement without discarding the last valid sidecar first."""
         cache_dir = self.get_cache_dir(source_path)
 
         # Write metadata key
@@ -96,11 +106,38 @@ class CacheManager:
         with open(meta_path, "w") as f:
             f.write(self.generate_key(source_path))
 
-        # Atomic swap (POSIX rename replaces directories if empty,
-        # but cross-platform we might need to remove first)
+        backup_dir: Path | None = None
         try:
             if cache_dir.exists():
-                shutil.rmtree(cache_dir)
-            os.rename(temp_dir, cache_dir)
+                backup_dir = cache_dir.with_name(f".{cache_dir.name}.backup-{uuid.uuid4().hex}")
+                os.replace(cache_dir, backup_dir)
+            os.replace(temp_dir, cache_dir)
         except OSError as e:
+            if backup_dir is not None and backup_dir.exists() and not cache_dir.exists():
+                try:
+                    os.replace(backup_dir, cache_dir)
+                except OSError:
+                    pass
             raise CacheError(f"Failed to commit cache atomically: {e}") from e
+        if backup_dir is not None:
+            try:
+                shutil.rmtree(backup_dir)
+            except OSError as error:
+                raise CacheError(f"Committed cache but could not remove backup: {error}") from error
+
+    @staticmethod
+    def _recover_interrupted_swap(cache_dir: Path) -> None:
+        """Restore the most recent valid-sidecar backup after a process interruption."""
+        if cache_dir.exists():
+            return
+        backups = sorted(
+            cache_dir.parent.glob(f".{cache_dir.name}.backup-*"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        if not backups:
+            return
+        try:
+            os.replace(backups[0], cache_dir)
+        except OSError:
+            return

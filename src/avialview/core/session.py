@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
+import os
+import uuid
 from pathlib import Path
 from typing import Any, cast
 
+import numpy as np
 from PySide6.QtCore import QSettings
+
+_EXACT_MAPPING_INLINE_LIMIT = 500
 
 
 @dataclasses.dataclass
@@ -56,8 +62,8 @@ class SyncProvenance:
     rejected_count: int
     tolerance: float
     matches: list[dict[str, float]] = dataclasses.field(default_factory=list)
-    exact_master: list[float] = dataclasses.field(default_factory=list)
-    exact_source: list[float] = dataclasses.field(default_factory=list)
+    exact_master: list[float] | np.ndarray = dataclasses.field(default_factory=list)
+    exact_source: list[float] | np.ndarray = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -79,12 +85,26 @@ class SessionState:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-compatible dict (always writes version 5)."""
+        provenance = []
+        for item in self.sync_provenance:
+            encoded = dataclasses.asdict(item)
+            master = np.asarray(item.exact_master, dtype=np.float64)
+            source = np.asarray(item.exact_source, dtype=np.float64)
+            if len(master) != len(source):
+                raise ValueError("Exact synchronization arrays have different lengths.")
+            encoded["exact_master"] = (
+                master.tolist() if len(master) <= _EXACT_MAPPING_INLINE_LIMIT else []
+            )
+            encoded["exact_source"] = (
+                source.tolist() if len(source) <= _EXACT_MAPPING_INLINE_LIMIT else []
+            )
+            provenance.append(encoded)
         return {
             "version": 5,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
-            "sync_provenance": [dataclasses.asdict(p) for p in self.sync_provenance],
+            "sync_provenance": provenance,
             "t_start": self.t_start,
             "t_end": self.t_end,
             "plot_x0": self.plot_x0,
@@ -164,18 +184,69 @@ class SessionState:
         )
 
     def save(self, path: Path) -> None:
-        """Write session to a .avv JSON file atomically."""
+        """Write session JSON and large exact mappings atomically.
+
+        Small mappings remain inline for backwards-readable hand-authored
+        sessions.  Per-frame mappings use compact NumPy sidecars so saving does
+        not first inflate them into millions of Python floats or JSON tokens.
+        """
+        payload = self.to_dict()
+        sidecar_dir = path.with_suffix(f"{path.suffix}.avialcache")
+        for index, provenance in enumerate(self.sync_provenance):
+            master = np.asarray(provenance.exact_master, dtype=np.float64)
+            source = np.asarray(provenance.exact_source, dtype=np.float64)
+            if len(master) != len(source):
+                raise ValueError("Exact synchronization arrays have different lengths.")
+            if len(master) <= _EXACT_MAPPING_INLINE_LIMIT:
+                continue
+            sidecar_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"exact-sync-{index}-{uuid.uuid4().hex}.npz"
+            mapping_path = sidecar_dir / filename
+            temporary_path = sidecar_dir / f".{filename}.tmp.npz"
+            np.savez_compressed(temporary_path, master=master, source=source)
+            digest = hashlib.sha256(temporary_path.read_bytes()).hexdigest()
+            os.replace(temporary_path, mapping_path)
+            item = payload["sync_provenance"][index]
+            item["exact_master"] = []
+            item["exact_source"] = []
+            item["exact_mapping"] = {
+                "file": str(mapping_path.relative_to(path.parent)),
+                "sha256": digest,
+                "count": int(len(master)),
+            }
         tmp = path.with_suffix(".avv.tmp")
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(self.to_dict(), f, indent=2)
+            json.dump(payload, f, indent=2)
         tmp.replace(path)
 
     @classmethod
     def load(cls, path: Path) -> SessionState:
-        """Read a .avv session file."""
+        """Read a .avv session file and validate any exact-map sidecars."""
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-        return cls.from_dict(data)
+        state = cls.from_dict(data)
+        raw_provenance = data.get("sync_provenance", [])
+        for index, raw in enumerate(raw_provenance):
+            mapping = raw.get("exact_mapping")
+            if mapping is None:
+                continue
+            try:
+                mapping_path = path.parent / str(mapping["file"])
+                file_bytes = mapping_path.read_bytes()
+                if hashlib.sha256(file_bytes).hexdigest() != str(mapping["sha256"]):
+                    raise ValueError("checksum mismatch")
+                with np.load(mapping_path) as arrays:
+                    master = np.asarray(arrays["master"], dtype=np.float64)
+                    source = np.asarray(arrays["source"], dtype=np.float64)
+                if len(master) != len(source) or len(master) != int(mapping["count"]):
+                    raise ValueError("array length mismatch")
+            except (KeyError, OSError, ValueError):
+                raise ValueError(
+                    f"Invalid exact synchronization sidecar for entry {index}."
+                ) from None
+            state.sync_provenance[index].exact_master = master
+            state.sync_provenance[index].exact_source = source
+        return state
 
 
 # ── Recent-files helper ──────────────────────────────────────────────

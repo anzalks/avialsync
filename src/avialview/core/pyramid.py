@@ -149,6 +149,26 @@ def _aggregate_pyramid_level(
     return t_dec, min_dec, max_dec
 
 
+def _aggregate_gap_mask(gap_mask: np.ndarray, factor: int) -> np.ndarray:
+    """Carry raw discontinuity evidence into one coarser pyramid level.
+
+    A gap marks the sample immediately before a discontinuity.  Recomputing a
+    threshold from decimated timestamps can make a real short gap disappear;
+    marking every parent bucket that contains a gap is conservative and never
+    permits a display line to bridge evidence that was present at level 1.
+    """
+    length = len(gap_mask)
+    remainder = length % factor
+    truncated = length - remainder
+    if truncated:
+        coarse = np.any(gap_mask[:truncated].reshape(-1, factor), axis=1)
+    else:
+        coarse = np.empty(0, dtype=bool)
+    if remainder:
+        coarse = np.concatenate((coarse, [bool(np.any(gap_mask[truncated:]))]))
+    return coarse
+
+
 class PyramidBuilder:
     """Builds and serializes a multi-level pyramid to disk."""
 
@@ -176,11 +196,12 @@ class PyramidBuilder:
         previous_t = t
         previous_min = v
         previous_max = v
+        previous_gap = gap_mask
         for level in LEVELS[1:]:
             t_lvl, vmin_lvl, vmax_lvl = _aggregate_pyramid_level(
                 previous_t, previous_min, previous_max, factor=16
             )
-            gap_lvl = build_gap_mask(t_lvl)
+            gap_lvl = _aggregate_gap_mask(previous_gap, factor=16)
             arrays_to_save.extend(
                 (
                     (self.cache_dir / f"{self.channel_id}_pyr_{level}_t.npy", t_lvl),
@@ -198,6 +219,7 @@ class PyramidBuilder:
             previous_t = t_lvl
             previous_min = vmin_lvl
             previous_max = vmax_lvl
+            previous_gap = gap_lvl
 
         _save_arrays(arrays_to_save)
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pytest
@@ -147,3 +148,53 @@ def test_csv_loader_duplicate_timestamps():
     assert len(t) > 0
     # check that there are no duplicates
     assert np.all(np.diff(t) > 0)
+
+
+def test_csv_loader_keeps_last_duplicate_across_batch_boundary(tmp_path: Path):
+    path = tmp_path / "boundary_duplicates.csv"
+    path.write_text("time,ch0\n0,1\n1,2\n1,3\n2,4\n", encoding="utf-8")
+    loader = CSVLoader()
+    loader.open(
+        path,
+        {"time_col": "time", "time_unit": "s", "separator": ",", "batch_size": 2},
+    )
+
+    chunks = list(loader.read_chunks("ch0"))
+    times = np.concatenate([chunk[0] for chunk in chunks])
+    values = np.concatenate([chunk[1] for chunk in chunks])
+
+    np.testing.assert_array_equal(times, [0.0, 1.0, 2.0])
+    np.testing.assert_array_equal(values, [1.0, 3.0, 4.0])
+
+
+def test_csv_loader_rejects_backwards_timestamp_across_batch_boundary(tmp_path: Path):
+    path = tmp_path / "boundary_non_monotonic.csv"
+    path.write_text("time,ch0\n0,1\n2,2\n1,3\n", encoding="utf-8")
+    loader = CSVLoader()
+    loader.open(
+        path,
+        {"time_col": "time", "time_unit": "s", "separator": ",", "batch_size": 2},
+    )
+
+    with pytest.raises(NonMonotonicTimeError):
+        list(loader.read_chunks("ch0"))
+
+
+def test_csv_loader_applies_selected_timezone(tmp_path: Path):
+    path = tmp_path / "timezone.csv"
+    path.write_text("time,ch0\n2026-01-15 12:00:00,1\n", encoding="utf-8")
+    loader = CSVLoader()
+    loader.open(
+        path,
+        {
+            "time_col": "time",
+            "time_format": "%Y-%m-%d %H:%M:%S",
+            "timezone": "Europe/Paris",
+            "separator": ",",
+        },
+    )
+
+    time_values, _ = next(loader.read_chunks("ch0"))
+    expected = __import__("datetime").datetime(2026, 1, 15, 12, tzinfo=ZoneInfo("Europe/Paris"))
+
+    assert time_values[0] == pytest.approx(expected.timestamp())

@@ -34,6 +34,7 @@ class ChannelPlot:
     reader: PyramidReader
     plot_item: pg.PlotItem
     curve: SweepCurveItem
+    envelope_upper: SweepCurveItem
     cursor_line: pg.InfiniteLine
     close_button: QToolButton
     close_proxy: QGraphicsProxyWidget
@@ -56,14 +57,19 @@ def refresh_channel_plot(
     t1: float,
     point_budget: int,
 ) -> None:
-    """Replace one curve with the appropriate bounded pyramid slice."""
+    """Replace envelope boundaries with the appropriate bounded pyramid slice."""
     t, vmin, vmax, gap = channel.reader.query(t0, t1, max_points=point_budget)
     if len(t) == 0:
         channel.curve.setData([], [])
+        channel.envelope_upper.setData([], [])
         return
-    v_mean = (vmin + vmax) / 2.0
-    v_mean[gap] = np.nan
-    channel.curve.setData(t - t0, v_mean)
+    x = t - t0
+    lower = np.asarray(vmin, dtype=np.float64).copy()
+    upper = np.asarray(vmax, dtype=np.float64).copy()
+    lower[gap] = np.nan
+    upper[gap] = np.nan
+    channel.curve.setData(x, lower)
+    channel.envelope_upper.setData(x, upper)
 
 
 def update_channel_coverage(
@@ -141,7 +147,9 @@ def create_channel_plot(
 
     pen = pg.mkPen(color=CHANNEL_COLORS[color_index % len(CHANNEL_COLORS)], width=1.5)
     curve = SweepCurveItem(pen=pen, connect="finite")
+    envelope_upper = SweepCurveItem(pen=pen, connect="finite")
     plot_item.addItem(curve)
+    plot_item.addItem(envelope_upper)
     cursor_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen("y", width=2))
     plot_item.addItem(cursor_line)
 
@@ -163,6 +171,7 @@ def create_channel_plot(
         reader=reader,
         plot_item=plot_item,
         curve=curve,
+        envelope_upper=envelope_upper,
         cursor_line=cursor_line,
         close_button=close_button,
         close_proxy=close_proxy,

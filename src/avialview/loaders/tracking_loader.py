@@ -75,10 +75,21 @@ class TrackingLoader(TimeSeriesSource):
         return self._schema_channels
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+        """Yield one tracking channel while preserving the single-pass parser API."""
+        for chunk in self.read_all_chunks():
+            yield chunk[ch]
+
+    def read_all_chunks(self) -> Iterator[dict[str, tuple[np.ndarray, np.ndarray]]]:
+        """Yield every tracking channel from one CSV parser pass.
+
+        The importer consumes this bulk API once, rather than asking the loader
+        to reparse the tracking file for every coordinate channel.
+        """
         if self._path is None:
             raise RuntimeError("Source not opened")
 
         fps = float(self._config.get("fps", 30.0))
+        channel_names = [channel.name for channel in self._schema_channels]
 
         # Read in batches skipping the 3 header rows
         reader = pl.read_csv_batched(
@@ -97,13 +108,14 @@ class TrackingLoader(TimeSeriesSource):
             batch = batches[0]
 
             t = batch["frame_index"].cast(pl.Float64).to_numpy() / fps
-            v = batch[ch].cast(pl.Float64).to_numpy()
-
+            values = {
+                channel: batch[channel].cast(pl.Float64).to_numpy() for channel in channel_names
+            }
             # Check monotonicity
             if len(t) > 1:
                 dt = np.diff(t)
                 if np.any(dt < 0):
-                    idx = int(np.argmin(dt))
+                    idx = int(np.flatnonzero(dt < 0)[0])
                     raise NonMonotonicTimeError(
                         f"Non-monotonic time detected at row {row_offset + idx + 1 + 3}",
                         row=row_offset + idx + 1 + 3,
@@ -115,7 +127,8 @@ class TrackingLoader(TimeSeriesSource):
                 mask = np.ones(len(t), dtype=bool)
                 mask[:-1] = dt > 0
                 t = t[mask]
-                v = v[mask]
+                values = {channel: value[mask] for channel, value in values.items()}
 
-            yield t, v
+            if len(t):
+                yield {channel: (t, value) for channel, value in values.items()}
             row_offset += len(batch)

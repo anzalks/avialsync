@@ -179,19 +179,16 @@ with explicit user acceptance and session provenance. Native plugin event provid
 
 ### Pending
 - P3.5 performance/accurate-streaming hardening (full audit 2026-07-29):
-  - P0 correctness: plot the pyramid's min/max envelope rather than its midpoint; propagate raw
-    gap evidence through every decimation level; enforce explicit CSV timestamp schemas,
-    cross-chunk chronology/duplicate validation, and the wizard's selected timezone; give every
-    time-series source a `TimeMap`.
-  - P0 throughput: parse CSV/tracking sources once rather than once per channel, build sidecars
-    with bounded buffers, reuse a valid cache on session reopen, and avoid Neo full-block
-    materialization. Peak memory must be bounded and measured.
-  - P0 responsiveness: move session save/load/autosave, exact-mapping serialization, region
-    statistics, data/annotation/snapshot export, and ffmpeg trimming out of the UI thread. Job
-    setup/completion slots retain a 30 ms hard ceiling and need Qt heartbeat tests.
-  - P0 scale: exact frame-trigger proposals must not allocate a `SyncMatch` plus JSON floats for
-    every frame. Store compact arrays in a validated binary sidecar and keep a bounded
-    human-readable evidence sample.
+  - P0 implemented: plot the pyramid min/max envelope; propagate raw gap evidence through every
+    decimation level; enforce explicit CSV timestamp schemas, cross-chunk chronology/duplicate
+    validation, and the wizard's selected timezone. CSV/tracking use one bulk parser pass, valid
+    cache manifests reopen without parsing, cache swaps roll back safely, range stats/data export
+    and ffmpeg clipping run in workers, and exact frame mappings retain bounded evidence plus a
+    checksum-validated compressed session sidecar.
+  - P0 remaining: give every time-series source a `TimeMap`; replace complete-channel import
+    concatenation with bounded builders and Neo full-block materialization; move session
+    save/load/autosave and annotation export off the UI thread; add
+    cancellation/progress and Qt heartbeat/peak-RSS/one-million-frame benchmarks.
   - P1 scale: source-scope channel identity; index/pool timeline, gap, and annotation graphics;
     skip/rate-limit collapsed readout/3D/overlay consumers; batch widget-row creation; decouple
     bounded parallel video probing from serialized native pane construction.

@@ -284,6 +284,7 @@ class PlotPane(QWidget):
             if ch.visible:
                 ch.cursor_line.setValue(position.phase)
                 ch.curve.set_sweep_position(position.phase)
+                ch.envelope_upper.set_sweep_position(position.phase)
         return position.phase
 
     def _request_channel_close(self, channel_id: str) -> None:

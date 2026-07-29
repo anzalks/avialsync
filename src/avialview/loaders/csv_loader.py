@@ -1,8 +1,10 @@
 """CSV Time Series Loader."""
 
+import datetime
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import numpy as np
 import polars as pl
@@ -45,6 +47,7 @@ class CSVLoader(TimeSeriesSource):
                 n_rows=100,
                 has_header=has_headers,
                 infer_schema_length=100,
+                schema_overrides={time_col: self._timestamp_dtype()},
                 decimal_comma=euro_decimal or (separator == ";"),
             )
         except Exception as e:
@@ -93,6 +96,22 @@ class CSVLoader(TimeSeriesSource):
             return "ns"
         return self._config.get("time_unit", "s")
 
+    def _timestamp_dtype(self) -> pl.DataType:
+        """Return the explicit parser dtype required by the chosen time format."""
+        category = self._classify_format(self._config.get("time_format", "numeric"))
+        return pl.Float64 if category == "numeric" else pl.Utf8
+
+    def _timezone_name(self) -> str:
+        """Resolve the wizard's explicit timezone to an IANA-compatible name."""
+        configured = str(self._config.get("timezone", "UTC"))
+        if configured != "local":
+            return configured
+        local_zone = datetime.datetime.now().astimezone().tzinfo
+        name = getattr(local_zone, "key", None) or (local_zone.tzname(None) if local_zone else None)
+        if not name:
+            raise ValueError("Could not resolve the selected local timezone.")
+        return name
+
     def _normalize_time(self, t_series: pl.Series) -> np.ndarray:
         time_format = self._config.get("time_format", "numeric")
         category = self._classify_format(time_format)
@@ -102,25 +121,29 @@ class CSVLoader(TimeSeriesSource):
             if time_format not in ("iso8601", "datetime", ""):
                 strp_fmt = time_format
 
+            timezone = self._timezone_name()
             try:
                 if strp_fmt:
-                    dt_series = t_series.str.to_datetime(format=strp_fmt, time_unit="ns")
+                    dt_series = t_series.str.to_datetime(
+                        format=strp_fmt,
+                        time_unit="ns",
+                        time_zone=timezone,
+                        ambiguous="raise",
+                    )
                 else:
-                    dt_series = t_series.str.to_datetime(time_unit="ns", time_zone="UTC")
-            except Exception:
-                try:
-                    if strp_fmt:
-                        dt_series = t_series.str.to_datetime(format=strp_fmt, time_unit="ns")
-                    else:
-                        dt_series = t_series.str.to_datetime(time_unit="ns")
-                except Exception:
-                    dt_series = t_series.str.to_datetime(time_unit="ns")
+                    dt_series = t_series.str.to_datetime(
+                        time_unit="ns",
+                        time_zone=timezone,
+                        ambiguous="raise",
+                    )
+            except Exception as error:
+                raise ValueError(
+                    f"Could not parse timestamps using timezone '{timezone}'."
+                ) from error
 
             return dt_series.cast(pl.Int64).cast(pl.Float64).to_numpy() / 1e9
 
         elif category == "time_of_day":
-            import datetime
-
             anchor_str = self._config.get("anchor_date", "1970-01-01")
             anchor_date = datetime.datetime.strptime(anchor_str, "%Y-%m-%d").date()
 
@@ -136,8 +159,15 @@ class CSVLoader(TimeSeriesSource):
             ns_since_midnight = time_series.cast(pl.Int64).cast(pl.Float64).to_numpy()
             sec_since_midnight = ns_since_midnight / 1e9
 
+            try:
+                timezone = ZoneInfo(self._timezone_name())
+            except ZoneInfoNotFoundError as error:
+                raise ValueError("The selected timezone is unavailable on this system.") from error
             anchor_epoch = datetime.datetime(
-                anchor_date.year, anchor_date.month, anchor_date.day, tzinfo=datetime.UTC
+                anchor_date.year,
+                anchor_date.month,
+                anchor_date.day,
+                tzinfo=timezone,
             ).timestamp()
             t_arr = sec_since_midnight + anchor_epoch
 
@@ -161,10 +191,10 @@ class CSVLoader(TimeSeriesSource):
                 t_arr = t_arr / 1e9
             return t_arr
 
-    def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+    def _read_batches(self) -> Iterator[dict[str, tuple[np.ndarray, np.ndarray]]]:
+        """Yield every channel from one parser pass with strict chunk boundaries."""
         if self._path is None:
             raise RuntimeError("Source not opened")
-
         separator = self._config.get("separator", ",")
         time_col = self._config.get("time_col", "time")
         sentinel_raw = self._config.get("sentinel", None)
@@ -179,16 +209,19 @@ class CSVLoader(TimeSeriesSource):
 
         has_headers = self._config.get("has_headers", True)
 
-        # Read in batches
+        channel_names = [channel.name for channel in self._schema_channels]
         reader = pl.read_csv_batched(
             self._path,
             separator=separator,
             has_header=has_headers,
-            batch_size=50000,
+            schema_overrides={time_col: self._timestamp_dtype()},
+            batch_size=int(self._config.get("batch_size", 50_000)),
             decimal_comma=euro_decimal or (separator == ";"),
         )
 
         row_offset = 0
+        pending_time: float | None = None
+        pending_values: dict[str, float] | None = None
         while True:
             batches = reader.next_batches(1)
             if not batches:
@@ -196,31 +229,56 @@ class CSVLoader(TimeSeriesSource):
             batch = batches[0]
 
             t = self._normalize_time(batch[time_col])
-            v = batch[ch].cast(pl.Float64).to_numpy()
-
+            values = {name: batch[name].cast(pl.Float64).to_numpy() for name in channel_names}
             if sentinel is not None:
-                v[v == sentinel] = np.nan
+                for value_array in values.values():
+                    value_array[value_array == sentinel] = np.nan
 
-            # Check monotonicity
+            if pending_time is not None:
+                t = np.concatenate(([pending_time], t))
+                values = {
+                    name: np.concatenate(([pending_values[name]], value_array))
+                    for name, value_array in values.items()
+                }
+
             if len(t) > 1:
                 dt = np.diff(t)
                 if np.any(dt < 0):
-                    idx = int(np.argmin(dt))
+                    index = int(np.flatnonzero(dt < 0)[0])
                     raise NonMonotonicTimeError(
-                        f"Non-monotonic time detected at row {row_offset + idx + 1}",
-                        row=row_offset + idx + 1,
+                        f"Non-monotonic time detected at row {row_offset + index + 1}",
+                        row=row_offset + index + 1,
                     )
+                keep = np.ones(len(t), dtype=bool)
+                keep[:-1] = dt > 0
+                t = t[keep]
+                values = {name: value_array[keep] for name, value_array in values.items()}
 
-            # Remove duplicates (keep last)
-            if len(t) > 1:
-                # dt == 0 means duplicate. We keep the last one by masking out where dt==0
-                # If dt == 0, then t[i+1] == t[i]. We want to drop t[i].
-                # Keep where dt > 0, plus the last element.
-                dt = np.diff(t)
-                mask = np.ones(len(t), dtype=bool)
-                mask[:-1] = dt > 0
-                t = t[mask]
-                v = v[mask]
-
-            yield t, v
+            if len(t):
+                pending_time = float(t[-1])
+                pending_values = {
+                    name: float(value_array[-1]) for name, value_array in values.items()
+                }
+                if len(t) > 1:
+                    yield {name: (t[:-1], value_array[:-1]) for name, value_array in values.items()}
             row_offset += len(batch)
+
+        if pending_time is not None and pending_values is not None:
+            yield {
+                name: (
+                    np.asarray([pending_time], dtype=np.float64),
+                    np.asarray([value], dtype=np.float64),
+                )
+                for name, value in pending_values.items()
+            }
+
+    def read_all_chunks(self) -> Iterator[dict[str, tuple[np.ndarray, np.ndarray]]]:
+        """Yield aligned channel chunks from a single CSV parser pass."""
+        yield from self._read_batches()
+
+    def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+        """Yield one channel while retaining the same boundary guarantees as bulk ingest."""
+        if ch not in {channel.name for channel in self._schema_channels}:
+            raise KeyError(f"Unknown CSV channel: {ch}")
+        for chunk in self._read_batches():
+            yield chunk[ch]
