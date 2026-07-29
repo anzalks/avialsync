@@ -18634,11 +18634,19 @@
       "_origin": "ast"
     },
     {
-      "id": "blueprint_performance_budgets_ci_enforced_where_marked",
-      "label": "Performance budgets (CI-enforced where marked ★)",
+      "id": "blueprint_performance_budgets_engineering_certified_where_marked",
+      "label": "Performance budgets (engineering-certified where marked ★)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
       "source_location": "L24",
+      "_origin": "ast"
+    },
+    {
+      "id": "blueprint_full_performance_and_accurate_streaming_audit_2026_07_29",
+      "label": "Full performance and accurate-streaming audit (2026-07-29)",
+      "file_type": "document",
+      "source_file": "BLUEPRINT.md",
+      "source_location": "L42",
       "_origin": "ast"
     },
     {
@@ -18646,7 +18654,7 @@
       "label": "Phase 0 — Foundation (Week 0–1)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L42",
+      "source_location": "L75",
       "_origin": "ast"
     },
     {
@@ -18654,7 +18662,7 @@
       "label": "Phase 1 — Core engine, headless (Week 1–2)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L57",
+      "source_location": "L90",
       "_origin": "ast"
     },
     {
@@ -18662,7 +18670,7 @@
       "label": "Phase 2 — Playback MVP (Week 2–4)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L70",
+      "source_location": "L103",
       "_origin": "ast"
     },
     {
@@ -18670,7 +18678,7 @@
       "label": "Phase 3 — Multi-source + performance (Week 4–7)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L92",
+      "source_location": "L125",
       "_origin": "ast"
     },
     {
@@ -18678,7 +18686,7 @@
       "label": "Phase 4 — UX completeness (Week 7–10)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L119",
+      "source_location": "L154",
       "_origin": "ast"
     },
     {
@@ -18686,7 +18694,7 @@
       "label": "Phase 5 — Plugin API + packaging (Week 10–13)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L145",
+      "source_location": "L181",
       "_origin": "ast"
     },
     {
@@ -18694,7 +18702,7 @@
       "label": "P5.4 — Evidence-based synchronization (TTL/events)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L171",
+      "source_location": "L207",
       "_origin": "ast"
     },
     {
@@ -18702,7 +18710,7 @@
       "label": "Phase 6 — Release & community (Week 13–16)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L197",
+      "source_location": "L233",
       "_origin": "ast"
     },
     {
@@ -18710,7 +18718,7 @@
       "label": "Working method with AI agents (all phases)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L211",
+      "source_location": "L247",
       "_origin": "ast"
     },
     {
@@ -18718,7 +18726,7 @@
       "label": "Timeline summary",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L218",
+      "source_location": "L254",
       "_origin": "ast"
     },
     {
@@ -19718,7 +19726,7 @@
       "label": "Cross-platform pressure audit (D-040)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L203",
+      "source_location": "L227",
       "_origin": "ast"
     },
     {
@@ -19726,7 +19734,7 @@
       "label": "Fixed (this PR — Phase 4 stabilization)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L227",
+      "source_location": "L251",
       "_origin": "ast"
     },
     {
@@ -19734,7 +19742,7 @@
       "label": "Pre-existing mypy errors (suppressed in pyproject.toml — cleanup is separate)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L258",
+      "source_location": "L282",
       "_origin": "ast"
     },
     {
@@ -19742,7 +19750,7 @@
       "label": "Module Map",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L268",
+      "source_location": "L292",
       "_origin": "ast"
     },
     {
@@ -19750,7 +19758,7 @@
       "label": "Architecture Rules (violations = rejected PR)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L311",
+      "source_location": "L335",
       "_origin": "ast"
     },
     {
@@ -19758,7 +19766,7 @@
       "label": "Signal Wiring Map",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L325",
+      "source_location": "L349",
       "_origin": "ast"
     },
     {
@@ -19766,7 +19774,7 @@
       "label": "Sidebar → MainWindow → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L329",
+      "source_location": "L353",
       "_origin": "ast"
     },
     {
@@ -19774,7 +19782,7 @@
       "label": "Transport → Player → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L343",
+      "source_location": "L367",
       "_origin": "ast"
     },
     {
@@ -19782,7 +19790,7 @@
       "label": "PlotPane / Player → downstream",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L360",
+      "source_location": "L384",
       "_origin": "ast"
     },
     {
@@ -19790,7 +19798,7 @@
       "label": "Time display mode (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L371",
+      "source_location": "L395",
       "_origin": "ast"
     },
     {
@@ -19798,7 +19806,7 @@
       "label": "Source properties + integrity (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L378",
+      "source_location": "L402",
       "_origin": "ast"
     },
     {
@@ -19806,7 +19814,7 @@
       "label": "Import pipeline (updated, D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L388",
+      "source_location": "L412",
       "_origin": "ast"
     },
     {
@@ -19814,7 +19822,7 @@
       "label": "Known Traps",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L404",
+      "source_location": "L428",
       "_origin": "ast"
     },
     {
@@ -19822,7 +19830,7 @@
       "label": "1. No bare `QWidget { }` QSS selector — blacks out video panes",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L406",
+      "source_location": "L430",
       "_origin": "ast"
     },
     {
@@ -19830,7 +19838,7 @@
       "label": "2. `setParent(None)` makes a widget a popup window",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L411",
+      "source_location": "L435",
       "_origin": "ast"
     },
     {
@@ -19838,7 +19846,7 @@
       "label": "3. `setLayout()` silently fails if layout already exists",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L415",
+      "source_location": "L439",
       "_origin": "ast"
     },
     {
@@ -19846,7 +19854,7 @@
       "label": "4. LC_NUMERIC must be 'C' after Qt import, before mpv",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L419",
+      "source_location": "L443",
       "_origin": "ast"
     },
     {
@@ -19854,7 +19862,7 @@
       "label": "5. Never import mpv at module top level (D-013)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L423",
+      "source_location": "L447",
       "_origin": "ast"
     },
     {
@@ -19862,7 +19870,7 @@
       "label": "6. Video pane needs `WA_StyledBackground = False`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L427",
+      "source_location": "L451",
       "_origin": "ast"
     },
     {
@@ -19870,7 +19878,7 @@
       "label": "7. Drive MasterClock from `time.monotonic()` — never accumulate timer intervals",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L431",
+      "source_location": "L455",
       "_origin": "ast"
     },
     {
@@ -19878,7 +19886,7 @@
       "label": "8. Drift correction needs hysteresis (5 consecutive ticks)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L435",
+      "source_location": "L459",
       "_origin": "ast"
     },
     {
@@ -19886,7 +19894,7 @@
       "label": "9. polars `read_csv` type inference flips per-chunk",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L441",
+      "source_location": "L465",
       "_origin": "ast"
     },
     {
@@ -19894,7 +19902,7 @@
       "label": "10. `python-mpv` (PyPI) ≠ `mpv` (PyPI)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L445",
+      "source_location": "L471",
       "_origin": "ast"
     },
     {
@@ -19902,15 +19910,15 @@
       "label": "12. ruff `line-length = 100` — IDE diagnostics at 79 chars are false positives",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L448",
+      "source_location": "L474",
       "_origin": "ast"
     },
     {
-      "id": "handout_13_load_level_on_pyramidreader_is_private_do_not_call_outside_readoutpanel",
-      "label": "13. `_load_level()` on PyramidReader is private — do not call outside ReadoutPanel",
+      "id": "handout_13_load_level_is_private_but_currently_leaks_across_ui_engine_code",
+      "label": "13. `_load_level()` is private but currently leaks across UI/engine code",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L452",
+      "source_location": "L478",
       "_origin": "ast"
     },
     {
@@ -19918,7 +19926,7 @@
       "label": "14. Session v1 → v2 migration: SensorEntry / VideoEntry gain new optional fields",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L462",
+      "source_location": "L485",
       "_origin": "ast"
     },
     {
@@ -19926,7 +19934,7 @@
       "label": "15. Never cache time→pixel positions; map from current geometry at paint time",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L468",
+      "source_location": "L491",
       "_origin": "ast"
     },
     {
@@ -19934,7 +19942,7 @@
       "label": "18. System-key collisions — Ctrl+V and Ctrl+D are reserved (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L478",
+      "source_location": "L501",
       "_origin": "ast"
     },
     {
@@ -19942,7 +19950,7 @@
       "label": "19. VideoPane right-click: eventFilter, NOT CustomContextMenu policy (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L489",
+      "source_location": "L512",
       "_origin": "ast"
     },
     {
@@ -19950,7 +19958,7 @@
       "label": "11. Annotation label edits via `markers` property are silently discarded",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L504",
+      "source_location": "L527",
       "_origin": "ast"
     },
     {
@@ -19958,7 +19966,7 @@
       "label": "16. `type: ignore` is never a shipping mechanism",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L508",
+      "source_location": "L531",
       "_origin": "ast"
     },
     {
@@ -19966,7 +19974,7 @@
       "label": "20. mypy silently ignores malformed override sections",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L525",
+      "source_location": "L548",
       "_origin": "ast"
     },
     {
@@ -19974,7 +19982,7 @@
       "label": "17. Annotation schema (v3) — per-video frame records",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L528",
+      "source_location": "L551",
       "_origin": "ast"
     },
     {
@@ -19982,7 +19990,7 @@
       "label": "Run Commands",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L573",
+      "source_location": "L596",
       "_origin": "ast"
     },
     {
@@ -19990,7 +19998,7 @@
       "label": "Shortcuts Reference (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L607",
+      "source_location": "L630",
       "_origin": "ast"
     },
     {
@@ -19998,7 +20006,7 @@
       "label": "Playback",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L609",
+      "source_location": "L632",
       "_origin": "ast"
     },
     {
@@ -20006,7 +20014,7 @@
       "label": "Marking",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L629",
+      "source_location": "L652",
       "_origin": "ast"
     },
     {
@@ -20014,7 +20022,7 @@
       "label": "View",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L639",
+      "source_location": "L662",
       "_origin": "ast"
     },
     {
@@ -20022,15 +20030,15 @@
       "label": "File",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L651",
+      "source_location": "L674",
       "_origin": "ast"
     },
     {
-      "id": "handout_performance_budgets_ci_enforced_where",
-      "label": "Performance Budgets (CI-enforced where ★)",
+      "id": "handout_performance_budgets_engineering_certified_where",
+      "label": "Performance Budgets (engineering-certified where ★)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L665",
+      "source_location": "L688",
       "_origin": "ast"
     },
     {
@@ -20542,7 +20550,7 @@
       "label": "Time and precision",
       "file_type": "document",
       "source_file": "docs/technical/data-handling.md",
-      "source_location": "L15",
+      "source_location": "L29",
       "_origin": "ast"
     },
     {
@@ -20550,7 +20558,7 @@
       "label": "Gaps and missing values",
       "file_type": "document",
       "source_file": "docs/technical/data-handling.md",
-      "source_location": "L22",
+      "source_location": "L60",
       "_origin": "ast"
     },
     {
@@ -20558,7 +20566,23 @@
       "label": "Sessions and provenance",
       "file_type": "document",
       "source_file": "docs/technical/data-handling.md",
-      "source_location": "L28",
+      "source_location": "L66",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_technical_data_handling_identity_and_export_correctness",
+      "label": "Identity and export correctness",
+      "file_type": "document",
+      "source_file": "docs/technical/data-handling.md",
+      "source_location": "L78",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_technical_data_handling_required_ground_truth_workloads",
+      "label": "Required ground-truth workloads",
+      "file_type": "document",
+      "source_file": "docs/technical/data-handling.md",
+      "source_location": "L91",
       "_origin": "ast"
     },
     {
@@ -20594,11 +20618,27 @@
       "_origin": "ast"
     },
     {
+      "id": "docs_technical_performance_audit_status_2026_07_29",
+      "label": "Audit status (2026-07-29)",
+      "file_type": "document",
+      "source_file": "docs/technical/performance.md",
+      "source_location": "L12",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_technical_performance_benchmark_coverage_audit",
+      "label": "Benchmark coverage audit",
+      "file_type": "document",
+      "source_file": "docs/technical/performance.md",
+      "source_location": "L45",
+      "_origin": "ast"
+    },
+    {
       "id": "docs_technical_performance_github_workload_verification",
       "label": "GitHub workload verification",
       "file_type": "document",
       "source_file": "docs/technical/performance.md",
-      "source_location": "L13",
+      "source_location": "L63",
       "_origin": "ast"
     },
     {
@@ -20606,7 +20646,7 @@
       "label": "Engineering certification",
       "file_type": "document",
       "source_file": "docs/technical/performance.md",
-      "source_location": "L21",
+      "source_location": "L71",
       "_origin": "ast"
     },
     {
@@ -20974,6 +21014,46 @@
       "label": "Source Nodes",
       "file_type": "document",
       "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
+      "source_location": "L20",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster",
+      "label": "query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster.md",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_q_where_can_avialview_be_made_freeze_free_and_faster_while_preserving_accurate_data_streaming",
+      "label": "Q: Where can AvialView be made freeze-free and faster while preserving accurate data streaming?",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster.md",
+      "source_location": "L10",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_answer",
+      "label": "Answer",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster.md",
+      "source_location": "L12",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_outcome",
+      "label": "Outcome",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster.md",
+      "source_location": "L16",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_source_nodes",
+      "label": "Source Nodes",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster.md",
       "source_location": "L20",
       "_origin": "ast"
     }
@@ -60403,7 +60483,7 @@
     },
     {
       "source": "blueprint_avialview_project_blueprint_v1",
-      "target": "blueprint_performance_budgets_ci_enforced_where_marked",
+      "target": "blueprint_performance_budgets_engineering_certified_where_marked",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
@@ -60412,8 +60492,8 @@
       "_origin": "ast"
     },
     {
-      "source": "blueprint_avialview_project_blueprint_v1",
-      "target": "blueprint_phase_0_foundation_week_0_1",
+      "source": "blueprint_performance_budgets_engineering_certified_where_marked",
+      "target": "blueprint_full_performance_and_accurate_streaming_audit_2026_07_29",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
@@ -60423,11 +60503,21 @@
     },
     {
       "source": "blueprint_avialview_project_blueprint_v1",
+      "target": "blueprint_phase_0_foundation_week_0_1",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "BLUEPRINT.md",
+      "source_location": "L75",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "blueprint_avialview_project_blueprint_v1",
       "target": "blueprint_phase_1_core_engine_headless_week_1_2",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L57",
+      "source_location": "L90",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60437,7 +60527,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L70",
+      "source_location": "L103",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60447,7 +60537,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L92",
+      "source_location": "L125",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60457,7 +60547,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L119",
+      "source_location": "L154",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60467,7 +60557,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L145",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60477,7 +60567,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L171",
+      "source_location": "L207",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60487,7 +60577,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L197",
+      "source_location": "L233",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60497,7 +60587,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L211",
+      "source_location": "L247",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60507,7 +60597,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L218",
+      "source_location": "L254",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61717,7 +61807,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L203",
+      "source_location": "L227",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61727,7 +61817,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L227",
+      "source_location": "L251",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61737,7 +61827,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L258",
+      "source_location": "L282",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61747,7 +61837,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L268",
+      "source_location": "L292",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61757,7 +61847,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L311",
+      "source_location": "L335",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61767,7 +61857,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L325",
+      "source_location": "L349",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61777,7 +61867,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L329",
+      "source_location": "L353",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61787,7 +61877,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L343",
+      "source_location": "L367",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61797,7 +61887,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L360",
+      "source_location": "L384",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61807,7 +61897,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L371",
+      "source_location": "L395",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61817,7 +61907,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L378",
+      "source_location": "L402",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61827,7 +61917,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L388",
+      "source_location": "L412",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61837,7 +61927,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L404",
+      "source_location": "L428",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61847,7 +61937,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L406",
+      "source_location": "L430",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61857,7 +61947,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L411",
+      "source_location": "L435",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61867,7 +61957,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L415",
+      "source_location": "L439",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61877,7 +61967,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L419",
+      "source_location": "L443",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61887,7 +61977,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L423",
+      "source_location": "L447",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61897,7 +61987,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L427",
+      "source_location": "L451",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61907,7 +61997,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L431",
+      "source_location": "L455",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61917,7 +62007,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L435",
+      "source_location": "L459",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61927,7 +62017,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L441",
+      "source_location": "L465",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61937,7 +62027,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L445",
+      "source_location": "L471",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61947,43 +62037,13 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L448",
+      "source_location": "L474",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "handout_known_traps",
-      "target": "handout_13_load_level_on_pyramidreader_is_private_do_not_call_outside_readoutpanel",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "HANDOUT.md",
-      "source_location": "L452",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "handout_known_traps",
-      "target": "handout_14_session_v1_v2_migration_sensorentry_videoentry_gain_new_optional_fields",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "HANDOUT.md",
-      "source_location": "L462",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "handout_known_traps",
-      "target": "handout_15_never_cache_time_pixel_positions_map_from_current_geometry_at_paint_time",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "HANDOUT.md",
-      "source_location": "L468",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "handout_known_traps",
-      "target": "handout_18_system_key_collisions_ctrl_v_and_ctrl_d_are_reserved_d_022",
+      "target": "handout_13_load_level_is_private_but_currently_leaks_across_ui_engine_code",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
@@ -61993,11 +62053,41 @@
     },
     {
       "source": "handout_known_traps",
+      "target": "handout_14_session_v1_v2_migration_sensorentry_videoentry_gain_new_optional_fields",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "HANDOUT.md",
+      "source_location": "L485",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "handout_known_traps",
+      "target": "handout_15_never_cache_time_pixel_positions_map_from_current_geometry_at_paint_time",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "HANDOUT.md",
+      "source_location": "L491",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "handout_known_traps",
+      "target": "handout_18_system_key_collisions_ctrl_v_and_ctrl_d_are_reserved_d_022",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "HANDOUT.md",
+      "source_location": "L501",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "handout_known_traps",
       "target": "handout_19_videopane_right_click_eventfilter_not_customcontextmenu_policy_d_022",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L489",
+      "source_location": "L512",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62007,7 +62097,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L504",
+      "source_location": "L527",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62017,7 +62107,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L508",
+      "source_location": "L531",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62027,7 +62117,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L525",
+      "source_location": "L548",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62037,7 +62127,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L528",
+      "source_location": "L551",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62047,7 +62137,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L573",
+      "source_location": "L596",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62057,7 +62147,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L607",
+      "source_location": "L630",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62067,7 +62157,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L609",
+      "source_location": "L632",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62077,7 +62167,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L629",
+      "source_location": "L652",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62087,7 +62177,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L639",
+      "source_location": "L662",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62097,17 +62187,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L651",
+      "source_location": "L674",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "handout_avialview_model_handout",
-      "target": "handout_performance_budgets_ci_enforced_where",
+      "target": "handout_performance_budgets_engineering_certified_where",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L665",
+      "source_location": "L688",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62747,7 +62837,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/data-handling.md",
-      "source_location": "L15",
+      "source_location": "L29",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62757,7 +62847,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/data-handling.md",
-      "source_location": "L22",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62767,7 +62857,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/data-handling.md",
-      "source_location": "L28",
+      "source_location": "L66",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_technical_data_handling_data_handling",
+      "target": "docs_technical_data_handling_identity_and_export_correctness",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/technical/data-handling.md",
+      "source_location": "L78",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_technical_data_handling_data_handling",
+      "target": "docs_technical_data_handling_required_ground_truth_workloads",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/technical/data-handling.md",
+      "source_location": "L91",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62793,11 +62903,41 @@
     },
     {
       "source": "docs_technical_performance_performance_verification",
+      "target": "docs_technical_performance_audit_status_2026_07_29",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/technical/performance.md",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_technical_performance",
+      "target": "docs_technical_data_handling",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/technical/performance.md",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_technical_performance_performance_verification",
+      "target": "docs_technical_performance_benchmark_coverage_audit",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/technical/performance.md",
+      "source_location": "L45",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_technical_performance_performance_verification",
       "target": "docs_technical_performance_github_workload_verification",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/performance.md",
-      "source_location": "L13",
+      "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -62807,7 +62947,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/performance.md",
-      "source_location": "L21",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63187,6 +63327,46 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster",
+      "target": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_q_where_can_avialview_be_made_freeze_free_and_faster_while_preserving_accurate_data_streaming",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster.md",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_q_where_can_avialview_be_made_freeze_free_and_faster_while_preserving_accurate_data_streaming",
+      "target": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_answer",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster.md",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_q_where_can_avialview_be_made_freeze_free_and_faster_while_preserving_accurate_data_streaming",
+      "target": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_outcome",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster.md",
+      "source_location": "L16",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_q_where_can_avialview_be_made_freeze_free_and_faster_while_preserving_accurate_data_streaming",
+      "target": "graphify_out_memory_query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster_source_nodes",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_134451_where_can_avialview_be_made_freeze_free_and_faster.md",
       "source_location": "L20",
       "weight": 1.0,
       "_origin": "ast"
