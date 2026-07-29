@@ -95,6 +95,7 @@ class SweepWindowControl(QWidget):
         self.limit_spin.setToolTip("Maximum duration available on the shared window slider")
         self.limit_spin.setValue(self._DEFAULT_WINDOW_SECONDS)
         self.limit_spin.valueChanged.connect(self._on_limit_value_changed)
+        self.limit_spin.editingFinished.connect(self._release_editor_focus)
         layout.addWidget(self.limit_spin)
 
         self.unit_combo = QComboBox(self)
@@ -104,6 +105,7 @@ class SweepWindowControl(QWidget):
         self.unit_combo.setAccessibleName("Shared plot window limit unit")
         self.unit_combo.setToolTip("Choose milliseconds, seconds, minutes, or hours")
         self.unit_combo.currentIndexChanged.connect(self._on_unit_changed)
+        self.unit_combo.activated.connect(self._release_editor_focus)
         layout.addWidget(self.unit_combo)
 
         self.slider = QSlider(Qt.Orientation.Horizontal, self)
@@ -288,6 +290,12 @@ class SweepWindowControl(QWidget):
     def _on_unit_changed(self, _index: int) -> None:
         self._limit_seconds = self.limit_spin.value() * self._unit_seconds()
         self._apply_limit_change()
+
+    def _release_editor_focus(self) -> None:
+        """Return accepted editor input to the containing playback surface."""
+        target = self.parentWidget()
+        if target is not None:
+            target.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def _apply_limit_change(self) -> None:
         maximum = self._maximum_window()

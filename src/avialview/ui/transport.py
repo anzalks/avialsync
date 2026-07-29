@@ -415,6 +415,7 @@ class Transport(QWidget):
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._root_layout = QVBoxLayout(self)
         self._root_layout.setContentsMargins(5, 3, 5, 5)
         self._root_layout.setSpacing(2)
@@ -726,7 +727,8 @@ class Transport(QWidget):
         if t is not None:
             clamped = max(self._bounds[0], min(self._bounds[1], t))
             self.seek_requested.emit(clamped, True)
-        self._time_editing = False
+            self._time_editing = False
+            self.setFocus(Qt.FocusReason.OtherFocusReason)
 
     @staticmethod
     def _parse_time_input(text: str) -> float | None:

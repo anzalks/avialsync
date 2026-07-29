@@ -41,12 +41,12 @@ class PlotPane(QWidget):
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         _layout = QVBoxLayout()
         _layout.setContentsMargins(0, 0, 0, 0)
         _layout.setSpacing(0)
         self.setLayout(_layout)
 
-        # Configure pyqtgraph
         self._apply_palette()
 
         self.graphics_layout = pg.GraphicsLayoutWidget()

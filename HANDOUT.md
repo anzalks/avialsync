@@ -623,6 +623,9 @@ conda run -n avialview python tools/prepare_release.py 0.1.0b1
 | `Home` | Jump to start |
 | `End` | Jump to end |
 
+Time and plot-window editors protect Space while text is being entered. Enter accepts a valid value
+and returns focus to the containing playback surface, so the next Space immediately plays/pauses.
+
 ### Marking
 
 | Key | Action |

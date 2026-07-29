@@ -361,6 +361,13 @@ by the OS/desktop across all three platforms. If a future action needs a shortcu
 use Ctrl+Shift+<letter> or pick a non-colliding combination.
 The previous collision was a known bug confirmed at audit; this entry resolves it.
 
+### 8. Accepted numeric/time edits return focus to playback
+
+Space and the playback keys remain protected while a line edit, spin box, or combo is actively
+being edited. Once Enter accepts a valid transport time or plot-window limit—or a plot-window unit
+is selected—focus moves to the containing non-editor playback surface. The next Space therefore
+uses the window-scoped Play/Pause `QAction` instead of remaining trapped in the editor.
+
 ### Consequences (what every future agent must not reverse)
 
 - Never create a `QShortcut` for an action that already has a menu `QAction` with
@@ -369,6 +376,8 @@ The previous collision was a known bug confirmed at audit; this entry resolves i
   handler. Always emit the corresponding transport signal so the transport bar stays
   in sync.
 - Never bind Ctrl+V or Ctrl+D.
+- Never leave keyboard focus in an accepted time/window editor; preserve Space while editing and
+  return focus to a non-editor playback surface after acceptance.
 - Never add a Preferences action without also setting `MenuRole.ApplicationSpecificRole`
   or `PreferencesRole` appropriately.
 - J shortcuts dialog rendering must remain derived from live `QAction` registry; no

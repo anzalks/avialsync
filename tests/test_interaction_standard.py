@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication
 
@@ -229,6 +230,35 @@ def test_space_action_emits_play_toggled(main_window) -> None:
             break
 
     assert received, "Space QAction.trigger() must emit transport.play_toggled"
+
+
+@pytest.mark.parametrize("editor_name", ["plot_limit", "transport_time"])
+def test_entered_time_editor_returns_focus_to_playback_surface(
+    main_window,
+    qtbot,
+    editor_name: str,
+) -> None:
+    """An accepted time value must make the next Space a playback command."""
+    received: list[bool] = []
+    main_window.transport.play_toggled.connect(received.append)
+    if editor_name == "plot_limit":
+        editor = main_window.plot_pane.window_limit_spin
+        expected_focus = main_window.plot_pane
+    else:
+        editor = main_window.transport._time_edit
+        editor.selectAll()
+        qtbot.keyClicks(editor, "2.5")
+        expected_focus = main_window.transport
+
+    editor.setFocus()
+    qtbot.keyClick(editor, Qt.Key.Key_Space)
+    assert received == []
+
+    qtbot.keyClick(editor, Qt.Key.Key_Return)
+    assert QApplication.focusWidget() is expected_focus
+
+    qtbot.keyClick(expected_focus, Qt.Key.Key_Space)
+    assert received == [True]
 
 
 # ── Shortcuts dialog derives from registry (D-022.6) ──────────────────────────
