@@ -19542,7 +19542,7 @@
       "label": "2b. Timeline Evidence overview (D-027)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L157",
+      "source_location": "L160",
       "_origin": "ast"
     },
     {
@@ -19550,7 +19550,7 @@
       "label": "2a. Synchronization dataflow (D-026)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L203",
+      "source_location": "L213",
       "_origin": "ast"
     },
     {
@@ -19558,7 +19558,7 @@
       "label": "3. Threading model",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L221",
+      "source_location": "L231",
       "_origin": "ast"
     },
     {
@@ -19566,7 +19566,7 @@
       "label": "Appearance boundary",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L231",
+      "source_location": "L241",
       "_origin": "ast"
     },
     {
@@ -19574,7 +19574,7 @@
       "label": "Playback ownership and proof of exact frames",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L240",
+      "source_location": "L250",
       "_origin": "ast"
     },
     {
@@ -19582,7 +19582,7 @@
       "label": "CI video boundary",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L271",
+      "source_location": "L281",
       "_origin": "ast"
     },
     {
@@ -19590,7 +19590,7 @@
       "label": "4. Plugin contract (frozen at Phase 5 as API v1)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L279",
+      "source_location": "L289",
       "_origin": "ast"
     },
     {
@@ -19598,7 +19598,7 @@
       "label": "Synchronization plugin extension (D-026; not frozen API v1)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L352",
+      "source_location": "L362",
       "_origin": "ast"
     },
     {
@@ -19606,7 +19606,7 @@
       "label": "5. Session file (.avv, JSON, schema_version field)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L366",
+      "source_location": "L376",
       "_origin": "ast"
     },
     {
@@ -19614,7 +19614,7 @@
       "label": "5b. Cache invalidation key (updates D-004)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L384",
+      "source_location": "L394",
       "_origin": "ast"
     },
     {
@@ -19622,7 +19622,7 @@
       "label": "5c. Channel scaling (32+ channels)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L392",
+      "source_location": "L402",
       "_origin": "ast"
     },
     {
@@ -19630,7 +19630,7 @@
       "label": "6. Packaging & shipping (D-012..D-017)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L401",
+      "source_location": "L411",
       "_origin": "ast"
     },
     {
@@ -19714,11 +19714,19 @@
       "_origin": "ast"
     },
     {
+      "id": "blueprint_p4_6_plot_review_and_sweep_ux_refinement_approved_implementation_pending",
+      "label": "P4.6 — Plot review and sweep UX refinement (approved; implementation pending)",
+      "file_type": "document",
+      "source_file": "BLUEPRINT.md",
+      "source_location": "L180",
+      "_origin": "ast"
+    },
+    {
       "id": "blueprint_phase_5_plugin_api_packaging_week_10_13",
       "label": "Phase 5 — Plugin API + packaging (Week 10–13)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L180",
+      "source_location": "L206",
       "_origin": "ast"
     },
     {
@@ -19726,7 +19734,7 @@
       "label": "P5.4 — Evidence-based synchronization (TTL/events)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L206",
+      "source_location": "L232",
       "_origin": "ast"
     },
     {
@@ -19734,7 +19742,7 @@
       "label": "Phase 6 — Release & community (Week 13–16)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L232",
+      "source_location": "L258",
       "_origin": "ast"
     },
     {
@@ -19742,7 +19750,7 @@
       "label": "Working method with AI agents (all phases)",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L246",
+      "source_location": "L272",
       "_origin": "ast"
     },
     {
@@ -19750,7 +19758,7 @@
       "label": "Timeline summary",
       "file_type": "document",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L253",
+      "source_location": "L279",
       "_origin": "ast"
     },
     {
@@ -20650,6 +20658,46 @@
       "_origin": "ast"
     },
     {
+      "id": "decisions_2026_07_d_044_plot_presentation_separates_review_sweep_and_scope",
+      "label": "2026-07 · D-044 · Plot presentation separates review, sweep, and scope",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L866",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_context_868",
+      "label": "Context",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L868",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_decision_877",
+      "label": "Decision",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L877",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_alternatives_rejected_906",
+      "label": "Alternatives rejected",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L906",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_consequences_913",
+      "label": "Consequences",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L913",
+      "_origin": "ast"
+    },
+    {
       "id": "gemini",
       "label": "GEMINI.md",
       "file_type": "document",
@@ -20750,7 +20798,7 @@
       "label": "Cross-platform pressure audit (D-040)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L224",
+      "source_location": "L234",
       "_origin": "ast"
     },
     {
@@ -20758,7 +20806,7 @@
       "label": "Fixed (this PR — Phase 4 stabilization)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L248",
+      "source_location": "L258",
       "_origin": "ast"
     },
     {
@@ -20766,7 +20814,7 @@
       "label": "Pre-existing mypy errors (suppressed in pyproject.toml — cleanup is separate)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L279",
+      "source_location": "L289",
       "_origin": "ast"
     },
     {
@@ -20774,7 +20822,7 @@
       "label": "Module Map",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L289",
+      "source_location": "L299",
       "_origin": "ast"
     },
     {
@@ -20782,7 +20830,7 @@
       "label": "Architecture Rules (violations = rejected PR)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L332",
+      "source_location": "L342",
       "_origin": "ast"
     },
     {
@@ -20790,7 +20838,7 @@
       "label": "Signal Wiring Map",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L346",
+      "source_location": "L356",
       "_origin": "ast"
     },
     {
@@ -20798,7 +20846,7 @@
       "label": "Sidebar → MainWindow → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L350",
+      "source_location": "L360",
       "_origin": "ast"
     },
     {
@@ -20806,7 +20854,7 @@
       "label": "Transport → Player → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L364",
+      "source_location": "L374",
       "_origin": "ast"
     },
     {
@@ -20814,7 +20862,7 @@
       "label": "PlotPane / Player → downstream",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L381",
+      "source_location": "L391",
       "_origin": "ast"
     },
     {
@@ -20822,7 +20870,7 @@
       "label": "Time display mode (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L392",
+      "source_location": "L402",
       "_origin": "ast"
     },
     {
@@ -20830,7 +20878,7 @@
       "label": "Source properties + integrity (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L399",
+      "source_location": "L409",
       "_origin": "ast"
     },
     {
@@ -20838,7 +20886,7 @@
       "label": "Import pipeline (updated, D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L409",
+      "source_location": "L419",
       "_origin": "ast"
     },
     {
@@ -20846,7 +20894,7 @@
       "label": "Known Traps",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L425",
+      "source_location": "L435",
       "_origin": "ast"
     },
     {
@@ -20854,7 +20902,7 @@
       "label": "1. No bare `QWidget { }` QSS selector — blacks out video panes",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L427",
+      "source_location": "L437",
       "_origin": "ast"
     },
     {
@@ -20862,7 +20910,7 @@
       "label": "2. `setParent(None)` makes a widget a popup window",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L432",
+      "source_location": "L442",
       "_origin": "ast"
     },
     {
@@ -20870,7 +20918,7 @@
       "label": "3. `setLayout()` silently fails if layout already exists",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L436",
+      "source_location": "L446",
       "_origin": "ast"
     },
     {
@@ -20878,7 +20926,7 @@
       "label": "4. LC_NUMERIC must be 'C' after Qt import, before mpv",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L440",
+      "source_location": "L450",
       "_origin": "ast"
     },
     {
@@ -20886,7 +20934,7 @@
       "label": "5. Never import mpv at module top level (D-013)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L444",
+      "source_location": "L454",
       "_origin": "ast"
     },
     {
@@ -20894,7 +20942,7 @@
       "label": "6. Video pane needs `WA_StyledBackground = False`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L448",
+      "source_location": "L458",
       "_origin": "ast"
     },
     {
@@ -20902,7 +20950,7 @@
       "label": "7. Drive MasterClock from `time.monotonic()` — never accumulate timer intervals",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L452",
+      "source_location": "L462",
       "_origin": "ast"
     },
     {
@@ -20910,7 +20958,7 @@
       "label": "8. Drift correction needs hysteresis (5 consecutive ticks)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L456",
+      "source_location": "L466",
       "_origin": "ast"
     },
     {
@@ -20918,7 +20966,7 @@
       "label": "9. polars `read_csv` type inference flips per-chunk",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L462",
+      "source_location": "L472",
       "_origin": "ast"
     },
     {
@@ -20926,7 +20974,7 @@
       "label": "10. `python-mpv` (PyPI) ≠ `mpv` (PyPI)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L468",
+      "source_location": "L478",
       "_origin": "ast"
     },
     {
@@ -20934,7 +20982,7 @@
       "label": "12. ruff `line-length = 100` — IDE diagnostics at 79 chars are false positives",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L471",
+      "source_location": "L481",
       "_origin": "ast"
     },
     {
@@ -20942,7 +20990,7 @@
       "label": "13. `_load_level()` is private but currently leaks across UI/engine code",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L475",
+      "source_location": "L485",
       "_origin": "ast"
     },
     {
@@ -20950,7 +20998,7 @@
       "label": "14. Session v1 → v2 migration: SensorEntry / VideoEntry gain new optional fields",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L482",
+      "source_location": "L492",
       "_origin": "ast"
     },
     {
@@ -20958,7 +21006,7 @@
       "label": "15. Never cache time→pixel positions; map from current geometry at paint time",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L488",
+      "source_location": "L498",
       "_origin": "ast"
     },
     {
@@ -20966,7 +21014,7 @@
       "label": "18. System-key collisions — Ctrl+V and Ctrl+D are reserved (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L498",
+      "source_location": "L508",
       "_origin": "ast"
     },
     {
@@ -20974,7 +21022,7 @@
       "label": "19. VideoPane right-click: eventFilter, NOT CustomContextMenu policy (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L509",
+      "source_location": "L519",
       "_origin": "ast"
     },
     {
@@ -20982,7 +21030,7 @@
       "label": "11. Annotation label edits via `markers` property are silently discarded",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L524",
+      "source_location": "L534",
       "_origin": "ast"
     },
     {
@@ -20990,7 +21038,7 @@
       "label": "16. `type: ignore` is never a shipping mechanism",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L528",
+      "source_location": "L538",
       "_origin": "ast"
     },
     {
@@ -20998,7 +21046,7 @@
       "label": "20. mypy silently ignores malformed override sections",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L545",
+      "source_location": "L555",
       "_origin": "ast"
     },
     {
@@ -21006,7 +21054,7 @@
       "label": "17. Annotation schema (v3) — per-video frame records",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L548",
+      "source_location": "L558",
       "_origin": "ast"
     },
     {
@@ -21014,7 +21062,7 @@
       "label": "Run Commands",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L593",
+      "source_location": "L603",
       "_origin": "ast"
     },
     {
@@ -21022,7 +21070,7 @@
       "label": "Shortcuts Reference (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L627",
+      "source_location": "L637",
       "_origin": "ast"
     },
     {
@@ -21030,7 +21078,7 @@
       "label": "Playback",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L629",
+      "source_location": "L639",
       "_origin": "ast"
     },
     {
@@ -21038,7 +21086,7 @@
       "label": "Marking",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L649",
+      "source_location": "L659",
       "_origin": "ast"
     },
     {
@@ -21046,7 +21094,7 @@
       "label": "View",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L659",
+      "source_location": "L669",
       "_origin": "ast"
     },
     {
@@ -21054,7 +21102,7 @@
       "label": "File",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L671",
+      "source_location": "L681",
       "_origin": "ast"
     },
     {
@@ -21062,7 +21110,143 @@
       "label": "Performance Budgets (engineering-certified where ★)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L685",
+      "source_location": "L695",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan",
+      "label": "PLOT_UX_PLAN.md",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "label": "AvialView Plot UX Refinement Plan",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_1_objective",
+      "label": "1. Objective",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L15",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_2_compatibility_ledger_nothing_in_this_list_may_be_lost",
+      "label": "2. Compatibility ledger — nothing in this list may be lost",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L25",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_3_terminology_and_display_states",
+      "label": "3. Terminology and display states",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L52",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_4_target_plot_anatomy",
+      "label": "4. Target plot anatomy",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L83",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_5_shared_time_span_control",
+      "label": "5. Shared time-span control",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L114",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_6_data_streams_becomes_the_single_global_navigator",
+      "label": "6. Data Streams becomes the single global navigator",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L134",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_7_vertical_scale_and_channel_interaction",
+      "label": "7. Vertical scale and channel interaction",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L156",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_8_trace_and_overlay_visual_language",
+      "label": "8. Trace and overlay visual language",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L176",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_9_workspace_and_transport_hierarchy",
+      "label": "9. Workspace and transport hierarchy",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L195",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_10_focus_and_keyboard_contract",
+      "label": "10. Focus and keyboard contract",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L207",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_11_performance_invariants",
+      "label": "11. Performance invariants",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L219",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_12_persistence_and_migration",
+      "label": "12. Persistence and migration",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L237",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_13_implementation_slices",
+      "label": "13. Implementation slices",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L252",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_14_required_test_evidence",
+      "label": "14. Required test evidence",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L278",
+      "_origin": "ast"
+    },
+    {
+      "id": "plot_ux_plan_15_definition_of_done",
+      "label": "15. Definition of done",
+      "file_type": "document",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L300",
       "_origin": "ast"
     },
     {
@@ -21134,7 +21318,7 @@
       "label": "Phase 5 prompts",
       "file_type": "document",
       "source_file": "PROMPTS.md",
-      "source_location": "L113",
+      "source_location": "L123",
       "_origin": "ast"
     },
     {
@@ -21142,7 +21326,7 @@
       "label": "Phase 6 prompts",
       "file_type": "document",
       "source_file": "PROMPTS.md",
-      "source_location": "L141",
+      "source_location": "L151",
       "_origin": "ast"
     },
     {
@@ -21150,7 +21334,7 @@
       "label": "Debugging prompt template (any phase)",
       "file_type": "document",
       "source_file": "PROMPTS.md",
-      "source_location": "L152",
+      "source_location": "L162",
       "_origin": "ast"
     },
     {
@@ -21290,11 +21474,19 @@
       "_origin": "ast"
     },
     {
+      "id": "testing_5a_plot_ux_refinement_gates_p4_6_d_044",
+      "label": "5a. Plot UX refinement gates (P4.6 / D-044)",
+      "file_type": "document",
+      "source_file": "TESTING.md",
+      "source_location": "L95",
+      "_origin": "ast"
+    },
+    {
       "id": "testing_6_manual_smoke_checklist_human_end_of_each_phase_on_your_real_field_data",
       "label": "6. Manual smoke checklist (human, end of each phase, on YOUR real field data)",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L95",
+      "source_location": "L116",
       "_origin": "ast"
     },
     {
@@ -21302,7 +21494,7 @@
       "label": "7. Edge-case test matrix (each row = at least one automated test + a fixture variant)",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L109",
+      "source_location": "L137",
       "_origin": "ast"
     },
     {
@@ -21310,7 +21502,7 @@
       "label": "Time & timestamps",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L111",
+      "source_location": "L139",
       "_origin": "ast"
     },
     {
@@ -21318,7 +21510,7 @@
       "label": "Video",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L122",
+      "source_location": "L150",
       "_origin": "ast"
     },
     {
@@ -21326,7 +21518,7 @@
       "label": "Data content",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L134",
+      "source_location": "L162",
       "_origin": "ast"
     },
     {
@@ -21334,7 +21526,7 @@
       "label": "Synchronization evidence (planned, D-026)",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L144",
+      "source_location": "L172",
       "_origin": "ast"
     },
     {
@@ -21342,7 +21534,7 @@
       "label": "Sessions & environment",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L154",
+      "source_location": "L182",
       "_origin": "ast"
     },
     {
@@ -21350,7 +21542,7 @@
       "label": "8. CI matrix (see .github/workflows/ci.yml)",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L169",
+      "source_location": "L197",
       "_origin": "ast"
     },
     {
@@ -22118,6 +22310,46 @@
       "label": "Source Nodes",
       "file_type": "document",
       "source_file": "graphify-out/memory/query_20260729_140950_implement_the_performance_audit_hardening_and_comm.md",
+      "source_location": "L20",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u",
+      "label": "query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u.md",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_q_make_planning_file_changes_for_the_approved_plot_ux_refinement_without_code_changes_preserving_all_current_functionality",
+      "label": "Q: Make planning-file changes for the approved plot UX refinement without code changes, preserving all current functionality.",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u.md",
+      "source_location": "L10",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_answer",
+      "label": "Answer",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u.md",
+      "source_location": "L12",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_outcome",
+      "label": "Outcome",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u.md",
+      "source_location": "L16",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_source_nodes",
+      "label": "Source Nodes",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u.md",
       "source_location": "L20",
       "_origin": "ast"
     }
@@ -63898,7 +64130,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L157",
+      "source_location": "L160",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63908,7 +64140,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L203",
+      "source_location": "L213",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63918,7 +64150,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L221",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63928,7 +64160,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L231",
+      "source_location": "L241",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63938,7 +64170,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L240",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63948,7 +64180,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L271",
+      "source_location": "L281",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63958,7 +64190,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L279",
+      "source_location": "L289",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63968,7 +64200,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L352",
+      "source_location": "L362",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63978,7 +64210,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L366",
+      "source_location": "L376",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63988,7 +64220,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L384",
+      "source_location": "L394",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63998,7 +64230,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L392",
+      "source_location": "L402",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -64008,7 +64240,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L401",
+      "source_location": "L411",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -64103,12 +64335,22 @@
       "_origin": "ast"
     },
     {
+      "source": "blueprint_phase_4_ux_completeness_week_7_10",
+      "target": "blueprint_p4_6_plot_review_and_sweep_ux_refinement_approved_implementation_pending",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "BLUEPRINT.md",
+      "source_location": "L180",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "blueprint_avialview_project_blueprint_v1",
       "target": "blueprint_phase_5_plugin_api_packaging_week_10_13",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L180",
+      "source_location": "L206",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -64118,7 +64360,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L206",
+      "source_location": "L232",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -64128,7 +64370,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L232",
+      "source_location": "L258",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -64138,7 +64380,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L246",
+      "source_location": "L272",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -64148,7 +64390,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "BLUEPRINT.md",
-      "source_location": "L253",
+      "source_location": "L279",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65253,6 +65495,56 @@
       "_origin": "ast"
     },
     {
+      "source": "decisions_decisions_md_lightweight_adr_log",
+      "target": "decisions_2026_07_d_044_plot_presentation_separates_review_sweep_and_scope",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L866",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_044_plot_presentation_separates_review_sweep_and_scope",
+      "target": "decisions_context_868",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L868",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_044_plot_presentation_separates_review_sweep_and_scope",
+      "target": "decisions_decision_877",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L877",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_044_plot_presentation_separates_review_sweep_and_scope",
+      "target": "decisions_alternatives_rejected_906",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L906",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_044_plot_presentation_separates_review_sweep_and_scope",
+      "target": "decisions_consequences_913",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L913",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "gemini",
       "target": "gemini_gemini_md",
       "relation": "contains",
@@ -65358,7 +65650,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L224",
+      "source_location": "L234",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65368,7 +65660,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L248",
+      "source_location": "L258",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65378,7 +65670,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L279",
+      "source_location": "L289",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65388,7 +65680,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L289",
+      "source_location": "L299",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65398,7 +65690,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L332",
+      "source_location": "L342",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65408,7 +65700,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L346",
+      "source_location": "L356",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65418,7 +65710,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L350",
+      "source_location": "L360",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65428,7 +65720,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L364",
+      "source_location": "L374",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65438,7 +65730,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L381",
+      "source_location": "L391",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65448,7 +65740,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L392",
+      "source_location": "L402",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65458,7 +65750,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L399",
+      "source_location": "L409",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65468,7 +65760,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L409",
+      "source_location": "L419",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65478,7 +65770,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L425",
+      "source_location": "L435",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65488,7 +65780,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L427",
+      "source_location": "L437",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65498,7 +65790,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L432",
+      "source_location": "L442",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65508,7 +65800,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L436",
+      "source_location": "L446",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65518,7 +65810,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L440",
+      "source_location": "L450",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65528,7 +65820,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L444",
+      "source_location": "L454",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65538,7 +65830,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L448",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65548,7 +65840,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L452",
+      "source_location": "L462",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65558,7 +65850,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L456",
+      "source_location": "L466",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65568,7 +65860,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L462",
+      "source_location": "L472",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65578,7 +65870,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L468",
+      "source_location": "L478",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65588,7 +65880,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L471",
+      "source_location": "L481",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65598,7 +65890,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L475",
+      "source_location": "L485",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65608,7 +65900,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L482",
+      "source_location": "L492",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65618,7 +65910,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L488",
+      "source_location": "L498",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65628,7 +65920,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L498",
+      "source_location": "L508",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65638,7 +65930,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L509",
+      "source_location": "L519",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65648,7 +65940,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L524",
+      "source_location": "L534",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65658,7 +65950,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L528",
+      "source_location": "L538",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65668,7 +65960,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L545",
+      "source_location": "L555",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65678,7 +65970,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L548",
+      "source_location": "L558",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65688,7 +65980,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L593",
+      "source_location": "L603",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65698,7 +65990,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L627",
+      "source_location": "L637",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65708,7 +66000,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L629",
+      "source_location": "L639",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65718,7 +66010,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L649",
+      "source_location": "L659",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65728,7 +66020,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L659",
+      "source_location": "L669",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65738,7 +66030,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L671",
+      "source_location": "L681",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65748,7 +66040,167 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L685",
+      "source_location": "L695",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan",
+      "target": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_1_objective",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L15",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_2_compatibility_ledger_nothing_in_this_list_may_be_lost",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_3_terminology_and_display_states",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L52",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_4_target_plot_anatomy",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L83",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_5_shared_time_span_control",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L114",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_6_data_streams_becomes_the_single_global_navigator",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L134",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_7_vertical_scale_and_channel_interaction",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L156",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_8_trace_and_overlay_visual_language",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L176",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_9_workspace_and_transport_hierarchy",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L195",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_10_focus_and_keyboard_contract",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L207",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_11_performance_invariants",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L219",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_12_persistence_and_migration",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L237",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_13_implementation_slices",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L252",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_14_required_test_evidence",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L278",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "plot_ux_plan_avialview_plot_ux_refinement_plan",
+      "target": "plot_ux_plan_15_definition_of_done",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "PLOT_UX_PLAN.md",
+      "source_location": "L300",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65828,7 +66280,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "PROMPTS.md",
-      "source_location": "L113",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65838,7 +66290,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "PROMPTS.md",
-      "source_location": "L141",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -65848,7 +66300,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "PROMPTS.md",
-      "source_location": "L152",
+      "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -66063,8 +66515,8 @@
       "_origin": "ast"
     },
     {
-      "source": "testing_testing_md",
-      "target": "testing_6_manual_smoke_checklist_human_end_of_each_phase_on_your_real_field_data",
+      "source": "testing_5_gui_test_conventions",
+      "target": "testing_5a_plot_ux_refinement_gates_p4_6_d_044",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
@@ -66074,11 +66526,21 @@
     },
     {
       "source": "testing_testing_md",
+      "target": "testing_6_manual_smoke_checklist_human_end_of_each_phase_on_your_real_field_data",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "TESTING.md",
+      "source_location": "L116",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "testing_testing_md",
       "target": "testing_7_edge_case_test_matrix_each_row_at_least_one_automated_test_a_fixture_variant",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L109",
+      "source_location": "L137",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -66088,7 +66550,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L111",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -66098,7 +66560,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L122",
+      "source_location": "L150",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -66108,7 +66570,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L134",
+      "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -66118,7 +66580,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L144",
+      "source_location": "L172",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -66128,7 +66590,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L154",
+      "source_location": "L182",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -66138,7 +66600,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L169",
+      "source_location": "L197",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -66958,6 +67420,46 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "graphify-out/memory/query_20260729_140950_implement_the_performance_audit_hardening_and_comm.md",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u",
+      "target": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_q_make_planning_file_changes_for_the_approved_plot_ux_refinement_without_code_changes_preserving_all_current_functionality",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u.md",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_q_make_planning_file_changes_for_the_approved_plot_ux_refinement_without_code_changes_preserving_all_current_functionality",
+      "target": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_answer",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u.md",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_q_make_planning_file_changes_for_the_approved_plot_ux_refinement_without_code_changes_preserving_all_current_functionality",
+      "target": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_outcome",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u.md",
+      "source_location": "L16",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_q_make_planning_file_changes_for_the_approved_plot_ux_refinement_without_code_changes_preserving_all_current_functionality",
+      "target": "graphify_out_memory_query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u_source_nodes",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_143613_make_planning_file_changes_for_the_approved_plot_u.md",
       "source_location": "L20",
       "weight": 1.0,
       "_origin": "ast"

@@ -1,7 +1,9 @@
 # AvialView Plot UX Refinement Plan
 
-Status: **approved target, not yet implemented**  
-Governing decisions: D-042 and D-044  
+Status: **approved target, not yet implemented**
+
+Governing decisions: D-042 and D-044
+
 Primary modules: `ui/plot_pane.py`, `ui/plot_row.py`, `ui/plot_sweep.py`,
 `ui/transport.py`, `ui/main_window.py`, `ui/theme.py`
 
