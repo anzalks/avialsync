@@ -141,6 +141,7 @@ def extract_ttl_edges(
 
     return tuple(events)
 
+
 def fit_exact_index_mapping(
     reference_times: np.ndarray,
     target_times: np.ndarray,
@@ -150,32 +151,35 @@ def fit_exact_index_mapping(
     index_offset: int = 0,
 ) -> SyncProposal:
     """Create a deterministic exact index mapping, overriding affine limits.
-    
+
     Frames are paired exactly 1-to-1 based on index_offset.
     """
     reference = _validated_times(reference_times, "reference")
     target = _validated_times(target_times, "target")
-    
+
     if reference_id == target_id:
         raise SyncEvidenceError("Reference and target synchronization sources must differ.")
-        
-    if index_offset < 0:
-        target = target[-index_offset:]
-    elif index_offset > 0:
-        reference = reference[index_offset:]
-        
-    length = min(len(reference), len(target))
+
+    reference_start = max(index_offset, 0)
+    target_start = max(-index_offset, 0)
+    length = min(len(reference) - reference_start, len(target) - target_start)
     if length < 2:
         raise SyncEvidenceError("Not enough overlapping frames for an exact index mapping.")
-        
-    matched_ref = reference[:length]
-    matched_tgt = target[:length]
-    
+
+    matched_ref = reference[reference_start : reference_start + length]
+    matched_tgt = target[target_start : target_start + length]
+    rate_scale = float((matched_tgt[-1] - matched_tgt[0]) / (matched_ref[-1] - matched_ref[0]))
+    if not 0.5 <= rate_scale <= 2.0:
+        raise SyncEvidenceError(
+            "Exact index evidence spans incompatible time ranges; select actual "
+            "per-frame trigger timestamps rather than dense signal samples."
+        )
+
     matches = tuple(
-        SyncMatch(ref, tgt, 0.0) 
+        SyncMatch(float(ref), float(tgt), 0.0)
         for ref, tgt in zip(matched_ref, matched_tgt, strict=False)
     )
-    
+
     fit = ExactSyncFit(
         offset=0.0,
         drift_ppm=0.0,
@@ -186,19 +190,22 @@ def fit_exact_index_mapping(
         exact_master=matched_ref,
         exact_source=matched_tgt,
     )
-    
-    matched_ref_set = set(matched_ref)
-    unmatched_references = tuple(float(t) for t in reference if t not in matched_ref_set)
-    
+
+    matched_reference_indices = set(range(reference_start, reference_start + length))
+    unmatched_references = tuple(
+        float(time)
+        for index, time in enumerate(reference)
+        if index not in matched_reference_indices
+    )
+
     return SyncProposal(
         reference_id=reference_id,
         target_id=target_id,
         fit=fit,
         matches=matches,
-        tolerance=np.inf,
+        tolerance=0.0,
         unmatched_references=unmatched_references,
     )
-
 
 
 def fit_sync_events(
@@ -274,8 +281,12 @@ def fit_sync_events(
         rejected_count=len(reference) + len(target) - 2 * len(matches),
     )
     matched_indices = set(best_pairs[:, 0])
-    unmatched_references = tuple(float(reference[i]) for i in range(len(reference)) if i not in matched_indices)
-    return SyncProposal(reference_id, target_id, fit, matches, float(tolerance), unmatched_references)
+    unmatched_references = tuple(
+        float(reference[i]) for i in range(len(reference)) if i not in matched_indices
+    )
+    return SyncProposal(
+        reference_id, target_id, fit, matches, float(tolerance), unmatched_references
+    )
 
 
 def _validated_times(times: np.ndarray, name: str) -> np.ndarray:

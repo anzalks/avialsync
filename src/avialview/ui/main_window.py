@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
-
 from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
@@ -69,6 +68,7 @@ class MainWindow(QMainWindow):
         self._video_source_bounds: dict[str, tuple[float, float]] = {}
         self._video_time_mappings: dict[str, tuple[float, float]] = {}
         self._sync_provenance: list[SyncProvenance] = []
+        self._pending_exact_mappings: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         self._overview_gaps: dict[float, str] = {}
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
         self._frame_indexed_sources: list[tuple[Path, float]] = []
@@ -122,6 +122,7 @@ class MainWindow(QMainWindow):
         self.sidebar.sensor_remove_requested.connect(self._on_sensor_remove_requested)
         self.sidebar.channel_remove_requested.connect(self._on_channel_remove_requested)
         self.sidebar.channel_visibility_changed.connect(self._on_channel_visibility_changed)
+        self.plot_pane.channel_close_requested.connect(self._on_plot_channel_close_requested)
         self.sidebar.grid_mode_changed.connect(self.video_grid.set_grid_mode)
         self.sidebar.video_badge_clicked.connect(self._show_video_properties)
         self.sidebar.sensor_badge_clicked.connect(self._show_sensor_properties)
@@ -400,11 +401,9 @@ class MainWindow(QMainWindow):
             for m in self.annotation_store.markers
         ]
 
-        # Capture plot zoom
-        plot_x0, plot_x1 = None, None
-        if self.plot_pane._master_plot:
-            vr = self.plot_pane._master_plot.viewRange()
-            plot_x0, plot_x1 = vr[0][0], vr[0][1]
+        # The fixed sweep always displays 0..window_duration.
+        plot_x0 = 0.0 if self.plot_pane.channels else None
+        plot_x1 = self.plot_pane.window_duration if self.plot_pane.channels else None
 
         return SessionState(
             videos=videos,
@@ -490,6 +489,16 @@ class MainWindow(QMainWindow):
                 return
             relink_map = dlg.resolved_mapping()
 
+        self._sync_provenance = list(state.sync_provenance)
+        self._pending_exact_mappings.clear()
+        for provenance in state.sync_provenance:
+            if provenance.exact_master and provenance.exact_source:
+                target = relink_map.get(provenance.target_id, provenance.target_id)
+                self._pending_exact_mappings[target] = (
+                    np.asarray(provenance.exact_master, dtype=np.float64),
+                    np.asarray(provenance.exact_source, dtype=np.float64),
+                )
+
         for ve in state.videos:
             p = Path(relink_map.get(ve.path, ve.path))
             if p.exists():
@@ -538,11 +547,9 @@ class MainWindow(QMainWindow):
             else:
                 self.annotation_store.add_point(me.t_start, me.label, video_frames=vfs)
 
-        self._sync_provenance = list(state.sync_provenance)
-
-        # Restore plot zoom
-        if state.plot_x0 is not None and state.plot_x1 is not None and self.plot_pane._master_plot:
-            self.plot_pane._master_plot.setXRange(state.plot_x0, state.plot_x1, padding=0)
+        # Restore the shared fixed-window duration even while sources load asynchronously.
+        if state.plot_x0 is not None and state.plot_x1 is not None:
+            self.plot_pane.set_window_duration(state.plot_x1 - state.plot_x0)
 
     def _autosave(self) -> None:
         """Silently autosave if a session path is set."""
@@ -767,36 +774,52 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         event.acceptProposedAction()
-        
+
         candidates = []
         for url in event.mimeData().urls():
             path = Path(url.toLocalFile())
             if not path.exists():
                 continue
             candidates.extend(self._collect_drop_candidates(path))
-            
+
         if not candidates:
             return
 
+        if len(candidates) == 1:
+            path, loader_cls = candidates[0]
+            if loader_cls is not None:
+                self._route_import_candidate(path, loader_cls)
+                return
+
         # Defer dialogs to avoid blocking the macOS drag-and-drop OS loop (prevents beachball)
         from PySide6.QtCore import QTimer
+
         QTimer.singleShot(0, lambda: self._process_drop_candidates(candidates))
+
+    def _route_import_candidate(
+        self, path: Path, loader_cls: type[TimeSeriesSource | VideoSource]
+    ) -> None:
+        """Route one capability-resolved source through its normal loader path."""
+        if issubclass(loader_cls, VideoSource):
+            self._load_video(path)
+        else:
+            self._start_data_import(path, loader_cls)
 
     def _process_drop_candidates(self, candidates: list[tuple[Path, type | None]]) -> None:
         """Present the batch import dialog and route accepted items."""
         from PySide6.QtWidgets import QDialog
+
         from avialview.ui.batch_import_dialog import BatchImportDialog
-        
+
         dialog = BatchImportDialog(candidates, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             selections = dialog.get_selections()
             for path, loader_cls in selections:
-                if issubclass(loader_cls, VideoSource):
-                    self._load_video(path)
-                elif issubclass(loader_cls, TimeSeriesSource):
-                    self._start_data_import(path, loader_cls)
+                self._route_import_candidate(path, loader_cls)
 
-    def _collect_drop_candidates(self, path: Path, registry: Any = None) -> list[tuple[Path, type | None]]:
+    def _collect_drop_candidates(
+        self, path: Path, registry: Any = None
+    ) -> list[tuple[Path, type | None]]:
         """Collect paths and their best-guess loaders recursively, avoiding session files."""
         if path.suffix.lower() == ".avv":
             try:
@@ -807,10 +830,11 @@ class MainWindow(QMainWindow):
 
         if registry is None:
             from avialview.core.registry import LoaderRegistry
+
             registry = LoaderRegistry()
 
         loader_class = registry.find_best_loader(path)
-        
+
         if loader_class is not None:
             return [(path, loader_class)]
 
@@ -824,8 +848,9 @@ class MainWindow(QMainWindow):
                     candidates.extend(self._collect_drop_candidates(child, registry=registry))
         else:
             candidates.append((path, None))
-            
+
         return candidates
+
     # ── Menu ─────────────────────────────────────────────────────────
 
     def _setup_menu(self) -> None:
@@ -956,10 +981,6 @@ class MainWindow(QMainWindow):
         self._act_reset_zoom.setShortcut(QKeySequence("Ctrl+0"))
         self._act_reset_zoom.triggered.connect(self.plot_pane.reset_zoom)
         _reg(self._act_reset_zoom, "View")
-
-        act = view_menu.addAction("Follow Playhead")
-        act.setCheckable(True)
-        act.toggled.connect(self.plot_pane.set_follow_playhead)
 
         # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS (D-022.2)
         self._act_fullscreen = view_menu.addAction("Toggle Pane Fullscreen")
@@ -1443,11 +1464,21 @@ class MainWindow(QMainWindow):
         """Create UI state only after asynchronous source opening succeeds."""
         offset = self._video_load_offsets.pop(original_path, 0.0)
         drift_ppm = self._video_load_drifts.pop(original_path, 0.0)
+        exact_mapping = self._pending_exact_mappings.pop(original_path, None)
+        exact_master = exact_mapping[0] if exact_mapping is not None else None
+        exact_source = exact_mapping[1] if exact_mapping is not None else None
         if not isinstance(loader, VideoSource):
             self._on_video_open_error(original_path, "Selected loader is not a VideoSource.")
             return
         bounds = loader.time_bounds()
-        self._set_video_coverage(original_path, bounds, offset, drift_ppm)
+        self._set_video_coverage(
+            original_path,
+            bounds,
+            offset,
+            drift_ppm,
+            exact_master,
+            exact_source,
+        )
         self._video_pane_initializing = original_path
         pane = self.video_grid.add_pane(
             original_path,
@@ -1462,8 +1493,14 @@ class MainWindow(QMainWindow):
         self.sidebar.add_video(original_path, metadata)
         self.sidebar.set_video_loader(original_path, loader)
         self.sidebar.set_video_pane(original_path, pane)
-        if offset or drift_ppm:
-            self.video_grid.set_sync_mapping(original_path, offset, drift_ppm)
+        if offset or drift_ppm or exact_mapping is not None:
+            self.video_grid.set_sync_mapping(
+                original_path,
+                offset,
+                drift_ppm,
+                exact_master,
+                exact_source,
+            )
         self._video_fps[original_path] = loader.fps()
         frame_times = loader.frame_times()
         pane.set_frame_times(frame_times)
@@ -1528,7 +1565,10 @@ class MainWindow(QMainWindow):
 
         references = [
             SignalEvidenceSpec(
-                source_id=f"{channel.reader.cache_dir.name.removesuffix('.avialcache')} : {channel.reader.channel_id}",
+                source_id=(
+                    f"{channel.reader.cache_dir.name.removesuffix('.avialcache')} : "
+                    f"{channel.reader.channel_id}"
+                ),
                 cache_dir=channel.reader.cache_dir,
                 channel_id=channel.reader.channel_id,
             )
@@ -1561,7 +1601,7 @@ class MainWindow(QMainWindow):
             raise ValueError(f"Synchronization target is not a loaded video: {target_path}")
 
         fit = proposal.fit
-        
+
         exact_master = getattr(fit, "exact_master", None)
         exact_source = getattr(fit, "exact_source", None)
 
@@ -1595,6 +1635,12 @@ class MainWindow(QMainWindow):
                 }
                 for match in proposal.matches[:500]
             ],
+            exact_master=(
+                [float(value) for value in exact_master] if exact_master is not None else []
+            ),
+            exact_source=(
+                [float(value) for value in exact_source] if exact_source is not None else []
+            ),
         )
         self._sync_provenance = [
             item for item in self._sync_provenance if item.target_id != target_path
@@ -1612,14 +1658,13 @@ class MainWindow(QMainWindow):
                 for match in proposal.matches
             ]
         )
-        
+
         # Merge missing video frames into the global overview gaps dictionary
-        self._overview_gaps.update({
-            time: "Missing video frame"
-            for time in getattr(proposal, "unmatched_references", ())
-        })
+        self._overview_gaps.update(
+            {time: "Missing video frame" for time in getattr(proposal, "unmatched_references", ())}
+        )
         self.transport.set_gap_events(sorted(self._overview_gaps.items()))
-        
+
         self.statusBar().showMessage(
             f"Accepted TTL/event alignment for {Path(target_path).name}: "
             f"{fit.max_residual * 1000:.3f} ms maximum residual.",
@@ -1647,6 +1692,10 @@ class MainWindow(QMainWindow):
 
     def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
         self.plot_pane.set_channel_visible(channel, is_visible)
+
+    def _on_plot_channel_close_requested(self, channel: str) -> None:
+        """Route a plot-row close through the existing sidebar visibility checkbox."""
+        self.sidebar.set_channel_visible(channel, False)
 
     def _on_video_visibility_changed(self, path: str, is_visible: bool) -> None:
         self.video_grid.set_pane_visible(path, is_visible)
@@ -1861,7 +1910,6 @@ class MainWindow(QMainWindow):
     def _update_bounds(self, t0: float, t1: float) -> None:
         if self.clock.state.bounds == (0.0, 0.0):
             new_bounds = (t0, t1)
-            self.plot_pane.set_x_range(t0, t1)
         else:
             curr_t0, curr_t1 = self.clock.state.bounds
             new_bounds = (
@@ -1870,5 +1918,6 @@ class MainWindow(QMainWindow):
             )
 
         self.clock.set_bounds(*new_bounds)
+        self.plot_pane.set_timeline_bounds(*new_bounds)
         self.transport.set_bounds(*new_bounds)
         self.transport.set_time(new_bounds[0])

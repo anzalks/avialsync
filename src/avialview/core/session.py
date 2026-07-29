@@ -56,6 +56,8 @@ class SyncProvenance:
     rejected_count: int
     tolerance: float
     matches: list[dict[str, float]] = dataclasses.field(default_factory=list)
+    exact_master: list[float] = dataclasses.field(default_factory=list)
+    exact_source: list[float] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -76,9 +78,9 @@ class SessionState:
     plot_x1: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 4)."""
+        """Serialise to a JSON-compatible dict (always writes version 5)."""
         return {
-            "version": 4,
+            "version": 5,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
@@ -91,9 +93,9 @@ class SessionState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v4)."""
+        """Deserialise from a parsed JSON dict (accepts v1 through v5)."""
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4):
+        if version not in (1, 2, 3, 4, 5):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
@@ -144,6 +146,8 @@ class SessionState:
                     }
                     for match in item.get("matches", [])
                 ],
+                exact_master=[float(value) for value in item.get("exact_master", [])],
+                exact_source=[float(value) for value in item.get("exact_source", [])],
             )
             for item in data.get("sync_provenance", [])
         ]

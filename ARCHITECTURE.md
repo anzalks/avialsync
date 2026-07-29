@@ -27,7 +27,7 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   ├── __main__.py                   # CLI: `avialview` / `avialview open <path>`
 │   ├── core/                         # HEADLESS — must never import PySide6 (test-enforced)
 │   │   ├── timeline.py               # MasterClock, TimeMap(offset, drift), PlaybackState
-│   │   ├── session.py                # Session model + .avv JSON (versioned schema v2)
+│   │   ├── session.py                # Session model + .avv JSON (versioned schema v5)
 │   │   ├── source.py                 # ABCs: TimeSeriesSource, VideoSource (plugin contract, §4)
 │   │   ├── pyramid.py                # NaN/gap-aware min-max pyramid build + query (D-009)
 │   │   ├── cache.py                  # .avialcache/ sidecar manager, content-hash key (D-008), atomic writes
@@ -52,6 +52,8 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
 │   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
+│   │   ├── plot_row.py               # one channel row's plot/curve/close-control construction
+│   │   ├── plot_sweep.py             # shared continuous window control + deterministic sweep state
 |   |   |-- tracking_3d_pane.py       # cache-backed current-pose projection; orbit/zoom (D-041)
 │   │   ├── transport.py              # two-row timeline + named evidence lanes, controls, status, A/B loop
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
@@ -138,8 +140,11 @@ flat at repo root so every model finds them without searching. Dependency direct
           parallel exact seek on release (seeker.py)
 ```
 
-Time series never "play": plots render pyramid slices for the visible window; only the playhead
-line moves per tick (≤ 2 ms budget).
+Time series never "play": plots render one pyramid-decimated slice for the current fixed-duration
+sweep. Ordinary master-clock ticks move the playhead and the curve's paint clip only; they do not
+query the pyramid or rebuild curve data. At a deterministic sweep boundary, the plot reloads the
+next bounded slice and restarts at the left edge. The full cursor path remains within the ≤ 2 ms
+budget.
 The 3D tracking view follows the same rule: it recognizes complete `name_x`, `name_y`, `name_z`
 channel triplets already imported through a `TimeSeriesSource`, samples only the nearest mmap-backed
 cache row at `t_master`, and paints only the current pose. Coordinates sharing one source reuse one
@@ -336,9 +341,10 @@ conversion hook. Format-specific parsing is deliberately a plugin responsibility
 ## 5. Session file (.avv, JSON, schema_version field)
 
 Stores: source list (path, loader id, loader config, offset, drift, proxy path), layout
-(grid order, visible channels, colors), view state (zoom ranges, theme), annotations, and—after an
+(grid order, visible channels, colors), view state (shared plot-window duration, theme), annotations, and—after an
 alignment is accepted—synchronization provenance (evidence summary, matching settings, residuals,
-confidence, and the accepted mapping).
+confidence, and the accepted affine or exact piecewise mapping). Schema v5 stores the complete
+exact mapping arrays so reopening a session cannot silently fall back to offset/drift.
 Paths stored relative to session file when possible, absolute fallback.
 
 Timeline Evidence splitter geometry/collapse is deliberately excluded from `.avv`: they are local

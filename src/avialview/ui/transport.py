@@ -324,7 +324,9 @@ class TimelineEvidence(QWidget):
         self._status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._status_label.setToolTip("Non-blocking application status")
         self._status_label.hide()
-        self._status_token = 0
+        self._status_clear_timer = QTimer(self)
+        self._status_clear_timer.setSingleShot(True)
+        self._status_clear_timer.timeout.connect(self._clear_status)
         header.addWidget(self._status_label)
         layout.addLayout(header)
         self.overview = TimelineOverview(self)
@@ -338,18 +340,17 @@ class TimelineEvidence(QWidget):
     def set_status(self, message: str, severity: str = "info") -> None:
         """Show active work beside Reset Zoom and clear non-active messages shortly after."""
         colors = {"info": "#b8c7d9", "busy": "#f0c674", "warning": "#ff9f43", "error": "#ff6b6b"}
-        self._status_token += 1
-        token = self._status_token
         self._status_label.setText(f"Status: {message}")
         self._status_label.setStyleSheet(f"color: {colors.get(severity, colors['info'])};")
         self._status_label.show()
-        if severity != "busy":
-            QTimer.singleShot(5000, lambda: self._clear_status_if_current(token))
+        if severity == "busy":
+            self._status_clear_timer.stop()
+        else:
+            self._status_clear_timer.start(5000)
 
-    def _clear_status_if_current(self, token: int) -> None:
-        if token == self._status_token:
-            self._status_label.clear()
-            self._status_label.hide()
+    def _clear_status(self) -> None:
+        self._status_label.clear()
+        self._status_label.hide()
 
     def set_collapsed(self, collapsed: bool, *, persist: bool = True) -> None:
         self.overview.setVisible(not collapsed)
@@ -536,6 +537,7 @@ class Transport(QWidget):
             (self._ab_in_btn, self._ab_out_btn, self._ab_clear_btn), start=end_time_index + 1
         ):
             self._timeline_layout.insertWidget(index, button)
+
         self._timeline_layout.addWidget(self._speed_label)
         self._timeline_layout.addWidget(self.rate_combo)
 

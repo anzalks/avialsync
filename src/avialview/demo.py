@@ -191,17 +191,19 @@ def _write_tracking(path: Path) -> None:
     rng = np.random.default_rng(44)
     n_frames = 300
     frames = np.arange(n_frames)
-    
+
     # Running in place (on a wheel)
     p_x, p_y = 320.0, 180.0
     f_x, f_y = 1.0, 0.0
     r_x, r_y = 0.0, 1.0
-    
+
     walk_phase = 2 * np.pi * frames / 30
     phase_l = walk_phase
     phase_r = walk_phase + np.pi
 
-    def local_to_global(f: np.ndarray | float, r: np.ndarray | float, u: np.ndarray | float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def local_to_global(
+        f: np.ndarray | float, r: np.ndarray | float, u: np.ndarray | float
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         f_arr = np.asarray(f)
         r_arr = np.asarray(r)
         u_arr = np.asarray(u)
@@ -210,7 +212,9 @@ def _write_tracking(path: Path) -> None:
         z = u_arr + rng.normal(0, 0.3, n_frames)
         return x, y, z
 
-    def compute_elbow(S_f: float, S_u: float, P_f: np.ndarray, P_u: np.ndarray, L1: float, L2: float) -> tuple[np.ndarray, np.ndarray]:
+    def compute_elbow(
+        S_f: float, S_u: float, P_f: np.ndarray, P_u: np.ndarray, L1: float, L2: float
+    ) -> tuple[np.ndarray, np.ndarray]:
         V_f = P_f - S_f
         V_u = P_u - S_u
         D = np.clip(np.sqrt(V_f**2 + V_u**2), 0.1, L1 + L2 - 0.001)
@@ -221,21 +225,21 @@ def _write_tracking(path: Path) -> None:
         return S_f + uv_f * d + un_f * h, S_u + uv_u * d + un_u * h
 
     parts_data = {}
-    
+
     # Head
     parts_data["head"] = local_to_global(25, 0, 50)
-    
+
     # Left side IK
     L_shoulder_f, L_shoulder_u = 0.0, 50.0
     L_paw_f = 15 * np.cos(phase_l)
     L_paw_u = 5 + 10 * np.maximum(0, np.sin(phase_l))
     L_elbow_f, L_elbow_u = compute_elbow(L_shoulder_f, L_shoulder_u, L_paw_f, L_paw_u, 25.0, 25.0)
-    
+
     parts_data["left_shoulder"] = local_to_global(L_shoulder_f, -15, L_shoulder_u)
     parts_data["left_elbow"] = local_to_global(L_elbow_f, -15, L_elbow_u)
     parts_data["left_paw"] = local_to_global(L_paw_f, -15, L_paw_u)
     parts_data["left_toe"] = local_to_global(L_paw_f + 6, -15, L_paw_u)
-    
+
     # Right side IK
     R_shoulder_f, R_shoulder_u = 0.0, 50.0
     R_paw_f = 15 * np.cos(phase_r)
@@ -248,9 +252,15 @@ def _write_tracking(path: Path) -> None:
     parts_data["right_toe"] = local_to_global(R_paw_f + 6, 15, R_paw_u)
 
     part_names = [
-        "left_toe", "left_paw", "left_elbow", "left_shoulder", 
-        "head", 
-        "right_shoulder", "right_elbow", "right_paw", "right_toe"
+        "left_toe",
+        "left_paw",
+        "left_elbow",
+        "left_shoulder",
+        "head",
+        "right_shoulder",
+        "right_elbow",
+        "right_paw",
+        "right_toe",
     ]
 
     columns = [frames.astype(float)]
@@ -272,10 +282,7 @@ def _write_tracking(path: Path) -> None:
         ",".join(bodyparts_fields),
         ",".join(coords_fields),
     )
-    rows = [
-        ",".join([str(int(row[0])), *(f"{value:.8f}" for value in row[1:])])
-        for row in data
-    ]
+    rows = [",".join([str(int(row[0])), *(f"{value:.8f}" for value in row[1:])]) for row in data]
     path.write_text("\n".join((*headers, *rows)) + "\n", encoding="utf-8")
 
 

@@ -5,7 +5,8 @@
 - **Videos** show each available camera at the selected experiment time.
 - **3D Tracking** shows complete XYZ tracking points beside the videos at the same experiment time.
   Drag the vertical splitter handle to give either view more space.
-- **Plots** show sensor, electrode, and tracking values over time.
+- **Plots** show sensor, electrode, and tracking values in a fixed oscilloscope-style time window.
+  The trace grows from left to right and starts again at the left edge when the window completes.
 - **Data Streams** shows when every loaded file is available. A coloured span means the source has
   data; an empty span means it does not.
 - **Shared time bar** moves every view together.
@@ -16,7 +17,10 @@
 - **Flag Frame** creates an annotation at the current time.
 - **Snapshot** saves the current visual view for notes or reports.
 - **Fullscreen Toggle** expands the selected video view.
-- **Reset Zoom** returns plots to the range of the loaded recordings.
+- Drag the single **Window** slider below the plots for continuous shared X-axis zoom. It controls
+  every plot row; rows do not have separate scroll or zoom controls.
+- Select the small **×** beside a plot to hide it. This unchecks the same channel in the left panel.
+- **Reset Zoom** expands the shared plot window to the full loaded timeline.
 - **A/B** marks a time range for inspection or export.
 
 Use tooltips by resting the pointer over any button if you are unsure what it does.

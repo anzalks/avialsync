@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+
 from avialview.loaders.neo_loader import NeoLoader
 
 logging.basicConfig(level=logging.INFO)

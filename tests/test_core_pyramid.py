@@ -122,6 +122,27 @@ def test_pyramid_builder_propagates_sidecar_write_failure(
         PyramidBuilder(tmp_path, "ch0").build_and_save(np.arange(16.0), np.arange(16.0))
 
 
+def test_pyramid_save_retries_interrupted_write_with_memmap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A transient macOS EINTR takes the robust fallback without hiding data."""
+    original_save = np.save
+    interrupted = False
+
+    def interrupt_once(path: Path, values: np.ndarray) -> None:
+        nonlocal interrupted
+        if not interrupted:
+            interrupted = True
+            raise InterruptedError
+        original_save(path, values)
+
+    monkeypatch.setattr(np, "save", interrupt_once)
+    PyramidBuilder(tmp_path, "ch0").build_and_save(np.arange(16.0), np.arange(16.0))
+
+    assert interrupted
+    assert np.load(tmp_path / "ch0_t.npy").tolist() == list(np.arange(16.0))
+
+
 def test_pathological_gap_mask():
     """Verify subsampled gap_mask (stride 10k) detects correctly on clustered gaps (D-023)."""
     # Create 180k samples, uniform dt=0.02 (50Hz)

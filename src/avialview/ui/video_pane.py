@@ -137,7 +137,7 @@ class PaintCanvas(QWidget):
 
         ww = self.width()
         wh = self.height()
-        
+
         scale = min(ww / vw, wh / vh)
         offset_x = (ww - vw * scale) / 2.0
         offset_y = (wh - vh * scale) / 2.0
@@ -176,6 +176,8 @@ class VideoPane(QWidget):
         self._media_loaded = False
         self._pending_seek: tuple[float, bool] | None = None
         self._target_pause = True
+        self._current_rate = 1.0
+        self._sync_correction = 1.0
 
         from avialview.core.timeline import TimeMap
 
@@ -479,20 +481,19 @@ class VideoPane(QWidget):
         self._current_rate = rate
         self._apply_rate()
 
+    def set_sync_correction(self, correction: float) -> None:
+        """Apply Player's bounded drift correction to the effective mpv rate."""
+        self._sync_correction = correction
+        self._apply_rate()
+
+    @property
+    def sync_correction(self) -> float:
+        """Return the currently applied drift-correction multiplier."""
+        return self._sync_correction
+
     def _apply_rate(self) -> None:
         if self.mpv:
-            slope = 1.0
-            if getattr(self, "time_map", None) is not None:
-                exact_m = getattr(self.time_map, "_exact_master", None)
-                exact_s = getattr(self.time_map, "_exact_source", None)
-                if exact_m is not None and exact_s is not None and len(exact_m) >= 2:
-                    # For exact (VFR) mapping, use the overall average slope
-                    # to keep the video player roughly in sync without constant seeking.
-                    slope = (exact_s[-1] - exact_s[0]) / (exact_m[-1] - exact_m[0])
-                else:
-                    slope = 1.0 + (self.time_map.drift_ppm * 1e-6)
-            correction = getattr(self, "_sync_correction", 1.0)
-            self.mpv.speed = getattr(self, "_current_rate", 1.0) * slope * correction
+            self.mpv.speed = self._current_rate * self.time_map.rate_scale * self._sync_correction
 
     @property
     def time_map(self):

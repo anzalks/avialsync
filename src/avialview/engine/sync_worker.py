@@ -10,7 +10,7 @@ import numpy as np
 from PySide6.QtCore import QObject, Signal, Slot
 
 from avialview.core.pyramid import PyramidReader
-from avialview.core.sync import extract_ttl_edges, fit_sync_events, fit_exact_index_mapping
+from avialview.core.sync import extract_ttl_edges, fit_exact_index_mapping, fit_sync_events
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,13 @@ class SyncWorker(QObject):
     finished = Signal(object)  # SyncProposal
     error = Signal(str)
 
-    def __init__(self, reference: EvidenceSpec, target: EvidenceSpec, mode: str = "affine", index_offset: int = 0) -> None:
+    def __init__(
+        self,
+        reference: EvidenceSpec,
+        target: EvidenceSpec,
+        mode: str = "affine",
+        index_offset: int = 0,
+    ) -> None:
         super().__init__()
         self._reference = reference
         self._target = target
@@ -52,10 +58,10 @@ class SyncWorker(QObject):
     def run(self) -> None:
         """Extract raw evidence and emit one deterministic fit proposal."""
         try:
-            is_exact = (self._mode == "exact_index")
+            is_exact = self._mode == "exact_index"
             reference_times = self._event_times(self._reference, use_all_times=is_exact)
             target_times = self._event_times(self._target, use_all_times=is_exact)
-            
+
             if is_exact:
                 proposal = fit_exact_index_mapping(
                     reference_times,

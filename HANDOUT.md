@@ -44,7 +44,7 @@ P5.4 has an initial implementation: cached TTL-channel extraction and video fram
 with explicit user acceptance and session provenance. Native plugin event providers remain unfrozen.
 
 ### Done (Phase 4)
-- Session save/load `.avv`, autosave 2 min, recent files, relink dialog
+- Session save/load `.avv` schema v5, autosave 2 min, recent files, relink dialog
 - Transport: unified `QLineEdit` 110px minimum, `HH:MM:SS.fff`, `_time_editing` guard
 - Theme: System/Dark/Light radio group in View menu; Ctrl+T cycles; System retains the platform
   style, palette, accent, and font, and follows Qt-reported palette changes while open. Explicit
@@ -61,6 +61,10 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - Snapshot / data slice / video clip export
 - Import wizard (CSV format/TZ/sentinel/euro-decimal) + proxy worker
 - `plot_pane.reset_zoom()` method exists
+- Plots use one fixed oscilloscope-style `0…window` sweep shared by every row. The continuous
+  window slider lives below the plots; ordinary clock ticks move only the playhead/reveal clip,
+  and the pyramid is queried only when the sweep wraps or the window changes. Each row's small
+  close button unchecks the existing sidebar visibility control.
 
 ### Done (Phase 4 UX / loader fixes)
 - **Live scrubbing coalescing**: During slider drag `Player.seek(exact=False)` coalesces in-flight keyframe seeks — if a seek is already dispatched, the newest target is held in `_pending_scrub_t` and flushed in `_on_tick` as soon as `SeekGroup.is_settled()`. Plot cursor and readout panel update every drag event. Exact seek fires on release as before.
@@ -250,7 +254,7 @@ outside that invocation; that message does not mean the full-package overrides a
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
 | `core/source.py` | Plugin ABCs — frozen API | `TimeSeriesSource`, `VideoSource` |
-| `core/session.py` | `.avv` session JSON, schema v2 | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry` |
+| `core/session.py` | `.avv` session JSON, schema v5 | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
 | `engine/player.py` | 60 Hz QTimer tick; MasterClock ↔ mpv ↔ UI | `Player.seek()`, `.set_playing()`, `.step_frame()` |
@@ -260,9 +264,11 @@ outside that invocation; that message does not mean the full-package overrides a
 | `engine/sync_worker.py` | Chunked event extraction and deterministic alignment fit (D-026) | `SyncWorker`, evidence specs |
 | `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `ui/main_window.py` | Top-level; wires all signals; session lifecycle; `_inspections` dict | `MainWindow` |
-| `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane` |
+| `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane`, `set_sync_correction()` |
 | `ui/video_grid.py` | N VideoPanes; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `set_grid_mode()` |
-| `ui/plot_pane.py` | pyqtgraph multi-row plot; pyramid-fed; X-linked; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
+| `ui/plot_pane.py` | pyqtgraph multi-row fixed sweeps; pyramid-fed; one shared window slider; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `set_timeline_bounds()`, `set_window_duration()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
+| `ui/plot_row.py` | One channel row's pyramid reader, curve, cursor, coverage, and close-control construction | `ChannelPlot`, `create_channel_plot()` |
+| `ui/plot_sweep.py` | Shared window slider and master-time-derived sweep state | `SweepWindowControl`, `SweepCurveItem` |
 | `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit | `Tracking3DPane.set_readers()`, `set_cursor()` |
 | `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status | `set_time()`, `set_bounds()`, `set_source_coverage()`, `set_ttl_events()`, `set_gap_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
@@ -337,6 +343,7 @@ All connections established in `MainWindow.__init__` unless noted.
 | `plot_pane.sources_changed(readers)` | `readout_panel.update_sources` + `video_grid.set_tracking_readers` |
 | `plot_pane.sources_changed(readers)` | `tracking_3d_pane.set_readers` for complete XYZ triplets |
 | `plot_pane.measure_changed(t_a, t_b)` | `readout_panel.show_delta(t_a, t_b, panes)` |
+| `plot_pane.channel_close_requested(channel)` | `sidebar.set_channel_visible(channel, False)` → existing checkbox visibility signal |
 | `player._on_tick()` — direct calls | `plot_pane.set_cursor(t)`, `transport.set_time(t)`, `readout_panel.set_cursor(t)` via `player._readout_panel` attr |
 | `Player._update_timeline_views(t)` | `tracking_3d_pane.set_cursor(t)` when the optional pane is present |
 

@@ -91,6 +91,16 @@ module = "avialview.ui.plot_pane"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
+module = "avialview.ui.plot_row"
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+module = "avialview.ui.plot_sweep"
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
 module = "avialview.ui.video_pane"
 ignore_errors = true
 

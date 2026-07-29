@@ -776,4 +776,33 @@ adds no dependency, follows the active palette, and is substantially below the c
 
 **Alternatives rejected:** Passing a custom TimeMap subclass (violates static type expectations and UI decoupling); rewriting the media container's timestamps on disk using ffmpeg (modifies user data, slow); generating a temporary mpv `--tcfile` (causes OSD and internal app state to misalign with true frame timestamps).
 
-**Consequences:** `SyncWizard` provides an "Exact Index (1:1 Frame Mapping)" mode. If chosen, `SyncWorker` maps the reference index to the video index (with a user-supplied offset) 1-to-1. Video playback natively pauses on missing frames exactly when the CSV indicates a gap, preserving 0 drift across the entire timeline regardless of container defects.
+**Consequences:** `SyncWizard` provides an "Exact Index (1:1 Frame Mapping)" mode. If chosen, `SyncWorker` maps the reference index to the video index (with a user-supplied offset) 1-to-1. Video playback natively pauses on missing frames exactly when the CSV indicates a gap, preserving 0 drift across the entire timeline regardless of container defects. Session schema v5 persists both complete timestamp arrays; loading a session restores the exact mapping rather than degrading it to the affine summary.
+
+## 2026-07 · D-042 · Plots use one fixed, shared oscilloscope sweep
+
+### Context
+
+Continuously translating every plot range makes the X-axis labels move during playback and the
+discrete window selector cannot express the inspection interval a user actually needs. Giving each
+row its own navigation control would also allow channels to show different time spans and undermine
+visual comparison.
+
+### Decision
+
+Every time-series row shares one fixed `0…window` X range. The master-clock time deterministically
+selects a sweep anchored at the master timeline start: the trace is revealed from left to right,
+then the next bounded pyramid slice starts at the left edge. A single logarithmically mapped,
+fine-grained slider below the complete plot stack controls the window duration continuously. Plot
+rows do not pan or zoom independently. Their small close buttons route through the existing sidebar
+checkbox and do not create a second visibility state.
+
+Ordinary clock ticks update only the playhead and a paint clip over pre-decimated curve data.
+Pyramid queries occur when a sweep boundary is crossed, when the shared duration changes, or when
+sources change. Absolute master timestamps remain authoritative for annotations, gaps, coverage,
+and measurement points; they are converted to sweep-relative display positions only at render time.
+
+### Consequences
+
+All plots retain one X-link, one duration, and one navigation control. Session `plot_x0`/`plot_x1`
+compatibility fields persist `0` and the shared duration without a schema bump. The cursor benchmark
+uses populated plot rows and retains the 2 ms release budget.

@@ -96,9 +96,10 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
 
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+    from PySide6.QtCore import QCoreApplication, QEvent
     from PySide6.QtWidgets import QApplication
 
-    QApplication.instance() or QApplication([])
+    app = QApplication.instance() or QApplication([])
 
     from avialview.ui.plot_pane import PlotPane
     from avialview.ui.readout_panel import ReadoutPanel
@@ -123,6 +124,10 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
         readers.append(r)
 
     plot_pane = PlotPane()
+    plot_pane.set_timeline_bounds(0.0, 1.0)
+    for ch_idx in range(N_CHANNELS):
+        plot_pane.load_channels(tmp_path / f"ch{ch_idx}.avialcache", [f"ch{ch_idx}"])
+    plot_pane.set_cursor(0.25)
     transport = Transport()
     transport.set_bounds(0.0, 1.0)
     readout = ReadoutPanel()
@@ -147,3 +152,11 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
         f"budget {budget * 1000:.1f}ms."
         " See BLUEPRINT.md ★ cursor-update budget."
     )
+    plot_pane.close()
+    transport.close()
+    readout.close()
+    plot_pane.deleteLater()
+    transport.deleteLater()
+    readout.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()

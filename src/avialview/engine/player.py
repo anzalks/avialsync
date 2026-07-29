@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,8 @@ from avialview.ui.video_pane import VideoPane
 if TYPE_CHECKING:
     from avialview.ui.readout_panel import ReadoutPanel
     from avialview.ui.tracking_3d_pane import Tracking3DPane
+
+logger = logging.getLogger(__name__)
 
 
 class Player(QObject):
@@ -195,7 +198,7 @@ class Player(QObject):
             else:
                 # Advance clock
                 self.clock.advance(now)
-            
+
             t = self.clock.state.t
 
             # A/B loop enforcement
@@ -222,26 +225,26 @@ class Player(QObject):
                         # Huge drift (e.g. delayed start), hard seek after brief hysteresis
                         self._drift_counts[idx] = self._drift_counts.get(idx, 0) + 1
                         if self._drift_counts[idx] > 5:
-                            print(f"DEBUG: Huge drift {drift*1000:.1f}ms, hard seeking!")
+                            logger.debug(
+                                "Correcting %.1f ms video drift with an exact seek",
+                                drift * 1000,
+                            )
                             self.seeker.seek_pane(pane, source_t, exact=True)
                             self._drift_counts[idx] = 0
-                            pane._sync_correction = 1.0
-                            pane._apply_rate()
+                            pane.set_sync_correction(1.0)
                     elif abs(drift) > 0.050:
                         # Moderate drift: Soft PLL speed correction
                         self._drift_counts[idx] = 0
                         # If vid_t < source_t, drift is negative -> need to speed up
-                        correction = 1.0 - (drift * 0.5) 
+                        correction = 1.0 - (drift * 0.5)
                         correction = max(0.8, min(1.2, correction))
-                        if abs(getattr(pane, "_sync_correction", 1.0) - correction) > 0.01:
-                            pane._sync_correction = correction
-                            pane._apply_rate()
+                        if abs(pane.sync_correction - correction) > 0.01:
+                            pane.set_sync_correction(correction)
                     else:
                         # In sync
                         self._drift_counts[idx] = 0
-                        if getattr(pane, "_sync_correction", 1.0) != 1.0:
-                            pane._sync_correction = 1.0
-                            pane._apply_rate()
+                        if pane.sync_correction != 1.0:
+                            pane.set_sync_correction(1.0)
 
             # Update UI
             self._update_timeline_views(t)

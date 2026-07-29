@@ -19,12 +19,12 @@ FIXTURE_V3 = Path(__file__).parent / "fixtures" / "session_v3.avv"
 
 
 # ---------------------------------------------------------------------------
-# v1 → v3 migration (regression guard — fixture must never be deleted)
+# v1 → v5 migration (regression guard — fixture must never be deleted)
 # ---------------------------------------------------------------------------
 
 
-def test_v1_session_loads_under_v4_schema():
-    """A v1 .avv file must load correctly after the v2-v4 schema changes."""
+def test_v1_session_loads_under_v5_schema():
+    """A v1 .avv file must load correctly after the v2-v5 schema changes."""
     state = SessionState.load(FIXTURE_V1)
 
     assert len(state.videos) == 1
@@ -49,14 +49,14 @@ def test_v1_session_loads_under_v4_schema():
     assert state.sync_provenance == []
 
 
-def test_v1_session_roundtrips_as_v4(tmp_path: Path) -> None:
-    """Loading a v1 session then saving it should produce a valid v4 file."""
+def test_v1_session_roundtrips_as_v5(tmp_path: Path) -> None:
+    """Loading a v1 session then saving it should produce a valid v5 file."""
     state = SessionState.load(FIXTURE_V1)
     out = tmp_path / "out.avv"
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 4
+    assert data["version"] == 5
     assert data["videos"][0]["offset"] == 0.5
     assert data["sensors"][0]["channels"] == ["ch1", "ch2"]
     assert data["sensors"][0]["import_report"] is None
@@ -69,7 +69,7 @@ def test_v1_session_roundtrips_as_v4(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_v2_session_loads_under_v4_schema() -> None:
+def test_v2_session_loads_under_v5_schema() -> None:
     """A v2 .avv file must load without error; video_frames defaults to []."""
     state = SessionState.load(FIXTURE_V2)
     assert len(state.markers) == 2
@@ -111,11 +111,11 @@ def test_v3_session_roundtrips(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# v2 in-memory roundtrip (inspection fields)
+# v5 in-memory roundtrip (inspection + exact synchronization fields)
 # ---------------------------------------------------------------------------
 
 
-def test_v4_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
+def test_v5_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
     """Inspection fields and accepted synchronization provenance survive a round trip."""
     state = SessionState(
         videos=[
@@ -156,14 +156,16 @@ def test_v4_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
                 matches=[
                     {"reference_time": 1.0, "target_time": 2.25, "residual": 0.0},
                 ],
+                exact_master=[1.0, 2.0, 3.0],
+                exact_source=[2.25, 3.25, 4.25],
             )
         ],
     )
-    out = tmp_path / "v4.avv"
+    out = tmp_path / "v5.avv"
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 4
+    assert data["version"] == 5
 
     loaded = SessionState.load(out)
     assert loaded.videos[0].integrity_flags == {"is_vfr": True, "has_gaps": False}
@@ -175,6 +177,8 @@ def test_v4_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
     assert loaded.markers[0].video_frames[0]["frame_index"] == 30
     assert loaded.sync_provenance[0].drift_ppm == pytest.approx(3.5)
     assert loaded.sync_provenance[0].matches[0]["target_time"] == pytest.approx(2.25)
+    assert loaded.sync_provenance[0].exact_master == [1.0, 2.0, 3.0]
+    assert loaded.sync_provenance[0].exact_source == [2.25, 3.25, 4.25]
 
 
 # ---------------------------------------------------------------------------

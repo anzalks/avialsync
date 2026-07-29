@@ -1,5 +1,7 @@
 import math
 
+import numpy as np
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -196,3 +198,44 @@ def test_timemap_set_mapping_reproduces_accepted_fit() -> None:
 
     assert tmap.to_source(0.0) == 1.25
     assert tmap.to_source(200.0) == 201.2507
+
+
+def test_time_map_exact_mapping_is_validated_and_copied() -> None:
+    master = np.array([0.0, 1.0, 3.0])
+    source = np.array([10.0, 11.5, 12.0])
+    tmap = TimeMap()
+
+    tmap.set_exact_mapping(master, source)
+    master[1] = 99.0
+    source[1] = 99.0
+
+    assert tmap.to_source(1.0) == pytest.approx(11.5)
+    assert tmap.to_master(11.5) == pytest.approx(1.0)
+    assert tmap.rate_scale == pytest.approx(2.0 / 3.0)
+
+
+@pytest.mark.parametrize(
+    ("master", "source"),
+    [
+        (np.array([0.0]), np.array([1.0])),
+        (np.array([0.0, 1.0]), np.array([1.0])),
+        (np.array([0.0, 0.0]), np.array([1.0, 2.0])),
+        (np.array([0.0, np.nan]), np.array([1.0, 2.0])),
+        (np.array([0.0, 1.0]), np.array([2.0, 1.0])),
+    ],
+)
+def test_time_map_rejects_noninvertible_exact_mapping(
+    master: np.ndarray, source: np.ndarray
+) -> None:
+    with pytest.raises(ValueError, match="strictly increasing"):
+        TimeMap().set_exact_mapping(master, source)
+
+
+def test_affine_edit_explicitly_replaces_exact_mapping() -> None:
+    tmap = TimeMap()
+    tmap.set_exact_mapping(np.array([0.0, 1.0]), np.array([5.0, 7.0]))
+
+    tmap.drift_ppm = 10.0
+
+    assert tmap.to_source(1.0) == pytest.approx(1.00001)
+    assert tmap.rate_scale == pytest.approx(1.00001)

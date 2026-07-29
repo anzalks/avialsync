@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
 
@@ -137,9 +136,9 @@ class VideoGrid(QWidget):
             pass
 
     def set_sync_mapping(
-        self, 
-        path: str, 
-        offset: float, 
+        self,
+        path: str,
+        offset: float,
         drift_ppm: float,
         exact_master: np.ndarray | None = None,
         exact_source: np.ndarray | None = None,

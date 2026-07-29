@@ -135,22 +135,30 @@ class TimeMap:
     @property
     def drift_ppm(self) -> float:
         return self._drift_ppm
-        
+
     @drift_ppm.setter
     def drift_ppm(self, value: float) -> None:
         self._drift_ppm = float(value)
+        self._exact_master = None
+        self._exact_source = None
+
+    @property
+    def rate_scale(self) -> float:
+        """Return the source-time rate relative to master time."""
+        if self._exact_master is not None and self._exact_source is not None:
+            master_span = self._exact_master[-1] - self._exact_master[0]
+            return float((self._exact_source[-1] - self._exact_source[0]) / master_span)
+        return 1.0 + self._drift_ppm * 1e-6
 
     def to_source(self, t_master: float) -> float:
         t_master = float(t_master)
         if self._exact_master is not None and self._exact_source is not None:
-            import numpy as np
             return float(np.interp(t_master, self._exact_master, self._exact_source))
         return t_master + self._base_offset + (self._drift_ppm * 1e-6) * (t_master - self._t_ref)
 
     def to_master(self, t_source: float) -> float:
         t_source = float(t_source)
         if self._exact_master is not None and self._exact_source is not None:
-            import numpy as np
             return float(np.interp(t_source, self._exact_source, self._exact_master))
         # to_source: ts = tm + offset + drift*(tm - t_ref)
         # ts = tm*(1 + drift) + offset - drift*t_ref
@@ -181,6 +189,8 @@ class TimeMap:
         self._base_offset = current_t_source - t_master_now
         self._offset = new_offset
         self._drift_ppm = new_drift_ppm
+        self._exact_master = None
+        self._exact_source = None
 
     def set_mapping(self, offset: float, drift_ppm: float, t_ref: float = 0.0) -> None:
         """Replace this source mapping with an accepted, absolute calibration.
@@ -198,8 +208,26 @@ class TimeMap:
 
     def set_exact_mapping(self, master_times: np.ndarray, source_times: np.ndarray) -> None:
         """Set a piecewise interpolation array for exact non-affine mapping.
-        
+
         This overrides offset/drift parameters during to_source and to_master evaluations.
         """
-        self._exact_master = np.asarray(master_times, dtype=np.float64)
-        self._exact_source = np.asarray(source_times, dtype=np.float64)
+        master = np.asarray(master_times, dtype=np.float64)
+        source = np.asarray(source_times, dtype=np.float64)
+        if (
+            master.ndim != 1
+            or source.ndim != 1
+            or len(master) != len(source)
+            or len(master) < 2
+            or not np.all(np.isfinite(master))
+            or not np.all(np.isfinite(source))
+            or np.any(np.diff(master) <= 0)
+            or np.any(np.diff(source) <= 0)
+        ):
+            raise ValueError(
+                "Exact mapping timestamps must be equal-length, finite, strictly "
+                "increasing one-dimensional arrays with at least two points."
+            )
+        self._exact_master = master.copy()
+        self._exact_source = source.copy()
+        self._exact_master.flags.writeable = False
+        self._exact_source.flags.writeable = False

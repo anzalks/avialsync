@@ -73,7 +73,8 @@ Exit criteria: 100 % branch coverage on timeline math; pyramid benchmark ★ pas
 
 Deliverables:
 - mpv embedded in a Qt widget (`ui/video_pane.py`) — **build the Windows/macOS Qt OpenGL render-API paths FIRST (D-011, D-038), then native `wid` on Linux**; settle coordination via property observation, no sleeps. Exact-frame tests prove the decoded `screenshot-raw video` frame-strip result and retry only transient raw-capture unavailability.
-- `ui/plot_pane.py`: pyqtgraph plot fed by pyramid, vertical playhead cursor (single InfiniteLine, cursor-only updates).
+- `ui/plot_pane.py`: pyqtgraph plot fed by pyramid, fixed oscilloscope-style sweep window,
+  vertical playhead cursor, and bounded paint-clip-only updates between sweep boundaries.
 - Transport bar: play/pause (space), slider, time readout, speed 0.1–8×.
 - Playback loop: QTimer @ 60 Hz advances MasterClock; mpv follows via rate-matched play + drift correction (re-seek if |video_t − target| > 40 ms **for N consecutive ticks — hysteresis, see AGENTS traps**); slider drag = keyframe seeks, release = exact seek; frame stepping via actual frame timestamps (D-007).
 - Open file dialogs + drag-and-drop for one video, one CSV (minimal import dialog: pick timestamp column, format, unit).
@@ -86,7 +87,8 @@ Exit criteria: **golden sync test** — for fixture video (burned frame counter)
 
 Deliverables:
 - Dynamic video grid (row 1, N columns, camera label overlay, double-click fullscreen).
-- Channel rows (row 2+): one plot row per time series source, shared X axis link, show/hide channels, per-channel color/legend.
+- Channel rows (row 2+): one plot row per time series source, shared fixed-duration X window and
+  one continuous slider, show/hide channels, per-channel close-to-hide control, and color/legend.
 - Left Sidebar / Inspector Pane (~20% width, collapsible):
   - File open/management buttons (video/sensor) + remove/hide toggles.
   - Per-file metadata readouts (codec, resolution, sample rate, channels).

@@ -138,6 +138,15 @@ class SensorInfoWidget(QFrame):
             is_visible = item.checkState(0) == Qt.CheckState.Checked
             self.channel_visibility_changed.emit(self.path, ch, is_visible)
 
+    def set_channel_visible(self, channel: str, visible: bool) -> bool:
+        """Set a channel checkbox and return whether this source owns it."""
+        item = self._channel_items.get(channel)
+        if item is None:
+            return False
+        state = Qt.CheckState.Checked if visible else Qt.CheckState.Unchecked
+        item.setCheckState(0, state)
+        return True
+
     def _on_channel_remove(self, sensor_path: str, channel: str) -> None:
         item = self._channel_items.pop(channel, None)
         if item:
@@ -381,6 +390,17 @@ class SidebarPane(QWidget):
         widget.badge_clicked.connect(self.sensor_badge_clicked)
         widget.report_requested.connect(self.sensor_report_requested)
         self.sensors_layout.addWidget(widget)
+
+    def set_channel_visible(self, channel: str, visible: bool) -> bool:
+        """Mirror plot-row visibility to the owning channel checkbox."""
+        for i in range(self.sensors_layout.count()):
+            item = self.sensors_layout.itemAt(i)
+            widget = item.widget()
+            if isinstance(widget, SensorInfoWidget) and widget.set_channel_visible(
+                channel, visible
+            ):
+                return True
+        return False
 
     def remove_sensor(self, path: str) -> None:
         """Remove a sensor info widget."""

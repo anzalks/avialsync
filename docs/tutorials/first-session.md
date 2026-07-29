@@ -17,6 +17,8 @@ contains time or which units apply. The traces appear below the video.
 
 Drag the shared time bar until you see a meaningful event. Watch the video, traces, and values in the
 left panel together. Use plot zoom when you need a smaller time range.
+Drag the **Window** slider below the traces to choose that range. All traces keep the same fixed
+window: they sweep from left to right together and restart at the left edge together.
 
 ## 4. Mark it
 

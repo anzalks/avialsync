@@ -289,7 +289,7 @@ class ImportWizard(QDialog):
         btn_box.accepted.connect(self._validate_and_accept)
         btn_box.rejected.connect(self.reject)
         main_layout.addWidget(btn_box)
-        
+
         # Populate initial preview and column choices
         self._on_separator_changed(0)
 
@@ -321,7 +321,7 @@ class ImportWizard(QDialog):
             self._sample_rows = rows[1:21] if len(rows) > 1 else []
         else:
             ncols = len(rows[0]) if rows else 0
-            self._headers = [f"column_{i+1}" for i in range(ncols)]
+            self._headers = [f"column_{i + 1}" for i in range(ncols)]
             self._sample_rows = rows[:20]
 
         ncols = len(self._headers)

@@ -30,11 +30,19 @@ def _nan_envelope(
 
 
 def _safe_save(path: Path, arr: np.ndarray) -> None:
-    """Save array to disk using memmap to bypass NumPy's C-level fwrite EINTR bug on macOS."""
-    mm = np.lib.format.open_memmap(path, mode='w+', dtype=arr.dtype, shape=arr.shape)
-    mm[:] = arr[:]
-    mm.flush()
-    # Memory map is automatically closed when mm goes out of scope
+    """Save quickly, retrying macOS interrupted writes through a memmap."""
+    try:
+        np.save(path, arr)
+        return
+    except InterruptedError:
+        # A signal can interrupt NumPy's C-level fwrite on macOS. Recreate the
+        # partial file through mmap; all other storage failures remain visible.
+        pass
+
+    mapped = np.lib.format.open_memmap(path, mode="w+", dtype=arr.dtype, shape=arr.shape)
+    mapped[:] = arr
+    mapped.flush()
+
 
 def _save_arrays(arrays: list[tuple[Path, np.ndarray]]) -> None:
     """Persist independent sidecar arrays with bounded storage concurrency."""

@@ -260,7 +260,7 @@ class NeoLoader(TimeSeriesSource):
                     chunk_start = t_chunk[0]
                     chunk_end = t_chunk[-1]
                     # We add a tiny margin to avoid missing boundary events
-                    mask = (ev_times >= chunk_start - 1.0/sr) & (ev_times <= chunk_end + 1.0/sr)
+                    mask = (ev_times >= chunk_start - 1.0 / sr) & (ev_times <= chunk_end + 1.0 / sr)
                     for et in ev_times[mask]:
                         idx = int(np.round((et - chunk_start) * sr))
                         if 0 <= idx < len(chunk_data):

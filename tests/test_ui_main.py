@@ -11,7 +11,12 @@ from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QThread, QUrl, Signa
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication, QSplitter
 
-from avialview.core.session import SensorEntry, SessionState
+from avialview.core.session import (
+    SensorEntry,
+    SessionState,
+    SyncProvenance,
+    VideoEntry,
+)
 from avialview.core.sync import SyncFit, SyncMatch, SyncProposal
 from avialview.loaders.csv_loader import CSVLoader
 from avialview.loaders.neo_loader import NeoLoader
@@ -95,6 +100,39 @@ def test_accepted_sync_mapping_updates_video_and_session(main_window: MainWindow
     state = main_window._build_session_state()
     assert state.videos[0].drift_ppm == pytest.approx(3.5)
     assert state.sync_provenance[0].target_id == "/fake/camera.mp4"
+
+
+def test_session_restore_queues_exact_mapping_for_async_video_open(
+    main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exact arrays survive the asynchronous gap between restore and pane creation."""
+    video = tmp_path / "camera.mp4"
+    video.touch()
+    monkeypatch.setattr(main_window, "_load_video", lambda *_args, **_kwargs: None)
+    state = SessionState(
+        videos=[VideoEntry(path=str(video))],
+        sync_provenance=[
+            SyncProvenance(
+                reference_id="trigger",
+                target_id=str(video),
+                offset=0.0,
+                drift_ppm=0.0,
+                rms_residual=0.0,
+                max_residual=0.0,
+                matched_count=3,
+                rejected_count=0,
+                tolerance=0.0,
+                exact_master=[100.0, 101.0, 102.0],
+                exact_source=[0.0, 1.0, 2.0],
+            )
+        ],
+    )
+
+    main_window._restore_session(state)
+
+    master, source = main_window._pending_exact_mappings[str(video)]
+    assert master.tolist() == [100.0, 101.0, 102.0]
+    assert source.tolist() == [0.0, 1.0, 2.0]
 
 
 def test_programmatic_import_completion_needs_no_progress_dialog(

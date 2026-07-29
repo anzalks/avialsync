@@ -41,6 +41,18 @@ def test_transport_status_and_reset_signal(qtbot) -> None:
     assert transport.play_btn.focusPolicy() == Qt.FocusPolicy.NoFocus
 
 
+def test_status_timer_is_owned_by_data_streams(qtbot) -> None:
+    """A pending status clear cannot outlive and call a deleted label."""
+    transport = Transport()
+    transport.set_status("Ready")
+
+    timer = transport.evidence._status_clear_timer
+    assert timer.parent() is transport.evidence
+    timer.start(1)
+    transport.deleteLater()
+    qtbot.wait(10)
+
+
 def test_play_pause_text_never_changes_seek_bar_geometry(qtbot) -> None:
     """The seek bar must not jump or resize when Play becomes Pause."""
     transport = Transport()

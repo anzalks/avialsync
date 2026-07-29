@@ -30,6 +30,7 @@ _CATEGORY_DEFAULTS = [
     ("Frame Triggers (CSV)", "CSVLoader"),
 ]
 
+
 class BatchImportDialog(QDialog):
     """Presents dropped files to the user for type verification before loading."""
 
@@ -43,7 +44,9 @@ class BatchImportDialog(QDialog):
         self.setMinimumSize(600, 400)
 
         # Sort candidates: group by detected loader type, then alphabetically by filename
-        def sort_key(item: tuple[Path, type[TimeSeriesSource | VideoSource] | None]) -> tuple[str, str]:
+        def sort_key(
+            item: tuple[Path, type[TimeSeriesSource | VideoSource] | None],
+        ) -> tuple[str, str]:
             path, loader_cls = item
             type_name = loader_cls.__name__ if loader_cls else "zzz_none"
             return (type_name, path.name.lower())
@@ -57,7 +60,9 @@ class BatchImportDialog(QDialog):
         self._table = QTableWidget(len(self._candidates), 2)
         self._table.setHorizontalHeaderLabels(["File / Group", "Detected Type"])
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.ResizeToContents
+        )
         self._table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self._table.verticalHeader().hide()
         layout.addWidget(self._table)
@@ -73,13 +78,13 @@ class BatchImportDialog(QDialog):
             combo = QComboBox()
             # Populate dropdown
             combo.addItem("— Skip / Do Not Load —", None)
-            
+
             default_index = 0
             for i, (label, loader_cls) in enumerate(self._categories, start=1):
                 combo.addItem(label, loader_cls)
                 if default_loader and loader_cls == default_loader and default_index == 0:
                     default_index = i
-            
+
             combo.setCurrentIndex(default_index)
             self._table.setCellWidget(row, 1, combo)
             self._combos.append(combo)
@@ -98,7 +103,10 @@ class BatchImportDialog(QDialog):
 
         # Add predefined semantic mappings for built-in loaders
         for label, class_name in _CATEGORY_DEFAULTS:
-            loader_cls = next((l for l in available_loaders if l.__name__ == class_name), None)
+            loader_cls = next(
+                (loader for loader in available_loaders if loader.__name__ == class_name),
+                None,
+            )
             if loader_cls:
                 self._categories.append((label, loader_cls))
 
@@ -111,7 +119,7 @@ class BatchImportDialog(QDialog):
     def get_selections(self) -> list[tuple[Path, type[TimeSeriesSource | VideoSource]]]:
         """Return the user-approved (Path, Loader) pairs."""
         results = []
-        for (path, _), combo in zip(self._candidates, self._combos):
+        for (path, _), combo in zip(self._candidates, self._combos, strict=True):
             loader_cls = combo.currentData()
             if loader_cls is not None:
                 results.append((path, loader_cls))

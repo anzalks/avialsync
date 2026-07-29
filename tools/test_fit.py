@@ -1,5 +1,7 @@
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+
 from avialview.core.sync import fit_sync_events
 from avialview.loaders.neo_loader import NeoLoader
 from avialview.loaders.video_standard import VideoStandardLoader

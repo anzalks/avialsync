@@ -131,12 +131,16 @@ class VideoStandardLoader(VideoSource):
                 self._frame_times = np.sort(np.array(times))
         except Exception as e:
             import logging
+
             logging.getLogger(__name__).warning("Failed to extract frame times: %s", e)
             self._frame_times = None
-            
+
         if self._frame_times is None or len(self._frame_times) == 0:
             import logging
-            logging.getLogger(__name__).warning("Frame times empty or extraction failed for %s", path)
+
+            logging.getLogger(__name__).warning(
+                "Frame times empty or extraction failed for %s", path
+            )
 
     def needs_conversion(self) -> bool:
         return False
