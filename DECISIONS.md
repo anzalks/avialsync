@@ -862,3 +862,58 @@ default implementation. Timestamp-aware plugins can override it. Cached timestam
 must bump its loader version. The four-video application-side exact-mapping dispatch benchmark must
 remain below 2 ms, as must a four-video 120-frame callback burst after coalescing; real decode still
 owns the existing 250 ms three-camera exact-seek budget.
+
+## 2026-07 · D-044 · Plot presentation separates review, sweep, and scope
+
+### Context
+
+D-042 correctly established one fixed shared plot duration, stable X coordinates, bounded pyramid
+queries, and close-to-checkbox visibility. Its clear-and-restart reveal is useful oscilloscope
+behaviour but is not sufficient for two different field tasks: inspecting a complete recorded page
+while paused and monitoring playback with an ECG-like overwrite sweep. Repeated X axes, automatic
+Y movement, equal-weight min/max lines, arbitrary rainbow traces, competing overlays, and two
+similar-looking sliders also obscure scientific comparison without adding information.
+
+### Decision
+
+D-042 remains authoritative for shared time state and performance: all plots keep one X link, one
+duration, one global horizontal navigator, absolute-time overlays, pyramid-only data, boundary
+queries, and the existing visibility route. Its clear/restart display remains available as
+**Scope** style.
+
+Presentation gains three explicit states defined by `PLOT_UX_PLAN.md`: paused/scrubbed **Review**
+shows the complete fixed page; live **Sweep** retains the previous page until a bounded eraser gap
+overwrites it; live **Scope** retains the current clear/restart behaviour. Sweep is the default
+fresh live-style preference, while Scope remains selectable. Strip/Roll, which translates X labels,
+is not part of this refinement.
+
+Data Streams is extended into the only full-session horizontal navigator by adding a draggable
+visible-window rectangle without removing its coverage, Sync/TTL, gap, annotation, detail,
+collapse, splitter-resize, or click-to-seek responsibilities. Its width follows the shared duration
+and is not a second duration state. Time-span entry retains a number,
+`ms` / `s` / `min` / `h` selector, and continuous slider; unit changes convert rather than
+reinterpret duration, and the slider mapping is logarithmic or piecewise-monotonic. Individual
+rows may have Y Fit/Auto/Manual state and one shared vertical channel-list scrollbar, but never
+independent X navigation.
+
+The visual hierarchy uses one bottom master-time axis, fixed channel gutters with unit/range and
+close-to-hide, a single min/max envelope, semantic palette roles, quieter grids, and pooled/shared
+overlays where possible. Controls may move to plot, video, annotation, or transport groups, but
+existing QActions/signals, shortcuts, and capabilities remain the single authorities and cannot be
+deleted. Widgets retain normal Tab focus; shortcut arbitration, not blanket `NoFocus`, protects
+Space during text editing.
+
+### Alternatives rejected
+
+Replacing D-042 with an always-scrolling strip chart; giving each row its own scrollbar or time
+range; removing the current Scope behaviour; midpoint-only decimation; continuous hidden
+auto-ranging; a global QSS restyle; deleting controls because their layout changes; implementing
+the refinement as one uncharacterized rewrite.
+
+### Consequences
+
+The work proceeds in the tested slices in `PLOT_UX_PLAN.md` §13. Existing `.avv` files remain
+loadable and new presentation fields are optional with explicit defaults. Ordinary clock ticks
+still cannot query the pyramid or scan all evidence, retained sweep buffers are bounded to the
+current/previous page, and the populated ≤2 ms cursor, ≤16 ms plot, and 30 ms UI-callback ceilings
+remain release gates. `HANDOUT.md` must distinguish planned from implemented slices.

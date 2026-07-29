@@ -92,6 +92,27 @@ not speed: shared CI hardware is not a valid stand-in for the machines scientist
   average frame rate, while CFR OSD rates remain stable; overview tests also cover header resizing
   for dense evidence. Theme tests cover persisted system-relative font scaling.
 
+### 5a. Plot UX refinement gates (P4.6 / D-044)
+
+Run these as slice-level regression gates; do not wait until the entire visual refinement lands:
+
+| Area | Required automated evidence |
+|---|---|
+| Compatibility | Characterize every item in `PLOT_UX_PLAN.md` §2 before moving controls. Assert the same QAction/signal result after relocation and that close still changes the sidebar checkbox. |
+| Modes | Review paints the complete selected page; Sweep retains the previous pass only until overwrite; Scope preserves D-042 blank/restart; all three map cursor, gaps, measures, annotations, and coverage to identical absolute times. |
+| Shared X state | Add/remove/hide, resize, theme change, save/load, slider, typed value, shortcuts, and navigator changes leave every visible row X-linked with one duration and page. No per-row horizontal scrollbar exists. |
+| Time span | Unit changes preserve seconds exactly within display precision; the continuous mapping is monotonic at ms/s/min/h scales; drag updates are coalesced and release commits the newest value. |
+| Navigator | Data Streams retains named/conditional evidence and detail. Viewport drag preserves playhead phase and emits coalesced approximate seeks plus one exact release; its width follows the shared duration; pixel mapping remains correct after widget resize. |
+| Y state | Fit once freezes, Auto is explicit, Manual range/offset persists, ordinary playback does not jump a frozen range, Fit all is global, and clipping is surfaced. |
+| Focus/accessibility | Enter leaves valid time/time-span editors; Space then plays; Tab reaches plot controls, channel close, navigator, transport buttons/sliders/combos; all D-022 shortcuts still emit their existing commands. |
+| Appearance | Only the bottom row labels X; channel gutters expose name/unit/range; min/max is one envelope; semantic information is not colour-only; theme switches preserve all plot/navigation state and add no application QSS. |
+| Hot path | Count pyramid queries and graphics objects through ticks, wrap, resize storms, dense evidence, hide/show, and mode changes. Ticks do not query; retained sweep data is at most current+previous page; items/queues remain bounded. |
+| Performance | Populated cursor ≤2 ms, plot interaction/paint ≤16 ms, callbacks <30 ms, and representative 4/32/128-channel runs record p50/p95/p99 plus maximum Qt-heartbeat delay. |
+
+Any playback, seek, cursor-time, page-selection, or overlay-time change also runs
+`tests/test_sync_golden.py` untouched. A screenshot comparison may supplement semantic widget/paint
+tests but cannot replace time, signal, accessibility, and performance assertions.
+
 ## 6. Manual smoke checklist (human, end of each phase, on YOUR real field data)
 
 - [ ] Open real 3-camera folder + real 50 kHz CSVs; import wizard handles your timestamp format.
@@ -105,6 +126,13 @@ not speed: shared CI hardware is not a valid stand-in for the machines scientist
 - [ ] Frame-step through the event; annotate it; export region; reopen session — everything restored.
 - [ ] Kill app mid-import; relaunch; cache not corrupted.
 - [ ] Try it on the weakest machine you own; note anything sluggish as an issue.
+- [ ] P4.6: pause/scrub shows a complete Review page; Sweep overwrites behind a narrow eraser gap;
+  Scope still clears/restarts; switching among them never changes master time or alignment.
+- [ ] P4.6: change the same time span through typing, units, slider, zoom keys, and reset; move the
+  page through the Data Streams viewport; all rows and the navigator agree, with no per-row
+  horizontal scroll.
+- [ ] P4.6: verify stable Y ranges, units/clipping, channel close-to-checkbox, keyboard Tab/Space,
+  dense annotations/gaps, theme switches, and 128-channel play/resize without a visible freeze.
 
 ## 7. Edge-case test matrix (each row = at least one automated test + a fixture variant)
 

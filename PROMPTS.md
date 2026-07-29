@@ -110,6 +110,16 @@ error-handling pass (typed errors → actionable dialogs, tested) · theming+sta
 Template: "Implement <feature> per BLUEPRINT Phase 4. Add pytest-qt coverage for the happy path
 and one failure path. Update docs/user-guide stub. Keyboard-first where sensible."
 
+- **P4.6 Plot review/sweep UX — run one slice per session**: "Read `PLOT_UX_PLAN.md`, D-042,
+  D-044, `HANDOUT.md`, and TESTING §5a before editing. Implement exactly one numbered slice from
+  `PLOT_UX_PLAN.md` §13. Start with characterization tests and state which compatibility-ledger
+  entries that slice touches. Preserve Scope mode, the single master clock/X link/duration/global
+  navigator, every existing QAction/signal/shortcut/evidence lane, absolute overlay times,
+  pyramid-only rendering, and session compatibility. Do not replace the plot/transport stack in one
+  rewrite. Ordinary ticks may not query the pyramid or scan all events. Add the §14 pytest-qt,
+  query-count, focus, migration, theme, and performance evidence relevant to the slice; run golden
+  sync for any playback/seek change. Update HANDOUT only for behaviour actually shipped."
+
 ## Phase 5 prompts
 
 - **P5.1 API freeze**: "Review core/source.py against every built-in loader; finalize as Plugin

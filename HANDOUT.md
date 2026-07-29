@@ -178,6 +178,16 @@ with explicit user acceptance and session provenance. Native plugin event provid
   available in the Sync Wizard.
 
 ### Pending
+- **P4.6 plot review/sweep UX refinement — approved, no implementation yet (D-044):**
+  `PLOT_UX_PLAN.md` is the canonical execution contract. The current D-042 fixed
+  clear/restart sweep remains functional and must survive as **Scope** style. Planned work adds
+  complete-page Review while paused/scrubbing, overwrite-with-eraser **Sweep** playback, one shared
+  master-time axis and channel gutter, a Data Streams viewport navigator, stable explicit Y-scale
+  modes, semantic trace/overlay styling, a unit-converting log/piecewise time-span control, simpler
+  workspace hierarchy, and normal Tab focus. Every current action, shortcut, evidence lane,
+  close-to-sidebar visibility path, readout/export/annotation feature, session migration, exact
+  timing rule, and performance budget is a compatibility requirement. Implement one §13 slice per
+  session; never report this target as shipped until its tests and code exist.
 - P3.5 performance/accurate-streaming hardening (full audit 2026-07-29):
   - P0 implemented: plot the pyramid min/max envelope; propagate raw gap evidence through every
     decimation level; enforce explicit CSV timestamp schemas, cross-chunk chronology/duplicate

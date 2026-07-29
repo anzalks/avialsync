@@ -177,6 +177,32 @@ Deliverables:
 
 Exit criteria: scripted UX walkthrough (pytest-qt integration test) covering open→align→annotate→export with zero unhandled exceptions; keyboard-only operation possible for the core loop. Timeline Evidence is understandable without a manual or colour interpretation: its populated lanes, event details, collapse/resize controls, and empty-lane suppression are covered.
 
+### P4.6 — Plot review and sweep UX refinement (approved; implementation pending)
+
+**Goal:** make dense scientific plots behave like a stable recording browser while retaining the
+existing oscilloscope presentation and every current transport, evidence, visibility, readout,
+annotation, export, timing, and performance capability.
+
+The normative behaviour, compatibility ledger, implementation slices, and acceptance tests live in
+`PLOT_UX_PLAN.md` and D-044. In summary:
+
+- paused/scrubbed data uses a complete fixed-page **Review** presentation;
+- live playback offers **Sweep** (overwrite with an eraser gap) and compatibility **Scope**
+  (clear/restart) styles;
+- all rows retain one X link, one duration, and one global Data Streams navigator;
+- the numeric `ms` / `s` / `min` / `h` control remains continuous, but unit changes convert the
+  value and the slider uses a useful logarithmic/piecewise mapping;
+- one bottom master-time axis, aligned channel gutters, stable explicit Y-scale modes, one
+  min/max envelope, semantic colours, and a quieter overlay/grid hierarchy replace repeated,
+  equally weighted plot furniture;
+- control relocation proxies existing QActions/signals rather than deleting functionality;
+- normal Tab focus is restored without weakening window-scoped playback shortcuts.
+
+Exit criteria: all `PLOT_UX_PLAN.md` §14 evidence passes; golden synchronization remains unchanged;
+the populated ≤2 ms cursor and ≤16 ms plot budgets pass; a 128-channel field-shaped fixture can be
+played, resized, scrubbed, and rescaled without a >30 ms UI callback or an unbounded graphics/query
+queue.
+
 ## Phase 5 — Plugin API + packaging (Week 10–13)
 
 **Goal:** third parties can add proprietary formats; normal users can install in one click.

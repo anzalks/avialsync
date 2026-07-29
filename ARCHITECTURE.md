@@ -142,11 +142,14 @@ flat at repo root so every model finds them without searching. Dependency direct
           snap to accepted trigger + exact seek on release
 ```
 
-Time series never "play": plots render one pyramid-decimated slice for the current fixed-duration
-sweep. Ordinary master-clock ticks move the playhead and the curve's paint clip only; they do not
-query the pyramid or rebuild curve data. At a deterministic sweep boundary, the plot reloads the
-next bounded slice and restarts at the left edge. The full cursor path remains within the ≤ 2 ms
-budget.
+Time series never keep an independent playback clock. Plots render pyramid-decimated data for one
+shared fixed-duration page selected from `t_master`. Ordinary master-clock ticks move only the
+playhead and cheap presentation clip/gap; they do not query the pyramid or rebuild curve data.
+Paused/scrubbed **Review** shows the complete selected page. Live **Sweep** retains the previous
+page only until a narrow eraser gap overwrites it; compatibility **Scope** clears/restarts at the
+left edge as in D-042. At a deterministic page boundary, plots load the next bounded slice.
+Retained display data is limited to the current and immediately previous page, and the full cursor
+path remains within the ≤ 2 ms budget (D-044, `PLOT_UX_PLAN.md`).
 The 3D tracking view follows the same rule: it recognizes complete `name_x`, `name_y`, `name_z`
 channel triplets already imported through a `TimeSeriesSource`, samples only the nearest mmap-backed
 cache row at `t_master`, and paints only the current pose. Coordinates sharing one source reuse one
@@ -161,20 +164,22 @@ decoration. It gives visual-inspection users a concise account of what exists on
 timeline without replacing the plot, sidebar, or synchronization wizard.
 
 ```
-Data Streams               [Hide] [Flag Frame]                 [Snapshot] [Fullscreen Toggle] [Reset Zoom] [Status: …]
+Data Streams               [Hide] [Flag Frame]                                  [Status: …]
 source labels │ ━ video / data spans (one named row per visible source group)
 Sync / TTL     │ accepted paired-event ticks only
 Data gaps      │ imported discontinuities only
 Annotations    │ point and range markers only
-               ─────────────────────────────────────────── playhead
+Navigator      │ full-session overview · visible-window rectangle · playhead
 ══════════════ native splitter handle ══════════════
 playhead controls · time ───── master seek bar ───── end · A/B · Speed [selector]
 ```
 
 **Presentation contract:**
 
-- The title is exactly **Data Streams**. Hide and **Flag Frame** sit beside it; Snapshot, **Fullscreen Toggle**,
-  and Reset Zoom sit at the far right of the same header, followed by compact status text. Busy status remains visible;
+- The title is exactly **Data Streams**. Hide and **Flag Frame** sit beside it, followed by compact
+  status text. Snapshot/Fullscreen remain existing video/main actions and Reset Zoom remains the
+  existing plot QAction; presentation may proxy old buttons during migration but may not duplicate
+  command logic. Busy status remains visible;
   ordinary completion/status messages clear after a short delay. Each visible lane has a text label and an accessible name;
   colour is supporting information, never the only meaning. Do not print a long inline list of all
   source names in the header.
@@ -187,6 +192,11 @@ playhead controls · time ───── master seek bar ───── end ·
   match/provenance identity. Clicking any location seeks the master clock; it never changes a mapping.
 - Video panes must use the same mapped source bounds as their coverage rows: an out-of-range pane is
   paused and shows **No Footage**, never its last decoded frame.
+- The full-session navigator adds one draggable visible-window rectangle. Its position follows the
+  current shared plot page and its width follows the one shared plot duration. Dragging seeks through
+  the existing approximate/coalesced path with one exact release while preserving playhead phase
+  within the page. Rectangle width is display-only and has no separate duration state. This is the
+  only horizontal plot navigation surface; rows never gain individual scrollbars or X ranges.
 - Native vertical splitter handles, matching the video/plot boundary, distinguish plots from Data
   Streams and Data Streams from the seek/transport section. Those handles resize the overview; a
   collapse button preserves a minimal title row. Expanded/collapsed state is a QSettings view preference,
