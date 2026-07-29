@@ -1,5 +1,6 @@
 """Video-pane construction tests."""
 
+import threading
 from types import SimpleNamespace
 
 from avialview.ui import video_pane
@@ -39,3 +40,29 @@ def test_windows_render_widget_has_video_pane_parent(monkeypatch, qapp) -> None:
     pane._observe_seeking(False)
     pane._observe_time(2.5)
     assert not pane.is_seeking
+
+
+def test_video_osd_queue_keeps_only_latest_frame() -> None:
+    """A delayed UI thread must not accumulate one OSD event per decoded frame."""
+
+    class _Signal:
+        def __init__(self) -> None:
+            self.emissions = 0
+
+        def emit(self) -> None:
+            self.emissions += 1
+
+    signal = _Signal()
+    pane = SimpleNamespace(
+        _osd_lock=threading.Lock(),
+        _pending_osd=(0.0, 0.0),
+        _osd_event_pending=False,
+        _osd_update=signal,
+    )
+
+    for frame in range(10_000):
+        video_pane.VideoPane._queue_osd_update(pane, frame / 30.0, 30.0)
+
+    assert pane._pending_osd == (9999 / 30.0, 30.0)
+    assert pane._osd_event_pending is True
+    assert signal.emissions == 1

@@ -71,6 +71,13 @@ with explicit user acceptance and session provenance. Native plugin event provid
 
 ### Done (Phase 4 UX / loader fixes)
 - **Live scrubbing coalescing**: During slider drag `Player.seek(exact=False)` coalesces in-flight keyframe seeks — if a seek is already dispatched, the newest target is held in `_pending_scrub_t` and flushed in `_on_tick` as soon as `SeekGroup.is_settled()`. Plot cursor and readout panel update every drag event. Exact seek fires on release as before.
+- **No decoder-global freeze**: `MasterClock` advances on every active playback tick even if one
+  libmpv pane remains in `seeking`. That pane drops frames and rejoins independently; it cannot stop
+  plots, transport, readout, 3D, or healthy videos. Render and OSD callbacks retain only the newest
+  pending UI update instead of building an unbounded event queue.
+- **Persistent visibility**: unchecked videos and plot rows stay hidden through resize,
+  grid/fullscreen relayout, and sweep refresh. Hidden videos stay loaded but are paused and excluded
+  from seek/drift work; hidden plot rows are excluded from pyramid and overlay refreshes.
 - **Frame-trigger exact interaction**: after exact-index alignment, release-of-scrub, pause, and
   frame-step snap to the first active accepted trigger clock. Every pane maps that master trigger
   through its own `TimeMap`; playback applies the local piecewise slope and frame-aware drift
@@ -113,8 +120,9 @@ with explicit user acceptance and session provenance. Native plugin event provid
   is an explicit Qt `@Slot(int, str)`, and final loading is queued on the UI event loop: never
   connect a worker to a plain widget-mutating Python callback.
   Release staging rejects a bundle without `ffmpeg`, `ffprobe`, and libmpv.
-- **Video pane shutdown**: `MainWindow.closeEvent()` calls `VideoGrid.shutdown()` before Qt destroys
-  child widgets. That method closes every `VideoPane`, so python-mpv can join its event thread;
+- **Video pane shutdown**: `MainWindow.closeEvent()` calls `Player.stop()` and then
+  `VideoGrid.shutdown()` before Qt destroys child widgets. This removes the precise 60 Hz timer and
+  closes every `VideoPane`, so python-mpv can join its event thread;
   never rely on QWidget destruction or Python garbage collection to stop libmpv. On Windows/macOS, free the
   libmpv OpenGL render context while its `QOpenGLWidget` is current **before** `mpv.terminate()`;
   reversing that order aborts the process during app exit.
@@ -268,7 +276,7 @@ outside that invocation; that message does not mean the full-package overrides a
 | `core/session.py` | `.avv` session JSON, schema v5 | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
-| `engine/player.py` | 60 Hz QTimer tick; MasterClock ↔ mpv ↔ UI | `Player.seek()`, `.set_playing()`, `.step_frame()` |
+| `engine/player.py` | precise 60 Hz tick; decoder-independent MasterClock ↔ mpv ↔ UI | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
 | `engine/seeker.py` | Parallel seek across all mpv panes | `SeekGroup` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
@@ -278,7 +286,7 @@ outside that invocation; that message does not mean the full-package overrides a
 | `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane`, `set_sync_correction()` |
 | `ui/video_timing.py` | Timestamp rate/readout/frame-index helpers and pane timing mixin | `VideoTimingMixin`, `format_video_osd()` |
 | `ui/video_overlay.py` | Transparent current-frame tracking paint layer | `PaintCanvas` |
-| `ui/video_grid.py` | N VideoPanes; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `set_grid_mode()` |
+| `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()` |
 | `ui/plot_pane.py` | pyqtgraph multi-row fixed sweeps; pyramid-fed; one shared bounded window slider; coalesced resize refresh; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `set_timeline_bounds()`, `set_window_duration()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
 | `ui/plot_row.py` | One channel row's pyramid reader, curve, cursor, coverage, and close-control construction | `ChannelPlot`, `create_channel_plot()` |
 | `ui/plot_sweep.py` | Shared value/unit window limit, linear coalesced slider, and master-time-derived sweep state | `SweepWindowControl`, `SweepCurveItem` |
@@ -426,7 +434,9 @@ QTimer fires late under UI load. Accumulating the interval leads to drift.
 
 ### 8. Drift correction needs hysteresis (5 consecutive ticks)
 Seeking on every off-target tick causes stutter cascades.  
-**Fix:** Player uses `_drift_counts` dict; re-seeks only after 5 consecutive ticks >40ms drift per pane, then resets the counter.
+**Fix:** Player keys `_drift_counts` by pane identity; re-seeks only after 5 consecutive ticks
+above the frame-aware hard threshold, then resets the counter. A seeking pane is skipped while
+healthy panes continue, and no decoder may freeze `MasterClock`.
 
 ### 9. polars `read_csv` type inference flips per-chunk
 Without an explicit schema, the timestamp column type can change between chunks.  

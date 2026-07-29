@@ -10,7 +10,9 @@ from PySide6.QtWidgets import QMenu, QVBoxLayout, QWidget
 
 from avialview.ui.plot_row import (
     ChannelPlot,
+    apply_channel_visibility,
     create_channel_plot,
+    enforce_channel_visibility,
     point_budget_for_width,
     refresh_channel_plot,
     update_channel_coverage,
@@ -96,6 +98,7 @@ class PlotPane(QWidget):
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Coalesce resize storms before selecting a new pyramid resolution."""
         super().resizeEvent(event)
+        enforce_channel_visibility(self.channels)
         if self.channels and self.sweep_start is not None:
             self._resize_refresh_timer.start()
 
@@ -206,12 +209,9 @@ class PlotPane(QWidget):
         """Show or hide a specific channel's plot row."""
         for ch in self.channels:
             if ch.name == channel_id:
+                ch.visible = visible
+                apply_channel_visibility(ch)
                 if visible:
-                    ch.visible = True
-                    ch.plot_item.show()
-                    ch.close_proxy.show()
-                    ch.plot_item.setMaximumHeight(16777215)
-                    ch.close_proxy.setMaximumHeight(16777215)
                     if self.sweep_start is not None:
                         refresh_channel_plot(
                             ch,
@@ -220,12 +220,6 @@ class PlotPane(QWidget):
                             point_budget_for_width(int(self.graphics_layout.viewport().width())),
                         )
                         self._redraw_sweep_overlays()
-                else:
-                    ch.visible = False
-                    ch.plot_item.hide()
-                    ch.close_proxy.hide()
-                    ch.plot_item.setMaximumHeight(0)
-                    ch.close_proxy.setMaximumHeight(0)
                 break
 
     def reset_zoom(self) -> None:
@@ -261,6 +255,7 @@ class PlotPane(QWidget):
         self._set_sweep_for_time(self._sweep_control.last_master_time, force=True)
 
     def _refresh_after_resize(self) -> None:
+        enforce_channel_visibility(self.channels)
         point_budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
         if point_budget != self._last_point_budget:
             self.update_plots()
@@ -360,6 +355,8 @@ class PlotPane(QWidget):
         pen_a = pg.mkPen(color=(0, 255, 100), width=2, style=Qt.PenStyle.DashLine)
         pen_b = pg.mkPen(color=(255, 80, 80), width=2, style=Qt.PenStyle.DashLine)
         for ch in self.channels:
+            if not ch.visible:
+                continue
             x_a = self._display_x(self._measure_a) if self._measure_a is not None else None
             x_b = self._display_x(self._measure_b) if self._measure_b is not None else None
             if x_a is not None:
@@ -434,6 +431,8 @@ class PlotPane(QWidget):
             for line in ch.gap_markers:
                 ch.plot_item.removeItem(line)
             ch.gap_markers.clear()
+            if not ch.visible:
+                continue
             for t in ch.gap_times:
                 x = self._display_x(t)
                 if x is None:
@@ -468,6 +467,8 @@ class PlotPane(QWidget):
         for marker in self._annotation_store.markers:
             c = pg.mkColor(marker.color)
             for ch in self.channels:
+                if not ch.visible:
+                    continue
                 if marker.t_end is None:
                     x = self._display_x(marker.t_start)
                     if x is None:

@@ -87,6 +87,25 @@ def update_channel_coverage(
     channel.coverage_region.show()
 
 
+def apply_channel_visibility(channel: ChannelPlot) -> None:
+    """Apply the row's authoritative visibility state to both graphics items."""
+    maximum_height = 16777215 if channel.visible else 0
+    if channel.plot_item.isVisible() != channel.visible:
+        channel.plot_item.setVisible(channel.visible)
+    if channel.close_proxy.isVisible() != channel.visible:
+        channel.close_proxy.setVisible(channel.visible)
+    if channel.plot_item.maximumHeight() != maximum_height:
+        channel.plot_item.setMaximumHeight(maximum_height)
+    if channel.close_proxy.maximumHeight() != maximum_height:
+        channel.close_proxy.setMaximumHeight(maximum_height)
+
+
+def enforce_channel_visibility(channels: list[ChannelPlot]) -> None:
+    """Reapply visibility after a graphics-layout geometry change."""
+    for channel in channels:
+        apply_channel_visibility(channel)
+
+
 def create_channel_plot(
     graphics_layout: pg.GraphicsLayoutWidget,
     row: int,

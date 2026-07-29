@@ -46,9 +46,13 @@ class Player(QObject):
 
         self._timer = QTimer(self)
         self._timer.setInterval(1000 // 60)  # 60 Hz
+        self._timer.setTimerType(Qt.TimerType.PreciseTimer)
         self._timer.timeout.connect(self._on_tick)
+        self.video_grid.displayed_panes_changed.connect(self._on_displayed_panes_changed)
 
         self._drift_counts: dict[int, int] = {}
+        self._playing_pane_ids: set[int] = set()
+        self._displayed_pane_ids = {id(pane) for pane in self.video_grid.visible_panes()}
         self._last_tick_monotonic = time.monotonic()
 
         # A/B loop state
@@ -74,6 +78,14 @@ class Player(QObject):
         self._last_tick_monotonic = time.monotonic()
         self._timer.start()
 
+    def stop(self) -> None:
+        """Stop UI ticks before the owning window tears down its panes."""
+        self._timer.stop()
+        self.clock.pause()
+        self._pending_scrub_t = None
+        self._queued_frame_steps = 0
+        self._playing_pane_ids.clear()
+
     def set_playing(self, playing: bool) -> None:
         if playing:
             # Wrap around to start if at the very end
@@ -88,11 +100,11 @@ class Player(QObject):
             self.clock.play()
             for pane in self._update_pane_footage(self.clock.state.t):
                 pane.set_mapping_rate_at(self.clock.state.t)
-                pane.play()
         else:
             self.clock.pause()
             for pane in self.video_grid.panes:
                 pane.pause()
+            self._playing_pane_ids.clear()
             # Pause on accepted frame-trigger evidence, then decode that frame exactly.
             self.seek(self.clock.state.t, exact=True)
 
@@ -128,7 +140,7 @@ class Player(QObject):
 
     def _snap_to_frame_evidence(self, t_master: float) -> float:
         """Use the first active exact mapping as the reference frame clock."""
-        for pane in self.video_grid.panes:
+        for pane in self.video_grid.visible_panes():
             if not pane.has_footage_at_master(t_master):
                 continue
             if getattr(pane.time_map, "has_exact_mapping", False) is True:
@@ -185,15 +197,40 @@ class Player(QObject):
     def _update_pane_footage(self, t_master: float) -> list[VideoPane]:
         """Synchronize pane availability with master-time coverage before display or seek."""
         active_panes: list[VideoPane] = []
+        displayed_ids = {id(pane) for pane in self.video_grid.visible_panes()}
         for pane in self.video_grid.panes:
+            pane_id = id(pane)
+            if pane_id not in displayed_ids:
+                if pane_id in self._playing_pane_ids:
+                    pane.pause()
+                    self._playing_pane_ids.discard(pane_id)
+                self._drift_counts.pop(pane_id, None)
+                continue
             has_footage = pane.has_footage_at_master(t_master)
             if getattr(pane, "_master_has_footage", None) != has_footage:
                 pane.set_has_footage(has_footage)
                 if not has_footage:
                     pane.pause()
+                    self._playing_pane_ids.discard(pane_id)
             if has_footage:
                 active_panes.append(pane)
+                if self.clock.state.playing and pane_id not in self._playing_pane_ids:
+                    pane.play()
+                    self._playing_pane_ids.add(pane_id)
+        self._displayed_pane_ids = displayed_ids
         return active_panes
+
+    def _on_displayed_panes_changed(self) -> None:
+        """Resynchronize newly displayed panes without stalling the master clock."""
+        t_master = self.clock.state.t
+        displayed_ids = {id(pane) for pane in self.video_grid.visible_panes()}
+        newly_displayed = displayed_ids - self._displayed_pane_ids
+        active_panes = self._update_pane_footage(t_master)
+        self.seeker.panes = active_panes
+        for pane in active_panes:
+            if id(pane) in newly_displayed:
+                source_t = pane.time_map.to_source(t_master)
+                self.seeker.seek_pane(pane, source_t, exact=True)
 
     def _on_tick(self) -> None:
         now = time.monotonic()
@@ -215,12 +252,9 @@ class Player(QObject):
                 self._pending_scrub_t = None
 
         if self.clock.state.playing and not self._is_scrubbing:
-            if not self.seeker.is_settled():
-                # Freeze the master clock while the video is seeking to prevent death spirals.
-                self.clock._last_monotonic = now
-            else:
-                # Advance clock
-                self.clock.advance(now)
+            # The master timeline never waits for a decoder. A pane that is still
+            # seeking drops frames and rejoins; plots/readout/3D keep moving.
+            self.clock.advance(now)
 
             t = self.clock.state.t
 
@@ -232,9 +266,11 @@ class Player(QObject):
             # Drift correction (video following master clock)
             active_panes = self._update_pane_footage(t)
             self.seeker.panes = active_panes
-            if self.seeker.is_settled() and active_panes:
-                for idx, pane in enumerate(active_panes):
+            if active_panes:
+                for pane in active_panes:
                     if not pane.mpv:
+                        continue
+                    if pane.is_seeking:
                         continue
 
                     vid_t = pane.time_pos
@@ -243,24 +279,25 @@ class Player(QObject):
 
                     source_t = pane.time_map.to_source(t)
                     drift = vid_t - source_t
+                    pane_id = id(pane)
                     pane.set_mapping_rate_at(t)
                     tolerance = pane.sync_tolerance_at_master(t)
                     hard_threshold = max(0.25, tolerance * 8.0)
 
                     if abs(drift) > hard_threshold:
                         # Huge drift (e.g. delayed start), hard seek after brief hysteresis
-                        self._drift_counts[idx] = self._drift_counts.get(idx, 0) + 1
-                        if self._drift_counts[idx] > 5:
+                        self._drift_counts[pane_id] = self._drift_counts.get(pane_id, 0) + 1
+                        if self._drift_counts[pane_id] > 5:
                             logger.debug(
                                 "Correcting %.1f ms video drift with an exact seek",
                                 drift * 1000,
                             )
                             self.seeker.seek_pane(pane, source_t, exact=True)
-                            self._drift_counts[idx] = 0
+                            self._drift_counts[pane_id] = 0
                             pane.set_sync_correction(1.0)
                     elif abs(drift) > tolerance:
                         # Moderate drift: Soft PLL speed correction
-                        self._drift_counts[idx] = 0
+                        self._drift_counts[pane_id] = 0
                         # If vid_t < source_t, drift is negative -> need to speed up
                         correction = 1.0 - (drift * 0.5)
                         correction = max(0.8, min(1.2, correction))
@@ -268,7 +305,7 @@ class Player(QObject):
                             pane.set_sync_correction(correction)
                     else:
                         # In sync
-                        self._drift_counts[idx] = 0
+                        self._drift_counts[pane_id] = 0
                         if pane.sync_correction != 1.0:
                             pane.set_sync_correction(1.0)
 

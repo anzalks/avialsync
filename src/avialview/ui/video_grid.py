@@ -22,12 +22,14 @@ class VideoGrid(QWidget):
     # Emitted when the user right-clicks inside any video pane.
     # path = the pane's video path; pos = QPoint (global screen position).
     pane_right_clicked = Signal(str, object)
+    displayed_panes_changed = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.panes: list[VideoPane] = []
         self._fullscreen_pane: VideoPane | None = None
         self._paths: list[str] = []
+        self._pane_enabled: list[bool] = []
         self._grid_mode: bool = False
 
         self._layout = QGridLayout(self)
@@ -47,6 +49,20 @@ class VideoGrid(QWidget):
     def pane_paths(self) -> list[str]:
         """Return a copy of the loaded video paths, parallel to self.panes."""
         return list(self._paths)
+
+    def visible_panes(self) -> list[VideoPane]:
+        """Return panes currently selected and displayed by the grid."""
+        if self._fullscreen_pane is not None:
+            try:
+                index = self.panes.index(self._fullscreen_pane)
+            except ValueError:
+                return []
+            return [self._fullscreen_pane] if self._is_pane_enabled(index) else []
+        return [pane for index, pane in enumerate(self.panes) if self._is_pane_enabled(index)]
+
+    def _is_pane_enabled(self, index: int) -> bool:
+        """Treat legacy directly-injected test panes as visible."""
+        return index >= len(self._pane_enabled) or self._pane_enabled[index]
 
     def frame_records_at(self, t_master: float) -> list[dict[str, Any]]:
         """Return per-video frame records at *t_master* for annotation storage.
@@ -95,6 +111,7 @@ class VideoGrid(QWidget):
         pane.right_clicked.connect(lambda pos, _p=path: self.pane_right_clicked.emit(_p, pos))
         self.panes.append(pane)
         self._paths.append(path)
+        self._pane_enabled.append(True)
         pane.open(media_path or path)
         self._relayout()
         self._update_labels()
@@ -109,6 +126,8 @@ class VideoGrid(QWidget):
 
         pane = self.panes.pop(idx)
         self._paths.pop(idx)
+        if idx < len(self._pane_enabled):
+            self._pane_enabled.pop(idx)
 
         if self._fullscreen_pane == pane:
             self._fullscreen_pane = None
@@ -118,6 +137,7 @@ class VideoGrid(QWidget):
         pane.deleteLater()
         self._relayout()
         self._update_labels()
+        self.displayed_panes_changed.emit()
 
     def shutdown(self) -> None:
         """Terminate all libmpv panes before their Qt parent is destroyed."""
@@ -127,6 +147,7 @@ class VideoGrid(QWidget):
         self.panes.clear()
         self._paths.clear()
         self._fullscreen_pane = None
+        self._pane_enabled.clear()
 
     def set_offset(self, path: str, offset: float) -> None:
         """Update the time offset for a specific video."""
@@ -160,10 +181,17 @@ class VideoGrid(QWidget):
         """Show or hide a video pane without unloading it."""
         try:
             idx = self._paths.index(path)
-            self.panes[idx].setVisible(visible)
-            # The layout will automatically hide the item and reclaim space
         except ValueError:
-            pass
+            return
+        while len(self._pane_enabled) < len(self.panes):
+            self._pane_enabled.append(True)
+        if self._pane_enabled[idx] == visible:
+            return
+        self._pane_enabled[idx] = visible
+        if not visible and self._fullscreen_pane is self.panes[idx]:
+            self._fullscreen_pane = None
+        self._relayout()
+        self.displayed_panes_changed.emit()
 
     # ── Internal ──────────────────────────────────────────────────────
 
@@ -182,7 +210,10 @@ class VideoGrid(QWidget):
         for r in range(self._layout.rowCount()):
             self._layout.setRowStretch(r, 0)
 
-        n = len(self.panes)
+        for pane in self.panes:
+            pane.setVisible(False)
+        visible_panes = self.visible_panes()
+        n = len(visible_panes)
 
         # ── Empty state ──────────────────────────────────────────
         if n == 0:
@@ -193,21 +224,20 @@ class VideoGrid(QWidget):
         self.lbl_empty.setVisible(False)
 
         # ── Fullscreen override ──────────────────────────────────
-        if self._fullscreen_pane and self._fullscreen_pane in self.panes:
-            for pane in self.panes:
-                pane.setVisible(pane is self._fullscreen_pane)
+        if self._fullscreen_pane and self._fullscreen_pane in visible_panes:
+            self._fullscreen_pane.setVisible(True)
             self._layout.addWidget(self._fullscreen_pane, 0, 0)
             self._layout.setColumnStretch(0, 1)
             self._layout.setRowStretch(0, 1)
             return
 
-        # ── Normal: all panes visible ────────────────────────────
-        for pane in self.panes:
+        # ── Normal: only user-enabled panes visible ──────────────
+        for pane in visible_panes:
             pane.setVisible(True)
 
         if self._grid_mode:
             cols = math.ceil(math.sqrt(n))
-            for i, pane in enumerate(self.panes):
+            for i, pane in enumerate(visible_panes):
                 row, col = divmod(i, cols)
                 self._layout.addWidget(pane, row, col)
             for c in range(cols):
@@ -217,7 +247,7 @@ class VideoGrid(QWidget):
                 self._layout.setRowStretch(r, 1)
         else:
             # Horizontal strip: all in row 0
-            for i, pane in enumerate(self.panes):
+            for i, pane in enumerate(visible_panes):
                 self._layout.addWidget(pane, 0, i)
                 self._layout.setColumnStretch(i, 1)
             self._layout.setRowStretch(0, 1)
@@ -265,3 +295,4 @@ class VideoGrid(QWidget):
         else:
             self._fullscreen_pane = pane
         self._relayout()
+        self.displayed_panes_changed.emit()

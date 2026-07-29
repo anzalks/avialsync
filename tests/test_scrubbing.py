@@ -23,6 +23,9 @@ def player_with_mocks():
 
     video_grid = MagicMock(spec=VideoGrid)
     video_grid.panes = []
+    video_grid.visible_panes.side_effect = lambda: list(video_grid.panes)
+    video_grid.displayed_panes_changed = MagicMock()
+    video_grid.displayed_panes_changed.connect = MagicMock()
 
     plot_pane = MagicMock(spec=PlotPane)
     transport = MagicMock(spec=Transport)
@@ -135,6 +138,25 @@ def test_pending_not_flushed_while_busy(player_with_mocks):
     assert player._pending_scrub_t == 3.0
 
 
+def test_busy_video_seek_never_freezes_master_timeline(player_with_mocks, monkeypatch):
+    """A stalled decoder may drop frames but cannot stop plots or 3D."""
+    player, clock = player_with_mocks
+    player.seeker.is_settled.return_value = False
+    clock.play()
+    clock.advance(100.0)
+    monotonic_times = iter(100.0 + step / 60.0 for step in range(1, 121))
+    monkeypatch.setattr(
+        "avialview.engine.player.time.monotonic",
+        lambda: next(monotonic_times),
+    )
+
+    for _ in range(120):
+        player._on_tick()
+
+    assert clock.state.t == pytest.approx(2.0, abs=1e-6)
+    assert player.plot_pane.set_cursor.call_count == 120
+
+
 def test_release_clears_pending(player_with_mocks):
     """Exact seek on release clears any pending coalesced target."""
     player, clock = player_with_mocks
@@ -181,6 +203,41 @@ def test_seek_hides_and_skips_video_panes_without_master_time_coverage(player_wi
     inactive.pause.assert_called_once()
     assert player.seeker.panes == [active]
     player.seeker.seek.assert_called_once_with(5.0, exact=True)
+
+
+def test_hidden_video_is_excluded_from_seek_and_playback(player_with_mocks):
+    """Unchecked videos stay loaded but consume no decoder synchronization work."""
+    player, _clock = player_with_mocks
+    visible = MagicMock()
+    visible.has_footage_at_master.return_value = True
+    hidden = MagicMock()
+    player.video_grid.panes = [visible, hidden]
+    player.video_grid.visible_panes.side_effect = lambda: [visible]
+    player._playing_pane_ids.add(id(hidden))
+    player.seeker.is_settled.return_value = True
+
+    player.seek(3.0, exact=True)
+
+    hidden.pause.assert_called_once()
+    hidden.has_footage_at_master.assert_not_called()
+    assert player.seeker.panes == [visible]
+
+
+def test_newly_displayed_video_alone_is_resynchronized(player_with_mocks):
+    """Showing one pane must not re-seek every already-visible camera."""
+    player, _clock = player_with_mocks
+    first = MagicMock()
+    first.has_footage_at_master.return_value = True
+    second = MagicMock()
+    second.has_footage_at_master.return_value = True
+    second.time_map.to_source.return_value = 3.0
+    player.video_grid.panes = [first, second]
+    player.video_grid.visible_panes.side_effect = lambda: [first, second]
+    player._displayed_pane_ids = {id(first)}
+
+    player._on_displayed_panes_changed()
+
+    player.seeker.seek_pane.assert_called_once_with(second, 3.0, exact=True)
 
 
 def test_play_starts_playback_for_programmatic_callers(player_with_mocks):

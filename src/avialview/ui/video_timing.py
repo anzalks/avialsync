@@ -104,10 +104,13 @@ class VideoTimingMixin:
     is_seeking: bool
     time_pos: float
     time_map: TimeMap
-    _osd_update: Any
     frame_presented: Any
     lbl_osd: Any
     paint_canvas: Any
+
+    def _queue_osd_update(self, t: float, fps: float) -> None:
+        """Queue the concrete pane's coalesced UI-thread update."""
+        raise NotImplementedError
 
     def _update_osd(self, t: float, fps: float) -> None:
         self.lbl_osd.setText(format_video_osd(t, fps, self._metadata))
@@ -124,7 +127,7 @@ class VideoTimingMixin:
             self._nominal_fps,
             self._decoder_fps,
         )
-        self._osd_update.emit(value, fps)
+        self._queue_osd_update(value, fps)
 
     def _observe_seeking(self, value: bool) -> None:
         self._mpv_seeking = value

@@ -224,7 +224,8 @@ encodings remain plugins.
 - mpv: own internal threads per instance (3–4 instances).
 - Import worker: QThread per import job (parse → cache → pyramid), progress via signals, cancellable.
 - Seeker: UI-thread fanout of non-blocking libmpv seek commands; libmpv performs decode and
-  property observation on its own threads, then one UI update is gathered.
+  property observation on its own threads. Render and OSD callbacks retain only the latest pending
+  UI update, so a slow paint cannot create an unbounded Qt event backlog.
 - Proxy generation: QProcess (ffmpeg), non-blocking, progress parsed from stderr.
 
 ### Appearance boundary
@@ -242,16 +243,23 @@ active palette and never infer or reset state from a palette change.
 the Qt-owning thread and queue work in libmpv; decoder and observer work remain asynchronous. An
 observer consumes the value it was given rather than re-entering libmpv from its callback thread.
 At window close, ownership unwinds explicitly: `MainWindow.closeEvent()` calls
-`VideoGrid.shutdown()`, which closes every pane and lets `mpv.terminate()` join its event thread
-before Qt tears down widgets. On Windows and macOS the pane first frees its libmpv render context while the
-`QOpenGLWidget` is current; only then may it terminate libmpv. That ordering prevents the render
-widget from dereferencing a destroyed client during process exit.
+`Player.stop()` before `VideoGrid.shutdown()`. This removes the precise master-tick timer, then
+closes every pane and lets `mpv.terminate()` join its event thread before Qt tears down widgets.
+On Windows and macOS the pane first frees its libmpv render context while the `QOpenGLWidget` is
+current; only then may it terminate libmpv. That ordering prevents the render widget from
+dereferencing a destroyed client during process exit.
 
 Runtime coordination uses observed `seeking=False` and target `time-pos`, without sleeps. That is
 not sufficient evidence for a scientific golden test: the test captures `screenshot-raw video`,
 decodes the fixture frame strip, and compares it with the requested exact frame. A transient raw
 screenshot-unavailable result may be retried while the exact seek is settling; a stale displayed
 image may never be accepted as proof.
+
+During active playback, an unsettled or stalled decoder never stops `MasterClock`. That pane drops
+frames and rejoins through the existing drift correction while plots, transport, readout, 3D, and
+healthy videos continue from the authoritative clock. Unchecked panes remain loaded but are paused
+and excluded from seek/drift fanout; grid and fullscreen layout changes cannot override the stored
+user visibility state.
 
 Standard-video probing happens off the UI thread. Presentation timestamps are authoritative for
 CFR/VFR classification even when container metadata declares CFR, and are stored once in the

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import threading
+from types import SimpleNamespace
+
 import numpy as np
 
 from avialview.core.timeline import TimeMap
 from avialview.engine.seeker import SeekGroup
+from avialview.ui.video_pane import VideoPane
 
 
 class _FastPane:
@@ -30,5 +34,29 @@ def test_bench_four_video_exact_mapping_dispatch(benchmark) -> None:
     seeker = SeekGroup(panes)
 
     benchmark(seeker.seek, 1_800.123, True)
+
+    assert benchmark.stats.stats.mean < 0.002
+
+
+def test_bench_four_video_callback_bursts_are_coalesced(benchmark) -> None:
+    """Four 120-frame callback bursts must stay far below one UI tick."""
+    signal = SimpleNamespace(emit=lambda: None)
+    panes = [
+        SimpleNamespace(
+            _osd_lock=threading.Lock(),
+            _pending_osd=(0.0, 0.0),
+            _osd_event_pending=False,
+            _osd_update=signal,
+        )
+        for _ in range(4)
+    ]
+
+    def callback_burst() -> None:
+        for pane in panes:
+            pane._osd_event_pending = False
+            for frame in range(120):
+                VideoPane._queue_osd_update(pane, frame / 60.0, 60.0)
+
+    benchmark(callback_burst)
 
     assert benchmark.stats.stats.mean < 0.002

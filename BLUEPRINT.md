@@ -77,7 +77,11 @@ Deliverables:
   vertical playhead cursor, bounded paint-clip-only updates between sweep boundaries, and
   coalesced resize/window refreshes.
 - Transport bar: play/pause (space), slider, time readout, speed 0.1–8×.
-- Playback loop: QTimer @ 60 Hz advances MasterClock; mpv follows via rate-matched play + drift correction (re-seek if |video_t − target| > 40 ms **for N consecutive ticks — hysteresis, see AGENTS traps**); slider drag = keyframe seeks, release = exact seek; frame stepping via actual frame timestamps (D-007).
+- Playback loop: precise QTimer @ 60 Hz advances MasterClock without waiting for a decoder; mpv
+  follows via rate-matched play + drift correction (re-seek if |video_t − target| > 40 ms **for N
+  consecutive ticks — hysteresis, see AGENTS traps**); slider drag = keyframe seeks, release =
+  exact seek; frame stepping via actual frame timestamps (D-007). Cross-thread render/OSD callbacks
+  are latest-value coalesced.
 - Standard-video presentation timestamps are probed off-thread, content-hash cached, and override
   misleading container CFR declarations. The pane readout shows CFR/VFR timing evidence, codec, and
   file size without querying media on a clock tick.
@@ -91,6 +95,8 @@ Exit criteria: **golden sync test** — for fixture video (burned frame counter)
 
 Deliverables:
 - Dynamic video grid (row 1, N columns, camera label overlay, double-click fullscreen).
+- Video visibility is persistent across grid/fullscreen/resize changes; unchecked panes stay loaded
+  but are paused and excluded from playback synchronization work.
 - Channel rows (row 2+): one plot row per time series source, shared fixed-duration X window,
   one numeric `ms` / `s` / `min` / `h` limit with a linear continuous slider, show/hide channels,
   per-channel close-to-hide control, and color/legend.

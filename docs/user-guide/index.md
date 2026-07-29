@@ -27,6 +27,8 @@
   cadence while dragging, and the final value renders on release, so rapid adjustment does not
   queue redraws.
 - Select the small **×** beside a plot to hide it. This unchecks the same channel in the left panel.
+- Unchecking a video or plot keeps it loaded but hidden through window resizing, grid changes, and
+  fullscreen toggles. Hidden videos are paused until shown again, then resynchronize automatically.
 - **Reset Zoom** expands the shared plot window to the full loaded timeline.
 - **A/B** marks a time range for inspection or export.
 - After accepting exact frame-trigger alignment, exact scrubs, pause, and frame-step land on those

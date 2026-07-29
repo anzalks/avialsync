@@ -527,10 +527,10 @@ bounded interval; they never sleep, skip, or accept a stale displayed frame. The
 seek once before failing. Runtime seek coordination continues to use delivered observer values and
 target properties; callbacks must not re-enter libmpv.
 
-Shutdown is owned by the widget hierarchy: `MainWindow.closeEvent()` calls
-`VideoGrid.shutdown()`, which closes each `VideoPane` and terminates libmpv before Qt destroys the
-widgets. Decode and property handling remain libmpv-owned during playback; explicit ownership makes
-teardown deterministic.
+Shutdown is owned by the widget hierarchy: `MainWindow.closeEvent()` first calls `Player.stop()` to
+remove its precise tick timer, then `VideoGrid.shutdown()`, which closes each `VideoPane` and
+terminates libmpv before Qt destroys the widgets. Decode and property handling remain libmpv-owned
+during playback; explicit ownership makes teardown deterministic.
 
 ### Consequences
 
@@ -835,6 +835,12 @@ trigger timestamp, then all panes receive their own `TimeMap` target. Playback u
 piecewise mapping slope and half-frame drift tolerance. libmpv commands remain on the Qt-owning
 thread and exact settling still requires delivered seek-state and target-time evidence.
 
+Active playback never blocks `MasterClock` on a pane's `seeking` observer. An unsettled pane drops
+frames and rejoins independently; healthy panes and non-video views continue. libmpv render and OSD
+callbacks use a latest-value pending slot rather than enqueueing one Qt invocation per callback.
+Unchecked video panes remain loaded but paused and absent from seek/drift fanout, and their stored
+visibility survives every grid or fullscreen relayout.
+
 ### Alternatives rejected
 
 Trusting `r_frame_rate`; showing only one average VFR number; decoding frame metadata on every open;
@@ -845,4 +851,5 @@ Trusting `r_frame_rate`; showing only one average VFR number; decoding frame met
 Existing third-party video plugins remain source-compatible because `video_metadata()` has a
 default implementation. Timestamp-aware plugins can override it. Cached timestamp format changes
 must bump its loader version. The four-video application-side exact-mapping dispatch benchmark must
-remain below 2 ms; real decode still owns the existing 250 ms three-camera exact-seek budget.
+remain below 2 ms, as must a four-video 120-frame callback burst after coalescing; real decode still
+owns the existing 250 ms three-camera exact-seek budget.

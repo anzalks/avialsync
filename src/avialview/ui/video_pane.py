@@ -2,6 +2,7 @@
 
 import logging
 import sys
+import threading
 from typing import Any
 
 import numpy as np
@@ -57,7 +58,7 @@ class VideoPane(VideoTimingMixin, QWidget):
 
     double_clicked = Signal(object)
     right_clicked = Signal(object)  # emits QPoint (global position)
-    _osd_update = Signal(float, float)  # time, fps
+    _osd_update = Signal()
     frame_presented = Signal(float)  # delivered source timestamp
     file_loaded = Signal()
 
@@ -83,6 +84,9 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._current_rate = 1.0
         self._mapping_rate_scale = 1.0
         self._sync_correction = 1.0
+        self._osd_lock = threading.Lock()
+        self._pending_osd: tuple[float, float] = (0.0, 0.0)
+        self._osd_event_pending = False
 
         from avialview.core.timeline import TimeMap
 
@@ -116,6 +120,8 @@ class VideoPane(VideoTimingMixin, QWidget):
                     self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
                     self.parent_pane = parent_pane
                     self.ctx = None
+                    self._render_update_lock = threading.Lock()
+                    self._render_update_pending = False
                     # Use vo="libmpv" so it renders via the API instead of a standalone window
                     self.mpv = mpv.MPV(
                         hwdec="auto-safe",
@@ -160,7 +166,19 @@ class VideoPane(VideoTimingMixin, QWidget):
                     def on_mpv_update():
                         from PySide6.QtCore import QMetaObject, Qt
 
-                        QMetaObject.invokeMethod(self, "update", Qt.ConnectionType.QueuedConnection)
+                        with self._render_update_lock:
+                            if self._render_update_pending:
+                                return
+                            self._render_update_pending = True
+                        try:
+                            QMetaObject.invokeMethod(
+                                self,
+                                "_consume_mpv_update",
+                                Qt.ConnectionType.QueuedConnection,
+                            )
+                        except RuntimeError:
+                            with self._render_update_lock:
+                                self._render_update_pending = False
 
                     self.ctx.update_cb = on_mpv_update
 
@@ -169,6 +187,12 @@ class VideoPane(VideoTimingMixin, QWidget):
                         self.mpv.play(self.parent_pane._pending_play)
                         self.mpv.pause = getattr(self.parent_pane, "_target_pause", True)
                         delattr(self.parent_pane, "_pending_play")
+
+                @Slot()
+                def _consume_mpv_update(self) -> None:
+                    with self._render_update_lock:
+                        self._render_update_pending = False
+                    self.update()
 
                 def paintGL(self) -> None:
                     if self.ctx:
@@ -274,7 +298,7 @@ class VideoPane(VideoTimingMixin, QWidget):
 
         self.layout().addWidget(self.overlay, 0, 0)
 
-        self._osd_update.connect(self._update_osd)
+        self._osd_update.connect(self._flush_osd_update)
 
         if self._video_widget:
             self.file_loaded.connect(self._on_file_loaded)
@@ -296,6 +320,22 @@ class VideoPane(VideoTimingMixin, QWidget):
 
     def set_tracking_readers(self, readers: list) -> None:
         self.paint_canvas.set_readers(readers)
+
+    def _queue_osd_update(self, t: float, fps: float) -> None:
+        """Queue at most one UI-thread OSD/overlay update, retaining the newest frame."""
+        with self._osd_lock:
+            self._pending_osd = (t, fps)
+            if self._osd_event_pending:
+                return
+            self._osd_event_pending = True
+        self._osd_update.emit()
+
+    @Slot()
+    def _flush_osd_update(self) -> None:
+        with self._osd_lock:
+            t, fps = self._pending_osd
+            self._osd_event_pending = False
+        self._update_osd(t, fps)
 
     def eventFilter(self, obj, event):
         if obj == self._video_widget:

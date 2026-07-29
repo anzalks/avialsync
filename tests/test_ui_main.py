@@ -26,13 +26,23 @@ from avialview.ui.main_window import MainWindow
 
 
 @pytest.fixture
-def main_window(qapp: QApplication) -> MainWindow:
+def main_window(qapp: QApplication, qtbot) -> MainWindow:
     win = MainWindow()
+    qtbot.addWidget(win)
     win.show()
     return win
 
 
 # ── Bug a: _on_annotate_requested crash ──────────────────────────────
+
+
+def test_close_stops_master_tick_timer(main_window: MainWindow) -> None:
+    """Closed windows must not leave precise playback timers in the Qt loop."""
+    assert main_window.player._timer.isActive()
+
+    main_window.close()
+
+    assert not main_window.player._timer.isActive()
 
 
 def test_annotate_no_attribute_error(main_window: MainWindow) -> None:

@@ -118,6 +118,22 @@ def test_hidden_rows_are_not_queried(sweep_pane, monkeypatch) -> None:
     assert calls == 0
 
 
+def test_hidden_plot_stays_hidden_through_resize_storm(qtbot, sweep_pane) -> None:
+    pane = sweep_pane
+    hidden = pane.channels[1]
+    pane.set_channel_visible("beta", False)
+    pane.show()
+
+    for width in range(920, 1121, 20):
+        pane.resize(width, 500)
+    qtbot.wait(100)
+
+    assert hidden.visible is False
+    assert hidden.plot_item.isVisible() is False
+    assert hidden.close_proxy.isVisible() is False
+    assert hidden.plot_item.maximumHeight() == 0
+
+
 def test_resize_storm_triggers_one_deferred_redecimation(
     qtbot,
     sweep_pane,
