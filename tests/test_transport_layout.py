@@ -38,7 +38,7 @@ def test_transport_status_and_reset_signal(qtbot) -> None:
     assert transport.evidence._status_label.text() == "Status: Importing sensor data 62%"
     assert "#f0c674" in transport.evidence._status_label.styleSheet()
     assert reset_requests == [True]
-    assert transport.play_btn.focusPolicy() == Qt.FocusPolicy.NoFocus
+    assert transport.play_btn.focusPolicy() == Qt.FocusPolicy.TabFocus
 
 
 def test_status_timer_is_owned_by_data_streams(qtbot) -> None:
@@ -128,6 +128,44 @@ def test_overview_renders_inspection_evidence_and_seeks(qtbot) -> None:
     assert len(transport.overview._markers) == 2
     assert seeks[0][0] == pytest.approx(50.0, abs=0.5)
     assert seeks[0][1] is True
+
+
+def test_overview_viewport_drag_preserves_page_phase_and_releases_exactly(qtbot) -> None:
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.resize(1000, 180)
+    transport.show()
+    qtbot.waitExposed(transport)
+    transport.set_bounds(0.0, 100.0)
+    transport.set_plot_viewport(20.0, 10.0, 2.5)
+    seeks: list[tuple[float, bool]] = []
+    transport.seek_requested.connect(lambda t, exact: seeks.append((t, exact)))
+
+    overview = transport.overview
+    left, right = overview._visible_span_x(20.0, 30.0) or (0, 0)
+    start = QPoint((left + right) // 2, overview.height() // 2)
+    end = QPoint(start.x() + 100, start.y())
+    qtbot.mousePress(overview, Qt.MouseButton.LeftButton, pos=start)
+    qtbot.mouseMove(overview, end)
+    qtbot.mouseRelease(overview, Qt.MouseButton.LeftButton, pos=end)
+
+    assert seeks
+    assert seeks[-1][1] is True
+    assert seeks[-1][0] == pytest.approx(transport.overview._cursor)
+    assert transport.overview._viewport_duration == pytest.approx(10.0)
+
+
+def test_transport_controls_keep_tab_focus_but_space_stays_play_pause(qtbot) -> None:
+    transport = Transport()
+    qtbot.addWidget(transport)
+    toggles: list[bool] = []
+    transport.play_toggled.connect(toggles.append)
+    transport.rate_combo.setFocus()
+
+    qtbot.keyClick(transport.rate_combo, Qt.Key.Key_Space)
+
+    assert transport.rate_combo.focusPolicy() == Qt.FocusPolicy.TabFocus
+    assert toggles == [True]
 
 
 def test_evidence_lanes_are_named_conditional_and_collapsible(qtbot) -> None:

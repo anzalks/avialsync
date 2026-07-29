@@ -9,21 +9,17 @@ from pathlib import Path
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsProxyWidget, QToolButton
 
 from avialview.core.pyramid import PyramidReader
 from avialview.ui.plot_sweep import SweepCurveItem
 
-CHANNEL_COLORS = [
-    (0, 255, 255),
-    (255, 0, 255),
-    (255, 255, 0),
-    (0, 255, 0),
-    (255, 128, 0),
-    (128, 128, 255),
-    (255, 128, 128),
-    (128, 255, 128),
-]
+CHANNEL_COLORS = [(72, 169, 232), (87, 194, 143), (218, 160, 84), (174, 132, 222)]
+
+Y_FIT_ONCE = "fit_once"
+Y_AUTO = "auto"
+Y_MANUAL = "manual"
 
 
 @dataclass
@@ -35,6 +31,11 @@ class ChannelPlot:
     plot_item: pg.PlotItem
     curve: SweepCurveItem
     envelope_upper: SweepCurveItem
+    envelope_fill: pg.FillBetweenItem
+    retained_curve: SweepCurveItem
+    retained_upper: SweepCurveItem
+    retained_fill: pg.FillBetweenItem
+    sweep_eraser: pg.LinearRegionItem
     cursor_line: pg.InfiniteLine
     close_button: QToolButton
     close_proxy: QGraphicsProxyWidget
@@ -42,6 +43,10 @@ class ChannelPlot:
     coverage_bounds: tuple[float, float] | None = None
     gap_markers: list[pg.InfiniteLine] = field(default_factory=list)
     gap_times: tuple[float, ...] = ()
+    unit: str = ""
+    y_mode: str = Y_FIT_ONCE
+    y_range: tuple[float, float] | None = None
+    row_height: int = 110
     visible: bool = True
 
 
@@ -70,6 +75,58 @@ def refresh_channel_plot(
     upper[gap] = np.nan
     channel.curve.setData(x, lower)
     channel.envelope_upper.setData(x, upper)
+    if channel.y_mode == Y_AUTO:
+        fit_channel_y(channel)
+
+
+def retain_channel_plot(channel: ChannelPlot) -> None:
+    """Keep one previous page for Sweep overwrite without retaining unbounded history."""
+    x, lower = channel.curve.getData()
+    _, upper = channel.envelope_upper.getData()
+    if x is None or lower is None or upper is None:
+        channel.retained_curve.setData([], [])
+        channel.retained_upper.setData([], [])
+        return
+    channel.retained_curve.setData(np.asarray(x).copy(), np.asarray(lower).copy())
+    channel.retained_upper.setData(np.asarray(x).copy(), np.asarray(upper).copy())
+
+
+def set_channel_unit(channel: ChannelPlot, unit: str) -> None:
+    """Show a channel's unit in the fixed left-axis gutter."""
+    channel.unit = unit
+    _update_channel_gutter(channel)
+
+
+def fit_channel_y(channel: ChannelPlot) -> None:
+    """Fit a stable finite Y range from the currently loaded bounded page."""
+    _, lower = channel.curve.getData()
+    _, upper = channel.envelope_upper.getData()
+    if lower is None or upper is None:
+        return
+    values = np.concatenate((np.asarray(lower), np.asarray(upper)))
+    values = values[np.isfinite(values)]
+    if len(values) == 0:
+        return
+    low, high = float(values.min()), float(values.max())
+    if np.isclose(low, high):
+        pad = max(1.0, abs(low) * 0.1)
+    else:
+        pad = (high - low) * 0.08
+    channel.y_range = (low - pad, high + pad)
+    channel.plot_item.setYRange(*channel.y_range, padding=0)
+    channel.plot_item.enableAutoRange(axis="y", enable=False)
+    _update_channel_gutter(channel)
+
+
+def _update_channel_gutter(channel: ChannelPlot) -> None:
+    """Keep name, unit, and stable scale together in the fixed row gutter."""
+    lines = [channel.name]
+    if channel.unit:
+        lines.append(channel.unit)
+    if channel.y_range is not None:
+        low, high = channel.y_range
+        lines.append(f"{low:.3g}…{high:.3g}")
+    channel.plot_item.setLabel("left", "\n".join(lines))
 
 
 def update_channel_coverage(
@@ -95,13 +152,18 @@ def update_channel_coverage(
 
 def apply_channel_visibility(channel: ChannelPlot) -> None:
     """Apply the row's authoritative visibility state to both graphics items."""
+    minimum_height = channel.row_height if channel.visible else 0
     maximum_height = 16777215 if channel.visible else 0
     if channel.plot_item.isVisible() != channel.visible:
         channel.plot_item.setVisible(channel.visible)
     if channel.close_proxy.isVisible() != channel.visible:
         channel.close_proxy.setVisible(channel.visible)
+    if channel.plot_item.minimumHeight() != minimum_height:
+        channel.plot_item.setMinimumHeight(minimum_height)
     if channel.plot_item.maximumHeight() != maximum_height:
         channel.plot_item.setMaximumHeight(maximum_height)
+    if channel.close_proxy.minimumHeight() != minimum_height:
+        channel.close_proxy.setMinimumHeight(minimum_height)
     if channel.close_proxy.maximumHeight() != maximum_height:
         channel.close_proxy.setMaximumHeight(maximum_height)
 
@@ -128,7 +190,7 @@ def create_channel_plot(
     close_button.setFixedSize(18, 18)
     close_button.setAccessibleName(f"Hide plot {channel_name}")
     close_button.setToolTip(f"Hide {channel_name}")
-    close_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+    close_button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
     close_button.clicked.connect(
         lambda _checked=False, channel_id=channel_name: close_requested(channel_id)
     )
@@ -137,19 +199,49 @@ def create_channel_plot(
     graphics_layout.addItem(close_proxy, row=row, col=0)
 
     plot_item = graphics_layout.addPlot(row=row, col=1)
+    plot_item.setMinimumHeight(110)
     plot_item.setLabel("left", channel_name)
-    plot_item.setLabel("bottom", "Sweep", units="s")
+    plot_item.setLabel("bottom", "Master time", units="s")
     plot_item.getAxis("left").setWidth(70)
-    plot_item.showGrid(x=True, y=True, alpha=0.3)
+    plot_item.showGrid(x=True, y=False, alpha=0.18)
     plot_item.setMouseEnabled(x=False, y=False)
-    plot_item.enableAutoRange(axis="y")
+    plot_item.enableAutoRange(axis="y", enable=False)
     plot_item.enableAutoRange(axis="x", enable=False)
 
-    pen = pg.mkPen(color=CHANNEL_COLORS[color_index % len(CHANNEL_COLORS)], width=1.5)
+    color = QColor(*CHANNEL_COLORS[color_index % len(CHANNEL_COLORS)])
+    pen = pg.mkPen(color=color, width=1.4)
     curve = SweepCurveItem(pen=pen, connect="finite")
-    envelope_upper = SweepCurveItem(pen=pen, connect="finite")
+    envelope_upper = SweepCurveItem(pen=None, connect="finite")
+    fill_brush = QColor(color)
+    fill_brush.setAlpha(70)
+    envelope_fill = pg.FillBetweenItem(
+        curve, envelope_upper, brush=pg.mkBrush(fill_brush), pen=None
+    )
+    retained_pen = pg.mkPen(color=color.darker(150), width=1.0)
+    retained_curve = SweepCurveItem(pen=retained_pen, connect="finite")
+    retained_upper = SweepCurveItem(pen=None, connect="finite")
+    retained_brush = QColor(color)
+    retained_brush.setAlpha(35)
+    retained_fill = pg.FillBetweenItem(
+        retained_curve, retained_upper, brush=pg.mkBrush(retained_brush), pen=None
+    )
+    sweep_eraser = pg.LinearRegionItem(
+        values=[0.0, 0.0], movable=False, brush=pg.mkBrush(0, 0, 0, 180), pen=None
+    )
+    retained_curve.setZValue(0)
+    retained_upper.setZValue(0)
+    retained_fill.setZValue(0.2)
+    sweep_eraser.setZValue(1)
+    envelope_fill.setZValue(1.5)
+    curve.setZValue(2)
+    envelope_upper.setZValue(2)
+    plot_item.addItem(retained_curve)
+    plot_item.addItem(retained_upper)
+    plot_item.addItem(retained_fill)
+    plot_item.addItem(sweep_eraser)
     plot_item.addItem(curve)
     plot_item.addItem(envelope_upper)
+    plot_item.addItem(envelope_fill)
     cursor_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen("y", width=2))
     plot_item.addItem(cursor_line)
 
@@ -172,6 +264,11 @@ def create_channel_plot(
         plot_item=plot_item,
         curve=curve,
         envelope_upper=envelope_upper,
+        envelope_fill=envelope_fill,
+        retained_curve=retained_curve,
+        retained_upper=retained_upper,
+        retained_fill=retained_fill,
+        sweep_eraser=sweep_eraser,
         cursor_line=cursor_line,
         close_button=close_button,
         close_proxy=close_proxy,

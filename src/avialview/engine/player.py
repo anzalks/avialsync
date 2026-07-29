@@ -87,6 +87,7 @@ class Player(QObject):
         self._playing_pane_ids.clear()
 
     def set_playing(self, playing: bool) -> None:
+        self.plot_pane.set_playing(playing)
         if playing:
             # Wrap around to start if at the very end
             current_t = self.clock.state.t
@@ -116,6 +117,7 @@ class Player(QObject):
 
     def seek(self, t: float, exact: bool = True) -> None:
         self._is_scrubbing = not exact
+        self.plot_pane.set_scrubbing(not exact)
         if exact:
             t = self._snap_to_frame_evidence(t)
         self.clock.seek(t)

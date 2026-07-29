@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -96,6 +97,7 @@ class MainWindow(QMainWindow):
         self.transport = Transport(self)
         self.data_streams = self.transport.detach_data_streams()
         self.transport.reset_zoom_requested.connect(self.plot_pane.reset_zoom)
+        self.plot_pane.view_window_changed.connect(self.transport.set_plot_viewport)
 
         # Engine
         self.player = Player(
@@ -145,17 +147,16 @@ class MainWindow(QMainWindow):
         self.annotation_panel = AnnotationPanel(self.annotation_store, self)
         self.plot_pane.set_annotation_store(self.annotation_store)
 
-        # Sidebar composite layout — vertical splitter so sections are user-resizable
-        self._left_splitter = QSplitter(Qt.Orientation.Vertical)
-        self._left_splitter.addWidget(self.sidebar)
-        self._left_splitter.addWidget(self.readout_panel)
-        self._left_splitter.addWidget(self.annotation_panel)
-        self._left_splitter.setStretchFactor(0, 2)
-        self._left_splitter.setStretchFactor(1, 1)
-        self._left_splitter.setStretchFactor(2, 2)
+        # One compact inspector keeps source management, values, and annotations available
+        # without permanently consuming three stacked panes of workspace height.
+        self._left_tabs = QTabWidget(self)
+        self._left_tabs.setAccessibleName("Inspector")
+        self._left_tabs.addTab(self.sidebar, "Sources")
+        self._left_tabs.addTab(self.readout_panel, "Values")
+        self._left_tabs.addTab(self.annotation_panel, "Annotations")
 
         h_splitter = QSplitter(Qt.Orientation.Horizontal)
-        h_splitter.addWidget(self._left_splitter)
+        h_splitter.addWidget(self._left_tabs)
         self._h_splitter = h_splitter
 
         right_widget = QWidget()
@@ -310,6 +311,7 @@ class MainWindow(QMainWindow):
     def _set_time_mode(self, mode: TimeDisplayMode) -> None:
         self._time_mode = mode
         self.transport.set_time_mode(mode)
+        self.plot_pane.set_time_mode(mode)
         self.transport.set_time(self.clock.state.t)
         self.time_mode_changed.emit(mode)
 
@@ -339,9 +341,8 @@ class MainWindow(QMainWindow):
         content_state = settings.value("splitter/content")
         if content_state:
             self._content_splitter.restoreState(content_state)
-        left_state = settings.value("splitter/left")
-        if left_state:
-            self._left_splitter.restoreState(left_state)
+        tab_index = cast(int, settings.value("inspector/tab", 0, type=int))
+        self._left_tabs.setCurrentIndex(max(0, min(tab_index, self._left_tabs.count() - 1)))
 
     def _save_geometry(self) -> None:
         settings = QSettings("AvialView", "AvialView")
@@ -356,7 +357,7 @@ class MainWindow(QMainWindow):
         )
         settings.setValue("splitter/content", self._content_splitter.saveState())
         settings.setValue("splitter/media", self._media_splitter.saveState())
-        settings.setValue("splitter/left", self._left_splitter.saveState())
+        settings.setValue("inspector/tab", self._left_tabs.currentIndex())
 
     # ── Session save / load ──────────────────────────────────────────
 
@@ -2047,6 +2048,9 @@ class MainWindow(QMainWindow):
             units_cfg = inspection.import_config.get("units", {})
             if isinstance(units_cfg, dict):
                 self._channel_units.update(units_cfg)
+                self.plot_pane.set_channel_units(
+                    {channel: str(unit) for channel, unit in units_cfg.items()}
+                )
             # Overlay gap markers on each channel from this source
             rep = inspection.import_report
             if rep and rep.gap_locations:

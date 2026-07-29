@@ -177,7 +177,7 @@ Deliverables:
 
 Exit criteria: scripted UX walkthrough (pytest-qt integration test) covering open→align→annotate→export with zero unhandled exceptions; keyboard-only operation possible for the core loop. Timeline Evidence is understandable without a manual or colour interpretation: its populated lanes, event details, collapse/resize controls, and empty-lane suppression are covered.
 
-### P4.6 — Plot review and sweep UX refinement (approved; implementation pending)
+### P4.6 — Plot review and sweep UX refinement (core implementation complete; certification pending)
 
 **Goal:** make dense scientific plots behave like a stable recording browser while retaining the
 existing oscilloscope presentation and every current transport, evidence, visibility, readout,
@@ -198,10 +198,11 @@ The normative behaviour, compatibility ledger, implementation slices, and accept
 - control relocation proxies existing QActions/signals rather than deleting functionality;
 - normal Tab focus is restored without weakening window-scoped playback shortcuts.
 
-Exit criteria: all `PLOT_UX_PLAN.md` §14 evidence passes; golden synchronization remains unchanged;
-the populated ≤2 ms cursor and ≤16 ms plot budgets pass; a 128-channel field-shaped fixture can be
-played, resized, scrubbed, and rescaled without a >30 ms UI callback or an unbounded graphics/query
-queue.
+Current implementation covers the presentation, time-span, navigator, Y-scale, layout, focus, and
+compatibility slices. Exit criteria remain: all `PLOT_UX_PLAN.md` §14 evidence passes; golden
+synchronization remains unchanged; the populated ≤2 ms cursor and ≤16 ms plot budgets pass; a
+128-channel field-shaped fixture can be played, resized, scrubbed, and rescaled without a >30 ms UI
+callback or an unbounded graphics/query queue.
 
 ## Phase 5 — Plugin API + packaging (Week 10–13)
 

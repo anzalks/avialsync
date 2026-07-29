@@ -10,6 +10,8 @@ from PySide6.QtCore import Qt
 
 from avialview.core.pyramid import PyramidBuilder
 from avialview.ui.plot_pane import PlotPane
+from avialview.ui.plot_row import Y_AUTO, Y_MANUAL
+from avialview.ui.plot_sweep import PlotPresentation
 from avialview.ui.sidebar import SensorInfoWidget, SidebarPane
 
 
@@ -22,6 +24,7 @@ def sweep_pane(qtbot, tmp_path: Path) -> PlotPane:
     pane = PlotPane()
     qtbot.addWidget(pane)
     pane.resize(900, 500)
+    pane.presentation_combo.setCurrentText("Sweep")
     pane.set_timeline_bounds(100.0, 140.0)
     pane.load_channels(tmp_path, ["alpha", "beta"])
     pane.set_window_duration(5.5)
@@ -45,6 +48,41 @@ def test_sweep_grows_left_to_right_then_restarts_without_moving_axis(sweep_pane)
     assert pane.channels[0].cursor_line.value() == pytest.approx(0.1)
 
 
+def test_paused_review_reveals_the_complete_current_page(sweep_pane) -> None:
+    pane = sweep_pane
+    pane.set_cursor(103.0)
+
+    assert pane.presentation is PlotPresentation.REVIEW
+    assert pane.channels[0].curve._reveal_enabled is False
+    assert pane.channels[0].retained_curve.isVisible() is False
+
+
+def test_live_sweep_retains_only_the_previous_page_until_overwritten(sweep_pane) -> None:
+    pane = sweep_pane
+    pane.set_playing(True)
+    pane.set_cursor(104.0)
+    pane.set_cursor(106.0)
+
+    retained_x, retained_y = pane.channels[0].retained_curve.getData()
+    assert pane.presentation is PlotPresentation.SWEEP
+    assert retained_x is not None and retained_y is not None
+    assert pane.channels[0].retained_curve.isVisible()
+    assert pane.channels[0].sweep_eraser.isVisible()
+    assert pane.channels[0].sweep_eraser.getRegion()[0] == pytest.approx(0.5)
+
+
+def test_live_scope_keeps_clear_and_restart_compatibility(sweep_pane) -> None:
+    pane = sweep_pane
+    pane.presentation_combo.setCurrentText("Scope")
+    pane.set_playing(True)
+    pane.set_cursor(104.0)
+    pane.set_cursor(106.0)
+
+    assert pane.presentation is PlotPresentation.SCOPE
+    assert pane.channels[0].curve._reveal_enabled is True
+    assert pane.channels[0].retained_curve.isVisible() is False
+
+
 def test_all_plot_rows_share_one_x_range_and_one_window_slider(sweep_pane) -> None:
     pane = sweep_pane
     pane.window_slider.setValue(900)
@@ -53,6 +91,54 @@ def test_all_plot_rows_share_one_x_range_and_one_window_slider(sweep_pane) -> No
     assert ranges[0] == pytest.approx((0.0, pane.window_duration))
     assert ranges[1] == pytest.approx(ranges[0])
     assert len(pane.findChildren(type(pane.window_slider))) == 1
+
+
+def test_only_the_bottom_visible_row_shows_shared_x_axis_values(sweep_pane) -> None:
+    pane = sweep_pane
+    first_axis = pane.channels[0].plot_item.getAxis("bottom")
+    last_axis = pane.channels[1].plot_item.getAxis("bottom")
+
+    assert first_axis.style["showValues"] is False
+    assert last_axis.style["showValues"] is True
+
+    pane.set_channel_visible("beta", False)
+    assert first_axis.style["showValues"] is True
+
+
+def test_channel_gutter_and_fit_once_y_range_remain_stable_during_live_playback(sweep_pane) -> None:
+    pane = sweep_pane
+    pane.set_channel_unit("alpha", "mV")
+    pane.set_cursor(104.0)
+    initial_range = pane.channels[0].y_range
+    pane.set_playing(True)
+    pane.set_cursor(106.0)
+
+    assert "mV" in pane.channels[0].plot_item.getAxis("left").labelText
+    assert pane.channels[0].y_range == initial_range
+
+
+def test_channel_y_modes_make_auto_explicit_and_manual_hold_the_current_range(sweep_pane) -> None:
+    pane = sweep_pane
+    pane.set_cursor(104.0)
+    pane.set_channel_y_mode("alpha", Y_AUTO)
+
+    assert pane.channels[0].y_mode == Y_AUTO
+    assert pane.channels[0].y_range is not None
+
+    pane.set_channel_y_mode("alpha", Y_MANUAL)
+    held_range = pane.channels[0].y_range
+    pane.set_cursor(106.0)
+
+    assert pane.channels[0].y_mode == Y_MANUAL
+    assert pane.channels[0].y_range == held_range
+
+
+def test_row_height_control_uses_one_scrollable_plot_stack(sweep_pane) -> None:
+    pane = sweep_pane
+    pane.row_height_combo.setCurrentText("Compact")
+
+    assert pane.graphics_layout.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+    assert pane.channels[0].plot_item.minimumHeight() == 72
 
 
 def test_pyramid_is_not_requeried_on_every_master_clock_tick(sweep_pane, monkeypatch) -> None:

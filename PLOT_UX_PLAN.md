@@ -251,7 +251,10 @@ geometry, or a second channel visibility state.
 
 ## 13. Implementation slices
 
-Complete and verify one slice before starting the next:
+Implementation status: slices 2–8 are implemented in the current codebase with focused offscreen
+coverage. Slice 1 characterization was preserved by regression tests. Slice 9 certification remains
+open until the representative 4/32/128-channel benchmark and three-platform manual checklist are
+recorded. Complete and verify one slice before starting the next:
 
 1. **Characterization:** lock every compatibility-ledger behaviour with tests; capture current
    signals, shortcuts, session round-trip, query counts, focus-after-entry, and performance baselines.

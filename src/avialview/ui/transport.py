@@ -2,8 +2,16 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFontDatabase, QMouseEvent, QPainter, QPaintEvent, QResizeEvent
+from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QColor,
+    QFontDatabase,
+    QKeyEvent,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QResizeEvent,
+)
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -39,6 +47,7 @@ class TimelineOverview(QWidget):
     """Paint named, conditional timeline-evidence lanes without owning time state."""
 
     seek_requested = Signal(float)
+    viewport_seek_requested = Signal(float, bool)
     evidence_changed = Signal()
     _LABEL_WIDTH = 220
     _MIN_LANE_HEIGHT = 18
@@ -60,6 +69,11 @@ class TimelineOverview(QWidget):
         self._ttl_events: tuple[tuple[float, str], ...] = ()
         self._gap_events: tuple[tuple[float, str], ...] = ()
         self._markers: tuple[tuple[float, float | None, str], ...] = ()
+        self._viewport_start = 0.0
+        self._viewport_duration = 0.0
+        self._viewport_phase = 0.0
+        self._dragging_viewport = False
+        self._viewport_drag_offset = 0.0
 
     def set_bounds(self, t0: float, t1: float) -> None:
         """Set the shared master-time range rendered by this overview."""
@@ -69,6 +83,13 @@ class TimelineOverview(QWidget):
     def set_cursor(self, t: float) -> None:
         """Move the overview playhead without recalculating any evidence."""
         self._cursor = t
+        self.update()
+
+    def set_viewport(self, start: float, duration: float, phase: float) -> None:
+        """Render the one shared plot page without creating another time authority."""
+        self._viewport_start = start
+        self._viewport_duration = max(0.0, duration)
+        self._viewport_phase = max(0.0, min(1.0, phase / duration)) if duration > 0 else 0.0
         self.update()
 
     def set_coverage(self, source_id: str, t0: float, t1: float, kind: str) -> None:
@@ -164,15 +185,47 @@ class TimelineOverview(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             t0, t1 = self._bounds
             if event.position().x() >= self._LABEL_WIDTH and t1 > t0:
+                viewport = self._visible_span_x(
+                    self._viewport_start, self._viewport_start + self._viewport_duration
+                )
+                if viewport is not None and viewport[0] <= event.position().x() <= viewport[1]:
+                    self._dragging_viewport = True
+                    self._viewport_drag_offset = event.position().x() - viewport[0]
+                    event.accept()
+                    return
                 self.seek_requested.emit(self._time_at_x(event.position().x()))
                 event.accept()
                 return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._dragging_viewport:
+            self._move_viewport(event.position().x(), exact=False)
+            event.accept()
+            return
         detail = self._event_detail(event.position().x(), event.position().y())
         self.setToolTip(detail or "Data Streams. Click to seek.")
         super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if self._dragging_viewport and event.button() == Qt.MouseButton.LeftButton:
+            self._move_viewport(event.position().x(), exact=True)
+            self._dragging_viewport = False
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def _move_viewport(self, x: float, *, exact: bool) -> None:
+        """Move the page while preserving the playhead's fractional page position."""
+        t0, t1 = self._bounds
+        if t1 <= t0 or self._viewport_duration <= 0:
+            return
+        start = self._time_at_x(x - self._viewport_drag_offset)
+        start = min(max(start, t0), max(t0, t1 - self._viewport_duration))
+        self._viewport_start = start
+        self._cursor = start + self._viewport_phase * self._viewport_duration
+        self.update()
+        self.viewport_seek_requested.emit(self._cursor, exact)
 
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
@@ -180,12 +233,14 @@ class TimelineOverview(QWidget):
         painter.fillRect(self.rect(), palette.color(palette.ColorRole.AlternateBase))
         t0, t1 = self._bounds
         lanes = self._lanes()
-        if t1 <= t0 or not lanes:
+        if t1 <= t0:
             painter.setPen(palette.color(palette.ColorRole.PlaceholderText))
             painter.drawText(
                 self.rect(), Qt.AlignmentFlag.AlignCenter, "No timeline evidence loaded"
             )
             return
+        if not lanes:
+            lanes = [("Navigator", "navigator", None)]
 
         lane_height = max(self._MIN_LANE_HEIGHT, self.height() // len(lanes))
         accent = system_accent(palette)
@@ -227,7 +282,7 @@ class TimelineOverview(QWidget):
                 painter.setPen(QColor("#d64545"))
                 for x in {self._content_x(time) for time, _ in payload if t0 <= time <= t1}:
                     painter.drawLine(x, top + 2, x, bottom - 2)
-            else:
+            elif lane_kind == "annotation":
                 for start, end, color in payload:
                     span = self._visible_span_x(start, start if end is None else end)
                     if span is None:
@@ -244,6 +299,17 @@ class TimelineOverview(QWidget):
                             QColor(color).darker(130),
                         )
 
+        viewport = self._visible_span_x(
+            self._viewport_start, self._viewport_start + self._viewport_duration
+        )
+        if viewport is not None and self._viewport_duration > 0:
+            left, right = viewport
+            view_color = QColor(palette.color(palette.ColorRole.Highlight))
+            view_color.setAlpha(180)
+            painter.setPen(view_color)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(left, 1, max(1, right - left), max(1, self.height() - 3))
+
         painter.setPen(palette.color(palette.ColorRole.BrightText))
         cursor_x = min(self.width() - 1, max(self._LABEL_WIDTH, self._content_x(self._cursor)))
         painter.drawLine(cursor_x, 0, cursor_x, self.height() - 1)
@@ -254,6 +320,8 @@ class TimelineOverview(QWidget):
         if t1 <= t0:
             return ""
         lanes = self._lanes()
+        if not lanes:
+            return f"Navigator\nMaster time: {self._time_at_x(x):.6f} s"
         lane_height = max(self._MIN_LANE_HEIGHT, self.height() // len(lanes))
         lane_index = min(len(lanes) - 1, int(y // lane_height))
         label, kind, payload = lanes[lane_index]
@@ -426,6 +494,9 @@ class Transport(QWidget):
         self.evidence = TimelineEvidence(self)
         self.overview = self.evidence.overview
         self.overview.seek_requested.connect(lambda t: self.seek_requested.emit(t, True))
+        self.overview.viewport_seek_requested.connect(
+            lambda t, exact: self.seek_requested.emit(t, exact)
+        )
         self.evidence.snapshot_requested.connect(self.snapshot_requested.emit)
         self.evidence.reset_zoom_requested.connect(self.reset_zoom_requested.emit)
         self.evidence.flag_requested.connect(self.annotate_requested.emit)
@@ -553,10 +624,12 @@ class Transport(QWidget):
         self._pin_in = _ABPin("#2a9d8f", self)
         self._pin_out = _ABPin("#e76f51", self)
 
-        # Prevent buttons/combos/sliders from stealing the Spacebar shortcut
+        # Keep normal Tab traversal. Space itself is arbitrated below so controls
+        # do not steal the window-scoped play/pause command.
         for widget in self.findChildren(QWidget):
             if isinstance(widget, (QPushButton, QComboBox, QSlider)):
-                widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+                widget.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+                widget.installEventFilter(self)
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -610,6 +683,10 @@ class Transport(QWidget):
         """Show point and range annotations in the overview strip."""
         self.overview.set_markers(markers)
 
+    def set_plot_viewport(self, start: float, duration: float, phase: float) -> None:
+        """Mirror the single PlotPane page in the global Data Streams navigator."""
+        self.overview.set_viewport(start, duration, phase)
+
     def set_time(self, t: float) -> None:
         """Update the displayed time (unless the user is typing)."""
         if not self._time_editing:
@@ -660,6 +737,15 @@ class Transport(QWidget):
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._repin()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Reserve Space for playback while retaining ordinary Tab accessibility."""
+        if event.type() == QEvent.Type.KeyPress and isinstance(event, QKeyEvent):
+            key = event.key()
+            if key == Qt.Key.Key_Space:
+                self.play_toggled.emit(not self.play_btn.isChecked())
+                return True
+        return super().eventFilter(watched, event)
 
     # ── Slots ─────────────────────────────────────────────────────────
 

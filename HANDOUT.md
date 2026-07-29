@@ -61,13 +61,14 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - Snapshot / data slice / video clip export
 - Import wizard (CSV format/TZ/sentinel/euro-decimal) + proxy worker
 - `plot_pane.reset_zoom()` method exists
-- Plots use one fixed oscilloscope-style `0…window` sweep shared by every row. A numeric
-  **Window limit** plus `ms` / `s` / `min` / `h` unit selector sets the scale for one linear
-  slider below the complete plot stack. Slider refreshes are capped at the display cadence and
-  resize storms are trailing-edge coalesced into quantized density updates. Hidden rows are not
-  queried, and ordinary clock ticks move only the playhead/reveal clip. The pyramid is queried only
-  when the sweep wraps, a coalesced window changes, or the viewport density changes. Each row's
-  small close button unchecks the existing sidebar visibility control.
+- Plots share one master-time page and continuous **Time span** control (`ms` / `s` / `min` / `h`),
+  with lossless unit conversion, logarithmic slider mapping, coalesced drag updates, and normal
+  Tab/Enter focus. Paused and approximate scrubs use complete-page **Review**; live playback offers
+  retained-page/eraser **Sweep** (default) and compatible clear/restart **Scope**. The pyramid is
+  queried only at page changes, coalesced span changes, or quantized-density resize changes; hidden
+  rows are not queried. One bottom master-time axis, per-channel fixed name/unit/range gutters,
+  bounded min/max envelope, close-to-sidebar visibility path, stable Fit/Auto/Manual Y modes,
+  native vertical scrolling, and retained current+previous sweep pages preserve dense-data clarity.
 
 ### Done (Phase 4 UX / loader fixes)
 - **Live scrubbing coalescing**: During slider drag `Player.seek(exact=False)` coalesces in-flight keyframe seeks — if a seek is already dispatched, the newest target is held in `_pending_scrub_t` and flushed in `_on_tick` as soon as `SeekGroup.is_settled()`. Plot cursor and readout panel update every drag event. Exact seek fires on release as before.
@@ -178,16 +179,13 @@ with explicit user acceptance and session provenance. Native plugin event provid
   available in the Sync Wizard.
 
 ### Pending
-- **P4.6 plot review/sweep UX refinement — approved, no implementation yet (D-044):**
-  `PLOT_UX_PLAN.md` is the canonical execution contract. The current D-042 fixed
-  clear/restart sweep remains functional and must survive as **Scope** style. Planned work adds
-  complete-page Review while paused/scrubbing, overwrite-with-eraser **Sweep** playback, one shared
-  master-time axis and channel gutter, a Data Streams viewport navigator, stable explicit Y-scale
-  modes, semantic trace/overlay styling, a unit-converting log/piecewise time-span control, simpler
-  workspace hierarchy, and normal Tab focus. Every current action, shortcut, evidence lane,
-  close-to-sidebar visibility path, readout/export/annotation feature, session migration, exact
-  timing rule, and performance budget is a compatibility requirement. Implement one §13 slice per
-  session; never report this target as shipped until its tests and code exist.
+- **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
+  (D-044):** `PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
+  continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
+  fit/auto/manual Y control, compact inspector tabs, native focus, and compatibility action proxies
+  are implemented and covered by focused offscreen tests. The remaining release certification is the
+  full representative 4/32/128-channel performance and three-platform manual field-data checklist;
+  do not claim the latency budgets without those measurements.
 - P3.5 performance/accurate-streaming hardening (full audit 2026-07-29):
   - P0 implemented: plot the pyramid min/max envelope; propagate raw gap evidence through every
     decimation level; enforce explicit CSV timestamp schemas, cross-chunk chronology/duplicate
@@ -318,9 +316,12 @@ outside that invocation; that message does not mean the full-package overrides a
 | `ui/video_timing.py` | Timestamp rate/readout/frame-index helpers and pane timing mixin | `VideoTimingMixin`, `format_video_osd()` |
 | `ui/video_overlay.py` | Transparent current-frame tracking paint layer | `PaintCanvas` |
 | `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()` |
-| `ui/plot_pane.py` | pyqtgraph multi-row fixed sweeps; pyramid-fed; one shared bounded window slider; coalesced resize refresh; measure markers | `load_channels()`, `remove_channels()`, `set_channel_visible()`, `set_timeline_bounds()`, `set_window_duration()`, `reset_zoom()`, `set_cursor()`, `set_measure_a()`, `set_measure_b()`, `clear_measure()` |
-| `ui/plot_row.py` | One channel row's pyramid reader, curve, cursor, coverage, and close-control construction | `ChannelPlot`, `create_channel_plot()` |
-| `ui/plot_sweep.py` | Shared value/unit window limit, linear coalesced slider, and master-time-derived sweep state | `SweepWindowControl`, `SweepCurveItem` |
+| `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
+| `ui/plot_header.py` | Compact plot presentation, page, Y-fit, row-height, and reset controls | `PlotHeader` |
+| `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control | `ChannelPlot`, `create_channel_plot()`, `fit_channel_y()` |
+| `ui/plot_sweep.py` | Review/Sweep/Scope state and shared unit-converting logarithmic time-span control | `PlotPresentation`, `SweepWindowControl`, `SweepCurveItem` |
+| `ui/plot_interactions.py` | Plot context actions, measurement, annotation, and gap interaction state | `PlotInteractionController` |
+| `ui/plot_overlays.py` | Bounded page-local overlay drawing and plot context menu helpers | `redraw_annotations()`, `redraw_measure_lines()` |
 | `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit | `Tracking3DPane.set_readers()`, `set_cursor()` |
 | `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status | `set_time()`, `set_bounds()`, `set_source_coverage()`, `set_ttl_events()`, `set_gap_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |

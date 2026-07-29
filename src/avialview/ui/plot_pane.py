@@ -4,20 +4,30 @@ import logging
 from pathlib import Path
 
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, Qt, QTimer, Signal
-from PySide6.QtGui import QResizeEvent
-from PySide6.QtWidgets import QMenu, QVBoxLayout, QWidget
+from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QColor, QResizeEvent
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
+from avialview.ui.annotations import AnnotationStore
+from avialview.ui.plot_header import PlotHeader
+from avialview.ui.plot_interactions import PlotInteractionController
 from avialview.ui.plot_row import (
+    Y_AUTO,
+    Y_FIT_ONCE,
+    Y_MANUAL,
     ChannelPlot,
     apply_channel_visibility,
     create_channel_plot,
     enforce_channel_visibility,
+    fit_channel_y,
     point_budget_for_width,
     refresh_channel_plot,
+    retain_channel_plot,
+    set_channel_unit,
     update_channel_coverage,
 )
-from avialview.ui.plot_sweep import SweepWindowControl
+from avialview.ui.plot_sweep import PlotPresentation, SweepWindowControl
+from avialview.ui.time_format import TimeDisplayMode, format_time
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +48,8 @@ class PlotPane(QWidget):
     annotate_at_requested = Signal(float)  # t in master-clock seconds
     # Emitted by the row close button; MainWindow mirrors it to the sidebar checkbox.
     channel_close_requested = Signal(str)
+    # Absolute current page plus cursor phase for the shared Data Streams navigator.
+    view_window_changed = Signal(float, float, float)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -49,8 +61,22 @@ class PlotPane(QWidget):
 
         self._apply_palette()
 
+        self._plot_header = PlotHeader(self)
+        self._plot_header.presentation_changed.connect(self._on_presentation_changed)
+        self._plot_header.fit_all_requested.connect(self.fit_all_y)
+        self._plot_header.row_height_changed.connect(self._set_row_height)
+        self._plot_header.reset_requested.connect(self.reset_zoom)
+        self.presentation_combo = self._plot_header.presentation_combo
+        self.page_label = self._plot_header.page_label
+        self.fit_all_button = self._plot_header.fit_all_button
+        self.row_height_combo = self._plot_header.row_height_combo
+        self.reset_button = self._plot_header.reset_button
+        _layout.addWidget(self._plot_header)
+
         self.graphics_layout = pg.GraphicsLayoutWidget()
         self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.graphics_layout.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.graphics_layout.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         _layout.addWidget(self.graphics_layout)
 
         self._sweep_control = SweepWindowControl(self)
@@ -69,25 +95,25 @@ class PlotPane(QWidget):
         # State
         self.channels: list[ChannelPlot] = []
         self.follow_playhead = True
-
-        self._annotation_store = None
-        self._annotation_items: list[tuple[pg.PlotItem, object]] = []
-
-        # Measure markers (A/B pins for Δ measurement, separate from loop A/B)
-        self._measure_a: float | None = None
-        self._measure_b: float | None = None
-        self._measure_a_lines: list[pg.InfiniteLine] = []
-        self._measure_b_lines: list[pg.InfiniteLine] = []
+        self._playing = False
+        self._scrubbing = False
+        self._live_presentation = PlotPresentation.SWEEP
+        self._time_mode = TimeDisplayMode.RELATIVE
+        self._t_epoch = 0.0
+        self._settings = QSettings("AvialView", "AvialView")
+        saved_presentation = self._settings.value(
+            "plot/live_presentation", PlotPresentation.SWEEP.value
+        )
+        try:
+            self._live_presentation = PlotPresentation(str(saved_presentation))
+        except ValueError:
+            self._live_presentation = PlotPresentation.SWEEP
+        self._plot_header.set_presentation(self._live_presentation)
 
         # The first plot is the single X-range authority for every linked row.
         self._master_plot: pg.PlotItem | None = None
-
-        # Extra QAction objects injected by MainWindow (e.g. reset-zoom) so
-        # the context menu shares the exact same action instances as the menu bar.
-        self._extra_context_actions: list = []
-
-        # Right-click context menu on the plot scene
-        self.graphics_layout.scene().sigMouseClicked.connect(self._on_scene_clicked)
+        self._interactions = PlotInteractionController(self)
+        self.graphics_layout.scene().sigMouseClicked.connect(self._interactions.on_scene_clicked)
 
     def changeEvent(self, event: QEvent) -> None:
         """Keep pyqtgraph's canvas aligned with an application palette change."""
@@ -131,9 +157,11 @@ class PlotPane(QWidget):
             self.channels.append(channel)
 
         self._configure_shared_x_range()
+        self._update_axis_visibility()
         self._set_sweep_for_time(self._sweep_control.last_master_time, force=True)
+        self._apply_presentation()
         self.sources_changed.emit([ch.reader for ch in self.channels])
-        self._redraw_annotations()
+        self._interactions.redraw_annotations()
 
     def remove_channels(self, cache_dir: Path) -> None:
         """Remove all channels associated with a specific cache_dir (source)."""
@@ -147,9 +175,10 @@ class PlotPane(QWidget):
                 self._master_plot = self.channels[0].plot_item if self.channels else None
 
         self._link_x_axes()
+        self._update_axis_visibility()
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
-        self._redraw_annotations()
+        self._interactions.redraw_annotations()
 
     def remove_channel(self, channel_id: str) -> None:
         """Remove a single channel by its channel_id, regardless of cache_dir."""
@@ -163,9 +192,10 @@ class PlotPane(QWidget):
                 self._master_plot = self.channels[0].plot_item if self.channels else None
 
         self._link_x_axes()
+        self._update_axis_visibility()
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
-        self._redraw_annotations()
+        self._interactions.redraw_annotations()
 
     def load_source(self, cache_dir: Path, channel_id: str) -> None:
         """Backwards compatibility for Phase 2 single-channel load."""
@@ -185,6 +215,10 @@ class PlotPane(QWidget):
             if not ch.visible:
                 continue
             refresh_channel_plot(ch, t0, t1, point_budget)
+            if ch.y_mode == Y_FIT_ONCE and ch.y_range is None:
+                fit_channel_y(ch)
+                if ch.y_range is not None:
+                    ch.y_mode = Y_MANUAL
 
     def set_cursor(self, t: float) -> None:
         """Advance the fixed sweep from the master-clock time."""
@@ -221,12 +255,80 @@ class PlotPane(QWidget):
                         )
                         self._redraw_sweep_overlays()
                 break
+        self._update_axis_visibility()
 
     def reset_zoom(self) -> None:
         """Set the shared sweep window to the full master-timeline duration."""
-        self._sweep_control.reset_window()
         for ch in self.channels:
-            ch.plot_item.enableAutoRange(axis="y")
+            ch.y_mode = Y_FIT_ONCE
+            ch.y_range = None
+        self._sweep_control.reset_window()
+
+    def fit_all_y(self) -> None:
+        """Fit the current bounded page once, then keep playback visually stable."""
+        for ch in self.channels:
+            if not ch.visible:
+                continue
+            ch.y_mode = Y_FIT_ONCE
+            ch.y_range = None
+            fit_channel_y(ch)
+            if ch.y_range is not None:
+                ch.y_mode = Y_MANUAL
+
+    def set_channel_y_mode(self, channel_id: str, mode: str) -> None:
+        """Set one row's explicit Fit/Auto/Manual amplitude behaviour."""
+        if mode not in {Y_FIT_ONCE, Y_AUTO, Y_MANUAL}:
+            raise ValueError(f"Unknown plot Y mode: {mode}")
+        for ch in self.channels:
+            if ch.name == channel_id:
+                ch.y_mode = mode
+                if mode == Y_FIT_ONCE:
+                    ch.y_range = None
+                    fit_channel_y(ch)
+                    if ch.y_range is not None:
+                        ch.y_mode = Y_MANUAL
+                elif mode == Y_AUTO:
+                    fit_channel_y(ch)
+                break
+
+    def set_channel_unit(self, channel_id: str, unit: str) -> None:
+        """Update the fixed channel gutter after import metadata is available."""
+        for ch in self.channels:
+            if ch.name == channel_id:
+                set_channel_unit(ch, unit)
+                break
+
+    def set_channel_units(self, units: dict[str, str]) -> None:
+        """Update all known channel units without changing reader identity or data."""
+        for channel_id, unit in units.items():
+            self.set_channel_unit(channel_id, unit)
+
+    def set_playing(self, playing: bool) -> None:
+        """Select live Sweep/Scope painting or complete Review painting."""
+        if self._playing == playing:
+            return
+        self._playing = playing
+        self._apply_presentation()
+
+    def set_scrubbing(self, scrubbing: bool) -> None:
+        """Reveal a complete page while approximate master-time scrubbing is active."""
+        if self._scrubbing == scrubbing:
+            return
+        self._scrubbing = scrubbing
+        self._apply_presentation()
+
+    @property
+    def presentation(self) -> PlotPresentation:
+        """Return the effective presentation after playback/scrub state is applied."""
+        if not self._playing or self._scrubbing:
+            return PlotPresentation.REVIEW
+        return self._live_presentation
+
+    def set_time_mode(self, mode: TimeDisplayMode, t_epoch: float = 0.0) -> None:
+        """Format the shared page label with the same mode as transport/readout."""
+        self._time_mode = mode
+        self._t_epoch = t_epoch
+        self._update_page_label()
 
     def zoom_in(self) -> None:
         """Move the shared continuous X-window slider one small step inward."""
@@ -249,6 +351,27 @@ class PlotPane(QWidget):
     def sweep_start(self) -> float | None:
         """Return the absolute start of the currently displayed sweep."""
         return self._sweep_control.sweep_start
+
+    # Compatibility accessors retained for existing measurement integrations.
+    @property
+    def _measure_a(self) -> float | None:
+        return self._interactions._measure_a
+
+    @property
+    def _measure_b(self) -> float | None:
+        return self._interactions._measure_b
+
+    @property
+    def _measure_a_lines(self) -> list[pg.InfiniteLine]:
+        return self._interactions._measure_a_lines
+
+    @property
+    def _measure_b_lines(self) -> list[pg.InfiniteLine]:
+        return self._interactions._measure_b_lines
+
+    @property
+    def _extra_context_actions(self) -> list[QAction]:
+        return self._interactions._extra_context_actions
 
     def _on_window_changed(self, _seconds: float) -> None:
         self._configure_shared_x_range()
@@ -273,10 +396,53 @@ class PlotPane(QWidget):
                 ch.plot_item.setXLink(self._master_plot)
         self._configure_shared_x_range()
 
+    def _update_axis_visibility(self) -> None:
+        """Use one shared bottom X axis while keeping all rows X-linked."""
+        visible = [channel for channel in self.channels if channel.visible]
+        bottom = visible[-1] if visible else None
+        for channel in self.channels:
+            axis = channel.plot_item.getAxis("bottom")
+            show = channel is bottom
+            axis.setStyle(showValues=show)
+            axis.showLabel(show)
+
+    def _set_row_height(self, height: int) -> None:
+        """Use one scrollable channel stack rather than shrinking many rows indefinitely."""
+        for channel in self.channels:
+            channel.row_height = height
+            apply_channel_visibility(channel)
+
+    def _on_presentation_changed(self, _index: int) -> None:
+        data = self.presentation_combo.currentData()
+        if isinstance(data, PlotPresentation):
+            self._live_presentation = data
+        else:
+            self._live_presentation = PlotPresentation(str(data))
+        self._settings.setValue("plot/live_presentation", self._live_presentation.value)
+        self._apply_presentation()
+
+    def _apply_presentation(self) -> None:
+        """Change paint-only state without re-querying pyramid data."""
+        presentation = self.presentation
+        review = presentation == PlotPresentation.REVIEW
+        sweep = presentation == PlotPresentation.SWEEP
+        for channel in self.channels:
+            channel.curve.set_reveal_enabled(not review)
+            channel.envelope_upper.set_reveal_enabled(not review)
+            channel.retained_curve.setVisible(sweep and channel.visible)
+            channel.retained_upper.setVisible(sweep and channel.visible)
+            channel.retained_fill.setVisible(sweep and channel.visible)
+            channel.sweep_eraser.setVisible(sweep and channel.visible)
+        self._update_sweep_eraser()
+
     def _set_sweep_for_time(self, t: float, *, force: bool = False) -> float:
         """Derive sweep position from master time and refresh only at boundaries."""
         position = self._sweep_control.advance(t)
         if position.changed or force:
+            if position.changed and not force and self.presentation == PlotPresentation.SWEEP:
+                for channel in self.channels:
+                    if channel.visible:
+                        retain_channel_plot(channel)
             self.update_plots()
             self._redraw_sweep_overlays()
 
@@ -285,7 +451,38 @@ class PlotPane(QWidget):
                 ch.cursor_line.setValue(position.phase)
                 ch.curve.set_sweep_position(position.phase)
                 ch.envelope_upper.set_sweep_position(position.phase)
+                ch.retained_curve.set_sweep_position(self.window_duration)
+                ch.retained_upper.set_sweep_position(self.window_duration)
+        self._update_sweep_eraser(position.phase)
+        self._update_page_label(position.start)
+        self.view_window_changed.emit(position.start, self.window_duration, position.phase)
         return position.phase
+
+    def _update_sweep_eraser(self, phase: float | None = None) -> None:
+        """Place one narrow background gap ahead of live Sweep data."""
+        if self.presentation != PlotPresentation.SWEEP:
+            return
+        if phase is None:
+            phase = self._sweep_control.advance(self._sweep_control.last_master_time).phase
+        gap = max(self.window_duration * 0.006, 0.002)
+        color = QColor(self.palette().color(self.palette().ColorRole.Base))
+        color.setAlpha(235)
+        for channel in self.channels:
+            if channel.visible:
+                channel.sweep_eraser.setBrush(pg.mkBrush(color))
+                channel.sweep_eraser.setRegion([phase, min(self.window_duration, phase + gap)])
+
+    def _update_page_label(self, start: float | None = None) -> None:
+        if start is None:
+            start = self.sweep_start
+        if start is None or self.window_duration <= 0:
+            self.page_label.clear()
+            return
+        end = start + self.window_duration
+        self.page_label.setText(
+            f"{format_time(start, self._time_mode, self._t_epoch)} – "
+            f"{format_time(end, self._time_mode, self._t_epoch)}"
+        )
 
     def _request_channel_close(self, channel_id: str) -> None:
         self.set_channel_visible(channel_id, False)
@@ -301,9 +498,7 @@ class PlotPane(QWidget):
 
     def _redraw_sweep_overlays(self) -> None:
         self._redraw_coverage()
-        self._redraw_gap_markers()
-        self._redraw_measure_lines()
-        self._redraw_annotations()
+        self._interactions.redraw_page_overlays()
 
     def _redraw_coverage(self) -> None:
         if self.sweep_start is None:
@@ -312,190 +507,30 @@ class PlotPane(QWidget):
         for ch in self.channels:
             update_channel_coverage(ch, self.sweep_start, sweep_end)
 
-    def set_context_actions(self, actions: list) -> None:
-        """Register extra QAction objects to appear in the right-click context menu.
-
-        MainWindow passes its own QAction instances (e.g. the View→Reset Zoom
-        action) so the context menu shares the exact same object — enabling
-        the object-identity test mandated by D-022.
-        """
-        self._extra_context_actions = list(actions)
-
-    # ── Measure markers ──────────────────────────────────────────────
+    def set_context_actions(self, actions: list[QAction]) -> None:
+        """Register shared QActions, including the View menu's Reset Zoom action."""
+        self._interactions.set_context_actions(actions)
 
     def set_measure_a(self, t: float) -> None:
         """Place measure pin A at time *t* on all channels."""
-        self._measure_a = t
-        self._redraw_measure_lines()
-        if self._measure_b is not None:
-            self.measure_changed.emit(min(t, self._measure_b), max(t, self._measure_b))
+        self._interactions.set_measure_a(t)
 
     def set_measure_b(self, t: float) -> None:
         """Place measure pin B at time *t* on all channels."""
-        self._measure_b = t
-        self._redraw_measure_lines()
-        if self._measure_a is not None:
-            self.measure_changed.emit(min(self._measure_a, t), max(self._measure_a, t))
+        self._interactions.set_measure_b(t)
 
     def clear_measure(self) -> None:
         """Remove both measure pins."""
-        self._measure_a = None
-        self._measure_b = None
-        self._redraw_measure_lines()
-
-    def _redraw_measure_lines(self) -> None:
-        for line in self._measure_a_lines + self._measure_b_lines:
-            for ch in self.channels:
-                try:
-                    ch.plot_item.removeItem(line)
-                except RuntimeError:
-                    logger.debug("Plot item was already deleted", exc_info=True)
-        self._measure_a_lines.clear()
-        self._measure_b_lines.clear()
-
-        pen_a = pg.mkPen(color=(0, 255, 100), width=2, style=Qt.PenStyle.DashLine)
-        pen_b = pg.mkPen(color=(255, 80, 80), width=2, style=Qt.PenStyle.DashLine)
-        for ch in self.channels:
-            if not ch.visible:
-                continue
-            x_a = self._display_x(self._measure_a) if self._measure_a is not None else None
-            x_b = self._display_x(self._measure_b) if self._measure_b is not None else None
-            if x_a is not None:
-                la = pg.InfiniteLine(pos=x_a, angle=90, movable=False, pen=pen_a)
-                la.setZValue(5)
-                ch.plot_item.addItem(la)
-                self._measure_a_lines.append(la)
-            if x_b is not None:
-                lb = pg.InfiniteLine(pos=x_b, angle=90, movable=False, pen=pen_b)
-                lb.setZValue(5)
-                ch.plot_item.addItem(lb)
-                self._measure_b_lines.append(lb)
-
-    def _on_scene_clicked(self, ev) -> None:
-        if ev.button() != Qt.MouseButton.RightButton:
-            return
-        if not self._master_plot:
-            return
-        if self.sweep_start is None:
-            return
-        scene_pos = ev.scenePos()
-        if not self._master_plot.vb.sceneBoundingRect().contains(scene_pos):
-            return
-        view_pos = self._master_plot.vb.mapSceneToView(scene_pos)
-        t = self.sweep_start + float(view_pos.x())
-
-        menu = QMenu()
-
-        # Annotate at clicked position (D-022)
-        act_annot = menu.addAction(f"Add marker here  ({t:.3f} s)")
-        menu.addSeparator()
-
-        # Measure sub-group
-        act_a = menu.addAction(f"Set Measure A  ({t:.3f} s)")
-        act_b = menu.addAction(f"Set Measure B  ({t:.3f} s)")
-        menu.addSeparator()
-        act_clear = menu.addAction("Clear Measure")
-
-        # Extra actions injected by MainWindow (e.g. Reset Zoom — same QAction
-        # object as the View menu item, verified by identity in tests).
-        if self._extra_context_actions:
-            menu.addSeparator()
-            for extra in self._extra_context_actions:
-                menu.addAction(extra)
-
-        chosen = menu.exec(ev.screenPos().toPoint())
-        if chosen == act_annot:
-            self.annotate_at_requested.emit(t)
-        elif chosen == act_a:
-            self.set_measure_a(t)
-        elif chosen == act_b:
-            self.set_measure_b(t)
-        elif chosen == act_clear:
-            self.clear_measure()
-        # Extra actions fire through their own triggered signal — no elif needed.
-        ev.accept()
-
-    # ── Gap markers ──────────────────────────────────────────────────
+        self._interactions.clear_measure()
 
     def set_gap_markers(self, channel_id: str, gap_times: list[float]) -> None:
         """Overlay thin red vertical lines at gap positions for one channel."""
-        for ch in self.channels:
-            if ch.name != channel_id:
-                continue
-            ch.gap_times = tuple(gap_times)
-            self._redraw_gap_markers()
-            break
+        self._interactions.set_gap_markers(channel_id, gap_times)
 
-    def _redraw_gap_markers(self) -> None:
-        pen = pg.mkPen(color=(255, 60, 60), width=1, style=Qt.PenStyle.DotLine)
-        for ch in self.channels:
-            for line in ch.gap_markers:
-                ch.plot_item.removeItem(line)
-            ch.gap_markers.clear()
-            if not ch.visible:
-                continue
-            for t in ch.gap_times:
-                x = self._display_x(t)
-                if x is None:
-                    continue
-                line = pg.InfiniteLine(pos=x, angle=90, movable=False, pen=pen)
-                line.setZValue(3)
-                ch.plot_item.addItem(line)
-                ch.gap_markers.append(line)
-
-    # ── Annotation / misc ────────────────────────────────────────────
-
-    def set_annotation_store(self, store: object) -> None:
-        self._annotation_store = store
-        self._annotation_store.changed.connect(self._redraw_annotations)
-        self._redraw_annotations()
+    def set_annotation_store(self, store: AnnotationStore) -> None:
+        """Subscribe to and render the authoritative annotation store."""
+        self._interactions.set_annotation_store(store)
 
     def set_x_range(self, t0: float, t1: float) -> None:
         """Compatibility alias for setting master timeline bounds."""
         self.set_timeline_bounds(t0, t1)
-
-    def _redraw_annotations(self) -> None:
-        """Draw point and range markers from the annotation store on all channels."""
-        for plot_item, item in self._annotation_items:
-            plot_item.removeItem(item)
-        self._annotation_items.clear()
-
-        if not self._annotation_store:
-            return
-
-        from PySide6.QtCore import Qt
-
-        for marker in self._annotation_store.markers:
-            c = pg.mkColor(marker.color)
-            for ch in self.channels:
-                if not ch.visible:
-                    continue
-                if marker.t_end is None:
-                    x = self._display_x(marker.t_start)
-                    if x is None:
-                        continue
-                    pen = pg.mkPen(c, width=2, style=Qt.PenStyle.DashLine)
-                    line = pg.InfiniteLine(pos=x, angle=90, movable=False, pen=pen)
-                    ch.plot_item.addItem(line)
-                    self._annotation_items.append((ch.plot_item, line))
-                else:
-                    if self.sweep_start is None:
-                        continue
-                    marker_start = max(marker.t_start, self.sweep_start)
-                    marker_end = min(marker.t_end, self.sweep_start + self.window_duration)
-                    if marker_end < marker_start:
-                        continue
-                    c_brush = pg.mkColor(marker.color)
-                    c_brush.setAlpha(40)
-                    region = pg.LinearRegionItem(
-                        values=[
-                            marker_start - self.sweep_start,
-                            marker_end - self.sweep_start,
-                        ],
-                        movable=False,
-                        brush=c_brush,
-                        pen=pg.mkPen(c, width=1, style=Qt.PenStyle.DashLine),
-                    )
-                    region.setZValue(-5)
-                    ch.plot_item.addItem(region)
-                    self._annotation_items.append((ch.plot_item, region))

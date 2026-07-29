@@ -61,6 +61,18 @@ def test_data_streams_uses_the_video_plot_native_splitter_style(
     assert main_window.transport.parentWidget() is not main_window._content_splitter
 
 
+def test_inspector_uses_compact_tabs_for_sources_values_and_annotations(
+    main_window: MainWindow,
+) -> None:
+    """The inspector preserves its panels without three stacked panes consuming workspace height."""
+    assert main_window._left_tabs.tabText(0) == "Sources"
+    assert main_window._left_tabs.tabText(1) == "Values"
+    assert main_window._left_tabs.tabText(2) == "Annotations"
+    assert main_window._left_tabs.widget(0) is main_window.sidebar
+    assert main_window._left_tabs.widget(1) is main_window.readout_panel
+    assert main_window._left_tabs.widget(2) is main_window.annotation_panel
+
+
 def test_annotate_with_pane_present_no_error(main_window: MainWindow) -> None:
     """_on_annotate_requested must not raise when a pane is present.
 

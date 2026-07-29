@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any
 
 import pyqtgraph as pg
@@ -18,12 +19,21 @@ from PySide6.QtWidgets import (
 )
 
 
+class PlotPresentation(StrEnum):
+    """The plot presentation selected from one authoritative master clock."""
+
+    REVIEW = "review"
+    SWEEP = "sweep"
+    SCOPE = "scope"
+
+
 class SweepCurveItem(pg.PlotCurveItem):
-    """Curve whose already-decimated data is revealed by a moving sweep edge."""
+    """Curve whose already-decimated data may be revealed by a moving sweep edge."""
 
     def __init__(self, **kwargs: object) -> None:
         super().__init__(**kwargs)
         self._sweep_position = 0.0
+        self._reveal_enabled = True
 
     def set_sweep_position(self, position: float) -> None:
         """Move the paint clip without rebuilding or re-querying curve data."""
@@ -32,8 +42,18 @@ class SweepCurveItem(pg.PlotCurveItem):
         self._sweep_position = position
         self.update()
 
+    def set_reveal_enabled(self, enabled: bool) -> None:
+        """Choose clipped live playback or a complete Review page."""
+        if enabled == self._reveal_enabled:
+            return
+        self._reveal_enabled = enabled
+        self.update()
+
     def paint(self, painter: Any, option: Any, widget: Any = None) -> None:
         """Paint only data at or left of the sweep edge."""
+        if not self._reveal_enabled:
+            super().paint(painter, option, widget)
+            return
         bounds = self.boundingRect()
         clip_width = max(0.0, self._sweep_position - bounds.left())
         if clip_width <= 0.0:
@@ -62,7 +82,7 @@ class SweepPosition:
 
 
 class SweepWindowControl(QWidget):
-    """One bounded duration control and deterministic sweep calculator."""
+    """One continuous shared duration control and deterministic page calculator."""
 
     window_changed = Signal(float)
 
@@ -76,7 +96,6 @@ class SweepWindowControl(QWidget):
         super().__init__(parent)
         self._bounds = (0.0, 0.0)
         self._window_seconds = self._DEFAULT_WINDOW_SECONDS
-        self._limit_seconds = self._DEFAULT_WINDOW_SECONDS
         self._last_master_t = 0.0
         self._sweep_start: float | None = None
         self._pending_window_seconds: float | None = None
@@ -84,15 +103,15 @@ class SweepWindowControl(QWidget):
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 2, 8, 2)
-        layout.addWidget(QLabel("Window limit", self))
+        layout.addWidget(QLabel("Time span", self))
 
         self.limit_spin = QDoubleSpinBox(self)
         self.limit_spin.setDecimals(3)
         self.limit_spin.setRange(0.001, 999_999.0)
         self.limit_spin.setSingleStep(1.0)
         self.limit_spin.setKeyboardTracking(False)
-        self.limit_spin.setAccessibleName("Shared plot window limit")
-        self.limit_spin.setToolTip("Maximum duration available on the shared window slider")
+        self.limit_spin.setAccessibleName("Shared plot time span")
+        self.limit_spin.setToolTip("Time span shared by every visible plot")
         self.limit_spin.setValue(self._DEFAULT_WINDOW_SECONDS)
         self.limit_spin.valueChanged.connect(self._on_limit_value_changed)
         self.limit_spin.editingFinished.connect(self._release_editor_focus)
@@ -102,8 +121,10 @@ class SweepWindowControl(QWidget):
         for label, seconds in self._UNITS:
             self.unit_combo.addItem(label, seconds)
         self.unit_combo.setCurrentText("s")
-        self.unit_combo.setAccessibleName("Shared plot window limit unit")
-        self.unit_combo.setToolTip("Choose milliseconds, seconds, minutes, or hours")
+        self.unit_combo.setAccessibleName("Shared plot time span unit")
+        self.unit_combo.setToolTip(
+            "Choose the adjustment unit without changing the current duration"
+        )
         self.unit_combo.currentIndexChanged.connect(self._on_unit_changed)
         self.unit_combo.activated.connect(self._release_editor_focus)
         layout.addWidget(self.unit_combo)
@@ -111,10 +132,7 @@ class SweepWindowControl(QWidget):
         self.slider = QSlider(Qt.Orientation.Horizontal, self)
         self.slider.setRange(1, self._SLIDER_STEPS)
         self.slider.setAccessibleName("Shared plot window slider")
-        self.slider.setToolTip(
-            "Shared oscilloscope window for every plot; drag within the selected limit"
-        )
-        self.slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.slider.setToolTip("Continuously adjust the time span shared by every visible plot")
         self.slider.sliderPressed.connect(self._on_slider_pressed)
         self.slider.sliderReleased.connect(self._on_slider_released)
         self.slider.valueChanged.connect(self._on_slider_changed)
@@ -155,10 +173,7 @@ class SweepWindowControl(QWidget):
         self._bounds = (t0, t1)
         total = self._timeline_duration()
         if first_bounds and total > 0:
-            self._window_seconds = min(
-                max(self._window_seconds, self._minimum_window()),
-                total,
-            )
+            self._window_seconds = min(max(self._window_seconds, self._minimum_window()), total)
             self._last_master_t = t0
         elif total > 0:
             self._window_seconds = min(self._window_seconds, total)
@@ -172,16 +187,12 @@ class SweepWindowControl(QWidget):
             raise ValueError("Plot window duration must be finite")
         self._pending_window_seconds = None
         self._drag_timer.stop()
-        if seconds > self._limit_seconds:
-            self._set_limit_seconds(seconds)
         self._commit_window(seconds)
 
     def reset_window(self) -> None:
         """Expand the sweep to the complete master timeline."""
         total = self._timeline_duration()
         if total > 0:
-            if total > self._limit_seconds:
-                self._set_limit_seconds(total)
             self._commit_window(total)
 
     def zoom_in(self) -> None:
@@ -215,12 +226,12 @@ class SweepWindowControl(QWidget):
         return SweepPosition(sweep_start, phase, changed)
 
     def slider_from_duration(self, seconds: float) -> int:
-        """Map a duration linearly within the user-selected limit."""
+        """Map a duration logarithmically across the available shared range."""
         minimum = self._minimum_window()
         maximum = self._maximum_window()
         if maximum <= minimum or seconds <= minimum:
             return 1
-        fraction = (seconds - minimum) / (maximum - minimum)
+        fraction = (math.log(seconds) - math.log(minimum)) / (math.log(maximum) - math.log(minimum))
         usable_steps = self._SLIDER_STEPS - 1
         return 1 + round(max(0.0, min(1.0, fraction)) * usable_steps)
 
@@ -233,7 +244,7 @@ class SweepWindowControl(QWidget):
 
     def _maximum_window(self) -> float:
         total = self._timeline_duration()
-        return min(self._limit_seconds, total) if total > 0 else self._limit_seconds
+        return total if total > 0 else self._window_seconds
 
     def _duration_from_slider(self, value: int) -> float:
         minimum = self._minimum_window()
@@ -242,7 +253,7 @@ class SweepWindowControl(QWidget):
             return maximum
         usable_steps = self._SLIDER_STEPS - 1
         fraction = (value - 1) / usable_steps
-        return minimum + fraction * (maximum - minimum)
+        return math.exp(math.log(minimum) + fraction * (math.log(maximum) - math.log(minimum)))
 
     def _on_slider_changed(self, value: int) -> None:
         duration = self._duration_from_slider(value)
@@ -284,12 +295,11 @@ class SweepWindowControl(QWidget):
         self.window_changed.emit(self._window_seconds)
 
     def _on_limit_value_changed(self, value: float) -> None:
-        self._limit_seconds = value * self._unit_seconds()
-        self._apply_limit_change()
+        self._commit_window(value * self._unit_seconds())
 
     def _on_unit_changed(self, _index: int) -> None:
-        self._limit_seconds = self.limit_spin.value() * self._unit_seconds()
-        self._apply_limit_change()
+        """Convert the displayed value while preserving the physical duration."""
+        self._sync_widgets()
 
     def _release_editor_focus(self) -> None:
         """Return accepted editor input to the containing playback surface."""
@@ -297,24 +307,22 @@ class SweepWindowControl(QWidget):
         if target is not None:
             target.setFocus(Qt.FocusReason.OtherFocusReason)
 
-    def _apply_limit_change(self) -> None:
-        maximum = self._maximum_window()
-        if maximum > 0 and self._window_seconds > maximum:
-            self._commit_window(maximum)
-        else:
-            self._sync_widgets()
-
-    def _set_limit_seconds(self, seconds: float) -> None:
-        self._limit_seconds = max(self._MIN_WINDOW_SECONDS, seconds)
-        unit_seconds = self._unit_seconds()
-        self.limit_spin.blockSignals(True)
-        self.limit_spin.setValue(self._limit_seconds / unit_seconds)
-        self.limit_spin.blockSignals(False)
-
     def _unit_seconds(self) -> float:
         return float(self.unit_combo.currentData())
 
     def _sync_widgets(self) -> None:
+        unit_seconds = self._unit_seconds()
+        self.limit_spin.blockSignals(True)
+        self.limit_spin.setValue(self._window_seconds / unit_seconds)
+        if self.unit_combo.currentText() == "ms":
+            self.limit_spin.setSingleStep(1.0)
+        elif self.unit_combo.currentText() == "s":
+            self.limit_spin.setSingleStep(0.1)
+        elif self.unit_combo.currentText() == "min":
+            self.limit_spin.setSingleStep(0.1)
+        else:
+            self.limit_spin.setSingleStep(0.01)
+        self.limit_spin.blockSignals(False)
         self.slider.blockSignals(True)
         self.slider.setValue(self.slider_from_duration(self._window_seconds))
         self.slider.blockSignals(False)

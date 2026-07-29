@@ -35,7 +35,7 @@ def test_programmatic_window_change_keeps_slider_and_label_in_sync(qtbot) -> Non
 
 
 @pytest.mark.parametrize(
-    ("unit", "limit", "expected_seconds"),
+    ("unit", "value", "expected_seconds"),
     [
         ("ms", 250.0, 0.25),
         ("s", 45.0, 45.0),
@@ -43,26 +43,27 @@ def test_programmatic_window_change_keeps_slider_and_label_in_sync(qtbot) -> Non
         ("h", 1.5, 5400.0),
     ],
 )
-def test_limit_unit_sets_linear_slider_scale(
+def test_time_span_unit_conversion_preserves_duration_and_typed_value_sets_it(
     qtbot,
     unit: str,
-    limit: float,
+    value: float,
     expected_seconds: float,
 ) -> None:
     pane = PlotPane()
     qtbot.addWidget(pane)
     pane.set_timeline_bounds(0.0, 10_000.0)
 
+    pane.set_window_duration(10.0)
     pane.window_unit_combo.setCurrentText(unit)
-    pane.window_limit_spin.setValue(limit)
-    pane.window_slider.setValue(pane.window_slider.maximum())
+    assert pane.window_duration == pytest.approx(10.0)
+    pane.window_limit_spin.setValue(value)
 
     assert pane.window_duration == pytest.approx(expected_seconds)
-    expected_label = f"{limit:.1f} ms" if unit == "ms" else f"{limit:.3f} {unit}"
+    expected_label = f"{value:.1f} ms" if unit == "ms" else f"{value:.3f} {unit}"
     assert pane.window_value_label.text() == expected_label
 
 
-def test_limit_change_preserves_window_until_slider_moves(qtbot) -> None:
+def test_time_span_editor_is_the_same_duration_authority_as_the_slider(qtbot) -> None:
     pane = PlotPane()
     qtbot.addWidget(pane)
     pane.set_timeline_bounds(0.0, 3600.0)
@@ -70,8 +71,8 @@ def test_limit_change_preserves_window_until_slider_moves(qtbot) -> None:
 
     pane.window_limit_spin.setValue(60.0)
 
-    assert pane.window_duration == pytest.approx(8.0)
-    assert pane.window_slider.value() == pane._sweep_control.slider_from_duration(8.0)
+    assert pane.window_duration == pytest.approx(60.0)
+    assert pane.window_slider.value() == pane._sweep_control.slider_from_duration(60.0)
 
 
 def test_transport_has_no_second_plot_zoom_control(qtbot) -> None:
