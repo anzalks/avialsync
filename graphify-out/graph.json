@@ -7334,7 +7334,7 @@
       "label": ".window_duration()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L132",
+      "source_location": "L134",
       "_origin": "ast"
     },
     {
@@ -7342,7 +7342,7 @@
       "label": ".sweep_start()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L137",
+      "source_location": "L139",
       "_origin": "ast"
     },
     {
@@ -7350,7 +7350,7 @@
       "label": ".last_master_time()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L142",
+      "source_location": "L144",
       "_origin": "ast"
     },
     {
@@ -7358,7 +7358,7 @@
       "label": ".set_bounds()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L146",
+      "source_location": "L148",
       "_origin": "ast"
     },
     {
@@ -7366,7 +7366,7 @@
       "label": ".set_window_duration()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L167",
+      "source_location": "L169",
       "_origin": "ast"
     },
     {
@@ -7374,7 +7374,7 @@
       "label": ".reset_window()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L177",
+      "source_location": "L179",
       "_origin": "ast"
     },
     {
@@ -7382,7 +7382,7 @@
       "label": ".zoom_in()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L185",
+      "source_location": "L187",
       "_origin": "ast"
     },
     {
@@ -7390,7 +7390,7 @@
       "label": ".zoom_out()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L189",
+      "source_location": "L191",
       "_origin": "ast"
     },
     {
@@ -7398,7 +7398,7 @@
       "label": ".advance()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L193",
+      "source_location": "L195",
       "_origin": "ast"
     },
     {
@@ -7406,7 +7406,7 @@
       "label": ".slider_from_duration()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L215",
+      "source_location": "L217",
       "_origin": "ast"
     },
     {
@@ -7414,7 +7414,7 @@
       "label": "._timeline_duration()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L225",
+      "source_location": "L227",
       "_origin": "ast"
     },
     {
@@ -7422,7 +7422,7 @@
       "label": "._minimum_window()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L228",
+      "source_location": "L230",
       "_origin": "ast"
     },
     {
@@ -7430,7 +7430,7 @@
       "label": "._maximum_window()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L232",
+      "source_location": "L234",
       "_origin": "ast"
     },
     {
@@ -7438,7 +7438,7 @@
       "label": "._duration_from_slider()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L236",
+      "source_location": "L238",
       "_origin": "ast"
     },
     {
@@ -7446,7 +7446,7 @@
       "label": "._on_slider_changed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L245",
+      "source_location": "L247",
       "_origin": "ast"
     },
     {
@@ -7454,7 +7454,7 @@
       "label": "._on_slider_pressed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L257",
+      "source_location": "L259",
       "_origin": "ast"
     },
     {
@@ -7462,7 +7462,7 @@
       "label": "._on_slider_released()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L260",
+      "source_location": "L262",
       "_origin": "ast"
     },
     {
@@ -7470,7 +7470,7 @@
       "label": "._commit_pending_window()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L265",
+      "source_location": "L267",
       "_origin": "ast"
     },
     {
@@ -7478,7 +7478,7 @@
       "label": "._commit_window()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L271",
+      "source_location": "L273",
       "_origin": "ast"
     },
     {
@@ -7486,7 +7486,7 @@
       "label": "._on_limit_value_changed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L284",
+      "source_location": "L286",
       "_origin": "ast"
     },
     {
@@ -7494,7 +7494,15 @@
       "label": "._on_unit_changed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L288",
+      "source_location": "L290",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_ui_plot_sweep_sweepwindowcontrol_release_editor_focus",
+      "label": "._release_editor_focus()",
+      "file_type": "code",
+      "source_file": "src/avialview/ui/plot_sweep.py",
+      "source_location": "L294",
       "_origin": "ast"
     },
     {
@@ -7502,7 +7510,7 @@
       "label": "._apply_limit_change()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L292",
+      "source_location": "L300",
       "_origin": "ast"
     },
     {
@@ -7510,7 +7518,7 @@
       "label": "._set_limit_seconds()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L299",
+      "source_location": "L307",
       "_origin": "ast"
     },
     {
@@ -7518,7 +7526,7 @@
       "label": "._unit_seconds()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L306",
+      "source_location": "L314",
       "_origin": "ast"
     },
     {
@@ -7526,7 +7534,7 @@
       "label": "._sync_widgets()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L309",
+      "source_location": "L317",
       "_origin": "ast"
     },
     {
@@ -7534,7 +7542,7 @@
       "label": "._format_window()",
       "file_type": "code",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L318",
+      "source_location": "L326",
       "_origin": "ast"
     },
     {
@@ -7586,83 +7594,91 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_plot_sweep_rationale_133",
+      "id": "src_avialview_ui_plot_sweep_rationale_135",
       "label": "Return the shared sweep duration in seconds.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L133",
+      "source_location": "L135",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_plot_sweep_rationale_138",
+      "id": "src_avialview_ui_plot_sweep_rationale_140",
       "label": "Return the absolute master time at the current sweep's left edge.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L138",
+      "source_location": "L140",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_plot_sweep_rationale_143",
+      "id": "src_avialview_ui_plot_sweep_rationale_145",
       "label": "Return the latest master-clock value supplied by the player.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L143",
+      "source_location": "L145",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_plot_sweep_rationale_147",
+      "id": "src_avialview_ui_plot_sweep_rationale_149",
       "label": "Set master bounds and anchor all future sweeps to their start.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L147",
+      "source_location": "L149",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_plot_sweep_rationale_168",
+      "id": "src_avialview_ui_plot_sweep_rationale_170",
       "label": "Set and emit a duration clamped to the current master bounds.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L168",
+      "source_location": "L170",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_plot_sweep_rationale_178",
+      "id": "src_avialview_ui_plot_sweep_rationale_180",
       "label": "Expand the sweep to the complete master timeline.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L178",
+      "source_location": "L180",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_plot_sweep_rationale_186",
+      "id": "src_avialview_ui_plot_sweep_rationale_188",
       "label": "Move the continuous slider one small step inward.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L186",
+      "source_location": "L188",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_plot_sweep_rationale_190",
+      "id": "src_avialview_ui_plot_sweep_rationale_192",
       "label": "Move the continuous slider one small step outward.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L190",
+      "source_location": "L192",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_plot_sweep_rationale_194",
+      "id": "src_avialview_ui_plot_sweep_rationale_196",
       "label": "Derive the current sweep solely from a master-clock timestamp.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L194",
+      "source_location": "L196",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_plot_sweep_rationale_216",
+      "id": "src_avialview_ui_plot_sweep_rationale_218",
       "label": "Map a duration linearly within the user-selected limit.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L216",
+      "source_location": "L218",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialview_ui_plot_sweep_rationale_295",
+      "label": "Return accepted editor input to the containing playback surface.",
+      "file_type": "rationale",
+      "source_file": "src/avialview/ui/plot_sweep.py",
+      "source_location": "L295",
       "_origin": "ast"
     },
     {
@@ -10142,7 +10158,7 @@
       "label": ".ab_in()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L562",
+      "source_location": "L563",
       "_origin": "ast"
     },
     {
@@ -10150,7 +10166,7 @@
       "label": ".detach_data_streams()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L566",
+      "source_location": "L567",
       "_origin": "ast"
     },
     {
@@ -10158,7 +10174,7 @@
       "label": ".ab_out()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L575",
+      "source_location": "L576",
       "_origin": "ast"
     },
     {
@@ -10166,7 +10182,7 @@
       "label": ".set_bounds()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L579",
+      "source_location": "L580",
       "_origin": "ast"
     },
     {
@@ -10174,7 +10190,7 @@
       "label": ".set_time_mode()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L584",
+      "source_location": "L585",
       "_origin": "ast"
     },
     {
@@ -10182,7 +10198,7 @@
       "label": ".set_t_epoch()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L588",
+      "source_location": "L589",
       "_origin": "ast"
     },
     {
@@ -10190,7 +10206,7 @@
       "label": ".set_status()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L592",
+      "source_location": "L593",
       "_origin": "ast"
     },
     {
@@ -10198,7 +10214,7 @@
       "label": ".set_source_coverage()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L596",
+      "source_location": "L597",
       "_origin": "ast"
     },
     {
@@ -10206,7 +10222,7 @@
       "label": ".set_ttl_events()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L600",
+      "source_location": "L601",
       "_origin": "ast"
     },
     {
@@ -10214,7 +10230,7 @@
       "label": ".set_gap_events()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L604",
+      "source_location": "L605",
       "_origin": "ast"
     },
     {
@@ -10222,7 +10238,7 @@
       "label": ".set_annotation_markers()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L608",
+      "source_location": "L609",
       "_origin": "ast"
     },
     {
@@ -10230,7 +10246,7 @@
       "label": ".set_time()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L612",
+      "source_location": "L613",
       "_origin": "ast"
     },
     {
@@ -10238,7 +10254,7 @@
       "label": ".set_playing()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L627",
+      "source_location": "L628",
       "_origin": "ast"
     },
     {
@@ -10246,7 +10262,7 @@
       "label": ".step_rate_up()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L633",
+      "source_location": "L634",
       "_origin": "ast"
     },
     {
@@ -10254,7 +10270,7 @@
       "label": "._t_from_slider()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L640",
+      "source_location": "L641",
       "_origin": "ast"
     },
     {
@@ -10262,7 +10278,7 @@
       "label": "._time_to_frac()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L644",
+      "source_location": "L645",
       "_origin": "ast"
     },
     {
@@ -10270,7 +10286,7 @@
       "label": "._repin()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L652",
+      "source_location": "L653",
       "_origin": "ast"
     },
     {
@@ -10278,7 +10294,7 @@
       "label": ".resizeEvent()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L659",
+      "source_location": "L660",
       "_origin": "ast"
     },
     {
@@ -10294,7 +10310,7 @@
       "label": "._on_play_clicked()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L665",
+      "source_location": "L666",
       "_origin": "ast"
     },
     {
@@ -10302,7 +10318,7 @@
       "label": "._on_slider_pressed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L669",
+      "source_location": "L670",
       "_origin": "ast"
     },
     {
@@ -10310,7 +10326,7 @@
       "label": "._on_slider_moved()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L673",
+      "source_location": "L674",
       "_origin": "ast"
     },
     {
@@ -10318,7 +10334,7 @@
       "label": "._on_slider_released()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L676",
+      "source_location": "L677",
       "_origin": "ast"
     },
     {
@@ -10326,7 +10342,7 @@
       "label": "._on_rate_changed()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L680",
+      "source_location": "L681",
       "_origin": "ast"
     },
     {
@@ -10334,7 +10350,7 @@
       "label": "._on_text_edited()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L684",
+      "source_location": "L685",
       "_origin": "ast"
     },
     {
@@ -10342,7 +10358,7 @@
       "label": "._on_editing_done()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L687",
+      "source_location": "L688",
       "_origin": "ast"
     },
     {
@@ -10350,7 +10366,7 @@
       "label": "._on_ab_in()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L690",
+      "source_location": "L691",
       "_origin": "ast"
     },
     {
@@ -10358,7 +10374,7 @@
       "label": "._on_ab_in_clicked()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L697",
+      "source_location": "L698",
       "_origin": "ast"
     },
     {
@@ -10366,7 +10382,7 @@
       "label": "._on_ab_out()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L701",
+      "source_location": "L702",
       "_origin": "ast"
     },
     {
@@ -10374,7 +10390,7 @@
       "label": "._on_ab_out_clicked()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L708",
+      "source_location": "L709",
       "_origin": "ast"
     },
     {
@@ -10382,7 +10398,7 @@
       "label": "._on_ab_clear()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L712",
+      "source_location": "L713",
       "_origin": "ast"
     },
     {
@@ -10390,7 +10406,7 @@
       "label": "._on_jump()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L721",
+      "source_location": "L722",
       "_origin": "ast"
     },
     {
@@ -10398,7 +10414,7 @@
       "label": "._parse_time_input()",
       "file_type": "code",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L732",
+      "source_location": "L734",
       "_origin": "ast"
     },
     {
@@ -10538,139 +10554,139 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_563",
+      "id": "src_avialview_ui_transport_rationale_564",
       "label": "Set the A/B loop in-point at the current slider position (public, D-022.1).",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L563",
+      "source_location": "L564",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_567",
+      "id": "src_avialview_ui_transport_rationale_568",
       "label": "Detach Data Streams so the main workspace splitter can own its height.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L567",
+      "source_location": "L568",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_576",
+      "id": "src_avialview_ui_transport_rationale_577",
       "label": "Set the A/B loop out-point at the current slider position (public, D-022.1).",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L576",
+      "source_location": "L577",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_593",
+      "id": "src_avialview_ui_transport_rationale_594",
       "label": "Show compact, non-blocking status text beside Reset Zoom.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L593",
+      "source_location": "L594",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_597",
+      "id": "src_avialview_ui_transport_rationale_598",
       "label": "Show one video or data coverage span in the overview strip.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L597",
+      "source_location": "L598",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_601",
+      "id": "src_avialview_ui_transport_rationale_602",
       "label": "Show accepted synchronization events in the overview strip.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L601",
+      "source_location": "L602",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_605",
+      "id": "src_avialview_ui_transport_rationale_606",
       "label": "Show imported data gaps in the overview strip.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L605",
+      "source_location": "L606",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_609",
+      "id": "src_avialview_ui_transport_rationale_610",
       "label": "Show point and range annotations in the overview strip.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L609",
+      "source_location": "L610",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_613",
+      "id": "src_avialview_ui_transport_rationale_614",
       "label": "Update the displayed time (unless the user is typing).",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L613",
+      "source_location": "L614",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_634",
+      "id": "src_avialview_ui_transport_rationale_635",
       "label": "Advance the rate combo to the next higher step (L key, D-022.4).",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L634",
+      "source_location": "L635",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_645",
+      "id": "src_avialview_ui_transport_rationale_646",
       "label": "Convert absolute time to a [0, 1] fraction within current bounds.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L645",
+      "source_location": "L646",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_653",
+      "id": "src_avialview_ui_transport_rationale_654",
       "label": "Reposition all visible A/B pins from stored times + current geometry.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L653",
+      "source_location": "L654",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_691",
+      "id": "src_avialview_ui_transport_rationale_692",
       "label": "Set A/B in-point at current slider position.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L691",
+      "source_location": "L692",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_698",
+      "id": "src_avialview_ui_transport_rationale_699",
       "label": "Button click — set A/B in-point (button state managed here).",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L698",
+      "source_location": "L699",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_702",
+      "id": "src_avialview_ui_transport_rationale_703",
       "label": "Set A/B out-point at current slider position.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L702",
+      "source_location": "L703",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_709",
+      "id": "src_avialview_ui_transport_rationale_710",
       "label": "Button click — set A/B out-point (button state managed here).",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L709",
+      "source_location": "L710",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_transport_rationale_733",
+      "id": "src_avialview_ui_transport_rationale_735",
       "label": "Parse HH:MM:SS.fff, MM:SS, or bare seconds.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L733",
+      "source_location": "L735",
       "_origin": "ast"
     },
     {
@@ -13998,7 +14014,7 @@
       "label": "transport()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L27",
+      "source_location": "L28",
       "_origin": "ast"
     },
     {
@@ -14006,7 +14022,7 @@
       "label": "main_window()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "_origin": "ast"
     },
     {
@@ -14022,7 +14038,7 @@
       "label": "test_jump_back_btn_emits_jump_requested()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L48",
+      "source_location": "L49",
       "_origin": "ast"
     },
     {
@@ -14030,7 +14046,7 @@
       "label": "test_jump_fwd_btn_emits_jump_requested()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L55",
+      "source_location": "L56",
       "_origin": "ast"
     },
     {
@@ -14038,7 +14054,7 @@
       "label": "test_snapshot_btn_emits_snapshot_requested()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L62",
+      "source_location": "L63",
       "_origin": "ast"
     },
     {
@@ -14046,7 +14062,7 @@
       "label": "test_fullscreen_btn_emits_fullscreen_requested()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L69",
+      "source_location": "L70",
       "_origin": "ast"
     },
     {
@@ -14054,7 +14070,7 @@
       "label": "test_ab_in_btn_becomes_checked()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L79",
+      "source_location": "L80",
       "_origin": "ast"
     },
     {
@@ -14062,7 +14078,7 @@
       "label": "test_ab_out_btn_becomes_checked()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L85",
+      "source_location": "L86",
       "_origin": "ast"
     },
     {
@@ -14070,7 +14086,7 @@
       "label": "test_ab_clear_unchecks_both_buttons()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L91",
+      "source_location": "L92",
       "_origin": "ast"
     },
     {
@@ -14078,7 +14094,7 @@
       "label": "test_ab_loop_changed_emitted_on_in()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L99",
+      "source_location": "L100",
       "_origin": "ast"
     },
     {
@@ -14086,7 +14102,7 @@
       "label": "test_step_rate_up_advances_combo()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L106",
+      "source_location": "L107",
       "_origin": "ast"
     },
     {
@@ -14094,7 +14110,7 @@
       "label": "test_step_rate_up_at_max_stays_at_max()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L112",
+      "source_location": "L113",
       "_origin": "ast"
     },
     {
@@ -14102,7 +14118,7 @@
       "label": "test_plot_pane_receives_same_reset_zoom_action()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L121",
+      "source_location": "L122",
       "_origin": "ast"
     },
     {
@@ -14110,7 +14126,7 @@
       "label": "_all_shortcuts()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L135",
+      "source_location": "L136",
       "_origin": "ast"
     },
     {
@@ -14118,7 +14134,7 @@
       "label": "test_ctrl_v_is_not_bound()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L144",
+      "source_location": "L145",
       "_origin": "ast"
     },
     {
@@ -14126,7 +14142,7 @@
       "label": "test_ctrl_d_is_not_bound()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L150",
+      "source_location": "L151",
       "_origin": "ast"
     },
     {
@@ -14134,7 +14150,7 @@
       "label": "test_ctrl_shift_v_is_bound()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L156",
+      "source_location": "L157",
       "_origin": "ast"
     },
     {
@@ -14142,7 +14158,7 @@
       "label": "test_ctrl_shift_d_is_bound()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L180",
+      "source_location": "L181",
       "_origin": "ast"
     },
     {
@@ -14150,7 +14166,7 @@
       "label": "test_space_action_exists_in_all_actions()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L202",
+      "source_location": "L203",
       "_origin": "ast"
     },
     {
@@ -14158,7 +14174,15 @@
       "label": "test_space_action_emits_play_toggled()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L217",
+      "source_location": "L218",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_interaction_standard_test_entered_time_editor_returns_focus_to_playback_surface",
+      "label": "test_entered_time_editor_returns_focus_to_playback_surface()",
+      "file_type": "code",
+      "source_file": "tests/test_interaction_standard.py",
+      "source_location": "L236",
       "_origin": "ast"
     },
     {
@@ -14166,7 +14190,7 @@
       "label": "test_shortcuts_dialog_shows_registered_actions()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L237",
+      "source_location": "L267",
       "_origin": "ast"
     },
     {
@@ -14174,7 +14198,7 @@
       "label": "test_shortcuts_dialog_includes_every_registered_action()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L262",
+      "source_location": "L292",
       "_origin": "ast"
     },
     {
@@ -14182,7 +14206,7 @@
       "label": "test_k_while_paused_stays_paused()",
       "file_type": "code",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L289",
+      "source_location": "L319",
       "_origin": "ast"
     },
     {
@@ -14194,91 +14218,99 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_122",
+      "id": "tests_test_interaction_standard_rationale_123",
       "label": "The reset-zoom action in the plot context menu must be the same object     as th",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L122",
+      "source_location": "L123",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_136",
+      "id": "tests_test_interaction_standard_rationale_137",
       "label": "Collect the NativeText of every shortcut registered on the window.",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L136",
+      "source_location": "L137",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_145",
+      "id": "tests_test_interaction_standard_rationale_146",
       "label": "Ctrl+V must never be bound (system Paste, D-022.7).",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L145",
+      "source_location": "L146",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_151",
+      "id": "tests_test_interaction_standard_rationale_152",
       "label": "Ctrl+D must never be bound (platform dock/bookmark key, D-022.7).",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L151",
+      "source_location": "L152",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_157",
+      "id": "tests_test_interaction_standard_rationale_158",
       "label": "Ctrl+Shift+V must open video (D-022.7).",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L157",
+      "source_location": "L158",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_181",
+      "id": "tests_test_interaction_standard_rationale_182",
       "label": "Ctrl+Shift+D must open sensor/ephys data (D-022.7).",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L181",
+      "source_location": "L182",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_203",
+      "id": "tests_test_interaction_standard_rationale_204",
       "label": "Space must appear in _all_actions (window QAction, not a direct engine call).",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L203",
+      "source_location": "L204",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_218",
+      "id": "tests_test_interaction_standard_rationale_219",
       "label": "Triggering the Space QAction must emit transport.play_toggled.",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L218",
+      "source_location": "L219",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_238",
+      "id": "tests_test_interaction_standard_rationale_241",
+      "label": "An accepted time value must make the next Space a playback command.",
+      "file_type": "rationale",
+      "source_file": "tests/test_interaction_standard.py",
+      "source_location": "L241",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_interaction_standard_rationale_268",
       "label": "ShortcutsDialog must show rows derived from live _all_actions, not a static tabl",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L238",
+      "source_location": "L268",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_263",
+      "id": "tests_test_interaction_standard_rationale_293",
       "label": "Every action in _all_actions with shortcuts must appear in the dialog.",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L263",
+      "source_location": "L293",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_interaction_standard_rationale_290",
+      "id": "tests_test_interaction_standard_rationale_320",
       "label": "K key while paused must emit play_toggled(False) and keep the transport paused (",
       "file_type": "rationale",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L290",
+      "source_location": "L320",
       "_origin": "ast"
     },
     {
@@ -19082,11 +19114,19 @@
       "_origin": "ast"
     },
     {
+      "id": "decisions_8_accepted_numeric_time_edits_return_focus_to_playback",
+      "label": "8. Accepted numeric/time edits return focus to playback",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L364",
+      "_origin": "ast"
+    },
+    {
       "id": "decisions_consequences_what_every_future_agent_must_not_reverse",
       "label": "Consequences (what every future agent must not reverse)",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L364",
+      "source_location": "L371",
       "_origin": "ast"
     },
     {
@@ -19094,7 +19134,7 @@
       "label": "2026-07 · D-023 · Benchmarks CI-gated; budget-assertion pattern; CI multiplier",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L377",
+      "source_location": "L386",
       "_origin": "ast"
     },
     {
@@ -19102,7 +19142,7 @@
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L379",
+      "source_location": "L388",
       "_origin": "ast"
     },
     {
@@ -19110,7 +19150,7 @@
       "label": "Decisions",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L385",
+      "source_location": "L394",
       "_origin": "ast"
     },
     {
@@ -19118,7 +19158,7 @@
       "label": "2026-07 · D-024 · Pyramid Build Budget Adjustment & Future Format Migration",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L417",
+      "source_location": "L426",
       "_origin": "ast"
     },
     {
@@ -19126,7 +19166,7 @@
       "label": "2026-07 · D-028 · Hierarchical pyramid construction",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L426",
+      "source_location": "L435",
       "_origin": "ast"
     },
     {
@@ -19134,7 +19174,7 @@
       "label": "2026-07 · D-026 · Synchronization is evidence-based, plugin-extensible, and user-accepted",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L438",
+      "source_location": "L447",
       "_origin": "ast"
     },
     {
@@ -19142,15 +19182,15 @@
       "label": "2026-07 · D-029 · Separate GitHub workload correctness from local speed certification",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L455",
+      "source_location": "L464",
       "_origin": "ast"
     },
     {
-      "id": "decisions_context_457",
+      "id": "decisions_context_466",
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L457",
+      "source_location": "L466",
       "_origin": "ast"
     },
     {
@@ -19158,7 +19198,7 @@
       "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L464",
+      "source_location": "L473",
       "_origin": "ast"
     },
     {
@@ -19166,23 +19206,23 @@
       "label": "2026-07 · D-030 · Test-level watchdog for cross-platform Qt verification",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L471",
+      "source_location": "L480",
       "_origin": "ast"
     },
     {
-      "id": "decisions_context_473",
+      "id": "decisions_context_482",
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L473",
+      "source_location": "L482",
       "_origin": "ast"
     },
     {
-      "id": "decisions_decision_479",
+      "id": "decisions_decision_488",
       "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L479",
+      "source_location": "L488",
       "_origin": "ast"
     },
     {
@@ -19190,23 +19230,23 @@
       "label": "2026-07 · D-031 · Libmpv commands stay on the Qt-owning thread",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L491",
+      "source_location": "L500",
       "_origin": "ast"
     },
     {
-      "id": "decisions_context_493",
+      "id": "decisions_context_502",
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L493",
+      "source_location": "L502",
       "_origin": "ast"
     },
     {
-      "id": "decisions_decision_499",
+      "id": "decisions_decision_508",
       "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L499",
+      "source_location": "L508",
       "_origin": "ast"
     },
     {
@@ -19214,23 +19254,23 @@
       "label": "2026-07 · D-032 · Headless CI uses null video, decoded-frame evidence, and explicit mpv ownership",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L506",
+      "source_location": "L515",
       "_origin": "ast"
     },
     {
-      "id": "decisions_context_508",
+      "id": "decisions_context_517",
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L508",
+      "source_location": "L517",
       "_origin": "ast"
     },
     {
-      "id": "decisions_decision_515",
+      "id": "decisions_decision_524",
       "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L515",
+      "source_location": "L524",
       "_origin": "ast"
     },
     {
@@ -19238,7 +19278,7 @@
       "label": "Consequences",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L535",
+      "source_location": "L544",
       "_origin": "ast"
     },
     {
@@ -19246,7 +19286,7 @@
       "label": "macOS render-client teardown amendment",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L541",
+      "source_location": "L550",
       "_origin": "ast"
     },
     {
@@ -19254,7 +19294,7 @@
       "label": "2026-07 · D-035 · Exact seeks decode without frame dropping",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L548",
+      "source_location": "L557",
       "_origin": "ast"
     },
     {
@@ -19262,31 +19302,31 @@
       "label": "2026-07 · D-033 · Packaging inputs are explicit and CI artifact builds are a separate gate",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L564",
+      "source_location": "L573",
       "_origin": "ast"
     },
     {
-      "id": "decisions_context_566",
+      "id": "decisions_context_575",
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L566",
+      "source_location": "L575",
       "_origin": "ast"
     },
     {
-      "id": "decisions_decision_572",
+      "id": "decisions_decision_581",
       "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L572",
+      "source_location": "L581",
       "_origin": "ast"
     },
     {
-      "id": "decisions_consequences_579",
+      "id": "decisions_consequences_588",
       "label": "Consequences",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L579",
+      "source_location": "L588",
       "_origin": "ast"
     },
     {
@@ -19294,31 +19334,31 @@
       "label": "2026-07 · D-034 · Themes are palette/font appearance, never interaction redesign",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L584",
-      "_origin": "ast"
-    },
-    {
-      "id": "decisions_context_586",
-      "label": "Context",
-      "file_type": "document",
-      "source_file": "DECISIONS.md",
-      "source_location": "L586",
-      "_origin": "ast"
-    },
-    {
-      "id": "decisions_decision_593",
-      "label": "Decision",
-      "file_type": "document",
-      "source_file": "DECISIONS.md",
       "source_location": "L593",
       "_origin": "ast"
     },
     {
-      "id": "decisions_consequences_602",
-      "label": "Consequences",
+      "id": "decisions_context_595",
+      "label": "Context",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L595",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_decision_602",
+      "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
       "source_location": "L602",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_consequences_611",
+      "label": "Consequences",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L611",
       "_origin": "ast"
     },
     {
@@ -19326,31 +19366,31 @@
       "label": "2026-07 · D-036 · PR and tag quality use one cross-platform test contract",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L608",
-      "_origin": "ast"
-    },
-    {
-      "id": "decisions_context_610",
-      "label": "Context",
-      "file_type": "document",
-      "source_file": "DECISIONS.md",
-      "source_location": "L610",
-      "_origin": "ast"
-    },
-    {
-      "id": "decisions_decision_617",
-      "label": "Decision",
-      "file_type": "document",
-      "source_file": "DECISIONS.md",
       "source_location": "L617",
       "_origin": "ast"
     },
     {
-      "id": "decisions_consequences_629",
+      "id": "decisions_context_619",
+      "label": "Context",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L619",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_decision_626",
+      "label": "Decision",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L626",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_consequences_638",
       "label": "Consequences",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L629",
+      "source_location": "L638",
       "_origin": "ast"
     },
     {
@@ -19358,31 +19398,31 @@
       "label": "2026-07 · D-037 · Releases require a tag reachable from main",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L635",
+      "source_location": "L644",
       "_origin": "ast"
     },
     {
-      "id": "decisions_context_637",
+      "id": "decisions_context_646",
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L637",
+      "source_location": "L646",
       "_origin": "ast"
     },
     {
-      "id": "decisions_decision_642",
+      "id": "decisions_decision_651",
       "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L642",
+      "source_location": "L651",
       "_origin": "ast"
     },
     {
-      "id": "decisions_consequences_648",
+      "id": "decisions_consequences_657",
       "label": "Consequences",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L648",
+      "source_location": "L657",
       "_origin": "ast"
     },
     {
@@ -19390,7 +19430,7 @@
       "label": "Ubuntu AppImageTool amendment",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L653",
+      "source_location": "L662",
       "_origin": "ast"
     },
     {
@@ -19398,31 +19438,31 @@
       "label": "2026-07 · D-038 · Windows video panes use libmpv's Qt OpenGL render API",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L666",
+      "source_location": "L675",
       "_origin": "ast"
     },
     {
-      "id": "decisions_context_668",
+      "id": "decisions_context_677",
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L668",
+      "source_location": "L677",
       "_origin": "ast"
     },
     {
-      "id": "decisions_decision_674",
+      "id": "decisions_decision_683",
       "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L674",
+      "source_location": "L683",
       "_origin": "ast"
     },
     {
-      "id": "decisions_consequences_681",
+      "id": "decisions_consequences_690",
       "label": "Consequences",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L681",
+      "source_location": "L690",
       "_origin": "ast"
     },
     {
@@ -19430,31 +19470,31 @@
       "label": "2026-07 · D-039 · Release bundles own the complete media runtime",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L688",
+      "source_location": "L697",
       "_origin": "ast"
     },
     {
-      "id": "decisions_context_690",
+      "id": "decisions_context_699",
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L690",
+      "source_location": "L699",
       "_origin": "ast"
     },
     {
-      "id": "decisions_decision_696",
+      "id": "decisions_decision_705",
       "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L696",
+      "source_location": "L705",
       "_origin": "ast"
     },
     {
-      "id": "decisions_consequences_704",
+      "id": "decisions_consequences_713",
       "label": "Consequences",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L704",
+      "source_location": "L713",
       "_origin": "ast"
     },
     {
@@ -19462,31 +19502,31 @@
       "label": "2026-07 · D-040 · Sidecar writes use bounded concurrency and failures remain observable",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L710",
+      "source_location": "L719",
       "_origin": "ast"
     },
     {
-      "id": "decisions_context_712",
+      "id": "decisions_context_721",
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L712",
+      "source_location": "L721",
       "_origin": "ast"
     },
     {
-      "id": "decisions_decision_725",
+      "id": "decisions_decision_734",
       "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L725",
+      "source_location": "L734",
       "_origin": "ast"
     },
     {
-      "id": "decisions_consequences_742",
+      "id": "decisions_consequences_751",
       "label": "Consequences",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L742",
+      "source_location": "L751",
       "_origin": "ast"
     },
     {
@@ -19494,7 +19534,7 @@
       "label": "2026-07 - D-041 - 3D tracking is a cache-backed current-pose view",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L755",
+      "source_location": "L764",
       "_origin": "ast"
     },
     {
@@ -19502,7 +19542,7 @@
       "label": "2026-07 · D-041 · TimeMap exact piecewise interpolation",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L771",
+      "source_location": "L780",
       "_origin": "ast"
     },
     {
@@ -19510,31 +19550,31 @@
       "label": "2026-07 · D-042 · Plots use one fixed, shared oscilloscope sweep",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L781",
-      "_origin": "ast"
-    },
-    {
-      "id": "decisions_context_783",
-      "label": "Context",
-      "file_type": "document",
-      "source_file": "DECISIONS.md",
-      "source_location": "L783",
-      "_origin": "ast"
-    },
-    {
-      "id": "decisions_decision_790",
-      "label": "Decision",
-      "file_type": "document",
-      "source_file": "DECISIONS.md",
       "source_location": "L790",
       "_origin": "ast"
     },
     {
-      "id": "decisions_consequences_807",
+      "id": "decisions_context_792",
+      "label": "Context",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L792",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_decision_799",
+      "label": "Decision",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L799",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_consequences_816",
       "label": "Consequences",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L807",
+      "source_location": "L816",
       "_origin": "ast"
     },
     {
@@ -19542,23 +19582,23 @@
       "label": "2026-07 · D-043 · Presentation timestamps own video timing and exact interaction",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L815",
+      "source_location": "L824",
       "_origin": "ast"
     },
     {
-      "id": "decisions_context_817",
+      "id": "decisions_context_826",
       "label": "Context",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L817",
+      "source_location": "L826",
       "_origin": "ast"
     },
     {
-      "id": "decisions_decision_824",
+      "id": "decisions_decision_833",
       "label": "Decision",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L824",
+      "source_location": "L833",
       "_origin": "ast"
     },
     {
@@ -19566,15 +19606,15 @@
       "label": "Alternatives rejected",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L844",
+      "source_location": "L853",
       "_origin": "ast"
     },
     {
-      "id": "decisions_consequences_849",
+      "id": "decisions_consequences_858",
       "label": "Consequences",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L849",
+      "source_location": "L858",
       "_origin": "ast"
     },
     {
@@ -19966,7 +20006,7 @@
       "label": "Marking",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L626",
+      "source_location": "L629",
       "_origin": "ast"
     },
     {
@@ -19974,7 +20014,7 @@
       "label": "View",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L636",
+      "source_location": "L639",
       "_origin": "ast"
     },
     {
@@ -19982,7 +20022,7 @@
       "label": "File",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L648",
+      "source_location": "L651",
       "_origin": "ast"
     },
     {
@@ -19990,7 +20030,7 @@
       "label": "Performance Budgets (CI-enforced where ★)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L662",
+      "source_location": "L665",
       "_origin": "ast"
     },
     {
@@ -20894,6 +20934,46 @@
       "label": "Source Nodes",
       "file_type": "document",
       "source_file": "graphify-out/memory/query_20260729_130916_commit_current_changes__fix_closed_or_unchecked_pl.md",
+      "source_location": "L20",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th",
+      "label": "query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_q_have_you_checked_the_focus_of_keybaord_issues_the_focus_mut_be_for_the_play_pause_seen_kind_a_things_i_think_right_now_it_stays_with_the_timewindow_input_area_once_i_enter_a_value_the_focus_never_goes_away_form_it_but_if_user_already_entered_the_value_thats_enough_to_take_off_the_focus_from_that_to_play_area",
+      "label": "Q: have you checked the focus of keybaord issues ? the focus mut be for the play pause seen kind a things i think right now it stays with the timewindow input area, once i enter a value the focus never goes away form it. but if user already entered the value thats enough to take off the focus from that to play area",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
+      "source_location": "L10",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_answer",
+      "label": "Answer",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
+      "source_location": "L12",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_outcome",
+      "label": "Outcome",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
+      "source_location": "L16",
+      "_origin": "ast"
+    },
+    {
+      "id": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_source_nodes",
+      "label": "Source Nodes",
+      "file_type": "document",
+      "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
       "source_location": "L20",
       "_origin": "ast"
     }
@@ -37080,7 +37160,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L132",
+      "source_location": "L134",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37090,7 +37170,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L137",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37100,7 +37180,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L142",
+      "source_location": "L144",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37110,7 +37190,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L146",
+      "source_location": "L148",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37120,7 +37200,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L167",
+      "source_location": "L169",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37130,7 +37210,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L177",
+      "source_location": "L179",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37140,7 +37220,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L185",
+      "source_location": "L187",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37150,7 +37230,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L189",
+      "source_location": "L191",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37160,7 +37240,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L193",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37171,7 +37251,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L193",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37181,7 +37261,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L215",
+      "source_location": "L217",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37191,7 +37271,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L225",
+      "source_location": "L227",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37201,7 +37281,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L228",
+      "source_location": "L230",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37211,7 +37291,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L232",
+      "source_location": "L234",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37221,7 +37301,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L236",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37231,7 +37311,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L245",
+      "source_location": "L247",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37241,7 +37321,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L257",
+      "source_location": "L259",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37251,7 +37331,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L260",
+      "source_location": "L262",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37261,7 +37341,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L265",
+      "source_location": "L267",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37271,7 +37351,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L271",
+      "source_location": "L273",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37281,7 +37361,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L284",
+      "source_location": "L286",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37291,7 +37371,17 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L288",
+      "source_location": "L290",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_plot_sweep_sweepwindowcontrol",
+      "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_release_editor_focus",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/plot_sweep.py",
+      "source_location": "L294",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37301,7 +37391,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L292",
+      "source_location": "L300",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37311,7 +37401,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L299",
+      "source_location": "L307",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37321,7 +37411,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L306",
+      "source_location": "L314",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37331,7 +37421,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L309",
+      "source_location": "L317",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37341,7 +37431,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L318",
+      "source_location": "L326",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37363,7 +37453,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L120",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37374,7 +37464,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L152",
+      "source_location": "L154",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37385,7 +37475,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L157",
+      "source_location": "L159",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37396,7 +37486,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L164",
+      "source_location": "L166",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37407,7 +37497,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L174",
+      "source_location": "L176",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37418,7 +37508,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L175",
+      "source_location": "L177",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37429,7 +37519,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L179",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37440,7 +37530,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L182",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37451,7 +37541,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L183",
+      "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37462,7 +37552,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L198",
+      "source_location": "L200",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37473,7 +37563,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L217",
+      "source_location": "L219",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37484,7 +37574,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L218",
+      "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37495,7 +37585,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L229",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37506,7 +37596,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L233",
+      "source_location": "L235",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37517,7 +37607,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L237",
+      "source_location": "L239",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37528,7 +37618,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L238",
+      "source_location": "L240",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37539,7 +37629,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L246",
+      "source_location": "L248",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37550,7 +37640,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L250",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37561,7 +37651,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L255",
+      "source_location": "L257",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37572,7 +37662,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L263",
+      "source_location": "L265",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37583,24 +37673,13 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L269",
+      "source_location": "L271",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialview_ui_plot_sweep_sweepwindowcontrol_commit_window",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_maximum_window",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L272",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialview_ui_plot_sweep_sweepwindowcontrol_commit_window",
-      "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_minimum_window",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -37611,12 +37690,23 @@
     },
     {
       "source": "src_avialview_ui_plot_sweep_sweepwindowcontrol_commit_window",
+      "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_minimum_window",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/plot_sweep.py",
+      "source_location": "L276",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_plot_sweep_sweepwindowcontrol_commit_window",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_sync_widgets",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L277",
+      "source_location": "L279",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37627,7 +37717,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L285",
+      "source_location": "L287",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37638,7 +37728,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L286",
+      "source_location": "L288",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37649,7 +37739,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L289",
+      "source_location": "L291",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37660,7 +37750,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L290",
+      "source_location": "L292",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37671,7 +37761,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L293",
+      "source_location": "L301",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37682,7 +37772,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L295",
+      "source_location": "L303",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37693,7 +37783,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L297",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37704,7 +37794,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L301",
+      "source_location": "L309",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37715,7 +37805,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L311",
+      "source_location": "L319",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37726,7 +37816,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L314",
+      "source_location": "L322",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37737,7 +37827,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L314",
+      "source_location": "L322",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37748,7 +37838,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L314",
+      "source_location": "L322",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37759,7 +37849,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L316",
+      "source_location": "L324",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37770,7 +37860,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L320",
+      "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -37835,102 +37925,112 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_plot_sweep_rationale_133",
+      "source": "src_avialview_ui_plot_sweep_rationale_135",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_window_duration",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L133",
+      "source_location": "L135",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_plot_sweep_rationale_138",
+      "source": "src_avialview_ui_plot_sweep_rationale_140",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_sweep_start",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L138",
+      "source_location": "L140",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_plot_sweep_rationale_143",
+      "source": "src_avialview_ui_plot_sweep_rationale_145",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_last_master_time",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L143",
+      "source_location": "L145",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_plot_sweep_rationale_147",
+      "source": "src_avialview_ui_plot_sweep_rationale_149",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_set_bounds",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L147",
+      "source_location": "L149",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_plot_sweep_rationale_168",
+      "source": "src_avialview_ui_plot_sweep_rationale_170",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_set_window_duration",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L168",
+      "source_location": "L170",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_plot_sweep_rationale_178",
+      "source": "src_avialview_ui_plot_sweep_rationale_180",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_reset_window",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L178",
+      "source_location": "L180",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_plot_sweep_rationale_186",
+      "source": "src_avialview_ui_plot_sweep_rationale_188",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_zoom_in",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L186",
+      "source_location": "L188",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_plot_sweep_rationale_190",
+      "source": "src_avialview_ui_plot_sweep_rationale_192",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_zoom_out",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L190",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_plot_sweep_rationale_194",
+      "source": "src_avialview_ui_plot_sweep_rationale_196",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_advance",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L194",
+      "source_location": "L196",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_plot_sweep_rationale_216",
+      "source": "src_avialview_ui_plot_sweep_rationale_218",
       "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_slider_from_duration",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L216",
+      "source_location": "L218",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialview_ui_plot_sweep_rationale_295",
+      "target": "src_avialview_ui_plot_sweep_sweepwindowcontrol_release_editor_focus",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialview/ui/plot_sweep.py",
+      "source_location": "L295",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43284,7 +43384,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L562",
+      "source_location": "L563",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43294,7 +43394,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L566",
+      "source_location": "L567",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43305,7 +43405,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L566",
+      "source_location": "L567",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43315,7 +43415,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L575",
+      "source_location": "L576",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43325,7 +43425,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L579",
+      "source_location": "L580",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43335,7 +43435,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L584",
+      "source_location": "L585",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43346,7 +43446,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L584",
+      "source_location": "L585",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43356,7 +43456,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L588",
+      "source_location": "L589",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43366,7 +43466,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L592",
+      "source_location": "L593",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43376,7 +43476,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L596",
+      "source_location": "L597",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43386,7 +43486,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L600",
+      "source_location": "L601",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43396,7 +43496,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L604",
+      "source_location": "L605",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43406,7 +43506,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L608",
+      "source_location": "L609",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43416,7 +43516,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L612",
+      "source_location": "L613",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43426,7 +43526,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L627",
+      "source_location": "L628",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43436,7 +43536,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L633",
+      "source_location": "L634",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43446,7 +43546,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L640",
+      "source_location": "L641",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43456,7 +43556,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L644",
+      "source_location": "L645",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43466,7 +43566,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L652",
+      "source_location": "L653",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43476,7 +43576,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L659",
+      "source_location": "L660",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43487,7 +43587,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L659",
+      "source_location": "L660",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43497,7 +43597,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L665",
+      "source_location": "L666",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43507,7 +43607,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L669",
+      "source_location": "L670",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43517,7 +43617,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L673",
+      "source_location": "L674",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43527,7 +43627,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L676",
+      "source_location": "L677",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43537,7 +43637,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L680",
+      "source_location": "L681",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43547,7 +43647,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L684",
+      "source_location": "L685",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43557,7 +43657,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L687",
+      "source_location": "L688",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43567,7 +43667,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L690",
+      "source_location": "L691",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43577,7 +43677,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L697",
+      "source_location": "L698",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43587,7 +43687,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L701",
+      "source_location": "L702",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43597,7 +43697,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L708",
+      "source_location": "L709",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43607,7 +43707,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L712",
+      "source_location": "L713",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43617,7 +43717,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L721",
+      "source_location": "L722",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43627,7 +43727,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L732",
+      "source_location": "L734",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43880,7 +43980,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L425",
+      "source_location": "L426",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43891,7 +43991,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L451",
+      "source_location": "L452",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43902,7 +44002,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L552",
+      "source_location": "L553",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43913,7 +44013,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L564",
+      "source_location": "L565",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43924,7 +44024,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L577",
+      "source_location": "L578",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43935,7 +44035,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L598",
+      "source_location": "L599",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43946,7 +44046,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L610",
+      "source_location": "L611",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43957,7 +44057,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L625",
+      "source_location": "L626",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43968,7 +44068,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L655",
+      "source_location": "L656",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43979,7 +44079,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L655",
+      "source_location": "L656",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -43990,7 +44090,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L661",
+      "source_location": "L662",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44001,7 +44101,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L667",
+      "source_location": "L668",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44012,7 +44112,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L671",
+      "source_location": "L672",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44023,7 +44123,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L674",
+      "source_location": "L675",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44034,7 +44134,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L678",
+      "source_location": "L679",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44045,7 +44145,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L692",
+      "source_location": "L693",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44056,7 +44156,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L694",
+      "source_location": "L695",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44067,7 +44167,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L694",
+      "source_location": "L695",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44078,7 +44178,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L699",
+      "source_location": "L700",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44089,7 +44189,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L703",
+      "source_location": "L704",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44100,7 +44200,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L705",
+      "source_location": "L706",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44111,7 +44211,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L705",
+      "source_location": "L706",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44122,7 +44222,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L710",
+      "source_location": "L711",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44133,7 +44233,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L725",
+      "source_location": "L726",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -44308,172 +44408,172 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_563",
+      "source": "src_avialview_ui_transport_rationale_564",
       "target": "src_avialview_ui_transport_transport_ab_in",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L563",
+      "source_location": "L564",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_567",
+      "source": "src_avialview_ui_transport_rationale_568",
       "target": "src_avialview_ui_transport_transport_detach_data_streams",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L567",
+      "source_location": "L568",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_576",
+      "source": "src_avialview_ui_transport_rationale_577",
       "target": "src_avialview_ui_transport_transport_ab_out",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L576",
+      "source_location": "L577",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_593",
+      "source": "src_avialview_ui_transport_rationale_594",
       "target": "src_avialview_ui_transport_transport_set_status",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L593",
+      "source_location": "L594",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_597",
+      "source": "src_avialview_ui_transport_rationale_598",
       "target": "src_avialview_ui_transport_transport_set_source_coverage",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L597",
+      "source_location": "L598",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_601",
+      "source": "src_avialview_ui_transport_rationale_602",
       "target": "src_avialview_ui_transport_transport_set_ttl_events",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L601",
+      "source_location": "L602",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_605",
+      "source": "src_avialview_ui_transport_rationale_606",
       "target": "src_avialview_ui_transport_transport_set_gap_events",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L605",
+      "source_location": "L606",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_609",
+      "source": "src_avialview_ui_transport_rationale_610",
       "target": "src_avialview_ui_transport_transport_set_annotation_markers",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L609",
+      "source_location": "L610",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_613",
+      "source": "src_avialview_ui_transport_rationale_614",
       "target": "src_avialview_ui_transport_transport_set_time",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L613",
+      "source_location": "L614",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_634",
+      "source": "src_avialview_ui_transport_rationale_635",
       "target": "src_avialview_ui_transport_transport_step_rate_up",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L634",
+      "source_location": "L635",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_645",
+      "source": "src_avialview_ui_transport_rationale_646",
       "target": "src_avialview_ui_transport_transport_time_to_frac",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L645",
+      "source_location": "L646",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_653",
+      "source": "src_avialview_ui_transport_rationale_654",
       "target": "src_avialview_ui_transport_transport_repin",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L653",
+      "source_location": "L654",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_691",
+      "source": "src_avialview_ui_transport_rationale_692",
       "target": "src_avialview_ui_transport_transport_on_ab_in",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L691",
+      "source_location": "L692",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_698",
+      "source": "src_avialview_ui_transport_rationale_699",
       "target": "src_avialview_ui_transport_transport_on_ab_in_clicked",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L698",
+      "source_location": "L699",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_702",
+      "source": "src_avialview_ui_transport_rationale_703",
       "target": "src_avialview_ui_transport_transport_on_ab_out",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L702",
+      "source_location": "L703",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_709",
+      "source": "src_avialview_ui_transport_rationale_710",
       "target": "src_avialview_ui_transport_transport_on_ab_out_clicked",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L709",
+      "source_location": "L710",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_transport_rationale_733",
+      "source": "src_avialview_ui_transport_rationale_735",
       "target": "src_avialview_ui_transport_transport_parse_time_input",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L733",
+      "source_location": "L735",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50635,7 +50735,7 @@
     },
     {
       "source": "tests_test_interaction_standard",
-      "target": "pyside6_qtgui",
+      "target": "pyside6_qtcore",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -50646,7 +50746,7 @@
     },
     {
       "source": "tests_test_interaction_standard",
-      "target": "pyside6_qtwidgets",
+      "target": "pyside6_qtgui",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -50657,12 +50757,23 @@
     },
     {
       "source": "tests_test_interaction_standard",
+      "target": "pyside6_qtwidgets",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_interaction_standard.py",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_interaction_standard",
       "target": "src_avialview_ui_transport",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L21",
+      "source_location": "L22",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50672,7 +50783,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L27",
+      "source_location": "L28",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50682,7 +50793,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50693,7 +50804,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50703,7 +50814,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L48",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50714,7 +50825,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L48",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50724,7 +50835,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L55",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50735,7 +50846,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L55",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50745,7 +50856,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L62",
+      "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50756,7 +50867,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L62",
+      "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50766,7 +50877,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L69",
+      "source_location": "L70",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50777,7 +50888,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L69",
+      "source_location": "L70",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50787,7 +50898,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L79",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50798,7 +50909,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L79",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50808,7 +50919,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L85",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50819,7 +50930,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L85",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50829,7 +50940,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L91",
+      "source_location": "L92",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50840,7 +50951,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L91",
+      "source_location": "L92",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50850,7 +50961,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L99",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50861,7 +50972,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L99",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50871,7 +50982,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L106",
+      "source_location": "L107",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50882,7 +50993,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L106",
+      "source_location": "L107",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50892,7 +51003,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L112",
+      "source_location": "L113",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50903,7 +51014,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L112",
+      "source_location": "L113",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50913,7 +51024,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L121",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50923,7 +51034,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L135",
+      "source_location": "L136",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50933,7 +51044,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L144",
+      "source_location": "L145",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50943,7 +51054,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L150",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50953,7 +51064,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L156",
+      "source_location": "L157",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50963,7 +51074,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L180",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50973,7 +51084,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L202",
+      "source_location": "L203",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50983,7 +51094,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L217",
+      "source_location": "L218",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_interaction_standard",
+      "target": "tests_test_interaction_standard_test_entered_time_editor_returns_focus_to_playback_surface",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_interaction_standard.py",
+      "source_location": "L236",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -50993,7 +51114,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L237",
+      "source_location": "L267",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -51003,7 +51124,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L262",
+      "source_location": "L292",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -51013,7 +51134,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L289",
+      "source_location": "L319",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -51024,7 +51145,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L146",
+      "source_location": "L147",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -51035,7 +51156,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L152",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -51050,112 +51171,122 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_122",
+      "source": "tests_test_interaction_standard_rationale_123",
       "target": "tests_test_interaction_standard_test_plot_pane_receives_same_reset_zoom_action",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L122",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_136",
+      "source": "tests_test_interaction_standard_rationale_137",
       "target": "tests_test_interaction_standard_all_shortcuts",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L136",
+      "source_location": "L137",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_145",
+      "source": "tests_test_interaction_standard_rationale_146",
       "target": "tests_test_interaction_standard_test_ctrl_v_is_not_bound",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L145",
+      "source_location": "L146",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_151",
+      "source": "tests_test_interaction_standard_rationale_152",
       "target": "tests_test_interaction_standard_test_ctrl_d_is_not_bound",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L151",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_157",
+      "source": "tests_test_interaction_standard_rationale_158",
       "target": "tests_test_interaction_standard_test_ctrl_shift_v_is_bound",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L157",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_181",
+      "source": "tests_test_interaction_standard_rationale_182",
       "target": "tests_test_interaction_standard_test_ctrl_shift_d_is_bound",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L181",
+      "source_location": "L182",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_203",
+      "source": "tests_test_interaction_standard_rationale_204",
       "target": "tests_test_interaction_standard_test_space_action_exists_in_all_actions",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L203",
+      "source_location": "L204",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_218",
+      "source": "tests_test_interaction_standard_rationale_219",
       "target": "tests_test_interaction_standard_test_space_action_emits_play_toggled",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L218",
+      "source_location": "L219",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_238",
+      "source": "tests_test_interaction_standard_rationale_241",
+      "target": "tests_test_interaction_standard_test_entered_time_editor_returns_focus_to_playback_surface",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_interaction_standard.py",
+      "source_location": "L241",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_interaction_standard_rationale_268",
       "target": "tests_test_interaction_standard_test_shortcuts_dialog_shows_registered_actions",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L238",
+      "source_location": "L268",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_263",
+      "source": "tests_test_interaction_standard_rationale_293",
       "target": "tests_test_interaction_standard_test_shortcuts_dialog_includes_every_registered_action",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L263",
+      "source_location": "L293",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_interaction_standard_rationale_290",
+      "source": "tests_test_interaction_standard_rationale_320",
       "target": "tests_test_interaction_standard_test_k_while_paused_stays_paused",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L290",
+      "source_location": "L320",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60852,11 +60983,21 @@
     },
     {
       "source": "decisions_2026_07_d_022_interaction_standard_visible_surface_depth_in_menus_shortcuts_as_accelerators",
-      "target": "decisions_consequences_what_every_future_agent_must_not_reverse",
+      "target": "decisions_8_accepted_numeric_time_edits_return_focus_to_playback",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
       "source_location": "L364",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_022_interaction_standard_visible_surface_depth_in_menus_shortcuts_as_accelerators",
+      "target": "decisions_consequences_what_every_future_agent_must_not_reverse",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L371",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60866,7 +61007,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L377",
+      "source_location": "L386",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60876,7 +61017,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L379",
+      "source_location": "L388",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60886,7 +61027,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L385",
+      "source_location": "L394",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60896,7 +61037,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L417",
+      "source_location": "L426",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60906,7 +61047,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L426",
+      "source_location": "L435",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60916,7 +61057,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L438",
+      "source_location": "L447",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60926,17 +61067,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L455",
+      "source_location": "L464",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_029_separate_github_workload_correctness_from_local_speed_certification",
-      "target": "decisions_context_457",
+      "target": "decisions_context_466",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L457",
+      "source_location": "L466",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60946,7 +61087,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L464",
+      "source_location": "L473",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60956,27 +61097,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L471",
+      "source_location": "L480",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_030_test_level_watchdog_for_cross_platform_qt_verification",
-      "target": "decisions_context_473",
+      "target": "decisions_context_482",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L473",
+      "source_location": "L482",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_030_test_level_watchdog_for_cross_platform_qt_verification",
-      "target": "decisions_decision_479",
+      "target": "decisions_decision_488",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L479",
+      "source_location": "L488",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -60986,27 +61127,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L491",
+      "source_location": "L500",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_031_libmpv_commands_stay_on_the_qt_owning_thread",
-      "target": "decisions_context_493",
+      "target": "decisions_context_502",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L493",
+      "source_location": "L502",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_031_libmpv_commands_stay_on_the_qt_owning_thread",
-      "target": "decisions_decision_499",
+      "target": "decisions_decision_508",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L499",
+      "source_location": "L508",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61016,27 +61157,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L506",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "decisions_2026_07_d_032_headless_ci_uses_null_video_decoded_frame_evidence_and_explicit_mpv_ownership",
-      "target": "decisions_context_508",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "DECISIONS.md",
-      "source_location": "L508",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "decisions_2026_07_d_032_headless_ci_uses_null_video_decoded_frame_evidence_and_explicit_mpv_ownership",
-      "target": "decisions_decision_515",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "DECISIONS.md",
       "source_location": "L515",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_032_headless_ci_uses_null_video_decoded_frame_evidence_and_explicit_mpv_ownership",
+      "target": "decisions_context_517",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L517",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_032_headless_ci_uses_null_video_decoded_frame_evidence_and_explicit_mpv_ownership",
+      "target": "decisions_decision_524",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L524",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61046,7 +61187,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L535",
+      "source_location": "L544",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61056,7 +61197,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L541",
+      "source_location": "L550",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61066,7 +61207,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L548",
+      "source_location": "L557",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61076,37 +61217,37 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L564",
+      "source_location": "L573",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_033_packaging_inputs_are_explicit_and_ci_artifact_builds_are_a_separate_gate",
-      "target": "decisions_context_566",
+      "target": "decisions_context_575",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L566",
+      "source_location": "L575",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_033_packaging_inputs_are_explicit_and_ci_artifact_builds_are_a_separate_gate",
-      "target": "decisions_decision_572",
+      "target": "decisions_decision_581",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L572",
+      "source_location": "L581",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_033_packaging_inputs_are_explicit_and_ci_artifact_builds_are_a_separate_gate",
-      "target": "decisions_consequences_579",
+      "target": "decisions_consequences_588",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L579",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61116,37 +61257,37 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L584",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "decisions_2026_07_d_034_themes_are_palette_font_appearance_never_interaction_redesign",
-      "target": "decisions_context_586",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "DECISIONS.md",
-      "source_location": "L586",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "decisions_2026_07_d_034_themes_are_palette_font_appearance_never_interaction_redesign",
-      "target": "decisions_decision_593",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "DECISIONS.md",
       "source_location": "L593",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_034_themes_are_palette_font_appearance_never_interaction_redesign",
-      "target": "decisions_consequences_602",
+      "target": "decisions_context_595",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L595",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_034_themes_are_palette_font_appearance_never_interaction_redesign",
+      "target": "decisions_decision_602",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
       "source_location": "L602",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_034_themes_are_palette_font_appearance_never_interaction_redesign",
+      "target": "decisions_consequences_611",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L611",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61156,37 +61297,37 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L608",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "decisions_2026_07_d_036_pr_and_tag_quality_use_one_cross_platform_test_contract",
-      "target": "decisions_context_610",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "DECISIONS.md",
-      "source_location": "L610",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "decisions_2026_07_d_036_pr_and_tag_quality_use_one_cross_platform_test_contract",
-      "target": "decisions_decision_617",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "DECISIONS.md",
       "source_location": "L617",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_036_pr_and_tag_quality_use_one_cross_platform_test_contract",
-      "target": "decisions_consequences_629",
+      "target": "decisions_context_619",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L629",
+      "source_location": "L619",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_036_pr_and_tag_quality_use_one_cross_platform_test_contract",
+      "target": "decisions_decision_626",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L626",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_036_pr_and_tag_quality_use_one_cross_platform_test_contract",
+      "target": "decisions_consequences_638",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L638",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61196,37 +61337,37 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L635",
+      "source_location": "L644",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_037_releases_require_a_tag_reachable_from_main",
-      "target": "decisions_context_637",
+      "target": "decisions_context_646",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L637",
+      "source_location": "L646",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_037_releases_require_a_tag_reachable_from_main",
-      "target": "decisions_decision_642",
+      "target": "decisions_decision_651",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L642",
+      "source_location": "L651",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_037_releases_require_a_tag_reachable_from_main",
-      "target": "decisions_consequences_648",
+      "target": "decisions_consequences_657",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L648",
+      "source_location": "L657",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61236,7 +61377,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L653",
+      "source_location": "L662",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61246,37 +61387,37 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L666",
+      "source_location": "L675",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_038_windows_video_panes_use_libmpv_s_qt_opengl_render_api",
-      "target": "decisions_context_668",
+      "target": "decisions_context_677",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L668",
+      "source_location": "L677",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_038_windows_video_panes_use_libmpv_s_qt_opengl_render_api",
-      "target": "decisions_decision_674",
+      "target": "decisions_decision_683",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L674",
+      "source_location": "L683",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_038_windows_video_panes_use_libmpv_s_qt_opengl_render_api",
-      "target": "decisions_consequences_681",
+      "target": "decisions_consequences_690",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L681",
+      "source_location": "L690",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61286,37 +61427,37 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L688",
+      "source_location": "L697",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_039_release_bundles_own_the_complete_media_runtime",
-      "target": "decisions_context_690",
+      "target": "decisions_context_699",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L690",
+      "source_location": "L699",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_039_release_bundles_own_the_complete_media_runtime",
-      "target": "decisions_decision_696",
+      "target": "decisions_decision_705",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L696",
+      "source_location": "L705",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_039_release_bundles_own_the_complete_media_runtime",
-      "target": "decisions_consequences_704",
+      "target": "decisions_consequences_713",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L704",
+      "source_location": "L713",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61326,37 +61467,37 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L710",
+      "source_location": "L719",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_040_sidecar_writes_use_bounded_concurrency_and_failures_remain_observable",
-      "target": "decisions_context_712",
+      "target": "decisions_context_721",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L712",
+      "source_location": "L721",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_040_sidecar_writes_use_bounded_concurrency_and_failures_remain_observable",
-      "target": "decisions_decision_725",
+      "target": "decisions_decision_734",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L725",
+      "source_location": "L734",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_040_sidecar_writes_use_bounded_concurrency_and_failures_remain_observable",
-      "target": "decisions_consequences_742",
+      "target": "decisions_consequences_751",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L742",
+      "source_location": "L751",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61366,7 +61507,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L755",
+      "source_location": "L764",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61376,7 +61517,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L771",
+      "source_location": "L780",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61386,37 +61527,37 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L781",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "decisions_2026_07_d_042_plots_use_one_fixed_shared_oscilloscope_sweep",
-      "target": "decisions_context_783",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "DECISIONS.md",
-      "source_location": "L783",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "decisions_2026_07_d_042_plots_use_one_fixed_shared_oscilloscope_sweep",
-      "target": "decisions_decision_790",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "DECISIONS.md",
       "source_location": "L790",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_042_plots_use_one_fixed_shared_oscilloscope_sweep",
-      "target": "decisions_consequences_807",
+      "target": "decisions_context_792",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L807",
+      "source_location": "L792",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_042_plots_use_one_fixed_shared_oscilloscope_sweep",
+      "target": "decisions_decision_799",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L799",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_042_plots_use_one_fixed_shared_oscilloscope_sweep",
+      "target": "decisions_consequences_816",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L816",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61426,27 +61567,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L815",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "decisions_2026_07_d_043_presentation_timestamps_own_video_timing_and_exact_interaction",
-      "target": "decisions_context_817",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "DECISIONS.md",
-      "source_location": "L817",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "decisions_2026_07_d_043_presentation_timestamps_own_video_timing_and_exact_interaction",
-      "target": "decisions_decision_824",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "DECISIONS.md",
       "source_location": "L824",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_043_presentation_timestamps_own_video_timing_and_exact_interaction",
+      "target": "decisions_context_826",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L826",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_2026_07_d_043_presentation_timestamps_own_video_timing_and_exact_interaction",
+      "target": "decisions_decision_833",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L833",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61456,17 +61597,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L844",
+      "source_location": "L853",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "decisions_2026_07_d_043_presentation_timestamps_own_video_timing_and_exact_interaction",
-      "target": "decisions_consequences_849",
+      "target": "decisions_consequences_858",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L849",
+      "source_location": "L858",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61936,7 +62077,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L626",
+      "source_location": "L629",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61946,7 +62087,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L636",
+      "source_location": "L639",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61956,7 +62097,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L648",
+      "source_location": "L651",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -61966,7 +62107,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L662",
+      "source_location": "L665",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -63006,6 +63147,46 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "graphify-out/memory/query_20260729_130916_commit_current_changes__fix_closed_or_unchecked_pl.md",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th",
+      "target": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_q_have_you_checked_the_focus_of_keybaord_issues_the_focus_mut_be_for_the_play_pause_seen_kind_a_things_i_think_right_now_it_stays_with_the_timewindow_input_area_once_i_enter_a_value_the_focus_never_goes_away_form_it_but_if_user_already_entered_the_value_thats_enough_to_take_off_the_focus_from_that_to_play_area",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_q_have_you_checked_the_focus_of_keybaord_issues_the_focus_mut_be_for_the_play_pause_seen_kind_a_things_i_think_right_now_it_stays_with_the_timewindow_input_area_once_i_enter_a_value_the_focus_never_goes_away_form_it_but_if_user_already_entered_the_value_thats_enough_to_take_off_the_focus_from_that_to_play_area",
+      "target": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_answer",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_q_have_you_checked_the_focus_of_keybaord_issues_the_focus_mut_be_for_the_play_pause_seen_kind_a_things_i_think_right_now_it_stays_with_the_timewindow_input_area_once_i_enter_a_value_the_focus_never_goes_away_form_it_but_if_user_already_entered_the_value_thats_enough_to_take_off_the_focus_from_that_to_play_area",
+      "target": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_outcome",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
+      "source_location": "L16",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_q_have_you_checked_the_focus_of_keybaord_issues_the_focus_mut_be_for_the_play_pause_seen_kind_a_things_i_think_right_now_it_stays_with_the_timewindow_input_area_once_i_enter_a_value_the_focus_never_goes_away_form_it_but_if_user_already_entered_the_value_thats_enough_to_take_off_the_focus_from_that_to_play_area",
+      "target": "graphify_out_memory_query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues_th_source_nodes",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "graphify-out/memory/query_20260729_132913_have_you_checked_the_focus_of_keybaord_issues___th.md",
       "source_location": "L20",
       "weight": 1.0,
       "_origin": "ast"
@@ -68436,7 +68617,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/plot_sweep.py",
-      "source_location": "L109",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68880,7 +69061,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L441",
+      "source_location": "L442",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68892,7 +69073,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L459",
+      "source_location": "L460",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68904,7 +69085,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L581",
+      "source_location": "L582",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68916,7 +69097,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L586",
+      "source_location": "L587",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68928,7 +69109,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L590",
+      "source_location": "L591",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68940,7 +69121,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialview/ui/transport.py",
-      "source_location": "L615",
+      "source_location": "L616",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -70440,7 +70621,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L28",
+      "source_location": "L29",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -70452,7 +70633,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L39",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -70464,7 +70645,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L248",
+      "source_location": "L278",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -70476,7 +70657,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_interaction_standard.py",
-      "source_location": "L276",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast"
     },
