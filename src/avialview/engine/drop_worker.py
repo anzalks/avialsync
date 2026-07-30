@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import QObject, Signal, Slot
 
@@ -166,23 +167,23 @@ class DropScanWorker(QObject):
             if anchor_epoch > 0.0 and start_epoch > 0.0:
                 start_epoch -= anchor_epoch
 
-            config = {
+            eks_config: dict[str, Any] = {
                 "fps": manifest.camera_fps,
                 "start_epoch": start_epoch,
                 "skeleton": manifest.skeleton,
                 "auto_resolved": True,
                 "_is_frame_indexed": True,  # Pre-computed
             }
-            candidates.append((eks_file, AOLEksLoader, config))
+            candidates.append((eks_file, AOLEksLoader, eks_config))
 
         # 3. Encoder log
         if manifest.encoder_file is not None:
-            config = (
+            encoder_config: dict[str, Any] = (
                 {"anchor_date": manifest.anchor_date, "auto_resolved": True}
                 if manifest.anchor_date
                 else {"auto_resolved": True}
             )
-            candidates.append((manifest.encoder_file, AOLEncoderLoader, config))
+            candidates.append((manifest.encoder_file, AOLEncoderLoader, encoder_config))
 
         logger.info(
             "AOL session detected: %d candidates from %s (fps=%.1f)",
