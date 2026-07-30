@@ -78,8 +78,8 @@ def test_loader_discovery(mock_eps):
     mock_eps.return_value = [ep1, ep2]
 
     registry = LoaderRegistry()
-    # Expect 4 built-in + 2 from entry points
-    assert len(registry._loaders) == 6
+    # Expect 6 built-in + 2 from entry points
+    assert len(registry._loaders) == 8
     assert DummyTimeSeriesLoader in registry._loaders
     assert DummyVideoLoader in registry._loaders
 

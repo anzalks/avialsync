@@ -75,6 +75,12 @@ def refresh_channel_plot(
     upper[gap] = np.nan
     channel.curve.setData(x, lower)
     channel.envelope_upper.setData(x, upper)
+
+    # PyQtGraph's FillBetweenItem draws garbage to 0,0 when it encounters NaNs.
+    # If the pyramid level hasn't diverged (vmin == vmax), hide the fill entirely.
+    has_envelope = not np.array_equal(vmin, vmax, equal_nan=True)
+    channel.envelope_fill.setVisible(has_envelope)
+
     if channel.y_mode == Y_AUTO:
         fit_channel_y(channel)
 

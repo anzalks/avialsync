@@ -100,17 +100,6 @@ class AOLEncoderLoader(TimeSeriesSource):
         if self._path is None:
             raise RuntimeError("Source not opened")
 
-        anchor_date_str = self._config.get("anchor_date", "1970-01-01")
-        # Convert anchor date to epoch offset (seconds since Unix epoch at midnight)
-        import datetime
-
-        try:
-            anchor = datetime.datetime.strptime(anchor_date_str, "%Y-%m-%d")
-        except ValueError:
-            anchor = datetime.datetime(1970, 1, 1)
-
-        anchor_epoch = anchor.replace(tzinfo=datetime.UTC).timestamp()
-
         times: list[float] = []
         values: list[float] = []
         row_offset = 0
@@ -137,7 +126,7 @@ class AOLEncoderLoader(TimeSeriesSource):
                     logger.warning("Unparseable velocity at line %d: %s", line_no, parts[3])
                     continue
 
-                times.append(anchor_epoch + t_sec)
+                times.append(t_sec)
                 values.append(velocity)
 
                 if len(times) >= _CHUNK_SIZE:

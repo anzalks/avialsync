@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
         self._video_load_jobs: dict[QThread, object] = {}
         self._video_load_offsets: dict[str, float] = {}
         self._video_load_drifts: dict[str, float] = {}
-        self._pending_video_loads: deque[tuple[Path, float, float]] = deque()
+        self._pending_video_loads: deque[tuple[Path, float, float, dict[str, Any] | None]] = deque()
         self._video_pane_initializing: object | None = None
         self._video_frame_times: dict[str, Any] = {}
         self._video_source_bounds: dict[str, tuple[float, float]] = {}
@@ -896,8 +896,13 @@ class MainWindow(QMainWindow):
             config = {"fps": fps} if fps > 0 else {}
 
             start_epochs = getattr(self, "_aol_video_start_epochs", {})
+            anchor_epoch = getattr(self, "_aol_anchor_epoch", 0.0)
+            start_epoch = start_epochs.get(str(path), 0.0)
+            if anchor_epoch > 0.0 and start_epoch > 0.0:
+                start_epoch -= anchor_epoch
+
             # TimeMap offset must be negative to map positive master time back to 0.0 source time
-            offset = -start_epochs.get(str(path), 0.0)
+            offset = -start_epoch
 
             self._load_video(path, offset=offset, config=config)
         else:
@@ -973,6 +978,24 @@ class MainWindow(QMainWindow):
         self._aol_camera_fps = manifest.camera_fps
         self._aol_video_start_epochs = manifest.video_start_epochs
         self._aol_anchor_date = manifest.anchor_date
+
+        if manifest.anchor_date:
+            import datetime
+
+            try:
+                anchor = datetime.datetime.strptime(manifest.anchor_date, "%Y-%m-%d")
+                self._aol_anchor_epoch = anchor.replace(tzinfo=datetime.UTC).timestamp()
+
+                # Apply it to UI elements right away so relative time formatting
+                # correctly offsets UTC displays.
+                from avialview.ui.time_format import TimeDisplayMode
+
+                self.plot_pane.set_time_mode(TimeDisplayMode.UTC, self._aol_anchor_epoch)
+                self.transport.set_t_epoch(self._aol_anchor_epoch)
+            except ValueError:
+                self._aol_anchor_epoch = 0.0
+        else:
+            self._aol_anchor_epoch = 0.0
 
         candidates: list[tuple[Path, type | None]] = []
 
@@ -2011,14 +2034,25 @@ class MainWindow(QMainWindow):
 
             start_epoch = 0.0
             start_epochs = getattr(self, "_aol_video_start_epochs", {})
-            # Try to match the EKS filename prefix to a camera label (e.g. "FaceCam")
-            cam_name = path.name.split("_")[0]
+            # Try to match the EKS filename or its parent folder to a camera label (e.g. "FaceCam")
+            cam_name_from_file = path.name.split("_")[0]
+            cam_name_from_dir = path.parent.name.split("_")[0]
+
             for vid_path, epoch in start_epochs.items():
-                if cam_name in Path(vid_path).name:
+                vid_name = Path(vid_path).name
+                if cam_name_from_file in vid_name or cam_name_from_dir in vid_name:
                     start_epoch = epoch
                     break
 
-            config = {"fps": fps, "start_epoch": start_epoch}
+            anchor_epoch = getattr(self, "_aol_anchor_epoch", 0.0)
+            if anchor_epoch > 0.0 and start_epoch > 0.0:
+                start_epoch -= anchor_epoch
+
+            skeleton = getattr(self, "_aol_skeleton", [])
+            if skeleton:
+                self.tracking_3d_pane.set_skeleton(skeleton)
+
+            config = {"fps": fps, "start_epoch": start_epoch, "skeleton": skeleton}
             if not self._video_fps:
                 self._frame_indexed_sources.append((path, loader_cls, config))
         elif _is_aol_encoder_loader(loader_cls):

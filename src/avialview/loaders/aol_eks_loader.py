@@ -77,10 +77,32 @@ class AOLEksLoader(TimeSeriesSource):
         self._has_fnum = "fnum" in all_cols
 
         # Extract only _x, _y, _z columns
-        self._xyz_channels = [c for c in all_cols if c.endswith(("_x", "_y", "_z"))]
+        raw_xyz = [c for c in all_cols if c.endswith(("_x", "_y", "_z"))]
 
-        if not self._xyz_channels:
+        if not raw_xyz:
             raise ValueError(f"No x/y/z coordinate columns found in EKS file: {path}")
+
+        # Try to use skeleton to identify bodyparts and strip model prefixes
+        skeleton_edges = self._config.get("skeleton", [])
+        known_bodyparts = set()
+        for a, b in skeleton_edges:
+            known_bodyparts.add(a)
+            known_bodyparts.add(b)
+
+        self._xyz_channels = []
+        for c in raw_xyz:
+            found_bp = None
+            for bp in known_bodyparts:
+                if c.endswith(f"{bp}_x") or c.endswith(f"{bp}_y") or c.endswith(f"{bp}_z"):
+                    found_bp = bp
+                    break
+            if found_bp:
+                suffix = c[-2:]  # _x, _y, _z
+                self._xyz_channels.append(f"{found_bp}{suffix}")
+            else:
+                self._xyz_channels.append(c)
+
+        self._col_mapping = dict(zip(self._xyz_channels, raw_xyz))
 
         bodyparts = []
         for ch in self._xyz_channels:
@@ -120,7 +142,7 @@ class AOLEksLoader(TimeSeriesSource):
 
         # Determine which columns to read and force them to Float64
         # to prevent Polars from inferring them as Int64 if the first few rows are integers.
-        use_cols = list(self._xyz_channels)
+        use_cols = list(self._col_mapping.values())
         if self._has_fnum:
             use_cols.append("fnum")
 
@@ -148,11 +170,11 @@ class AOLEksLoader(TimeSeriesSource):
             start_epoch = self._config.get("start_epoch", 0.0)
             t = (fnum / fps) + start_epoch
 
-            # Extract values for each xyz channel
+            # Map original cols back to stripped channel names for yielding
             values: dict[str, np.ndarray] = {}
-            for ch_name in self._xyz_channels:
-                if ch_name in batch.columns:
-                    values[ch_name] = batch[ch_name].cast(pl.Float64).to_numpy()
+            for ch_name, orig_col in self._col_mapping.items():
+                if orig_col in batch.columns:
+                    values[ch_name] = batch[orig_col].cast(pl.Float64).to_numpy()
 
             # Validate monotonicity
             if len(t) > 1:

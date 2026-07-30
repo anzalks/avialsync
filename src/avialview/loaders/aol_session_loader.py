@@ -41,6 +41,8 @@ class AOLManifest:
     camera_fps: float = 30.0
     # Trial config metadata
     trial_config: dict[str, object] = field(default_factory=dict)
+    # Skeleton mapping from trial config
+    skeleton: list[tuple[str, str]] = field(default_factory=list)
 
 
 def is_aol_session(path: Path) -> bool:
@@ -80,6 +82,22 @@ def build_manifest(session_dir: Path) -> AOLManifest:
                 manifest.camera_fps = float(hw["camera_fps"])  # type: ignore[arg-type]
             except (ValueError, TypeError):
                 pass
+
+        skeleton = manifest.trial_config.get("skeleton")
+        if isinstance(skeleton, dict):
+            # The custom YAML parser might leave "- " list markers on keys/values
+            manifest.skeleton = [
+                (str(k).lstrip("- "), str(v).lstrip("- ")) for k, v in skeleton.items()
+            ]
+        elif isinstance(skeleton, list):
+            edges = []
+            for item in skeleton:
+                if isinstance(item, dict):
+                    for k, v in item.items():
+                        edges.append((str(k), str(v)))
+                elif isinstance(item, list) and len(item) == 2:
+                    edges.append((str(item[0]), str(item[1])))
+            manifest.skeleton = edges
 
     # ── Discover videos ──────────────────────────────────────────────
     labeled_dir = session_dir / "labeled_videos"
