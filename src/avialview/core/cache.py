@@ -110,20 +110,60 @@ class CacheManager:
         try:
             if cache_dir.exists():
                 backup_dir = cache_dir.with_name(f".{cache_dir.name}.backup-{uuid.uuid4().hex}")
-                os.replace(cache_dir, backup_dir)
-            os.replace(temp_dir, cache_dir)
-        except OSError as e:
+                os.rename(cache_dir, backup_dir)
+            os.rename(temp_dir, cache_dir)
+        except OSError as rename_error:
             if backup_dir is not None and backup_dir.exists() and not cache_dir.exists():
                 try:
-                    os.replace(backup_dir, cache_dir)
+                    os.rename(backup_dir, cache_dir)
                 except OSError:
                     pass
-            raise CacheError(f"Failed to commit cache atomically: {e}") from e
+            # Renaming a *directory* can fail even when its files are writable:
+            # on Windows a sync client (OneDrive), search indexer or antivirus
+            # commonly holds a handle on the directory itself, which is normal
+            # under a synced Documents folder. Fall back to a file-level swap
+            # that never renames a directory.
+            try:
+                self._commit_in_place(source_path, cache_dir, temp_dir)
+            except OSError as swap_error:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                raise CacheError(
+                    f"Failed to commit cache: {rename_error}; "
+                    f"in-place fallback also failed: {swap_error}"
+                ) from swap_error
+            return
         if backup_dir is not None:
             try:
                 shutil.rmtree(backup_dir)
             except OSError as error:
                 raise CacheError(f"Committed cache but could not remove backup: {error}") from error
+
+    def _commit_in_place(self, source_path: Path, cache_dir: Path, temp_dir: Path) -> None:
+        """Replace a sidecar's contents without renaming the directory.
+
+        Individual files can be replaced even while the enclosing directory is
+        held open. ``meta.json`` is removed first and written last, so an
+        interruption leaves the sidecar *invalid* (and therefore rebuilt) rather
+        than a mix of old and new arrays.
+        """
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        meta_path = cache_dir / "meta.json"
+        if meta_path.exists():
+            meta_path.unlink()
+
+        staged = {item.name for item in temp_dir.iterdir() if item.is_file()}
+        for item in temp_dir.iterdir():
+            if item.is_file() and item.name != "meta.json":
+                os.replace(item, cache_dir / item.name)
+
+        # Drop arrays that the new build no longer produces.
+        for existing in cache_dir.iterdir():
+            if existing.is_file() and existing.name not in staged:
+                existing.unlink()
+
+        (cache_dir / "meta.json").write_text(self.generate_key(source_path), encoding="utf-8")
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
     @staticmethod
     def _recover_interrupted_swap(cache_dir: Path) -> None:

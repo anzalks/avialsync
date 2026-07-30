@@ -1000,10 +1000,13 @@ class MainWindow(QMainWindow):
         if not candidates:
             return
 
-        # Check for the virtual AOL setup candidate
-        setup_idx = next(
-            (i for i, c in enumerate(candidates) if str(c[0]) == "virtual://aol_session_setup"), -1
-        )
+        # Check for the virtual AOL setup candidate. Compare Path objects: a
+        # string round-trip does not survive Windows path normalisation, which
+        # previously leaked this marker row into the import dialog and skipped
+        # the session's fps/anchor/skeleton setup entirely.
+        from avialview.engine.drop_worker import AOL_SESSION_SETUP
+
+        setup_idx = next((i for i, c in enumerate(candidates) if c[0] == AOL_SESSION_SETUP), -1)
         if setup_idx >= 0:
             _, _, config = candidates.pop(setup_idx)
             if config:
@@ -1037,6 +1040,9 @@ class MainWindow(QMainWindow):
         config: dict | None = None,
     ) -> None:
         """Route one capability-resolved source through its normal loader path."""
+        if loader_cls is None:
+            logger.warning("Ignoring import candidate with no loader: %s", path)
+            return
         config = config or {}
         if issubclass(loader_cls, VideoSource):
             offset = config.get("offset", 0.0)

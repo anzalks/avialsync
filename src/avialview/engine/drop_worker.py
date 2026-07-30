@@ -11,6 +11,13 @@ from avialview.core.source import TimeSeriesSource
 
 logger = logging.getLogger(__name__)
 
+# Marker row used to carry session-wide AOL settings (camera fps, anchor epoch,
+# skeleton) back to the UI alongside the real files. Compare against this object
+# with ``==``; never re-derive it from a string. Path("virtual://x") normalises to
+# "virtual:\\x" on Windows, so a string round-trip silently stops matching and the
+# marker leaks into the import list.
+AOL_SESSION_SETUP = Path("virtual://aol_session_setup")
+
 
 class DropScanWorker(QObject):
     """Scan dropped paths for importable sources off the UI thread."""
@@ -156,7 +163,7 @@ class DropScanWorker(QObject):
         # We will inject a special "virtual" candidate that configures the session.
         candidates.append(
             (
-                Path("virtual://aol_session_setup"),
+                AOL_SESSION_SETUP,
                 None,
                 {
                     "camera_fps": manifest.camera_fps,
@@ -230,6 +237,11 @@ class DropScanWorker(QObject):
                         "fps": manifest.camera_fps,
                         "auto_resolved": True,
                         "_is_frame_indexed": True,
+                        # The overlay draws points only. Pose exports carry ~9
+                        # columns per body part (likelihood, ensemble medians and
+                        # variances); importing all of them built a pyramid per
+                        # derived column and froze the UI on a real session.
+                        "coords": ["x", "y"],
                         "role": "overlay2d",
                         "overlay_video": str(overlay_video),
                         "overlay_camera": track.camera,
