@@ -642,6 +642,20 @@ class MainWindow(QMainWindow):
             return
         self._start_session_save(self._session_path, is_autosave=True)
 
+    def _autosave_before_close(self) -> None:
+        """Flush a final synchronous autosave before the window closes.
+
+        A threaded save started here could never finish: the window (and its
+        worker registry) is gone right after this returns. This is the one
+        legitimate blocking write in the app — it runs after the final paint
+        and is bounded by a single small JSON write, not a UI-thread budget.
+        """
+        if self._session_path is None:
+            return
+        from avialview.engine.session_worker import SessionSaveWorker
+
+        SessionSaveWorker(self._build_session_state(), self._session_path).run()
+
     # ── A/B loop stats ───────────────────────────────────────────────
 
     def _on_ab_loop_changed(self, t_in: float | None, t_out: float | None) -> None:
@@ -911,7 +925,7 @@ class MainWindow(QMainWindow):
         self.player.stop()
         self.video_grid.shutdown()
         self._save_geometry()
-        self._autosave()
+        self._autosave_before_close()
         super().closeEvent(event)
 
     # ── Drag and Drop ────────────────────────────────────────────────
