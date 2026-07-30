@@ -8,7 +8,9 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtGui import QImage
 
+from avialview.core.channel_reader import MappedChannelReader
 from avialview.core.pyramid import PyramidReader
+from avialview.core.timeline import TimeMap
 from avialview.engine.export import (
     compute_region_stats,
     export_data_slice_csv,
@@ -20,14 +22,24 @@ from avialview.engine.export import (
 
 @dataclass(frozen=True)
 class ReaderReference:
-    """The stable information needed to open one pyramid reader in a worker."""
+    """The stable information needed to open one mapped reader in a worker.
+
+    The source's accepted offset/drift travel with the reference rather than the
+    reader object, because a ``QThread`` worker must open its own mmaps.  Exports
+    and statistics therefore report master time, matching what the user sees.
+    """
 
     cache_dir: Path
     channel_id: str
+    offset: float = 0.0
+    drift_ppm: float = 0.0
 
-    def open(self) -> PyramidReader:
+    def open(self) -> MappedChannelReader:
         """Open a fresh mmap reader owned by the calling thread."""
-        return PyramidReader(self.cache_dir, self.channel_id)
+        return MappedChannelReader(
+            PyramidReader(self.cache_dir, self.channel_id),
+            TimeMap(self.offset, self.drift_ppm),
+        )
 
 
 class DataExportWorker(QObject):

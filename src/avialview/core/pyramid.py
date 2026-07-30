@@ -2,12 +2,17 @@
 
 import math
 import warnings
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
 
 LEVELS = [1, 16, 256, 4096]
+
+#: Default bound for :meth:`PyramidReader.iter_raw_chunks`.  Workers that scan a
+#: whole recording must stay inside a fixed working set regardless of length.
+RAW_CHUNK_SAMPLES = 1_000_000
 
 # Subsample stride for median-dt estimation.  Using every N-th point is
 # statistically equivalent to using the full diff for uniform/near-uniform
@@ -169,6 +174,78 @@ def _aggregate_gap_mask(gap_mask: np.ndarray, factor: int) -> np.ndarray:
     return coarse
 
 
+class ChannelStage:
+    """Append-only on-disk staging buffer for one float64 channel.
+
+    An import worker appends bounded parser chunks as they arrive and then
+    materialises the result once.  Peak memory stays at one chunk instead of one
+    complete channel, which is what makes a 1 GB / 180 M-sample import survive on
+    a 16 GB machine.  Staged bytes are raw little-endian-native ``float64``; the
+    ``.npy`` header is written by :meth:`materialize` once the length is known.
+    """
+
+    def __init__(self, staging_dir: Path, name: str) -> None:
+        self.path = staging_dir / f"{name}.stage"
+        self._handle = self.path.open("wb")
+        self._count = 0
+
+    @property
+    def count(self) -> int:
+        """Number of samples appended so far."""
+        return self._count
+
+    def append(self, values: np.ndarray) -> None:
+        """Append one bounded chunk of samples."""
+        if self._handle.closed:
+            raise ValueError("ChannelStage is closed")
+        block = np.ascontiguousarray(values, dtype=np.float64)
+        block.tofile(self._handle)
+        self._count += int(block.size)
+
+    def close(self) -> None:
+        """Close the staging handle; safe to call more than once."""
+        if not self._handle.closed:
+            self._handle.close()
+
+    def discard(self) -> None:
+        """Close and delete the staging file without materialising it."""
+        self.close()
+        self.path.unlink(missing_ok=True)
+
+    def materialize(self, target: Path, chunk_size: int = RAW_CHUNK_SAMPLES) -> np.ndarray:
+        """Write staged samples to *target* as ``.npy`` and return its mmap.
+
+        The copy runs chunkwise through two memory maps, so this stays bounded
+        for any channel length.  The staging file is removed on success.
+        """
+        self.close()
+        # open_memmap returns a real np.memmap; the annotation keeps .flush() visible.
+        mapped: np.memmap = np.lib.format.open_memmap(
+            target, mode="w+", dtype=np.float64, shape=(self._count,)
+        )
+        if self._count:
+            staged = np.memmap(self.path, dtype=np.float64, mode="r", shape=(self._count,))
+            try:
+                for start in range(0, self._count, chunk_size):
+                    stop = min(start + chunk_size, self._count)
+                    mapped[start:stop] = staged[start:stop]
+            finally:
+                del staged
+        mapped.flush()
+        del mapped
+        self.path.unlink(missing_ok=True)
+        reopened: np.ndarray = np.load(target, mmap_mode="r")
+        return reopened
+
+
+def count_nan(values: np.ndarray, chunk_size: int = RAW_CHUNK_SAMPLES) -> int:
+    """Count NaNs in a possibly mmap-backed array without a full-size temporary."""
+    total = 0
+    for start in range(0, len(values), chunk_size):
+        total += int(np.count_nonzero(np.isnan(values[start : start + chunk_size])))
+    return total
+
+
 class PyramidBuilder:
     """Builds and serializes a multi-level pyramid to disk."""
 
@@ -177,14 +254,31 @@ class PyramidBuilder:
         self.channel_id = channel_id
 
     def build_and_save(self, t: np.ndarray, v: np.ndarray) -> None:
-        gap_mask = build_gap_mask(t)
+        """Build every level from in-memory arrays and write the full sidecar."""
+        self.save_levels(t, v, build_gap_mask(t), include_base=True)
 
-        # Save exact level 1 (full resolution, float64 time; float64 values)
-        arrays_to_save = [
-            (self.cache_dir / f"{self.channel_id}_t.npy", t),
-            (self.cache_dir / f"{self.channel_id}_v.npy", v),
-            (self.cache_dir / f"{self.channel_id}_gap.npy", gap_mask),
-        ]
+    def save_levels(
+        self,
+        t: np.ndarray,
+        v: np.ndarray,
+        gap_mask: np.ndarray,
+        *,
+        include_base: bool = True,
+    ) -> None:
+        """Write decimated levels for *t*/*v*, which may be mmap-backed.
+
+        ``include_base=False`` skips the level-1 ``_t``/``_v``/``_gap`` arrays for
+        callers that already staged them into the cache directory, so streamed
+        imports write each raw sample exactly once.
+        """
+        arrays_to_save: list[tuple[Path, np.ndarray]] = []
+        if include_base:
+            # Save exact level 1 (full resolution, float64 time; float64 values)
+            arrays_to_save = [
+                (self.cache_dir / f"{self.channel_id}_t.npy", t),
+                (self.cache_dir / f"{self.channel_id}_v.npy", v),
+                (self.cache_dir / f"{self.channel_id}_gap.npy", gap_mask),
+            ]
 
         # Build and save decimated levels.
         # vmin/vmax stored as float32 conditionally (D-023): if source is float64
@@ -253,6 +347,80 @@ class PyramidReader:
                 )
                 self._arrays[key] = (t, vmin, vmax, gap)
         return self._arrays[key]
+
+    # ── Public bounded read API (Trap 13) ─────────────────────────────
+    #
+    # Every consumer outside this class reads through these methods.  They
+    # return mmap views or fixed-size chunks so a caller can never materialise
+    # a whole recording by accident, and they keep sampling policy in one place.
+
+    def coverage(self) -> tuple[float, float] | None:
+        """Return this channel's ``(t_first, t_last)`` extent, or None when empty."""
+        t, _, _, _ = self._load_level(1)
+        if len(t) == 0:
+            return None
+        return float(t[0]), float(t[-1])
+
+    def sample_count(self) -> int:
+        """Return the number of stored full-resolution samples."""
+        t, _, _, _ = self._load_level(1)
+        return int(len(t))
+
+    def sample_at(self, t_target: float) -> tuple[int, float] | None:
+        """Return the ``(index, value)`` of the last sample at or before *t_target*.
+
+        Returns None for an empty channel.  The index is clamped into range so a
+        cursor before the first sample reports sample 0 rather than nothing.
+        """
+        t, v, _, _ = self._load_level(1)
+        if len(t) == 0:
+            return None
+        index = int(np.searchsorted(t, t_target, side="right")) - 1
+        index = max(0, min(index, len(v) - 1))
+        return index, float(v[index])
+
+    def raw_slice(self, t0: float, t1: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return ``(t, v, gap)`` mmap views bounded to ``[t0, t1]``.
+
+        Slicing an mmap yields a view, so the working set is the requested range
+        rather than the recording.  Callers that need an unbounded scan must use
+        :meth:`iter_raw_chunks` instead.
+        """
+        t, v, _, gap = self._load_level(1)
+        first = int(np.searchsorted(t, t0, side="left"))
+        last = int(np.searchsorted(t, t1, side="right"))
+        return t[first:last], v[first:last], gap[first:last]
+
+    def iter_raw_chunks(
+        self,
+        chunk_size: int = RAW_CHUNK_SAMPLES,
+        t0: float | None = None,
+        t1: float | None = None,
+    ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+        """Yield chronological ``(t, v)`` views of at most *chunk_size* samples.
+
+        This is the supported way to scan a whole channel — synchronization
+        extraction, export, and statistics stay inside a bounded working set no
+        matter how long the recording is.
+        """
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be positive")
+        t, v, _, _ = self._load_level(1)
+        first = 0 if t0 is None else int(np.searchsorted(t, t0, side="left"))
+        last = len(t) if t1 is None else int(np.searchsorted(t, t1, side="right"))
+        for start in range(first, last, chunk_size):
+            stop = min(start + chunk_size, last)
+            yield t[start:stop], v[start:stop]
+
+    def mapped_columns(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return the level-1 ``(t, v, gap)`` mmap views without copying.
+
+        Reserved for consumers that index single samples out of the whole
+        recording on a clock tick (pose sampling).  The arrays are mmap-backed
+        views: index or slice them, never reduce over them on the UI thread.
+        """
+        t, v, _, gap = self._load_level(1)
+        return t, v, gap
 
     def query(
         self, t0: float, t1: float, max_points: int

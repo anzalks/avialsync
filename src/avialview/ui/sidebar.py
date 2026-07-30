@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from avialview.ui.source_properties import VideoPropertiesPanel
 
+
 class SensorInfoWidget(QFrame):
     """Displays metadata and per-channel controls for one loaded sensor CSV."""
 
@@ -29,6 +30,8 @@ class SensorInfoWidget(QFrame):
     channel_visibility_changed = Signal(str, str, bool)  # sensor_path, channel_name, is_visible
     badge_clicked = Signal(str)  # path
     report_requested = Signal(str)  # path
+    # Source-to-master mapping, mirroring VideoInfoWidget.offset_changed (P3.5).
+    mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ppm
 
     def __init__(self, path: str, channels: list[str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -71,6 +74,33 @@ class SensorInfoWidget(QFrame):
         n_ch = len(channels)
         ch_count_lbl = QLabel(f"{n_ch} channel{'s' if n_ch != 1 else ''}")
         layout.addWidget(ch_count_lbl)
+
+        # ── Sync controls: same offset/drift treatment as video (P3.5) ─
+        sync_layout = QHBoxLayout()
+        sync_layout.addWidget(QLabel("Offset:"))
+        self.offset_spin = QDoubleSpinBox()
+        self.offset_spin.setRange(-3600.0, 3600.0)
+        self.offset_spin.setDecimals(3)
+        self.offset_spin.setSingleStep(0.05)
+        self.offset_spin.setSuffix(" s")
+        self.offset_spin.setAccessibleName(f"Time offset for {Path(path).name}")
+        self.offset_spin.setToolTip(
+            "Shift this source against the master clock. Cached samples are never rewritten."
+        )
+        self.offset_spin.valueChanged.connect(self._on_mapping_changed)
+        sync_layout.addWidget(self.offset_spin, stretch=1)
+
+        sync_layout.addWidget(QLabel("Drift:"))
+        self.drift_spin = QDoubleSpinBox()
+        self.drift_spin.setRange(-100000.0, 100000.0)
+        self.drift_spin.setDecimals(1)
+        self.drift_spin.setSingleStep(10.0)
+        self.drift_spin.setSuffix(" ppm")
+        self.drift_spin.setAccessibleName(f"Clock drift for {Path(path).name}")
+        self.drift_spin.setToolTip("Rate difference between this source's clock and master time.")
+        self.drift_spin.valueChanged.connect(self._on_mapping_changed)
+        sync_layout.addWidget(self.drift_spin, stretch=1)
+        layout.addLayout(sync_layout)
 
         # ── Separator ────────────────────────────────────────────────
         sep = QFrame()
@@ -154,6 +184,20 @@ class SensorInfoWidget(QFrame):
             parent = item.parent() or self.tree.invisibleRootItem()
             parent.removeChild(item)
         self.channel_remove_requested.emit(sensor_path, channel)
+
+    def _on_mapping_changed(self, _value: float) -> None:
+        self.mapping_changed.emit(self.path, self.offset_spin.value(), self.drift_spin.value())
+
+    def set_mapping(self, offset: float, drift_ppm: float) -> None:
+        """Show a restored mapping without re-emitting it back to the caller."""
+        for spin, value in ((self.offset_spin, offset), (self.drift_spin, drift_ppm)):
+            blocked = spin.blockSignals(True)
+            spin.setValue(float(value))
+            spin.blockSignals(blocked)
+
+    def mapping(self) -> tuple[float, float]:
+        """Return the displayed ``(offset_s, drift_ppm)``."""
+        return self.offset_spin.value(), self.drift_spin.value()
 
     def set_inspection(self, inspection: object) -> None:
         """Update badge and properties panel from a SourceInspection."""
@@ -294,6 +338,7 @@ class SidebarPane(QWidget):
     video_visibility_changed = Signal(str, bool)
     video_badge_clicked = Signal(str)  # path
     sensor_remove_requested = Signal(str)
+    sensor_mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ppm
     sensor_badge_clicked = Signal(str)  # path
     sensor_report_requested = Signal(str)  # path
     channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
@@ -392,10 +437,21 @@ class SidebarPane(QWidget):
         widget.channel_visibility_changed.connect(self.channel_visibility_changed)
         widget.badge_clicked.connect(self.sensor_badge_clicked)
         widget.report_requested.connect(self.sensor_report_requested)
+        widget.mapping_changed.connect(self.sensor_mapping_changed)
         self.sensors_layout.addWidget(widget)
 
-    def set_channel_visible(self, channel: str, visible: bool) -> bool:
-        """Mirror plot-row visibility to the owning channel checkbox."""
+    def set_channel_visible(self, channel: str, visible: bool, source_id: str = "") -> bool:
+        """Mirror plot-row visibility to the owning channel checkbox.
+
+        *source_id* disambiguates a channel name shared by several loaded files.
+        Without it the first owner wins, which is only safe when the caller
+        already knows the name is unique.
+        """
+        if source_id:
+            widget = self.sensor_widget(source_id)
+            if widget is not None:
+                return widget.set_channel_visible(channel, visible)
+            return False
         for i in range(self.sensors_layout.count()):
             item = self.sensors_layout.itemAt(i)
             widget = item.widget()
@@ -435,6 +491,25 @@ class SidebarPane(QWidget):
         w = self._video_widgets.get(path)
         if w:
             w.set_inspection(inspection)
+
+    def sensor_widget(self, path: str) -> SensorInfoWidget | None:
+        """Return the widget owning *path*, or None when it is not loaded."""
+        for i in range(self.sensors_layout.count()):
+            widget = self.sensors_layout.itemAt(i).widget()
+            if isinstance(widget, SensorInfoWidget) and widget.path == path:
+                return widget
+        return None
+
+    def set_sensor_mapping(self, path: str, offset: float, drift_ppm: float) -> None:
+        """Show a restored sensor mapping without re-emitting it."""
+        widget = self.sensor_widget(path)
+        if widget is not None:
+            widget.set_mapping(offset, drift_ppm)
+
+    def sensor_mapping(self, path: str) -> tuple[float, float]:
+        """Return the displayed ``(offset_s, drift_ppm)`` for *path*."""
+        widget = self.sensor_widget(path)
+        return widget.mapping() if widget is not None else (0.0, 0.0)
 
     def set_sensor_inspection(self, path: str, inspection: object) -> None:
         """Forward SourceInspection to the SensorInfoWidget badge + panel."""

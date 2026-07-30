@@ -212,6 +212,27 @@ class TimeMap:
         drift_coeff = self._drift_ppm * 1e-6
         return (t_source - self._base_offset + drift_coeff * self._t_ref) / (1.0 + drift_coeff)
 
+    def to_master_array(self, t_source: np.ndarray) -> np.ndarray:
+        """Vectorised :meth:`to_master` for an already-bounded array.
+
+        Only ever call this on a slice or chunk.  Mapping a whole recording would
+        allocate a second copy of it and defeat the mmap-backed sidecar.
+        """
+        source = np.asarray(t_source, dtype=np.float64)
+        if self._exact_master is not None and self._exact_source is not None:
+            interpolated: np.ndarray = np.interp(source, self._exact_source, self._exact_master)
+            return interpolated
+        drift_coeff = self._drift_ppm * 1e-6
+        return (source - self._base_offset + drift_coeff * self._t_ref) / (1.0 + drift_coeff)
+
+    def to_source_array(self, t_master: np.ndarray) -> np.ndarray:
+        """Vectorised :meth:`to_source` for an already-bounded array."""
+        master = np.asarray(t_master, dtype=np.float64)
+        if self._exact_master is not None and self._exact_source is not None:
+            interpolated: np.ndarray = np.interp(master, self._exact_master, self._exact_source)
+            return interpolated
+        return master + self._base_offset + (self._drift_ppm * 1e-6) * (master - self._t_ref)
+
     def update(self, new_offset: float, new_drift_ppm: float, t_master_now: float) -> None:
         """
         Update mapping parameters dynamically, anchoring so that mapped time

@@ -12,7 +12,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsProxyWidget, QToolButton
 
+from avialview.core.channel_reader import MappedChannelReader
 from avialview.core.pyramid import PyramidReader
+from avialview.core.timeline import TimeMap
 from avialview.ui.plot_sweep import SweepCurveItem
 
 CHANNEL_COLORS = [(72, 169, 232), (87, 194, 143), (218, 160, 84), (174, 132, 222)]
@@ -27,7 +29,7 @@ class ChannelPlot:
     """UI and cached-data state for a single time-series channel."""
 
     name: str
-    reader: PyramidReader
+    reader: MappedChannelReader
     plot_item: pg.PlotItem
     curve: SweepCurveItem
     envelope_upper: SweepCurveItem
@@ -187,9 +189,15 @@ def create_channel_plot(
     channel_name: str,
     color_index: int,
     close_requested: Callable[[str], None],
+    time_map: TimeMap | None = None,
+    source_id: str = "",
 ) -> ChannelPlot:
-    """Create one row without deciding shared X-axis ownership."""
-    reader = PyramidReader(cache_dir, channel_name)
+    """Create one row without deciding shared X-axis ownership.
+
+    The row always reads through a :class:`MappedChannelReader`, so every time it
+    handles is master time regardless of the source's own clock.
+    """
+    reader = MappedChannelReader(PyramidReader(cache_dir, channel_name), time_map, source_id)
     close_button = QToolButton()
     close_button.setText("×")
     close_button.setAutoRaise(True)
@@ -251,11 +259,9 @@ def create_channel_plot(
     cursor_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen("y", width=2))
     plot_item.addItem(cursor_line)
 
-    times, _, _, _ = reader._load_level(1)
     coverage_region = None
-    coverage_bounds = None
-    if len(times) > 0:
-        coverage_bounds = (float(times[0]), float(times[-1]))
+    coverage_bounds = reader.coverage()
+    if coverage_bounds is not None:
         coverage_region = pg.LinearRegionItem(
             values=list(coverage_bounds),
             movable=False,

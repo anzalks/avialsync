@@ -1,6 +1,7 @@
 """Asynchronous data source importer pipeline."""
 
 import json
+import shutil
 import time
 import traceback
 from pathlib import Path
@@ -11,11 +12,25 @@ from PySide6.QtCore import QObject, Signal
 
 from avialview.core.cache import CacheManager
 from avialview.core.inspection import ImportReport, IntegrityFlags, SourceInspection
-from avialview.core.pyramid import PyramidBuilder, build_gap_mask
+from avialview.core.pyramid import ChannelStage, PyramidBuilder, build_gap_mask, count_nan
 from avialview.loaders.csv_loader import CSVLoader
 
 _IMPORT_CACHE_VERSION = 4
 _IMPORT_MANIFEST = "import.json"
+_STAGING_DIR = "_stage"
+
+#: Gap *locations* are display evidence, so they are capped; ``gap_count`` in the
+#: import report always stays exact.  A pathological recording can otherwise put
+#: millions of floats into the session file and the report dialog.
+MAX_GAP_LOCATIONS = 10_000
+
+
+def _gap_locations(times: np.ndarray, gap_mask: np.ndarray) -> list[float]:
+    """Return up to :data:`MAX_GAP_LOCATIONS` gap timestamps as bounded evidence."""
+    indices = np.flatnonzero(gap_mask)
+    if len(indices) > MAX_GAP_LOCATIONS:
+        indices = indices[:MAX_GAP_LOCATIONS]
+    return [float(value) for value in times[indices]]
 
 
 class ImportWorker(QObject):
@@ -144,47 +159,86 @@ class ImportWorker(QObject):
         channel_names: list[str],
         temp_dir: Path,
     ) -> tuple[int, int, int, list[float], float, float]:
-        """Build aligned channels from one loader pass, retaining shared timestamps once."""
-        time_chunks: list[np.ndarray] = []
-        value_chunks: dict[str, list[np.ndarray]] = {channel: [] for channel in channel_names}
-        for chunk in chunks:
-            if self._cancel_flag:
-                break
-            if set(chunk) != set(channel_names):
-                raise ValueError("Bulk loader did not return every declared channel.")
-            reference_times: np.ndarray | None = None
-            for channel in channel_names:
-                times, values = chunk[channel]
-                if reference_times is None:
-                    reference_times = np.asarray(times, dtype=np.float64)
-                elif not np.array_equal(reference_times, times):
-                    raise ValueError("Bulk loader channel chunks do not share timestamps.")
-                values_array = np.asarray(values, dtype=np.float64)
-                if len(values_array) != len(reference_times):
-                    raise ValueError("Bulk loader returned mismatched time/value chunk lengths.")
-                value_chunks[channel].append(values_array)
-            if reference_times is not None and len(reference_times):
-                time_chunks.append(reference_times)
+        """Build aligned channels from one loader pass, retaining shared timestamps once.
 
-        if self._cancel_flag or not time_chunks:
-            return 0, 0, 0, [], 0.0, 0.0
+        Parser chunks are appended straight to on-disk staging buffers, so peak
+        memory is one chunk per channel rather than the whole recording.
+        """
+        staging_dir = temp_dir / _STAGING_DIR
+        staging_dir.mkdir(parents=True, exist_ok=True)
+        time_stage = ChannelStage(staging_dir, "_shared_t")
+        value_stages = {channel: ChannelStage(staging_dir, channel) for channel in channel_names}
+        try:
+            for chunk in chunks:
+                if self._cancel_flag:
+                    break
+                if set(chunk) != set(channel_names):
+                    raise ValueError("Bulk loader did not return every declared channel.")
+                reference_times: np.ndarray | None = None
+                for channel in channel_names:
+                    times, values = chunk[channel]
+                    if reference_times is None:
+                        reference_times = np.asarray(times, dtype=np.float64)
+                    elif not np.array_equal(reference_times, times):
+                        raise ValueError("Bulk loader channel chunks do not share timestamps.")
+                    values_array = np.asarray(values, dtype=np.float64)
+                    if len(values_array) != len(reference_times):
+                        raise ValueError(
+                            "Bulk loader returned mismatched time/value chunk lengths."
+                        )
+                    value_stages[channel].append(values_array)
+                if reference_times is not None and len(reference_times):
+                    time_stage.append(reference_times)
 
-        full_t = np.concatenate(time_chunks)
-        gap_mask = build_gap_mask(full_t)
+            if self._cancel_flag or time_stage.count == 0:
+                return 0, 0, 0, [], 0.0, 0.0
+            return self._finalize_bulk_channels(
+                staging_dir, temp_dir, channel_names, time_stage, value_stages
+            )
+        finally:
+            time_stage.discard()
+            for stage in value_stages.values():
+                stage.discard()
+            # Every mmap opened by the finalize step is out of scope here, so the
+            # staging files can be removed on Windows as well as POSIX.  Staging
+            # lives inside the temp cache dir and must never reach a committed
+            # sidecar.
+            shutil.rmtree(staging_dir, ignore_errors=True)
+
+    def _finalize_bulk_channels(
+        self,
+        staging_dir: Path,
+        temp_dir: Path,
+        channel_names: list[str],
+        time_stage: ChannelStage,
+        value_stages: dict[str, ChannelStage],
+    ) -> tuple[int, int, int, list[float], float, float]:
+        """Materialise staged samples into the sidecar; scopes every mmap locally."""
+        shared_t_path = staging_dir / "shared_t.npy"
+        shared_t = time_stage.materialize(shared_t_path)
+        gap_mask = build_gap_mask(shared_t)
+        gap_path = staging_dir / "shared_gap.npy"
+        np.save(gap_path, gap_mask)
+
         total_nan = 0
         for index, channel in enumerate(channel_names):
-            full_v = np.concatenate(value_chunks[channel])
-            PyramidBuilder(temp_dir, channel).build_and_save(full_t, full_v)
-            total_nan += int(np.sum(np.isnan(full_v)))
+            values = value_stages[channel].materialize(temp_dir / f"{channel}_v.npy")
+            shutil.copyfile(shared_t_path, temp_dir / f"{channel}_t.npy")
+            shutil.copyfile(gap_path, temp_dir / f"{channel}_gap.npy")
+            PyramidBuilder(temp_dir, channel).save_levels(
+                shared_t, values, gap_mask, include_base=False
+            )
+            total_nan += count_nan(values)
+            del values
             self.progress.emit(int(((index + 1) / len(channel_names)) * 100))
 
         return (
-            int(len(full_t)),
+            int(len(shared_t)),
             total_nan,
-            int(np.sum(gap_mask)),
-            full_t[gap_mask].tolist(),
-            float(full_t[0]),
-            float(full_t[-1]),
+            int(np.count_nonzero(gap_mask)),
+            _gap_locations(shared_t, gap_mask),
+            float(shared_t[0]),
+            float(shared_t[-1]),
         )
 
     def _build_channel_by_channel(
@@ -193,29 +247,50 @@ class ImportWorker(QObject):
         channel_names: list[str],
         temp_dir: Path,
     ) -> tuple[int, int, int, list[float], float, float]:
-        """Build legacy plugin channels while keeping compatibility with v1 loaders."""
+        """Build legacy plugin channels while keeping compatibility with v1 loaders.
+
+        Each channel is staged to disk as its chunks arrive; nothing accumulates a
+        complete channel in memory.
+        """
+        staging_dir = temp_dir / _STAGING_DIR
+        staging_dir.mkdir(parents=True, exist_ok=True)
         total_rows = 0
         total_nan = 0
         all_gap_locations: list[float] = []
         gap_count = 0
         t0, t1 = 0.0, 0.0
-        for index, channel in enumerate(channel_names):
-            if self._cancel_flag:
-                break
-            chunks = list(loader.read_chunks(channel))
-            if not chunks:
-                continue
-            full_t = np.concatenate([chunk[0] for chunk in chunks])
-            full_v = np.concatenate([chunk[1] for chunk in chunks])
-            PyramidBuilder(temp_dir, channel).build_and_save(full_t, full_v)
-            if index == 0:
-                total_rows = int(len(full_t))
-                t0, t1 = float(full_t[0]), float(full_t[-1])
-                gap_mask = build_gap_mask(full_t)
-                gap_count = int(np.sum(gap_mask))
-                all_gap_locations = full_t[gap_mask].tolist()
-            total_nan += int(np.sum(np.isnan(full_v)))
-            self.progress.emit(int(((index + 1) / len(channel_names)) * 100))
+        try:
+            for index, channel in enumerate(channel_names):
+                if self._cancel_flag:
+                    break
+                time_stage = ChannelStage(staging_dir, f"{channel}__t")
+                value_stage = ChannelStage(staging_dir, f"{channel}__v")
+                try:
+                    for chunk_t, chunk_v in loader.read_chunks(channel):
+                        time_stage.append(np.asarray(chunk_t, dtype=np.float64))
+                        value_stage.append(np.asarray(chunk_v, dtype=np.float64))
+                    if time_stage.count == 0:
+                        continue
+                    times = time_stage.materialize(temp_dir / f"{channel}_t.npy")
+                    values = value_stage.materialize(temp_dir / f"{channel}_v.npy")
+                finally:
+                    time_stage.discard()
+                    value_stage.discard()
+
+                gap_mask = build_gap_mask(times)
+                np.save(temp_dir / f"{channel}_gap.npy", gap_mask)
+                PyramidBuilder(temp_dir, channel).save_levels(
+                    times, values, gap_mask, include_base=False
+                )
+                if index == 0:
+                    total_rows = int(len(times))
+                    t0, t1 = float(times[0]), float(times[-1])
+                    gap_count = int(np.count_nonzero(gap_mask))
+                    all_gap_locations = _gap_locations(times, gap_mask)
+                total_nan += count_nan(values)
+                self.progress.emit(int(((index + 1) / len(channel_names)) * 100))
+        finally:
+            shutil.rmtree(staging_dir, ignore_errors=True)
         return total_rows, total_nan, gap_count, all_gap_locations, t0, t1
 
     @staticmethod

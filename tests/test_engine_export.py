@@ -29,7 +29,12 @@ def test_export_and_stats_use_only_the_requested_raw_slice(tmp_path: Path) -> No
     expected = values[10_000:10_011]
     assert stats[0]["n"] == len(expected)
     assert stats[0]["mean"] == np.mean(expected)
-    assert len(output.read_text(encoding="utf-8").splitlines()) == len(expected) + 3
+    lines = output.read_text(encoding="utf-8").splitlines()
+    # Source header + channel header + column header + one row per sample.
+    assert lines[0].startswith("# Source: ")
+    assert lines[1] == "# Channel: signal"
+    assert lines[2] == "time,signal"
+    assert len(lines) == len(expected) + 4
 
 
 def test_background_export_and_stats_open_worker_local_readers(tmp_path: Path) -> None:
@@ -54,7 +59,9 @@ def test_background_export_and_stats_open_worker_local_readers(tmp_path: Path) -
     assert stats_results[0][0] == 3
     assert stats_results[0][1][0]["n"] == 3
     assert export_results == [str(output)]
-    assert len(output.read_text(encoding="utf-8").splitlines()) == 6
+    lines = output.read_text(encoding="utf-8").splitlines()
+    assert lines[0].startswith("# Source: ")
+    assert len(lines) == 7
 
 
 def test_video_clip_worker_runs_ffmpeg_jobs_off_the_ui_path(tmp_path: Path, monkeypatch) -> None:

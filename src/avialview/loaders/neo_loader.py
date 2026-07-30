@@ -12,6 +12,23 @@ from avialview.core.source import ChannelInfo, TimeSeriesSource
 
 logger = logging.getLogger(__name__)
 
+
+def _fit_length(batch: np.ndarray, expected: int) -> np.ndarray:
+    """Trim or NaN-pad *batch* to *expected* samples.
+
+    Neo resolves a lazy ``time_slice`` by timestamp, so a batch boundary can land
+    one sample either side of the index range the caller asked for.  Padding is
+    NaN rather than zero: a missing sample is missing, never a real value.
+    """
+    if len(batch) == expected:
+        return batch
+    if len(batch) > expected:
+        return batch[:expected]
+    padded = np.full(expected, np.nan, dtype=np.float64)
+    padded[: len(batch)] = batch
+    return padded
+
+
 # Explicit ephys extension whitelist — can_open returns 0.0 for anything not here.
 # This prevents neo from claiming CSV, TXT, or unknown binary files (D-019).
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
@@ -39,6 +56,7 @@ class NeoLoader(TimeSeriesSource):
         self._config: dict[str, Any] = {}
         self._schema_channels: list[ChannelInfo] = []
         self._block: neo.Block | None = None
+        self._lazy = False
 
         # We store metadata for chunk reading:
         # channel_name -> (segment_index, analogsignal_index, channel_index_in_analogsignal)
@@ -128,9 +146,20 @@ class NeoLoader(TimeSeriesSource):
             if root:
                 resolved_path = root
 
-        # Use Neo to read the first block
+        # Use Neo to read the first block.  Lazy mode returns proxy signals whose
+        # samples stay on disk until a slice is requested, so a 50 kHz multi-hour
+        # recording never has to fit in RAM.  Not every Neo IO implements it, so
+        # fall back to an eager read and let read_chunks slice the loaded array.
         io_instance = neo.io.get_io(str(resolved_path))
-        self._block = io_instance.read_block()
+        try:
+            self._block = io_instance.read_block(lazy=True)
+            self._lazy = True
+        except (TypeError, ValueError, NotImplementedError) as error:
+            logger.info(
+                "Neo IO %s has no lazy mode (%s); reading eagerly.", type(io_instance), error
+            )
+            self._block = io_instance.read_block()
+            self._lazy = False
 
         self._schema_channels = []
         self._channel_map = {}
@@ -210,6 +239,35 @@ class NeoLoader(TimeSeriesSource):
     def channels(self) -> list[ChannelInfo]:
         return self._schema_channels
 
+    def _read_samples(
+        self,
+        asig: Any,
+        ch_idx: int,
+        start: int,
+        stop: int,
+        sample_rate: float,
+        t_start: float,
+    ) -> np.ndarray:
+        """Return one bounded sample batch for a single channel.
+
+        A lazy Neo proxy is asked for the time slice directly so only the batch
+        reaches memory.  Eager signals are sliced in place, which is still bounded
+        because the batch is a view until ``np.asarray`` copies it.
+        """
+        if self._lazy and hasattr(asig, "load"):
+            import quantities as pq
+
+            window = (
+                (t_start + start / sample_rate) * pq.s,
+                (t_start + stop / sample_rate) * pq.s,
+            )
+            loaded = asig.load(time_slice=window, channel_indexes=[ch_idx])
+            batch = np.asarray(loaded.magnitude, dtype=np.float64).ravel()
+            # Neo resolves slice edges by timestamp, so trim/pad to the exact
+            # requested batch length rather than trusting the boundary rounding.
+            return _fit_length(batch, stop - start)
+        return np.asarray(asig[start:stop, ch_idx].magnitude, dtype=np.float64).ravel()
+
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         if self._block is None:
             raise RuntimeError(f"Cannot read channel {ch}")
@@ -223,11 +281,9 @@ class NeoLoader(TimeSeriesSource):
             sr = float(asig.sampling_rate.magnitude)
             start_time = float(asig.t_start.magnitude)
 
-            data = np.asarray(asig[:, ch_idx].magnitude).ravel()
-
             for i in range(0, length, batch_size):
                 end_idx = min(i + batch_size, length)
-                chunk_data = data[i:end_idx]
+                chunk_data = self._read_samples(asig, ch_idx, i, end_idx, sr, start_time)
                 t_chunk = start_time + (np.arange(i, end_idx) / sr)
                 yield t_chunk, chunk_data
 

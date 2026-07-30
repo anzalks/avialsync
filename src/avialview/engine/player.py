@@ -21,6 +21,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+#: Presentation refresh rate for text/pose consumers.  The master clock still
+#: ticks at 60 Hz; only label formatting and pose resampling are throttled.
+#: 20 Hz is above the rate at which a person can read a changing number and
+#: leaves two thirds of every 60 Hz tick budget for decoding and painting.
+_PRESENTATION_HZ = 20.0
+_PRESENTATION_INTERVAL_S = 1.0 / _PRESENTATION_HZ
+
 
 class Player(QObject):
     """Coordinates playback between UI and MasterClock."""
@@ -54,6 +61,8 @@ class Player(QObject):
         self._playing_pane_ids: set[int] = set()
         self._displayed_pane_ids = {id(pane) for pane in self.video_grid.visible_panes()}
         self._last_tick_monotonic = time.monotonic()
+        # Presentation consumers are rate-limited independently of the clock.
+        self._last_presentation_at = 0.0
 
         # A/B loop state
         self._ab_in: float | None = None
@@ -133,12 +142,12 @@ class Player(QObject):
             self.seeker.seek(t, exact=exact)
 
         # Update UI instantly (cursor + readout follow live during drag)
-        t_now = self.clock.state.t
-        self._update_timeline_views(t_now)
+        now = time.monotonic()
+        self._update_timeline_views(self.clock.state.t, now, force=True)
 
         # Reset drift hysteresis
         self._drift_counts.clear()
-        self._last_tick_monotonic = time.monotonic()
+        self._last_tick_monotonic = now
 
     def _snap_to_frame_evidence(self, t_master: float) -> float:
         """Use the first active exact mapping as the reference frame clock."""
@@ -312,15 +321,34 @@ class Player(QObject):
                             pane.set_sync_correction(1.0)
 
             # Update UI
-            self._update_timeline_views(t)
+            self._update_timeline_views(t, now)
 
         self._last_tick_monotonic = now
 
-    def _update_timeline_views(self, t_master: float) -> None:
-        """Move every lightweight timeline observer from one master-time value."""
+    def _update_timeline_views(self, t_master: float, now: float, force: bool = False) -> None:
+        """Move every timeline observer from one master-time value.
+
+        Authoritative time still advances at 60 Hz — the clock, the plot cursor,
+        and the seek bar all see every tick.  Text-formatting consumers are
+        different: re-rendering 128 readout labels or resampling a 128-point pose
+        sixty times a second costs more than a human can read, so they are
+        rate-limited to :data:`_PRESENTATION_HZ` and skipped entirely while their
+        panel is collapsed or hidden (P3.5 P1 hot path).
+
+        ``now`` is the caller's already-sampled ``time.monotonic()`` value; this
+        method never samples the clock itself, so it cannot perturb the tick's
+        own timing.  ``force=True`` bypasses the rate limit for discrete events —
+        a seek, a frame step, a pause — where a stale readout would be a lie
+        rather than a dropped frame.
+        """
         self.plot_pane.set_cursor(t_master)
         self.transport.set_time(t_master)
-        if self.tracking_3d_pane is not None:
+
+        if not force and (now - self._last_presentation_at) < _PRESENTATION_INTERVAL_S:
+            return
+        self._last_presentation_at = now
+
+        if self.tracking_3d_pane is not None and self.tracking_3d_pane.isVisible():
             self.tracking_3d_pane.set_cursor(t_master)
-        if self._readout_panel:
+        if self._readout_panel is not None and self._readout_panel.isVisible():
             self._readout_panel.set_cursor(t_master)

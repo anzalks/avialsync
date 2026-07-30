@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QThread, QUrl, Signal, Slot
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
-from PySide6.QtWidgets import QApplication, QSplitter
+from PySide6.QtWidgets import QApplication, QMessageBox, QSplitter
 
 from avialview.core.session import (
     SensorEntry,
@@ -22,7 +22,7 @@ from avialview.loaders.csv_loader import CSVLoader
 from avialview.loaders.neo_loader import NeoLoader
 from avialview.loaders.tracking_loader import TrackingLoader
 from avialview.loaders.video_standard import VideoStandardLoader
-from avialview.ui.main_window import MainWindow
+from avialview.ui.main_window import _MAX_VIDEO_PROBES, MainWindow
 
 
 @pytest.fixture
@@ -32,6 +32,7 @@ def main_window(qapp: QApplication, qtbot) -> MainWindow:
     win.show()
     yield win
     win.close()
+
 
 # ── Bug a: _on_annotate_requested crash ──────────────────────────────
 
@@ -244,7 +245,7 @@ def test_drop_directory_routes_each_supported_child(
     assert len(candidates) == 2
     paths = {c[0] for c in candidates}
     assert paths == {video, sensor}
-    for _, loader_cls, config in candidates:
+    for _, _loader_cls, config in candidates:
         assert config is None
 
 
@@ -276,12 +277,17 @@ def test_video_load_keeps_worker_alive_until_thread_finishes(
         assert thread.wait(1_000)
 
 
-def test_multiple_video_loads_are_serialized(
+def test_video_probes_run_bounded_in_parallel(
     main_window: MainWindow, monkeypatch: pytest.MonkeyPatch, qtbot
 ) -> None:
-    """Burst loading must never initialize multiple native video panes at once."""
+    """Metadata probes overlap up to the bound; they are independent per file.
+
+    Serialising them made a four-camera session pay four probe latencies in a
+    row.  Native *pane* construction is the part that must stay one at a time
+    (see test_video_panes_are_built_one_at_a_time_in_request_order).
+    """
     started: list[Path] = []
-    release_first = threading.Event()
+    release = threading.Event()
 
     class _IdleWorker(QObject):
         opened = Signal(str, object, str)
@@ -295,25 +301,79 @@ def test_multiple_video_loads_are_serialized(
         @Slot()
         def run(self) -> None:
             started.append(self.path)
-            release_first.wait(timeout=2.0)
+            release.wait(timeout=2.0)
             self.cancelled.emit()
 
     monkeypatch.setattr("avialview.engine.video_worker.VideoOpenWorker", _IdleWorker)
-    first = Path("camera_1.mp4")
-    second = Path("camera_2.mp4")
+    paths = [Path(f"camera_{index}.mp4") for index in range(5)]
+    for path in paths:
+        main_window._load_video(path)
 
-    main_window._load_video(first)
-    main_window._load_video(second)
+    qtbot.waitUntil(lambda: len(started) == _MAX_VIDEO_PROBES, timeout=2_000)
+    # Bounded: the remaining files wait rather than spawning a probe each.
+    assert len(main_window._video_load_jobs) == _MAX_VIDEO_PROBES
+    assert len(main_window._pending_video_loads) == len(paths) - _MAX_VIDEO_PROBES
 
-    qtbot.waitUntil(lambda: started == [first], timeout=2_000)
-    assert len(main_window._video_load_jobs) == 1
-    assert list(main_window._pending_video_loads) == [(second, 0.0, 0.0, None)]
+    release.set()
 
-    release_first.set()
-
-    qtbot.waitUntil(lambda: started == [first, second], timeout=2_000)
-    qtbot.waitUntil(lambda: not main_window._video_load_jobs, timeout=2_000)
+    qtbot.waitUntil(lambda: len(started) == len(paths), timeout=4_000)
+    qtbot.waitUntil(lambda: not main_window._video_load_jobs, timeout=4_000)
     assert not main_window._pending_video_loads
+
+
+def test_video_panes_are_built_one_at_a_time_in_request_order(
+    main_window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Probes finish out of order; panes must not (D-040)."""
+    built: list[str] = []
+    monkeypatch.setattr(
+        MainWindow,
+        "_create_video_pane",
+        lambda self, path, loader, media: (
+            built.append(path),
+            setattr(self, "_video_pane_initializing", path),
+        )[0],
+    )
+    main_window._video_request_order = ["a.mp4", "b.mp4", "c.mp4"]
+
+    # "b" probes first — it must still wait for "a".
+    main_window._on_video_opened("b.mp4", object(), "b.mp4")
+    assert built == []
+
+    main_window._on_video_opened("a.mp4", object(), "a.mp4")
+    assert built == ["a.mp4"]
+    assert main_window._video_pane_initializing == "a.mp4"
+
+    # Only when "a" reports ready does "b" get built — never two at once.
+    main_window._on_video_pane_ready()
+    assert built == ["a.mp4", "b.mp4"]
+    assert main_window._video_pane_initializing == "b.mp4"
+
+    main_window._on_video_pane_ready()
+    assert built == ["a.mp4", "b.mp4"]  # "c" has not probed yet
+    assert main_window._video_request_order == ["c.mp4"]
+
+
+def test_a_failed_probe_does_not_block_later_panes(
+    main_window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One unreadable file must not strand every file queued behind it."""
+    built: list[str] = []
+    monkeypatch.setattr(
+        MainWindow,
+        "_create_video_pane",
+        lambda self, path, loader, media: (
+            built.append(path),
+            setattr(self, "_video_pane_initializing", path),
+        )[0],
+    )
+    monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
+    main_window._video_request_order = ["broken.mp4", "good.mp4"]
+    main_window._on_video_opened("good.mp4", object(), "good.mp4")
+
+    main_window._on_video_open_error("broken.mp4", "unreadable")
+
+    assert built == ["good.mp4"]
 
 
 def test_multiple_data_imports_are_serialized(

@@ -118,7 +118,9 @@ class BatchImportDialog(QDialog):
             if loader.__name__ not in default_class_names:
                 self._categories.append((f"{loader.__name__} (Plugin)", loader))
 
-    def get_selections(self) -> list[tuple[Path, type[TimeSeriesSource | VideoSource], dict | None]]:
+    def get_selections(
+        self,
+    ) -> list[tuple[Path, type[TimeSeriesSource | VideoSource], dict | None]]:
         """Return the user-approved (Path, Loader, Config) tuples."""
         results = []
         for (path, _, config), combo in zip(self._candidates, self._combos, strict=True):

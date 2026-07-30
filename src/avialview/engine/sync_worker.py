@@ -9,7 +9,7 @@ from typing import TypeAlias
 import numpy as np
 from PySide6.QtCore import QObject, Signal, Slot
 
-from avialview.core.pyramid import PyramidReader
+from avialview.core.pyramid import RAW_CHUNK_SAMPLES, PyramidReader
 from avialview.core.sync import extract_ttl_edges, fit_exact_index_mapping, fit_sync_events
 
 
@@ -88,14 +88,9 @@ class SyncWorker(QObject):
 
         reader = PyramidReader(spec.cache_dir, spec.channel_id)
         if use_all_times or getattr(spec, "use_all_times", False):
-            times, _, _, _ = reader._load_level(1)
+            times, _, _ = reader.mapped_columns()
             return times
 
-        times, values, _, _ = reader._load_level(1)
-        chunk_size = 1_000_000
-        chunks = (
-            (times[index : index + chunk_size], values[index : index + chunk_size])
-            for index in range(0, len(times), chunk_size)
-        )
+        chunks = reader.iter_raw_chunks(RAW_CHUNK_SAMPLES)
         events = extract_ttl_edges(chunks, source_id=spec.source_id, threshold=spec.threshold)
         return np.asarray([event.time for event in events], dtype=np.float64)

@@ -12,7 +12,8 @@ from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QWheelEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
-from avialview.core.pyramid import PyramidReader
+from avialview.core.channel_reader import MappedChannelReader
+from avialview.core.timeline import TimeMap
 
 _POINT_COLORS = (
     (0, 188, 212),
@@ -37,10 +38,16 @@ class _PointChannels:
 
 @dataclass(frozen=True)
 class _SourceSamples:
-    """Tracking points whose coordinates share one source timestamp array."""
+    """Tracking points whose coordinates share one source timestamp array.
+
+    ``times`` stays in the source's own time base — mapping a whole trajectory
+    to master time would copy it.  ``time_map`` converts the scalar cursor query
+    instead, which is what keeps pose sampling inside the ≤2 ms tick budget.
+    """
 
     times: np.ndarray
     points: tuple[_PointChannels, ...]
+    time_map: TimeMap
 
 
 def _coordinate_name(channel_id: str) -> tuple[str, str] | None:
@@ -70,9 +77,9 @@ def _nearest_index(times: np.ndarray, target: float) -> int | None:
     return index
 
 
-def _build_sources(readers: Iterable[PyramidReader]) -> tuple[_SourceSamples, ...]:
+def _build_sources(readers: Iterable[MappedChannelReader]) -> tuple[_SourceSamples, ...]:
     """Group complete XYZ triplets by source cache and pre-warm their mmap arrays."""
-    by_source: dict[Path, dict[str, dict[str, PyramidReader]]] = {}
+    by_source: dict[Path, dict[str, dict[str, MappedChannelReader]]] = {}
     for reader in readers:
         coordinate = _coordinate_name(reader.channel_id)
         if coordinate is None:
@@ -86,10 +93,13 @@ def _build_sources(readers: Iterable[PyramidReader]) -> tuple[_SourceSamples, ..
         points: list[_PointChannels] = []
         reference_times: np.ndarray | None = None
         reference_length = -1
+        source_time_map = TimeMap()
         for point_name, axes in source_points.items():
             if set(axes) != {"x", "y", "z"}:
                 continue
-            arrays = [axes[axis]._load_level(1) for axis in ("x", "y", "z")]
+            arrays = [axes[axis].mapped_columns() for axis in ("x", "y", "z")]
+            # All rows of one source share a TimeMap, so any axis reports it.
+            source_time_map = getattr(axes["x"], "time_map", source_time_map)
             lengths = {len(item[0]) for item in arrays}
             if len(lengths) != 1:
                 continue
@@ -103,11 +113,17 @@ def _build_sources(readers: Iterable[PyramidReader]) -> tuple[_SourceSamples, ..
                 _PointChannels(
                     name=point_name,
                     values=(arrays[0][1], arrays[1][1], arrays[2][1]),
-                    gaps=(arrays[0][3], arrays[1][3], arrays[2][3]),
+                    gaps=(arrays[0][2], arrays[1][2], arrays[2][2]),
                 )
             )
         if reference_times is not None and points:
-            sources.append(_SourceSamples(times=reference_times, points=tuple(points)))
+            sources.append(
+                _SourceSamples(
+                    times=reference_times,
+                    points=tuple(points),
+                    time_map=source_time_map,
+                )
+            )
     return tuple(sources)
 
 
@@ -153,7 +169,7 @@ class Tracking3DCanvas(QWidget):
         """Copy of the currently sampled XYZ positions, including NaN placeholders."""
         return self._positions.copy()
 
-    def set_readers(self, readers: Iterable[PyramidReader]) -> None:
+    def set_readers(self, readers: Iterable[MappedChannelReader]) -> None:
         """Select complete XYZ triplets and retain only their mmap-backed arrays."""
         self._sources = _build_sources(readers)
         self._names = tuple(point.name for source in self._sources for point in source.points)
@@ -177,7 +193,7 @@ class Tracking3DCanvas(QWidget):
         self._time = t_master
         position_index = 0
         for source in self._sources:
-            sample_index = _nearest_index(source.times, t_master)
+            sample_index = _nearest_index(source.times, source.time_map.to_source(t_master))
             for point in source.points:
                 values = np.full(3, np.nan, dtype=np.float64)
                 if sample_index is not None:
@@ -440,7 +456,7 @@ class Tracking3DPane(QWidget):
         layout.addWidget(header)
         layout.addWidget(self.canvas, 1)
 
-    def set_readers(self, readers: list[PyramidReader]) -> None:
+    def set_readers(self, readers: list[MappedChannelReader]) -> None:
         """Use complete XYZ channel triplets from the active cached readers."""
         self.canvas.set_readers(readers)
         count = self.canvas.point_count

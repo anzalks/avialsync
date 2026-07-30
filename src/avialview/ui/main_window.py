@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialview.core.channel_reader import ChannelKey
 from avialview.core.inspection import SourceInspection
 from avialview.core.session import (
     MarkerEntry,
@@ -27,16 +28,20 @@ from avialview.core.session import (
     SessionState,
     SyncProvenance,
     VideoEntry,
-    add_recent,
-    get_recent,
 )
 from avialview.core.source import TimeSeriesSource, VideoSource
 from avialview.core.timeline import MasterClock, TimeMap
 from avialview.engine.export_worker import ReaderReference
 from avialview.engine.player import Player
+from avialview.engine.session_worker import (
+    AnnotationExportWorker,
+    SessionLoadWorker,
+    SessionSaveWorker,
+)
 from avialview.ui.annotations import AnnotationPanel, AnnotationStore
 from avialview.ui.plot_pane import PlotPane
 from avialview.ui.readout_panel import ReadoutPanel
+from avialview.ui.recent_files import add_recent, get_recent
 from avialview.ui.time_format import TimeDisplayMode
 from avialview.ui.tracking_3d_pane import Tracking3DPane
 from avialview.ui.transport import Transport
@@ -45,6 +50,11 @@ from avialview.ui.video_grid import VideoGrid
 logger = logging.getLogger(__name__)
 
 _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
+
+#: Concurrent ffprobe metadata/timestamp probes.  Bounded because each one
+#: spawns a subprocess and reads from the same disk; unbounded fan-out on a
+#: 32-camera session would thrash rather than parallelise.
+_MAX_VIDEO_PROBES = 3
 
 
 class MainWindow(QMainWindow):
@@ -66,6 +76,10 @@ class MainWindow(QMainWindow):
         self._video_load_drifts: dict[str, float] = {}
         self._pending_video_loads: deque[tuple[Path, float, float, dict[str, Any] | None]] = deque()
         self._video_pane_initializing: object | None = None
+        # Probes run concurrently and finish out of order; panes are built in
+        # request order, one at a time.
+        self._video_request_order: list[str] = []
+        self._probed_videos: dict[str, tuple[object, str]] = {}
         self._video_frame_times: dict[str, Any] = {}
         self._video_source_bounds: dict[str, tuple[float, float]] = {}
         self._video_time_mappings: dict[str, tuple[float, float]] = {}
@@ -84,7 +98,22 @@ class MainWindow(QMainWindow):
         # Inspection data keyed by str(path)
         self._inspections: dict[str, SourceInspection] = {}
         # Units dict keyed by channel_id; populated from import config or wizard
-        self._channel_units: dict[str, str] = {}
+        self._channel_units: dict[ChannelKey, str] = {}
+        # Sensor source path → its sidecar cache dir, so an offset edit can find
+        # the plot rows it owns without walking every channel.
+        self._sensor_cache_dirs: dict[str, Path] = {}
+        # Accepted mappings restored from a session, applied once their
+        # asynchronous import reports back.
+        self._pending_sensor_mappings: dict[str, tuple[float, float]] = {}
+        # Session and annotation IO run on workers (architecture rule 3).  The
+        # thread and worker are both retained until QThread.finished, or Qt may
+        # destroy a running worker.
+        self._session_thread: QThread | None = None
+        self._session_worker: SessionSaveWorker | None = None
+        self._session_load_thread: QThread | None = None
+        self._session_load_worker: SessionLoadWorker | None = None
+        self._annotation_thread: QThread | None = None
+        self._annotation_worker: AnnotationExportWorker | None = None
         self._time_mode = TimeDisplayMode.RELATIVE
 
         # Core
@@ -128,6 +157,7 @@ class MainWindow(QMainWindow):
         self.sidebar.video_remove_requested.connect(self._on_video_remove_requested)
         self.sidebar.video_visibility_changed.connect(self.video_grid.set_pane_visible)
         self.sidebar.sensor_remove_requested.connect(self._on_sensor_remove_requested)
+        self.sidebar.sensor_mapping_changed.connect(self._on_sensor_mapping_changed)
         self.sidebar.channel_remove_requested.connect(self._on_channel_remove_requested)
         self.sidebar.channel_visibility_changed.connect(self._on_channel_visibility_changed)
         self.plot_pane.channel_close_requested.connect(self._on_plot_channel_close_requested)
@@ -386,6 +416,7 @@ class MainWindow(QMainWindow):
                 w = item.widget()
                 if isinstance(w, SensorInfoWidget):
                     ins = self._inspections.get(w.path)
+                    offset, drift_ppm = w.mapping()
                     sensors.append(
                         SensorEntry(
                             path=w.path,
@@ -395,6 +426,8 @@ class MainWindow(QMainWindow):
                             import_report=(
                                 ins.import_report.as_dict() if ins and ins.import_report else None
                             ),
+                            offset=offset,
+                            drift_ppm=drift_ppm,
                         )
                     )
 
@@ -435,17 +468,49 @@ class MainWindow(QMainWindow):
         if not path.endswith(".avv"):
             path += ".avv"
 
+        self._start_session_save(Path(path), announce=True)
+
+    def _start_session_save(self, path: Path, announce: bool) -> None:
+        """Serialise the session on a worker thread (architecture rule 3).
+
+        A session carrying accepted per-frame mappings can hold a million
+        timestamps; writing it on the UI thread freezes playback and input.
+        """
+        if self._session_thread is not None:
+            self.statusBar().showMessage("A session write is already in progress.", 3000)
+            return
         state = self._build_session_state()
-        try:
-            state.save(Path(path))
-            self._session_path = Path(path)
+        worker = SessionSaveWorker(state, path)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(lambda saved: self._on_session_saved(saved, announce))
+        worker.error.connect(self._on_session_save_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(self._on_session_thread_finished)
+        self._session_thread = thread
+        self._session_worker = worker
+        if announce:
+            self.statusBar().showMessage(f"Saving {path.name}…")
+        thread.start()
+
+    def _on_session_saved(self, path: str, announce: bool) -> None:
+        self._session_path = Path(path)
+        if announce:
             add_recent(path)
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Save Error",
-                f"Could not save session:\n{e}",
-            )
+            self.statusBar().showMessage(f"Saved {Path(path).name}", 3000)
+
+    def _on_session_save_error(self, error: str) -> None:
+        logger.error("Session save failed: %s", error)
+        QMessageBox.critical(self, "Save Error", f"Could not save session:\n{error}")
+
+    def _on_session_thread_finished(self) -> None:
+        thread = self._session_thread
+        if thread is not None:
+            thread.deleteLater()
+        self._session_thread = None
+        self._session_worker = None
 
     def _open_session(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -456,20 +521,48 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+        self._start_session_load(Path(path))
 
-        try:
-            state = SessionState.load(Path(path))
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Session Error",
-                f"Could not load session:\n{e}",
-            )
+    def _start_session_load(self, path: Path) -> None:
+        """Parse the session file on a worker; apply the result on the UI thread."""
+        if self._session_load_thread is not None:
+            self.statusBar().showMessage("A session is already being opened.", 3000)
             return
+        worker = SessionLoadWorker(path)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_session_loaded)
+        worker.error.connect(self._on_session_load_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(self._on_session_load_thread_finished)
+        self._session_load_thread = thread
+        self._session_load_worker = worker
+        self.statusBar().showMessage(f"Opening {path.name}…")
+        thread.start()
 
+    def _on_session_loaded(self, path: str, state: object) -> None:
+        """Apply a parsed session; Qt object creation belongs on this thread."""
+        if not isinstance(state, SessionState):
+            self._on_session_load_error("Session file did not parse to a session.")
+            return
         self._session_path = Path(path)
         add_recent(path)
+        self.statusBar().clearMessage()
         self._restore_session(state)
+
+    def _on_session_load_error(self, error: str) -> None:
+        self.statusBar().clearMessage()
+        logger.error("Session load failed: %s", error)
+        QMessageBox.critical(self, "Session Error", f"Could not load session:\n{error}")
+
+    def _on_session_load_thread_finished(self) -> None:
+        thread = self._session_load_thread
+        if thread is not None:
+            thread.deleteLater()
+        self._session_load_thread = None
+        self._session_load_worker = None
 
     def _restore_session(self, state: SessionState) -> None:
         """Load all sources from a SessionState object."""
@@ -523,6 +616,9 @@ class MainWindow(QMainWindow):
         for se in state.sensors:
             p = Path(relink_map.get(se.path, se.path))
             if p.exists():
+                # Import is asynchronous, so the accepted mapping is held until
+                # the worker reports the cache back (see _on_import_finished).
+                self._pending_sensor_mappings[str(p)] = (se.offset, se.drift_ppm)
                 self._start_data_import(p)
                 if se.loader_id or se.import_report:
                     from avialview.core.inspection import ImportReport
@@ -559,14 +655,14 @@ class MainWindow(QMainWindow):
             self.plot_pane.set_window_duration(state.plot_x1 - state.plot_x0)
 
     def _autosave(self) -> None:
-        """Silently autosave if a session path is set."""
-        if self._session_path is None:
+        """Silently autosave if a session path is set.
+
+        Runs on the same worker path as an explicit save, so a large session
+        never stalls playback on the two-minute timer.
+        """
+        if self._session_path is None or self._session_thread is not None:
             return
-        try:
-            state = self._build_session_state()
-            state.save(self._session_path)
-        except Exception:
-            logger.exception("Autosave failed for %s", self._session_path)
+        self._start_session_save(self._session_path, announce=False)
 
     # ── A/B loop stats ───────────────────────────────────────────────
 
@@ -581,7 +677,12 @@ class MainWindow(QMainWindow):
     def _reader_references(self) -> list[ReaderReference]:
         """Return worker-safe references for the currently visible data channels."""
         return [
-            ReaderReference(channel.reader.cache_dir, channel.reader.channel_id)
+            ReaderReference(
+                channel.reader.cache_dir,
+                channel.reader.channel_id,
+                channel.reader.time_map.offset,
+                channel.reader.time_map.drift_ppm,
+            )
             for channel in self.plot_pane.channels
         ]
 
@@ -659,15 +760,43 @@ class MainWindow(QMainWindow):
         )
         if not out_path:
             return
-        try:
-            self.annotation_store.export_csv(Path(out_path))
-            QMessageBox.information(
-                self,
-                "Export Complete",
-                f"Exported {len(self.annotation_store.markers)} markers to:\n{out_path}",
-            )
-        except Exception as e:
-            QMessageBox.critical(self, "Export Failed", f"Could not export annotations:\n{e}")
+        if self._annotation_thread is not None:
+            self.statusBar().showMessage("An annotation export is already running.", 3000)
+            return
+
+        # Snapshot on this thread so the user may keep editing while it writes.
+        worker = AnnotationExportWorker(self.annotation_store.export_rows(), Path(out_path))
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_annotation_export_finished)
+        worker.error.connect(self._on_annotation_export_error)
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(self._on_annotation_thread_finished)
+        self._annotation_thread = thread
+        self._annotation_worker = worker
+        self.statusBar().showMessage("Exporting annotations…")
+        thread.start()
+
+    def _on_annotation_export_finished(self, path: str, rows: int) -> None:
+        self.statusBar().clearMessage()
+        QMessageBox.information(
+            self,
+            "Export Complete",
+            f"Exported {rows} annotation rows to:\n{path}",
+        )
+
+    def _on_annotation_export_error(self, error: str) -> None:
+        self.statusBar().clearMessage()
+        QMessageBox.critical(self, "Export Failed", f"Could not export annotations:\n{error}")
+
+    def _on_annotation_thread_finished(self) -> None:
+        thread = self._annotation_thread
+        if thread is not None:
+            thread.deleteLater()
+        self._annotation_thread = None
+        self._annotation_worker = None
 
     # ── Keyboard shortcuts ───────────────────────────────────────────
 
@@ -812,6 +941,9 @@ class MainWindow(QMainWindow):
             or self._region_stats_jobs
             or self._video_clip_jobs
             or self._snapshot_jobs
+            or self._session_thread is not None
+            or self._session_load_thread is not None
+            or self._annotation_thread is not None
         ):
             self.transport.set_status("Waiting for background work to finish", "busy")
             event.ignore()
@@ -819,8 +951,22 @@ class MainWindow(QMainWindow):
         self.player.stop()
         self.video_grid.shutdown()
         self._save_geometry()
-        self._autosave()
+        self._autosave_on_close()
         super().closeEvent(event)
+
+    def _autosave_on_close(self) -> None:
+        """Write the final autosave synchronously.
+
+        This is the one place a session write may block: the window is being
+        torn down, so there is no UI left to keep responsive, and handing the
+        write to a QThread here would race the widget's destruction.
+        """
+        if self._session_path is None:
+            return
+        try:
+            self._build_session_state().save(self._session_path)
+        except (OSError, TypeError, ValueError):
+            logger.exception("Autosave failed for %s", self._session_path)
 
     # ── Drag and Drop ────────────────────────────────────────────────
 
@@ -845,21 +991,14 @@ class MainWindow(QMainWindow):
         event.acceptProposedAction()
 
         candidates = []
-        is_auto_resolved_session = False
 
         for url in event.mimeData().urls():
             path = Path(url.toLocalFile())
             if not path.exists():
                 continue
 
-            # If the user dropped an AOL folder, we want to bypass the popup
-            # and load everything quietly under the hood.
-            if path.is_dir():
-                from avialview.loaders.aol_session_loader import is_aol_session
-
-                if is_aol_session(path):
-                    is_auto_resolved_session = True
-
+            # A dropped AOL session folder resolves to its own sources here;
+            # _collect_drop_candidates decides that and skips the picker.
             candidates.extend(self._collect_drop_candidates(path))
 
         if not candidates:
@@ -878,7 +1017,10 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, lambda: self._process_drop_candidates(candidates))
 
     def _route_import_candidate(
-        self, path: Path, loader_cls: type[TimeSeriesSource | VideoSource], config: dict | None = None
+        self,
+        path: Path,
+        loader_cls: type[TimeSeriesSource | VideoSource],
+        config: dict | None = None,
     ) -> None:
         """Route one capability-resolved source through its normal loader path."""
         config = config or {}
@@ -993,14 +1135,14 @@ class MainWindow(QMainWindow):
                     if Path(vid_path).name.lower() == video.name.lower():
                         start_epoch = epoch
                         break
-                
+
                 if self._aol_anchor_epoch > 0.0 and start_epoch > 0.0:
                     start_epoch -= self._aol_anchor_epoch
-                
+
                 config = {"offset": -start_epoch}
                 if manifest.camera_fps > 0:
                     config["fps"] = manifest.camera_fps
-                    
+
                 candidates.append((video, loader_cls, config))
 
         # 2. EKS 3D tracking files
@@ -1011,13 +1153,13 @@ class MainWindow(QMainWindow):
             start_epoch = 0.0
             cam_name_from_file = eks_file.name.split("_")[0]
             cam_name_from_dir = eks_file.parent.name.split("_")[0]
-            
+
             for vid_path, epoch in manifest.video_start_epochs.items():
                 vid_name = Path(vid_path).name
                 if cam_name_from_file in vid_name or cam_name_from_dir in vid_name:
                     start_epoch = epoch
                     break
-            
+
             if self._aol_anchor_epoch > 0.0 and start_epoch > 0.0:
                 start_epoch -= self._aol_anchor_epoch
 
@@ -1025,13 +1167,17 @@ class MainWindow(QMainWindow):
                 "fps": manifest.camera_fps,
                 "start_epoch": start_epoch,
                 "skeleton": manifest.skeleton,
-                "auto_resolved": True
+                "auto_resolved": True,
             }
             candidates.append((eks_file, AOLEksLoader, config))
 
         # 3. Encoder log
         if manifest.encoder_file is not None:
-            config = {"anchor_date": manifest.anchor_date, "auto_resolved": True} if manifest.anchor_date else {"auto_resolved": True}
+            config = (
+                {"anchor_date": manifest.anchor_date, "auto_resolved": True}
+                if manifest.anchor_date
+                else {"auto_resolved": True}
+            )
             candidates.append((manifest.encoder_file, AOLEncoderLoader, config))
 
         logger.info(
@@ -1221,16 +1367,7 @@ class MainWindow(QMainWindow):
                 f"Session file no longer exists:\n{path}",
             )
             return
-        try:
-            state = SessionState.load(p)
-            self._session_path = p
-            self._restore_session(state)
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Session Error",
-                f"Could not load session:\n{e}",
-            )
+        self._start_session_load(p)
 
     # ── Theme selection ─────────────────────────────────────────────
 
@@ -1682,19 +1819,27 @@ class MainWindow(QMainWindow):
         drift_ppm: float = 0.0,
         config: dict[str, Any] | None = None,
     ) -> None:
-        """Queue a video source so native render panes are initialized one at a time."""
+        """Queue a video source for probing and, in request order, pane creation."""
         self._pending_video_loads.append((path, offset, drift_ppm, config))
+        self._video_request_order.append(str(path))
         self._start_next_video_load()
 
     def _start_next_video_load(self) -> None:
-        """Start one asynchronous probe, preserving a bounded native-render lifecycle."""
-        if (
-            self._video_load_jobs
-            or self._video_pane_initializing is not None
-            or not self._pending_video_loads
-        ):
-            return
+        """Start probes up to the concurrency bound; pane creation stays serialized.
 
+        Two different limits apply here (P3.5 P1 loading).  ffprobe metadata and
+        presentation-timestamp extraction are independent per file and safe to
+        overlap, so up to :data:`_MAX_VIDEO_PROBES` run at once and a four-camera
+        session stops paying four serial probe latencies.  Constructing a native
+        render pane is *not* safe to overlap — libmpv must accept commands on one
+        pane before the next is built (D-040) — so that stays one at a time,
+        gated by ``_video_pane_initializing``.
+        """
+        while len(self._video_load_jobs) < _MAX_VIDEO_PROBES and self._pending_video_loads:
+            self._start_one_video_probe()
+
+    def _start_one_video_probe(self) -> None:
+        """Spawn a single off-thread metadata/timestamp probe."""
         from avialview.engine.video_worker import VideoOpenWorker
 
         path, offset, drift_ppm, config = self._pending_video_loads.popleft()
@@ -1745,6 +1890,31 @@ class MainWindow(QMainWindow):
 
     @Slot(str, object, str)
     def _on_video_opened(self, original_path: str, loader: object, media_path: str) -> None:
+        """Hold the probe result until this file's turn to build a native pane.
+
+        Probes finish out of order because they run concurrently.  Panes are
+        still built one at a time, in the order the user asked for them, so the
+        grid layout does not depend on which file happened to probe fastest.
+        """
+        self._probed_videos[original_path] = (loader, media_path)
+        if original_path not in self._video_request_order:
+            # Opened outside the queue (session restore, direct call): it still
+            # takes its turn, appended at the end of the current order.
+            self._video_request_order.append(original_path)
+        self._build_next_video_pane()
+
+    def _build_next_video_pane(self) -> None:
+        """Build the next pane in request order, if one is ready and none is busy."""
+        while self._video_pane_initializing is None and self._video_request_order:
+            next_path = self._video_request_order[0]
+            probed = self._probed_videos.pop(next_path, None)
+            if probed is None:
+                return  # Still probing; a later completion will call back here.
+            self._video_request_order.pop(0)
+            loader, media_path = probed
+            self._create_video_pane(next_path, loader, media_path)
+
+    def _create_video_pane(self, original_path: str, loader: object, media_path: str) -> None:
         """Create UI state only after asynchronous source opening succeeds."""
         offset = self._video_load_offsets.pop(original_path, 0.0)
         drift_ppm = self._video_load_drifts.pop(original_path, 0.0)
@@ -1820,8 +1990,13 @@ class MainWindow(QMainWindow):
         """Show a source-open error without leaving a partially-created pane."""
         self._video_load_offsets.pop(path, None)
         self._video_load_drifts.pop(path, None)
+        self._probed_videos.pop(path, None)
+        # Drop the failed file from the ordering so later files still get built.
+        if path in self._video_request_order:
+            self._video_request_order.remove(path)
         self.transport.set_status(f"Video failed: {Path(path).name}", "error")
         QMessageBox.critical(self, "Video Error", f"Could not open video:\n{path}\n\n{error}")
+        self._build_next_video_pane()
 
     @Slot()
     def _on_video_thread_finished(self) -> None:
@@ -1834,8 +2009,9 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def _on_video_pane_ready(self) -> None:
-        """Advance the queue only after the native pane accepts media commands."""
+        """Build the next pane only after this one accepts media commands (D-040)."""
         self._video_pane_initializing = None
+        self._build_next_video_pane()
         self._start_next_video_load()
 
     def _on_video_offset_changed(self, path: str, offset: float) -> None:
@@ -1973,22 +2149,42 @@ class MainWindow(QMainWindow):
         ]
 
     def _on_sensor_remove_requested(self, path: str) -> None:
-        from avialview.core.cache import CacheManager
+        cache_dir = self._sensor_cache_dirs.pop(path, None)
+        if cache_dir is None:
+            # Pre-import removal: fall back to the manager's derived location.
+            from avialview.core.cache import CacheManager
 
-        cache_mgr = CacheManager(loader_version=3)
-        cache_dir = cache_mgr.get_cache_dir(Path(path))
+            cache_dir = CacheManager(loader_version=3).get_cache_dir(Path(path))
         self.plot_pane.remove_channels(cache_dir)
         self.sidebar.remove_sensor(path)
+        self.transport.set_source_coverage(path, 0.0, 0.0, "data")
+
+    def _on_sensor_mapping_changed(self, path: str, offset: float, drift_ppm: float) -> None:
+        """Re-align one time-series source against the master clock.
+
+        This only changes the source's ``TimeMap`` — cached samples are never
+        rewritten and no channel is re-imported (P3.5, mirrors video offsets).
+        """
+        cache_dir = self._sensor_cache_dirs.get(path)
+        if cache_dir is None:
+            return
+        self.plot_pane.set_source_mapping(cache_dir, offset, drift_ppm)
+        bounds = self.plot_pane.source_bounds(cache_dir)
+        if bounds is not None:
+            self.transport.set_source_coverage(path, bounds[0], bounds[1], "data")
+            self._update_bounds(bounds[0], bounds[1])
+        self.readout_panel.set_cursor(self.clock.state.t)
 
     def _on_channel_remove_requested(self, path: str, channel: str) -> None:
-        self.plot_pane.remove_channel(channel)
+        """Remove only this source's row — another file may use the same name."""
+        self.plot_pane.remove_channel(ChannelKey(path, channel))
 
     def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
-        self.plot_pane.set_channel_visible(channel, is_visible)
+        self.plot_pane.set_channel_visible(ChannelKey(path, channel), is_visible)
 
-    def _on_plot_channel_close_requested(self, channel: str) -> None:
-        """Route a plot-row close through the existing sidebar visibility checkbox."""
-        self.sidebar.set_channel_visible(channel, False)
+    def _on_plot_channel_close_requested(self, source_id: str, channel: str) -> None:
+        """Route a plot-row close through the owning source's visibility checkbox."""
+        self.sidebar.set_channel_visible(channel, False, source_id)
 
     def _on_video_visibility_changed(self, path: str, is_visible: bool) -> None:
         self.video_grid.set_pane_visible(path, is_visible)
@@ -2005,7 +2201,10 @@ class MainWindow(QMainWindow):
             self._start_data_import(Path(path))
 
     def _start_data_import(
-        self, path: Path, loader_cls: type[TimeSeriesSource] | None = None, pre_config: dict | None = None
+        self,
+        path: Path,
+        loader_cls: type[TimeSeriesSource] | None = None,
+        pre_config: dict | None = None,
     ) -> None:
         """Start a registry-selected time-series import for one path."""
         from avialview.core.registry import LoaderRegistry
@@ -2045,7 +2244,7 @@ class MainWindow(QMainWindow):
                 if not ok:
                     return
                 config["fps"] = fps
-            
+
             if not self._video_fps:
                 self._frame_indexed_sources.append((path, loader_cls, config))
 
@@ -2165,10 +2364,15 @@ class MainWindow(QMainWindow):
         progress_dialog = getattr(self, "_progress_dialog", None)
         if progress_dialog is not None:
             progress_dialog.close()
-        self.plot_pane.load_channels(Path(cache_dir), channels)
-        self._update_bounds(bounds[0], bounds[1])
-        self.transport.set_source_coverage(path, bounds[0], bounds[1], "data")
+        offset, drift_ppm = self._pending_sensor_mappings.pop(path, (0.0, 0.0))
+        self.plot_pane.load_channels(Path(cache_dir), channels, offset, drift_ppm, source_id=path)
+        self._sensor_cache_dirs[path] = Path(cache_dir)
+        mapped = self.plot_pane.source_bounds(Path(cache_dir)) or bounds
+        self._update_bounds(mapped[0], mapped[1])
+        self.transport.set_source_coverage(path, mapped[0], mapped[1], "data")
         self.sidebar.add_sensor(path, channels)
+        if offset or drift_ppm:
+            self.sidebar.set_sensor_mapping(path, offset, drift_ppm)
 
         if isinstance(inspection, SourceInspection):
             self._inspections[path] = inspection
@@ -2176,10 +2380,15 @@ class MainWindow(QMainWindow):
             # Extract per-channel units from import config ("units" key → dict or mapping)
             units_cfg = inspection.import_config.get("units", {})
             if isinstance(units_cfg, dict):
-                self._channel_units.update(units_cfg)
-                self.plot_pane.set_channel_units(
-                    {channel: str(unit) for channel, unit in units_cfg.items()}
+                # Units are source-scoped: two files may both declare "force_z"
+                # in different units and neither may relabel the other's row.
+                scoped: dict[ChannelKey | str, str] = {
+                    ChannelKey(path, str(channel)): str(unit) for channel, unit in units_cfg.items()
+                }
+                self._channel_units.update(
+                    {key: unit for key, unit in scoped.items() if isinstance(key, ChannelKey)}
                 )
+                self.plot_pane.set_channel_units(scoped)
             # Overlay gap markers on each channel from this source
             rep = inspection.import_report
             if rep and rep.gap_locations:

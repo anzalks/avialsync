@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialview.core.pyramid import PyramidReader
+from avialview.core.channel_reader import ChannelKey, MappedChannelReader, disambiguate
 from avialview.ui.theme import set_font_family
 
 
@@ -163,9 +163,11 @@ class ReadoutPanel(QGroupBox):
         self._layout.addStretch()
         self._scroll.setWidget(self._content)
 
-        self._rows: dict[str, tuple[PyramidReader, _ChannelReadout]] = {}
-        self._units: dict[str, str] = {}
-        self._readers: list[PyramidReader] = []
+        # Keyed by (source_id, channel_id): two files may both contain the
+        # same channel name, and neither may overwrite the other's row.
+        self._rows: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout]] = {}
+        self._units: dict[ChannelKey, str] = {}
+        self._readers: list[MappedChannelReader] = []
 
         # Section labels + rows for optional sections
         self._cam_label = QLabel("Camera Positions")
@@ -181,16 +183,22 @@ class ReadoutPanel(QGroupBox):
         self._delta_label = QLabel("Δ Measurement")
         self._delta_label.setStyleSheet("font-weight: bold;")
         self._delta_label.setVisible(False)
-        self._delta_rows: dict[str, _DeltaRow] = {}
+        self._delta_rows: dict[ChannelKey, _DeltaRow] = {}
         self._delta_t_lbl = QLabel("Δt = —")
         _set_monospace(self._delta_t_lbl)
 
     # ── Public API ────────────────────────────────────────────────────
 
     def update_sources(
-        self, readers: list[PyramidReader], units: dict[str, str] | None = None
+        self,
+        readers: list[MappedChannelReader],
+        units: dict[ChannelKey, str] | None = None,
     ) -> None:
-        """Replace displayed channels with a new list of readers."""
+        """Replace displayed channels with a new list of readers.
+
+        Rows are keyed by ``(source_id, channel_id)``, and a name owned by more
+        than one source is shown qualified so the user can tell them apart.
+        """
         for _, row in self._rows.values():
             self._layout.removeWidget(row)
             row.deleteLater()
@@ -198,23 +206,24 @@ class ReadoutPanel(QGroupBox):
         self._readers = list(readers)
         self._units = dict(units or {})
 
+        labels = disambiguate([reader.key for reader in readers])
         for reader in readers:
-            unit = self._units.get(reader.channel_id, "")
-            row = _ChannelReadout(reader.channel_id, unit)
+            key = reader.key
+            unit = self._units.get(key, self._units.get(ChannelKey("", key.channel_id), ""))
+            row = _ChannelReadout(labels[key], unit)
             self._layout.insertWidget(self._layout.count() - 1, row)
-            self._rows[reader.channel_id] = (reader, row)
+            self._rows[key] = (reader, row)
 
     def set_cursor(self, t: float) -> None:
         """Interpolate and display each channel's value at time *t*."""
         for _name, (reader, row) in self._rows.items():
             try:
-                t_arr, v_arr, _, _ = reader._load_level(1)
-                if len(t_arr) == 0:
+                sample = reader.sample_at(t)
+                if sample is None:
                     row.set_value(None)
                     continue
-                idx = int(np.searchsorted(t_arr, t, side="right")) - 1
-                idx = max(0, min(idx, len(v_arr) - 1))
-                row.set_value(float(v_arr[idx]), idx)
+                index, value = sample
+                row.set_value(value, index)
             except Exception:
                 row.set_value(None)
 
@@ -268,22 +277,22 @@ class ReadoutPanel(QGroupBox):
         self._layout.insertWidget(self._layout.count() - 1, self._delta_label)
         self._layout.insertWidget(self._layout.count() - 1, self._delta_t_lbl)
 
-        for ch_name, (reader, _) in self._rows.items():
-            unit = self._units.get(ch_name, "")
+        labels = disambiguate(list(self._rows))
+        for key, (reader, _) in self._rows.items():
+            unit = self._units.get(key, "")
             try:
-                t_arr, v_arr, _, _ = reader._load_level(1)
-                if len(t_arr) == 0:
+                sample_a = reader.sample_at(t_a)
+                sample_b = reader.sample_at(t_b)
+                if sample_a is None or sample_b is None:
                     dv = None
                 else:
-                    ia = max(0, int(np.searchsorted(t_arr, t_a, "right")) - 1)
-                    ib = max(0, int(np.searchsorted(t_arr, t_b, "right")) - 1)
-                    dv = float(v_arr[ib]) - float(v_arr[ia])
+                    dv = sample_b[1] - sample_a[1]
             except Exception:
                 dv = None
-            row = _DeltaRow(ch_name, unit)
+            row = _DeltaRow(labels[key], unit)
             row.set_delta(dv)
             self._layout.insertWidget(self._layout.count() - 1, row)
-            self._delta_rows[ch_name] = row
+            self._delta_rows[key] = row
 
         if camera_states:
             fps_row = QLabel("Frames between:")

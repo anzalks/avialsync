@@ -8,6 +8,8 @@ from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QResizeEvent
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
+from avialview.core.channel_reader import ChannelKey
+from avialview.core.timeline import TimeMap
 from avialview.ui.annotations import AnnotationStore
 from avialview.ui.plot_header import PlotHeader
 from avialview.ui.plot_interactions import PlotInteractionController
@@ -41,13 +43,13 @@ class PlotPane(QWidget):
     """
 
     # Emitted when the set of active readers changes so ReadoutPanel can refresh
-    sources_changed = Signal(list)  # list[PyramidReader]
+    sources_changed = Signal(list)  # list[MappedChannelReader]
     # Emitted when both measure points are set (t_a, t_b)
     measure_changed = Signal(float, float)
     # Emitted when user picks "Add marker here" from the plot context menu (D-022)
     annotate_at_requested = Signal(float)  # t in master-clock seconds
     # Emitted by the row close button; MainWindow mirrors it to the sidebar checkbox.
-    channel_close_requested = Signal(str)
+    channel_close_requested = Signal(str, str)  # source_id, channel_id
     # Absolute current page plus cursor phase for the shared Data Streams navigator.
     view_window_changed = Signal(float, float, float)
 
@@ -94,6 +96,8 @@ class PlotPane(QWidget):
 
         # State
         self.channels: list[ChannelPlot] = []
+        # One TimeMap per source cache dir, shared by all of that source's rows.
+        self._source_time_maps: dict[Path, TimeMap] = {}
         self.follow_playhead = True
         self._playing = False
         self._scrubbing = False
@@ -134,12 +138,26 @@ class PlotPane(QWidget):
         pg.setConfigOption("background", palette.color(palette.ColorRole.Base).name())
         pg.setConfigOption("foreground", palette.color(palette.ColorRole.Text).name())
 
-    def load_channels(self, cache_dir: Path, channel_names: list[str]) -> None:
-        """Load multiple data sources from cache and build plot rows."""
+    def load_channels(
+        self,
+        cache_dir: Path,
+        channel_names: list[str],
+        offset: float = 0.0,
+        drift_ppm: float = 0.0,
+        source_id: str = "",
+    ) -> None:
+        """Load multiple data sources from cache and build plot rows.
+
+        Every row of one source shares a single :class:`TimeMap`, so a later
+        offset edit remaps the whole source at once (see :meth:`set_source_mapping`).
+        """
         if not channel_names:
             return
 
         start_row = len(self.channels)
+        time_map = self._source_time_maps.setdefault(cache_dir, TimeMap())
+        time_map.offset = float(offset)
+        time_map.drift_ppm = float(drift_ppm)
 
         for i, ch_name in enumerate(channel_names):
             channel = create_channel_plot(
@@ -149,6 +167,8 @@ class PlotPane(QWidget):
                 ch_name,
                 start_row + i,
                 self._request_channel_close,
+                time_map,
+                source_id,
             )
             if self._master_plot is None:
                 self._master_plot = channel.plot_item
@@ -163,8 +183,45 @@ class PlotPane(QWidget):
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._interactions.redraw_annotations()
 
+    def set_source_mapping(self, cache_dir: Path, offset: float, drift_ppm: float) -> None:
+        """Re-align one time-series source against the master clock.
+
+        The rows keep their readers; only the shared ``TimeMap`` changes, so this
+        is a redraw rather than a reload no matter how large the source is.
+        """
+        time_map = self._source_time_maps.get(cache_dir)
+        if time_map is None:
+            return
+        time_map.offset = float(offset)
+        time_map.drift_ppm = float(drift_ppm)
+        for channel in self.channels:
+            if channel.reader.cache_dir == cache_dir:
+                channel.coverage_bounds = channel.reader.coverage()
+        self.update_plots()
+        self._interactions.redraw_annotations()
+
+    def source_mapping(self, cache_dir: Path) -> tuple[float, float]:
+        """Return the ``(offset, drift_ppm)`` currently applied to a source."""
+        time_map = self._source_time_maps.get(cache_dir)
+        if time_map is None:
+            return 0.0, 0.0
+        return time_map.offset, time_map.drift_ppm
+
+    def source_bounds(self, cache_dir: Path) -> tuple[float, float] | None:
+        """Return one source's master-time coverage across all of its channels."""
+        spans = [
+            bounds
+            for channel in self.channels
+            if channel.reader.cache_dir == cache_dir
+            and (bounds := channel.reader.coverage()) is not None
+        ]
+        if not spans:
+            return None
+        return min(span[0] for span in spans), max(span[1] for span in spans)
+
     def remove_channels(self, cache_dir: Path) -> None:
         """Remove all channels associated with a specific cache_dir (source)."""
+        self._source_time_maps.pop(cache_dir, None)
         to_remove = [ch for ch in self.channels if ch.reader.cache_dir == cache_dir]
         for ch in to_remove:
             self.graphics_layout.removeItem(ch.plot_item)
@@ -180,9 +237,29 @@ class PlotPane(QWidget):
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._interactions.redraw_annotations()
 
-    def remove_channel(self, channel_id: str) -> None:
-        """Remove a single channel by its channel_id, regardless of cache_dir."""
-        to_remove = [ch for ch in self.channels if ch.reader.channel_id == channel_id]
+    def _matching(self, channel: ChannelKey | str) -> list[ChannelPlot]:
+        """Resolve a channel reference to the rows it identifies.
+
+        A :class:`ChannelKey` selects exactly one source's row.  A bare name is
+        ambiguous by construction — two files can both contain ``force_z`` — so
+        it matches every owner and says so, rather than silently picking one.
+        """
+        if isinstance(channel, ChannelKey):
+            return [ch for ch in self.channels if ch.reader.key == channel]
+        matches = [ch for ch in self.channels if ch.reader.channel_id == channel]
+        owners = {ch.reader.source_id for ch in matches}
+        if len(owners) > 1:
+            logger.warning(
+                "Channel name %r is owned by %d sources; applying to all. "
+                "Pass a ChannelKey to address one source.",
+                channel,
+                len(owners),
+            )
+        return matches
+
+    def remove_channel(self, channel: ChannelKey | str) -> None:
+        """Remove the row(s) identified by *channel*."""
+        to_remove = self._matching(channel)
         for ch in to_remove:
             self.graphics_layout.removeItem(ch.plot_item)
             self.graphics_layout.removeItem(ch.close_proxy)
@@ -239,22 +316,19 @@ class PlotPane(QWidget):
         """Retain the legacy state flag without creating another navigation model."""
         self.follow_playhead = follow
 
-    def set_channel_visible(self, channel_id: str, visible: bool) -> None:
-        """Show or hide a specific channel's plot row."""
-        for ch in self.channels:
-            if ch.name == channel_id:
-                ch.visible = visible
-                apply_channel_visibility(ch)
-                if visible:
-                    if self.sweep_start is not None:
-                        refresh_channel_plot(
-                            ch,
-                            self.sweep_start,
-                            self.sweep_start + self.window_duration,
-                            point_budget_for_width(int(self.graphics_layout.viewport().width())),
-                        )
-                        self._redraw_sweep_overlays()
-                break
+    def set_channel_visible(self, channel: ChannelKey | str, visible: bool) -> None:
+        """Show or hide the plot row(s) identified by *channel*."""
+        for ch in self._matching(channel):
+            ch.visible = visible
+            apply_channel_visibility(ch)
+            if visible and self.sweep_start is not None:
+                refresh_channel_plot(
+                    ch,
+                    self.sweep_start,
+                    self.sweep_start + self.window_duration,
+                    point_budget_for_width(int(self.graphics_layout.viewport().width())),
+                )
+                self._redraw_sweep_overlays()
         self._update_axis_visibility()
 
     def reset_zoom(self) -> None:
@@ -291,17 +365,15 @@ class PlotPane(QWidget):
                     fit_channel_y(ch)
                 break
 
-    def set_channel_unit(self, channel_id: str, unit: str) -> None:
+    def set_channel_unit(self, channel: ChannelKey | str, unit: str) -> None:
         """Update the fixed channel gutter after import metadata is available."""
-        for ch in self.channels:
-            if ch.name == channel_id:
-                set_channel_unit(ch, unit)
-                break
+        for ch in self._matching(channel):
+            set_channel_unit(ch, unit)
 
-    def set_channel_units(self, units: dict[str, str]) -> None:
+    def set_channel_units(self, units: dict[ChannelKey | str, str]) -> None:
         """Update all known channel units without changing reader identity or data."""
-        for channel_id, unit in units.items():
-            self.set_channel_unit(channel_id, unit)
+        for channel, unit in units.items():
+            self.set_channel_unit(channel, unit)
 
     def set_playing(self, playing: bool) -> None:
         """Select live Sweep/Scope painting or complete Review painting."""
@@ -485,8 +557,11 @@ class PlotPane(QWidget):
         )
 
     def _request_channel_close(self, channel_id: str) -> None:
-        self.set_channel_visible(channel_id, False)
-        self.channel_close_requested.emit(channel_id)
+        """Row close button: hide this source's row and tell the sidebar which one."""
+        match = next((ch for ch in self.channels if ch.reader.channel_id == channel_id), None)
+        key = match.reader.key if match is not None else ChannelKey("", channel_id)
+        self.set_channel_visible(key, False)
+        self.channel_close_requested.emit(key.source_id, key.channel_id)
 
     def _display_x(self, absolute_t: float) -> float | None:
         if self.sweep_start is None:

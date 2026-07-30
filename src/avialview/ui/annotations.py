@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialview.engine.session_worker import AnnotationRow
+
 # Palette for cycling annotation colours
 _COLORS = ["#f4a261", "#e76f51", "#2a9d8f", "#e9c46a", "#a8dadc", "#b5838d", "#84a98c"]
 
@@ -105,11 +107,48 @@ class AnnotationStore(QObject):
         self._markers.clear()
         self.changed.emit()
 
+    def export_rows(self) -> list[AnnotationRow]:
+        """Snapshot the export table so a worker can write it without the store.
+
+        Taken on the UI thread; the returned rows are plain immutable values, so
+        the user may keep editing markers while the file is written.
+        """
+        rows: list[AnnotationRow] = []
+        for marker in self._markers:
+            if marker.video_frames:
+                rows.extend(
+                    AnnotationRow(
+                        label=marker.label,
+                        comment="",
+                        t_master=marker.t_start,
+                        video_path=frame.path,
+                        frame_index=frame.frame_index,
+                        media_timestamp=frame.media_timestamp,
+                    )
+                    for frame in marker.video_frames
+                )
+            else:
+                rows.append(
+                    AnnotationRow(
+                        label=marker.label,
+                        comment="",
+                        t_master=marker.t_start,
+                        video_path="",
+                        frame_index="",
+                        media_timestamp="",
+                    )
+                )
+        return rows
+
     def export_csv(self, path: Path) -> None:
         """Write one row per (marker, video) — format for DLC/LightningPose retraining.
 
         Columns: label, comment, t_master, video_path, frame_index, media_timestamp.
         Markers with no video_frames produce one row with empty video columns.
+
+        Synchronous; the application uses
+        :class:`~avialview.engine.session_worker.AnnotationExportWorker` so the
+        UI thread never writes this file itself.
         """
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)

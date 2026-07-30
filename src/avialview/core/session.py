@@ -8,10 +8,9 @@ import json
 import os
 import uuid
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
-from PySide6.QtCore import QSettings
 
 _EXACT_MAPPING_INLINE_LIMIT = 500
 
@@ -36,6 +35,11 @@ class SensorEntry:
     loader_id: str = ""
     import_config: dict[str, object] = dataclasses.field(default_factory=dict)
     import_report: dict[str, object] | None = None
+    #: Source-to-master mapping (schema v6).  Time-series sources get the same
+    #: offset/drift treatment as video so a sensor recorded on its own clock can
+    #: be aligned without rewriting cached samples.
+    offset: float = 0.0
+    drift_ppm: float = 0.0
 
 
 @dataclasses.dataclass
@@ -84,7 +88,7 @@ class SessionState:
     plot_x1: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 5)."""
+        """Serialise to a JSON-compatible dict (always writes version 6)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -100,7 +104,7 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 5,
+            "version": 6,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
@@ -113,9 +117,9 @@ class SessionState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v5)."""
+        """Deserialise from a parsed JSON dict (accepts v1 through v6)."""
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5):
+        if version not in (1, 2, 3, 4, 5, 6):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
@@ -135,6 +139,9 @@ class SessionState:
                 loader_id=s.get("loader_id", ""),
                 import_config=s.get("import_config", {}),
                 import_report=s.get("import_report"),
+                # Pre-v6 sessions have no sensor mapping; identity is correct.
+                offset=float(s.get("offset", 0.0)),
+                drift_ppm=float(s.get("drift_ppm", 0.0)),
             )
             for s in data.get("sensors", [])
         ]
@@ -247,31 +254,3 @@ class SessionState:
             state.sync_provenance[index].exact_master = master
             state.sync_provenance[index].exact_source = source
         return state
-
-
-# ── Recent-files helper ──────────────────────────────────────────────
-
-_MAX_RECENT = 10
-_SETTINGS_KEY = "session/recent_files"
-
-
-def add_recent(path: str) -> None:
-    """Push *path* to the top of the recent-files list."""
-    settings = QSettings("AvialView", "AvialView")
-    recent: list[str] = cast(list[str], settings.value(_SETTINGS_KEY, [], type=list))
-    if path in recent:
-        recent.remove(path)
-    recent.insert(0, path)
-    settings.setValue(_SETTINGS_KEY, recent[:_MAX_RECENT])
-
-
-def get_recent() -> list[str]:
-    """Return the recent-files list, newest first."""
-    settings = QSettings("AvialView", "AvialView")
-    return cast(list[str], settings.value(_SETTINGS_KEY, [], type=list))
-
-
-def clear_recent() -> None:
-    """Clear the recent-files list."""
-    settings = QSettings("AvialView", "AvialView")
-    settings.setValue(_SETTINGS_KEY, [])

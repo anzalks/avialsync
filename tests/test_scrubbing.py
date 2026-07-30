@@ -48,7 +48,7 @@ def player_with_mocks():
     player.seeker.panes = []
 
     yield player, clock
-    
+
     player._timer.stop()
 
 

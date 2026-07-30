@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import numpy as np
 from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
@@ -43,6 +44,28 @@ class JumpSlider(QSlider):
         super().mousePressEvent(event)
 
 
+_EMPTY_TIMES = np.empty(0, dtype=np.float64)
+
+
+def _normalise_events(
+    events: "list[float | tuple[float, str]] | tuple[float, ...]",
+) -> tuple[tuple[float, str], ...]:
+    """Return ``(time, detail)`` pairs sorted by time."""
+    pairs = [
+        (float(event[0]), event[1]) if isinstance(event, tuple) else (float(event), "")
+        for event in events
+    ]
+    pairs.sort(key=lambda pair: pair[0])
+    return tuple(pairs)
+
+
+def _time_index(events: tuple[tuple[float, str], ...]) -> np.ndarray:
+    """Return the sorted time column of *events* for binary search."""
+    if not events:
+        return _EMPTY_TIMES
+    return np.fromiter((time for time, _ in events), dtype=np.float64, count=len(events))
+
+
 class TimelineOverview(QWidget):
     """Paint named, conditional timeline-evidence lanes without owning time state."""
 
@@ -68,6 +91,10 @@ class TimelineOverview(QWidget):
         self._coverage: dict[str, tuple[float, float, str]] = {}
         self._ttl_events: tuple[tuple[float, str], ...] = ()
         self._gap_events: tuple[tuple[float, str], ...] = ()
+        # Sorted time index per event lane.  Paint and hover binary-search this
+        # instead of scanning every event, so a 100k-event session costs the
+        # same per frame as a 100-event one (P3.5 P1 hot path).
+        self._event_times: dict[str, np.ndarray] = {"ttl": _EMPTY_TIMES, "gap": _EMPTY_TIMES}
         self._markers: tuple[tuple[float, float | None, str], ...] = ()
         self._viewport_start = 0.0
         self._viewport_duration = 0.0
@@ -99,19 +126,50 @@ class TimelineOverview(QWidget):
 
     def set_ttl_events(self, events: list[float | tuple[float, str]] | tuple[float, ...]) -> None:
         """Display accepted sync matches with inspectable provenance text."""
-        self._ttl_events = tuple(
-            (float(event[0]), event[1]) if isinstance(event, tuple) else (float(event), "")
-            for event in events
-        )
+        self._ttl_events = _normalise_events(events)
+        self._event_times["ttl"] = _time_index(self._ttl_events)
         self._on_evidence_changed()
 
     def set_gap_events(self, events: list[float | tuple[float, str]] | tuple[float, ...]) -> None:
         """Display imported data gaps as red ticks."""
-        self._gap_events = tuple(
-            (float(event[0]), event[1]) if isinstance(event, tuple) else (float(event), "")
-            for event in events
-        )
+        self._gap_events = _normalise_events(events)
+        self._event_times["gap"] = _time_index(self._gap_events)
         self._on_evidence_changed()
+
+    def _visible_event_x(self, kind: str, t0: float, t1: float) -> list[int]:
+        """Return the distinct pixel columns of the events inside ``[t0, t1]``.
+
+        Bounded by the widget width, not by the number of events: the slice is
+        found by binary search and collapsed to unique columns before drawing.
+        """
+        times = self._event_times.get(kind, _EMPTY_TIMES)
+        if len(times) == 0:
+            return []
+        first = int(np.searchsorted(times, t0, side="left"))
+        last = int(np.searchsorted(times, t1, side="right"))
+        if last <= first:
+            return []
+        columns = np.fromiter(
+            (self._content_x(float(time)) for time in times[first:last]),
+            dtype=np.int64,
+            count=last - first,
+        )
+        return [int(column) for column in np.unique(columns)]
+
+    def _nearest_event(self, kind: str, time: float, tolerance: float):
+        """Binary-search the nearest event of *kind*, or None outside tolerance."""
+        times = self._event_times.get(kind, _EMPTY_TIMES)
+        if len(times) == 0:
+            return None
+        events = self._ttl_events if kind == "ttl" else self._gap_events
+        index = int(np.searchsorted(times, time))
+        candidates = [i for i in (index - 1, index) if 0 <= i < len(times)]
+        if not candidates:
+            return None
+        best = min(candidates, key=lambda i: abs(float(times[i]) - time))
+        if abs(float(times[best]) - time) > tolerance:
+            return None
+        return events[best]
 
     def set_markers(self, markers: list[tuple[float, float | None, str]]) -> None:
         """Display point/range annotations in their stored colors."""
@@ -276,11 +334,11 @@ class TimelineOverview(QWidget):
                 )
             elif lane_kind == "ttl":
                 painter.setPen(accent)
-                for x in {self._content_x(time) for time, _ in payload if t0 <= time <= t1}:
+                for x in self._visible_event_x("ttl", t0, t1):
                     painter.drawLine(x, top + 2, x, bottom - 2)
             elif lane_kind == "gap":
                 painter.setPen(QColor("#d64545"))
-                for x in {self._content_x(time) for time, _ in payload if t0 <= time <= t1}:
+                for x in self._visible_event_x("gap", t0, t1):
                     painter.drawLine(x, top + 2, x, bottom - 2)
             elif lane_kind == "annotation":
                 for start, end, color in payload:
@@ -332,8 +390,8 @@ class TimelineOverview(QWidget):
             if start <= time <= end:
                 return f"Coverage\nSource: {Path(source).name}\nMaster time: {time:.6f} s"
         if kind in {"ttl", "gap"}:
-            nearest = min(payload, key=lambda item: abs(item[0] - time), default=None)
-            if nearest is not None and abs(nearest[0] - time) <= tolerance:
+            nearest = self._nearest_event(kind, time, tolerance)
+            if nearest is not None:
                 event_name = "Accepted sync / TTL event" if kind == "ttl" else "Imported data gap"
                 extra = f"\n{nearest[1]}" if nearest[1] else ""
                 return f"{event_name}\nMaster time: {nearest[0]:.6f} s{extra}"

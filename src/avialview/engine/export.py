@@ -5,18 +5,22 @@ from __future__ import annotations
 import csv
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QWidget
 
 
-def _raw_slice(reader: object, t0: float, t1: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _raw_slice(reader: Any, t0: float, t1: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return exact cached values in a time range without a recording-sized mask."""
-    t_arr, v_arr, _, gap_arr = reader._load_level(1)
-    first = int(np.searchsorted(t_arr, t0, side="left"))
-    last = int(np.searchsorted(t_arr, t1, side="right"))
-    return t_arr[first:last], v_arr[first:last], gap_arr[first:last]
+    return reader.raw_slice(t0, t1)
+
+
+def _source_label(reader: Any) -> str:
+    """Identify the owning source so equal channel names stay distinguishable."""
+    source_id = getattr(reader, "source_id", "")
+    return Path(source_id).name if source_id else reader.cache_dir.name
 
 
 def snapshot_widget(widget: QWidget) -> QPixmap:
@@ -70,7 +74,12 @@ def export_data_slice_csv(
     t1: float,
     path: Path,
 ) -> None:
-    """Export the raw data for all channels in [t0, t1] to CSV."""
+    """Export the raw data for all channels in [t0, t1] to CSV.
+
+    One block per channel, each with its own time column.  Channels are never
+    merged into shared rows: sources sampled at different rates, or offset
+    against each other, do not share a time axis (P3.5 P1 identity).
+    """
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
 
@@ -79,6 +88,7 @@ def export_data_slice_csv(
             if len(t_slice) == 0:
                 continue
 
+            writer.writerow([f"# Source: {_source_label(reader)}"])
             writer.writerow([f"# Channel: {reader.channel_id}"])
             writer.writerow(["time", reader.channel_id])
             for t_val, v_val in zip(t_slice, v_slice, strict=False):
@@ -115,7 +125,7 @@ def export_data_slice_parquet(
         if len(t_slice) == 0:
             continue
 
-        source_columns.append(np.full(len(t_slice), reader.cache_dir.name, dtype=str))
+        source_columns.append(np.full(len(t_slice), _source_label(reader), dtype=str))
         channel_columns.append(np.full(len(t_slice), reader.channel_id, dtype=str))
         time_columns.append(t_slice)
         value_columns.append(v_slice)
@@ -141,22 +151,27 @@ def compute_region_stats(
     t0: float,
     t1: float,
 ) -> list[dict]:
-    """Compute min/max/mean/rms for each channel in [t0, t1]."""
+    """Compute min/max/mean/rms for each channel in [t0, t1].
+
+    Each row carries its owning source, so two files contributing a channel of
+    the same name produce two distinct rows instead of one overwriting the other.
+    """
     results = []
     for reader in readers:
+        identity = {"channel": reader.channel_id, "source": _source_label(reader)}
         _, v_slice, _ = _raw_slice(reader, t0, t1)
         if len(v_slice) == 0:
-            results.append({"channel": reader.channel_id})
+            results.append(dict(identity))
             continue
         valid = v_slice[~np.isnan(v_slice)] if len(v_slice) > 0 else v_slice
 
         if len(valid) == 0:
-            results.append({"channel": reader.channel_id})
+            results.append(dict(identity))
             continue
 
         results.append(
             {
-                "channel": reader.channel_id,
+                **identity,
                 "n": len(valid),
                 "min": float(np.min(valid)),
                 "max": float(np.max(valid)),
