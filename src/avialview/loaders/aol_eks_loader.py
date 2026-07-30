@@ -102,7 +102,7 @@ class AOLEksLoader(TimeSeriesSource):
             else:
                 self._xyz_channels.append(c)
 
-        self._col_mapping = dict(zip(self._xyz_channels, raw_xyz))
+        self._col_mapping = dict(zip(self._xyz_channels, raw_xyz, strict=True))
 
         bodyparts = []
         for ch in self._xyz_channels:
