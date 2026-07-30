@@ -171,7 +171,10 @@ class ImportWizard(QDialog):
         self.setMinimumSize(750, 550)
         self._path = path
 
-        # Read raw bytes for encoding detection, then decode
+        # Read raw bytes for encoding detection, then decode.
+        # NOTE(Audit): This reads from disk on the UI thread. It's limited to 64KB
+        # which is fast on SSDs but could be a slight delay on network shares.
+        # Acceptable tradeoff for a dialog constructor.
         raw = path.read_bytes()[: 64 * 1024]
         self._encoding = _sniff_encoding(raw)
         text = raw.decode(self._encoding, errors="replace")

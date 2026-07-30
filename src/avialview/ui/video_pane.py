@@ -448,7 +448,7 @@ class VideoPane(VideoTimingMixin, QWidget):
             self._seek_pending = True
             self._mpv_seeking = True
             self.is_seeking = True
-            self.mpv.command_async('seek', t, 'absolute', precision)
+            self.mpv.command_async("seek", t, "absolute", precision)
         except Exception:
             # mpv may raise SystemError -12 if we seek before it has finished loading the file
             self._seek_pending = False

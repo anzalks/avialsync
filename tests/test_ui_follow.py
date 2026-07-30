@@ -178,12 +178,12 @@ def test_decimated_plot_preserves_minimum_and_maximum_envelope(qtbot, tmp_path: 
 
     channel = pane.channels[0]
     pane.set_cursor(100.0)
-    
+
     # Wait for the async worker to finish updating the plot
     qtbot.wait(pane._sweep_control._DRAG_REFRESH_MS + 50)
     pane.update_plots()
     qtbot.wait(50)
-    
+
     lower_x, lower_y = channel.curve.getData()
     upper_x, upper_y = channel.envelope_upper.getData()
 

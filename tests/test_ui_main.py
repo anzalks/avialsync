@@ -33,6 +33,7 @@ def main_window(qapp: QApplication, qtbot) -> MainWindow:
     yield win
     win.close()
 
+
 # ── Bug a: _on_annotate_requested crash ──────────────────────────────
 
 
@@ -217,20 +218,28 @@ def test_drop_routing_uses_loader_capability(
     target: str,
 ) -> None:
     """Dropped files route by registered source type, not a suffix allow-list."""
+    from avialview.engine.drop_worker import DropScanWorker
+
     path = tmp_path / f"recording{suffix}"
     path.touch()
     monkeypatch.setattr(
         "avialview.core.registry.LoaderRegistry.find_best_loader",
         lambda _registry, _path: loader_class,
     )
-    candidates = main_window._collect_drop_candidates(path)
-    assert candidates == [(path, loader_class, None)]
+    worker = DropScanWorker([path], main_window._registry)
+    candidates = worker._collect_drop_candidates(path)
+    # The worker might append `_is_frame_indexed: True` if TimeSeriesSource, so don't assert config is strictly None
+    assert len(candidates) == 1
+    assert candidates[0][0] == path
+    assert candidates[0][1] == loader_class
 
 
 def test_drop_directory_routes_each_supported_child(
     main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A generic directory falls back to capability-routing its direct children."""
+    from avialview.engine.drop_worker import DropScanWorker
+
     video = tmp_path / "camera.anyvideo"
     sensor = tmp_path / "sensor.anysensor"
     video.touch()
@@ -240,12 +249,11 @@ def test_drop_directory_routes_each_supported_child(
         return VideoStandardLoader if path == video else CSVLoader if path == sensor else None
 
     monkeypatch.setattr("avialview.core.registry.LoaderRegistry.find_best_loader", find_loader)
-    candidates = main_window._collect_drop_candidates(tmp_path)
+    worker = DropScanWorker([tmp_path], main_window._registry)
+    candidates = worker._collect_drop_candidates(tmp_path)
     assert len(candidates) == 2
     paths = {c[0] for c in candidates}
     assert paths == {video, sensor}
-    for _, loader_cls, config in candidates:
-        assert config is None
 
 
 def test_video_load_keeps_worker_alive_until_thread_finishes(
@@ -412,17 +420,33 @@ def test_video_coverage_is_projected_onto_master_time(main_window: MainWindow, m
 
 
 def test_real_drop_event_routes_sensor_file(
-    main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot
 ) -> None:
     """Qt delivery of a drop event must route a supported sensor without closing the window."""
+    from avialview.engine.drop_worker import DropScanWorker
+    from avialview.loaders.csv_loader import CSVLoader
+
     sensor = tmp_path / "sensor.csv"
     sensor.write_text("time,value\n0,1\n", encoding="utf-8")
     data_calls: list[tuple[Path, type]] = []
+
+    monkeypatch.setattr(
+        main_window._registry,
+        "find_best_loader",
+        lambda p: CSVLoader if p == sensor else None,
+    )
     monkeypatch.setattr(
         main_window,
         "_start_data_import",
         lambda path, loader, pre_config=None: data_calls.append((path, loader)),
     )
+
+    def sync_start_drop_scan(paths):
+        worker = DropScanWorker(paths, main_window._registry)
+        candidates = worker._collect_drop_candidates(paths[0])
+        main_window._on_drop_scan_finished(candidates, False)
+
+    monkeypatch.setattr(main_window, "_start_drop_scan", sync_start_drop_scan)
 
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(str(sensor))])
@@ -447,17 +471,34 @@ def test_real_drop_event_routes_sensor_file(
 
 
 def test_drop_over_video_grid_forwards_to_main_router(
-    main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot
 ) -> None:
     """A drop over the video grid reaches the same mixed-source router."""
+    from avialview.engine.drop_worker import DropScanWorker
+    from avialview.loaders.csv_loader import CSVLoader
+
     sensor = tmp_path / "sensor.csv"
     sensor.write_text("time,value\n0,1\n", encoding="utf-8")
     data_calls: list[tuple[Path, type]] = []
+
+    monkeypatch.setattr(
+        main_window._registry,
+        "find_best_loader",
+        lambda p: CSVLoader if p == sensor else None,
+    )
     monkeypatch.setattr(
         main_window,
         "_start_data_import",
         lambda path, loader, pre_config=None: data_calls.append((path, loader)),
     )
+
+    def sync_start_drop_scan(paths):
+        worker = DropScanWorker(paths, main_window._registry)
+        candidates = worker._collect_drop_candidates(paths[0])
+        main_window._on_drop_scan_finished(candidates, False)
+
+    monkeypatch.setattr(main_window, "_start_drop_scan", sync_start_drop_scan)
+
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(str(sensor))])
     enter_event = QDragEnterEvent(

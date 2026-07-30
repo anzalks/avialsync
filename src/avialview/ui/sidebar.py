@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from avialview.ui.source_properties import VideoPropertiesPanel
 
+
 class SensorInfoWidget(QFrame):
     """Displays metadata and per-channel controls for one loaded sensor CSV."""
 

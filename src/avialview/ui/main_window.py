@@ -27,8 +27,6 @@ from avialview.core.session import (
     SessionState,
     SyncProvenance,
     VideoEntry,
-    add_recent,
-    get_recent,
 )
 from avialview.core.source import TimeSeriesSource, VideoSource
 from avialview.core.timeline import MasterClock, TimeMap
@@ -37,6 +35,7 @@ from avialview.engine.player import Player
 from avialview.ui.annotations import AnnotationPanel, AnnotationStore
 from avialview.ui.plot_pane import PlotPane
 from avialview.ui.readout_panel import ReadoutPanel
+from avialview.ui.recent_files import add_recent, get_recent
 from avialview.ui.time_format import TimeDisplayMode
 from avialview.ui.tracking_3d_pane import Tracking3DPane
 from avialview.ui.transport import Transport
@@ -86,6 +85,7 @@ class MainWindow(QMainWindow):
         # Units dict keyed by channel_id; populated from import config or wizard
         self._channel_units: dict[str, str] = {}
         self._time_mode = TimeDisplayMode.RELATIVE
+        self._save_in_progress = False
 
         # Core
         self.clock = MasterClock()
@@ -100,6 +100,10 @@ class MainWindow(QMainWindow):
         self.plot_pane.view_window_changed.connect(self.transport.set_plot_viewport)
 
         # Engine
+        from avialview.core.registry import LoaderRegistry
+
+        self._registry = LoaderRegistry()
+
         self.player = Player(
             self.clock,
             self.video_grid,
@@ -435,17 +439,50 @@ class MainWindow(QMainWindow):
         if not path.endswith(".avv"):
             path += ".avv"
 
+        self._start_session_save(Path(path), is_autosave=False)
+
+    def _start_session_save(self, path: Path, is_autosave: bool = False) -> None:
+        if self._save_in_progress:
+            return
+
+        self._save_in_progress = True
         state = self._build_session_state()
-        try:
-            state.save(Path(path))
-            self._session_path = Path(path)
-            add_recent(path)
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Save Error",
-                f"Could not save session:\n{e}",
-            )
+
+        from avialview.engine.session_worker import SessionSaveWorker
+
+        worker = SessionSaveWorker(state, path)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+
+        if not is_autosave:
+            self.transport.set_status("Saving session…")
+
+        def on_finished():
+            self._save_in_progress = False
+            self._session_path = path
+            add_recent(str(path))
+            if not is_autosave:
+                self.transport.set_status("")
+
+        def on_error(msg: str):
+            self._save_in_progress = False
+            if not is_autosave:
+                self.transport.set_status("")
+                QMessageBox.critical(self, "Save Error", f"Could not save session:\n{msg}")
+            else:
+                logger.exception("Autosave failed for %s: %s", path, msg)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(on_finished)
+        worker.error.connect(on_error)
+
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(thread.deleteLater)
+        worker.finished.connect(worker.deleteLater)
+        worker.error.connect(worker.deleteLater)
+
+        thread.start()
 
     def _open_session(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -457,19 +494,37 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
-        try:
-            state = SessionState.load(Path(path))
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Session Error",
-                f"Could not load session:\n{e}",
-            )
-            return
+        self._start_session_load(Path(path))
 
-        self._session_path = Path(path)
-        add_recent(path)
-        self._restore_session(state)
+    def _start_session_load(self, path: Path) -> None:
+        from avialview.engine.session_worker import SessionLoadWorker
+
+        self.transport.set_status("Loading session…")
+        worker = SessionLoadWorker(path)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+
+        def on_finished(state: SessionState):
+            self.transport.set_status("")
+            self._session_path = path
+            add_recent(str(path))
+            self._restore_session(state)
+
+        def on_error(msg: str):
+            self.transport.set_status("")
+            QMessageBox.critical(self, "Session Error", f"Could not load session:\n{msg}")
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(on_finished)
+        worker.error.connect(on_error)
+
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(thread.deleteLater)
+        worker.finished.connect(worker.deleteLater)
+        worker.error.connect(worker.deleteLater)
+
+        thread.start()
 
     def _restore_session(self, state: SessionState) -> None:
         """Load all sources from a SessionState object."""
@@ -562,11 +617,7 @@ class MainWindow(QMainWindow):
         """Silently autosave if a session path is set."""
         if self._session_path is None:
             return
-        try:
-            state = self._build_session_state()
-            state.save(self._session_path)
-        except Exception:
-            logger.exception("Autosave failed for %s", self._session_path)
+        self._start_session_save(self._session_path, is_autosave=True)
 
     # ── A/B loop stats ───────────────────────────────────────────────
 
@@ -659,15 +710,33 @@ class MainWindow(QMainWindow):
         )
         if not out_path:
             return
-        try:
-            self.annotation_store.export_csv(Path(out_path))
+        from avialview.engine.export_worker import AnnotationExportWorker
+
+        thread = QThread(self)
+        worker = AnnotationExportWorker(self.annotation_store.markers, Path(out_path))
+        worker.moveToThread(thread)
+
+        def on_finished(path: Path, count: int):
             QMessageBox.information(
                 self,
                 "Export Complete",
-                f"Exported {len(self.annotation_store.markers)} markers to:\n{out_path}",
+                f"Exported {count} markers to:\n{path}",
             )
-        except Exception as e:
-            QMessageBox.critical(self, "Export Failed", f"Could not export annotations:\n{e}")
+
+        def on_error(msg: str):
+            QMessageBox.critical(self, "Export Failed", f"Could not export annotations:\n{msg}")
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(on_finished)
+        worker.error.connect(on_error)
+
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(thread.deleteLater)
+        worker.finished.connect(worker.deleteLater)
+        worker.error.connect(worker.deleteLater)
+
+        thread.start()
 
     # ── Keyboard shortcuts ───────────────────────────────────────────
 
@@ -844,41 +913,87 @@ class MainWindow(QMainWindow):
             return
         event.acceptProposedAction()
 
-        candidates = []
-        is_auto_resolved_session = False
+        paths = [Path(url.toLocalFile()) for url in event.mimeData().urls()]
+        paths = [p for p in paths if p.exists()]
 
-        for url in event.mimeData().urls():
-            path = Path(url.toLocalFile())
-            if not path.exists():
-                continue
+        if not paths:
+            return
 
-            # If the user dropped an AOL folder, we want to bypass the popup
-            # and load everything quietly under the hood.
-            if path.is_dir():
-                from avialview.loaders.aol_session_loader import is_aol_session
+        self._start_drop_scan(paths)
 
-                if is_aol_session(path):
-                    is_auto_resolved_session = True
+    def _start_drop_scan(self, paths: list[Path]) -> None:
+        """Launch background scanning for dropped paths."""
+        from avialview.engine.drop_worker import DropScanWorker
 
-            candidates.extend(self._collect_drop_candidates(path))
+        self.transport.set_status("Scanning files…")
+        worker = DropScanWorker(paths, self._registry)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_drop_scan_finished)
+        worker.session_found.connect(self._on_drop_session_found)
+        worker.error.connect(self._on_drop_scan_error)
+
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        thread.finished.connect(thread.deleteLater)
+        worker.finished.connect(worker.deleteLater)
+        worker.error.connect(worker.deleteLater)
+
+        thread.start()
+
+    def _on_drop_session_found(self, path: str) -> None:
+        """Handle a .avv file found during drop scanning."""
+        self._start_session_load(Path(path))
+
+    def _on_drop_scan_error(self, error_msg: str) -> None:
+        self.transport.set_status("")
+        QMessageBox.critical(self, "Import Error", f"Failed to scan dropped files:\n{error_msg}")
+
+    def _on_drop_scan_finished(
+        self, candidates: list[tuple[Path, type | None, dict | None]], is_aol_session: bool
+    ) -> None:
+        self.transport.set_status("")
 
         if not candidates:
             return
+
+        # Check for the virtual AOL setup candidate
+        setup_idx = next(
+            (i for i, c in enumerate(candidates) if str(c[0]) == "virtual://aol_session_setup"), -1
+        )
+        if setup_idx >= 0:
+            _, _, config = candidates.pop(setup_idx)
+            if config:
+                self._aol_camera_fps = config.get("camera_fps", 0.0)
+                self._aol_anchor_epoch = config.get("anchor_epoch", 0.0)
+                if self._aol_anchor_epoch > 0.0:
+                    self.plot_pane.set_time_mode(TimeDisplayMode.UTC, self._aol_anchor_epoch)
+                    self.transport.set_t_epoch(self._aol_anchor_epoch)
+
+                skeleton = config.get("skeleton")
+                if skeleton:
+                    self.tracking_3d_pane.set_skeleton(skeleton)
 
         if len(candidates) == 1:
             # Bypass dialog for single files only
             for path, loader_cls, config in candidates:
                 if loader_cls is not None:
-                    self._route_import_candidate(path, loader_cls, config)
+                    self.video_grid.begin_batch_add()
+                    try:
+                        self._route_import_candidate(path, loader_cls, config)
+                    finally:
+                        self.video_grid.end_batch_add()
             return
 
-        # Defer dialogs to avoid blocking the macOS drag-and-drop OS loop (prevents beachball)
-        from PySide6.QtCore import QTimer
-
-        QTimer.singleShot(0, lambda: self._process_drop_candidates(candidates))
+        self._process_drop_candidates(candidates)
 
     def _route_import_candidate(
-        self, path: Path, loader_cls: type[TimeSeriesSource | VideoSource], config: dict | None = None
+        self,
+        path: Path,
+        loader_cls: type[TimeSeriesSource | VideoSource],
+        config: dict | None = None,
     ) -> None:
         """Route one capability-resolved source through its normal loader path."""
         config = config or {}
@@ -891,7 +1006,9 @@ class MainWindow(QMainWindow):
         else:
             self._start_data_import(path, loader_cls, pre_config=config)
 
-    def _process_drop_candidates(self, candidates: list[tuple[Path, type | None]]) -> None:
+    def _process_drop_candidates(
+        self, candidates: list[tuple[Path, type | None, dict | None]]
+    ) -> None:
         """Present the batch import dialog and route accepted items."""
         from PySide6.QtWidgets import QDialog
 
@@ -900,148 +1017,12 @@ class MainWindow(QMainWindow):
         dialog = BatchImportDialog(candidates, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             selections = dialog.get_selections()
-            for path, loader_cls, config in selections:
-                self._route_import_candidate(path, loader_cls, config)
-
-    def _collect_drop_candidates(
-        self, path: Path, registry: Any = None
-    ) -> list[tuple[Path, type | None, dict | None]]:
-        """Collect paths and their best-guess loaders recursively, avoiding session files."""
-        if path.suffix.lower() == ".avv":
+            self.video_grid.begin_batch_add()
             try:
-                self._restore_session(SessionState.load(path))
-            except (OSError, ValueError) as error:
-                QMessageBox.critical(self, "Session Error", str(error))
-            return []
-
-        if registry is None:
-            from avialview.core.registry import LoaderRegistry
-
-            registry = LoaderRegistry()
-
-        # ── AOL session folder detection ─────────────────────────────
-        if path.is_dir():
-            from avialview.loaders.aol_session_loader import is_aol_session
-
-            if is_aol_session(path):
-                return self._collect_aol_candidates(path, registry)
-
-        loader_class = registry.find_best_loader(path)
-
-        if loader_class is not None:
-            return [(path, loader_class, None)]
-
-        candidates = []
-        if path.is_dir():
-            session_files = list(path.glob("*.avv"))
-            if session_files:
-                return self._collect_drop_candidates(session_files[0], registry=registry)
-            for child in path.iterdir():
-                if not child.name.startswith("."):
-                    candidates.extend(self._collect_drop_candidates(child, registry=registry))
-        else:
-            candidates.append((path, None, None))
-
-        return candidates
-
-    def _collect_aol_candidates(
-        self, path: Path, registry: Any
-    ) -> list[tuple[Path, type | None, dict | None]]:
-        """Build import candidates from an AOL session folder.
-
-        Returns videos, EKS tracking files, and the encoder log with their
-        correct loaders pre-resolved. The AOL-specific fps from trial_config.yml
-        is stored so the import wizard can pre-fill it.
-        """
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
-        from avialview.loaders.aol_session_loader import build_manifest
-
-        manifest = build_manifest(path)
-
-        # Store fps for frame-indexed sources so the import config is pre-filled
-        self._aol_camera_fps = manifest.camera_fps
-        self._aol_video_start_epochs = manifest.video_start_epochs
-        self._aol_anchor_date = manifest.anchor_date
-
-        if manifest.anchor_date:
-            import datetime
-
-            try:
-                anchor = datetime.datetime.strptime(manifest.anchor_date, "%Y-%m-%d")
-                self._aol_anchor_epoch = anchor.replace(tzinfo=datetime.UTC).timestamp()
-
-                # Apply it to UI elements right away so relative time formatting
-                # correctly offsets UTC displays.
-                from avialview.ui.time_format import TimeDisplayMode
-
-                self.plot_pane.set_time_mode(TimeDisplayMode.UTC, self._aol_anchor_epoch)
-                self.transport.set_t_epoch(self._aol_anchor_epoch)
-            except ValueError:
-                self._aol_anchor_epoch = 0.0
-        else:
-            self._aol_anchor_epoch = 0.0
-
-        candidates: list[tuple[Path, type | None, dict | None]] = []
-
-        # 1. Videos (labeled preferred, raw fallback)
-        for video in manifest.videos:
-            loader_cls = registry.find_best_loader(video)
-            if loader_cls is not None:
-                start_epoch = 0.0
-                for vid_path, epoch in manifest.video_start_epochs.items():
-                    if Path(vid_path).name.lower() == video.name.lower():
-                        start_epoch = epoch
-                        break
-                
-                if self._aol_anchor_epoch > 0.0 and start_epoch > 0.0:
-                    start_epoch -= self._aol_anchor_epoch
-                
-                config = {"offset": -start_epoch}
-                if manifest.camera_fps > 0:
-                    config["fps"] = manifest.camera_fps
-                    
-                candidates.append((video, loader_cls, config))
-
-        # 2. EKS 3D tracking files
-        if manifest.skeleton:
-            self.tracking_3d_pane.set_skeleton(manifest.skeleton)
-
-        for eks_file in manifest.eks_files:
-            start_epoch = 0.0
-            cam_name_from_file = eks_file.name.split("_")[0]
-            cam_name_from_dir = eks_file.parent.name.split("_")[0]
-            
-            for vid_path, epoch in manifest.video_start_epochs.items():
-                vid_name = Path(vid_path).name
-                if cam_name_from_file in vid_name or cam_name_from_dir in vid_name:
-                    start_epoch = epoch
-                    break
-            
-            if self._aol_anchor_epoch > 0.0 and start_epoch > 0.0:
-                start_epoch -= self._aol_anchor_epoch
-
-            config = {
-                "fps": manifest.camera_fps,
-                "start_epoch": start_epoch,
-                "skeleton": manifest.skeleton,
-                "auto_resolved": True
-            }
-            candidates.append((eks_file, AOLEksLoader, config))
-
-        # 3. Encoder log
-        if manifest.encoder_file is not None:
-            config = {"anchor_date": manifest.anchor_date, "auto_resolved": True} if manifest.anchor_date else {"auto_resolved": True}
-            candidates.append((manifest.encoder_file, AOLEncoderLoader, config))
-
-        logger.info(
-            "AOL session detected: %d candidates from %s (fps=%.1f)",
-            len(candidates),
-            path.name,
-            manifest.camera_fps,
-        )
-
-        return candidates
+                for path, loader_cls, config in selections:
+                    self._route_import_candidate(path, loader_cls, config)
+            finally:
+                self.video_grid.end_batch_add()
 
     # ── Menu ─────────────────────────────────────────────────────────
 
@@ -2005,13 +1986,13 @@ class MainWindow(QMainWindow):
             self._start_data_import(Path(path))
 
     def _start_data_import(
-        self, path: Path, loader_cls: type[TimeSeriesSource] | None = None, pre_config: dict | None = None
+        self,
+        path: Path,
+        loader_cls: type[TimeSeriesSource] | None = None,
+        pre_config: dict | None = None,
     ) -> None:
-        """Start a registry-selected time-series import for one path."""
-        from avialview.core.registry import LoaderRegistry
-
         if loader_cls is None:
-            discovered_loader = LoaderRegistry().find_best_loader(path)
+            discovered_loader = self._registry.find_best_loader(path)
             if discovered_loader is None:
                 QMessageBox.warning(
                     self, "Unsupported File", "No suitable loader found for this file."
@@ -2023,15 +2004,10 @@ class MainWindow(QMainWindow):
                 )
                 return
             loader_cls = discovered_loader
-        if loader_cls is None:
-            QMessageBox.warning(self, "Unsupported File", "No suitable loader found for this file.")
-            return
-
-        from avialview.loaders.csv_loader import CSVLoader
 
         config = pre_config or {}
 
-        if loader_cls is CSVLoader:
+        if getattr(loader_cls, "needs_import_wizard", lambda: False)():
             if not config.get("auto_resolved"):
                 from avialview.ui.import_wizard import ImportWizard
 
@@ -2039,13 +2015,13 @@ class MainWindow(QMainWindow):
                 if wizard.exec() != ImportWizard.DialogCode.Accepted:
                     return
                 config = wizard.config()
-        elif loader_cls().is_frame_indexed():
+        elif config.get("_is_frame_indexed") or loader_cls().is_frame_indexed():
             if not config.get("auto_resolved") and "fps" not in config:
                 fps, ok = self._resolve_tracking_fps()
                 if not ok:
                     return
                 config["fps"] = fps
-            
+
             if not self._video_fps:
                 self._frame_indexed_sources.append((path, loader_cls, config))
 
