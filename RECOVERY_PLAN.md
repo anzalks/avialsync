@@ -109,7 +109,7 @@ def _run_job(self, worker: QObject, *, on_done: Signal | None = None) -> QThread
     """
     thread = QThread(self)
     worker.moveToThread(thread)
-    self._jobs[thread] = worker            # <- the reference that keeps it alive
+    self._jobs[thread] = worker  # <- the reference that keeps it alive
     thread.started.connect(worker.run)
     thread.finished.connect(lambda t=thread: self._jobs.pop(t, None))
     thread.finished.connect(thread.deleteLater)

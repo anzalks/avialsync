@@ -228,7 +228,8 @@ def test_drop_routing_uses_loader_capability(
     )
     worker = DropScanWorker([path], main_window._registry)
     candidates = worker._collect_drop_candidates(path)
-    # The worker might append `_is_frame_indexed: True` if TimeSeriesSource, so don't assert config is strictly None
+    # The worker might append `_is_frame_indexed: True` if TimeSeriesSource, so
+    # don't assert config is strictly None
     assert len(candidates) == 1
     assert candidates[0][0] == path
     assert candidates[0][1] == loader_class

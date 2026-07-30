@@ -129,7 +129,7 @@ Commit: `style(tests): wrap over-length comment`
 Two `config = {...}` locals are inferred as `dict[str, float]`, then get a list and a str assigned.
 Annotate both explicitly:
 ```python
-config: dict[str, Any] = { ... }
+config: dict[str, Any] = {...}
 ```
 This file does not import `Any` yet — add `from typing import Any` to its imports.
 Do NOT add `# type: ignore`.
@@ -142,7 +142,7 @@ reaches the UI tests. Guard it — keep the assertion, do not delete it:
 stats = benchmark.stats
 if stats is None:
     pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
-assert stats["mean"] <= budget, (...)
+assert stats["mean"] <= budget, ...
 ```
 Grep for `benchmark.stats[` across `tests/benchmarks/` and apply the same guard everywhere.
 Commit: `test(bench): skip budget assertion when benchmarks are disabled`
@@ -247,6 +247,7 @@ threaded save can never finish. At close time only, run the save inline:
 # Close-time autosave is the one legitimate blocking write: it happens after
 # the final paint, it is bounded, and a worker thread cannot outlive the window.
 from avialview.engine.session_worker import SessionSaveWorker
+
 SessionSaveWorker(self._build_session_state(), autosave_path).run()
 ```
 Keep the periodic `_autosave_timer` path threaded — change only the close path.
