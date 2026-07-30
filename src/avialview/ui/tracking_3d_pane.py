@@ -10,7 +10,14 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QWheelEvent
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from avialview.core.pyramid import PyramidReader
 
@@ -24,6 +31,29 @@ _POINT_COLORS = (
 )
 _MAX_LABELS = 24
 _SAMPLE_TOLERANCE_S = 0.1
+
+# Landmark name fragments used to orient the view anatomically (D-046).
+# Matching is substring-based and case-insensitive; unmatched data keeps the
+# neutral Z-up default rather than guessing.
+_HEAD_HINTS = ("head", "nose", "snout", "skull", "ear", "eye", "beak")
+_FOOT_HINTS = ("toe", "foot", "feet", "ankle", "heel", "paw", "hoof")
+# Samples used to estimate the anatomical axis; bounded so a long session does
+# not turn view setup into a full-trajectory scan.
+_ORIENT_SAMPLE_LIMIT = 4096
+
+
+def _view_matrix(up_axis: int, up_sign: float) -> np.ndarray:
+    """Build a right-handed basis whose third row is the chosen 'up' direction.
+
+    Rows map world XYZ onto view XYZ, so ``points @ matrix.T`` puts the
+    anatomical vertical on view +Z, which is what the camera math treats as up.
+    """
+    identity = np.eye(3, dtype=np.float64)
+    others = [index for index in range(3) if index != up_axis]
+    matrix = np.stack((identity[others[0]], identity[others[1]], identity[up_axis] * up_sign))
+    if np.linalg.det(matrix) < 0:
+        matrix[[0, 1]] = matrix[[1, 0]]
+    return matrix
 
 
 @dataclass(frozen=True)
@@ -111,6 +141,56 @@ def _build_sources(readers: Iterable[PyramidReader]) -> tuple[_SourceSamples, ..
     return tuple(sources)
 
 
+def _mean_axis_position(
+    sources: tuple[_SourceSamples, ...], hints: tuple[str, ...]
+) -> np.ndarray | None:
+    """Mean XYZ of every point whose name matches *hints*, or None if none match."""
+    totals = np.zeros(3, dtype=np.float64)
+    matched = 0
+    for source in sources:
+        for point in source.points:
+            lowered = point.name.lower()
+            if not any(hint in lowered for hint in hints):
+                continue
+            sample_count = len(point.values[0])
+            if sample_count == 0:
+                continue
+            step = max(1, sample_count // _ORIENT_SAMPLE_LIMIT)
+            means = []
+            for axis in range(3):
+                window = point.values[axis][::step]
+                with np.errstate(invalid="ignore"):
+                    means.append(np.nanmean(window))
+            if not all(np.isfinite(value) for value in means):
+                continue
+            totals += np.asarray(means, dtype=np.float64)
+            matched += 1
+    if matched == 0:
+        return None
+    return totals / matched
+
+
+def detect_up_axis(sources: tuple[_SourceSamples, ...]) -> tuple[int, bool] | None:
+    """Infer which world axis is anatomically vertical, and whether it is flipped.
+
+    Returns ``(axis_index, inverted)`` where *inverted* means larger coordinate
+    values are anatomically lower -- the usual case for image-derived
+    reconstructions, whose vertical axis grows downward. Returns ``None`` when
+    the data carries no recognisable head/foot landmarks, so the caller can keep
+    a neutral default instead of guessing (AGENTS: never silently invent).
+    """
+    head = _mean_axis_position(sources, _HEAD_HINTS)
+    foot = _mean_axis_position(sources, _FOOT_HINTS)
+    if head is None or foot is None:
+        return None
+    separation = head - foot
+    axis = int(np.argmax(np.abs(separation)))
+    if not np.isfinite(separation[axis]) or separation[axis] == 0.0:
+        return None
+    # head below foot in raw coordinates => the axis grows downward
+    return axis, bool(separation[axis] < 0)
+
+
 class Tracking3DCanvas(QWidget):
     """Custom-painted current-pose view with mouse orbit and wheel zoom."""
 
@@ -127,6 +207,13 @@ class Tracking3DCanvas(QWidget):
         self._valid = np.empty(0, dtype=bool)
         self._time = 0.0
         self._skeleton_edges: list[tuple[str, str]] = []
+
+        # Which world axis renders upward. Z-up is the neutral default; loading
+        # data with recognisable head/foot landmarks re-orients it (D-046).
+        self._up_axis = 2
+        self._up_inverted = False
+        self._up_auto = True
+        self._view_basis = _view_matrix(self._up_axis, 1.0)
 
         self._azimuth = math.radians(40.0)
         self._elevation = math.radians(25.0)
@@ -153,6 +240,35 @@ class Tracking3DCanvas(QWidget):
         """Copy of the currently sampled XYZ positions, including NaN placeholders."""
         return self._positions.copy()
 
+    @property
+    def up_axis(self) -> int:
+        """Index of the world axis currently rendered upward."""
+        return self._up_axis
+
+    @property
+    def up_inverted(self) -> bool:
+        """Whether larger values on :attr:`up_axis` render downward."""
+        return self._up_inverted
+
+    def set_up_axis(self, axis: int, inverted: bool, *, automatic: bool = False) -> None:
+        """Choose which world axis renders upward, and its direction.
+
+        Setting this explicitly (``automatic=False``) pins the choice, so later
+        data loads do not silently re-orient a view the user has adjusted.
+        """
+        self._up_axis = int(axis) % 3
+        self._up_inverted = bool(inverted)
+        self._up_auto = automatic
+        self._view_basis = _view_matrix(self._up_axis, -1.0 if self._up_inverted else 1.0)
+        self._has_scene_bounds = False
+        self.set_cursor(self._time)
+        self.fit_current_pose()
+
+    def _to_view(self, points: np.ndarray) -> np.ndarray:
+        """Rotate world coordinates so the anatomical vertical is view +Z."""
+        rotated: np.ndarray = np.asarray(points, dtype=np.float64) @ self._view_basis.T
+        return rotated
+
     def set_readers(self, readers: Iterable[PyramidReader]) -> None:
         """Select complete XYZ triplets and retain only their mmap-backed arrays."""
         self._sources = _build_sources(readers)
@@ -160,6 +276,13 @@ class Tracking3DCanvas(QWidget):
         self._positions = np.full((len(self._names), 3), np.nan, dtype=np.float64)
         self._valid = np.zeros(len(self._names), dtype=bool)
         self._has_scene_bounds = False
+        if self._up_auto:
+            detected = detect_up_axis(self._sources)
+            if detected is not None:
+                axis, inverted = detected
+                self._up_axis = axis
+                self._up_inverted = inverted
+                self._view_basis = _view_matrix(axis, -1.0 if inverted else 1.0)
         self.set_cursor(self._time)
 
     def set_skeleton(self, edges: list[tuple[str, str]]) -> None:
@@ -192,7 +315,7 @@ class Tracking3DCanvas(QWidget):
 
     def fit_current_pose(self) -> None:
         """Fit the camera to the valid points at the current master time."""
-        valid_positions = self._positions[self._valid]
+        valid_positions = self._to_view(self._positions[self._valid])
         if len(valid_positions) == 0:
             return
         self._scene_min = np.min(valid_positions, axis=0)
@@ -209,7 +332,7 @@ class Tracking3DCanvas(QWidget):
         self.fit_current_pose()
 
     def _expand_scene_bounds(self) -> None:
-        valid_positions = self._positions[self._valid]
+        valid_positions = self._to_view(self._positions[self._valid])
         if len(valid_positions) == 0:
             return
         current_min = np.min(valid_positions, axis=0)
@@ -242,8 +365,13 @@ class Tracking3DCanvas(QWidget):
         return right, up, direction
 
     def _project(self, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Project world points to screen; the anatomical vertical maps to screen up."""
+        return self._project_view(self._to_view(points))
+
+    def _project_view(self, view_points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Project points already expressed in view space (see :meth:`_to_view`)."""
         right, up, direction = self._camera_basis()
-        relative = points - self._center
+        relative = np.asarray(view_points, dtype=np.float64) - self._center
         scale = 0.38 * min(self.width(), self.height()) * self._zoom / self._radius
         screen = np.column_stack((relative @ right, relative @ up))
         screen *= scale
@@ -329,7 +457,8 @@ class Tracking3DCanvas(QWidget):
                     self._center + np.array([step, radius, 0.0]),
                 ]
             )
-        grid_screen, _ = self._project(np.asarray(grid_points))
+        # Grid points are constructed around the view-space centre already.
+        grid_screen, _ = self._project_view(np.asarray(grid_points))
         for index in range(0, len(grid_screen), 2):
             start = grid_screen[index]
             end = grid_screen[index + 1]
@@ -348,7 +477,9 @@ class Tracking3DCanvas(QWidget):
         cx = margin
         cy = self.height() - margin
 
-        axes_3d = np.eye(3)  # unit X, Y, Z
+        # Unit world axes carried into view space, so the labels keep naming the
+        # source coordinate system even when a different axis renders upward.
+        axes_3d = self._to_view(np.eye(3))
         labels = ("X", "Y", "Z")
         colors = ((220, 70, 70), (70, 180, 90), (70, 120, 230))
         for i in range(3):
@@ -428,12 +559,29 @@ class Tracking3DPane(QWidget):
         self.title_label = QLabel("3D Tracking", header)
         self.status_label = QLabel("No XYZ tracking channels", header)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.up_axis_combo = QComboBox(header)
+        self.up_axis_combo.setAccessibleName("Vertical axis")
+        self.up_axis_combo.setToolTip(
+            "Which source axis points up. Detected from head/foot landmarks on load; "
+            "choose one here to override it."
+        )
+        for label, axis, inverted in (
+            ("Up: X", 0, False),
+            ("Up: -X", 0, True),
+            ("Up: Y", 1, False),
+            ("Up: -Y", 1, True),
+            ("Up: Z", 2, False),
+            ("Up: -Z", 2, True),
+        ):
+            self.up_axis_combo.addItem(label, (axis, inverted))
+        self.up_axis_combo.activated.connect(self._on_up_axis_selected)
         self.fit_button = QPushButton("Fit View", header)
         self.fit_button.setToolTip("Fit the 3D camera to the current tracked pose")
         self.fit_button.clicked.connect(self._fit_view)
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         header_layout.addWidget(self.status_label)
+        header_layout.addWidget(self.up_axis_combo)
         header_layout.addWidget(self.fit_button)
 
         self.canvas = Tracking3DCanvas(self)
@@ -449,6 +597,31 @@ class Tracking3DPane(QWidget):
             f"{count} tracked point{suffix}" if count else "No XYZ tracking channels"
         )
         self.fit_button.setEnabled(count > 0)
+        self._sync_up_axis_combo()
+        if count:
+            self.canvas.fit_current_pose()
+
+    def _sync_up_axis_combo(self) -> None:
+        """Reflect the canvas's current orientation without re-triggering it."""
+        target = (self.canvas.up_axis, self.canvas.up_inverted)
+        index = self.up_axis_combo.findData(target)
+        if index >= 0:
+            self.up_axis_combo.blockSignals(True)
+            self.up_axis_combo.setCurrentIndex(index)
+            self.up_axis_combo.blockSignals(False)
+
+    def _on_up_axis_selected(self, index: int) -> None:
+        """Pin an explicit vertical axis chosen by the user."""
+        data = self.up_axis_combo.itemData(index)
+        if data is None:
+            return
+        axis, inverted = data
+        self.canvas.set_up_axis(axis, inverted, automatic=False)
+
+    def set_up_axis(self, axis: int, inverted: bool) -> None:
+        """Pin which source axis renders upward (see :meth:`Tracking3DCanvas.set_up_axis`)."""
+        self.canvas.set_up_axis(axis, inverted, automatic=False)
+        self._sync_up_axis_combo()
 
     def set_skeleton(self, edges: list[tuple[str, str]]) -> None:
         """Set explicit skeleton connectivity for the 3D view."""
