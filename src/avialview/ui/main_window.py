@@ -47,16 +47,6 @@ logger = logging.getLogger(__name__)
 _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
 
 
-def _is_aol_eks_loader(cls: type) -> bool:
-    """Check if *cls* is the AOL EKS loader without a top-level import."""
-    return cls.__name__ == "AOLEksLoader" and cls.__module__.endswith("aol_eks_loader")
-
-
-def _is_aol_encoder_loader(cls: type) -> bool:
-    """Check if *cls* is the AOL encoder loader without a top-level import."""
-    return cls.__name__ == "AOLEncoderLoader" and cls.__module__.endswith("aol_encoder_loader")
-
-
 class MainWindow(QMainWindow):
     time_mode_changed = Signal(object)  # TimeDisplayMode
 
@@ -877,9 +867,9 @@ class MainWindow(QMainWindow):
 
         if len(candidates) == 1:
             # Bypass dialog for single files only
-            for path, loader_cls in candidates:
+            for path, loader_cls, config in candidates:
                 if loader_cls is not None:
-                    self._route_import_candidate(path, loader_cls)
+                    self._route_import_candidate(path, loader_cls, config)
             return
 
         # Defer dialogs to avoid blocking the macOS drag-and-drop OS loop (prevents beachball)
@@ -888,30 +878,18 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, lambda: self._process_drop_candidates(candidates))
 
     def _route_import_candidate(
-        self, path: Path, loader_cls: type[TimeSeriesSource | VideoSource]
+        self, path: Path, loader_cls: type[TimeSeriesSource | VideoSource], config: dict | None = None
     ) -> None:
         """Route one capability-resolved source through its normal loader path."""
+        config = config or {}
         if issubclass(loader_cls, VideoSource):
-            fps = getattr(self, "_aol_camera_fps", 0.0)
-            config = {"fps": fps} if fps > 0 else {}
-
-            start_epochs = getattr(self, "_aol_video_start_epochs", {})
-            anchor_epoch = getattr(self, "_aol_anchor_epoch", 0.0)
-            start_epoch = 0.0
-            for vid_path, epoch in start_epochs.items():
-                if Path(vid_path).name.lower() == path.name.lower():
-                    start_epoch = epoch
-                    break
-
-            if anchor_epoch > 0.0 and start_epoch > 0.0:
-                start_epoch -= anchor_epoch
-
-            # TimeMap offset must be negative to map positive master time back to 0.0 source time
-            offset = -start_epoch
-
+            offset = config.get("offset", 0.0)
+            if "offset" in config:
+                config = dict(config)
+                del config["offset"]
             self._load_video(path, offset=offset, config=config)
         else:
-            self._start_data_import(path, loader_cls)
+            self._start_data_import(path, loader_cls, pre_config=config)
 
     def _process_drop_candidates(self, candidates: list[tuple[Path, type | None]]) -> None:
         """Present the batch import dialog and route accepted items."""
@@ -922,12 +900,12 @@ class MainWindow(QMainWindow):
         dialog = BatchImportDialog(candidates, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             selections = dialog.get_selections()
-            for path, loader_cls in selections:
-                self._route_import_candidate(path, loader_cls)
+            for path, loader_cls, config in selections:
+                self._route_import_candidate(path, loader_cls, config)
 
     def _collect_drop_candidates(
         self, path: Path, registry: Any = None
-    ) -> list[tuple[Path, type | None]]:
+    ) -> list[tuple[Path, type | None, dict | None]]:
         """Collect paths and their best-guess loaders recursively, avoiding session files."""
         if path.suffix.lower() == ".avv":
             try:
@@ -951,7 +929,7 @@ class MainWindow(QMainWindow):
         loader_class = registry.find_best_loader(path)
 
         if loader_class is not None:
-            return [(path, loader_class)]
+            return [(path, loader_class, None)]
 
         candidates = []
         if path.is_dir():
@@ -962,11 +940,13 @@ class MainWindow(QMainWindow):
                 if not child.name.startswith("."):
                     candidates.extend(self._collect_drop_candidates(child, registry=registry))
         else:
-            candidates.append((path, None))
+            candidates.append((path, None, None))
 
         return candidates
 
-    def _collect_aol_candidates(self, path: Path, registry: Any) -> list[tuple[Path, type | None]]:
+    def _collect_aol_candidates(
+        self, path: Path, registry: Any
+    ) -> list[tuple[Path, type | None, dict | None]]:
         """Build import candidates from an AOL session folder.
 
         Returns videos, EKS tracking files, and the encoder log with their
@@ -1002,21 +982,57 @@ class MainWindow(QMainWindow):
         else:
             self._aol_anchor_epoch = 0.0
 
-        candidates: list[tuple[Path, type | None]] = []
+        candidates: list[tuple[Path, type | None, dict | None]] = []
 
         # 1. Videos (labeled preferred, raw fallback)
         for video in manifest.videos:
             loader_cls = registry.find_best_loader(video)
             if loader_cls is not None:
-                candidates.append((video, loader_cls))
+                start_epoch = 0.0
+                for vid_path, epoch in manifest.video_start_epochs.items():
+                    if Path(vid_path).name.lower() == video.name.lower():
+                        start_epoch = epoch
+                        break
+                
+                if self._aol_anchor_epoch > 0.0 and start_epoch > 0.0:
+                    start_epoch -= self._aol_anchor_epoch
+                
+                config = {"offset": -start_epoch}
+                if manifest.camera_fps > 0:
+                    config["fps"] = manifest.camera_fps
+                    
+                candidates.append((video, loader_cls, config))
 
         # 2. EKS 3D tracking files
+        if manifest.skeleton:
+            self.tracking_3d_pane.set_skeleton(manifest.skeleton)
+
         for eks_file in manifest.eks_files:
-            candidates.append((eks_file, AOLEksLoader))
+            start_epoch = 0.0
+            cam_name_from_file = eks_file.name.split("_")[0]
+            cam_name_from_dir = eks_file.parent.name.split("_")[0]
+            
+            for vid_path, epoch in manifest.video_start_epochs.items():
+                vid_name = Path(vid_path).name
+                if cam_name_from_file in vid_name or cam_name_from_dir in vid_name:
+                    start_epoch = epoch
+                    break
+            
+            if self._aol_anchor_epoch > 0.0 and start_epoch > 0.0:
+                start_epoch -= self._aol_anchor_epoch
+
+            config = {
+                "fps": manifest.camera_fps,
+                "start_epoch": start_epoch,
+                "skeleton": manifest.skeleton,
+                "auto_resolved": True
+            }
+            candidates.append((eks_file, AOLEksLoader, config))
 
         # 3. Encoder log
         if manifest.encoder_file is not None:
-            candidates.append((manifest.encoder_file, AOLEncoderLoader))
+            config = {"anchor_date": manifest.anchor_date, "auto_resolved": True} if manifest.anchor_date else {"auto_resolved": True}
+            candidates.append((manifest.encoder_file, AOLEncoderLoader, config))
 
         logger.info(
             "AOL session detected: %d candidates from %s (fps=%.1f)",
@@ -1989,7 +2005,7 @@ class MainWindow(QMainWindow):
             self._start_data_import(Path(path))
 
     def _start_data_import(
-        self, path: Path, loader_cls: type[TimeSeriesSource] | None = None
+        self, path: Path, loader_cls: type[TimeSeriesSource] | None = None, pre_config: dict | None = None
     ) -> None:
         """Start a registry-selected time-series import for one path."""
         from avialview.core.registry import LoaderRegistry
@@ -2012,61 +2028,26 @@ class MainWindow(QMainWindow):
             return
 
         from avialview.loaders.csv_loader import CSVLoader
-        from avialview.loaders.tracking_loader import TrackingLoader
+
+        config = pre_config or {}
 
         if loader_cls is CSVLoader:
-            from avialview.ui.import_wizard import ImportWizard
+            if not config.get("auto_resolved"):
+                from avialview.ui.import_wizard import ImportWizard
 
-            wizard = ImportWizard(path, self)
-            if wizard.exec() != ImportWizard.DialogCode.Accepted:
-                return
-            config = wizard.config()
-        elif loader_cls is TrackingLoader:
-            fps, ok = self._resolve_tracking_fps()
-            if not ok:
-                return
-            config = {"fps": fps}
-            # No video loaded yet — track as provisional so we can re-bind on first video add
-            if not self._video_fps:
-                self._frame_indexed_sources.append((path, loader_cls, config))
-        elif _is_aol_eks_loader(loader_cls):
-            # AOL EKS: frame-indexed, fps from AOL manifest or manual entry
-            fps = getattr(self, "_aol_camera_fps", 0.0)
-            if fps <= 0:
+                wizard = ImportWizard(path, self)
+                if wizard.exec() != ImportWizard.DialogCode.Accepted:
+                    return
+                config = wizard.config()
+        elif loader_cls().is_frame_indexed():
+            if not config.get("auto_resolved") and "fps" not in config:
                 fps, ok = self._resolve_tracking_fps()
                 if not ok:
                     return
-
-            start_epoch = 0.0
-            start_epochs = getattr(self, "_aol_video_start_epochs", {})
-            # Try to match the EKS filename or its parent folder to a camera label (e.g. "FaceCam")
-            cam_name_from_file = path.name.split("_")[0]
-            cam_name_from_dir = path.parent.name.split("_")[0]
-
-            for vid_path, epoch in start_epochs.items():
-                vid_name = Path(vid_path).name
-                if cam_name_from_file in vid_name or cam_name_from_dir in vid_name:
-                    start_epoch = epoch
-                    break
-
-            anchor_epoch = getattr(self, "_aol_anchor_epoch", 0.0)
-            if anchor_epoch > 0.0 and start_epoch > 0.0:
-                start_epoch -= anchor_epoch
-
-            skeleton = getattr(self, "_aol_skeleton", [])
-            if skeleton:
-                self.tracking_3d_pane.set_skeleton(skeleton)
-
-            config = {"fps": fps, "start_epoch": start_epoch, "skeleton": skeleton}
+                config["fps"] = fps
+            
             if not self._video_fps:
                 self._frame_indexed_sources.append((path, loader_cls, config))
-        elif _is_aol_encoder_loader(loader_cls):
-            # AOL encoder: wall-clock time, no wizard needed
-            anchor_date = getattr(self, "_aol_anchor_date", None)
-            config = {"anchor_date": anchor_date} if anchor_date else {}
-        else:
-            # NeoLoader and other headless loaders that don't need UI config
-            config = {}
 
         self._enqueue_import(path, loader_cls, config)
 

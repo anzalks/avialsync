@@ -133,7 +133,8 @@ def test_rebind_clears_provisional_list(tmp_path, monkeypatch):
     win = MainWindow()
 
     csv = _write_dlc_csv(tmp_path / "pose.csv", n_frames=10)
-    win._frame_indexed_sources.append((csv, 10.0))
+    from avialview.loaders.tracking_loader import TrackingLoader
+    win._frame_indexed_sources.append((csv, TrackingLoader, {"fps": 10.0}))
 
     # Patch _enqueue_import and plot/sidebar so no actual work runs
     enqueued = []
@@ -162,7 +163,8 @@ def test_rebind_uses_new_fps(tmp_path, monkeypatch):
     csv = _write_dlc_csv(tmp_path / "pose.csv", n_frames=30)
     provisional_fps = 5.0
     video_fps = 30.0
-    win._frame_indexed_sources.append((csv, provisional_fps))
+    from avialview.loaders.tracking_loader import TrackingLoader
+    win._frame_indexed_sources.append((csv, TrackingLoader, {"fps": provisional_fps}))
 
     enqueued = []
     monkeypatch.setattr(win, "_enqueue_import", lambda p, lc, cfg: enqueued.append((p, lc, cfg)))

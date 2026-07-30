@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialview.ui.source_properties import VideoPropertiesPanel
 
 class SensorInfoWidget(QFrame):
     """Displays metadata and per-channel controls for one loaded sensor CSV."""
@@ -249,9 +250,6 @@ class VideoInfoWidget(QFrame):
         self._badge_btn.setVisible(False)
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
         header_layout.insertWidget(2, self._badge_btn)  # between name and close
-
-        # Properties panel (collapsible, from source_properties.py)
-        from avialview.ui.source_properties import VideoPropertiesPanel
 
         self._props_panel = VideoPropertiesPanel(loader=None, parent=self)
         self._loader: object = None

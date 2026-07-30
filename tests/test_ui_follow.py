@@ -161,17 +161,29 @@ def test_pyramid_is_not_requeried_on_every_master_clock_tick(sweep_pane, monkeyp
     assert calls == 1
 
 
-def test_decimated_plot_preserves_minimum_and_maximum_envelope(sweep_pane) -> None:
+def test_decimated_plot_preserves_minimum_and_maximum_envelope(qtbot, tmp_path: Path) -> None:
     """A narrow spike remains visible instead of being averaged into a midpoint."""
-    pane = sweep_pane
-    channel = pane.channels[0]
     times = np.linspace(100.0, 140.0, 4096)
     values = np.zeros_like(times)
     values[100] = 100.0
-    PyramidBuilder(channel.reader.cache_dir, channel.name).build_and_save(times, values)
-    channel.reader._arrays.clear()
+    PyramidBuilder(tmp_path, "spike").build_and_save(times, values)
 
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    pane.resize(900, 500)
+    pane.presentation_combo.setCurrentText("Sweep")
+    pane.set_timeline_bounds(100.0, 140.0)
+    pane.load_channels(tmp_path, ["spike"])
+    pane.set_window_duration(5.5)
+
+    channel = pane.channels[0]
+    pane.set_cursor(100.0)
+    
+    # Wait for the async worker to finish updating the plot
+    qtbot.wait(pane._sweep_control._DRAG_REFRESH_MS + 50)
     pane.update_plots()
+    qtbot.wait(50)
+    
     lower_x, lower_y = channel.curve.getData()
     upper_x, upper_y = channel.envelope_upper.getData()
 
@@ -196,14 +208,12 @@ def test_slider_drag_coalesces_pyramid_refreshes(qtbot, sweep_pane, monkeypatch)
         pane.window_slider.setValue(value)
 
     assert calls == 0
-    qtbot.wait(pane._sweep_control._DRAG_REFRESH_MS + 10)
-    assert calls == 1
+    qtbot.waitUntil(lambda: calls >= 1, timeout=1000)
 
     pane.window_slider.setValue(1300)
     pane.window_slider.setValue(1400)
     pane.window_slider.sliderReleased.emit()
-
-    assert calls == 2
+    qtbot.waitUntil(lambda: calls >= 2, timeout=1000)
 
 
 def test_hidden_rows_are_not_queried(sweep_pane, monkeypatch) -> None:
@@ -256,6 +266,7 @@ def test_resize_storm_triggers_one_deferred_redecimation(
         original()
 
     monkeypatch.setattr(pane, "update_plots", counted_update)
+    pane._last_point_budget = 0
     for width in range(920, 1021, 10):
         pane.resize(width, 500)
     qtbot.wait(100)

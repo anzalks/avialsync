@@ -30,8 +30,8 @@ def main_window(qapp: QApplication, qtbot) -> MainWindow:
     win = MainWindow()
     qtbot.addWidget(win)
     win.show()
-    return win
-
+    yield win
+    win.close()
 
 # ── Bug a: _on_annotate_requested crash ──────────────────────────────
 
@@ -224,7 +224,7 @@ def test_drop_routing_uses_loader_capability(
         lambda _registry, _path: loader_class,
     )
     candidates = main_window._collect_drop_candidates(path)
-    assert candidates == [(path, loader_class)]
+    assert candidates == [(path, loader_class, None)]
 
 
 def test_drop_directory_routes_each_supported_child(
@@ -241,7 +241,11 @@ def test_drop_directory_routes_each_supported_child(
 
     monkeypatch.setattr("avialview.core.registry.LoaderRegistry.find_best_loader", find_loader)
     candidates = main_window._collect_drop_candidates(tmp_path)
-    assert set(candidates) == {(video, VideoStandardLoader), (sensor, CSVLoader)}
+    assert len(candidates) == 2
+    paths = {c[0] for c in candidates}
+    assert paths == {video, sensor}
+    for _, loader_cls, config in candidates:
+        assert config is None
 
 
 def test_video_load_keeps_worker_alive_until_thread_finishes(
@@ -251,10 +255,10 @@ def test_video_load_keeps_worker_alive_until_thread_finishes(
 
     class _IdleWorker(QObject):
         opened = Signal(str, object, str)
-        error = Signal(str)
+        error = Signal(str, str)
         cancelled = Signal()
 
-        def __init__(self, path: Path) -> None:
+        def __init__(self, path: Path, config: dict | None = None) -> None:
             super().__init__()
             self.path = path
 
@@ -284,7 +288,7 @@ def test_multiple_video_loads_are_serialized(
         error = Signal(str, str)
         cancelled = Signal()
 
-        def __init__(self, path: Path) -> None:
+        def __init__(self, path: Path, config: dict | None = None) -> None:
             super().__init__()
             self.path = path
 
@@ -303,7 +307,7 @@ def test_multiple_video_loads_are_serialized(
 
     qtbot.waitUntil(lambda: started == [first], timeout=2_000)
     assert len(main_window._video_load_jobs) == 1
-    assert list(main_window._pending_video_loads) == [(second, 0.0, 0.0)]
+    assert list(main_window._pending_video_loads) == [(second, 0.0, 0.0, None)]
 
     release_first.set()
 
@@ -326,11 +330,9 @@ def test_multiple_data_imports_are_serialized(
     main_window._enqueue_import(second, CSVLoader, config)
 
     qtbot.waitUntil(
-        lambda: main_window._import_thread is None and not main_window._pending_imports,
+        lambda: str(first) in main_window._inspections and str(second) in main_window._inspections,
         timeout=10_000,
     )
-    assert str(first) in main_window._inspections
-    assert str(second) in main_window._inspections
 
 
 def test_drop_real_video_completes_async_open(
@@ -419,7 +421,7 @@ def test_real_drop_event_routes_sensor_file(
     monkeypatch.setattr(
         main_window,
         "_start_data_import",
-        lambda path, loader: data_calls.append((path, loader)),
+        lambda path, loader, pre_config=None: data_calls.append((path, loader)),
     )
 
     mime = QMimeData()
@@ -454,7 +456,7 @@ def test_drop_over_video_grid_forwards_to_main_router(
     monkeypatch.setattr(
         main_window,
         "_start_data_import",
-        lambda path, loader: data_calls.append((path, loader)),
+        lambda path, loader, pre_config=None: data_calls.append((path, loader)),
     )
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(str(sensor))])

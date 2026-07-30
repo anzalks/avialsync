@@ -19,8 +19,10 @@ def test_windows_render_widget_has_video_pane_parent(monkeypatch, qapp) -> None:
         def event_callback(self, _name: str):
             return lambda callback: callback
 
-        def seek(self, target: float, **kwargs: object) -> None:
-            self.seek_calls.append((target, kwargs))
+        def command_async(self, name: str, *args: object, **kwargs: object) -> None:
+            if name == "seek":
+                target = args[0]
+                self.seek_calls.append((target, args[1:]))
 
     monkeypatch.setattr(video_pane, "probe_libmpv", lambda _parent: True)
     monkeypatch.setattr(video_pane.sys, "platform", "win32")
@@ -34,7 +36,7 @@ def test_windows_render_widget_has_video_pane_parent(monkeypatch, qapp) -> None:
     assert pane.mpv.seek_calls == []
 
     pane._on_file_loaded()
-    assert pane.mpv.seek_calls == [(2.5, {"reference": "absolute", "precision": "exact"})]
+    assert pane.mpv.seek_calls == [(2.5, ('absolute', 'exact'))]
     assert pane.is_seeking
 
     pane._observe_seeking(False)

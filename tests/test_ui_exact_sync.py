@@ -65,3 +65,5 @@ def test_exact_sync_flow(qtbot, tmp_path: Path):
     session = window._build_session_state()
     assert session.sync_provenance[0].exact_master[5] == pytest.approx(master_times[5])
     assert session.sync_provenance[0].exact_source[5] == pytest.approx(frame_times[5])
+
+    window.close()

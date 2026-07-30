@@ -135,17 +135,26 @@ class VideoPane(VideoTimingMixin, QWidget):
                     @self.mpv.property_observer("time-pos")
                     def time_observer(_name: str, value: float) -> None:
                         if value is not None:
-                            self.parent_pane._observe_time(float(value))
+                            try:
+                                self.parent_pane._observe_time(float(value))
+                            except RuntimeError:
+                                pass
 
                     @self.mpv.property_observer("estimated-vf-fps")
                     def fps_observer(_name: str, value: float) -> None:
                         if value is not None:
-                            self.parent_pane._decoder_fps = float(value)
+                            try:
+                                self.parent_pane._decoder_fps = float(value)
+                            except RuntimeError:
+                                pass
 
                     @self.mpv.property_observer("seeking")
                     def seeking_observer(_name: str, value: bool) -> None:
                         if value is not None:
-                            self.parent_pane._observe_seeking(bool(value))
+                            try:
+                                self.parent_pane._observe_seeking(bool(value))
+                            except RuntimeError:
+                                pass
 
                 def initializeGL(self) -> None:
                     ctx = QOpenGLContext.currentContext()
@@ -439,7 +448,7 @@ class VideoPane(VideoTimingMixin, QWidget):
             self._seek_pending = True
             self._mpv_seeking = True
             self.is_seeking = True
-            self.mpv.seek(t, reference="absolute", precision=precision)
+            self.mpv.command_async('seek', t, 'absolute', precision)
         except Exception:
             # mpv may raise SystemError -12 if we seek before it has finished loading the file
             self._seek_pending = False
@@ -449,15 +458,15 @@ class VideoPane(VideoTimingMixin, QWidget):
 
     def frame_step(self, forward: bool = True) -> None:
         """Step one frame forward or backward."""
-        if not self.mpv:
+        if not self.mpv or not self._media_loaded:
             return
         try:
             if forward:
-                self.mpv.command("frame-step")
+                self.mpv.command_async("frame-step")
             else:
-                self.mpv.command("frame-back-step")
+                self.mpv.command_async("frame-back-step")
         except Exception:
-            logger.warning("Video frame step failed", exc_info=True)
+            logger.warning("Frame step failed", exc_info=True)
 
     def close(self) -> None:
         """Terminate mpv before closing the widget."""

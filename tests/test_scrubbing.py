@@ -47,7 +47,9 @@ def player_with_mocks():
     player.seeker = MagicMock()
     player.seeker.panes = []
 
-    return player, clock
+    yield player, clock
+    
+    player._timer.stop()
 
 
 def test_coalesce_when_seeker_busy(player_with_mocks):
@@ -144,7 +146,9 @@ def test_busy_video_seek_never_freezes_master_timeline(player_with_mocks, monkey
     player.seeker.is_settled.return_value = False
     clock.play()
     clock.advance(100.0)
-    monotonic_times = iter(100.0 + step / 60.0 for step in range(1, 121))
+    from itertools import cycle
+
+    monotonic_times = cycle(100.0 + step / 60.0 for step in range(1, 121))
     monkeypatch.setattr(
         "avialview.engine.player.time.monotonic",
         lambda: next(monotonic_times),

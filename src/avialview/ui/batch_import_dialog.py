@@ -38,7 +38,7 @@ class BatchImportDialog(QDialog):
 
     def __init__(
         self,
-        candidates: Sequence[tuple[Path, type[TimeSeriesSource | VideoSource] | None]],
+        candidates: Sequence[tuple[Path, type[TimeSeriesSource | VideoSource] | None, dict | None]],
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -47,9 +47,9 @@ class BatchImportDialog(QDialog):
 
         # Sort candidates: group by detected loader type, then alphabetically by filename
         def sort_key(
-            item: tuple[Path, type[TimeSeriesSource | VideoSource] | None],
+            item: tuple[Path, type[TimeSeriesSource | VideoSource] | None, dict | None],
         ) -> tuple[str, str]:
-            path, loader_cls = item
+            path, loader_cls, _config = item
             type_name = loader_cls.__name__ if loader_cls else "zzz_none"
             return (type_name, path.name.lower())
 
@@ -71,7 +71,7 @@ class BatchImportDialog(QDialog):
 
         self._combos: list[QComboBox] = []
 
-        for row, (path, default_loader) in enumerate(self._candidates):
+        for row, (path, default_loader, _config) in enumerate(self._candidates):
             name_item = QTableWidgetItem(path.name)
             name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             name_item.setToolTip(str(path))
@@ -118,11 +118,11 @@ class BatchImportDialog(QDialog):
             if loader.__name__ not in default_class_names:
                 self._categories.append((f"{loader.__name__} (Plugin)", loader))
 
-    def get_selections(self) -> list[tuple[Path, type[TimeSeriesSource | VideoSource]]]:
-        """Return the user-approved (Path, Loader) pairs."""
+    def get_selections(self) -> list[tuple[Path, type[TimeSeriesSource | VideoSource], dict | None]]:
+        """Return the user-approved (Path, Loader, Config) tuples."""
         results = []
-        for (path, _), combo in zip(self._candidates, self._combos, strict=True):
+        for (path, _, config), combo in zip(self._candidates, self._combos, strict=True):
             loader_cls = combo.currentData()
             if loader_cls is not None:
-                results.append((path, loader_cls))
+                results.append((path, loader_cls, config))
         return results
