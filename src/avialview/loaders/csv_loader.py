@@ -29,6 +29,10 @@ class CSVLoader(TimeSeriesSource):
             return 0.8
         return 0.0
 
+    @classmethod
+    def needs_import_wizard(cls) -> bool:
+        return True
+
     def open(self, path: Path, config: dict[str, Any]) -> None:
         self._path = path
         self._config = config

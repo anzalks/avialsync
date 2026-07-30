@@ -39,24 +39,31 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   │   ├── csv_loader.py             # polars; chunked ingest (D-005); tz/anchor/sentinel config
 │   │   ├── video_standard.py         # ffprobe metadata + mmap-cached presentation timestamps
 │   │   ├── tracking_loader.py        # DeepLabCut CSV; multi-scorer, bodypart/coord flat-headers
-│   │   └── neo_loader.py             # Neo electrophysiology; OpenEphys/NCS/NIX; BFS root detect
+│   │   ├── neo_loader.py             # Neo electrophysiology; OpenEphys/NCS/NIX; BFS root detect
+│   │   ├── aol_session_loader.py     # AOL folder detection + manifest (videos, 2D/3D pose, encoder, timing)
+│   │   ├── aol_eks_loader.py         # AOL 3D EKS triangulation CSV; frame-indexed x/y/z triplets
+│   │   └── aol_encoder_loader.py     # AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045)
 │   ├── engine/                       # playback machinery (imports core + mpv, no widgets)
 │   │   ├── player.py                 # clock→mpv fanout, hysteresis drift correction
 │   │   ├── seeker.py                 # parallel exact/keyframe seeks, settle detection
 │   │   ├── importer.py               # QThread worker: parse → cache → pyramid; progress + cancel signals
 │   │   ├── export.py                 # snapshot, data slice (CSV/Parquet), video clip trim
 │   │   ├── proxy.py                  # ffmpeg short-GOP proxies + prepare() conversion flow (D-006)
-│   │   └── sync_worker.py            # chunked event extraction and deterministic fitting (D-026)
+│   │   ├── sync_worker.py            # chunked event extraction and deterministic fitting (D-026)
+│   │   ├── drop_worker.py            # off-thread drop classification; AOL session fan-out + pose roles (D-046)
+│   │   ├── session_worker.py         # off-thread .avv save/load
+│   │   ├── export_worker.py          # off-thread region stats, data slice, clip, snapshot jobs
+│   │   └── video_worker.py           # off-thread video probe before native pane creation
 │   ├── ui/                           # PySide6 widgets only; no business logic
 │   │   ├── main_window.py            # Left sidebar (metadata, offsets, file management) + right content (video grid, plots)
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
 │   │   ├── video_timing.py           # timestamp rates, OSD text, frame lookup/step behavior
-│   │   ├── video_overlay.py          # transparent current-frame tracking overlay
+│   │   ├── video_overlay.py          # transparent overlay; multi-source 2D pose tracks + legend (D-046)
 │   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
 │   │   ├── plot_row.py               # one channel row's plot/curve/close-control construction
 │   │   ├── plot_sweep.py             # shared continuous window control + deterministic sweep state
-|   |   |-- tracking_3d_pane.py       # cache-backed current-pose projection; orbit/zoom (D-041)
+|   |   |-- tracking_3d_pane.py       # cache-backed current-pose projection; orbit/zoom (D-041); head-up axis (D-046)
 │   │   ├── transport.py              # two-row timeline + named evidence lanes, controls, status, A/B loop
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
 │   │   ├── sync_wizard.py            # evidence selection, residual preview, explicit acceptance (D-026)

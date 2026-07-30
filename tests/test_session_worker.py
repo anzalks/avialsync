@@ -18,13 +18,8 @@ import pytest
 from PySide6.QtCore import QThread, QTimer
 
 from avialview.core.session import SessionState, SyncProvenance, VideoEntry
-from avialview.engine.session_worker import (
-    ANNOTATION_HEADER,
-    AnnotationExportWorker,
-    AnnotationRow,
-    SessionLoadWorker,
-    SessionSaveWorker,
-)
+from avialview.engine.export_worker import AnnotationExportWorker
+from avialview.engine.session_worker import SessionLoadWorker, SessionSaveWorker
 from avialview.ui.annotations import AnnotationStore, VideoFrame
 from avialview.ui.main_window import MainWindow
 
@@ -56,12 +51,12 @@ def _run_in_thread(worker, qtbot) -> None:
 def test_save_worker_writes_the_session(qtbot, tmp_path: Path, state: SessionState) -> None:
     path = tmp_path / "s.avv"
     worker = SessionSaveWorker(state, path)
-    done: list[str] = []
-    worker.finished.connect(done.append)
+    done: list[bool] = []
+    worker.finished.connect(lambda: done.append(True))
 
     _run_in_thread(worker, qtbot)
 
-    assert done == [str(path)]
+    assert done == [True]
     assert json.loads(path.read_text())["version"] == 6
 
 
@@ -100,13 +95,13 @@ def test_load_worker_parses_the_session(qtbot, tmp_path: Path, state: SessionSta
     path = tmp_path / "s.avv"
     state.save(path)
     worker = SessionLoadWorker(path)
-    results: list[tuple[str, object]] = []
-    worker.finished.connect(lambda p, s: results.append((p, s)))
+    results: list[object] = []
+    worker.finished.connect(results.append)
 
     _run_in_thread(worker, qtbot)
 
     assert len(results) == 1
-    loaded = results[0][1]
+    loaded = results[0]
     assert isinstance(loaded, SessionState)
     assert loaded.videos[0].offset == pytest.approx(1.5)
 
@@ -138,7 +133,9 @@ def test_load_worker_reports_an_unsupported_version(qtbot, tmp_path: Path) -> No
 # ── Annotation export ─────────────────────────────────────────────────
 
 
-def test_annotation_rows_snapshot_every_marker_video_pair() -> None:
+def test_annotation_export_worker_writes_one_row_per_marker_video_pair(
+    qtbot, tmp_path: Path
+) -> None:
     store = AnnotationStore()
     store.add_point(
         1.0,
@@ -149,39 +146,33 @@ def test_annotation_rows_snapshot_every_marker_video_pair() -> None:
         ],
     )
     store.add_point(2.0, label="swing")
-
-    rows = store.export_rows()
-
-    assert len(rows) == 3
-    assert [row.video_path for row in rows] == ["/cam/a.mp4", "/cam/b.mp4", ""]
-    assert rows[2].frame_index == ""
-
-
-def test_annotation_rows_are_detached_from_the_store() -> None:
-    """A worker must not see edits made while it writes."""
-    store = AnnotationStore()
-    store.add_point(1.0, label="original")
-    rows = store.export_rows()
-
-    store.clear()
-    store.add_point(9.0, label="changed")
-
-    assert [row.label for row in rows] == ["original"]
-
-
-def test_annotation_export_worker_writes_the_expected_csv(qtbot, tmp_path: Path) -> None:
-    rows = [AnnotationRow("stance", "", 1.0, "/cam/a.mp4", 30, 1.0)]
     path = tmp_path / "ann.csv"
-    worker = AnnotationExportWorker(rows, path)
-    done: list[tuple[str, int]] = []
+    worker = AnnotationExportWorker(store.markers, path)
+    done: list[tuple[Path, int]] = []
     worker.finished.connect(lambda p, n: done.append((p, n)))
 
     _run_in_thread(worker, qtbot)
 
-    assert done == [(str(path), 1)]
+    assert done == [(path, 2)]
     lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[0].split(",") == list(ANNOTATION_HEADER)
-    assert lines[1].startswith("stance,,1.0,/cam/a.mp4,30,1.0")
+    assert lines[0].split(",")[:3] == ["label", "comment", "t_master"]
+    # Two video frames on the first marker, none on the second.
+    assert len(lines) == 4
+
+
+def test_annotation_export_snapshot_is_detached_from_the_store(qtbot, tmp_path: Path) -> None:
+    """The worker deep-copies at construction, so later edits cannot leak in."""
+    store = AnnotationStore()
+    store.add_point(1.0, label="original")
+    path = tmp_path / "ann.csv"
+    worker = AnnotationExportWorker(store.markers, path)
+
+    store.clear()
+    store.add_point(9.0, label="changed")
+    _run_in_thread(worker, qtbot)
+
+    assert "original" in path.read_text(encoding="utf-8")
+    assert "changed" not in path.read_text(encoding="utf-8")
 
 
 def test_annotation_export_worker_reports_an_unwritable_path(qtbot, tmp_path: Path) -> None:
@@ -253,8 +244,9 @@ def test_main_window_autosave_uses_a_worker(qtbot, tmp_path: Path) -> None:
 
     window._autosave()
 
-    assert window._session_thread is not None
-    with qtbot.waitSignal(window._session_thread.finished, timeout=10_000):
+    assert window._jobs, "autosave did not register an owned background job"
+    thread = next(iter(window._jobs))
+    with qtbot.waitSignal(thread.finished, timeout=10_000):
         pass
     assert (tmp_path / "auto.avv").exists()
     window.close()
@@ -269,4 +261,4 @@ def test_main_window_close_writes_the_final_autosave_synchronously(qtbot, tmp_pa
     window.close()
 
     assert (tmp_path / "final.avv").exists()
-    assert window._session_thread is None
+    assert not window._jobs

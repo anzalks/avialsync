@@ -31,6 +31,7 @@ class VideoGrid(QWidget):
         self._paths: list[str] = []
         self._pane_enabled: list[bool] = []
         self._grid_mode: bool = False
+        self._batch_depth: int = 0
 
         self._layout = QGridLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
@@ -88,6 +89,19 @@ class VideoGrid(QWidget):
         for pane in self.panes:
             pane.set_tracking_readers(readers)
 
+    def set_overlay_tracks(self, path: str, tracks: list) -> None:
+        """Attach named 2D prediction tracks to the pane showing *path* only.
+
+        2D pose data is camera-specific: a track extracted from SideCam must
+        never be painted over FaceCam, so this routes by exact video path
+        instead of broadcasting like :meth:`set_tracking_readers`.
+        """
+        try:
+            index = self._paths.index(path)
+        except ValueError:
+            return
+        self.panes[index].set_overlay_tracks(tracks)
+
     def set_grid_mode(self, enabled: bool) -> None:
         """Switch between horizontal-strip and NxN grid layout."""
         if enabled == self._grid_mode:
@@ -113,8 +127,9 @@ class VideoGrid(QWidget):
         self._paths.append(path)
         self._pane_enabled.append(True)
         pane.open(media_path or path)
-        self._relayout()
-        self._update_labels()
+        if self._batch_depth == 0:
+            self._relayout()
+            self._update_labels()
         return pane
 
     def remove_pane(self, path: str) -> None:
@@ -135,9 +150,10 @@ class VideoGrid(QWidget):
         self._layout.removeWidget(pane)
         pane.close()
         pane.deleteLater()
-        self._relayout()
-        self._update_labels()
-        self.displayed_panes_changed.emit()
+        if self._batch_depth == 0:
+            self._relayout()
+            self._update_labels()
+            self.displayed_panes_changed.emit()
 
     def shutdown(self) -> None:
         """Terminate all libmpv panes before their Qt parent is destroyed."""
@@ -195,62 +211,78 @@ class VideoGrid(QWidget):
 
     # ── Internal ──────────────────────────────────────────────────────
 
+    def begin_batch_add(self) -> None:
+        """Defer relayout until end_batch_add(). Use for multi-file drops."""
+        self._batch_depth += 1
+
+    def end_batch_add(self) -> None:
+        """Resume relayout after a batch add sequence."""
+        self._batch_depth = max(0, self._batch_depth - 1)
+        if self._batch_depth == 0:
+            self._relayout()
+            self._update_labels()
+            self.displayed_panes_changed.emit()
+
     def _relayout(self) -> None:
         """Remove all widgets from the grid and re-add them in the
         current arrangement (strip or NxN).  Widgets stay parented to
         *self* the whole time — only their grid position changes."""
 
-        # Remove every widget from the layout without unparenting
-        while self._layout.count():
-            self._layout.takeAt(0)
+        self.setUpdatesEnabled(False)
+        try:
+            # Remove every widget from the layout without unparenting
+            while self._layout.count():
+                self._layout.takeAt(0)
 
-        # Reset stretches
-        for c in range(self._layout.columnCount()):
-            self._layout.setColumnStretch(c, 0)
-        for r in range(self._layout.rowCount()):
-            self._layout.setRowStretch(r, 0)
+            # Reset stretches
+            for c in range(self._layout.columnCount()):
+                self._layout.setColumnStretch(c, 0)
+            for r in range(self._layout.rowCount()):
+                self._layout.setRowStretch(r, 0)
 
-        for pane in self.panes:
-            pane.setVisible(False)
-        visible_panes = self.visible_panes()
-        n = len(visible_panes)
+            for pane in self.panes:
+                pane.setVisible(False)
+            visible_panes = self.visible_panes()
+            n = len(visible_panes)
 
-        # ── Empty state ──────────────────────────────────────────
-        if n == 0:
-            self.lbl_empty.setVisible(True)
-            self._layout.addWidget(self.lbl_empty, 0, 0)
-            return
+            # ── Empty state ──────────────────────────────────────────
+            if n == 0:
+                self.lbl_empty.setVisible(True)
+                self._layout.addWidget(self.lbl_empty, 0, 0)
+                return
 
-        self.lbl_empty.setVisible(False)
+            self.lbl_empty.setVisible(False)
 
-        # ── Fullscreen override ──────────────────────────────────
-        if self._fullscreen_pane and self._fullscreen_pane in visible_panes:
-            self._fullscreen_pane.setVisible(True)
-            self._layout.addWidget(self._fullscreen_pane, 0, 0)
-            self._layout.setColumnStretch(0, 1)
-            self._layout.setRowStretch(0, 1)
-            return
+            # ── Fullscreen override ──────────────────────────────────
+            if self._fullscreen_pane and self._fullscreen_pane in visible_panes:
+                self._fullscreen_pane.setVisible(True)
+                self._layout.addWidget(self._fullscreen_pane, 0, 0)
+                self._layout.setColumnStretch(0, 1)
+                self._layout.setRowStretch(0, 1)
+                return
 
-        # ── Normal: only user-enabled panes visible ──────────────
-        for pane in visible_panes:
-            pane.setVisible(True)
+            # ── Normal: only user-enabled panes visible ──────────────
+            for pane in visible_panes:
+                pane.setVisible(True)
 
-        if self._grid_mode:
-            cols = math.ceil(math.sqrt(n))
-            for i, pane in enumerate(visible_panes):
-                row, col = divmod(i, cols)
-                self._layout.addWidget(pane, row, col)
-            for c in range(cols):
-                self._layout.setColumnStretch(c, 1)
-            rows = math.ceil(n / cols)
-            for r in range(rows):
-                self._layout.setRowStretch(r, 1)
-        else:
-            # Horizontal strip: all in row 0
-            for i, pane in enumerate(visible_panes):
-                self._layout.addWidget(pane, 0, i)
-                self._layout.setColumnStretch(i, 1)
-            self._layout.setRowStretch(0, 1)
+            if self._grid_mode:
+                cols = math.ceil(math.sqrt(n))
+                for i, pane in enumerate(visible_panes):
+                    row, col = divmod(i, cols)
+                    self._layout.addWidget(pane, row, col)
+                for c in range(cols):
+                    self._layout.setColumnStretch(c, 1)
+                rows = math.ceil(n / cols)
+                for r in range(rows):
+                    self._layout.setRowStretch(r, 1)
+            else:
+                # Horizontal strip: all in row 0
+                for i, pane in enumerate(visible_panes):
+                    self._layout.addWidget(pane, 0, i)
+                    self._layout.setColumnStretch(i, 1)
+                self._layout.setRowStretch(0, 1)
+        finally:
+            self.setUpdatesEnabled(True)
 
     def _update_labels(self) -> None:
         """Update camera labels, disambiguating duplicate filenames."""

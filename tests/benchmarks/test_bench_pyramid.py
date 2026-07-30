@@ -56,8 +56,11 @@ def test_bench_pyramid_build(benchmark, tmp_path: Path, large_dataset):
     benchmark.pedantic(do_build, setup=setup, rounds=5)
 
     budget = _PYRAMID_BUILD_BUDGET_S
-    assert benchmark.stats["mean"] <= budget, (
-        f"Pyramid build mean {benchmark.stats['mean']:.3f}s exceeds "
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= budget, (
+        f"Pyramid build mean {stats['mean']:.3f}s exceeds "
         f"budget {budget:.1f}s. Fix pyramid.py; do not relax the engineering mark."
     )
 
@@ -79,9 +82,11 @@ def test_bench_pyramid_query(benchmark, tmp_path: Path, large_dataset):
     benchmark(do_query)
 
     budget = _PYRAMID_QUERY_BUDGET_S
-    assert benchmark.stats["mean"] <= budget, (
-        f"Pyramid query mean {benchmark.stats['mean'] * 1000:.3f}ms exceeds "
-        f"budget {budget * 1000:.1f}ms."
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= budget, (
+        f"Pyramid query mean {stats['mean'] * 1000:.3f}ms exceeds budget {budget * 1000:.1f}ms."
     )
 
 
@@ -148,8 +153,11 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
     benchmark(tick)
 
     budget = _CURSOR_UPDATE_BUDGET_S
-    assert benchmark.stats["mean"] <= budget, (
-        f"Cursor update mean {benchmark.stats['mean'] * 1000:.3f}ms exceeds "
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= budget, (
+        f"Cursor update mean {stats['mean'] * 1000:.3f}ms exceeds "
         f"budget {budget * 1000:.1f}ms."
         " See BLUEPRINT.md ★ cursor-update budget."
     )
@@ -197,8 +205,11 @@ def test_bench_four_channel_window_refresh(benchmark, tmp_path: Path):
 
     benchmark(refresh_window)
 
-    assert benchmark.stats["mean"] <= _WINDOW_REFRESH_BUDGET_S, (
-        f"Four-channel window refresh mean {benchmark.stats['mean'] * 1000:.3f}ms "
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= _WINDOW_REFRESH_BUDGET_S, (
+        f"Four-channel window refresh mean {stats['mean'] * 1000:.3f}ms "
         f"exceeds UI budget {_WINDOW_REFRESH_BUDGET_S * 1000:.1f}ms."
     )
     pane.close()

@@ -321,6 +321,13 @@ outside that invocation; that message does not mean the full-package overrides a
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
 | `engine/player.py` | precise 60 Hz tick; decoder-independent MasterClock ↔ mpv ↔ UI | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
 | `engine/seeker.py` | Parallel seek across all mpv panes | `SeekGroup` |
+| `engine/drop_worker.py` | Off-thread drop classification; AOL session fan-out, pose `role` tagging (D-046) | `DropScanWorker` — signals: `finished(candidates, is_aol)`, `session_found`, `error` |
+| `engine/session_worker.py` | Off-thread `.avv` save/load | `SessionSaveWorker`, `SessionLoadWorker` |
+| `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `ReaderReference` |
+| `engine/video_worker.py` | Off-thread video probe before native pane creation | `VideoOpenWorker` |
+| `loaders/aol_session_loader.py` | AOL folder detection + manifest (videos, 2D/3D pose, encoder, timing) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |
+| `loaders/aol_eks_loader.py` | AOL 3D EKS CSV; frame-indexed x/y/z triplets | `AOLEksLoader` (`read_all_chunks` is the bulk API) |
+| `loaders/aol_encoder_loader.py` | AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045) | `AOLEncoderLoader` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
 | `engine/sync_worker.py` | Chunked event extraction and deterministic alignment fit (D-026) | `SyncWorker`, evidence specs |
@@ -450,6 +457,32 @@ _start_data_import(path)
 ---
 
 ## Known Traps
+
+### 0a. A `QObject` moved to a `QThread` needs an owning Python reference
+`worker.moveToThread(thread)` does **not** transfer ownership. With no Python reference the wrapper
+is garbage-collected before `QThread.started` fires and `run()` never executes — silently, with no
+error. This killed drag-and-drop and session save/load simultaneously.
+**Fix:** start every background job through `MainWindow._run_job()`, which keeps the pair in
+`self._jobs` until `thread.finished`. Never hand-roll the `QThread(self)` + `moveToThread` dance.
+
+### 0b. Do NOT add the anchor date to AOL encoder timestamps (D-045)
+The AOL master axis is *seconds since midnight UTC*: `drop_worker` subtracts the anchor epoch from
+video/EKS start epochs, landing them on the axis `_parse_wall_clock` already produces. Adding
+`config["anchor_date"]` inside `AOLEncoderLoader` shifts it ~20.6 days out of alignment. Measured on
+the reference session: video `[34526.312…34586.502]`, EKS `[34526.312…34586.499]`, encoder
+`[34526.082…34586.964]`. `test_encoder_axis_is_seconds_since_midnight` guards this.
+
+### 0c. AOL pose data must not become plot rows (D-046)
+One session emits 27 3D channels and ~81 2D channels *per camera* (12 pose files across 3 cameras on
+the reference session). Import candidates carry `role="overlay2d"`/`"pose3d"`; `_on_import_finished`
+routes those to the overlay / 3D view instead of `plot_pane.load_channels`. 2D goes to the pane for
+its own video path only — every camera and model emits `head_bar_x`, so broadcasting paints SideCam
+points over FaceCam. 2D carries no `start_epoch` (overlay uses mpv's media clock); 3D does (master time).
+
+### 0d. `"_eks.csv".split("_")[0]` is `""` — and `"" in name` matches everything
+The session-level 3D file names no camera, so substring-matching its leading token bound it to
+whichever video came first. Blank tokens are ignored in `_resolve_eks_start_epoch`, which falls back
+to the earliest camera start with a log line.
 
 ### 1. No bare `QWidget { }` QSS selector — blacks out video panes
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  

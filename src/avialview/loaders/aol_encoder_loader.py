@@ -3,8 +3,23 @@
 Parses MATLAB-generated encoder_log.txt files with space-separated columns:
     HH:MM:SS:mmm  counter  position  velocity
 
-Only the velocity channel is imported. The wall-clock timestamp (column 0)
-is used as the primary time axis with an anchor date for absolute time.
+Only the velocity channel is imported.
+
+Master-time axis (do not "fix" this without reading DECISIONS.md):
+    Encoder timestamps are emitted as **seconds since midnight UTC**, which is
+    deliberately the same axis AOL videos and EKS tracking land on.  The AOL
+    manifest reads each camera's absolute start epoch, and
+    ``drop_worker._collect_aol_candidates`` then *subtracts* the session's
+    anchor-date epoch from it -- putting video and EKS on seconds-since-midnight
+    too.  ``config["anchor_date"]`` is therefore accepted for provenance but
+    intentionally NOT added here: doing so shifts the encoder a whole date
+    (~20.6 days on the reference session) away from the video it must align with.
+    Verified on 2026-05-08/experiment_1/09-35-24: video [34526.312..34586.502],
+    EKS [34526.312..34586.499], encoder [34526.082..34586.964].
+
+    Across midnight the axis is *unwrapped* (86400, 86401, ...) rather than
+    wrapped back to 0, because video/EKS master time is epoch-derived and keeps
+    increasing.  See ``_unwrap_midnight``.
 """
 
 import logging
@@ -15,7 +30,7 @@ from typing import Any
 
 import numpy as np
 
-from avialview.core.errors import NonMonotonicTimeError
+from avialview.core.errors import MissingColumnError, NonMonotonicTimeError, SourceOpenError
 from avialview.core.source import ChannelInfo, TimeSeriesSource
 
 logger = logging.getLogger(__name__)
@@ -24,10 +39,14 @@ logger = logging.getLogger(__name__)
 _TIME_RE = re.compile(r"^(\d{2}):(\d{2}):(\d{2}):(\d{3})$")
 
 _CHUNK_SIZE = 50_000
+_VELOCITY_CHANNEL = "encoder_velocity"
+# A backward jump larger than half a day is a date rollover, not bad data.
+_ROLLOVER_THRESHOLD_S = 43_200.0
+_SECONDS_PER_DAY = 86_400.0
 
 
 class AOLEncoderLoader(TimeSeriesSource):
-    """Loads CSV files in chunks using polars.
+    """Loads AOL encoder logs in bounded chunks.
 
     Format: space-separated, no header, 4 columns:
         wall-clock (HH:MM:SS:mmm)  counter  position  velocity
@@ -71,16 +90,25 @@ class AOLEncoderLoader(TimeSeriesSource):
 
         parts = line.split()
         if len(parts) < 4:
-            raise ValueError(
-                f"Expected 4 space-separated columns in encoder log, got {len(parts)}: {path}"
+            raise SourceOpenError(
+                f"Expected 4 space-separated columns in encoder log, got {len(parts)}: {path}. "
+                "Check that this is an AOL encoder_log.txt and not another text file."
             )
         if not _TIME_RE.match(parts[0]):
-            raise ValueError(f"First column does not match HH:MM:SS:mmm pattern: '{parts[0]}'")
+            raise SourceOpenError(
+                f"First encoder column does not match HH:MM:SS:mmm: '{parts[0]}' in {path}. "
+                "Check that this is an AOL encoder_log.txt written by the MATLAB logger."
+            )
 
     def channels(self) -> list[ChannelInfo]:
-        """Return a single velocity channel."""
+        """Return a single velocity channel.
+
+        ``rate_hz`` stays ``None``: the logger writes at roughly 1 kHz but only
+        millisecond resolution, so repeated timestamps are collapsed on ingest
+        and the effective interval is genuinely irregular.
+        """
         return [
-            ChannelInfo(name="encoder_velocity", unit="deg/s", dtype="Float64", rate_hz=None),
+            ChannelInfo(name=_VELOCITY_CHANNEL, unit="deg/s", dtype="Float64", rate_hz=None),
         ]
 
     @staticmethod
@@ -93,16 +121,26 @@ class AOLEncoderLoader(TimeSeriesSource):
         return h * 3600.0 + mi * 60.0 + s + ms / 1000.0
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
-        """Yield (time, value) chunks for the requested channel."""
-        if ch != "encoder_velocity":
-            raise KeyError(f"Unknown encoder channel: {ch}")
+        """Yield bounded (time, value) chunks for the requested channel.
+
+        Chunk boundaries are carried the same way ``CSVLoader._read_batches``
+        carries them, so chronology checks and duplicate collapsing behave
+        identically whether two samples land in one chunk or straddle two.
+        """
+        if ch != _VELOCITY_CHANNEL:
+            raise MissingColumnError(ch, [_VELOCITY_CHANNEL])
 
         if self._path is None:
-            raise RuntimeError("Source not opened")
+            raise SourceOpenError(
+                "Encoder source used before open(). Call open(path, config) first."
+            )
 
         times: list[float] = []
         values: list[float] = []
         row_offset = 0
+        # Carried across chunk boundaries.
+        unwrap = _MidnightUnwrapper()
+        pending: tuple[float, float] | None = None
 
         with open(self._path, encoding="utf-8") as f:
             for line_no, line in enumerate(f, start=1):
@@ -126,28 +164,58 @@ class AOLEncoderLoader(TimeSeriesSource):
                     logger.warning("Unparseable velocity at line %d: %s", line_no, parts[3])
                     continue
 
-                times.append(t_sec)
+                times.append(unwrap.advance(t_sec))
                 values.append(velocity)
 
                 if len(times) >= _CHUNK_SIZE:
-                    t_arr = np.array(times, dtype=np.float64)
-                    v_arr = np.array(values, dtype=np.float64)
-                    self._validate_monotonic(t_arr, row_offset)
-                    t_arr, v_arr = self._deduplicate(t_arr, v_arr)
-                    if len(t_arr) > 0:
-                        yield t_arr, v_arr
+                    chunk, pending = self._finish_chunk(times, values, pending, row_offset)
+                    if chunk is not None:
+                        yield chunk
                     row_offset += len(times)
                     times.clear()
                     values.clear()
 
-        # Flush remaining
         if times:
-            t_arr = np.array(times, dtype=np.float64)
-            v_arr = np.array(values, dtype=np.float64)
-            self._validate_monotonic(t_arr, row_offset)
-            t_arr, v_arr = self._deduplicate(t_arr, v_arr)
-            if len(t_arr) > 0:
-                yield t_arr, v_arr
+            chunk, pending = self._finish_chunk(times, values, pending, row_offset)
+            if chunk is not None:
+                yield chunk
+
+        # Flush the retained final sample.
+        if pending is not None:
+            yield (
+                np.asarray([pending[0]], dtype=np.float64),
+                np.asarray([pending[1]], dtype=np.float64),
+            )
+
+    @classmethod
+    def _finish_chunk(
+        cls,
+        times: list[float],
+        values: list[float],
+        pending: tuple[float, float] | None,
+        row_offset: int,
+    ) -> tuple[tuple[np.ndarray, np.ndarray] | None, tuple[float, float] | None]:
+        """Validate and de-duplicate one chunk, retaining its final sample.
+
+        The retained sample is prepended to the next chunk so a duplicate or a
+        backward jump spanning the boundary is treated exactly like one inside a
+        chunk. Returns ``(chunk_to_yield, new_pending)``.
+        """
+        t_arr = np.asarray(times, dtype=np.float64)
+        v_arr = np.asarray(values, dtype=np.float64)
+        if pending is not None:
+            t_arr = np.concatenate(([pending[0]], t_arr))
+            v_arr = np.concatenate(([pending[1]], v_arr))
+
+        cls._validate_monotonic(t_arr, row_offset)
+        t_arr, v_arr = cls._deduplicate(t_arr, v_arr)
+
+        if len(t_arr) == 0:
+            return None, pending
+        new_pending = (float(t_arr[-1]), float(v_arr[-1]))
+        if len(t_arr) == 1:
+            return None, new_pending
+        return (t_arr[:-1], v_arr[:-1]), new_pending
 
     @staticmethod
     def _validate_monotonic(t: np.ndarray, row_offset: int) -> None:
@@ -157,7 +225,8 @@ class AOLEncoderLoader(TimeSeriesSource):
             if np.any(dt < 0):
                 idx = int(np.flatnonzero(dt < 0)[0])
                 raise NonMonotonicTimeError(
-                    f"Non-monotonic time in encoder log at row {row_offset + idx + 1}",
+                    f"Non-monotonic time in encoder log at row {row_offset + idx + 1}. "
+                    "The encoder log must be written in chronological order.",
                     row=row_offset + idx + 1,
                 )
 
@@ -170,3 +239,27 @@ class AOLEncoderLoader(TimeSeriesSource):
         mask = np.ones(len(t), dtype=bool)
         mask[:-1] = dt > 0
         return t[mask], v[mask]
+
+
+class _MidnightUnwrapper:
+    """Turn wrapping seconds-since-midnight into a continuous axis.
+
+    AOL video and EKS master time is epoch-derived, so it keeps increasing past
+    86400 when a recording crosses midnight.  The encoder's wall clock wraps back
+    to 0 instead, which would read as a full-day backward jump.  Unwrapping keeps
+    both streams on one axis (D-045).
+    """
+
+    def __init__(self) -> None:
+        self._offset = 0.0
+        self._previous_raw: float | None = None
+
+    def advance(self, raw_seconds: float) -> float:
+        """Return *raw_seconds* shifted onto the continuous master axis."""
+        if (
+            self._previous_raw is not None
+            and raw_seconds < self._previous_raw - _ROLLOVER_THRESHOLD_S
+        ):
+            self._offset += _SECONDS_PER_DAY
+        self._previous_raw = raw_seconds
+        return raw_seconds + self._offset

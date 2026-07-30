@@ -6,6 +6,7 @@ import threading
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from avialview.core.timeline import TimeMap
 from avialview.engine.seeker import SeekGroup
@@ -35,6 +36,8 @@ def test_bench_four_video_exact_mapping_dispatch(benchmark) -> None:
 
     benchmark(seeker.seek, 1_800.123, True)
 
+    if benchmark.stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
     assert benchmark.stats.stats.mean < 0.002
 
 
@@ -59,4 +62,6 @@ def test_bench_four_video_callback_bursts_are_coalesced(benchmark) -> None:
 
     benchmark(callback_burst)
 
+    if benchmark.stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
     assert benchmark.stats.stats.mean < 0.002

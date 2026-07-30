@@ -18,6 +18,50 @@ from avialview.engine.export import (
     save_snapshot_images,
     trim_video_clip,
 )
+from avialview.ui.annotations import Marker
+
+
+class AnnotationExportWorker(QObject):
+    """Export annotation markers to CSV off the UI thread."""
+
+    finished = Signal(Path, int)  # path, count
+    error = Signal(str)
+
+    def __init__(self, markers: list[Marker], path: Path) -> None:
+        super().__init__()
+        import copy
+
+        self._markers = copy.deepcopy(markers)
+        self._path = path
+
+    @Slot()
+    def run(self) -> None:
+        import csv
+
+        try:
+            with open(self._path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    ["label", "comment", "t_master", "video_path", "frame_index", "media_timestamp"]
+                )
+                for m in self._markers:
+                    if m.video_frames:
+                        for vf in m.video_frames:
+                            writer.writerow(
+                                [
+                                    m.label,
+                                    "",
+                                    m.t_start,
+                                    vf.path,
+                                    vf.frame_index,
+                                    vf.media_timestamp,
+                                ]
+                            )
+                    else:
+                        writer.writerow([m.label, "", m.t_start, "", "", ""])
+            self.finished.emit(self._path, len(self._markers))
+        except Exception as e:
+            self.error.emit(str(e))
 
 
 @dataclass(frozen=True)

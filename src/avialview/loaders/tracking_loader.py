@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from avialview.core.errors import NonMonotonicTimeError
+from avialview.core.errors import MissingColumnError, NonMonotonicTimeError, SourceOpenError
 from avialview.core.source import ChannelInfo, TimeSeriesSource
 
 logger = logging.getLogger(__name__)
@@ -62,14 +62,28 @@ class TrackingLoader(TimeSeriesSource):
             else:
                 self._flat_headers.append(f"{b}_{c}")
 
+        # ``coords`` restricts ingest to the listed coordinate suffixes. Pose
+        # exports carry many derived columns per body part (likelihood,
+        # *_ens_median, *_ens_var, *_posterior_var); an overlay only needs x/y,
+        # and building a pyramid for every derived column multiplies import work
+        # several-fold for data nothing reads.
+        wanted: list[str] = list(config.get("coords") or [])
+        suffixes = tuple(f"_{coord}" for coord in wanted) if wanted else None
+
+        rate_hz = float(config.get("fps", 0.0)) or None
         self._schema_channels = []
         for col in self._flat_headers:
             if col == "frame_index":
                 continue
+            if suffixes is not None and not col.endswith(suffixes):
+                continue
             # Treat all as float64
             self._schema_channels.append(
-                ChannelInfo(name=col, unit="px", dtype="Float64", rate_hz=None)
+                ChannelInfo(name=col, unit="px", dtype="Float64", rate_hz=rate_hz)
             )
+
+        if suffixes is not None and not self._schema_channels:
+            raise MissingColumnError(",".join(wanted), self._flat_headers)
 
     def channels(self) -> list[ChannelInfo]:
         return self._schema_channels
@@ -86,20 +100,28 @@ class TrackingLoader(TimeSeriesSource):
         to reparse the tracking file for every coordinate channel.
         """
         if self._path is None:
-            raise RuntimeError("Source not opened")
+            raise SourceOpenError(
+                "Tracking source used before open(). Call open(path, config) first."
+            )
 
         fps = float(self._config.get("fps", 30.0))
         channel_names = [channel.name for channel in self._schema_channels]
 
-        # Read in batches skipping the 3 header rows
-        reader = pl.scan_csv(
-            self._path,
-            skip_rows=3,
-            has_header=False,
-            new_columns=self._flat_headers,
-            infer_schema_length=10000,
-            ignore_errors=True,
-        ).collect_batches(chunk_size=50000)
+        # Read in batches skipping the 3 header rows, projecting only the
+        # channels that survived the ``coords`` filter so unused derived columns
+        # are never materialised or pyramided.
+        reader = (
+            pl.scan_csv(
+                self._path,
+                skip_rows=3,
+                has_header=False,
+                new_columns=self._flat_headers,
+                infer_schema_length=10000,
+                ignore_errors=True,
+            )
+            .select(["frame_index", *channel_names])
+            .collect_batches(chunk_size=50000)
+        )
 
         row_offset = 0
         for batch in reader:

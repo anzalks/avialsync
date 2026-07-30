@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from avialview.ui.tracking_3d_pane import Tracking3DPane
 
@@ -47,7 +48,9 @@ def test_bench_tracking_3d_cursor(benchmark, qapp, tmp_path: Path) -> None:
     pane.set_readers(readers)
     benchmark(pane.set_cursor, 5.0)
 
-    assert benchmark.stats["mean"] <= _CURSOR_BUDGET_S, (
-        f"3D cursor mean {benchmark.stats['mean'] * 1000:.3f}ms exceeds "
-        f"{_CURSOR_BUDGET_S * 1000:.1f}ms."
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= _CURSOR_BUDGET_S, (
+        f"3D cursor mean {stats['mean'] * 1000:.3f}ms exceeds {_CURSOR_BUDGET_S * 1000:.1f}ms."
     )

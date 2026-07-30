@@ -13,10 +13,12 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from avialview.core.errors import NonMonotonicTimeError
+from avialview.core.errors import MissingColumnError, NonMonotonicTimeError, SourceOpenError
 from avialview.core.source import ChannelInfo, TimeSeriesSource
 
 logger = logging.getLogger(__name__)
+
+_BATCH_SIZE = 50_000
 
 
 class AOLEksLoader(TimeSeriesSource):
@@ -34,6 +36,7 @@ class AOLEksLoader(TimeSeriesSource):
         self._config: dict[str, Any] = {}
         self._xyz_channels: list[str] = []
         self._has_fnum: bool = False
+        self._col_mapping: dict[str, str] = {}
 
     def is_frame_indexed(self) -> bool:
         """EKS data is always frame-indexed."""
@@ -80,14 +83,19 @@ class AOLEksLoader(TimeSeriesSource):
         raw_xyz = [c for c in all_cols if c.endswith(("_x", "_y", "_z"))]
 
         if not raw_xyz:
-            raise ValueError(f"No x/y/z coordinate columns found in EKS file: {path}")
+            raise SourceOpenError(
+                f"No x/y/z coordinate columns found in EKS file: {path}. "
+                "Check that this is a pose-3d EKS export with <bodypart>_x/_y/_z columns."
+            )
 
-        # Try to use skeleton to identify bodyparts and strip model prefixes
+        # Try to use skeleton to identify bodyparts and strip model prefixes.
+        # Order is skeleton order (de-duplicated) and matching is longest-name
+        # first, so an ambiguous suffix always resolves the same way; iterating a
+        # set here made channel names -- and therefore cache keys and session
+        # files -- depend on PYTHONHASHSEED.
         skeleton_edges = self._config.get("skeleton", [])
-        known_bodyparts = set()
-        for a, b in skeleton_edges:
-            known_bodyparts.add(a)
-            known_bodyparts.add(b)
+        known_bodyparts = list(dict.fromkeys(name for edge in skeleton_edges for name in edge))
+        known_bodyparts.sort(key=len, reverse=True)
 
         self._xyz_channels = []
         for c in raw_xyz:
@@ -118,25 +126,47 @@ class AOLEksLoader(TimeSeriesSource):
         )
 
     def channels(self) -> list[ChannelInfo]:
-        """Return one ChannelInfo per x/y/z coordinate."""
+        """Return one ChannelInfo per x/y/z coordinate.
+
+        EKS rows are one video frame each, so the sample rate is exactly the
+        camera fps supplied by the AOL manifest.
+        """
         unit = "mm"  # EKS 3D coordinates are typically in mm
+        rate_hz = float(self._config.get("fps", 0.0)) or None
         return [
-            ChannelInfo(name=ch, unit=unit, dtype="Float64", rate_hz=None)
+            ChannelInfo(name=ch, unit=unit, dtype="Float64", rate_hz=rate_hz)
             for ch in self._xyz_channels
         ]
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
-        """Yield (time, value) chunks for one channel."""
+        """Yield (time, value) chunks for one channel.
+
+        Compatibility shim for the frozen v1 contract. ``read_all_chunks`` is the
+        primary API and the importer prefers it; calling this per channel costs
+        one full CSV pass *per channel*, so it is only for hosts that predate the
+        bulk protocol.
+        """
         if ch not in self._xyz_channels:
-            raise KeyError(f"Unknown EKS channel: {ch}")
+            raise MissingColumnError(ch, list(self._xyz_channels))
+        logger.warning(
+            "AOLEksLoader.read_chunks(%r) re-scans %s; prefer read_all_chunks() "
+            "to read every channel in one pass.",
+            ch,
+            self._path.name if self._path else "<unopened>",
+        )
         for chunk in self.read_all_chunks():
             if ch in chunk:
                 yield chunk[ch]
 
     def read_all_chunks(self) -> Iterator[dict[str, tuple[np.ndarray, np.ndarray]]]:
-        """Yield all x/y/z channels from a single CSV pass."""
+        """Yield all x/y/z channels from a single CSV pass.
+
+        Batch boundaries are carried the same way ``CSVLoader._read_batches``
+        carries them, so a duplicate or backward frame number spanning two
+        batches is treated exactly like one inside a batch.
+        """
         if self._path is None:
-            raise RuntimeError("Source not opened")
+            raise SourceOpenError("EKS source used before open(). Call open(path, config) first.")
 
         fps = float(self._config.get("fps", 30.0))
 
@@ -155,10 +185,14 @@ class AOLEksLoader(TimeSeriesSource):
                 schema_overrides=schema_overrides,
             )
             .select(use_cols)
-            .collect_batches(chunk_size=50_000)
+            .collect_batches(chunk_size=_BATCH_SIZE)
         )
 
         row_offset = 0
+        pending_time: float | None = None
+        pending_values: dict[str, float] | None = None
+        start_epoch = float(self._config.get("start_epoch", 0.0))
+
         for batch in reader:
             # Build time array from frame numbers
             if self._has_fnum:
@@ -167,7 +201,6 @@ class AOLEksLoader(TimeSeriesSource):
                 # Each row is one frame, use row index
                 fnum = np.arange(row_offset, row_offset + len(batch), dtype=np.float64)
 
-            start_epoch = self._config.get("start_epoch", 0.0)
             t = (fnum / fps) + start_epoch
 
             # Map original cols back to stripped channel names for yielding
@@ -176,24 +209,43 @@ class AOLEksLoader(TimeSeriesSource):
                 if orig_col in batch.columns:
                     values[ch_name] = batch[orig_col].cast(pl.Float64).to_numpy()
 
-            # Validate monotonicity
+            # Prepend the retained sample so boundary duplicates and backward
+            # jumps are caught identically to in-batch ones.
+            if pending_time is not None and pending_values is not None:
+                t = np.concatenate(([pending_time], t))
+                values = {
+                    name: np.concatenate(([pending_values[name]], array))
+                    for name, array in values.items()
+                    if name in pending_values
+                }
+
             if len(t) > 1:
                 dt = np.diff(t)
                 if np.any(dt < 0):
                     idx = int(np.flatnonzero(dt < 0)[0])
                     raise NonMonotonicTimeError(
-                        f"Non-monotonic frame numbers at row {row_offset + idx + 1}",
+                        f"Non-monotonic frame numbers at row {row_offset + idx + 1}. "
+                        "EKS rows must be ordered by increasing frame number.",
                         row=row_offset + idx + 1,
                     )
+                keep = np.ones(len(t), dtype=bool)
+                keep[:-1] = dt > 0
+                t = t[keep]
+                values = {ch_name: v[keep] for ch_name, v in values.items()}
 
-            # Remove duplicate timestamps (keep last)
-            if len(t) > 1:
-                dt = np.diff(t)
-                mask = np.ones(len(t), dtype=bool)
-                mask[:-1] = dt > 0
-                t = t[mask]
-                values = {ch_name: v[mask] for ch_name, v in values.items()}
-
-            if len(t) > 0:
-                yield {ch_name: (t, v) for ch_name, v in values.items()}
+            if len(t):
+                pending_time = float(t[-1])
+                pending_values = {name: float(array[-1]) for name, array in values.items()}
+                if len(t) > 1:
+                    yield {ch_name: (t[:-1], array[:-1]) for ch_name, array in values.items()}
             row_offset += len(batch)
+
+        # Flush the retained final sample.
+        if pending_time is not None and pending_values is not None:
+            yield {
+                name: (
+                    np.asarray([pending_time], dtype=np.float64),
+                    np.asarray([value], dtype=np.float64),
+                )
+                for name, value in pending_values.items()
+            }

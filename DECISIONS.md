@@ -1025,3 +1025,82 @@ loadable and new presentation fields are optional with explicit defaults. Ordina
 still cannot query the pyramid or scan all evidence, retained sweep buffers are bounded to the
 current/previous page, and the populated ≤2 ms cursor, ≤16 ms plot, and 30 ms UI-callback ceilings
 remain release gates. `HANDOUT.md` must distinguish planned from implemented slices.
+
+---
+
+## 2026-07 · D-045 · The AOL encoder axis is seconds-since-midnight, unwrapped
+
+### Context
+
+AOL sessions place video, 3D EKS tracking, and the encoder log on one master timeline. The manifest
+reads each camera's absolute UTC start epoch, and `drop_worker._collect_aol_candidates` subtracts the
+session's anchor-date epoch from it. `AOLEncoderLoader._parse_wall_clock` independently produces
+seconds since midnight from the log's `HH:MM:SS:mmm` column.
+
+An audit claimed the encoder was therefore misaligned because it ignores `config["anchor_date"]`.
+Measuring the reference session (`2026-05-08/experiment_1/09-35-24`) disproved this: video covers
+master `[34526.312 … 34586.502]`, EKS `[34526.312 … 34586.499]`, encoder `[34526.082 … 34586.964]`.
+All three already share one axis, and the encoder correctly brackets the cameras by ~0.2–0.5 s.
+
+### Decision
+
+Seconds-since-midnight (UTC) is the AOL master axis. `AOLEncoderLoader` must NOT add the anchor
+epoch; `config["anchor_date"]` is accepted for provenance and deliberately unused. Across midnight
+the encoder axis is *unwrapped* (86400, 86401, …) rather than wrapped to 0, because video and EKS
+master time is epoch-derived and keeps increasing.
+
+### Alternatives rejected
+
+Adding the anchor epoch inside the encoder loader (shifts it ~20.6 days out of alignment on the
+reference session); moving video/EKS to absolute epoch instead (a larger change that alters every
+existing AOL `.avv`); wrapping the encoder at midnight (desynchronises by a full day).
+
+### Consequences
+
+`test_encoder_axis_is_seconds_since_midnight` pins the axis and names this entry, so the withdrawn
+"fix" cannot be reattempted silently. Any future move to absolute epoch must change the manifest,
+the loader, and the session schema together.
+
+---
+
+## 2026-07 · D-046 · Pose data drives the overlay and 3D view, never plot rows
+
+### Context
+
+An AOL session emits 27 3D EKS channels plus, per camera, an EKS-fused 2D prediction and one file
+per contributing model (~81 2D channels per camera on the reference session, 12 files across three
+cameras). Previously only the 3D file was discovered, everything imported became plot rows, and the
+overlay was fed from `plot_pane.sources_changed` — so every pane received every camera's points, and
+3D millimetre coordinates were painted as if they were pixels.
+
+Channel names are not unique across these files: every camera and every model emits `head_bar_x`.
+
+### Decision
+
+Import candidates carry a `role`: `"overlay2d"`, `"pose3d"`, or absent for ordinary recorded
+signals. `MainWindow._on_import_finished` routes by role — pose sources register with the overlay or
+the 3D view and are **not** plotted; only signals like the encoder get plot rows. 2D tracks are
+routed to the pane for their own video path, never broadcast. Overlay readers are built from each
+source's own sidecar cache, so duplicate channel names across cameras and models cannot collide
+without waiting for the global `(source_id, channel_id)` identity work.
+
+2D overlays carry no `start_epoch`: they are painted against mpv's media clock, which starts at 0.
+3D pose keeps `start_epoch` because the 3D view works in master time.
+
+The 3D view's vertical axis is detected from head/foot landmark names and flipped so head renders
+above toes; data with no recognisable landmarks keeps a neutral Z-up default rather than guessing,
+and an explicit user choice pins the orientation against later loads.
+
+### Alternatives rejected
+
+Plotting pose channels and hiding them afterwards (still builds ~250 plot rows); inferring the
+overlay target by matching channel names at paint time (relies on the very uniqueness that does not
+hold); a fixed Z-up 3D projection (renders the reference session edge-on); inferring skeleton
+topology from names (already rejected by D-041).
+
+### Consequences
+
+`tests/test_aol_pose_routing.py` covers per-camera targeting, the plot-row exclusion, ensemble vs
+model colouring, and the empty-camera-token fallback. The overlay legend names each source, so
+colour is never the sole distinction. The frozen v1 plugin contract is unchanged: `role` is host
+supplied import configuration, not a new loader API.

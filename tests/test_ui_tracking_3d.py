@@ -95,6 +95,81 @@ def test_mouse_drag_orbits_and_fit_restores_default(qtbot, tmp_path: Path) -> No
     assert pane.canvas._azimuth == initial_azimuth
 
 
+def _anatomical_readers(cache_dir: Path) -> list[PyramidReader]:
+    """Build a pose whose vertical axis is Y and grows downward.
+
+    Mirrors the real AOL EKS session: head_bar y=5.9, shoulders 33.9,
+    paws 48.2, toes 54.7 -- anatomically descending as y increases.
+    """
+    cache_dir.mkdir()
+    times = np.array([0.0, 1.0], dtype=np.float64)
+    layout = {
+        "head_bar": (-56.7, 5.9, 461.3),
+        "left_shoulder": (-28.4, 33.9, 471.9),
+        "left_paw": (-28.8, 48.2, 464.4),
+        "left_toe": (-29.8, 54.7, 461.4),
+    }
+    names = []
+    for point, (x, y, z) in layout.items():
+        for axis, value in zip("xyz", (x, y, z), strict=True):
+            name = f"{point}_{axis}"
+            PyramidBuilder(cache_dir, name).build_and_save(
+                times, np.array([value, value], dtype=np.float64)
+            )
+            names.append(name)
+    return [PyramidReader(cache_dir, name) for name in names]
+
+
+def test_head_renders_above_toes(qtbot, tmp_path: Path) -> None:
+    """The 3D view must orient anatomy head-up, not use a fixed Z-up axis.
+
+    The reference AOL session's vertical axis is Y and it increases downward,
+    so a hardcoded Z-up projection renders the animal edge-on.
+    """
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.resize(400, 400)
+    pane.show()
+    pane.set_readers(_anatomical_readers(tmp_path / "anat.avialcache"))
+    pane.set_cursor(0.0)
+
+    assert pane.canvas.up_axis == 1, "vertical axis should be detected as Y"
+    assert pane.canvas.up_inverted is True, "Y grows downward in this data"
+
+    screen, _depth = pane.canvas._project(pane.canvas.positions)
+    y_by_name = {name: float(screen[i, 1]) for i, name in enumerate(pane.canvas.point_names)}
+    # Screen Y grows downward, so "higher on screen" is a smaller value.
+    assert y_by_name["head_bar"] < y_by_name["left_shoulder"] < y_by_name["left_toe"], (
+        f"anatomy is not head-up on screen: {y_by_name}"
+    )
+
+
+def test_up_axis_override_is_respected(qtbot, tmp_path: Path) -> None:
+    """An explicit choice pins the orientation against later auto-detection."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.resize(400, 400)
+    pane.set_readers(_anatomical_readers(tmp_path / "anat_override.avialcache"))
+
+    pane.set_up_axis(2, False)
+    assert pane.canvas.up_axis == 2
+    assert pane.canvas.up_inverted is False
+
+    # Re-loading data must not silently undo a user's explicit choice.
+    pane.set_readers(_anatomical_readers(tmp_path / "anat_override2.avialcache"))
+    assert pane.canvas.up_axis == 2
+
+
+def test_unrecognised_landmarks_keep_neutral_default(qtbot, tmp_path: Path) -> None:
+    """Without head/foot landmarks the view must not guess an orientation."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_readers(_tracking_readers(tmp_path / "neutral.avialcache"))
+
+    assert pane.canvas.up_axis == 2
+    assert pane.canvas.up_inverted is False
+
+
 def test_main_window_places_3d_view_beside_video_grid(qtbot, monkeypatch) -> None:
     from avialview.ui.main_window import MainWindow
 
