@@ -101,7 +101,12 @@ ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
-module = ["avialview.ui.plot_interactions", "avialview.ui.plot_overlays"]
+module = "avialview.ui.plot_interactions"
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+module = "avialview.ui.plot_overlays"
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 

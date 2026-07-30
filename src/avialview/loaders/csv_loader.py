@@ -210,23 +210,18 @@ class CSVLoader(TimeSeriesSource):
         has_headers = self._config.get("has_headers", True)
 
         channel_names = [channel.name for channel in self._schema_channels]
-        reader = pl.read_csv_batched(
+        reader = pl.scan_csv(
             self._path,
             separator=separator,
             has_header=has_headers,
             schema_overrides={time_col: self._timestamp_dtype()},
-            batch_size=int(self._config.get("batch_size", 50_000)),
             decimal_comma=euro_decimal or (separator == ";"),
-        )
+        ).collect_batches(chunk_size=int(self._config.get("batch_size", 50_000)))
 
         row_offset = 0
         pending_time: float | None = None
         pending_values: dict[str, float] | None = None
-        while True:
-            batches = reader.next_batches(1)
-            if not batches:
-                break
-            batch = batches[0]
+        for batch in reader:
 
             t = self._normalize_time(batch[time_col])
             values = {name: batch[name].cast(pl.Float64).to_numpy() for name in channel_names}

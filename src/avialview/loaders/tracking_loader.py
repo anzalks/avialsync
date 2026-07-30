@@ -92,20 +92,15 @@ class TrackingLoader(TimeSeriesSource):
         channel_names = [channel.name for channel in self._schema_channels]
 
         # Read in batches skipping the 3 header rows
-        reader = pl.read_csv_batched(
+        reader = pl.scan_csv(
             self._path,
             skip_rows=3,
             has_header=False,
             new_columns=self._flat_headers,
-            batch_size=50000,
-        )
+        ).collect_batches(chunk_size=50000)
 
         row_offset = 0
-        while True:
-            batches = reader.next_batches(1)
-            if not batches:
-                break
-            batch = batches[0]
+        for batch in reader:
 
             t = batch["frame_index"].cast(pl.Float64).to_numpy() / fps
             values = {
