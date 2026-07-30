@@ -875,8 +875,8 @@ class MainWindow(QMainWindow):
         if not candidates:
             return
 
-        if len(candidates) == 1 or is_auto_resolved_session:
-            # Bypass dialog for single files or fully auto-resolved sessions
+        if len(candidates) == 1:
+            # Bypass dialog for single files only
             for path, loader_cls in candidates:
                 if loader_cls is not None:
                     self._route_import_candidate(path, loader_cls)
@@ -897,7 +897,12 @@ class MainWindow(QMainWindow):
 
             start_epochs = getattr(self, "_aol_video_start_epochs", {})
             anchor_epoch = getattr(self, "_aol_anchor_epoch", 0.0)
-            start_epoch = start_epochs.get(str(path), 0.0)
+            start_epoch = 0.0
+            for vid_path, epoch in start_epochs.items():
+                if Path(vid_path).name.lower() == path.name.lower():
+                    start_epoch = epoch
+                    break
+
             if anchor_epoch > 0.0 and start_epoch > 0.0:
                 start_epoch -= anchor_epoch
 

@@ -144,56 +144,42 @@ class ImportWorker(QObject):
         channel_names: list[str],
         temp_dir: Path,
     ) -> tuple[int, int, int, list[float], float, float]:
-        """Build aligned channels from one loader pass, streaming to disk to avoid OOM."""
-        t_file_path = temp_dir / "bulk_t.bin"
-        t_file = open(t_file_path, "wb")
-        value_files = {ch: open(temp_dir / f"bulk_v_{ch}.bin", "wb") for ch in channel_names}
+        """Build aligned channels from one loader pass, retaining shared timestamps once."""
+        time_chunks: list[np.ndarray] = []
+        value_chunks: dict[str, list[np.ndarray]] = {channel: [] for channel in channel_names}
+        for chunk in chunks:
+            if self._cancel_flag:
+                break
+            if set(chunk) != set(channel_names):
+                raise ValueError("Bulk loader did not return every declared channel.")
+            reference_times: np.ndarray | None = None
+            for channel in channel_names:
+                times, values = chunk[channel]
+                if reference_times is None:
+                    reference_times = np.asarray(times, dtype=np.float64)
+                elif not np.array_equal(reference_times, times):
+                    raise ValueError("Bulk loader channel chunks do not share timestamps.")
+                values_array = np.asarray(values, dtype=np.float64)
+                if len(values_array) != len(reference_times):
+                    raise ValueError("Bulk loader returned mismatched time/value chunk lengths.")
+                value_chunks[channel].append(values_array)
+            if reference_times is not None and len(reference_times):
+                time_chunks.append(reference_times)
 
-        total_len = 0
-        try:
-            for chunk in chunks:
-                if self._cancel_flag:
-                    break
-                if set(chunk) != set(channel_names):
-                    raise ValueError("Bulk loader did not return every declared channel.")
-                reference_times: np.ndarray | None = None
-                for channel in channel_names:
-                    times, values = chunk[channel]
-                    if reference_times is None:
-                        reference_times = np.asarray(times, dtype=np.float64)
-                    elif not np.array_equal(reference_times, times):
-                        raise ValueError("Bulk loader channel chunks do not share timestamps.")
-                    values_array = np.asarray(values, dtype=np.float64)
-                    if len(values_array) != len(reference_times):
-                        raise ValueError(
-                            "Bulk loader returned mismatched time/value chunk lengths."
-                        )
-
-                    value_files[channel].write(values_array.tobytes())
-
-                if reference_times is not None and len(reference_times) > 0:
-                    t_file.write(reference_times.tobytes())
-                    total_len += len(reference_times)
-        finally:
-            t_file.close()
-            for f in value_files.values():
-                f.close()
-
-        if self._cancel_flag or total_len == 0:
+        if self._cancel_flag or not time_chunks:
             return 0, 0, 0, [], 0.0, 0.0
 
-        full_t = np.memmap(t_file_path, dtype=np.float64, mode="r", shape=(total_len,))
+        full_t = np.concatenate(time_chunks)
         gap_mask = build_gap_mask(full_t)
         total_nan = 0
         for index, channel in enumerate(channel_names):
-            v_file_path = temp_dir / f"bulk_v_{channel}.bin"
-            full_v = np.memmap(v_file_path, dtype=np.float64, mode="r", shape=(total_len,))
+            full_v = np.concatenate(value_chunks[channel])
             PyramidBuilder(temp_dir, channel).build_and_save(full_t, full_v)
             total_nan += int(np.sum(np.isnan(full_v)))
             self.progress.emit(int(((index + 1) / len(channel_names)) * 100))
 
         return (
-            total_len,
+            int(len(full_t)),
             total_nan,
             int(np.sum(gap_mask)),
             full_t[gap_mask].tolist(),
