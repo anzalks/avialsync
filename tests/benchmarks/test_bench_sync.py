@@ -1,6 +1,7 @@
 """Performance gate for deterministic TTL/event alignment previews."""
 
 import numpy as np
+import pytest
 
 from avialview.core.sync import fit_sync_events
 
@@ -21,6 +22,9 @@ def test_bench_sync_fit_preview(benchmark) -> None:
     )
 
     budget = _FIT_PREVIEW_BUDGET_S
-    assert benchmark.stats["mean"] <= budget, (
-        f"Sync fit preview mean {benchmark.stats['mean']:.3f}s exceeds budget {budget:.3f}s."
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= budget, (
+        f"Sync fit preview mean {stats['mean']:.3f}s exceeds budget {budget:.3f}s."
     )
