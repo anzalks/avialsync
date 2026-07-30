@@ -270,29 +270,33 @@ including their boundaries, must be globally chronological. Duplicate timestamps
 value."* `CSVLoader._read_batches` already implements this correctly — **copy its pattern verbatim**,
 do not invent a different one.
 
-### 2.1 — `anchor_date` in `AOLEncoderLoader`
-File `src/avialview/loaders/aol_encoder_loader.py`.
-- In `open()`: read `config.get("anchor_date")`, parse with `"%Y-%m-%d"`, convert to a UTC epoch, and
-  store as `self._anchor_epoch`. Mirror the conversion in `csv_loader._normalize_time`'s
-  `time_of_day` branch (lines ~166–176) so both agree.
-- If `anchor_date` is absent or unparseable: set `self._anchor_epoch = 0.0` and set
-  `self._anchor_provisional = True`. **Never guess a date** — AGENTS §Arch 8 forbids silently
-  inventing alignment.
-- In `read_chunks()`: emit `t = seconds_since_midnight + self._anchor_epoch`.
+### 2.1 — ~~`anchor_date` in `AOLEncoderLoader`~~ **CANCELLED — do not do this.**
+This task was based on an incorrect audit finding and **must not be implemented**: adding the
+anchor epoch to encoder timestamps shifts the encoder ~20.6 days out of alignment.
 
-Test in `tests/test_aol_loaders.py`: `test_encoder_applies_anchor_date` — with
-`anchor_date="2026-07-30"`, a row at `10:00:00:000` must land on the epoch for
-2026-07-30T10:00:00Z, not on `36000.0`.
-Commit: `fix(loaders): apply the AOL anchor date to encoder timestamps`
+Verified against the real session (`…/2026-05-08/experiment_1/09-35-24`): videos cover master
+`[34526.312 … 34586.502]`, 3D EKS `[34526.312 … 34586.499]`, encoder `[34526.082 … 34586.964]`.
+All three already share one seconds-since-midnight-UTC axis, because `drop_worker` **subtracts**
+`anchor_epoch` from the video/EKS start epochs — landing them on exactly the axis
+`_parse_wall_clock` already produces.
 
-### 2.2 — Midnight rollover in `AOLEncoderLoader`
-A recording crossing 00:00 currently raises `NonMonotonicTimeError`. Add the same rollover correction
-`csv_loader.py` uses (lines ~178–182): where `np.diff(t) < -43200`, cumulatively add `86400.0`.
-Apply it **before** the monotonicity check, and make it work across chunk boundaries (it depends on
-2.3, so do 2.3 in the same or the next commit and re-verify).
+Instead, do this (small, safe, and prevents the next agent repeating the mistake): add a comment to
+`AOLEncoderLoader._parse_wall_clock` and to the class docstring recording that seconds-since-midnight
+is the **intended** master axis for AOL sessions, that it is matched by `drop_worker`'s anchor
+subtraction, and that `config["anchor_date"]` is therefore accepted but deliberately unused.
+Commit: `docs(loaders): record why the AOL encoder axis is seconds-since-midnight`
+
+### 2.2 — Midnight rollover in `AOLEncoderLoader` (do this AFTER 2.3)
+A recording crossing 00:00 currently raises `NonMonotonicTimeError`. Video/EKS master time is
+epoch-derived and keeps increasing past 86400 across midnight, so the encoder must **unwrap** the
+same way rather than wrap back to 0 — otherwise it desynchronises by a full day.
+
+Add the same rollover correction `csv_loader.py` uses (lines ~178–182): where `np.diff(t) < -43200`,
+cumulatively add `86400.0`. Apply it **before** the monotonicity check, and carry the unwrap offset
+across chunk boundaries (this is why 2.3 must land first).
 
 Test `test_encoder_crosses_midnight`: rows at `23:59:59:500`, `00:00:00:500`, `00:00:01:500` produce
-a strictly increasing array spanning the boundary.
+a strictly increasing array spanning the boundary, with the post-midnight samples > 86400.
 Commit: `fix(loaders): handle midnight rollover in the AOL encoder log`
 
 ### 2.3 / 2.4 — Carry chunk boundaries
@@ -328,6 +332,19 @@ Commit: `fix(loaders): make EKS bodypart resolution deterministic`
 - Every message gets an actionable second sentence, e.g.
   `"No x/y/z coordinate columns found in <file>. Check that this is an EKS pose file."`
 Commit: `fix(loaders): raise typed errors from the AOL loaders`
+
+### 2.6b — Fix the empty-substring camera match (V-04b)
+`src/avialview/engine/drop_worker.py::_collect_aol_candidates` derives an EKS camera name with
+`eks_file.name.split("_")[0]`. For the real file `_eks.csv` that is the **empty string**, and
+`"" in vid_name` matches every video, so the first video's start epoch is always chosen. It is
+correct today only because all cameras in the sample session share one epoch.
+
+Skip empty/blank camera tokens instead of substring-matching them, and when no camera can be
+identified fall back explicitly to the earliest video epoch with a `logger.info` saying so — never
+silently match the first entry.
+Test: an `_eks.csv` in a session whose cameras have *different* start epochs resolves to the
+documented fallback, and a `FaceCam_eks.csv` resolves to FaceCam's epoch.
+Commit: `fix(engine): stop matching every camera with an empty EKS name token`
 
 ### 2.7 — Report real sample rates
 Both AOL loaders return `rate_hz=None` ("irregular") even where the rate is known.
