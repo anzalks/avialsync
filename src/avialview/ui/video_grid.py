@@ -89,6 +89,19 @@ class VideoGrid(QWidget):
         for pane in self.panes:
             pane.set_tracking_readers(readers)
 
+    def set_overlay_tracks(self, path: str, tracks: list) -> None:
+        """Attach named 2D prediction tracks to the pane showing *path* only.
+
+        2D pose data is camera-specific: a track extracted from SideCam must
+        never be painted over FaceCam, so this routes by exact video path
+        instead of broadcasting like :meth:`set_tracking_readers`.
+        """
+        try:
+            index = self._paths.index(path)
+        except ValueError:
+            return
+        self.panes[index].set_overlay_tracks(tracks)
+
     def set_grid_mode(self, enabled: bool) -> None:
         """Switch between horizontal-strip and NxN grid layout."""
         if enabled == self._grid_mode:

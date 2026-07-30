@@ -97,6 +97,39 @@ class DropScanWorker(QObject):
 
         return candidates
 
+    @staticmethod
+    def _resolve_eks_start_epoch(eks_file: Path, manifest: Any) -> float:
+        """Pick the camera start epoch a 3D EKS file should be timed against.
+
+        The session-level file is literally named ``_eks.csv``, so its leading
+        name token is empty -- and an empty token is a substring of every video
+        name. Matching on it silently bound the file to whichever video came
+        first. Blank tokens are ignored here, and a file that identifies no
+        camera falls back to the earliest camera start with a log line rather
+        than an arbitrary one.
+        """
+        epochs = manifest.video_start_epochs
+        if not epochs:
+            return 0.0
+
+        tokens = [
+            token
+            for token in (eks_file.name.split("_")[0], eks_file.parent.name.split("_")[0])
+            if token
+        ]
+        for token in tokens:
+            for vid_path, epoch in epochs.items():
+                if token.lower() in Path(vid_path).name.lower():
+                    return float(epoch)
+
+        earliest = min(epochs.values())
+        logger.info(
+            "3D EKS file %s names no camera; timing it from the earliest camera start (%.3f).",
+            eks_file.name,
+            earliest,
+        )
+        return float(earliest)
+
     def _collect_aol_candidates(self, path: Path) -> list[tuple[Path, type | None, dict | None]]:
         """Build import candidates from an AOL session folder."""
         from avialview.loaders.aol_eks_loader import AOLEksLoader
@@ -154,15 +187,7 @@ class DropScanWorker(QObject):
 
         # 2. EKS 3D tracking files
         for eks_file in manifest.eks_files:
-            start_epoch = 0.0
-            cam_name_from_file = eks_file.name.split("_")[0]
-            cam_name_from_dir = eks_file.parent.name.split("_")[0]
-
-            for vid_path, epoch in manifest.video_start_epochs.items():
-                vid_name = Path(vid_path).name
-                if cam_name_from_file in vid_name or cam_name_from_dir in vid_name:
-                    start_epoch = epoch
-                    break
+            start_epoch = self._resolve_eks_start_epoch(eks_file, manifest)
 
             if anchor_epoch > 0.0 and start_epoch > 0.0:
                 start_epoch -= anchor_epoch
@@ -173,8 +198,46 @@ class DropScanWorker(QObject):
                 "skeleton": manifest.skeleton,
                 "auto_resolved": True,
                 "_is_frame_indexed": True,  # Pre-computed
+                # 3D pose drives the 3D view, not a plot row (D-046).
+                "role": "pose3d",
             }
             candidates.append((eks_file, AOLEksLoader, eks_config))
+
+        # 2b. Per-camera 2D pose predictions (ensemble + contributing models).
+        # These overlay their own camera's video and are never plotted.
+        video_by_camera = {
+            label: video
+            for label, video in zip(manifest.camera_labels, manifest.videos, strict=False)
+        }
+        for track in manifest.pose_2d_tracks:
+            overlay_video = video_by_camera.get(track.camera)
+            if overlay_video is None:
+                logger.warning(
+                    "Skipping 2D track %s: no video for camera %s", track.path.name, track.camera
+                )
+                continue
+            loader_cls = self._registry.find_best_loader(track.path)
+            if loader_cls is None:
+                logger.warning("No loader found for 2D pose file %s", track.path.name)
+                continue
+            candidates.append(
+                (
+                    track.path,
+                    loader_cls,
+                    {
+                        # 2D overlays are drawn against the pane's own media
+                        # clock, so they intentionally carry no start_epoch.
+                        "fps": manifest.camera_fps,
+                        "auto_resolved": True,
+                        "_is_frame_indexed": True,
+                        "role": "overlay2d",
+                        "overlay_video": str(overlay_video),
+                        "overlay_camera": track.camera,
+                        "overlay_label": track.model,
+                        "overlay_is_ensemble": track.is_ensemble,
+                    },
+                )
+            )
 
         # 3. Encoder log
         if manifest.encoder_file is not None:

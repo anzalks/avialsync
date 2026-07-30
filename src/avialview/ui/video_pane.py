@@ -330,6 +330,10 @@ class VideoPane(VideoTimingMixin, QWidget):
     def set_tracking_readers(self, readers: list) -> None:
         self.paint_canvas.set_readers(readers)
 
+    def set_overlay_tracks(self, tracks: list) -> None:
+        """Draw named 2D prediction sources (ensemble + models) over this pane."""
+        self.paint_canvas.set_tracks(tracks)
+
     def _queue_osd_update(self, t: float, fps: float) -> None:
         """Queue at most one UI-thread OSD/overlay update, retaining the newest frame."""
         with self._osd_lock:

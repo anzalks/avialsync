@@ -18,6 +18,26 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class AOL2DTrack:
+    """One 2D pose prediction file bound to the camera it was tracked on.
+
+    A session normally holds several of these per camera: the ensemble-fused
+    ``*_eks`` result plus one file per contributing model.  They are overlaid
+    together on that camera's video, never plotted (D-046).
+    """
+
+    path: Path
+    camera: str
+    # "eks" for the fused result, otherwise the model directory name.
+    model: str
+
+    @property
+    def is_ensemble(self) -> bool:
+        """Whether this is the fused ensemble result rather than a single model."""
+        return self.model == "eks"
+
+
 @dataclass
 class AOLManifest:
     """Structured manifest of files in an AOL session folder."""
@@ -29,6 +49,8 @@ class AOLManifest:
     camera_labels: list[str] = field(default_factory=list)
     # EKS 3D tracking CSV (usually one per session)
     eks_files: list[Path] = field(default_factory=list)
+    # 2D per-camera pose predictions (ensemble + contributing models)
+    pose_2d_tracks: list[AOL2DTrack] = field(default_factory=list)
     # Encoder log file
     encoder_file: Path | None = None
     # Per-camera relative timing files
@@ -127,6 +149,9 @@ def build_manifest(session_dir: Path) -> AOLManifest:
 
     manifest.eks_files.sort()
 
+    # ── Discover 2D per-camera pose predictions ──────────────────────
+    manifest.pose_2d_tracks = _collect_2d_tracks(session_dir, manifest.camera_labels)
+
     # ── Discover encoder log ─────────────────────────────────────────
     encoder = session_dir / "encoder_log.txt"
     if encoder.is_file():
@@ -173,6 +198,72 @@ def build_manifest(session_dir: Path) -> AOLManifest:
     )
 
     return manifest
+
+
+def _collect_2d_tracks(session_dir: Path, camera_labels: list[str]) -> list[AOL2DTrack]:
+    """Find per-camera 2D pose CSVs under ``predictions/``.
+
+    Layout produced by the Lightning Pose / EKS pipeline::
+
+        predictions/<model_tag>/<Camera>_eks.csv     <- ensemble result
+        predictions/<model_tag>/model_N/<Camera>.csv <- one contributing model
+
+    Files whose camera cannot be identified are skipped with a warning rather
+    than guessed at, so a mislabelled export never lands on the wrong video.
+    ``*_eks_input.csv`` is intermediate pipeline data and is ignored.
+    """
+    predictions = session_dir / "predictions"
+    if not predictions.is_dir():
+        return []
+
+    tracks: list[AOL2DTrack] = []
+    for model_dir in sorted(predictions.iterdir()):
+        if not model_dir.is_dir():
+            continue
+        # Ensemble results sit directly in the model-tag directory.
+        for csv_file in sorted(model_dir.glob("*.csv")):
+            camera = _match_camera(csv_file.stem, camera_labels)
+            if camera is None:
+                logger.warning("Skipping 2D pose file with unknown camera: %s", csv_file.name)
+                continue
+            if not csv_file.stem.lower().endswith("_eks"):
+                # Non-suffixed files beside the ensemble are pipeline scratch.
+                continue
+            tracks.append(AOL2DTrack(path=csv_file, camera=camera, model="eks"))
+
+        # Per-model predictions live one level deeper.
+        for sub in sorted(model_dir.iterdir()):
+            if not sub.is_dir():
+                continue
+            for csv_file in sorted(sub.glob("*.csv")):
+                if csv_file.stem.lower().endswith("_eks_input"):
+                    continue
+                camera = _match_camera(csv_file.stem, camera_labels)
+                if camera is None:
+                    logger.warning("Skipping 2D pose file with unknown camera: %s", csv_file.name)
+                    continue
+                tracks.append(AOL2DTrack(path=csv_file, camera=camera, model=sub.name))
+
+    logger.info(
+        "AOL 2D tracks: %d across %d cameras",
+        len(tracks),
+        len({track.camera for track in tracks}),
+    )
+    return tracks
+
+
+def _match_camera(stem: str, camera_labels: list[str]) -> str | None:
+    """Resolve a file stem to one of the session's cameras.
+
+    Longest label first so ``SideCam`` cannot be shadowed by a shorter prefix,
+    and empty labels are never used as a match (an empty token would otherwise
+    match every filename).
+    """
+    lowered = stem.lower()
+    for label in sorted((c for c in camera_labels if c), key=len, reverse=True):
+        if lowered.startswith(label.lower()):
+            return label
+    return None
 
 
 def _add_root_videos(session_dir: Path, manifest: AOLManifest) -> None:

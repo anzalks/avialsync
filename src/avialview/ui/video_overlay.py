@@ -2,12 +2,49 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPen
+from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
+
+# Distinct colours for concurrently overlaid predictions. The ensemble result
+# keeps the first (brightest) entry; contributing models cycle through the rest.
+_ENSEMBLE_COLOR = (0, 255, 255)
+_MODEL_COLORS = (
+    (255, 145, 0),
+    (124, 220, 90),
+    (235, 100, 190),
+    (255, 220, 60),
+    (150, 160, 255),
+)
+_ENSEMBLE_RADIUS = 4
+_MODEL_RADIUS = 2
+
+
+@dataclass(frozen=True)
+class OverlayTrack:
+    """One prediction source drawn over a camera's video.
+
+    ``points`` maps a body-part name to its ``(x_reader, y_reader)`` pair. Each
+    track owns readers from its own sidecar cache, so two models that both emit
+    a channel called ``head_bar_x`` never collide.
+    """
+
+    label: str
+    points: dict[str, tuple[Any, Any]]
+    color: tuple[int, int, int] = _ENSEMBLE_COLOR
+    is_ensemble: bool = True
+    likelihood: dict[str, Any] = field(default_factory=dict)
+
+
+def track_color(index: int, *, is_ensemble: bool) -> tuple[int, int, int]:
+    """Return a stable colour for an overlaid prediction source."""
+    if is_ensemble:
+        return _ENSEMBLE_COLOR
+    return _MODEL_COLORS[index % len(_MODEL_COLORS)]
 
 
 class PaintCanvas(QWidget):
@@ -20,33 +57,102 @@ class PaintCanvas(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAutoFillBackground(False)
         self.readers: list[Any] = []
+        self.tracks: list[OverlayTrack] = []
         self.t = 0.0
+        self._show_legend = True
 
     def set_readers(self, readers: list[Any]) -> None:
+        """Draw a single unnamed track from loose ``*_x``/``*_y`` readers.
+
+        Retained for sources that are not routed through the AOL 2D pipeline.
+        """
         self.readers = readers
         self.update()
 
-    def update_time(self, t: float) -> None:
-        self.t = t
+    def set_tracks(self, tracks: list[OverlayTrack]) -> None:
+        """Draw one or more named prediction sources over this camera."""
+        self.tracks = list(tracks)
         self.update()
 
-    def paintEvent(self, event: QPaintEvent) -> None:
-        """Draw only complete XY points at the current source time."""
-        del event
-        if not self.readers:
-            return
+    def set_legend_visible(self, visible: bool) -> None:
+        """Show or hide the per-track legend."""
+        self._show_legend = visible
+        self.update()
+
+    def _video_scale(self) -> tuple[float, float, float] | None:
+        """Return ``(scale, offset_x, offset_y)`` mapping video pixels to widget."""
         pane = self.parent()
         player = getattr(pane, "mpv", None)
         if player is None:
-            return
+            return None
         try:
             video_width = player.dwidth
             video_height = player.dheight
         except (AttributeError, RuntimeError):
-            return
+            return None
         if not video_width or not video_height:
-            return
+            return None
+        scale = min(self.width() / video_width, self.height() / video_height)
+        offset_x = (self.width() - video_width * scale) / 2.0
+        offset_y = (self.height() - video_height * scale) / 2.0
+        return scale, offset_x, offset_y
 
+    def paintEvent(self, event: QPaintEvent) -> None:
+        """Draw every complete XY point of every track at the current source time."""
+        del event
+        if not self.readers and not self.tracks:
+            return
+        geometry = self._video_scale()
+        if geometry is None:
+            return
+        scale, offset_x, offset_y = geometry
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        if self.tracks:
+            drawn: list[tuple[str, tuple[int, int, int]]] = []
+            # Models first, ensemble last, so the fused result stays readable.
+            ordered = sorted(self.tracks, key=lambda track: track.is_ensemble)
+            for track in ordered:
+                if self._draw_track(painter, track, scale, offset_x, offset_y):
+                    drawn.append((track.label, track.color))
+            if self._show_legend and len(drawn) > 1:
+                self._draw_legend(painter, drawn)
+
+        if self.readers:
+            self._draw_loose_readers(painter, scale, offset_x, offset_y)
+
+    def _draw_track(
+        self,
+        painter: QPainter,
+        track: OverlayTrack,
+        scale: float,
+        offset_x: float,
+        offset_y: float,
+    ) -> bool:
+        """Draw one prediction source; returns whether anything was visible."""
+        color = QColor(*track.color)
+        radius = _ENSEMBLE_RADIUS if track.is_ensemble else _MODEL_RADIUS
+        painter.setPen(QPen(color, 2 if track.is_ensemble else 1))
+        painter.setBrush(color)
+
+        any_drawn = False
+        for name, (reader_x, reader_y) in track.points.items():
+            x_value = reader_x.value_at(self.t)
+            y_value = reader_y.value_at(self.t)
+            if np.isnan(x_value) or np.isnan(y_value):
+                continue
+            x = offset_x + x_value * scale
+            y = offset_y + y_value * scale
+            painter.drawEllipse(int(x) - radius, int(y) - radius, radius * 2, radius * 2)
+            any_drawn = True
+            del name
+        return any_drawn
+
+    def _draw_loose_readers(
+        self, painter: QPainter, scale: float, offset_x: float, offset_y: float
+    ) -> None:
         points: dict[str, dict[str, float]] = {}
         for reader in self.readers:
             value = reader.value_at(self.t)
@@ -56,16 +162,50 @@ class PaintCanvas(QWidget):
                 if reader.channel_id.endswith(suffix):
                     points.setdefault(reader.channel_id[:-2], {})[suffix[1:]] = value
 
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(QPen(QColor(0, 255, 255), 3))
-        painter.setBrush(QColor(0, 255, 255))
-        scale = min(self.width() / video_width, self.height() / video_height)
-        offset_x = (self.width() - video_width * scale) / 2.0
-        offset_y = (self.height() - video_height * scale) / 2.0
+        painter.setPen(QPen(QColor(*_ENSEMBLE_COLOR), 3))
+        painter.setBrush(QColor(*_ENSEMBLE_COLOR))
         for point in points.values():
             if "x" not in point or "y" not in point:
                 continue
             x = offset_x + point["x"] * scale
             y = offset_y + point["y"] * scale
             painter.drawEllipse(int(x) - 3, int(y) - 3, 6, 6)
+
+    def _draw_legend(
+        self, painter: QPainter, entries: list[tuple[str, tuple[int, int, int]]]
+    ) -> None:
+        """Name each overlaid source so colour is never the only distinction."""
+        font = QFont(painter.font())
+        font.setPointSize(max(7, font.pointSize() - 1))
+        painter.setFont(font)
+        metrics = painter.fontMetrics()
+
+        swatch = 8
+        padding = 6
+        spacing = 4
+        line_height = max(metrics.height(), swatch) + spacing
+        width = max(metrics.horizontalAdvance(label) for label, _ in entries) + swatch + padding * 3
+        height = line_height * len(entries) + padding
+        left = self.width() - width - 8
+        top = self.height() - height - 8
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(0, 0, 0, 140))
+        painter.drawRoundedRect(left, top, width, height, 4, 4)
+
+        y = top + padding
+        for label, color in entries:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(*color))
+            painter.drawEllipse(left + padding, y + 2, swatch, swatch)
+            painter.setPen(QColor(240, 240, 240))
+            painter.drawText(
+                left + padding * 2 + swatch,
+                y + metrics.ascent(),
+                label,
+            )
+            y += line_height
+
+    def update_time(self, t: float) -> None:
+        self.t = t
+        self.update()

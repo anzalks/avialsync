@@ -89,6 +89,11 @@ class MainWindow(QMainWindow):
         # Owns worker/thread pairs started through _run_job (drop scan, session
         # save/load). See _run_job for why this reference must be kept.
         self._jobs: dict[QThread, _JobWorker] = {}
+        # Pose sources are shown on the video overlay and in the 3D view rather
+        # than as plot rows (D-046). Keyed by video path -> source path -> track.
+        self._overlay_sources: dict[str, dict[str, dict[str, Any]]] = {}
+        self._pose_3d_sources: dict[str, list[Any]] = {}
+        self._plotted_readers: list[Any] = []
         self._region_stats_request = 0
         # Inspection data keyed by str(path)
         self._inspections: dict[str, SourceInspection] = {}
@@ -276,8 +281,10 @@ class MainWindow(QMainWindow):
     def _on_sources_changed(self, readers: list[Any]) -> None:
         """Forward to ReadoutPanel with accumulated units for known channels."""
         self.readout_panel.update_sources(readers, self._channel_units)
-        self.tracking_3d_pane.set_readers(readers)
-        self.tracking_3d_pane.set_cursor(self.clock.state.t)
+        # Plotted XYZ channels still feed the 3D view, but they are no longer its
+        # only feed: AOL pose sources register themselves without being plotted.
+        self._plotted_readers = list(readers)
+        self._refresh_pose_3d()
 
     def _update_timeline_annotations(self) -> None:
         """Mirror annotations to the overview without adding another time model."""
@@ -2175,7 +2182,18 @@ class MainWindow(QMainWindow):
         progress_dialog = getattr(self, "_progress_dialog", None)
         if progress_dialog is not None:
             progress_dialog.close()
-        self.plot_pane.load_channels(Path(cache_dir), channels)
+
+        role = ""
+        if isinstance(inspection, SourceInspection):
+            role = str(inspection.import_config.get("role", ""))
+
+        if role in ("overlay2d", "pose3d"):
+            # Pose data drives the video overlay and the 3D view. It is not
+            # plotted: 27 3D channels or 81 per-camera 2D channels would bury
+            # the recorded signals a plot row is meant to show (D-046).
+            self._register_tracking_source(path, Path(cache_dir), channels, role, inspection)
+        else:
+            self.plot_pane.load_channels(Path(cache_dir), channels)
         self._update_bounds(bounds[0], bounds[1])
         self.transport.set_source_coverage(path, bounds[0], bounds[1], "data")
         self.sidebar.add_sensor(path, channels)
@@ -2198,9 +2216,98 @@ class MainWindow(QMainWindow):
                     {time: f"Source: {Path(path).name}" for time in gap_times}
                 )
                 self.transport.set_gap_events(sorted(self._overview_gaps.items()))
-                for ch in channels:
-                    self.plot_pane.set_gap_markers(ch, gap_times)
+                if not role:
+                    # Pose sources have no plot rows to mark.
+                    for ch in channels:
+                        self.plot_pane.set_gap_markers(ch, gap_times)
         self.transport.set_status(f"Ready · imported {Path(path).name}")
+
+    # ── Pose sources (overlay + 3D view, never plotted) ──────────────
+
+    def _register_tracking_source(
+        self,
+        path: str,
+        cache_dir: Path,
+        channels: list[str],
+        role: str,
+        inspection: object,
+    ) -> None:
+        """Route imported pose data to the overlay or the 3D view.
+
+        Readers are built straight from the source's own sidecar cache, so two
+        cameras or two models that both emit ``head_bar_x`` stay separate without
+        depending on globally unique channel names.
+        """
+        from avialview.core.pyramid import PyramidReader
+
+        config: dict[str, Any] = {}
+        if isinstance(inspection, SourceInspection):
+            config = dict(inspection.import_config)
+
+        if role == "pose3d":
+            self._pose_3d_sources[path] = [
+                PyramidReader(cache_dir, channel) for channel in channels
+            ]
+            self._refresh_pose_3d()
+            return
+
+        video = str(config.get("overlay_video", ""))
+        if not video:
+            logger.warning("2D pose source %s has no overlay target; skipping.", path)
+            return
+
+        points: dict[str, tuple[PyramidReader, PyramidReader]] = {}
+        by_name: dict[str, dict[str, PyramidReader]] = {}
+        for channel in channels:
+            base, separator, axis = channel.rpartition("_")
+            if separator and axis in ("x", "y"):
+                by_name.setdefault(base, {})[axis] = PyramidReader(cache_dir, channel)
+        for name, axes in by_name.items():
+            if "x" in axes and "y" in axes:
+                points[name] = (axes["x"], axes["y"])
+
+        if not points:
+            logger.warning("2D pose source %s produced no complete XY points.", path)
+            return
+
+        self._overlay_sources.setdefault(video, {})[path] = {
+            "label": str(config.get("overlay_label", Path(path).stem)),
+            "is_ensemble": bool(config.get("overlay_is_ensemble", False)),
+            "points": points,
+        }
+        self._refresh_overlays(video)
+
+    def _refresh_pose_3d(self) -> None:
+        """Feed the 3D view from registered pose sources plus any plotted XYZ."""
+        readers: list[Any] = list(self._plotted_readers)
+        for source_readers in self._pose_3d_sources.values():
+            readers.extend(source_readers)
+        self.tracking_3d_pane.set_readers(readers)
+        self.tracking_3d_pane.set_cursor(self.clock.state.t)
+
+    def _refresh_overlays(self, video: str) -> None:
+        """Rebuild one camera's overlay track list, ensemble last."""
+        from avialview.ui.video_overlay import OverlayTrack, track_color
+
+        sources = self._overlay_sources.get(video, {})
+        tracks: list[OverlayTrack] = []
+        model_index = 0
+        for _source_path, entry in sorted(
+            sources.items(), key=lambda item: (not item[1]["is_ensemble"], item[1]["label"])
+        ):
+            is_ensemble = bool(entry["is_ensemble"])
+            color = track_color(model_index, is_ensemble=is_ensemble)
+            if not is_ensemble:
+                model_index += 1
+            tracks.append(
+                OverlayTrack(
+                    label=str(entry["label"]),
+                    points=entry["points"],
+                    color=color,
+                    is_ensemble=is_ensemble,
+                )
+            )
+        self.video_grid.set_overlay_tracks(video, tracks)
 
     def _on_import_error(self, err_msg: str) -> None:
         progress_dialog = getattr(self, "_progress_dialog", None)
