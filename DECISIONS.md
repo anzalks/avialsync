@@ -2,6 +2,114 @@
 Format per entry: date · decision · context · alternatives rejected · consequences.
 Agents: read before coding; append when making irreversible choices; never silently reverse entries.
 
+## 2026-07 · D-045 · Bounded reads, source TimeMaps, and scoped channel identity
+
+**Context:** the P3.5 audit left four correctness/scale gaps: `PyramidReader._load_level` leaked to
+five subsystems that could each materialise a whole recording; imports accumulated complete channels
+with `np.concatenate`; time-series sources had no `TimeMap`, so a sensor on its own clock could not
+be aligned; and channel names were treated as globally unique.
+
+**Decision:**
+1. `PyramidReader` exposes a bounded read API — `coverage`, `sample_count`, `sample_at`, `value_at`,
+   `raw_slice`, `iter_raw_chunks`, `mapped_columns`. `_load_level` is private and an AST guard test
+   fails the build if any module outside `core/pyramid.py` calls it.
+2. `core/pyramid.ChannelStage` stages parser chunks to disk; `PyramidBuilder.save_levels(
+   include_base=False)` lets a streamed import write each raw sample exactly once. `NeoLoader` reads
+   blocks lazily and slices per batch.
+3. `core/channel_reader.MappedChannelReader` presents a cached channel on the master clock through a
+   `TimeMap`. Only bounded results are converted; `mapped_columns` stays in source time on purpose,
+   because converting a whole time column would copy the recording. Session schema v6 persists
+   sensor `offset`/`drift_ppm`. Re-aligning a source is a redraw, never a re-import.
+4. Identity is `ChannelKey(source_id, channel_id)` across plots, readouts, units, visibility, region
+   statistics, and export. A bare channel name remains accepted but is logged as ambiguous when more
+   than one source owns it.
+
+**Alternatives rejected:** keeping `_load_level` public with a documentation-only warning; an
+in-memory chunk list with a size cap (still unbounded per channel); rewriting cached samples to
+apply an offset; qualifying every channel label with its filename unconditionally; wide-form export
+that assumes all sources share a time axis.
+
+**Consequences:** `core/` gained `channel_reader.py` and must stay headless — `core/session.py` no
+longer imports PySide6 and the guard test now imports every core module individually. Cache layout
+is unchanged, so existing sidecars stay valid. Pre-v6 sessions load with the identity mapping.
+
+## 2026-07 · D-046 · Session IO and annotation export never run on the UI thread
+
+**Context:** architecture rule 3 was violated by session save, load, autosave, and annotation
+export. A session carrying an accepted million-pair frame mapping is not a "fast enough" write, and
+on a network drive none of these are.
+
+**Decision:** `engine/session_worker.py` owns `SessionSaveWorker`, `SessionLoadWorker`, and
+`AnnotationExportWorker`. Each takes an immutable snapshot at construction, so the UI thread may
+keep mutating its own state. Parsing moves to the worker; *applying* a loaded session — creating
+panes, starting imports — stays on the UI thread where Qt object ownership belongs. The single
+exception is the final autosave in `closeEvent`, which is synchronous by design and documented:
+the window is being torn down, so handing that write to a QThread would race widget destruction.
+
+**Alternatives rejected:** a modal progress dialog around a blocking write; `QApplication.
+processEvents()` pumping (banned by the production guard); making the close-time autosave
+asynchronous and joining the thread in the destructor.
+
+**Consequences:** a Qt heartbeat test gates this — it fails if the event loop stalls more than
+500 ms during a one-million-pair session write.
+
+## 2026-07 · D-047 · Presentation is rate-limited; authoritative time is not
+
+**Context:** the 60 Hz tick formatted every readout label and resampled the full pose set even when
+those panels were collapsed, and timeline evidence paint scanned every event on every frame.
+
+**Decision:** the master clock, plot cursor, and seek bar still see all 60 ticks per second.
+Text-formatting and pose-sampling consumers refresh at 20 Hz and are skipped entirely while hidden.
+Discrete events — seek, frame step, pause — pass `force=True` so a stale readout can never be shown
+as if it were current. `_update_timeline_views` takes the caller's already-sampled
+`time.monotonic()` value and never samples the clock itself, so it cannot perturb drift accounting.
+Timeline event lanes keep a sorted time index; paint and hover binary-search it, so their cost
+scales with pixels rather than event count.
+
+**Alternatives rejected:** throttling the master clock itself; repainting everything and relying on
+Qt's update coalescing; dropping the readout panel from the tick and refreshing it on a separate
+timer (it would then disagree with the playhead after a seek).
+
+**Consequences:** 20 Hz is a presentation constant, not a timing guarantee; any test asserting a
+readout value must force an update or drive the clock past the interval.
+
+## 2026-07 · D-048 · Video probes run bounded-parallel; native panes stay serialized
+
+**Context:** metadata probing and native pane construction were both serialized, so a four-camera
+session paid four probe latencies in a row for work that is independent per file.
+
+**Decision:** up to three ffprobe metadata/timestamp probes run concurrently. Native render pane
+construction remains strictly one at a time and in the order the user requested the files, so the
+grid layout never depends on which file probed fastest, and D-040's requirement that libmpv accept
+commands on one pane before the next is built is preserved. A failed probe is dropped from the
+ordering so files queued behind it still open.
+
+**Alternatives rejected:** unbounded probe fan-out (a 32-camera session would thrash one disk);
+parallel pane construction; building panes in probe-completion order.
+
+**Consequences:** the probe bound is a constant, not a per-machine calculation; raising it needs a
+measurement on spinning-disk and network-mounted media, not just an SSD.
+
+## 2026-07 · D-049 · No splitter pane may be collapsed to nothing
+
+**Context:** the plot area launched with zero height because stretch factors alone let Qt allocate
+nothing to a pane whose sibling's size hint already filled the splitter; every splitter also
+permitted dragging a child to zero, leaving no handle affordance to recover it.
+
+**Decision:** all four workspace splitters seed explicit proportional sizes before any saved state
+loads and set `childrenCollapsible(False)`. Because `QSplitter.saveState` stores that flag, the
+policy is re-asserted after `restoreState`, and a restored layout carrying a zero-size visible pane
+is repaired to the defaults. The 3D tracking pane is shown only once a source provides complete XYZ
+triplets, so it never holds media width or raises the window minimum for sessions without tracking.
+
+**Alternatives rejected:** relying on stretch factors alone; giving each pane a large hard
+`setMinimumHeight` (it makes the window unshrinkable); a "reset layout" menu item as the only
+recovery path.
+
+**Consequences:** hiding a pane is a deliberate control — the Data Streams collapse button, the
+sidebar tab, channel visibility — never an accidental drag. Layout regressions are covered by
+`tests/test_ui_layout_resize.py`.
+
 ## 2026-07 · D-027 · Timeline Evidence must be named and conditional
 
 **Context:** coverage, sync/TTL events, gaps, and annotations share the master timeline, but an

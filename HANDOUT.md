@@ -37,7 +37,8 @@ Use `AvialView` for displayed text and `avialview` for technical identifiers. Do
 
 ## Phase Status
 
-Phases 0–4 complete. Phase 5.1 has frozen the Plugin API v1: time-series plugins
+Phases 0–4 complete; P3.5 hardening implemented (measurements pending — see Pending).
+Phase 5.1 has frozen the Plugin API v1: time-series plugins
 provide chunked ingest only; video sources open asynchronously through the registry,
 retain D-006 conversion hooks, and may be discovered through entry points or drop-ins.
 P5.4 has an initial implementation: cached TTL-channel extraction and video frame-event alignment
@@ -186,27 +187,39 @@ with explicit user acceptance and session provenance. Native plugin event provid
   are implemented and covered by focused offscreen tests. The remaining release certification is the
   full representative 4/32/128-channel performance and three-platform manual field-data checklist;
   do not claim the latency budgets without those measurements.
-- P3.5 performance/accurate-streaming hardening (full audit 2026-07-29):
-  - P0 implemented: plot the pyramid min/max envelope; propagate raw gap evidence through every
-    decimation level; enforce explicit CSV timestamp schemas, cross-chunk chronology/duplicate
-    validation, and the wizard's selected timezone. CSV/tracking use one bulk parser pass, valid
-    cache manifests reopen without parsing, cache swaps roll back safely, range stats/data export
-    and ffmpeg clipping run in workers, and exact frame mappings retain bounded evidence plus a
-    checksum-validated compressed session sidecar.
-  - P0 remaining: give every time-series source a `TimeMap`; replace complete-channel import
-    concatenation with bounded builders and Neo full-block materialization; move session
-    save/load/autosave and annotation export off the UI thread; add
-    cancellation/progress and Qt heartbeat/peak-RSS/one-million-frame benchmarks.
-  - P1 scale: source-scope channel identity; index/pool timeline, gap, and annotation graphics;
-    skip/rate-limit collapsed readout/3D/overlay consumers; batch widget-row creation; decouple
-    bounded parallel video probing from serialized native pane construction.
-  - P1 durability: cache replacement currently deletes the valid sidecar before rename. Add a
-    recoverable cross-platform swap with fault-injection tests.
-  - Complete findings and acceptance gates live in `BLUEPRINT.md`,
-    `docs/technical/performance.md`, and `docs/technical/data-handling.md`. Existing
-    microbenchmarks are baselines, not freeze-free certification: the cursor test has an empty
-    readout and no delivered paints, and the video tests do not measure decoder settle plus
-    rendered-frame proof.
+- P3.5 performance/accurate-streaming hardening (audit 2026-07-29; closed 2026-07-30):
+  - **P0 accuracy — done.** Plot envelopes render pyramid min/max; raw gap evidence is OR-reduced
+    into every coarser level; CSV enforces an explicit timestamp schema with cross-chunk
+    chronology/duplicate validation and the wizard timezone. Every time-series source now has a
+    `TimeMap` (D-045): `MappedChannelReader` presents cached channels on the master clock, session
+    schema v6 persists sensor `offset`/`drift_ppm`, and the sidebar offers the same offset/drift
+    controls video already had. Re-aligning a source is a redraw, never a re-import.
+  - **P0 streaming — done.** `ChannelStage` stages parser chunks to disk and materialises once, so
+    peak import memory is one chunk per channel instead of the whole recording. `NeoLoader` reads
+    blocks lazily and slices per batch. Gap *locations* are capped at 10 000 as display evidence
+    while `gap_count` stays exact.
+  - **P0 UI freeze — done.** Region statistics, CSV/Parquet export, PNG encoding, ffmpeg clipping,
+    and now session save/load/autosave and annotation export all run on workers (D-046). A Qt
+    heartbeat test fails if the event loop stalls during a one-million-pair session write. The
+    close-time autosave is deliberately synchronous — the window is being destroyed.
+  - **P1 identity — done.** `ChannelKey(source_id, channel_id)` keys plots, readouts, units,
+    visibility, region statistics, and export (D-045). CSV export labels each block with its source;
+    Parquet is long-form and never assumes a shared time axis.
+  - **P1 hot path — done.** Authoritative time stays at 60 Hz; readout/pose presentation is
+    rate-limited to 20 Hz and skipped when hidden; timeline evidence lanes are indexed by time so
+    paint and hover scale with pixels, not event count (D-047).
+  - **P1 loading — done.** Video metadata probes run bounded-parallel (3 at a time) while native
+    pane construction stays serialized and in request order, preserving D-040 (D-048).
+  - **P1 cache durability — done.** Cache commits retain the previous valid sidecar until the
+    replacement is installed and recover an interrupted backup on the next validity check.
+  - **Still open:** the representative *measurements*. The populated 4/32/128-channel performance
+    certification, peak-RSS and second-open-latency numbers for a 1 GB / 180 M-sample import, and
+    decoder-settle-plus-rendered-frame latency are not yet recorded. Existing microbenchmarks are
+    baselines, not freeze-free certification. Do not claim the BLUEPRINT latency budgets without
+    those runs on a real mid-spec machine.
+  - **P2 maintainability — still open.** `ui/main_window.py` is ~2 400 lines and still owns loading,
+    persistence, synchronization, export, and widget orchestration. Splitting it into bounded job
+    controllers is unstarted.
 - P5.2 release packaging: CI already builds a media-free one-directory artifact on every OS; the
   tag-only release workflow runs its cross-platform quality matrix, then smoke-tests the built
   wheel in a clean environment before building release-media installers. OIDC PyPI publishing
@@ -305,11 +318,13 @@ outside that invocation; that message does not mean the full-package overrides a
 | `core/session.py` | `.avv` session JSON, schema v5 | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
+| `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
 | `engine/player.py` | precise 60 Hz tick; decoder-independent MasterClock ↔ mpv ↔ UI | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
 | `engine/seeker.py` | Parallel seek across all mpv panes | `SeekGroup` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
 | `engine/sync_worker.py` | Chunked event extraction and deterministic alignment fit (D-026) | `SyncWorker`, evidence specs |
+| `engine/session_worker.py` | Off-UI-thread session save/load and annotation export (D-046) | `SessionSaveWorker`, `SessionLoadWorker`, `AnnotationExportWorker` |
 | `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `ui/main_window.py` | Top-level; wires all signals; session lifecycle; `_inspections` dict | `MainWindow` |
 | `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane`, `set_sync_correction()` |
@@ -328,6 +343,7 @@ outside that invocation; that message does not mean the full-package overrides a
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |
 | `ui/time_format.py` | TimeDisplayMode enum + format_time() — single formatting authority (D-020) | `TimeDisplayMode`, `format_time()` |
+| `ui/recent_files.py` | Recent-session list in QSettings — kept out of `core/` (rule 2) | `add_recent()`, `get_recent()`, `clear_recent()` |
 | `ui/offsets_panel.py` | Stub — offset editing stays in `VideoInfoWidget.offset_spin`; not filled by D-020 | — |
 | `ui/readout_panel.py` | Live per-channel values + units + sample index + Δ section | `update_sources()`, `set_cursor()`, `show_region_stats()`, `show_delta()` |
 | `ui/annotations.py` | Annotation store + list panel | `AnnotationStore`, `AnnotationPanel` |
@@ -483,12 +499,16 @@ The correct dependency is `python-mpv` on PyPI, imported as `import mpv`. The pa
 `pyproject.toml` sets `line-length = 100`. Editor/Pylance red-underline at 79 chars is wrong.
 Only `conda run -n avialview ruff check .` is authoritative.
 
-### 13. `_load_level()` is private but currently leaks across UI/engine code
+### 13. `_load_level()` is private — use the bounded read API (D-045)
 
-`PyramidReader._load_level(1)` is called by readout, tracking, synchronization, export, and plot
-construction. Do not add more callers. P3.5 must replace these leaks with explicit `value_at`,
-bounded raw-slice/chunk-iterator, coverage, and synchronization-evidence APIs so workers can
-enforce sampling policy, source `TimeMap`, cancellation, and memory bounds.
+`PyramidReader` exposes `coverage()`, `sample_count()`, `sample_at()`, `value_at()`, `raw_slice()`,
+`iter_raw_chunks()`, and `mapped_columns()`. Every consumer reads through those.
+`tests/test_pyramid_read_api.py` parses the source tree and **fails the build** if any module
+outside `core/pyramid.py` calls `_load_level`.
+
+`mapped_columns()` returns level-1 mmap **views in source time** on purpose — converting a whole
+time column to master time would materialise the recording. Tick-rate consumers convert their
+scalar query instead: `reader.time_map.to_source(t_master)`.
 
 ### 14. Session v1 → v2 migration: SensorEntry / VideoEntry gain new optional fields
 `SourceInspection` data is stored as dict in SensorEntry. When loading a v1 session, these fields
@@ -555,6 +575,30 @@ is the single authority for frame computation; MainWindow never reaches into pan
 
 ### 20. mypy silently ignores malformed override sections
 If you use array syntax `module = ["module_a", "module_b"]` in `pyproject.toml` `[[tool.mypy.overrides]]`, mypy does not support it. It silently treats it as an invalid section. Any "unused section" warning from mypy means the configuration is completely broken and ignored, **not** that the files inside it type-check cleanly! Always use single `module = "..."` per block.
+
+### 21. QSplitter.restoreState also restores `childrenCollapsible` (D-049)
+
+A layout saved before a collapse policy existed will silently re-enable collapsing when restored,
+and can carry a zero-size pane that has no handle affordance left to recover it.
+**Fix:** `MainWindow._enforce_splitter_policy()` and `_repair_collapsed_panes()` run *after* every
+`restoreState`. Stretch factors alone are not enough either — Qt hands a pane zero pixels when its
+sibling's size hint already fills the splitter, which is how the plot area shipped fully collapsed.
+Always seed explicit `setSizes` as well.
+
+### 22. Presentation refresh is 20 Hz, not 60 Hz (D-047)
+
+`Player._update_timeline_views` refreshes readout labels and pose sampling at 20 Hz and skips them
+entirely while hidden; the clock, plot cursor, and seek bar still see all 60 ticks. A test that
+asserts a readout value must pass `force=True` or advance past the interval, or it will read a
+stale label. The method takes the caller's `time.monotonic()` value and must never sample the clock
+itself — doing so perturbs the tick's drift accounting and broke `test_scrubbing` once already.
+
+### 23. Channel names are not unique — key by `ChannelKey` (D-045)
+
+Two loaded files can both contain `force_z`. Plots, readouts, units, visibility, region statistics,
+and export are keyed by `ChannelKey(source_id, channel_id)`. The sidebar already emits
+`(path, channel)`; pass both through. `PlotPane` still accepts a bare name for compatibility but
+logs a warning when more than one source owns it — do not rely on that path in new code.
 
 ### 17. Annotation schema (v3) — per-video frame records
 

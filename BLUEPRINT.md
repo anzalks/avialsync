@@ -39,27 +39,30 @@ Benchmarks live in `tests/benchmarks/`, run locally via `pytest --benchmark-only
 ★ marks are enforced without a multiplier. GitHub Actions verifies the representative scientific
 session's correctness across platforms but does not use shared hosted machines to certify speed.
 
-### Full performance and accurate-streaming audit (2026-07-29)
+### Full performance and accurate-streaming audit (2026-07-29; implementation closed 2026-07-30)
 
 The architecture is sound at its main boundaries: the monotonic master clock does not wait for a
 decoder, libmpv owns decoding, video callbacks and scrub requests are coalesced, hidden video panes
 are removed from synchronization work, data/video/sync/proxy preparation has worker entry points,
 and plots query bounded mmap-backed pyramid slices. Those protections must be retained.
 
-The current implementation is **not yet certified freeze-free or scientifically faithful at the
-target scale**. The following hardening work is part of Phase 3/P3.5, in priority order:
+Every audited **implementation** gap below is now closed. What remains is **measurement**: the
+representative populated workload has not been recorded, so the timing budgets in the table above
+are not yet certified. A fast median alone is insufficient — record p50/p95/p99 and the maximum UI
+heartbeat delay, and fail on timing/data mismatches even when throughput passes.
 
-| Priority | Audited gap | Required outcome and release evidence |
+| Priority | Audited gap | Status (2026-07-30) |
 |---|---|---|
-| P0 accuracy — partly complete | Plot envelopes now render both pyramid extrema and raw gap evidence is OR-reduced into coarser levels. CSV uses an explicit timestamp schema, preserves duplicate/chronology checks across parser batches, and applies the wizard timezone. | Add NaN-block and all-level golden coverage; give every time-series source the same accepted `TimeMap` treatment as video, including multi-source offset/drift/session fixtures. |
-| P0 streaming — partly complete | CSV and tracking loaders expose one-pass bulk chunk APIs, ImportWorker reuses a validated manifest cache, and cache keys include accepted loader configuration. The worker still concatenates complete channels and Neo may materialize a full block. | Replace complete-channel accumulation with bounded builders/backpressure. Benchmark 1 GB/4-channel and 180 M-sample imports, peak RSS, cancellation, and second-open latency. |
-| P0 UI freeze — partly complete | Region statistics, CSV/Parquet export, PNG composition/encoding, and ffmpeg clip trimming now use worker-owned readers/subprocess work. | Move session save/load/autosave and annotation export off the UI thread; add cancellation/progress and a Qt heartbeat test for every long job. |
-| P0 scale — partly complete | Exact fits retain bounded evidence; acceptance keeps NumPy arrays, and large session mappings use checksum-validated compressed sidecars instead of JSON float lists. | Benchmark one million frame pairs for accept, autosave, reload, seek, and memory; move session IO itself to workers. |
-| P1 identity | Channel IDs are treated as globally unique in plots, readouts, units, visibility, and Parquet export. Two files with the same channel name can overwrite or control each other; Parquet also assumes equal time axes. | Use a stable `(source_id, channel_id)` identity throughout. Export long-form data or prove identical axes before wide-form output. Add duplicate-name and irregular-time-axis fixtures. |
-| P1 hot path | The 60 Hz tick formats every readout label and samples 3D/overlay data even when panels are collapsed. Timeline evidence paint/hover and plot annotation/gap item rebuilds scale with all events. | Keep authoritative time at 60 Hz but rate-limit presentation, skip hidden consumers, index visible events by time, and reuse graphics items. Certify populated 4/32/128-channel, 128-point, 100k-event, and 10k-annotation workloads including actual paint events. |
-| P1 loading | Video probing is off-thread but serialized with native pane creation, and ffprobe frame timestamps are captured as a full text result based on packet PTS. Plot/readout/sidebar row construction and recursive drop classification are synchronous. | Bound parallel metadata/timestamp probing separately from serialized native pane creation; stream probe output; validate presentation timestamps against decoded-frame ground truth; batch/virtualize row creation and move recursive discovery off-thread. |
-| P1 cache durability — complete | Cache commits retain the previous valid sidecar until the replacement is installed, restore it after a failed swap, and recover an interrupted backup on the next validity check. | Keep fault-injection coverage with any cache-format or platform-specific change. |
-| P2 maintainability | `ui/main_window.py` is 1,900+ lines and owns loading, persistence, synchronization, export, and widget orchestration. This makes accidental UI-thread work difficult to review. | Split bounded job controllers/services along existing architecture seams; no new module over ~500 lines. Add a static/runtime guard for prohibited UI-thread file and subprocess work. |
+| P0 accuracy | Plot envelopes, gap propagation, CSV timestamp schema, and per-source `TimeMap`. | **Done.** Envelopes render pyramid extrema; raw gap evidence is OR-reduced into every level; CSV enforces an explicit timestamp dtype with cross-batch chronology checks. Every time-series source now maps through a `TimeMap` (D-045); session schema v6 persists sensor offset/drift. |
+| P0 streaming | Import concatenated complete channels; Neo materialised a full block. | **Done.** `ChannelStage` stages parser chunks to disk and materialises once, so peak memory is one chunk per channel. Neo reads blocks lazily and slices per batch. Gap locations are bounded; `gap_count` stays exact. |
+| P0 UI freeze | Session save/load/autosave and annotation export ran on the UI thread. | **Done.** All four moved to workers (D-046), with a Qt heartbeat test over a one-million-pair write. The close-time autosave is synchronous by design. |
+| P0 scale | Exact fits and large session mappings. | **Done.** Bounded evidence retained; large mappings use checksum-validated compressed sidecars; session IO is off-thread. |
+| P1 identity | Channel IDs treated as globally unique. | **Done.** `ChannelKey(source_id, channel_id)` throughout (D-045). CSV export labels each block by source; Parquet is long-form and assumes no shared axis. |
+| P1 hot path | 60 Hz tick formatted all labels and sampled hidden consumers; evidence paint scanned all events. | **Done.** Presentation rate-limited to 20 Hz and skipped when hidden; event lanes indexed by time (D-047). |
+| P1 loading | Probing serialized with native pane creation. | **Done.** Bounded-parallel probes, serialized in-order pane construction (D-048); D-040 preserved. |
+| P1 cache durability | — | **Done.** Recoverable swap with fault-injection coverage. |
+| P2 maintainability | `ui/main_window.py` is ~2 400 lines. | **Open.** Splitting into bounded job controllers is unstarted. |
+| **Measurement** | Populated-workload certification. | **Open.** 4/32/128-channel latency, peak RSS, 1 GB/180 M-sample import, second-open latency, and decoder-settle-plus-rendered-frame numbers are not yet recorded on a mid-spec machine. |
 
 The existing microbenchmarks remain useful but do not close these items. In particular, the cursor
 benchmark constructs an empty `ReadoutPanel`, does not process the queued paint events, the video
