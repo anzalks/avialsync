@@ -4,7 +4,7 @@ import dataclasses
 import logging
 from collections import deque
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QThread, QTimer, Signal, Slot
@@ -46,6 +46,13 @@ logger = logging.getLogger(__name__)
 _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
 
 
+class _JobWorker(Protocol):
+    """A QObject with a run() slot, moved to a QThread by _run_job."""
+
+    def run(self) -> None: ...
+    def moveToThread(self, thread: QThread) -> None: ...
+
+
 class MainWindow(QMainWindow):
     time_mode_changed = Signal(object)  # TimeDisplayMode
 
@@ -79,6 +86,9 @@ class MainWindow(QMainWindow):
         self._region_stats_jobs: dict[QThread, object] = {}
         self._video_clip_jobs: dict[QThread, object] = {}
         self._snapshot_jobs: dict[QThread, object] = {}
+        # Owns worker/thread pairs started through _run_job (drop scan, session
+        # save/load). See _run_job for why this reference must be kept.
+        self._jobs: dict[QThread, _JobWorker] = {}
         self._region_stats_request = 0
         # Inspection data keyed by str(path)
         self._inspections: dict[str, SourceInspection] = {}
@@ -243,6 +253,23 @@ class MainWindow(QMainWindow):
 
         # Setup global shortcuts (must come after _setup_menu so _all_actions exists)
         self._setup_shortcuts()
+
+    # ── Background job lifetime ──────────────────────────────────────
+
+    def _run_job(self, worker: _JobWorker) -> QThread:
+        """Own a worker/thread pair for the whole life of a background job.
+
+        A QObject moved to a QThread with no Python reference is collected
+        before QThread.started fires, so its run() slot never runs at all.
+        Every background job started by this window must be registered here.
+        """
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        self._jobs[thread] = worker
+        thread.started.connect(worker.run)
+        thread.finished.connect(lambda t=thread: self._jobs.pop(t, None))
+        thread.finished.connect(thread.deleteLater)
+        return thread
 
     # ── Sources / units ──────────────────────────────────────────────
 
