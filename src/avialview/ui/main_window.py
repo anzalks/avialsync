@@ -50,7 +50,7 @@ class _JobWorker(Protocol):
     """A QObject with a run() slot, moved to a QThread by _run_job."""
 
     def run(self) -> None: ...
-    def moveToThread(self, thread: QThread) -> None: ...
+    def moveToThread(self, thread: QThread, /) -> bool: ...
 
 
 class MainWindow(QMainWindow):
@@ -954,17 +954,14 @@ class MainWindow(QMainWindow):
 
         self.transport.set_status("Scanning files…")
         worker = DropScanWorker(paths, self._registry)
-        thread = QThread(self)
-        worker.moveToThread(thread)
+        thread = self._run_job(worker)
 
-        thread.started.connect(worker.run)
         worker.finished.connect(self._on_drop_scan_finished)
         worker.session_found.connect(self._on_drop_session_found)
         worker.error.connect(self._on_drop_scan_error)
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
         worker.finished.connect(worker.deleteLater)
         worker.error.connect(worker.deleteLater)
 
