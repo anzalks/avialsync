@@ -132,7 +132,7 @@ class Tracking3DCanvas(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setMinimumSize(200, 180)
+        self.setMinimumSize(160, 140)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName("Interactive 3D tracking plot")
         self.setMouseTracking(True)

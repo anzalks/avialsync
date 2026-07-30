@@ -347,7 +347,9 @@ class SidebarPane(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setMinimumWidth(250)
+        # Wide enough for the offset/drift row, narrow enough that the whole
+        # window can still be shrunk on a laptop display.
+        self.setMinimumWidth(180)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)

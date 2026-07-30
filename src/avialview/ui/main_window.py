@@ -199,6 +199,9 @@ class MainWindow(QMainWindow):
         self._media_splitter.addWidget(self.tracking_3d_pane)
         self._media_splitter.setStretchFactor(0, 2)
         self._media_splitter.setStretchFactor(1, 1)
+        # The 3D pane only earns workspace once a source actually has XYZ
+        # triplets; otherwise an empty pane holds width the video needs.
+        self.tracking_3d_pane.setVisible(False)
 
         v_splitter = QSplitter(Qt.Orientation.Vertical)
         v_splitter.addWidget(self._media_splitter)
@@ -219,6 +222,14 @@ class MainWindow(QMainWindow):
         h_splitter.addWidget(right_widget)
         h_splitter.setStretchFactor(0, 0)
         h_splitter.setStretchFactor(1, 1)
+
+        # Stretch factors alone let Qt hand a pane zero pixels when the sibling's
+        # size hint already fills the splitter — that is how the plot area came up
+        # fully collapsed.  Seed explicit proportions and forbid a drag from
+        # collapsing a pane to nothing: a zero-height plot area or zero-width
+        # video area has no handle affordance left to bring it back.
+        self._enforce_splitter_policy()
+        self._apply_default_splitter_sizes()
 
         layout.addWidget(h_splitter)
 
@@ -272,11 +283,70 @@ class MainWindow(QMainWindow):
 
     # ── Sources / units ──────────────────────────────────────────────
 
+    def _splitters(self) -> tuple[QSplitter, ...]:
+        return (
+            self._h_splitter,
+            self._content_splitter,
+            self._v_splitter,
+            self._media_splitter,
+        )
+
+    def _enforce_splitter_policy(self) -> None:
+        """Forbid collapsing a pane to nothing.
+
+        Must be re-applied after ``restoreState``: ``QSplitter.saveState`` stores
+        the collapsible flag, so a session arranged before this policy existed
+        would otherwise restore the old permissive behaviour.
+        """
+        for splitter in self._splitters():
+            splitter.setChildrenCollapsible(False)
+
+    def _repair_collapsed_panes(self) -> None:
+        """Re-seed any splitter a previously-saved state left with a zero pane.
+
+        A zero-height plot area or zero-width video area has no handle affordance
+        left to drag it back, so a stale saved layout must not be honoured.
+        """
+        for splitter in self._splitters():
+            sizes = splitter.sizes()
+            visible = [
+                index for index in range(splitter.count()) if splitter.widget(index).isVisible()
+            ]
+            if any(sizes[index] <= 0 for index in visible):
+                self._apply_default_splitter_sizes()
+                return
+
+    def _apply_default_splitter_sizes(self) -> None:
+        """Seed proportional splitter sizes so no pane starts with zero pixels.
+
+        Called before any saved state is restored; ``_restore_geometry`` still
+        wins when the user has arranged the window before.
+        """
+        self._h_splitter.setSizes([280, 1000])
+        self._content_splitter.setSizes([620, 160])
+        self._v_splitter.setSizes([380, 240])
+        self._media_splitter.setSizes([700, 300])
+
     def _on_sources_changed(self, readers: list[Any]) -> None:
         """Forward to ReadoutPanel with accumulated units for known channels."""
         self.readout_panel.update_sources(readers, self._channel_units)
         self.tracking_3d_pane.set_readers(readers)
         self.tracking_3d_pane.set_cursor(self.clock.state.t)
+        self._update_tracking_pane_visibility()
+
+    def _update_tracking_pane_visibility(self) -> None:
+        """Show the 3D pane only while a source provides complete XYZ triplets.
+
+        An always-present empty pane keeps a third of the media width and raises
+        the window's minimum width for sessions that have no tracking data.
+        """
+        has_points = self.tracking_3d_pane.canvas.point_count > 0
+        if self.tracking_3d_pane.isVisible() == has_points:
+            return
+        self.tracking_3d_pane.setVisible(has_points)
+        if has_points:
+            width = max(self._media_splitter.width(), 600)
+            self._media_splitter.setSizes([int(width * 0.65), int(width * 0.35)])
 
     def _update_timeline_annotations(self) -> None:
         """Mirror annotations to the overview without adding another time model."""
@@ -373,6 +443,10 @@ class MainWindow(QMainWindow):
             self._content_splitter.restoreState(content_state)
         tab_index = cast(int, settings.value("inspector/tab", 0, type=int))
         self._left_tabs.setCurrentIndex(max(0, min(tab_index, self._left_tabs.count() - 1)))
+        # restoreState also restores the collapsible flag and may carry a zero
+        # pane from an older layout; re-assert the policy and repair.
+        self._enforce_splitter_policy()
+        self._repair_collapsed_panes()
 
     def _save_geometry(self) -> None:
         settings = QSettings("AvialView", "AvialView")
