@@ -28,6 +28,8 @@ _CATEGORY_DEFAULTS = [
     ("Generic CSV Time Series", "CSVLoader"),
     ("Camera TTLs / Events (CSV)", "CSVLoader"),
     ("Frame Triggers (CSV)", "CSVLoader"),
+    ("AOL 3D Tracking", "AOLEksLoader"),
+    ("AOL Encoder Log", "AOLEncoderLoader"),
 ]
 
 

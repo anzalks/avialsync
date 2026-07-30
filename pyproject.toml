@@ -45,6 +45,8 @@ csv = "avialview.loaders.csv_loader:CSVLoader"
 video = "avialview.loaders.video_standard:VideoStandardLoader"
 tracking = "avialview.loaders.tracking_loader:TrackingLoader"
 neo = "avialview.loaders.neo_loader:NeoLoader"
+aol_encoder = "avialview.loaders.aol_encoder_loader:AOLEncoderLoader"
+aol_eks = "avialview.loaders.aol_eks_loader:AOLEksLoader"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/avialview"]

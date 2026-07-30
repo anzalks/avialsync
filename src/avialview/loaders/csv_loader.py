@@ -222,7 +222,6 @@ class CSVLoader(TimeSeriesSource):
         pending_time: float | None = None
         pending_values: dict[str, float] | None = None
         for batch in reader:
-
             t = self._normalize_time(batch[time_col])
             values = {name: batch[name].cast(pl.Float64).to_numpy() for name in channel_names}
             if sentinel is not None:

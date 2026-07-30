@@ -97,11 +97,12 @@ class TrackingLoader(TimeSeriesSource):
             skip_rows=3,
             has_header=False,
             new_columns=self._flat_headers,
+            infer_schema_length=10000,
+            ignore_errors=True,
         ).collect_batches(chunk_size=50000)
 
         row_offset = 0
         for batch in reader:
-
             t = batch["frame_index"].cast(pl.Float64).to_numpy() / fps
             values = {
                 channel: batch[channel].cast(pl.Float64).to_numpy() for channel in channel_names

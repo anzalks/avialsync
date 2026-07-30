@@ -114,6 +114,15 @@ class VideoStandardLoader(VideoSource):
             self._extract_frame_times(path)
             if self._frame_times is not None:
                 self._save_frame_times_cache(path, self._frame_times)
+        # Override FPS and scale timestamps if explicitly requested (e.g. by AOL session)
+        override_fps = self._config.get("fps")
+        if override_fps is not None and override_fps > 0 and self._fps > 0:
+            scale = self._fps / float(override_fps)
+            self._fps = float(override_fps)
+            self._duration *= scale
+            if self._frame_times is not None:
+                self._frame_times = self._frame_times * scale
+
         if self._frame_count is None and self._frame_times is not None:
             self._frame_count = len(self._frame_times)
         self._frame_rate_statistics()

@@ -26,12 +26,21 @@ class LoaderRegistry:
 
     def _discover(self) -> None:
         """Find all loaders in the avialview.loaders entry point group."""
+        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
         from avialview.loaders.csv_loader import CSVLoader
         from avialview.loaders.neo_loader import NeoLoader
         from avialview.loaders.tracking_loader import TrackingLoader
         from avialview.loaders.video_standard import VideoStandardLoader
 
-        self._loaders = [CSVLoader, VideoStandardLoader, TrackingLoader, NeoLoader]
+        self._loaders = [
+            AOLEncoderLoader,
+            AOLEksLoader,
+            CSVLoader,
+            VideoStandardLoader,
+            TrackingLoader,
+            NeoLoader,
+        ]
 
         eps = entry_points(group="avialview.loaders")
         for ep in eps:

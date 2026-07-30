@@ -47,6 +47,16 @@ logger = logging.getLogger(__name__)
 _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
 
 
+def _is_aol_eks_loader(cls: type) -> bool:
+    """Check if *cls* is the AOL EKS loader without a top-level import."""
+    return cls.__name__ == "AOLEksLoader" and cls.__module__.endswith("aol_eks_loader")
+
+
+def _is_aol_encoder_loader(cls: type) -> bool:
+    """Check if *cls* is the AOL encoder loader without a top-level import."""
+    return cls.__name__ == "AOLEncoderLoader" and cls.__module__.endswith("aol_encoder_loader")
+
+
 class MainWindow(QMainWindow):
     time_mode_changed = Signal(object)  # TimeDisplayMode
 
@@ -73,7 +83,7 @@ class MainWindow(QMainWindow):
         self._pending_exact_mappings: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         self._overview_gaps: dict[float, str] = {}
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
-        self._frame_indexed_sources: list[tuple[Path, float]] = []
+        self._frame_indexed_sources: list[tuple[Path, type, dict[str, Any]]] = []
         self._pending_imports: deque[tuple[Path, type, dict[str, Any]]] = deque()
         self._import_thread: QThread | None = None
         self._data_export_jobs: dict[QThread, object] = {}
@@ -845,20 +855,32 @@ class MainWindow(QMainWindow):
         event.acceptProposedAction()
 
         candidates = []
+        is_auto_resolved_session = False
+
         for url in event.mimeData().urls():
             path = Path(url.toLocalFile())
             if not path.exists():
                 continue
+
+            # If the user dropped an AOL folder, we want to bypass the popup
+            # and load everything quietly under the hood.
+            if path.is_dir():
+                from avialview.loaders.aol_session_loader import is_aol_session
+
+                if is_aol_session(path):
+                    is_auto_resolved_session = True
+
             candidates.extend(self._collect_drop_candidates(path))
 
         if not candidates:
             return
 
-        if len(candidates) == 1:
-            path, loader_cls = candidates[0]
-            if loader_cls is not None:
-                self._route_import_candidate(path, loader_cls)
-                return
+        if len(candidates) == 1 or is_auto_resolved_session:
+            # Bypass dialog for single files or fully auto-resolved sessions
+            for path, loader_cls in candidates:
+                if loader_cls is not None:
+                    self._route_import_candidate(path, loader_cls)
+            return
 
         # Defer dialogs to avoid blocking the macOS drag-and-drop OS loop (prevents beachball)
         from PySide6.QtCore import QTimer
@@ -870,7 +892,14 @@ class MainWindow(QMainWindow):
     ) -> None:
         """Route one capability-resolved source through its normal loader path."""
         if issubclass(loader_cls, VideoSource):
-            self._load_video(path)
+            fps = getattr(self, "_aol_camera_fps", 0.0)
+            config = {"fps": fps} if fps > 0 else {}
+
+            start_epochs = getattr(self, "_aol_video_start_epochs", {})
+            # TimeMap offset must be negative to map positive master time back to 0.0 source time
+            offset = -start_epochs.get(str(path), 0.0)
+
+            self._load_video(path, offset=offset, config=config)
         else:
             self._start_data_import(path, loader_cls)
 
@@ -902,6 +931,13 @@ class MainWindow(QMainWindow):
 
             registry = LoaderRegistry()
 
+        # ── AOL session folder detection ─────────────────────────────
+        if path.is_dir():
+            from avialview.loaders.aol_session_loader import is_aol_session
+
+            if is_aol_session(path):
+                return self._collect_aol_candidates(path, registry)
+
         loader_class = registry.find_best_loader(path)
 
         if loader_class is not None:
@@ -917,6 +953,49 @@ class MainWindow(QMainWindow):
                     candidates.extend(self._collect_drop_candidates(child, registry=registry))
         else:
             candidates.append((path, None))
+
+        return candidates
+
+    def _collect_aol_candidates(self, path: Path, registry: Any) -> list[tuple[Path, type | None]]:
+        """Build import candidates from an AOL session folder.
+
+        Returns videos, EKS tracking files, and the encoder log with their
+        correct loaders pre-resolved. The AOL-specific fps from trial_config.yml
+        is stored so the import wizard can pre-fill it.
+        """
+        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialview.loaders.aol_session_loader import build_manifest
+
+        manifest = build_manifest(path)
+
+        # Store fps for frame-indexed sources so the import config is pre-filled
+        self._aol_camera_fps = manifest.camera_fps
+        self._aol_video_start_epochs = manifest.video_start_epochs
+        self._aol_anchor_date = manifest.anchor_date
+
+        candidates: list[tuple[Path, type | None]] = []
+
+        # 1. Videos (labeled preferred, raw fallback)
+        for video in manifest.videos:
+            loader_cls = registry.find_best_loader(video)
+            if loader_cls is not None:
+                candidates.append((video, loader_cls))
+
+        # 2. EKS 3D tracking files
+        for eks_file in manifest.eks_files:
+            candidates.append((eks_file, AOLEksLoader))
+
+        # 3. Encoder log
+        if manifest.encoder_file is not None:
+            candidates.append((manifest.encoder_file, AOLEncoderLoader))
+
+        logger.info(
+            "AOL session detected: %d candidates from %s (fps=%.1f)",
+            len(candidates),
+            path.name,
+            manifest.camera_fps,
+        )
 
         return candidates
 
@@ -1552,9 +1631,15 @@ class MainWindow(QMainWindow):
 
     # ── Source loading ───────────────────────────────────────────────
 
-    def _load_video(self, path: Path, offset: float = 0.0, drift_ppm: float = 0.0) -> None:
+    def _load_video(
+        self,
+        path: Path,
+        offset: float = 0.0,
+        drift_ppm: float = 0.0,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         """Queue a video source so native render panes are initialized one at a time."""
-        self._pending_video_loads.append((path, offset, drift_ppm))
+        self._pending_video_loads.append((path, offset, drift_ppm, config))
         self._start_next_video_load()
 
     def _start_next_video_load(self) -> None:
@@ -1568,9 +1653,9 @@ class MainWindow(QMainWindow):
 
         from avialview.engine.video_worker import VideoOpenWorker
 
-        path, offset, drift_ppm = self._pending_video_loads.popleft()
+        path, offset, drift_ppm, config = self._pending_video_loads.popleft()
         thread = QThread(self)
-        worker = VideoOpenWorker(path)
+        worker = VideoOpenWorker(path, config)
         self._video_load_jobs[thread] = worker
         self._video_load_offsets[str(path)] = offset
         self._video_load_drifts[str(path)] = drift_ppm
@@ -1915,7 +2000,31 @@ class MainWindow(QMainWindow):
             config = {"fps": fps}
             # No video loaded yet — track as provisional so we can re-bind on first video add
             if not self._video_fps:
-                self._frame_indexed_sources.append((path, fps))
+                self._frame_indexed_sources.append((path, loader_cls, config))
+        elif _is_aol_eks_loader(loader_cls):
+            # AOL EKS: frame-indexed, fps from AOL manifest or manual entry
+            fps = getattr(self, "_aol_camera_fps", 0.0)
+            if fps <= 0:
+                fps, ok = self._resolve_tracking_fps()
+                if not ok:
+                    return
+
+            start_epoch = 0.0
+            start_epochs = getattr(self, "_aol_video_start_epochs", {})
+            # Try to match the EKS filename prefix to a camera label (e.g. "FaceCam")
+            cam_name = path.name.split("_")[0]
+            for vid_path, epoch in start_epochs.items():
+                if cam_name in Path(vid_path).name:
+                    start_epoch = epoch
+                    break
+
+            config = {"fps": fps, "start_epoch": start_epoch}
+            if not self._video_fps:
+                self._frame_indexed_sources.append((path, loader_cls, config))
+        elif _is_aol_encoder_loader(loader_cls):
+            # AOL encoder: wall-clock time, no wizard needed
+            anchor_date = getattr(self, "_aol_anchor_date", None)
+            config = {"anchor_date": anchor_date} if anchor_date else {}
         else:
             # NeoLoader and other headless loaders that don't need UI config
             config = {}
@@ -2016,13 +2125,13 @@ class MainWindow(QMainWindow):
     def _rebind_frame_indexed_sources(self, fps: float) -> None:
         """Re-import all provisional frame-indexed sources using the video fps."""
         from avialview.core.cache import CacheManager
-        from avialview.loaders.tracking_loader import TrackingLoader
 
-        for dlc_path, _ in self._frame_indexed_sources:
+        for dlc_path, loader_cls, config in self._frame_indexed_sources:
             cache_dir = CacheManager(loader_version=3).get_cache_dir(dlc_path)
             self.plot_pane.remove_channels(cache_dir)
             self.sidebar.remove_sensor(str(dlc_path))
-            self._enqueue_import(dlc_path, TrackingLoader, {"fps": fps})
+            config["fps"] = fps
+            self._enqueue_import(dlc_path, loader_cls, config)
         self._frame_indexed_sources.clear()
 
     def _on_import_finished(
