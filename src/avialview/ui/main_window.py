@@ -478,36 +478,35 @@ class MainWindow(QMainWindow):
         from avialview.engine.session_worker import SessionSaveWorker
 
         worker = SessionSaveWorker(state, path)
-        thread = QThread(self)
-        worker.moveToThread(thread)
+        thread = self._run_job(worker)
 
         if not is_autosave:
             self.transport.set_status("Saving session…")
 
         def on_finished():
-            self._save_in_progress = False
             self._session_path = path
             add_recent(str(path))
             if not is_autosave:
                 self.transport.set_status("")
 
         def on_error(msg: str):
-            self._save_in_progress = False
             if not is_autosave:
                 self.transport.set_status("")
                 QMessageBox.critical(self, "Save Error", f"Could not save session:\n{msg}")
             else:
                 logger.exception("Autosave failed for %s: %s", path, msg)
 
-        thread.started.connect(worker.run)
         worker.finished.connect(on_finished)
         worker.error.connect(on_error)
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
         worker.finished.connect(worker.deleteLater)
         worker.error.connect(worker.deleteLater)
+        # Un-latch even if the thread ends abnormally (e.g. worker deleted
+        # without emitting finished/error), so a stuck save cannot
+        # permanently block every later save.
+        thread.finished.connect(lambda: setattr(self, "_save_in_progress", False))
 
         thread.start()
 
@@ -528,8 +527,7 @@ class MainWindow(QMainWindow):
 
         self.transport.set_status("Loading session…")
         worker = SessionLoadWorker(path)
-        thread = QThread(self)
-        worker.moveToThread(thread)
+        thread = self._run_job(worker)
 
         def on_finished(state: SessionState):
             self.transport.set_status("")
@@ -541,13 +539,11 @@ class MainWindow(QMainWindow):
             self.transport.set_status("")
             QMessageBox.critical(self, "Session Error", f"Could not load session:\n{msg}")
 
-        thread.started.connect(worker.run)
         worker.finished.connect(on_finished)
         worker.error.connect(on_error)
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
         worker.finished.connect(worker.deleteLater)
         worker.error.connect(worker.deleteLater)
 
