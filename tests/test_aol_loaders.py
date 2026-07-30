@@ -141,21 +141,119 @@ class TestAOLEncoderLoader:
         np.testing.assert_allclose(v_arr[0], -0.038, atol=0.001)
 
     def test_read_chunks_invalid_channel(self, tmp_encoder_log: Path) -> None:
+        """Unknown channels raise the typed core error, not a bare KeyError."""
+        from avialview.core.errors import MissingColumnError
         from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
         loader.open(tmp_encoder_log, {})
-        with pytest.raises(KeyError):
+        with pytest.raises(MissingColumnError):
             list(loader.read_chunks("nonexistent"))
 
+    def test_read_chunks_before_open(self) -> None:
+        """Using the source before open() reports it, instead of raising AttributeError."""
+        from avialview.core.errors import SourceOpenError
+        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        loader = AOLEncoderLoader()
+        with pytest.raises(SourceOpenError):
+            list(loader.read_chunks("encoder_velocity"))
+
     def test_open_validates_format(self, tmp_path: Path) -> None:
+        """Malformed input raises the typed core error with actionable text."""
+        from avialview.core.errors import SourceOpenError
         from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
 
         bad = tmp_path / "bad_encoder.txt"
         bad.write_text("not an encoder log\n", encoding="utf-8")
         loader = AOLEncoderLoader()
-        with pytest.raises(ValueError, match="HH:MM:SS:mmm"):
+        with pytest.raises(SourceOpenError, match="HH:MM:SS:mmm"):
             loader.open(bad, {})
+
+    def test_encoder_axis_is_seconds_since_midnight(self, tmp_encoder_log: Path) -> None:
+        """The encoder must stay on the anchor-reduced axis video and EKS use.
+
+        Regression guard for a withdrawn "fix" that added the anchor-date epoch
+        here and desynchronised the encoder by a whole date. See the module
+        docstring and RECOVERY_PLAN.md V-04.
+        """
+        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        loader = AOLEncoderLoader()
+        loader.open(tmp_encoder_log, {"anchor_date": "2026-05-08"})
+        t = np.concatenate([chunk[0] for chunk in loader.read_chunks("encoder_velocity")])
+
+        # 09:35:26.082 since midnight, NOT an absolute 2026-05-08 epoch.
+        expected = 9 * 3600 + 35 * 60 + 26 + 0.082
+        np.testing.assert_allclose(t[0], expected, atol=1e-6)
+
+    def test_encoder_crosses_midnight(self, tmp_path: Path) -> None:
+        """A recording spanning 00:00 unwraps past 86400 instead of jumping back."""
+        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        content = "23:59:59:500 1 0.0 1.0\n00:00:00:500 2 0.0 2.0\n00:00:01:500 3 0.0 3.0\n"
+        path = tmp_path / "encoder_log.txt"
+        path.write_text(content, encoding="utf-8")
+
+        loader = AOLEncoderLoader()
+        loader.open(path, {})
+        t = np.concatenate([chunk[0] for chunk in loader.read_chunks("encoder_velocity")])
+
+        assert np.all(np.diff(t) > 0), f"time went backwards across midnight: {t}"
+        np.testing.assert_allclose(t[0], 86399.5, atol=1e-6)
+        np.testing.assert_allclose(t[1], 86400.5, atol=1e-6)
+        np.testing.assert_allclose(t[2], 86401.5, atol=1e-6)
+
+    def test_encoder_boundary_duplicate_is_collapsed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A duplicate timestamp straddling a chunk boundary keeps the last value."""
+        from avialview.loaders import aol_encoder_loader
+        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        monkeypatch.setattr(aol_encoder_loader, "_CHUNK_SIZE", 2)
+        content = (
+            "09:00:00:000 1 0.0 10.0\n"
+            "09:00:00:001 2 0.0 11.0\n"
+            "09:00:00:001 3 0.0 99.0\n"  # duplicate of the previous, across the boundary
+            "09:00:00:002 4 0.0 13.0\n"
+        )
+        path = tmp_path / "encoder_log.txt"
+        path.write_text(content, encoding="utf-8")
+
+        loader = AOLEncoderLoader()
+        loader.open(path, {})
+        chunks = list(loader.read_chunks("encoder_velocity"))
+        t = np.concatenate([c[0] for c in chunks])
+        v = np.concatenate([c[1] for c in chunks])
+
+        assert len(t) == len(np.unique(t)), f"duplicate survived the boundary: {t}"
+        assert np.all(np.diff(t) > 0)
+        # The duplicate pair collapses to its LAST value, per the source contract.
+        np.testing.assert_allclose(v[np.searchsorted(t, 9 * 3600 + 0.001)], 99.0)
+
+    def test_encoder_boundary_backward_jump_is_detected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A backward jump straddling a chunk boundary still raises."""
+        from avialview.core.errors import NonMonotonicTimeError
+        from avialview.loaders import aol_encoder_loader
+        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        monkeypatch.setattr(aol_encoder_loader, "_CHUNK_SIZE", 2)
+        content = (
+            "09:00:00:000 1 0.0 10.0\n"
+            "09:00:00:005 2 0.0 11.0\n"
+            "09:00:00:002 3 0.0 12.0\n"  # goes backwards across the boundary
+            "09:00:00:009 4 0.0 13.0\n"
+        )
+        path = tmp_path / "encoder_log.txt"
+        path.write_text(content, encoding="utf-8")
+
+        loader = AOLEncoderLoader()
+        loader.open(path, {})
+        with pytest.raises(NonMonotonicTimeError):
+            list(loader.read_chunks("encoder_velocity"))
 
 
 # ── AOLEksLoader tests ───────────────────────────────────────────────
