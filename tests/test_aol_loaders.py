@@ -308,13 +308,13 @@ class TestAOLEksLoader:
         all_chunks = list(loader.read_all_chunks())
         assert len(all_chunks) > 0
 
-        # Check first channel has correct time values
-        first_chunk = all_chunks[0]
-        t, v = first_chunk["head_bar_x"]
+        # Assert the loader contract across the whole stream rather than the
+        # chunk shape: boundary carry retains the final sample for the next
+        # batch, so the row count is a property of the stream, not of chunk 0.
+        t = np.concatenate([chunk["head_bar_x"][0] for chunk in all_chunks])
         assert len(t) == 4
         # t should be fnum / fps: 0/230, 1/230, 2/230, 3/230
-        np.testing.assert_allclose(t[0], 0.0, atol=1e-6)
-        np.testing.assert_allclose(t[1], 1.0 / 230.0, atol=1e-6)
+        np.testing.assert_allclose(t, np.arange(4) / 230.0, atol=1e-6)
 
     def test_read_chunks_without_fnum(self, tmp_eks_csv_no_fnum: Path) -> None:
         from avialview.loaders.aol_eks_loader import AOLEksLoader
@@ -331,6 +331,107 @@ class TestAOLEksLoader:
         # Without fnum, row index is used
         np.testing.assert_allclose(t[0], 0.0, atol=1e-6)
         np.testing.assert_allclose(t[1], 1.0 / 30.0, atol=1e-6)
+
+    def test_channels_report_camera_fps(self, tmp_eks_csv: Path) -> None:
+        """EKS rows are one frame each, so rate_hz is the camera fps, not None."""
+        from avialview.loaders.aol_eks_loader import AOLEksLoader
+
+        loader = AOLEksLoader()
+        loader.open(tmp_eks_csv, {"fps": 230.0})
+        assert all(ch.rate_hz == 230.0 for ch in loader.channels())
+
+    def test_unknown_channel_raises_typed_error(self, tmp_eks_csv: Path) -> None:
+        from avialview.core.errors import MissingColumnError
+        from avialview.loaders.aol_eks_loader import AOLEksLoader
+
+        loader = AOLEksLoader()
+        loader.open(tmp_eks_csv, {"fps": 230.0})
+        with pytest.raises(MissingColumnError):
+            list(loader.read_chunks("no_such_x"))
+
+    def test_read_before_open_raises_typed_error(self) -> None:
+        """Reading before open() reports it instead of raising AttributeError."""
+        from avialview.core.errors import SourceOpenError
+        from avialview.loaders.aol_eks_loader import AOLEksLoader
+
+        loader = AOLEksLoader()
+        with pytest.raises(SourceOpenError):
+            list(loader.read_all_chunks())
+
+    def test_missing_xyz_columns_raises_typed_error(self, tmp_path: Path) -> None:
+        from avialview.core.errors import SourceOpenError
+        from avialview.loaders.aol_eks_loader import AOLEksLoader
+
+        path = tmp_path / "_eks.csv"
+        path.write_text("alpha,beta\n1.0,2.0\n", encoding="utf-8")
+        loader = AOLEksLoader()
+        with pytest.raises(SourceOpenError, match="x/y/z"):
+            loader.open(path, {})
+
+    def test_bodypart_resolution_is_deterministic(self, tmp_path: Path) -> None:
+        """Overlapping skeleton names must resolve identically regardless of hash order.
+
+        'ear' is a suffix of 'left_ear'; longest-first matching must always pick
+        'left_ear'. Iterating a set here previously made the answer depend on
+        PYTHONHASHSEED, which changed channel names, cache keys and session files.
+        """
+        from avialview.loaders.aol_eks_loader import AOLEksLoader
+
+        header = "model_left_ear_x,model_left_ear_y,model_left_ear_z"
+        path = tmp_path / "_eks.csv"
+        path.write_text(header + "\n1.0,2.0,3.0\n", encoding="utf-8")
+
+        skeleton = [("ear", "left_ear"), ("left_ear", "nose")]
+        names = []
+        for _ in range(5):
+            loader = AOLEksLoader()
+            loader.open(path, {"skeleton": skeleton})
+            names.append([ch.name for ch in loader.channels()])
+
+        assert all(n == names[0] for n in names)
+        assert names[0] == ["left_ear_x", "left_ear_y", "left_ear_z"]
+
+    def test_boundary_duplicate_is_collapsed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A duplicate frame number straddling a batch boundary keeps the last value."""
+        from avialview.loaders import aol_eks_loader
+        from avialview.loaders.aol_eks_loader import AOLEksLoader
+
+        monkeypatch.setattr(aol_eks_loader, "_BATCH_SIZE", 2)
+        header = "paw_x,paw_y,paw_z,fnum"
+        rows = ["1.0,1.0,1.0,0", "2.0,2.0,2.0,1", "9.0,9.0,9.0,1", "4.0,4.0,4.0,2"]
+        path = tmp_path / "_eks.csv"
+        path.write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
+
+        loader = AOLEksLoader()
+        loader.open(path, {"fps": 1.0})
+        chunks = list(loader.read_all_chunks())
+        t = np.concatenate([c["paw_x"][0] for c in chunks])
+        v = np.concatenate([c["paw_x"][1] for c in chunks])
+
+        assert len(t) == len(np.unique(t)), f"duplicate survived the boundary: {t}"
+        assert np.all(np.diff(t) > 0)
+        np.testing.assert_allclose(v[np.searchsorted(t, 1.0)], 9.0)
+
+    def test_boundary_backward_jump_is_detected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A backward frame number straddling a batch boundary still raises."""
+        from avialview.core.errors import NonMonotonicTimeError
+        from avialview.loaders import aol_eks_loader
+        from avialview.loaders.aol_eks_loader import AOLEksLoader
+
+        monkeypatch.setattr(aol_eks_loader, "_BATCH_SIZE", 2)
+        header = "paw_x,paw_y,paw_z,fnum"
+        rows = ["1.0,1.0,1.0,0", "2.0,2.0,2.0,5", "3.0,3.0,3.0,2", "4.0,4.0,4.0,9"]
+        path = tmp_path / "_eks.csv"
+        path.write_text(header + "\n" + "\n".join(rows) + "\n", encoding="utf-8")
+
+        loader = AOLEksLoader()
+        loader.open(path, {"fps": 1.0})
+        with pytest.raises(NonMonotonicTimeError):
+            list(loader.read_all_chunks())
 
 
 # ── AOL Session detection tests ──────────────────────────────────────
