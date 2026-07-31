@@ -148,30 +148,32 @@ class PaintCanvas(QWidget):
         tracked but not *which* one, which is the question being asked when
         several parts sit close together.
         """
-        color = QColor(*track.color)
+        from avialview.ui.tracking_3d_pane import _POINT_COLORS
+        
         radius = _ENSEMBLE_RADIUS if track.is_ensemble else _MODEL_RADIUS
-        pen = QPen(color, 2 if track.is_ensemble else 1)
-        painter.setPen(pen)
-        painter.setBrush(color)
 
         label_font = painter.font()
         label_font.setPointSize(_LABEL_POINT_SIZE)
         label_font.setBold(track.is_ensemble)
 
         any_drawn = False
-        for name, (reader_x, reader_y) in track.points.items():
+        for i, (name, (reader_x, reader_y)) in enumerate(sorted(track.points.items())):
             x_value = reader_x.value_at(self.t)
             y_value = reader_y.value_at(self.t)
             if np.isnan(x_value) or np.isnan(y_value):
                 continue
             x = offset_x + x_value * scale
             y = offset_y + y_value * scale
+            
+            color_rgb = _POINT_COLORS[i % len(_POINT_COLORS)]
+            color = QColor(*color_rgb)
+            pen = QPen(color, 2 if track.is_ensemble else 1)
+            painter.setPen(pen)
+            painter.setBrush(color)
+            
             painter.drawEllipse(int(x) - radius, int(y) - radius, radius * 2, radius * 2)
             if self._point_labels_visible and name:
                 self._draw_point_label(painter, label_font, color, name, x, y)
-                # Restore the marker pen/brush the label drawing changed.
-                painter.setPen(pen)
-                painter.setBrush(color)
             any_drawn = True
         return any_drawn
 
@@ -201,6 +203,7 @@ class PaintCanvas(QWidget):
     def _draw_loose_readers(
         self, painter: QPainter, scale: float, offset_x: float, offset_y: float
     ) -> None:
+        from avialview.ui.tracking_3d_pane import _POINT_COLORS
         points: dict[str, dict[str, float]] = {}
         for reader in self.readers:
             value = reader.value_at(self.t)
@@ -210,11 +213,12 @@ class PaintCanvas(QWidget):
                 if reader.channel_id.endswith(suffix):
                     points.setdefault(reader.channel_id[:-2], {})[suffix[1:]] = value
 
-        painter.setPen(QPen(QColor(*_ENSEMBLE_COLOR), 3))
-        painter.setBrush(QColor(*_ENSEMBLE_COLOR))
-        for point in points.values():
+        for i, (name, point) in enumerate(sorted(points.items())):
             if "x" not in point or "y" not in point:
                 continue
+            color = _POINT_COLORS[i % len(_POINT_COLORS)]
+            painter.setPen(QPen(QColor(*color), 3))
+            painter.setBrush(QColor(*color))
             x = offset_x + point["x"] * scale
             y = offset_y + point["y"] * scale
             painter.drawEllipse(int(x) - 3, int(y) - 3, 6, 6)

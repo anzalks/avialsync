@@ -27250,6 +27250,158 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_workload_responsiveness",
+      "label": "test_workload_responsiveness.py",
+      "file_type": "code",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_dense_source",
+      "label": "dense_source()",
+      "file_type": "code",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L30",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_py_path",
+      "label": "Path",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_loaded_window",
+      "label": "loaded_window()",
+      "file_type": "code",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L41",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_py_qapplication",
+      "label": "QApplication",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_measure",
+      "label": "_measure()",
+      "file_type": "code",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L55",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_test_loading_many_channels_leaves_the_ui_responsive",
+      "label": "test_loading_many_channels_leaves_the_ui_responsive()",
+      "file_type": "code",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L66",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_test_scrubbing_across_a_dense_recording_does_not_block",
+      "label": "test_scrubbing_across_a_dense_recording_does_not_block()",
+      "file_type": "code",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L76",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_test_cursor_ticks_at_playback_rate_stay_within_budget",
+      "label": "test_cursor_ticks_at_playback_rate_stay_within_budget()",
+      "file_type": "code",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L91",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_test_repeated_resizes_do_not_block_the_ui",
+      "label": "test_repeated_resizes_do_not_block_the_ui()",
+      "file_type": "code",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L104",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_test_hiding_channels_does_not_block",
+      "label": "test_hiding_channels_does_not_block()",
+      "file_type": "code",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L117",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_test_the_window_still_closes_promptly_under_load",
+      "label": "test_the_window_still_closes_promptly_under_load()",
+      "file_type": "code",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L133",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_rationale_1",
+      "label": "The UI stays responsive under a realistic workload.  The requirement is not \"bac",
+      "file_type": "rationale",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_rationale_31",
+      "label": "A 32-channel, 200k-sample source — a realistic dense recording.",
+      "file_type": "rationale",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L31",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_rationale_56",
+      "label": "Run *action* repeatedly and return the worst UI-thread stall in ms.",
+      "file_type": "rationale",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L56",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_rationale_79",
+      "label": "Dragging the playhead is the most latency-visible interaction there is.",
+      "file_type": "rationale",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L79",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_rationale_94",
+      "label": "60 Hz ticks over 32 populated channels must not accumulate a stall.",
+      "file_type": "rationale",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L94",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_rationale_107",
+      "label": "Resize storms are coalesced; the loop must survive one.",
+      "file_type": "rationale",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L107",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_workload_responsiveness_rationale_136",
+      "label": "Whatever is loaded, quitting must be quick.",
+      "file_type": "rationale",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L136",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_util_framestrip",
       "label": "util_framestrip.py",
       "file_type": "code",
@@ -29734,7 +29886,7 @@
       "label": "Architecture Rules (violations = rejected PR)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L375",
+      "source_location": "L377",
       "_origin": "ast"
     },
     {
@@ -29742,7 +29894,7 @@
       "label": "Signal Wiring Map",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L389",
+      "source_location": "L391",
       "_origin": "ast"
     },
     {
@@ -29750,7 +29902,7 @@
       "label": "Sidebar → MainWindow → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L393",
+      "source_location": "L395",
       "_origin": "ast"
     },
     {
@@ -29758,7 +29910,7 @@
       "label": "Transport → Player → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L407",
+      "source_location": "L409",
       "_origin": "ast"
     },
     {
@@ -29766,7 +29918,7 @@
       "label": "PlotPane / Player → downstream",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L424",
+      "source_location": "L426",
       "_origin": "ast"
     },
     {
@@ -29774,7 +29926,7 @@
       "label": "Time display mode (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L435",
+      "source_location": "L437",
       "_origin": "ast"
     },
     {
@@ -29782,7 +29934,7 @@
       "label": "Source properties + integrity (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L442",
+      "source_location": "L444",
       "_origin": "ast"
     },
     {
@@ -29790,7 +29942,7 @@
       "label": "Import pipeline (updated, D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L452",
+      "source_location": "L454",
       "_origin": "ast"
     },
     {
@@ -29798,7 +29950,7 @@
       "label": "Known Traps",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L468",
+      "source_location": "L470",
       "_origin": "ast"
     },
     {
@@ -29806,7 +29958,7 @@
       "label": "0a. A `QObject` moved to a `QThread` needs an owning Python reference",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L470",
+      "source_location": "L472",
       "_origin": "ast"
     },
     {
@@ -29814,7 +29966,7 @@
       "label": "0b. Do NOT add the anchor date to AOL encoder timestamps (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L477",
+      "source_location": "L479",
       "_origin": "ast"
     },
     {
@@ -29822,7 +29974,7 @@
       "label": "0c. AOL pose data must not become plot rows (D-046)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L484",
+      "source_location": "L486",
       "_origin": "ast"
     },
     {
@@ -29830,7 +29982,7 @@
       "label": "0d. `\"_eks.csv\".split(\"_\")[0]` is `\"\"` — and `\"\" in name` matches everything",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L491",
+      "source_location": "L493",
       "_origin": "ast"
     },
     {
@@ -29838,7 +29990,7 @@
       "label": "1. No bare `QWidget { }` QSS selector — blacks out video panes",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L496",
+      "source_location": "L498",
       "_origin": "ast"
     },
     {
@@ -29846,7 +29998,7 @@
       "label": "2. `setParent(None)` makes a widget a popup window",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L501",
+      "source_location": "L503",
       "_origin": "ast"
     },
     {
@@ -29854,7 +30006,7 @@
       "label": "3. `setLayout()` silently fails if layout already exists",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L505",
+      "source_location": "L507",
       "_origin": "ast"
     },
     {
@@ -29862,7 +30014,7 @@
       "label": "4. LC_NUMERIC must be 'C' after Qt import, before mpv",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L509",
+      "source_location": "L511",
       "_origin": "ast"
     },
     {
@@ -29870,7 +30022,7 @@
       "label": "5. Never import mpv at module top level (D-013)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L513",
+      "source_location": "L515",
       "_origin": "ast"
     },
     {
@@ -29878,7 +30030,7 @@
       "label": "6. Video pane needs `WA_StyledBackground = False`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L517",
+      "source_location": "L519",
       "_origin": "ast"
     },
     {
@@ -29886,7 +30038,7 @@
       "label": "7. Drive MasterClock from `time.monotonic()` — never accumulate timer intervals",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L521",
+      "source_location": "L523",
       "_origin": "ast"
     },
     {
@@ -29894,7 +30046,7 @@
       "label": "8. Drift correction needs hysteresis (5 consecutive ticks)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L525",
+      "source_location": "L527",
       "_origin": "ast"
     },
     {
@@ -29902,7 +30054,7 @@
       "label": "9. polars `read_csv` type inference flips per-chunk",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L531",
+      "source_location": "L533",
       "_origin": "ast"
     },
     {
@@ -29910,7 +30062,7 @@
       "label": "10. `python-mpv` (PyPI) ≠ `mpv` (PyPI)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L537",
+      "source_location": "L539",
       "_origin": "ast"
     },
     {
@@ -29918,7 +30070,7 @@
       "label": "12. ruff `line-length = 100` — IDE diagnostics at 79 chars are false positives",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L540",
+      "source_location": "L542",
       "_origin": "ast"
     },
     {
@@ -29926,7 +30078,7 @@
       "label": "13. `_load_level()` is private — use the bounded read API (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L544",
+      "source_location": "L546",
       "_origin": "ast"
     },
     {
@@ -29934,7 +30086,7 @@
       "label": "14. Session v1 → v2 migration: SensorEntry / VideoEntry gain new optional fields",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L555",
+      "source_location": "L557",
       "_origin": "ast"
     },
     {
@@ -29942,7 +30094,7 @@
       "label": "15. Never cache time→pixel positions; map from current geometry at paint time",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L561",
+      "source_location": "L563",
       "_origin": "ast"
     },
     {
@@ -29950,7 +30102,7 @@
       "label": "18. System-key collisions — Ctrl+V and Ctrl+D are reserved (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L571",
+      "source_location": "L573",
       "_origin": "ast"
     },
     {
@@ -29958,7 +30110,7 @@
       "label": "19. VideoPane right-click: eventFilter, NOT CustomContextMenu policy (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L582",
+      "source_location": "L584",
       "_origin": "ast"
     },
     {
@@ -29966,7 +30118,7 @@
       "label": "11. Annotation label edits via `markers` property are silently discarded",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L597",
+      "source_location": "L599",
       "_origin": "ast"
     },
     {
@@ -29974,7 +30126,7 @@
       "label": "16. `type: ignore` is never a shipping mechanism",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L601",
+      "source_location": "L603",
       "_origin": "ast"
     },
     {
@@ -29982,7 +30134,7 @@
       "label": "20. mypy silently ignores malformed override sections",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L618",
+      "source_location": "L620",
       "_origin": "ast"
     },
     {
@@ -29990,7 +30142,7 @@
       "label": "21. QSplitter.restoreState also restores `childrenCollapsible` (D-049)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L621",
+      "source_location": "L623",
       "_origin": "ast"
     },
     {
@@ -29998,7 +30150,7 @@
       "label": "22. Presentation refresh is 20 Hz, not 60 Hz (D-047)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L630",
+      "source_location": "L632",
       "_origin": "ast"
     },
     {
@@ -30006,7 +30158,7 @@
       "label": "23. Channel names are not unique — key by `ChannelKey` (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L638",
+      "source_location": "L640",
       "_origin": "ast"
     },
     {
@@ -30014,7 +30166,7 @@
       "label": "24. Media subprocesses must splat `no_window_kwargs()` (V-14, D-050)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L645",
+      "source_location": "L647",
       "_origin": "ast"
     },
     {
@@ -30022,7 +30174,7 @@
       "label": "25. `VideoPane.__init__` must build its chrome on every path (V-11, D-013)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L655",
+      "source_location": "L657",
       "_origin": "ast"
     },
     {
@@ -30030,7 +30182,23 @@
       "label": "26. AOL sessions load raw video + one fused EKS track per camera",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L665",
+      "source_location": "L667",
+      "_origin": "ast"
+    },
+    {
+      "id": "handout_27_the_window_must_always_close_jobs_are_owned_by_jobmanager_v_09",
+      "label": "27. The window must always close; jobs are owned by JobManager (V-09)",
+      "file_type": "document",
+      "source_file": "HANDOUT.md",
+      "source_location": "L676",
+      "_origin": "ast"
+    },
+    {
+      "id": "handout_28_ui_thread_stalls_are_measured_not_guessed_ui_ui_heartbeat_py",
+      "label": "28. UI-thread stalls are measured, not guessed (`ui/ui_heartbeat.py`)",
+      "file_type": "document",
+      "source_file": "HANDOUT.md",
+      "source_location": "L700",
       "_origin": "ast"
     },
     {
@@ -30038,7 +30206,7 @@
       "label": "17. Annotation schema (v3) — per-video frame records",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L674",
+      "source_location": "L713",
       "_origin": "ast"
     },
     {
@@ -30046,7 +30214,7 @@
       "label": "Run Commands",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L719",
+      "source_location": "L758",
       "_origin": "ast"
     },
     {
@@ -30054,7 +30222,7 @@
       "label": "Shortcuts Reference (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L753",
+      "source_location": "L792",
       "_origin": "ast"
     },
     {
@@ -30062,7 +30230,7 @@
       "label": "Playback",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L755",
+      "source_location": "L794",
       "_origin": "ast"
     },
     {
@@ -30070,7 +30238,7 @@
       "label": "Marking",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L775",
+      "source_location": "L814",
       "_origin": "ast"
     },
     {
@@ -30078,7 +30246,7 @@
       "label": "View",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L785",
+      "source_location": "L824",
       "_origin": "ast"
     },
     {
@@ -30086,7 +30254,7 @@
       "label": "File",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L797",
+      "source_location": "L836",
       "_origin": "ast"
     },
     {
@@ -30094,7 +30262,7 @@
       "label": "Performance Budgets (engineering-certified where ★)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L811",
+      "source_location": "L850",
       "_origin": "ast"
     },
     {
@@ -92346,6 +92514,485 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_workload_responsiveness",
+      "target": "time",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L13",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "pathlib",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "numpy",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L16",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "pytest",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L17",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "pyside6_qtwidgets",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L18",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "src_avialview_core_pyramid",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "src_avialview_ui_main_window",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L21",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "src_avialview_ui_ui_heartbeat",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L22",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "tests_test_workload_responsiveness_dense_source",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L30",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_dense_source",
+      "target": "tests_test_workload_responsiveness_py_path",
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L30",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "tests_test_workload_responsiveness_loaded_window",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_loaded_window",
+      "target": "tests_test_workload_responsiveness_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_loaded_window",
+      "target": "src_avialview_ui_main_window_mainwindow",
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "tests_test_workload_responsiveness_measure",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L55",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_measure",
+      "target": "tests_test_workload_responsiveness_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L55",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "tests_test_workload_responsiveness_test_loading_many_channels_leaves_the_ui_responsive",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L66",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_loading_many_channels_leaves_the_ui_responsive",
+      "target": "src_avialview_ui_main_window_mainwindow",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L66",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_loading_many_channels_leaves_the_ui_responsive",
+      "target": "tests_test_workload_responsiveness_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L66",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "tests_test_workload_responsiveness_test_scrubbing_across_a_dense_recording_does_not_block",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L76",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_scrubbing_across_a_dense_recording_does_not_block",
+      "target": "src_avialview_ui_main_window_mainwindow",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L76",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_scrubbing_across_a_dense_recording_does_not_block",
+      "target": "tests_test_workload_responsiveness_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L76",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "tests_test_workload_responsiveness_test_cursor_ticks_at_playback_rate_stay_within_budget",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L91",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_cursor_ticks_at_playback_rate_stay_within_budget",
+      "target": "src_avialview_ui_main_window_mainwindow",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L91",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_cursor_ticks_at_playback_rate_stay_within_budget",
+      "target": "tests_test_workload_responsiveness_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L91",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "tests_test_workload_responsiveness_test_repeated_resizes_do_not_block_the_ui",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L104",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_repeated_resizes_do_not_block_the_ui",
+      "target": "src_avialview_ui_main_window_mainwindow",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L104",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_repeated_resizes_do_not_block_the_ui",
+      "target": "tests_test_workload_responsiveness_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L104",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "tests_test_workload_responsiveness_test_hiding_channels_does_not_block",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L117",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_hiding_channels_does_not_block",
+      "target": "src_avialview_ui_main_window_mainwindow",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L117",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_hiding_channels_does_not_block",
+      "target": "tests_test_workload_responsiveness_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L117",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness",
+      "target": "tests_test_workload_responsiveness_test_the_window_still_closes_promptly_under_load",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L133",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_the_window_still_closes_promptly_under_load",
+      "target": "src_avialview_ui_main_window_mainwindow",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L133",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_the_window_still_closes_promptly_under_load",
+      "target": "tests_test_workload_responsiveness_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L133",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_loaded_window",
+      "target": "src_avialview_ui_main_window_mainwindow",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_loading_many_channels_leaves_the_ui_responsive",
+      "target": "tests_test_workload_responsiveness_measure",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_scrubbing_across_a_dense_recording_does_not_block",
+      "target": "tests_test_workload_responsiveness_measure",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L82",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_repeated_resizes_do_not_block_the_ui",
+      "target": "tests_test_workload_responsiveness_measure",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L108",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_hiding_channels_does_not_block",
+      "target": "tests_test_workload_responsiveness_measure",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L122",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_rationale_1",
+      "target": "tests_test_workload_responsiveness",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_rationale_31",
+      "target": "tests_test_workload_responsiveness_dense_source",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L31",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_rationale_56",
+      "target": "tests_test_workload_responsiveness_measure",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L56",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_rationale_79",
+      "target": "tests_test_workload_responsiveness_test_scrubbing_across_a_dense_recording_does_not_block",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_rationale_94",
+      "target": "tests_test_workload_responsiveness_test_cursor_ticks_at_playback_rate_stay_within_budget",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L94",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_rationale_107",
+      "target": "tests_test_workload_responsiveness_test_repeated_resizes_do_not_block_the_ui",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L107",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_rationale_136",
+      "target": "tests_test_workload_responsiveness_test_the_window_still_closes_promptly_under_load",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L136",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_util_framestrip",
       "target": "pathlib",
       "relation": "imports",
@@ -96538,7 +97185,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L375",
+      "source_location": "L377",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96548,7 +97195,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L389",
+      "source_location": "L391",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96558,7 +97205,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L393",
+      "source_location": "L395",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96568,7 +97215,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L407",
+      "source_location": "L409",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96578,7 +97225,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L424",
+      "source_location": "L426",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96588,7 +97235,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L435",
+      "source_location": "L437",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96598,7 +97245,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L442",
+      "source_location": "L444",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96608,7 +97255,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L452",
+      "source_location": "L454",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96618,7 +97265,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L468",
+      "source_location": "L470",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96628,7 +97275,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L470",
+      "source_location": "L472",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96638,7 +97285,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L477",
+      "source_location": "L479",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96648,7 +97295,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L484",
+      "source_location": "L486",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96658,7 +97305,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L491",
+      "source_location": "L493",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96668,7 +97315,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L496",
+      "source_location": "L498",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96678,7 +97325,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L501",
+      "source_location": "L503",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96688,7 +97335,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L505",
+      "source_location": "L507",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96698,7 +97345,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L509",
+      "source_location": "L511",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96708,7 +97355,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L513",
+      "source_location": "L515",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96718,7 +97365,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L517",
+      "source_location": "L519",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96728,7 +97375,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L521",
+      "source_location": "L523",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96738,7 +97385,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L525",
+      "source_location": "L527",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96748,7 +97395,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L531",
+      "source_location": "L533",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96758,7 +97405,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L537",
+      "source_location": "L539",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96768,7 +97415,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L540",
+      "source_location": "L542",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96778,7 +97425,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L544",
+      "source_location": "L546",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96788,7 +97435,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L555",
+      "source_location": "L557",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96798,7 +97445,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L561",
+      "source_location": "L563",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96808,7 +97455,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L571",
+      "source_location": "L573",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96818,7 +97465,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L582",
+      "source_location": "L584",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96828,7 +97475,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L597",
+      "source_location": "L599",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96838,7 +97485,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L601",
+      "source_location": "L603",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96848,7 +97495,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L618",
+      "source_location": "L620",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96858,7 +97505,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L621",
+      "source_location": "L623",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96868,7 +97515,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L630",
+      "source_location": "L632",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96878,7 +97525,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L638",
+      "source_location": "L640",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96888,7 +97535,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L645",
+      "source_location": "L647",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96898,7 +97545,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L655",
+      "source_location": "L657",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96908,7 +97555,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L665",
+      "source_location": "L667",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "handout_known_traps",
+      "target": "handout_27_the_window_must_always_close_jobs_are_owned_by_jobmanager_v_09",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "HANDOUT.md",
+      "source_location": "L676",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "handout_known_traps",
+      "target": "handout_28_ui_thread_stalls_are_measured_not_guessed_ui_ui_heartbeat_py",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "HANDOUT.md",
+      "source_location": "L700",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96918,7 +97585,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L674",
+      "source_location": "L713",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96928,7 +97595,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L719",
+      "source_location": "L758",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96938,7 +97605,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L753",
+      "source_location": "L792",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96948,7 +97615,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L755",
+      "source_location": "L794",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96958,7 +97625,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L775",
+      "source_location": "L814",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96968,7 +97635,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L785",
+      "source_location": "L824",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96978,7 +97645,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L797",
+      "source_location": "L836",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -96988,7 +97655,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L811",
+      "source_location": "L850",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -115444,6 +116111,42 @@
       "confidence_score": 0.8,
       "source_file": "tests/test_worker_lifetime.py",
       "source_location": "L78",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_dense_source",
+      "target": "src_avialview_core_pyramid_pyramidbuilder",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L36",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_measure",
+      "target": "src_avialview_ui_ui_heartbeat_uiheartbeat",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L57",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_workload_responsiveness_test_hiding_channels_does_not_block",
+      "target": "src_avialview_core_channel_reader_channelkey",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tests/test_workload_responsiveness.py",
+      "source_location": "L125",
       "weight": 1.0,
       "_origin": "ast"
     },
