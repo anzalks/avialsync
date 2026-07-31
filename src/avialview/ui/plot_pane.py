@@ -1,6 +1,7 @@
 """Plot rendering pane using pyqtgraph and decimation pyramids."""
 
 import logging
+import time
 from pathlib import Path
 
 import pyqtgraph as pg
@@ -32,6 +33,22 @@ from avialview.ui.plot_sweep import PlotPresentation, SweepWindowControl
 from avialview.ui.time_format import TimeDisplayMode, format_time
 
 logger = logging.getLogger(__name__)
+
+#: Rate at which the sweep cursor and revealed curves are actually redrawn.
+#: The master clock still ticks at 60 Hz and ``set_cursor`` still sees every
+#: tick — only the repaint is throttled.  Repainting the plot scene costs ~7 ms
+#: at 16 rows and ~13 ms at 32, out of a 16.7 ms tick budget shared with every
+#: video pane's ``paintGL``; at 60 Hz that starves video presentation and is
+#: what makes frames look choppy.  30 Hz is above the rate at which cursor
+#: motion reads as stepped.
+_CURSOR_REPAINT_HZ = 30.0
+_CURSOR_REPAINT_INTERVAL_S = 1.0 / _CURSOR_REPAINT_HZ
+
+#: Half a 60 Hz tick of slack on the "is a repaint due yet" test.  Ticks land on
+#: a 16.7 ms grid and the interval is 33.3 ms, so without slack a tick that is
+#: due to the microsecond gets deferred a whole further tick and the real rate
+#: beats down to ~22 Hz instead of the intended 30.
+_CURSOR_REPAINT_SLACK_S = 1.0 / 120.0
 
 
 class PlotPane(QWidget):
@@ -93,6 +110,10 @@ class PlotPane(QWidget):
         self._resize_refresh_timer.setInterval(75)
         self._resize_refresh_timer.timeout.connect(self._refresh_after_resize)
         self._last_point_budget = 0
+        self._last_cursor_repaint = 0.0
+        self._eraser_brush: object | None = None
+        self._eraser_brush_key: int | None = None
+        self._page_label_text: str | None = None
 
         # State
         self.channels: list[ChannelPlot] = []
@@ -297,9 +318,17 @@ class PlotPane(QWidget):
                 if ch.y_range is not None:
                     ch.y_mode = Y_MANUAL
 
-    def set_cursor(self, t: float) -> None:
-        """Advance the fixed sweep from the master-clock time."""
-        self._set_sweep_for_time(t)
+    def set_cursor(self, t: float, *, immediate: bool = False) -> None:
+        """Advance the fixed sweep from the master-clock time.
+
+        Called on every 60 Hz tick.  Advancing the sweep *state* is cheap
+        (~0.2 ms at 16 rows); repainting the scene is not (~7 ms), and it shares
+        the UI thread with every video pane's ``paintGL``.  Pixels are therefore
+        moved at :data:`_CURSOR_REPAINT_HZ` while time keeps advancing at the
+        full tick rate.  Pass ``immediate`` for discrete events — a seek, a
+        pause, a frame step — where a stale cursor would be a lie.
+        """
+        self._set_sweep_for_time(t, force=immediate)
 
     def set_zoom_window(self, seconds: float) -> None:
         """Compatibility alias for setting the shared continuous window."""
@@ -503,7 +532,6 @@ class PlotPane(QWidget):
             channel.envelope_upper.set_reveal_enabled(not review)
             channel.retained_curve.setVisible(sweep and channel.visible)
             channel.retained_upper.setVisible(sweep and channel.visible)
-            channel.retained_fill.setVisible(sweep and channel.visible)
             channel.sweep_eraser.setVisible(sweep and channel.visible)
         self._update_sweep_eraser()
 
@@ -518,6 +546,11 @@ class PlotPane(QWidget):
             self.update_plots()
             self._redraw_sweep_overlays()
 
+        # Time has already advanced; from here down we are only moving pixels.
+        # A page boundary changes *what* is drawn, so it is never deferred.
+        if not (position.changed or force) and not self._cursor_repaint_due():
+            return position.phase
+
         for ch in self.channels:
             if ch.visible:
                 ch.cursor_line.setValue(position.phase)
@@ -530,6 +563,22 @@ class PlotPane(QWidget):
         self.view_window_changed.emit(position.start, self.window_duration, position.phase)
         return position.phase
 
+    def _cursor_repaint_due(self) -> bool:
+        """Return whether enough time has passed to justify repainting the scene.
+
+        Stamps the clock as a side effect when it returns True.  Ticks arrive
+        every ~16.7 ms and the interval is ~33 ms, so at most one tick's worth
+        of cursor movement is ever deferred — below the threshold at which the
+        motion reads as stepped, and it frees roughly half the plot's share of
+        the UI thread for video presentation.
+        """
+        now = time.monotonic()
+        due_after = _CURSOR_REPAINT_INTERVAL_S - _CURSOR_REPAINT_SLACK_S
+        if (now - self._last_cursor_repaint) < due_after:
+            return False
+        self._last_cursor_repaint = now
+        return True
+
     def _update_sweep_eraser(self, phase: float | None = None) -> None:
         """Place one narrow background gap ahead of live Sweep data."""
         if self.presentation != PlotPresentation.SWEEP:
@@ -537,12 +586,25 @@ class PlotPane(QWidget):
         if phase is None:
             phase = self._sweep_control.advance(self._sweep_control.last_master_time).phase
         gap = max(self.window_duration * 0.006, 0.002)
-        color = QColor(self.palette().color(self.palette().ColorRole.Base))
-        color.setAlpha(235)
+        brush = self._sweep_eraser_brush()
         for channel in self.channels:
             if channel.visible:
-                channel.sweep_eraser.setBrush(pg.mkBrush(color))
+                channel.sweep_eraser.setBrush(brush)
                 channel.sweep_eraser.setRegion([phase, min(self.window_duration, phase + gap)])
+
+    def _sweep_eraser_brush(self) -> object:
+        """Return the cached eraser brush, rebuilt only when the palette changes.
+
+        This used to allocate a fresh ``QBrush`` per visible row per tick — the
+        colour is derived from the palette and cannot change between ticks.
+        """
+        base = self.palette().color(self.palette().ColorRole.Base)
+        if self._eraser_brush is None or self._eraser_brush_key != base.rgb():
+            color = QColor(base)
+            color.setAlpha(235)
+            self._eraser_brush = pg.mkBrush(color)
+            self._eraser_brush_key = base.rgb()
+        return self._eraser_brush
 
     def _update_page_label(self, start: float | None = None) -> None:
         if start is None:
@@ -551,10 +613,15 @@ class PlotPane(QWidget):
             self.page_label.clear()
             return
         end = start + self.window_duration
-        self.page_label.setText(
+        # The page spans a whole window, so this text is identical on almost
+        # every tick; setText would still relayout the header each time.
+        text = (
             f"{format_time(start, self._time_mode, self._t_epoch)} – "
             f"{format_time(end, self._time_mode, self._t_epoch)}"
         )
+        if text != self._page_label_text:
+            self._page_label_text = text
+            self.page_label.setText(text)
 
     def _request_channel_close(self, channel_id: str) -> None:
         """Row close button: hide this source's row and tell the sidebar which one."""

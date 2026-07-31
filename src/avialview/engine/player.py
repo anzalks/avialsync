@@ -417,7 +417,10 @@ class Player(QObject):
         a seek, a frame step, a pause — where a stale readout would be a lie
         rather than a dropped frame.
         """
-        self.plot_pane.set_cursor(t_master)
+        # The cursor sees every tick; the plot decides when that becomes pixels.
+        # `force` marks the discrete events — seek, pause, frame step — where a
+        # stale cursor would be a lie rather than a deferred repaint.
+        self.plot_pane.set_cursor(t_master, immediate=force)
         self.transport.set_time(t_master)
 
         if not force and (now - self._last_presentation_at) < _PRESENTATION_INTERVAL_S:

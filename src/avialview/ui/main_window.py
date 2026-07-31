@@ -2403,6 +2403,7 @@ class MainWindow(QMainWindow):
             )
             if offset != 0.0 or drift_ppm != 0.0:
                 from avialview.core.timeline import TimeMap
+
                 tm = TimeMap(offset=offset, drift_ppm=drift_ppm)
                 mapped = (tm.to_master(bounds[0]), tm.to_master(bounds[1]))
             else:

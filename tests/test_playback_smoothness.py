@@ -308,6 +308,85 @@ def test_a_deferred_osd_paint_keeps_the_newest_frame(qapp: QApplication) -> None
     assert pane.updates == [1.0, pytest.approx(1.0 + 5 / 120.0)]
 
 
+# ── The plot scene must not repaint at the tick rate ──────────────────
+
+
+def test_the_plot_repaints_at_half_the_tick_rate(qapp: QApplication) -> None:
+    """Time advances at 60 Hz; pixels do not.
+
+    Repainting the plot scene costs ~8 ms at 16 rows and ~15 ms at 32, out of a
+    16.7 ms tick budget shared with every video pane's ``paintGL``. Doing that
+    60 times a second consumed 39-74% of the UI thread and starved video
+    presentation, which is what made frames look choppy.
+    """
+    from avialview.ui import plot_pane as plot_pane_module
+
+    pane = plot_pane_module.PlotPane()
+    repaints: list[float] = []
+    pane.view_window_changed.connect(lambda *_: repaints.append(1.0))
+
+    real_monotonic = time.monotonic
+    try:
+        for step in range(120):  # two seconds of 60 Hz ticks
+            now = step / 60.0
+            time.monotonic = lambda now=now: now  # type: ignore[assignment]
+            pane.set_cursor(1.0 + now)
+    finally:
+        time.monotonic = real_monotonic  # type: ignore[assignment]
+
+    expected = 2.0 * plot_pane_module._CURSOR_REPAINT_HZ
+    assert len(repaints) <= expected + 1
+    assert len(repaints) >= expected - 2, "the cursor must still move smoothly"
+
+
+def test_a_seek_repaints_the_plot_immediately(qapp: QApplication) -> None:
+    """Throttling is for playback; a discrete event must never show a stale cursor."""
+    from avialview.ui import plot_pane as plot_pane_module
+
+    pane = plot_pane_module.PlotPane()
+    repaints: list[float] = []
+    pane.view_window_changed.connect(lambda *_: repaints.append(1.0))
+
+    real_monotonic = time.monotonic
+    try:
+        time.monotonic = lambda: 500.0  # type: ignore[assignment]
+        pane.set_cursor(1.0, immediate=True)
+        pane.set_cursor(1.5, immediate=True)
+        pane.set_cursor(2.0, immediate=True)
+    finally:
+        time.monotonic = real_monotonic  # type: ignore[assignment]
+
+    assert len(repaints) == 3
+
+
+def test_the_player_marks_discrete_events_immediate(qapp: QApplication) -> None:
+    """The `force` that bypasses the readout rate limit must reach the plot too."""
+    player = Player.__new__(Player)
+    player.plot_pane = MagicMock()
+    player.transport = MagicMock()
+    player.tracking_3d_pane = None
+    player._readout_panel = None
+    player._last_presentation_at = 0.0
+
+    player._update_timeline_views(1.0, now=0.0, force=True)
+    player._update_timeline_views(2.0, now=0.1, force=False)
+
+    assert player.plot_pane.set_cursor.call_args_list[0].kwargs["immediate"] is True
+    assert player.plot_pane.set_cursor.call_args_list[1].kwargs["immediate"] is False
+
+
+def test_the_sweep_eraser_brush_is_not_reallocated_each_tick(qapp: QApplication) -> None:
+    """The eraser colour comes from the palette and cannot change between ticks."""
+    from avialview.ui import plot_pane as plot_pane_module
+
+    pane = plot_pane_module.PlotPane()
+
+    first = pane._sweep_eraser_brush()
+    second = pane._sweep_eraser_brush()
+
+    assert first is second
+
+
 # ── Painting must never reach into libmpv ─────────────────────────────
 
 

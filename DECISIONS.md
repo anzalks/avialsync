@@ -1215,3 +1215,54 @@ pane starting 2 s behind is re-seeked exactly once. The OSD clock and tracking m
 20 Hz rather than at the decode rate — deliberate, and the same rate the readout panel has always
 used. Regression coverage is in `tests/test_playback_smoothness.py`; the golden sync tests are
 untouched and passing.
+
+## 2026-07 · D-054 · Plots repaint at 30 Hz and stay visually plain
+
+**Context:** video stayed choppy after D-053 with 4+ cameras. Profiling the plot pane separated
+two costs that had been conflated. Advancing the sweep *state* on a 60 Hz tick is cheap — 0.23 ms
+at 16 rows. Repainting the scene is not: 7.8 ms at 16 rows, 14.9 ms at 32. That repaint runs on the
+same UI thread that must call `paintGL()` for every video pane, and it was being triggered on every
+single tick. Measured share of the UI thread consumed by the plot alone:
+
+| rows | before | after |
+|---|---|---|
+| 4  | 17 % | 10 % |
+| 8  | 25 % | 14 % |
+| 16 | 39 % | 23 % |
+| 32 | 74 % | 45 % |
+
+At 32 rows the plot was taking three quarters of the UI thread, leaving the video panes nothing to
+present with. That is the choppiness.
+
+**Decision:**
+
+1. `PlotPane.set_cursor()` still runs on every 60 Hz tick and time still advances at the full tick
+   rate, but the per-channel graphics-item updates are throttled to `_CURSOR_REPAINT_HZ` (30 Hz).
+   A page boundary changes *what* is drawn and is never deferred. `set_cursor(immediate=True)`
+   bypasses the throttle; `Player` passes it for the discrete events (seek, pause, frame step)
+   that already bypass the readout rate limit.
+2. The due-check carries half a tick of slack (`_CURSOR_REPAINT_SLACK_S`). Ticks land on a 16.7 ms
+   grid; without slack a repaint due to the microsecond is deferred a whole further tick and the
+   real rate beats down to ~22 Hz.
+3. **Plots stay plain. Decorative shading is not added back.** The per-page `retained_fill`
+   (an alpha-blended `FillBetweenItem` tinting the data about to be overwritten) is removed; the
+   previous page keeps its min/max outlines as thin pens. No gradients, shadows, glows, or
+   decorative alpha layers may be introduced in plot rows. Anything drawn on a plot row must carry
+   information, because everything drawn there is repainted while video is trying to present.
+4. Per-tick allocation is not acceptable in the sweep path: the eraser `QBrush` is cached against
+   the palette instead of rebuilt per row per tick, and the page label is only re-set when its
+   text actually changes.
+
+**Alternatives rejected:** throttling `set_cursor` itself (would break the D-043 guarantee that
+authoritative time advances at 60 Hz, and the hot-path test that asserts it); moving plots to a
+second thread (Qt graphics are main-thread only); dropping the sweep's retained page entirely
+(it is the affordance that makes Sweep mode readable).
+
+**Consequences — measured, and one of them is negative:** removing the alpha fill did **not** make
+individual repaints cheaper; replacing it with a second outline pen made them ~20 % dearer
+(12.4 ms → 14.9 ms at 32 rows). The entire win came from repainting half as often. The fill is
+still gone because §3 is a standing policy, not a performance claim. If plot cost needs cutting
+further, the next lever is the row count and the retained page's second outline, not more shading
+removal. The envelope fill between `curve` and `envelope_upper` is **data** — the min/max range of
+decimated samples, the only thing showing true signal excursion at 50 kHz — and is deliberately
+retained. Covered by `tests/test_playback_smoothness.py`.

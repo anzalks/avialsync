@@ -554,6 +554,18 @@ repaints a second for text nobody can read that fast.
 a single-shot trailing timer so the last frame of a burst is never dropped. `PaintCanvas.update_time`
 skips the repaint entirely when there are no readers or tracks.
 
+### 8e. The plot scene must not repaint at the tick rate, and stays visually plain
+Advancing the sweep state costs 0.23 ms at 16 rows; repainting the scene costs 7.8 ms (14.9 ms at
+32 rows), on the same UI thread that must call `paintGL()` for every video pane. Repainting on
+every 60 Hz tick consumed 39–74 % of the UI thread and starved video presentation.  
+**Fix:** `PlotPane.set_cursor()` still sees every tick, but per-channel item updates are throttled
+to `_CURSOR_REPAINT_HZ` (30 Hz) with half a tick of slack; page boundaries and
+`set_cursor(immediate=True)` bypass it, and `Player` passes `immediate=force`. Per-tick allocation
+is banned in that path (the eraser brush is palette-cached; the page label is only re-set when its
+text changes). **Do not add decorative shading to plot rows** — no gradients, shadows, or alpha
+tint layers (D-054). The envelope fill between `curve` and `envelope_upper` is data, not
+decoration, and stays.
+
 ### 8d. `paintEvent` must never read an mpv property
 `PaintCanvas._video_scale` used to read `mpv.dwidth`/`dheight`, taking libmpv's core lock on the UI
 thread inside a paint while the decoders contend for it (measured 26–34 µs typical, 165 µs p99, per
