@@ -20,7 +20,6 @@ from avialview.ui.import_report import ImportReportDialog
 from avialview.ui.import_wizard import ImportWizard
 from avialview.ui.relink_dialog import RelinkDialog
 
-
 # ── ImportWizard ──────────────────────────────────────────────────────
 
 
