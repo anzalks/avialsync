@@ -2388,13 +2388,23 @@ class MainWindow(QMainWindow):
         role = ""
         if isinstance(inspection, SourceInspection):
             role = str(inspection.import_config.get("role", ""))
+            # If the config explicitly provides an offset (e.g. from drop_worker or wizard), use it.
+            if "offset" in inspection.import_config and offset == 0.0:
+                offset = float(inspection.import_config["offset"])
+            if "drift_ppm" in inspection.import_config and drift_ppm == 0.0:
+                drift_ppm = float(inspection.import_config["drift_ppm"])
 
         if role in ("overlay2d", "pose3d"):
             # Pose data drives the video overlay and the 3D view. It is not
             # plotted: 27 3D channels or 81 per-camera 2D channels would bury
             # the recorded signals a plot row is meant to show.
-            self._register_tracking_source(path, Path(cache_dir), channels, role, inspection)
-            mapped = bounds
+            self._register_tracking_source(path, Path(cache_dir), channels, role, inspection, offset, drift_ppm)
+            if offset != 0.0 or drift_ppm != 0.0:
+                from avialview.core.timeline import TimeMap
+                tm = TimeMap(offset=offset, drift_ppm=drift_ppm)
+                mapped = (tm.to_master(bounds[0]), tm.to_master(bounds[1]))
+            else:
+                mapped = bounds
         else:
             self.plot_pane.load_channels(
                 Path(cache_dir), channels, offset, drift_ppm, source_id=path
@@ -2445,6 +2455,8 @@ class MainWindow(QMainWindow):
         channels: list[str],
         role: str,
         inspection: object,
+        offset: float = 0.0,
+        drift_ppm: float = 0.0,
     ) -> None:
         """Route imported pose data to the overlay or the 3D view.
 
@@ -2453,14 +2465,19 @@ class MainWindow(QMainWindow):
         depending on globally unique channel names.
         """
         from avialview.core.pyramid import PyramidReader
+        from avialview.core.channel_reader import MappedChannelReader
+        from avialview.core.timeline import TimeMap
 
         config: dict[str, Any] = {}
         if isinstance(inspection, SourceInspection):
             config = dict(inspection.import_config)
 
+        time_map = TimeMap(offset=offset, drift_ppm=drift_ppm)
+
         if role == "pose3d":
             self._pose_3d_sources[path] = [
-                PyramidReader(cache_dir, channel) for channel in channels
+                MappedChannelReader(PyramidReader(cache_dir, channel), time_map, source_id=path)
+                for channel in channels
             ]
             self._refresh_pose_3d()
             return
@@ -2470,12 +2487,14 @@ class MainWindow(QMainWindow):
             logger.warning("2D pose source %s has no overlay target; skipping.", path)
             return
 
-        points: dict[str, tuple[PyramidReader, PyramidReader]] = {}
-        by_name: dict[str, dict[str, PyramidReader]] = {}
+        points: dict[str, tuple[MappedChannelReader, MappedChannelReader]] = {}
+        by_name: dict[str, dict[str, MappedChannelReader]] = {}
         for channel in channels:
             base, separator, axis = channel.rpartition("_")
             if separator and axis in ("x", "y"):
-                by_name.setdefault(base, {})[axis] = PyramidReader(cache_dir, channel)
+                by_name.setdefault(base, {})[axis] = MappedChannelReader(
+                    PyramidReader(cache_dir, channel), time_map, source_id=path
+                )
         for name, axes in by_name.items():
             if "x" in axes and "y" in axes:
                 points[name] = (axes["x"], axes["y"])

@@ -25,6 +25,7 @@ Master-time axis (do not "fix" this without reading DECISIONS.md):
 import logging
 import re
 from collections.abc import Iterator
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -89,11 +90,8 @@ class AOLEncoderLoader(TimeSeriesSource):
             line = f.readline().strip()
 
         parts = line.split()
-        if len(parts) < 4:
-            raise SourceOpenError(
-                f"Expected 4 space-separated columns in encoder log, got {len(parts)}: {path}. "
-                "Check that this is an AOL encoder_log.txt and not another text file."
-            )
+        if not parts:
+            raise SourceOpenError(f"Empty encoder log: {path}")
         if not _TIME_RE.match(parts[0]):
             raise SourceOpenError(
                 f"First encoder column does not match HH:MM:SS:mmm: '{parts[0]}' in {path}. "
@@ -135,6 +133,19 @@ class AOLEncoderLoader(TimeSeriesSource):
                 "Encoder source used before open(). Call open(path, config) first."
             )
 
+        anchor_date = self._config.get("anchor_date")
+        offset = 0.0
+        if anchor_date:
+            from datetime import datetime
+            try:
+                dt = datetime.strptime(str(anchor_date), "%Y-%m-%d").replace(tzinfo=UTC)
+                offset = dt.timestamp()
+            except ValueError:
+                pass
+
+        is_manual = "anchor_date" in self._config
+        first_t: float | None = None
+
         times: list[float] = []
         values: list[float] = []
         row_offset = 0
@@ -149,8 +160,7 @@ class AOLEncoderLoader(TimeSeriesSource):
                     continue
 
                 parts = line.split()
-                if len(parts) < 4:
-                    logger.warning("Skipping malformed encoder line %d: %s", line_no, line[:60])
+                if not parts:
                     continue
 
                 t_sec = self._parse_wall_clock(parts[0])
@@ -158,13 +168,17 @@ class AOLEncoderLoader(TimeSeriesSource):
                     logger.warning("Unparseable timestamp at line %d: %s", line_no, parts[0])
                     continue
 
+                if is_manual:
+                    if first_t is None:
+                        first_t = t_sec
+                    t_sec -= first_t
+
                 try:
                     velocity = float(parts[3])
-                except ValueError:
-                    logger.warning("Unparseable velocity at line %d: %s", line_no, parts[3])
-                    continue
+                except (ValueError, IndexError):
+                    velocity = 0.0
 
-                times.append(unwrap.advance(t_sec))
+                times.append(unwrap.advance(t_sec) + offset)
                 values.append(velocity)
 
                 if len(times) >= _CHUNK_SIZE:

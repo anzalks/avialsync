@@ -10,8 +10,14 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
-# Distinct colours for concurrently overlaid predictions. The ensemble result
-# keeps the first (brightest) entry; contributing models cycle through the rest.
+_POINT_COLORS = (
+    (0, 188, 212),
+    (255, 152, 0),
+    (156, 39, 176),
+    (76, 175, 80),
+    (233, 30, 99),
+    (63, 81, 181),
+)
 _ENSEMBLE_COLOR = (0, 255, 255)
 _MODEL_COLORS = (
     (255, 145, 0),
@@ -40,7 +46,7 @@ class OverlayTrack:
 
     label: str
     points: dict[str, tuple[Any, Any]]
-    color: tuple[int, int, int] = _ENSEMBLE_COLOR
+    color: tuple[int, int, int] | None = None
     is_ensemble: bool = True
     likelihood: dict[str, Any] = field(default_factory=dict)
 
@@ -149,7 +155,7 @@ class PaintCanvas(QWidget):
         several parts sit close together.
         """
         from avialview.ui.tracking_3d_pane import _POINT_COLORS
-        
+
         radius = _ENSEMBLE_RADIUS if track.is_ensemble else _MODEL_RADIUS
 
         label_font = painter.font()
@@ -164,13 +170,13 @@ class PaintCanvas(QWidget):
                 continue
             x = offset_x + x_value * scale
             y = offset_y + y_value * scale
-            
+
             color_rgb = _POINT_COLORS[i % len(_POINT_COLORS)]
             color = QColor(*color_rgb)
             pen = QPen(color, 2 if track.is_ensemble else 1)
             painter.setPen(pen)
             painter.setBrush(color)
-            
+
             painter.drawEllipse(int(x) - radius, int(y) - radius, radius * 2, radius * 2)
             if self._point_labels_visible and name:
                 self._draw_point_label(painter, label_font, color, name, x, y)
@@ -213,7 +219,7 @@ class PaintCanvas(QWidget):
                 if reader.channel_id.endswith(suffix):
                     points.setdefault(reader.channel_id[:-2], {})[suffix[1:]] = value
 
-        for i, (name, point) in enumerate(sorted(points.items())):
+        for i, (_name, point) in enumerate(sorted(points.items())):
             if "x" not in point or "y" not in point:
                 continue
             color = _POINT_COLORS[i % len(_POINT_COLORS)]

@@ -27,6 +27,9 @@ class _ArrayReader:
     def _load_level(self, _level: int):
         return self._level
 
+    def mapped_columns(self):
+        return self._level[:3]
+
 
 def test_bench_tracking_3d_cursor(benchmark, qapp, tmp_path: Path) -> None:
     """Sampling 128 XYZ points must leave room in the existing cursor budget."""

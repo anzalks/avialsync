@@ -15886,7 +15886,7 @@
       "label": "._draw_point_label()",
       "file_type": "code",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L179",
+      "source_location": "L181",
       "_origin": "ast"
     },
     {
@@ -15910,7 +15910,7 @@
       "label": "._draw_loose_readers()",
       "file_type": "code",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L201",
+      "source_location": "L203",
       "_origin": "ast"
     },
     {
@@ -15918,7 +15918,7 @@
       "label": "._draw_legend()",
       "file_type": "code",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L222",
+      "source_location": "L226",
       "_origin": "ast"
     },
     {
@@ -15926,7 +15926,7 @@
       "label": ".update_time()",
       "file_type": "code",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L257",
+      "source_location": "L261",
       "_origin": "ast"
     },
     {
@@ -16018,19 +16018,19 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_video_overlay_rationale_187",
+      "id": "src_avialview_ui_video_overlay_rationale_189",
       "label": "Write a body-part name beside its marker, legible over any footage.          A d",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L187",
+      "source_location": "L189",
       "_origin": "ast"
     },
     {
-      "id": "src_avialview_ui_video_overlay_rationale_225",
+      "id": "src_avialview_ui_video_overlay_rationale_229",
       "label": "Name each overlaid source so colour is never the only distinction.",
       "file_type": "rationale",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L225",
+      "source_location": "L229",
       "_origin": "ast"
     },
     {
@@ -67653,7 +67653,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L179",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67664,7 +67664,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L179",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67675,7 +67675,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L179",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67686,7 +67686,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L179",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67696,7 +67696,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L201",
+      "source_location": "L203",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67707,7 +67707,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L201",
+      "source_location": "L203",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67717,7 +67717,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L222",
+      "source_location": "L226",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67728,7 +67728,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L222",
+      "source_location": "L226",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67738,7 +67738,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L257",
+      "source_location": "L261",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67804,7 +67804,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L151",
+      "source_location": "L169",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67815,7 +67815,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L171",
+      "source_location": "L176",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67826,7 +67826,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L196",
+      "source_location": "L198",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67837,7 +67837,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L213",
+      "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67848,7 +67848,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L226",
+      "source_location": "L230",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67859,7 +67859,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L241",
+      "source_location": "L245",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -67974,22 +67974,22 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_video_overlay_rationale_187",
+      "source": "src_avialview_ui_video_overlay_rationale_189",
       "target": "src_avialview_ui_video_overlay_paintcanvas_draw_point_label",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L187",
+      "source_location": "L189",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialview_ui_video_overlay_rationale_225",
+      "source": "src_avialview_ui_video_overlay_rationale_229",
       "target": "src_avialview_ui_video_overlay_paintcanvas_draw_legend",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialview/ui/video_overlay.py",
-      "source_location": "L225",
+      "source_location": "L229",
       "weight": 1.0,
       "_origin": "ast"
     },

@@ -180,12 +180,21 @@ class TestAOLEncoderLoader:
         from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
-        loader.open(tmp_encoder_log, {"anchor_date": "2026-05-08"})
+        loader.open(tmp_encoder_log, {})
         t = np.concatenate([chunk[0] for chunk in loader.read_chunks("encoder_velocity")])
 
         # 09:35:26.082 since midnight, NOT an absolute 2026-05-08 epoch.
         expected = 9 * 3600 + 35 * 60 + 26 + 0.082
         np.testing.assert_allclose(t[0], expected, atol=1e-6)
+
+    def test_encoder_is_relative_in_manual_import(self, tmp_encoder_log: Path) -> None:
+        """In manual imports (anchor_date in config), the encoder starts at 0 (or anchor date)."""
+        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        loader = AOLEncoderLoader()
+        loader.open(tmp_encoder_log, {"anchor_date": ""})
+        t = np.concatenate([chunk[0] for chunk in loader.read_chunks("encoder_velocity")])
+        np.testing.assert_allclose(t[0], 0.0, atol=1e-6)
 
     def test_encoder_crosses_midnight(self, tmp_path: Path) -> None:
         """A recording spanning 00:00 unwraps past 86400 instead of jumping back."""

@@ -1142,3 +1142,18 @@ topology from names (already rejected by D-041).
 model colouring, and the empty-camera-token fallback. The overlay legend names each source, so
 colour is never the sole distinction. The frozen v1 plugin contract is unchanged: `role` is host
 supplied import configuration, not a new loader API.
+
+
+## 2026-07 · D-052 · Encoder log aligns to relative zero on manual import
+
+**Context:** D-045 and the original architecture dictated that the encoder log remain
+in seconds-since-midnight, keeping it on the same axis as EKS tracking and the
+AOL video streams (which are shifted via manifest offset by `drop_worker`). However,
+when imported manually outside of an AOL session, videos and CSVs natively start at
+0.0, leaving a ~9 hour gap between them and the encoder.
+
+**Decision:** The encoder loader now checks if it's being invoked manually (the `anchor_date`
+key is present in the configuration). If so, it subtracts its first timestamp to become
+"time only" (relative, starting at 0.0), perfectly aligning it with manual video
+and tracking streams. AOL session loads remain unaffected and preserve the strict
+seconds-since-midnight axis needed for multi-camera correlation.

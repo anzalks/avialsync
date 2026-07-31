@@ -227,14 +227,23 @@ class DropScanWorker(QObject):
             if loader_cls is None:
                 logger.warning("No loader found for 2D pose file %s", track.path.name)
                 continue
+            start_epoch = 0.0
+            if overlay_video is not None:
+                for vid_path, epoch in manifest.video_start_epochs.items():
+                    if Path(vid_path).name.lower() == overlay_video.name.lower():
+                        start_epoch = epoch
+                        break
+            
+            if anchor_epoch > 0.0 and start_epoch > 0.0:
+                start_epoch -= anchor_epoch
+
             candidates.append(
                 (
                     track.path,
                     loader_cls,
                     {
-                        # 2D overlays are drawn against the pane's own media
-                        # clock, so they intentionally carry no start_epoch.
                         "fps": manifest.camera_fps,
+                        "offset": -start_epoch,
                         "auto_resolved": True,
                         "_is_frame_indexed": True,
                         # The overlay draws points only. Pose exports carry ~9

@@ -114,7 +114,9 @@ class VideoTimingMixin:
 
     def _update_osd(self, t: float, fps: float) -> None:
         self.lbl_osd.setText(format_video_osd(t, fps, self._metadata))
-        self.paint_canvas.update_time(t)
+        # The overlay's data readers expect master time (via MappedChannelReader)
+        master_t = self.time_map.to_master(t)
+        self.paint_canvas.update_time(master_t)
 
     def _observe_time(self, value: float) -> None:
         self.time_pos = value
