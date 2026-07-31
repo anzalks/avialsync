@@ -708,6 +708,15 @@ class Transport(QWidget):
         """Set the A/B loop out-point at the current slider position (public, D-022.1)."""
         self._on_ab_out()
 
+    @property
+    def bounds(self) -> tuple[float, float]:
+        """The master-timeline extent currently displayed.
+
+        Public because ``engine/player.py`` needs it to decide where playback
+        wraps; it used to reach into ``transport._bounds`` directly (V-13).
+        """
+        return self._bounds
+
     def set_bounds(self, t0: float, t1: float) -> None:
         self._bounds = (t0, t1)
         self._end_time_label.setText(format_time(t1, self._time_mode, self._t_epoch))

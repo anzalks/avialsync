@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtGui import QImage
@@ -12,6 +13,11 @@ from avialview.core.channel_reader import MappedChannelReader
 from avialview.core.errors import AvialViewError
 from avialview.core.pyramid import PyramidReader
 from avialview.core.timeline import TimeMap
+
+if TYPE_CHECKING:
+    # ARCHITECTURE §1: engine must not depend on ui/ at module scope.
+    from avialview.ui.annotations import Marker
+
 from avialview.engine.export import (
     compute_region_stats,
     export_data_slice_csv,
@@ -19,7 +25,6 @@ from avialview.engine.export import (
     save_snapshot_images,
     trim_video_clip,
 )
-from avialview.ui.annotations import Marker
 
 
 class AnnotationExportWorker(QObject):

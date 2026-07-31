@@ -1,6 +1,12 @@
 """Asynchronous seek coordinator."""
 
-from avialview.ui.video_pane import VideoPane
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # ARCHITECTURE §1: engine must not depend on ui/ at module scope.
+    from avialview.ui.video_pane import VideoPane
 
 
 class SeekGroup:

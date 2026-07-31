@@ -10,14 +10,17 @@ from PySide6.QtCore import QObject, Qt, QTimer
 
 from avialview.core.timeline import MasterClock
 from avialview.engine.seeker import SeekGroup
-from avialview.ui.plot_pane import PlotPane
-from avialview.ui.transport import Transport
-from avialview.ui.video_grid import VideoGrid
-from avialview.ui.video_pane import VideoPane
 
 if TYPE_CHECKING:
+    # ARCHITECTURE §1 layering: the engine must not depend on the UI at module
+    # scope, or `engine` cannot be imported or tested headlessly.  These names
+    # are used purely as annotations, so deferring them costs nothing.
+    from avialview.ui.plot_pane import PlotPane
     from avialview.ui.readout_panel import ReadoutPanel
     from avialview.ui.tracking_3d_pane import Tracking3DPane
+    from avialview.ui.transport import Transport
+    from avialview.ui.video_grid import VideoGrid
+    from avialview.ui.video_pane import VideoPane
 
 logger = logging.getLogger(__name__)
 
@@ -100,8 +103,9 @@ class Player(QObject):
         if playing:
             # Wrap around to start if at the very end
             current_t = self.clock.state.t
-            end_t = self.transport._bounds[1] if self._ab_out is None else self._ab_out
-            start_t = self.transport._bounds[0] if self._ab_in is None else self._ab_in
+            bounds = self.transport.bounds
+            end_t = bounds[1] if self._ab_out is None else self._ab_out
+            start_t = bounds[0] if self._ab_in is None else self._ab_in
 
             if current_t >= end_t - 0.05:
                 self.seek(start_t, exact=True)
