@@ -17,6 +17,14 @@ from avialview.core.errors import (
 )
 from avialview.core.source import ChannelInfo, TimeSeriesSource
 
+#: A sample must contain at least this many rows before a rate is claimed.
+_RATE_SAMPLE_MINIMUM = 8
+#: Maximum relative deviation from the median interval that still counts as
+#: regular sampling.  Above this, ``rate_hz`` stays None — irregular is a
+#: real property of many sources, not a measurement failure.
+_RATE_REGULARITY_TOLERANCE = 0.05
+_UNIT_SECONDS = {"s": 1.0, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
+
 
 class CSVLoader(TimeSeriesSource):
     """Loads CSV files in chunks using polars."""
@@ -65,17 +73,54 @@ class CSVLoader(TimeSeriesSource):
         if time_col not in sample.columns:
             raise MissingColumnError(time_col, [str(name) for name in sample.columns])
 
+        rate_hz = self._estimate_rate(sample, time_col)
         self._schema_channels = []
         for col in sample.columns:
             if col == time_col:
                 continue
             dt = sample[col].dtype
             self._schema_channels.append(
-                ChannelInfo(name=col, unit="", dtype=str(dt), rate_hz=None)
+                ChannelInfo(name=col, unit="", dtype=str(dt), rate_hz=rate_hz)
             )
 
     def channels(self) -> list[ChannelInfo]:
         return self._schema_channels
+
+    def _estimate_rate(self, sample: "pl.DataFrame", time_col: str) -> float | None:
+        """Return the sampling rate when the sample proves it is regular.
+
+        ``ChannelInfo.rate_hz`` documents ``None`` as *irregular*, and reporting
+        None for a file that is plainly 1 kHz makes gap detection fall back to
+        the 10x-median heuristic unnecessarily (V-19).
+
+        Only a numeric time column is measured here: a datetime column still
+        needs the accepted wizard configuration to become seconds, and guessing
+        at open() time could label a source with a rate it does not have. If the
+        intervals in the sample are not tight, None is returned — that is the
+        honest answer, not a fallback.
+        """
+        if not sample[time_col].dtype.is_numeric():
+            return None
+        times = sample[time_col].to_numpy().astype(np.float64)
+        if len(times) < _RATE_SAMPLE_MINIMUM:
+            return None
+        intervals = np.diff(times)
+        intervals = intervals[np.isfinite(intervals) & (intervals > 0)]
+        if len(intervals) < _RATE_SAMPLE_MINIMUM - 1:
+            return None
+        median = float(np.median(intervals))
+        if median <= 0:
+            return None
+        # Irregular sampling is a real property of many sources; only claim a
+        # rate when the sample is tight enough that the claim is true.
+        spread = float(np.max(np.abs(intervals - median))) / median
+        if spread > _RATE_REGULARITY_TOLERANCE:
+            return None
+        # Reuse the same unit resolution the ingest path uses, so a rate is
+        # never reported in different units from the samples it describes.
+        unit = self._epoch_unit_from_format(str(self._config.get("time_format", "")))
+        seconds = median * _UNIT_SECONDS.get(unit, 1.0)
+        return float(1.0 / seconds) if seconds > 0 else None
 
     def _classify_format(self, fmt: str) -> str:
         """Map wizard format strings to internal categories."""

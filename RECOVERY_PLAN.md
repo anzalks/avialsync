@@ -401,6 +401,14 @@ commit, full gate green after each.
 | V-16 | `dfb7e57` | `ChannelKey(source_id, channel_id)` identity throughout. |
 | V-17 | `dfb7e57` | Bounded `PyramidReader` read API; `_load_level` guarded private. |
 
+**Also closed since**
+
+| ID | Commit | What changed |
+|---|---|---|
+| V-12 | `ARCHITECTURE.md` | `channel_reader`, `recent_files`, `runtime`, and the three plot helpers added; schema noted as v6. |
+| V-13 | `89307ba` | All eight `engine` -> `ui` imports deferred under `TYPE_CHECKING`; `Transport.bounds` replaces the `_bounds` reach-in. AST guard test added. |
+| V-19 | this commit | `CSVLoader` reports `rate_hz` when the sample proves regular sampling, and still `None` when it does not. The AOL encoder's `None` was already correct and documented. |
+
 **Still open**
 
 | ID | Why it is still open |
@@ -409,11 +417,9 @@ commit, full gate green after each.
 | V-05 | `AOLEksLoader.read_chunks` re-scans the CSV per channel. Only the bulk path is fast; the frozen v1 API still pays N passes. |
 | V-07 | 11 `ignore_errors` mypy overrides. Removing them exposes ~56 pre-existing Qt/stub errors — a wave of its own. |
 | V-09 | `ui/main_window.py` is ~2 500 lines. A mixin split was implemented and **reverted**: inherited `@Slot` methods lose `sender()` and get direct instead of queued connections, which put `video_grid.add_pane` on a worker thread. See D-051 — it must be done as QObject composition. |
-| V-12 | New modules still absent from `ARCHITECTURE.md`. |
-| V-13 | `engine/player.py` imports four `ui/` modules; engine cannot be tested headlessly. |
+
 | V-15 | AOL loaders validate monotonicity within a batch only. |
 | V-18 | `AOLEksLoader.open` iterates a `set`, so channel names are not reproducible under hash randomisation. |
-| V-19 | Loaders report `rate_hz=None` when the rate is known. |
 
 **Not from this ledger, also open:** the P3.5/P4.6 populated-workload
 measurements, and Phase 6 (P6.1 coverage, P6.2 community files, P6.3 release).

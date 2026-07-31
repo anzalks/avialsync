@@ -27,13 +27,14 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   ├── __main__.py                   # CLI: `avialview` / `avialview open <path>`
 │   ├── core/                         # HEADLESS — must never import PySide6 (test-enforced)
 │   │   ├── timeline.py               # MasterClock, TimeMap(offset, drift), PlaybackState
-│   │   ├── session.py                # Session model + .avv JSON (versioned schema v5)
+│   │   ├── session.py                # Session model + .avv JSON (versioned schema v6)
 │   │   ├── source.py                 # ABCs + VideoMetadata (plugin contract, §4)
 │   │   ├── pyramid.py                # NaN/gap-aware min-max pyramid build + query (D-009)
 │   │   ├── cache.py                  # .avialcache/ sidecar manager, content-hash key (D-008), atomic writes
-│   │   ├── registry.py               # directory scanner and dynamic module loader (`~/.avialview/plugins/`)
+│   │   ├── registry.py               # plugin scan: `~/.avialview/plugins/` + bundled examples/ and sys._MEIPASS
 │   │   ├── inspection.py             # ImportReport, IntegrityFlags, SourceInspection — headless, frozen dataclasses (D-020)
 │   │   ├── sync.py                   # SyncEvent, match evidence, affine fit/provenance dataclasses (D-026)
+│   │   ├── channel_reader.py         # MappedChannelReader (master-clock view) + ChannelKey identity (D-045)
 │   │   └── errors.py                 # typed exceptions (NonMonotonicTimeError, ...)
 │   ├── loaders/                      # built-in plugins (use ONLY the public core API)
 │   │   ├── csv_loader.py             # polars; chunked ingest (D-005); tz/anchor/sentinel config
@@ -54,6 +55,7 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   │   ├── session_worker.py         # off-thread .avv save/load
 │   │   ├── export_worker.py          # off-thread region stats, data slice, clip, snapshot jobs
 │   │   └── video_worker.py           # off-thread video probe before native pane creation
+│   ├── runtime.py                    # bundled/env media-tool discovery; no_window_kwargs (V-14)
 │   ├── ui/                           # PySide6 widgets only; no business logic
 │   │   ├── main_window.py            # Left sidebar (metadata, offsets, file management) + right content (video grid, plots)
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
@@ -63,11 +65,15 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
 │   │   ├── plot_row.py               # one channel row's plot/curve/close-control construction
 │   │   ├── plot_sweep.py             # shared continuous window control + deterministic sweep state
+│   │   ├── plot_header.py            # presentation, page, Y-fit, row-height, reset controls
+│   │   ├── plot_interactions.py      # plot context actions, measurement, annotation, gap state
+│   │   ├── plot_overlays.py          # bounded page-local overlay drawing + context menu helpers
 |   |   |-- tracking_3d_pane.py       # cache-backed current-pose projection; orbit/zoom (D-041); head-up axis (D-046)
 │   │   ├── transport.py              # two-row timeline + named evidence lanes, controls, status, A/B loop
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
 │   │   ├── sync_wizard.py            # evidence selection, residual preview, explicit acceptance (D-026)
 │   │   ├── offsets_panel.py          # per-source offset + drift ppm, live preview (D-020)
+│   │   ├── recent_files.py           # recent-session list in QSettings — kept out of core/ (rule 2)
 │   │   ├── annotations.py            # point/range markers panel + CSV export
 │   │   ├── readout_panel.py          # nearest-sample values at t_master + units + sample index + Δ section
 │   │   ├── source_properties.py      # VideoPropertiesPanel + SensorPropertiesPanel — collapsible detail (D-020)

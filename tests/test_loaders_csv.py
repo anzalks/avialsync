@@ -198,3 +198,53 @@ def test_csv_loader_applies_selected_timezone(tmp_path: Path):
     expected = __import__("datetime").datetime(2026, 1, 15, 12, tzinfo=ZoneInfo("Europe/Paris"))
 
     assert time_values[0] == pytest.approx(expected.timestamp())
+
+
+# ── Sampling rate reporting (V-19) ────────────────────────────────────
+
+
+def test_regular_csv_reports_its_sampling_rate(tmp_path: Path) -> None:
+    """`rate_hz=None` means irregular; a plainly 100 Hz file must not claim it."""
+    path = tmp_path / "regular.csv"
+    rows = "\n".join(f"{i / 100.0:.4f},{i}" for i in range(50))
+    path.write_text(f"time,value\n{rows}\n", encoding="utf-8")
+    loader = CSVLoader()
+
+    loader.open(path, {"time_col": "time", "separator": ",", "time_unit": "s"})
+
+    assert loader.channels()[0].rate_hz == pytest.approx(100.0, rel=1e-6)
+
+
+def test_irregular_csv_still_reports_no_rate(tmp_path: Path) -> None:
+    """Claiming a rate for jittered data would be a false statement."""
+    path = tmp_path / "irregular.csv"
+    times = [0.0, 0.01, 0.05, 0.06, 0.20, 0.21, 0.5, 0.9, 1.7, 3.0]
+    rows = "\n".join(f"{t},{i}" for i, t in enumerate(times))
+    path.write_text(f"time,value\n{rows}\n", encoding="utf-8")
+    loader = CSVLoader()
+
+    loader.open(path, {"time_col": "time", "separator": ",", "time_unit": "s"})
+
+    assert loader.channels()[0].rate_hz is None
+
+
+def test_millisecond_timestamps_report_a_rate_in_hertz(tmp_path: Path) -> None:
+    """The rate must be in Hz regardless of the column's unit."""
+    path = tmp_path / "ms.csv"
+    rows = "\n".join(f"{i * 10},{i}" for i in range(50))  # every 10 ms -> 100 Hz
+    path.write_text(f"time,value\n{rows}\n", encoding="utf-8")
+    loader = CSVLoader()
+
+    loader.open(path, {"time_col": "time", "separator": ",", "time_format": "epoch_ms"})
+
+    assert loader.channels()[0].rate_hz == pytest.approx(100.0, rel=1e-6)
+
+
+def test_too_few_rows_to_judge_reports_no_rate(tmp_path: Path) -> None:
+    path = tmp_path / "tiny.csv"
+    path.write_text("time,value\n0.0,1\n0.1,2\n", encoding="utf-8")
+    loader = CSVLoader()
+
+    loader.open(path, {"time_col": "time", "separator": ",", "time_unit": "s"})
+
+    assert loader.channels()[0].rate_hz is None
