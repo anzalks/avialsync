@@ -2,6 +2,44 @@
 Format per entry: date · decision · context · alternatives rejected · consequences.
 Agents: read before coding; append when making irreversible choices; never silently reverse entries.
 
+## 2026-07 · D-051 · MainWindow may not be split into Qt-slot mixins
+
+**Context:** `ui/main_window.py` is ~2 500 lines, over the ~500-line rule
+(V-09 / BLUEPRINT P2-maintainability). The obvious cheap fix is to move method
+groups into mixin classes that `MainWindow` inherits, keeping every method name
+and `self` intact so no caller or test changes.
+
+**Decision:** do not do this. It was implemented, measured, and reverted.
+
+Moving `@Slot`-decorated methods onto a plain mixin class changes how PySide
+resolves the connection. Two failures were reproduced, not theorised:
+
+1. `QObject.sender()` returns `None` inside an inherited slot, so every
+   `_on_*_thread_finished` handler stopped removing its thread from the job
+   registry. Any queue gated on `len(registry)` stalled — a five-camera load
+   started three probes and hung.
+2. Worse, `worker.opened` reached `_on_video_opened` through a **direct**
+   connection instead of a queued one, so `video_grid.add_pane` — which builds
+   widgets — ran on the worker thread. `tests/test_ui_main.py::
+   test_drop_real_video_completes_async_open` asserts that thread identity and
+   caught it. Passing `Qt.ConnectionType.QueuedConnection` explicitly did not
+   fix it.
+
+A 2 500-line module is a review hazard. Creating widgets off the UI thread is a
+crash. The line-count rule does not outrank architecture rule 3.
+
+**Alternatives rejected:** mixins (this entry); `functools.partial`-bound
+connections (same direct-connection problem); relaxing the size rule for this
+file (it hides real UI-thread work, which is why the rule exists).
+
+**Consequences:** the split must be done as **composition** — each controller a
+real `QObject` that owns its own slots and holds a reference to the window, with
+signals connected between two genuine QObjects so thread affinity is preserved.
+That is a larger change than a mechanical extraction and needs its own task.
+Until then `main_window.py` stays oversized and V-09 stays open. Any future
+attempt must keep `test_drop_real_video_completes_async_open` green — it is the
+tripwire for off-thread widget creation.
+
 ## 2026-07 · D-045 · Bounded reads, source TimeMaps, and scoped channel identity
 
 **Context:** the P3.5 audit left four correctness/scale gaps: `PyramidReader._load_level` leaked to

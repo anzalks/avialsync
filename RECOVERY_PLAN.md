@@ -408,7 +408,7 @@ commit, full gate green after each.
 | V-04a, V-04b | Encoder midnight rollover and the EKS camera-token match. Both need a real session crossing 00:00 to verify against. |
 | V-05 | `AOLEksLoader.read_chunks` re-scans the CSV per channel. Only the bulk path is fast; the frozen v1 API still pays N passes. |
 | V-07 | 11 `ignore_errors` mypy overrides. Removing them exposes ~56 pre-existing Qt/stub errors — a wave of its own. |
-| V-09 | `ui/main_window.py` is ~2 500 lines and grew during this work. Needs the controller split, not a trim. |
+| V-09 | `ui/main_window.py` is ~2 500 lines. A mixin split was implemented and **reverted**: inherited `@Slot` methods lose `sender()` and get direct instead of queued connections, which put `video_grid.add_pane` on a worker thread. See D-051 — it must be done as QObject composition. |
 | V-12 | New modules still absent from `ARCHITECTURE.md`. |
 | V-13 | `engine/player.py` imports four `ui/` modules; engine cannot be tested headlessly. |
 | V-15 | AOL loaders validate monotonicity within a batch only. |
