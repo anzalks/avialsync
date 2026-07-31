@@ -22,6 +22,11 @@ _MODEL_COLORS = (
 )
 _ENSEMBLE_RADIUS = 4
 _MODEL_RADIUS = 2
+#: Point-label text. Small and offset off the marker so it never hides the very
+#: coordinate it is naming.
+_LABEL_POINT_SIZE = 8
+_LABEL_DX = 6
+_LABEL_DY = -6
 
 
 @dataclass(frozen=True)
@@ -60,6 +65,7 @@ class PaintCanvas(QWidget):
         self.tracks: list[OverlayTrack] = []
         self.t = 0.0
         self._show_legend = True
+        self._point_labels_visible = True
 
     def set_readers(self, readers: list[Any]) -> None:
         """Draw a single unnamed track from loose ``*_x``/``*_y`` readers.
@@ -72,6 +78,11 @@ class PaintCanvas(QWidget):
     def set_tracks(self, tracks: list[OverlayTrack]) -> None:
         """Draw one or more named prediction sources over this camera."""
         self.tracks = list(tracks)
+        self.update()
+
+    def set_point_labels_visible(self, visible: bool) -> None:
+        """Show or hide the per-body-part name drawn beside each marker."""
+        self._point_labels_visible = bool(visible)
         self.update()
 
     def set_legend_visible(self, visible: bool) -> None:
@@ -131,11 +142,21 @@ class PaintCanvas(QWidget):
         offset_x: float,
         offset_y: float,
     ) -> bool:
-        """Draw one prediction source; returns whether anything was visible."""
+        """Draw one prediction source; returns whether anything was visible.
+
+        Each marker is named in place.  A dot alone tells you a body part was
+        tracked but not *which* one, which is the question being asked when
+        several parts sit close together.
+        """
         color = QColor(*track.color)
         radius = _ENSEMBLE_RADIUS if track.is_ensemble else _MODEL_RADIUS
-        painter.setPen(QPen(color, 2 if track.is_ensemble else 1))
+        pen = QPen(color, 2 if track.is_ensemble else 1)
+        painter.setPen(pen)
         painter.setBrush(color)
+
+        label_font = painter.font()
+        label_font.setPointSize(_LABEL_POINT_SIZE)
+        label_font.setBold(track.is_ensemble)
 
         any_drawn = False
         for name, (reader_x, reader_y) in track.points.items():
@@ -146,9 +167,36 @@ class PaintCanvas(QWidget):
             x = offset_x + x_value * scale
             y = offset_y + y_value * scale
             painter.drawEllipse(int(x) - radius, int(y) - radius, radius * 2, radius * 2)
+            if self._point_labels_visible and name:
+                self._draw_point_label(painter, label_font, color, name, x, y)
+                # Restore the marker pen/brush the label drawing changed.
+                painter.setPen(pen)
+                painter.setBrush(color)
             any_drawn = True
-            del name
         return any_drawn
+
+    @staticmethod
+    def _draw_point_label(
+        painter: QPainter,
+        font: QFont,
+        color: QColor,
+        name: str,
+        x: float,
+        y: float,
+    ) -> None:
+        """Write a body-part name beside its marker, legible over any footage.
+
+        A dark outline is drawn under the text because the overlay sits on top
+        of arbitrary video: plain coloured text vanishes over pale fur or a lit
+        background.
+        """
+        painter.setFont(font)
+        text_x = int(x) + _LABEL_DX
+        text_y = int(y) + _LABEL_DY
+        painter.setPen(QPen(QColor(0, 0, 0, 200), 3))
+        painter.drawText(text_x, text_y, name)
+        painter.setPen(QPen(color, 1))
+        painter.drawText(text_x, text_y, name)
 
     def _draw_loose_readers(
         self, painter: QPainter, scale: float, offset_x: float, offset_y: float

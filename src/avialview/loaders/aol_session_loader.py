@@ -20,11 +20,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class AOL2DTrack:
-    """One 2D pose prediction file bound to the camera it was tracked on.
+    """The fused 2D pose prediction bound to the camera it was tracked on.
 
-    A session normally holds several of these per camera: the ensemble-fused
-    ``*_eks`` result plus one file per contributing model.  They are overlaid
-    together on that camera's video, never plotted (D-046).
+    Exactly one per camera: the ensemble-fused ``*_eks`` result.  The individual
+    contributing-model predictions it was built from are deliberately not
+    loaded — they are intermediate pipeline output, and overlaying five nearly
+    identical point clouds per camera obscures the very thing the fused result
+    exists to show.  Tracks are overlaid on their camera's video, never plotted.
     """
 
     path: Path
@@ -49,7 +51,7 @@ class AOLManifest:
     camera_labels: list[str] = field(default_factory=list)
     # EKS 3D tracking CSV (usually one per session)
     eks_files: list[Path] = field(default_factory=list)
-    # 2D per-camera pose predictions (ensemble + contributing models)
+    # One fused 2D pose prediction per camera (the ensemble *_eks result)
     pose_2d_tracks: list[AOL2DTrack] = field(default_factory=list)
     # Encoder log file
     encoder_file: Path | None = None
@@ -87,8 +89,13 @@ def build_manifest(session_dir: Path) -> AOLManifest:
     """Scan an AOL session folder and build a loading manifest.
 
     Priority for videos:
-    1. labeled_videos/*.mp4 (tracked/annotated versions)
-    2. Root *.mp4 (raw camera recordings)
+    1. Root *.mp4 (raw camera recordings)
+    2. labeled_videos/*.mp4, only when no raw recording exists
+
+    Raw footage wins because AvialView draws the pose itself, live, from the
+    prediction CSVs. A ``labeled_videos`` render has the same points burned into
+    the pixels, so loading it would show every marker twice and make the overlay
+    impossible to toggle, recolour, or read a value from.
 
     The manifest includes camera fps from trial_config.yml when available.
     """
@@ -122,17 +129,21 @@ def build_manifest(session_dir: Path) -> AOLManifest:
             manifest.skeleton = edges
 
     # ── Discover videos ──────────────────────────────────────────────
-    labeled_dir = session_dir / "labeled_videos"
-    if labeled_dir.is_dir():
-        labeled_videos = sorted(labeled_dir.glob("*.mp4"))
-        if labeled_videos:
-            manifest.videos = labeled_videos
-            manifest.camera_labels = [_camera_label_from_labeled(v) for v in labeled_videos]
-        else:
-            # Fallback to root videos
-            _add_root_videos(session_dir, manifest)
-    else:
-        _add_root_videos(session_dir, manifest)
+    # Raw footage first: the overlay is drawn live, so a pre-rendered
+    # labeled_videos copy would double every marker.
+    _add_root_videos(session_dir, manifest)
+    if not manifest.videos:
+        labeled_dir = session_dir / "labeled_videos"
+        if labeled_dir.is_dir():
+            labeled_videos = sorted(labeled_dir.glob("*.mp4"))
+            if labeled_videos:
+                logger.info(
+                    "No raw camera MP4s in %s; falling back to %d labeled video(s).",
+                    session_dir.name,
+                    len(labeled_videos),
+                )
+                manifest.videos = labeled_videos
+                manifest.camera_labels = [_camera_label_from_labeled(v) for v in labeled_videos]
 
     # ── Discover EKS tracking files ──────────────────────────────────
     # Search in pose-3d/*/ subdirectories
@@ -201,54 +212,49 @@ def build_manifest(session_dir: Path) -> AOLManifest:
 
 
 def _collect_2d_tracks(session_dir: Path, camera_labels: list[str]) -> list[AOL2DTrack]:
-    """Find per-camera 2D pose CSVs under ``predictions/``.
+    """Find the fused per-camera 2D pose CSV under ``predictions/``.
 
     Layout produced by the Lightning Pose / EKS pipeline::
 
-        predictions/<model_tag>/<Camera>_eks.csv     <- ensemble result
-        predictions/<model_tag>/model_N/<Camera>.csv <- one contributing model
+        predictions/<model_tag>/<Camera>_eks.csv     <- ensemble result  (loaded)
+        predictions/<model_tag>/model_N/<Camera>.csv <- contributing model (skipped)
+
+    Only the ensemble result is loaded: one track per camera.  The contributing
+    per-model predictions are intermediate output, and drawing all of them puts
+    several nearly-coincident point clouds on one frame.
+    ``*_eks_input.csv`` is pipeline input, not a prediction, and is ignored.
 
     Files whose camera cannot be identified are skipped with a warning rather
     than guessed at, so a mislabelled export never lands on the wrong video.
-    ``*_eks_input.csv`` is intermediate pipeline data and is ignored.
     """
     predictions = session_dir / "predictions"
     if not predictions.is_dir():
         return []
 
-    tracks: list[AOL2DTrack] = []
+    by_camera: dict[str, AOL2DTrack] = {}
     for model_dir in sorted(predictions.iterdir()):
         if not model_dir.is_dir():
             continue
-        # Ensemble results sit directly in the model-tag directory.
         for csv_file in sorted(model_dir.glob("*.csv")):
+            stem = csv_file.stem.lower()
+            if not stem.endswith("_eks") or stem.endswith("_eks_input"):
+                continue
             camera = _match_camera(csv_file.stem, camera_labels)
             if camera is None:
                 logger.warning("Skipping 2D pose file with unknown camera: %s", csv_file.name)
                 continue
-            if not csv_file.stem.lower().endswith("_eks"):
-                # Non-suffixed files beside the ensemble are pipeline scratch.
+            if camera in by_camera:
+                logger.warning(
+                    "Camera %s already has a fused 2D track (%s); ignoring %s.",
+                    camera,
+                    by_camera[camera].path.name,
+                    csv_file.name,
+                )
                 continue
-            tracks.append(AOL2DTrack(path=csv_file, camera=camera, model="eks"))
+            by_camera[camera] = AOL2DTrack(path=csv_file, camera=camera, model="eks")
 
-        # Per-model predictions live one level deeper.
-        for sub in sorted(model_dir.iterdir()):
-            if not sub.is_dir():
-                continue
-            for csv_file in sorted(sub.glob("*.csv")):
-                if csv_file.stem.lower().endswith("_eks_input"):
-                    continue
-                camera = _match_camera(csv_file.stem, camera_labels)
-                if camera is None:
-                    logger.warning("Skipping 2D pose file with unknown camera: %s", csv_file.name)
-                    continue
-                tracks.append(AOL2DTrack(path=csv_file, camera=camera, model=sub.name))
-
-    logger.info(
-        "AOL 2D tracks: %d across %d cameras",
-        len(tracks),
-        len({track.camera for track in tracks}),
-    )
+    tracks = [by_camera[camera] for camera in sorted(by_camera)]
+    logger.info("AOL 2D tracks: one fused overlay for each of %d camera(s)", len(tracks))
     return tracks
 
 

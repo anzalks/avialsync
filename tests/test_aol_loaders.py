@@ -458,9 +458,10 @@ class TestAOLSessionDetection:
 
         manifest = build_manifest(tmp_aol_session)
 
-        # Should prefer labeled videos
+        # Raw footage wins: the overlay is drawn live, so a labeled_videos
+        # render would show every marker twice and could not be toggled.
         assert len(manifest.videos) == 2
-        assert all("labeled" in str(v) for v in manifest.videos)
+        assert not any("labeled" in str(v) for v in manifest.videos)
 
         # Camera labels extracted from filename
         assert "FaceCam" in manifest.camera_labels
@@ -480,8 +481,8 @@ class TestAOLSessionDetection:
         # FPS from trial_config.yml
         assert manifest.camera_fps == 230.0
 
-    def test_build_manifest_fallback_raw_videos(self, tmp_path: Path) -> None:
-        """When no labeled_videos/ dir, fall back to root MP4s."""
+    def test_build_manifest_uses_raw_videos(self, tmp_path: Path) -> None:
+        """Root MP4s are the normal case."""
         from avialview.loaders.aol_session_loader import build_manifest
 
         session = tmp_path / "session"
@@ -493,6 +494,21 @@ class TestAOLSessionDetection:
         manifest = build_manifest(session)
         assert len(manifest.videos) == 1
         assert manifest.videos[0].name == "FaceCam.mp4"
+
+    def test_build_manifest_falls_back_to_labeled_when_no_raw_footage(self, tmp_path: Path) -> None:
+        """A session with only rendered videos must still open."""
+        from avialview.loaders.aol_session_loader import build_manifest
+
+        session = tmp_path / "session"
+        labeled = session / "labeled_videos"
+        labeled.mkdir(parents=True)
+        (labeled / "FaceCam_labeled.mp4").write_bytes(b"\x00" * 100)
+
+        manifest = build_manifest(session)
+
+        assert len(manifest.videos) == 1
+        assert "labeled" in str(manifest.videos[0])
+        assert manifest.camera_labels == ["FaceCam"]
 
     def test_trial_config_parsing(self, tmp_aol_session: Path) -> None:
         from avialview.loaders.aol_session_loader import build_manifest

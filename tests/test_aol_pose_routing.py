@@ -60,20 +60,31 @@ def aol_session(tmp_path: Path) -> Path:
     return session
 
 
-def test_manifest_binds_each_2d_track_to_its_camera(aol_session: Path) -> None:
+def test_manifest_keeps_only_the_fused_track_for_each_camera(aol_session: Path) -> None:
+    """One EKS overlay per camera; the contributing models are not loaded.
+
+    The per-model predictions the ensemble was built from are intermediate
+    output. Drawing all of them puts several nearly-coincident point clouds on
+    one frame and hides the fused result they exist to produce.
+    """
     manifest = build_manifest(aol_session)
 
-    assert len(manifest.pose_2d_tracks) == 6  # 2 cameras x (1 ensemble + 2 models)
-    by_camera: dict[str, set[str]] = {}
-    for track in manifest.pose_2d_tracks:
-        by_camera.setdefault(track.camera, set()).add(track.model)
-    assert by_camera == {
-        "FaceCam": {"eks", "model_0", "model_1"},
-        "SideCam": {"eks", "model_0", "model_1"},
-    }
+    assert len(manifest.pose_2d_tracks) == 2  # one per camera
+    by_camera = {track.camera: track.model for track in manifest.pose_2d_tracks}
+    assert by_camera == {"FaceCam": "eks", "SideCam": "eks"}
+    assert all(track.is_ensemble for track in manifest.pose_2d_tracks)
+    assert all(track.path.stem.lower().endswith("_eks") for track in manifest.pose_2d_tracks)
     # A SideCam file must never be attributed to FaceCam.
     for track in manifest.pose_2d_tracks:
         assert track.camera.lower() in track.path.stem.lower() + track.path.parent.name.lower()
+
+
+def test_manifest_never_loads_contributing_model_predictions(aol_session: Path) -> None:
+    manifest = build_manifest(aol_session)
+
+    loaded = {track.path.name for track in manifest.pose_2d_tracks}
+    assert not any("model_" in name for name in loaded)
+    assert not any(name.endswith("_eks_input.csv") for name in loaded)
 
 
 def test_2d_candidates_target_their_own_camera_video(aol_session: Path) -> None:
@@ -87,7 +98,7 @@ def test_2d_candidates_target_their_own_camera_video(aol_session: Path) -> None:
         for path, _loader, config in candidates
         if config and config.get("role") == "overlay2d"
     ]
-    assert len(overlay) == 6
+    assert len(overlay) == 2  # one fused overlay per camera
     for path, config in overlay:
         camera = config["overlay_camera"]
         assert Path(config["overlay_video"]).name.startswith(camera), (
@@ -97,8 +108,8 @@ def test_2d_candidates_target_their_own_camera_video(aol_session: Path) -> None:
         assert "start_epoch" not in config
 
     ensembles = [c for _p, c in overlay if c["overlay_is_ensemble"]]
-    assert len(ensembles) == 2
-    assert {c["overlay_label"] for _p, c in overlay} == {"eks", "model_0", "model_1"}
+    assert len(ensembles) == 2  # every loaded overlay is the fused result
+    assert {c["overlay_label"] for _p, c in overlay} == {"eks"}
 
 
 def test_3d_candidate_is_tagged_for_the_3d_view(aol_session: Path) -> None:
