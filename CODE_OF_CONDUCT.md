@@ -66,13 +66,11 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behaviour may be
-reported to the maintainers by opening a
-[private security advisory](https://github.com/anzalks/avialview/security/advisories/new)
-on the repository, which is visible only to maintainers.
+reported to the project maintainer, Anzal K S, at **anzal.ks@gmail.com**.
 
-<!-- MAINTAINERS: if you would prefer a direct email contact listed here instead
-     of (or in addition to) the private advisory route, add it above. It was
-     deliberately left out rather than published without your say-so. -->
+If you would rather not send email, you can open a
+[private security advisory](https://github.com/anzalks/avialview/security/advisories/new)
+on the repository instead — it is visible only to maintainers.
 
 All complaints will be reviewed and investigated promptly and fairly. All
 community leaders are obligated to respect the privacy and security of the

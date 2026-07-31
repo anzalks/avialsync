@@ -1,0 +1,25 @@
+#!/bin/sh
+# Refuse to commit raw recording data.
+#
+# These directories are gitignored, but an ignore rule is not a guarantee: a
+# `git stash` that happens to include .gitignore, or a `git add -f`, re-exposes
+# them. Field recordings are private research data and are large; once pushed
+# they are effectively permanent. This checks what is actually staged.
+
+staged=$(git diff --cached --name-only --diff-filter=A)
+[ -z "$staged" ] && exit 0
+
+offenders=$(printf '%s\n' "$staged" | grep -E '^([0-2][0-9]-[0-5][0-9]-[0-5][0-9]|TENSS26_Anzal)/' || true)
+
+if [ -n "$offenders" ]; then
+    printf '%s\n' 'pre-commit: refusing to commit raw recording data.' >&2
+    printf '%s\n' '' >&2
+    printf '%s\n' "$offenders" | head -20 >&2
+    count=$(printf '%s\n' "$offenders" | wc -l | tr -d ' ')
+    [ "$count" -gt 20 ] && printf '  ... and %s more\n' "$((count - 20))" >&2
+    printf '%s\n' '' >&2
+    printf '%s\n' 'Unstage them:  git reset HEAD -- <path>' >&2
+    printf '%s\n' 'If this is genuinely intended, commit with --no-verify.' >&2
+    exit 1
+fi
+exit 0
