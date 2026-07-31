@@ -350,6 +350,11 @@ outside that invocation; that message does not mean the full-package overrides a
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |
 | `ui/time_format.py` | TimeDisplayMode enum + format_time() — single formatting authority (D-020) | `TimeDisplayMode`, `format_time()` |
+| `engine/drop_worker.py` | Off-thread drop scanning and AOL session candidate collection | `DropScanWorker` |
+| `loaders/aol_session_loader.py` | AOL session manifest: raw videos, fused per-camera EKS, encoder | `build_manifest()`, `is_aol_session()` |
+| `loaders/aol_eks_loader.py` | AOL 2D/3D pose CSV ingest | `AOLEksLoader` |
+| `loaders/aol_encoder_loader.py` | AOL encoder log ingest | `AOLEncoderLoader` |
+| `ui/video_overlay.py` | Live pose overlay with named markers | `PaintCanvas`, `OverlayTrack` |
 | `ui/recent_files.py` | Recent-session list in QSettings — kept out of `core/` (rule 2) | `add_recent()`, `get_recent()`, `clear_recent()` |
 | `ui/offsets_panel.py` | Stub — offset editing stays in `VideoInfoWidget.offset_spin`; not filled by D-020 | — |
 | `ui/readout_panel.py` | Live per-channel values + units + sample index + Δ section | `update_sources()`, `set_cursor()`, `show_region_stats()`, `show_delta()` |
@@ -632,6 +637,35 @@ Two loaded files can both contain `force_z`. Plots, readouts, units, visibility,
 and export are keyed by `ChannelKey(source_id, channel_id)`. The sidebar already emits
 `(path, channel)`; pass both through. `PlotPane` still accepts a bare name for compatibility but
 logs a warning when more than one source owns it — do not rely on that path in new code.
+
+### 24. Media subprocesses must splat `no_window_kwargs()` (V-14, D-050)
+
+A windowed Windows build has no console, so every `ffprobe`/`ffmpeg` child gets
+a brand new one that flashes and steals focus — four times during a four-camera
+load. `runtime.no_window_kwargs()` returns `CREATE_NO_WINDOW` on Windows and an
+empty mapping elsewhere. Its return type is a `TypedDict`, not `dict[str, int]`,
+so mypy can still resolve the `subprocess.run`/`Popen` overloads through the
+splat; changing it back to a plain dict reintroduces 4 mypy errors.
+`tests/test_subprocess_no_window.py` fails the build on a new unguarded call.
+
+### 25. `VideoPane.__init__` must build its chrome on every path (V-11, D-013)
+
+The libmpv probe used to `return` before `paint_canvas`/`overlay`/`lbl_name`/
+`lbl_osd`/`lbl_no_footage` existed, so every later `set_label`,
+`set_has_footage`, or `set_tracking_readers` raised AttributeError — a crash
+cascade right after the guided-install dialog. `_build_overlay_chrome()` is
+called on both the success and the probe-failure path. Keep the success-path
+call where it is: the QGridLayout stacks by insertion order, so video must be
+added before the canvas and overlay.
+
+### 26. AOL sessions load raw video + one fused EKS track per camera
+
+`build_manifest` prefers root `*.mp4` over `labeled_videos/` because the overlay
+is drawn live — a rendered copy would show every marker twice and could not be
+toggled. `_collect_2d_tracks` keeps only `*_eks.csv` (one per camera); the
+`model_N/` contributing predictions are intermediate pipeline output. Pose data
+never reaches a plot row: `overlay2d`/`pose3d` roles route through
+`_register_tracking_source`, not `plot_pane.load_channels`.
 
 ### 17. Annotation schema (v3) — per-video frame records
 
