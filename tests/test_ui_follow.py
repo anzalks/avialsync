@@ -24,7 +24,7 @@ def sweep_pane(qtbot, tmp_path: Path) -> PlotPane:
     pane = PlotPane()
     qtbot.addWidget(pane)
     pane.resize(900, 500)
-    pane.presentation_combo.setCurrentText("Sweep")
+    pane.presentation_combo.setCurrentText("Scope")
     pane.set_timeline_bounds(100.0, 140.0)
     pane.load_channels(tmp_path, ["alpha", "beta"])
     pane.set_window_duration(5.5)
@@ -54,23 +54,6 @@ def test_paused_review_reveals_the_complete_current_page(sweep_pane) -> None:
 
     assert pane.presentation is PlotPresentation.REVIEW
     assert pane.channels[0].curve._reveal_enabled is False
-    assert pane.channels[0].retained_curve.isVisible() is False
-
-
-def test_live_sweep_retains_only_the_previous_page_until_overwritten(sweep_pane) -> None:
-    pane = sweep_pane
-    pane.set_playing(True)
-    pane.set_cursor(104.0)
-    pane.set_cursor(106.0)
-
-    retained_x, retained_y = pane.channels[0].retained_curve.getData()
-    assert pane.presentation is PlotPresentation.SWEEP
-    assert retained_x is not None and retained_y is not None
-    assert pane.channels[0].retained_curve.isVisible()
-    # The sweep write-head band was removed (D-055): it read as a second cursor
-    # beside the yellow line, and cost a LinearRegionItem repaint per row.  The
-    # boundary between new and retained data is the cursor itself.
-    assert pane.channels[0].cursor_line.value() == pytest.approx(0.5)
 
 
 def test_live_scope_keeps_clear_and_restart_compatibility(sweep_pane) -> None:
@@ -82,7 +65,6 @@ def test_live_scope_keeps_clear_and_restart_compatibility(sweep_pane) -> None:
 
     assert pane.presentation is PlotPresentation.SCOPE
     assert pane.channels[0].curve._reveal_enabled is True
-    assert pane.channels[0].retained_curve.isVisible() is False
 
 
 def test_all_plot_rows_share_one_x_range_and_one_window_slider(sweep_pane) -> None:
@@ -173,7 +155,7 @@ def test_decimated_plot_preserves_minimum_and_maximum_envelope(qtbot, tmp_path: 
     pane = PlotPane()
     qtbot.addWidget(pane)
     pane.resize(900, 500)
-    pane.presentation_combo.setCurrentText("Sweep")
+    pane.presentation_combo.setCurrentText("Scope")
     pane.set_timeline_bounds(100.0, 140.0)
     pane.load_channels(tmp_path, ["spike"])
     pane.set_window_duration(5.5)
@@ -186,12 +168,15 @@ def test_decimated_plot_preserves_minimum_and_maximum_envelope(qtbot, tmp_path: 
     pane.update_plots()
     qtbot.wait(50)
 
-    lower_x, lower_y = channel.curve.getData()
-    upper_x, upper_y = channel.envelope_upper.getData()
+    # The curve interleaves each decimated column's min and max into one
+    # polyline (D-057), so a spike that only a maximum captures is still drawn.
+    # Before that, the visible curve carried the per-column *minimum* and the
+    # peak lived only in an alpha fill on top of it.
+    x, y = channel.curve.getData()
 
-    assert lower_x is not None and upper_x is not None
-    assert np.nanmax(upper_y) == pytest.approx(100.0)
-    assert np.nanmin(lower_y) == pytest.approx(0.0)
+    assert x is not None and y is not None
+    assert np.nanmax(y) == pytest.approx(100.0), "the spike must survive decimation"
+    assert np.nanmin(y) == pytest.approx(0.0)
 
 
 def test_slider_drag_coalesces_pyramid_refreshes(qtbot, sweep_pane, monkeypatch) -> None:

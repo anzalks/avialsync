@@ -32,10 +32,6 @@ class ChannelPlot:
     reader: MappedChannelReader
     plot_item: pg.PlotItem
     curve: SweepCurveItem
-    envelope_upper: SweepCurveItem
-    envelope_fill: pg.FillBetweenItem
-    retained_curve: SweepCurveItem
-    retained_upper: SweepCurveItem
     cursor_line: pg.InfiniteLine
     close_button: QToolButton
     close_proxy: QGraphicsProxyWidget
@@ -62,39 +58,39 @@ def refresh_channel_plot(
     t1: float,
     point_budget: int,
 ) -> None:
-    """Replace envelope boundaries with the appropriate bounded pyramid slice."""
+    """Draw the bounded pyramid slice as one min/max polyline.
+
+    Each pyramid point covers many samples, so it has both a minimum and a
+    maximum.  Those are interleaved into a single curve — ``(x, min)`` then
+    ``(x, max)`` per column — which strokes one vertical span per pixel and
+    connects them, the way an oscilloscope or an audio waveform is drawn.
+
+    This replaced a lower curve plus an invisible upper curve plus an
+    alpha-blended ``FillBetweenItem`` between them (D-057).  Three items became
+    one, no blending is done, and the peaks survive: the visible line used to be
+    the per-column *minimum*, so a spike was drawn short by the height of the
+    shaded band that covered the difference.
+    """
     t, vmin, vmax, gap = channel.reader.query(t0, t1, max_points=point_budget)
     if len(t) == 0:
         channel.curve.setData([], [])
-        channel.envelope_upper.setData([], [])
         return
     x = t - t0
-    lower = np.asarray(vmin, dtype=np.float64).copy()
-    upper = np.asarray(vmax, dtype=np.float64).copy()
-    lower[gap] = np.nan
-    upper[gap] = np.nan
-    channel.curve.setData(x, lower)
-    channel.envelope_upper.setData(x, upper)
+    lower = np.asarray(vmin, dtype=np.float64)
+    upper = np.asarray(vmax, dtype=np.float64)
 
-    # PyQtGraph's FillBetweenItem draws garbage to 0,0 when it encounters NaNs.
-    # If the pyramid level hasn't diverged (vmin == vmax), hide the fill entirely.
-    has_envelope = not np.array_equal(vmin, vmax, equal_nan=True)
-    channel.envelope_fill.setVisible(has_envelope)
+    xs = np.repeat(x, 2)
+    ys = np.empty(len(x) * 2, dtype=np.float64)
+    ys[0::2] = lower
+    ys[1::2] = upper
+    # A gap must break the stroke, not be drawn across; connect="finite" does
+    # that for NaN, and both ends of the column have to carry it.
+    gap_mask = np.repeat(np.asarray(gap, dtype=bool), 2)
+    ys[gap_mask] = np.nan
+    channel.curve.setData(xs, ys)
 
     if channel.y_mode == Y_AUTO:
         fit_channel_y(channel)
-
-
-def retain_channel_plot(channel: ChannelPlot) -> None:
-    """Keep one previous page for Sweep overwrite without retaining unbounded history."""
-    x, lower = channel.curve.getData()
-    _, upper = channel.envelope_upper.getData()
-    if x is None or lower is None or upper is None:
-        channel.retained_curve.setData([], [])
-        channel.retained_upper.setData([], [])
-        return
-    channel.retained_curve.setData(np.asarray(x).copy(), np.asarray(lower).copy())
-    channel.retained_upper.setData(np.asarray(x).copy(), np.asarray(upper).copy())
 
 
 def set_channel_unit(channel: ChannelPlot, unit: str) -> None:
@@ -105,11 +101,12 @@ def set_channel_unit(channel: ChannelPlot, unit: str) -> None:
 
 def fit_channel_y(channel: ChannelPlot) -> None:
     """Fit a stable finite Y range from the currently loaded bounded page."""
-    _, lower = channel.curve.getData()
-    _, upper = channel.envelope_upper.getData()
-    if lower is None or upper is None:
+    _, interleaved = channel.curve.getData()
+    if interleaved is None:
         return
-    values = np.concatenate((np.asarray(lower), np.asarray(upper)))
+    # The curve interleaves each column's min and max, so it already spans the
+    # full range; there is no separate boundary series to concatenate.
+    values = np.asarray(interleaved)
     values = values[np.isfinite(values)]
     if len(values) == 0:
         return
@@ -222,30 +219,11 @@ def create_channel_plot(
 
     color = QColor(*CHANNEL_COLORS[color_index % len(CHANNEL_COLORS)])
     pen = pg.mkPen(color=color, width=1.4)
+    # One curve carrying interleaved per-column min/max — see refresh_channel_plot.
+    # A row is a bright trace, a yellow cursor, and nothing else (D-054, D-057).
     curve = SweepCurveItem(pen=pen, connect="finite")
-    envelope_upper = SweepCurveItem(pen=None, connect="finite")
-    fill_brush = QColor(color)
-    fill_brush.setAlpha(70)
-    envelope_fill = pg.FillBetweenItem(
-        curve, envelope_upper, brush=pg.mkBrush(fill_brush), pen=None
-    )
-    retained_pen = pg.mkPen(color=color.darker(150), width=1.0)
-    retained_curve = SweepCurveItem(pen=retained_pen, connect="finite")
-    # The previous page keeps its min/max outlines but no longer carries a third
-    # alpha-blended FillBetweenItem between them; that fill was composited over
-    # the whole row on every repaint purely to tint data about to be overwritten
-    # (D-054).  A thin pen costs a line, not a blended polygon.
-    retained_upper = SweepCurveItem(pen=retained_pen, connect="finite")
-    retained_curve.setZValue(0)
-    retained_upper.setZValue(0)
-    envelope_fill.setZValue(1.5)
     curve.setZValue(2)
-    envelope_upper.setZValue(2)
-    plot_item.addItem(retained_curve)
-    plot_item.addItem(retained_upper)
     plot_item.addItem(curve)
-    plot_item.addItem(envelope_upper)
-    plot_item.addItem(envelope_fill)
     cursor_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen("y", width=2))
     plot_item.addItem(cursor_line)
 
@@ -265,10 +243,6 @@ def create_channel_plot(
         reader=reader,
         plot_item=plot_item,
         curve=curve,
-        envelope_upper=envelope_upper,
-        envelope_fill=envelope_fill,
-        retained_curve=retained_curve,
-        retained_upper=retained_upper,
         cursor_line=cursor_line,
         close_button=close_button,
         close_proxy=close_proxy,

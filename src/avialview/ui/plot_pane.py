@@ -25,7 +25,6 @@ from avialview.ui.plot_row import (
     fit_channel_y,
     point_budget_for_width,
     refresh_channel_plot,
-    retain_channel_plot,
     set_channel_unit,
     update_channel_coverage,
 )
@@ -120,17 +119,17 @@ class PlotPane(QWidget):
         self.follow_playhead = True
         self._playing = False
         self._scrubbing = False
-        self._live_presentation = PlotPresentation.SWEEP
+        self._live_presentation = PlotPresentation.SCOPE
         self._time_mode = TimeDisplayMode.RELATIVE
         self._t_epoch = 0.0
         self._settings = QSettings("AvialView", "AvialView")
         saved_presentation = self._settings.value(
-            "plot/live_presentation", PlotPresentation.SWEEP.value
+            "plot/live_presentation", PlotPresentation.SCOPE.value
         )
         try:
             self._live_presentation = PlotPresentation(str(saved_presentation))
         except ValueError:
-            self._live_presentation = PlotPresentation.SWEEP
+            self._live_presentation = PlotPresentation.SCOPE
         self._plot_header.set_presentation(self._live_presentation)
 
         # The first plot is the single X-range authority for every linked row.
@@ -524,21 +523,13 @@ class PlotPane(QWidget):
         """Change paint-only state without re-querying pyramid data."""
         presentation = self.presentation
         review = presentation == PlotPresentation.REVIEW
-        sweep = presentation == PlotPresentation.SWEEP
         for channel in self.channels:
             channel.curve.set_reveal_enabled(not review)
-            channel.envelope_upper.set_reveal_enabled(not review)
-            channel.retained_curve.setVisible(sweep and channel.visible)
-            channel.retained_upper.setVisible(sweep and channel.visible)
 
     def _set_sweep_for_time(self, t: float, *, force: bool = False) -> float:
         """Derive sweep position from master time and refresh only at boundaries."""
         position = self._sweep_control.advance(t)
         if position.changed or force:
-            if position.changed and not force and self.presentation == PlotPresentation.SWEEP:
-                for channel in self.channels:
-                    if channel.visible:
-                        retain_channel_plot(channel)
             self.update_plots()
             self._redraw_sweep_overlays()
 
@@ -547,13 +538,12 @@ class PlotPane(QWidget):
         if not (position.changed or force) and not self._cursor_repaint_due():
             return position.phase
 
+        # Two items per visible row: the trace and the cursor.  This loop is the
+        # 30 Hz repaint path, so anything added here is paid per row per frame.
         for ch in self.channels:
             if ch.visible:
                 ch.cursor_line.setValue(position.phase)
                 ch.curve.set_sweep_position(position.phase)
-                ch.envelope_upper.set_sweep_position(position.phase)
-                ch.retained_curve.set_sweep_position(self.window_duration)
-                ch.retained_upper.set_sweep_position(self.window_duration)
         self._update_page_label(position.start)
         self.view_window_changed.emit(position.start, self.window_duration, position.phase)
         return position.phase

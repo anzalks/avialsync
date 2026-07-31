@@ -22,8 +22,11 @@ from PySide6.QtWidgets import (
 class PlotPresentation(StrEnum):
     """The plot presentation selected from one authoritative master clock."""
 
+    #: Automatic while paused or scrubbing: show the complete page.
     REVIEW = "review"
-    SWEEP = "sweep"
+    #: The only selectable live presentation: reveal up to the sweep edge, then
+    #: clear and restart at the page boundary.  A "Sweep" mode that instead kept
+    #: the previous page underneath was removed (D-057).
     SCOPE = "scope"
 
 

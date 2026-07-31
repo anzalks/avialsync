@@ -25,12 +25,9 @@ class PlotHeader(QWidget):
         layout.addWidget(QLabel("Live", self))
 
         self.presentation_combo = QComboBox(self)
-        self.presentation_combo.addItem("Sweep", PlotPresentation.SWEEP)
         self.presentation_combo.addItem("Scope", PlotPresentation.SCOPE)
         self.presentation_combo.setAccessibleName("Live plot presentation")
-        self.presentation_combo.setToolTip(
-            "Sweep overwrites retained data; Scope clears and restarts"
-        )
+        self.presentation_combo.setToolTip("Live plots clear and restart at each page")
         self.presentation_combo.currentIndexChanged.connect(self._emit_presentation)
         layout.addWidget(self.presentation_combo)
 

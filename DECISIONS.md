@@ -1307,3 +1307,47 @@ message is emitted. The warning appears only under `QT_QPA_PLATFORM=offscreen`, 
 no platform font theme and falls back to the `"Sans Serif"` alias. It is an artifact of the
 headless test environment and must not be "fixed" by hardcoding a family — doing so would
 override the user's system font choice, which is exactly what this design avoids.
+
+## 2026-07 · D-057 · One trace per row, drawn as an interleaved min/max polyline; Scope is the only live presentation
+
+**Context:** two follow-ups from D-054/D-055 review of a live screenshot.
+
+First, a row still showed a shaded band around the bright line. That band was an
+`envelope_fill` `FillBetweenItem` spanning `curve` (the per-column **minimum**) and an invisible
+`envelope_upper` (the per-column **maximum**). So the bright line users read as "the signal" was
+actually the minimum, and the peak of a spike lived only in the shading on top of it — visible in
+the reviewed screenshot as a trace peaking at ~26.5 with the band reaching ~29.
+
+Second, the header offered two live presentations, `Sweep` and `Scope`, differing only in whether
+the previous page stayed drawn underneath the new one. Only Scope is wanted.
+
+**Decision:**
+
+1. A row draws **one** curve. `refresh_channel_plot` interleaves each decimated column's min and
+   max into a single polyline — `(x, min)`, `(x, max)` per column — which strokes one vertical
+   span per pixel column and connects them, the way an oscilloscope or audio waveform is drawn.
+   `envelope_upper` and `envelope_fill` are deleted. Three items become one, nothing is
+   alpha-blended, and **no peak is lost**: the range that used to require the fill to see is now
+   in the stroke itself. Gap columns carry NaN at both ends so `connect="finite"` breaks the line
+   rather than drawing across.
+2. `PlotPresentation.SWEEP` is removed along with `retained_curve`, `retained_upper`, and
+   `retain_channel_plot`. `SCOPE` is the only selectable live presentation; `REVIEW` remains the
+   automatic paused/scrubbing state and is not user-selectable. The saved
+   `plot/live_presentation` default becomes `scope`; an existing `"sweep"` setting falls back
+   through the existing `ValueError` guard.
+3. A visible row is now exactly two items: the trace and the yellow cursor line.
+
+**Alternatives rejected:** keeping the fill (it hides the fact that the bright line is a minimum,
+and it is the shading that was objected to); dropping the upper boundary and drawing the minimum
+alone (fastest, but it silently shortens every peak — a spike of 100 would have drawn as 0 in
+`test_decimated_plot_preserves_minimum_and_maximum_envelope`); drawing the column midpoint (a
+single honest-looking line that still discards both extremes).
+
+**Consequences — measured.** UI-thread share taken by the plot, 60 Hz-repaint original → now:
+4 rows 17 % → 8 %, 16 rows 39 % → 21 %, 32 rows 74 % → 42 %. `load_channels()` for 64 channels
+dropped from 713 ms to 550 ms (23 %) because a row builds fewer graphics items. Per-*repaint* cost
+is not lower than the original (12.4 ms → 13.9 ms at 32 rows): the interleaved curve has twice the
+vertices of the old single boundary line, and that roughly offsets deleting the fill. As with
+D-054, the wall-clock win comes from repainting half as often, not from removing shading — recorded
+so nobody re-adds a fill expecting it to be free. `test_decimated_plot_preserves_minimum_and_maximum_envelope`
+now asserts the spike survives by reading the one curve, which is a stronger guarantee than before.
