@@ -7,6 +7,7 @@ from typing import Any
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from avialview.core.errors import SourceOpenError
 from avialview.core.registry import LoaderRegistry
 from avialview.core.source import VideoSource
 
@@ -36,7 +37,7 @@ class VideoOpenWorker(QObject):
         try:
             loader_class = LoaderRegistry().find_best_loader(self._path)
             if loader_class is None or not issubclass(loader_class, VideoSource):
-                raise ValueError(f"No video loader can open: {self._path}")
+                raise SourceOpenError(f"No video loader can open: {self._path}")
             if self._cancelled:
                 self.cancelled.emit()
                 return

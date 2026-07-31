@@ -9,6 +9,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtGui import QImage
 
 from avialview.core.channel_reader import MappedChannelReader
+from avialview.core.errors import AvialViewError
 from avialview.core.pyramid import PyramidReader
 from avialview.core.timeline import TimeMap
 from avialview.engine.export import (
@@ -115,7 +116,7 @@ class DataExportWorker(QObject):
             else:
                 export_data_slice_csv(readers, self._t0, self._t1, self._path)
             self.finished.emit(str(self._path))
-        except (OSError, RuntimeError, ValueError) as error:
+        except (AvialViewError, OSError, RuntimeError, ValueError) as error:
             self.error.emit(str(error))
 
 
@@ -145,7 +146,7 @@ class RegionStatsWorker(QObject):
             readers = [reference.open() for reference in self._readers]
             stats = compute_region_stats(readers, self._t0, self._t1)
             self.finished.emit(self._request_id, stats)
-        except (OSError, RuntimeError, ValueError) as error:
+        except (AvialViewError, OSError, RuntimeError, ValueError) as error:
             self.error.emit(self._request_id, str(error))
 
 
@@ -168,7 +169,7 @@ class VideoClipWorker(QObject):
                 for video_path, t0, t1, output_path in self._clips
             )
             self.finished.emit(successful, len(self._clips))
-        except (OSError, RuntimeError, ValueError) as error:
+        except (AvialViewError, OSError, RuntimeError, ValueError) as error:
             self.error.emit(str(error))
 
 

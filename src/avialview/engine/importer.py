@@ -11,6 +11,7 @@ import numpy as np
 from PySide6.QtCore import QObject, Signal
 
 from avialview.core.cache import CacheManager
+from avialview.core.errors import LoaderContractError, SourceOpenError
 from avialview.core.inspection import ImportReport, IntegrityFlags, SourceInspection
 from avialview.core.pyramid import ChannelStage, PyramidBuilder, build_gap_mask, count_nan
 from avialview.loaders.csv_loader import CSVLoader
@@ -68,7 +69,7 @@ class ImportWorker(QObject):
 
             channels = loader.channels()
             if not channels:
-                raise ValueError("No channels found in source.")
+                raise SourceOpenError("No channels found in source.")
 
             channel_names = [ch.name for ch in channels]
             bulk_reader = getattr(loader, "read_all_chunks", None)
@@ -173,17 +174,19 @@ class ImportWorker(QObject):
                 if self._cancel_flag:
                     break
                 if set(chunk) != set(channel_names):
-                    raise ValueError("Bulk loader did not return every declared channel.")
+                    raise LoaderContractError("Bulk loader did not return every declared channel.")
                 reference_times: np.ndarray | None = None
                 for channel in channel_names:
                     times, values = chunk[channel]
                     if reference_times is None:
                         reference_times = np.asarray(times, dtype=np.float64)
                     elif not np.array_equal(reference_times, times):
-                        raise ValueError("Bulk loader channel chunks do not share timestamps.")
+                        raise LoaderContractError(
+                            "Bulk loader channel chunks do not share timestamps."
+                        )
                     values_array = np.asarray(values, dtype=np.float64)
                     if len(values_array) != len(reference_times):
-                        raise ValueError(
+                        raise LoaderContractError(
                             "Bulk loader returned mismatched time/value chunk lengths."
                         )
                     value_stages[channel].append(values_array)

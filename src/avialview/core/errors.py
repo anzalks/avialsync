@@ -51,6 +51,16 @@ class FileUnreadableError(AvialViewError):
     pass
 
 
+class LoaderContractError(AvialViewError):
+    """Raised when a source plugin violates the frozen v1 ingest contract.
+
+    Distinct from :class:`SourceOpenError`: the file is readable, but the loader
+    returned something the importer cannot align — mismatched chunk lengths,
+    a missing declared channel, or chunks that disagree about their timestamps.
+    The actionable fix is in the plugin, not in the user's data.
+    """
+
+
 class SyncEvidenceError(AvialViewError):
     """Raised when synchronization evidence is malformed or insufficient."""
 

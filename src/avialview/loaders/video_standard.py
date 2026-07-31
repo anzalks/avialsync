@@ -11,7 +11,7 @@ from typing import Any, cast
 import numpy as np
 
 from avialview.core.cache import CacheManager
-from avialview.core.errors import CacheError
+from avialview.core.errors import CacheError, SourceOpenError
 from avialview.core.source import VideoMetadata, VideoSource
 from avialview.runtime import MediaRuntimeError, no_window_kwargs, require_ffprobe
 
@@ -73,9 +73,9 @@ class VideoStandardLoader(VideoSource):
             )
             meta = json.loads(result.stdout)
         except MediaRuntimeError as e:
-            raise ValueError(str(e)) from e
+            raise SourceOpenError(str(e)) from e
         except (json.JSONDecodeError, subprocess.CalledProcessError) as e:
-            raise ValueError(f"Failed to probe video: {path}") from e
+            raise SourceOpenError(f"Failed to probe video: {path}") from e
 
         format_info = meta.get("format", {})
 
@@ -203,12 +203,12 @@ class VideoStandardLoader(VideoSource):
 
     def prepare(self, progress_cb: Callable[[float], None]) -> Path:
         if self._path is None:
-            raise RuntimeError("Source not opened")
+            raise SourceOpenError("Video source has not been opened.")
         return self._path
 
     def media_path(self) -> Path:
         if self._path is None:
-            raise RuntimeError("Source not opened")
+            raise SourceOpenError("Video source has not been opened.")
         return self._path
 
     def start_time(self) -> float | None:

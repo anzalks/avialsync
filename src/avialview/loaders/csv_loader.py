@@ -9,7 +9,12 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import numpy as np
 import polars as pl
 
-from avialview.core.errors import NonMonotonicTimeError
+from avialview.core.errors import (
+    FileUnreadableError,
+    MissingColumnError,
+    NonMonotonicTimeError,
+    SourceOpenError,
+)
 from avialview.core.source import ChannelInfo, TimeSeriesSource
 
 
@@ -55,10 +60,10 @@ class CSVLoader(TimeSeriesSource):
                 decimal_comma=euro_decimal or (separator == ";"),
             )
         except Exception as e:
-            raise ValueError(f"Failed to parse CSV: {path}") from e
+            raise FileUnreadableError(f"Failed to parse CSV: {path}") from e
 
         if time_col not in sample.columns:
-            raise ValueError(f"Time column '{time_col}' not found in {path}")
+            raise MissingColumnError(time_col, [str(name) for name in sample.columns])
 
         self._schema_channels = []
         for col in sample.columns:
@@ -113,7 +118,7 @@ class CSVLoader(TimeSeriesSource):
         local_zone = datetime.datetime.now().astimezone().tzinfo
         name = getattr(local_zone, "key", None) or (local_zone.tzname(None) if local_zone else None)
         if not name:
-            raise ValueError("Could not resolve the selected local timezone.")
+            raise SourceOpenError("Could not resolve the selected local timezone.")
         return name
 
     def _normalize_time(self, t_series: pl.Series) -> np.ndarray:
@@ -141,7 +146,7 @@ class CSVLoader(TimeSeriesSource):
                         ambiguous="raise",
                     )
             except Exception as error:
-                raise ValueError(
+                raise SourceOpenError(
                     f"Could not parse timestamps using timezone '{timezone}'."
                 ) from error
 
@@ -166,7 +171,9 @@ class CSVLoader(TimeSeriesSource):
             try:
                 timezone = ZoneInfo(self._timezone_name())
             except ZoneInfoNotFoundError as error:
-                raise ValueError("The selected timezone is unavailable on this system.") from error
+                raise SourceOpenError(
+                    "The selected timezone is unavailable on this system."
+                ) from error
             anchor_epoch = datetime.datetime(
                 anchor_date.year,
                 anchor_date.month,
@@ -198,7 +205,7 @@ class CSVLoader(TimeSeriesSource):
     def _read_batches(self) -> Iterator[dict[str, tuple[np.ndarray, np.ndarray]]]:
         """Yield every channel from one parser pass with strict chunk boundaries."""
         if self._path is None:
-            raise RuntimeError("Source not opened")
+            raise SourceOpenError("CSV source has not been opened.")
         separator = self._config.get("separator", ",")
         time_col = self._config.get("time_col", "time")
         sentinel_raw = self._config.get("sentinel", None)
@@ -277,6 +284,6 @@ class CSVLoader(TimeSeriesSource):
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         """Yield one channel while retaining the same boundary guarantees as bulk ingest."""
         if ch not in {channel.name for channel in self._schema_channels}:
-            raise KeyError(f"Unknown CSV channel: {ch}")
+            raise MissingColumnError(ch, [channel.name for channel in self._schema_channels])
         for chunk in self._read_batches():
             yield chunk[ch]

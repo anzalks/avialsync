@@ -8,6 +8,7 @@ from typing import Any
 import neo
 import numpy as np
 
+from avialview.core.errors import SourceOpenError
 from avialview.core.source import ChannelInfo, TimeSeriesSource
 
 logger = logging.getLogger(__name__)
@@ -270,7 +271,7 @@ class NeoLoader(TimeSeriesSource):
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         if self._block is None:
-            raise RuntimeError(f"Cannot read channel {ch}")
+            raise SourceOpenError(f"Neo source has not been opened; cannot read channel {ch}.")
 
         if ch in self._channel_map:
             seg_idx, asig_idx, ch_idx = self._channel_map[ch]
@@ -324,4 +325,4 @@ class NeoLoader(TimeSeriesSource):
 
                 yield t_chunk, chunk_data
         else:
-            raise RuntimeError(f"Cannot read channel {ch}")
+            raise SourceOpenError(f"Neo source has not been opened; cannot read channel {ch}.")
