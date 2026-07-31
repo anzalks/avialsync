@@ -233,7 +233,7 @@ class DropScanWorker(QObject):
                     if Path(vid_path).name.lower() == overlay_video.name.lower():
                         start_epoch = epoch
                         break
-            
+
             if anchor_epoch > 0.0 and start_epoch > 0.0:
                 start_epoch -= anchor_epoch
 

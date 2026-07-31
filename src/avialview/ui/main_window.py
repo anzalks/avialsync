@@ -2398,7 +2398,9 @@ class MainWindow(QMainWindow):
             # Pose data drives the video overlay and the 3D view. It is not
             # plotted: 27 3D channels or 81 per-camera 2D channels would bury
             # the recorded signals a plot row is meant to show.
-            self._register_tracking_source(path, Path(cache_dir), channels, role, inspection, offset, drift_ppm)
+            self._register_tracking_source(
+                path, Path(cache_dir), channels, role, inspection, offset, drift_ppm
+            )
             if offset != 0.0 or drift_ppm != 0.0:
                 from avialview.core.timeline import TimeMap
                 tm = TimeMap(offset=offset, drift_ppm=drift_ppm)
@@ -2464,8 +2466,8 @@ class MainWindow(QMainWindow):
         cameras or two models that both emit ``head_bar_x`` stay separate without
         depending on globally unique channel names.
         """
-        from avialview.core.pyramid import PyramidReader
         from avialview.core.channel_reader import MappedChannelReader
+        from avialview.core.pyramid import PyramidReader
         from avialview.core.timeline import TimeMap
 
         config: dict[str, Any] = {}

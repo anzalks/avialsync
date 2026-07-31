@@ -21,15 +21,8 @@ from PySide6.QtWidgets import (
 
 from avialview.core.channel_reader import MappedChannelReader
 from avialview.core.timeline import TimeMap
+from avialview.ui.tracking_colors import color_for_point
 
-_POINT_COLORS = (
-    (0, 188, 212),
-    (255, 152, 0),
-    (156, 39, 176),
-    (76, 175, 80),
-    (233, 30, 99),
-    (63, 81, 181),
-)
 _MAX_LABELS = 24
 _SAMPLE_TOLERANCE_S = 0.1
 
@@ -429,7 +422,7 @@ class Tracking3DCanvas(QWidget):
         for draw_order in order:
             point_index = int(valid_indices[draw_order])
             x, y = screen[draw_order]
-            color = _POINT_COLORS[point_index % len(_POINT_COLORS)]
+            color = color_for_point(self._names[point_index])
             painter.setPen(QPen(QColor(80, 80, 80), 1))
             painter.setBrush(_qcolor(color))
             painter.drawEllipse(QPoint(round(float(x)), round(float(y))), 5, 5)

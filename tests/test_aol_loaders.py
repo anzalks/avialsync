@@ -173,26 +173,48 @@ class TestAOLEncoderLoader:
     def test_encoder_axis_is_seconds_since_midnight(self, tmp_encoder_log: Path) -> None:
         """The encoder must stay on the anchor-reduced axis video and EKS use.
 
-        Regression guard for a withdrawn "fix" that added the anchor-date epoch
-        here and desynchronised the encoder by a whole date. See the module
-        docstring and RECOVERY_PLAN.md V-04.
+        This is the real config shape `_collect_aol_candidates` builds for a
+        session with a resolved anchor date: ``anchor_date`` together with
+        ``auto_resolved``. Regression guard for a withdrawn "fix" that added
+        the anchor-date epoch here and desynchronised the encoder by a whole
+        date (see the module docstring and RECOVERY_PLAN.md V-04), and for the
+        inverted manual/auto signal bug the module docstring documents as
+        D-052 -- ``anchor_date`` presence alone cannot mean "manual", since a
+        normal auto session carries it too.
         """
         from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
-        loader.open(tmp_encoder_log, {})
+        loader.open(tmp_encoder_log, {"anchor_date": "2026-05-08", "auto_resolved": True})
         t = np.concatenate([chunk[0] for chunk in loader.read_chunks("encoder_velocity")])
 
         # 09:35:26.082 since midnight, NOT an absolute 2026-05-08 epoch.
         expected = 9 * 3600 + 35 * 60 + 26 + 0.082
         np.testing.assert_allclose(t[0], expected, atol=1e-6)
 
-    def test_encoder_is_relative_in_manual_import(self, tmp_encoder_log: Path) -> None:
-        """In manual imports (anchor_date in config), the encoder starts at 0 (or anchor date)."""
+    def test_auto_session_import_without_an_anchor_date_also_keeps_the_absolute_axis(
+        self, tmp_encoder_log: Path
+    ) -> None:
+        """The other real `_collect_aol_candidates` branch: no anchor_date at all."""
         from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
-        loader.open(tmp_encoder_log, {"anchor_date": ""})
+        loader.open(tmp_encoder_log, {"auto_resolved": True})
+        t = np.concatenate([chunk[0] for chunk in loader.read_chunks("encoder_velocity")])
+
+        expected = 9 * 3600 + 35 * 60 + 26 + 0.082
+        np.testing.assert_allclose(t[0], expected, atol=1e-6)
+
+    def test_encoder_is_relative_in_manual_import(self, tmp_encoder_log: Path) -> None:
+        """A manual import (no ``auto_resolved``, the real shape `_start_data_import`
+        builds when no loader-specific wizard runs) starts the encoder at its
+        own first sample, so it lands near the same relative zero a manually
+        opened video or CSV starts at (D-052).
+        """
+        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        loader = AOLEncoderLoader()
+        loader.open(tmp_encoder_log, {})
         t = np.concatenate([chunk[0] for chunk in loader.read_chunks("encoder_velocity")])
         np.testing.assert_allclose(t[0], 0.0, atol=1e-6)
 
@@ -204,8 +226,10 @@ class TestAOLEncoderLoader:
         path = tmp_path / "encoder_log.txt"
         path.write_text(content, encoding="utf-8")
 
+        # auto_resolved=True keeps this on the absolute axis being tested here
+        # (midnight unwrap), independent of the manual/auto relative-zero question.
         loader = AOLEncoderLoader()
-        loader.open(path, {})
+        loader.open(path, {"auto_resolved": True})
         t = np.concatenate([chunk[0] for chunk in loader.read_chunks("encoder_velocity")])
 
         assert np.all(np.diff(t) > 0), f"time went backwards across midnight: {t}"
@@ -230,8 +254,10 @@ class TestAOLEncoderLoader:
         path = tmp_path / "encoder_log.txt"
         path.write_text(content, encoding="utf-8")
 
+        # auto_resolved=True keeps this on the absolute axis; this test is about
+        # boundary-duplicate collapsing, not the manual/auto relative-zero question.
         loader = AOLEncoderLoader()
-        loader.open(path, {})
+        loader.open(path, {"auto_resolved": True})
         chunks = list(loader.read_chunks("encoder_velocity"))
         t = np.concatenate([c[0] for c in chunks])
         v = np.concatenate([c[1] for c in chunks])

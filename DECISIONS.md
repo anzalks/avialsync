@@ -1152,8 +1152,12 @@ AOL video streams (which are shifted via manifest offset by `drop_worker`). Howe
 when imported manually outside of an AOL session, videos and CSVs natively start at
 0.0, leaving a ~9 hour gap between them and the encoder.
 
-**Decision:** The encoder loader now checks if it's being invoked manually (the `anchor_date`
-key is present in the configuration). If so, it subtracts its first timestamp to become
+**Decision:** The encoder loader now checks if it's being invoked manually -- the
+absence of `auto_resolved` in the configuration, which `drop_worker` sets to `True`
+on every candidate it builds for an AOL session. `anchor_date` is not a valid signal
+for this: a normal auto-detected session with a resolved anchor date carries
+`anchor_date` too, so keying off its presence would misclassify real sessions as
+manual imports. When manual, the loader subtracts its first timestamp to become
 "time only" (relative, starting at 0.0), perfectly aligning it with manual video
 and tracking streams. AOL session loads remain unaffected and preserve the strict
 seconds-since-midnight axis needed for multi-camera correlation.

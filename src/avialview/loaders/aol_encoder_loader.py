@@ -6,16 +6,26 @@ Parses MATLAB-generated encoder_log.txt files with space-separated columns:
 Only the velocity channel is imported.
 
 Master-time axis (do not "fix" this without reading DECISIONS.md):
-    Encoder timestamps are emitted as **seconds since midnight UTC**, which is
-    deliberately the same axis AOL videos and EKS tracking land on.  The AOL
-    manifest reads each camera's absolute start epoch, and
-    ``drop_worker._collect_aol_candidates`` then *subtracts* the session's
-    anchor-date epoch from it -- putting video and EKS on seconds-since-midnight
-    too.  ``config["anchor_date"]`` is therefore accepted for provenance but
-    intentionally NOT added here: doing so shifts the encoder a whole date
-    (~20.6 days on the reference session) away from the video it must align with.
-    Verified on 2026-05-08/experiment_1/09-35-24: video [34526.312..34586.502],
+    Within an auto-detected AOL session, encoder timestamps are emitted as
+    **seconds since midnight UTC**, which is deliberately the same axis AOL
+    videos and EKS tracking land on.  The AOL manifest reads each camera's
+    absolute start epoch, and ``drop_worker._collect_aol_candidates`` then
+    *subtracts* the session's anchor-date epoch from it -- putting video and
+    EKS on seconds-since-midnight too.  Verified on
+    2026-05-08/experiment_1/09-35-24: video [34526.312..34586.502],
     EKS [34526.312..34586.499], encoder [34526.082..34586.964].
+
+    ``drop_worker`` marks every candidate it produces with
+    ``config["auto_resolved"] = True`` -- that flag, not the presence of
+    ``anchor_date`` (which the auto path also sets whenever a session has one),
+    is what identifies an AOL-session import (D-052).  A manual import (a bare
+    ``encoder_log.txt`` opened outside a detected session, so ``auto_resolved``
+    is absent) has no video/EKS epoch to share, and a manually-opened video or
+    CSV instead starts near its own relative zero -- so the encoder is shifted
+    to start at its own first sample instead, landing on that same near-zero
+    axis. Never add the session's anchor-date epoch here: on this file's own
+    reference session that would shift the encoder a whole date (~20.6 days)
+    away from the video it must align with.
 
     Across midnight the axis is *unwrapped* (86400, 86401, ...) rather than
     wrapped back to 0, because video/EKS master time is epoch-derived and keeps
@@ -25,7 +35,6 @@ Master-time axis (do not "fix" this without reading DECISIONS.md):
 import logging
 import re
 from collections.abc import Iterator
-from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -90,8 +99,11 @@ class AOLEncoderLoader(TimeSeriesSource):
             line = f.readline().strip()
 
         parts = line.split()
-        if not parts:
-            raise SourceOpenError(f"Empty encoder log: {path}")
+        if len(parts) < 4:
+            raise SourceOpenError(
+                f"Expected 4 space-separated columns in encoder log, got {len(parts)}: {path}. "
+                "Check that this is an AOL encoder_log.txt and not another text file."
+            )
         if not _TIME_RE.match(parts[0]):
             raise SourceOpenError(
                 f"First encoder column does not match HH:MM:SS:mmm: '{parts[0]}' in {path}. "
@@ -133,17 +145,11 @@ class AOLEncoderLoader(TimeSeriesSource):
                 "Encoder source used before open(). Call open(path, config) first."
             )
 
-        anchor_date = self._config.get("anchor_date")
-        offset = 0.0
-        if anchor_date:
-            from datetime import datetime
-            try:
-                dt = datetime.strptime(str(anchor_date), "%Y-%m-%d").replace(tzinfo=UTC)
-                offset = dt.timestamp()
-            except ValueError:
-                pass
-
-        is_manual = "anchor_date" in self._config
+        # `auto_resolved` -- not `anchor_date` -- is the reliable signal that this
+        # is an AOL-session auto-import: drop_worker sets it on every candidate it
+        # produces, whereas it also sets `anchor_date` whenever the session has
+        # one, so `anchor_date` presence cannot distinguish the two paths (D-052).
+        is_manual = not bool(self._config.get("auto_resolved", False))
         first_t: float | None = None
 
         times: list[float] = []
@@ -160,7 +166,8 @@ class AOLEncoderLoader(TimeSeriesSource):
                     continue
 
                 parts = line.split()
-                if not parts:
+                if len(parts) < 4:
+                    logger.warning("Skipping malformed encoder line %d: %s", line_no, line[:60])
                     continue
 
                 t_sec = self._parse_wall_clock(parts[0])
@@ -175,10 +182,11 @@ class AOLEncoderLoader(TimeSeriesSource):
 
                 try:
                     velocity = float(parts[3])
-                except (ValueError, IndexError):
-                    velocity = 0.0
+                except ValueError:
+                    logger.warning("Unparseable velocity at line %d: %s", line_no, parts[3])
+                    continue
 
-                times.append(unwrap.advance(t_sec) + offset)
+                times.append(unwrap.advance(t_sec))
                 values.append(velocity)
 
                 if len(times) >= _CHUNK_SIZE:

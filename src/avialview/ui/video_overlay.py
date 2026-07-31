@@ -10,14 +10,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
-_POINT_COLORS = (
-    (0, 188, 212),
-    (255, 152, 0),
-    (156, 39, 176),
-    (76, 175, 80),
-    (233, 30, 99),
-    (63, 81, 181),
-)
+from avialview.ui.tracking_colors import color_for_point
+
 _ENSEMBLE_COLOR = (0, 255, 255)
 _MODEL_COLORS = (
     (255, 145, 0),
@@ -46,7 +40,7 @@ class OverlayTrack:
 
     label: str
     points: dict[str, tuple[Any, Any]]
-    color: tuple[int, int, int] | None = None
+    color: tuple[int, int, int] = _ENSEMBLE_COLOR
     is_ensemble: bool = True
     likelihood: dict[str, Any] = field(default_factory=dict)
 
@@ -154,8 +148,6 @@ class PaintCanvas(QWidget):
         tracked but not *which* one, which is the question being asked when
         several parts sit close together.
         """
-        from avialview.ui.tracking_3d_pane import _POINT_COLORS
-
         radius = _ENSEMBLE_RADIUS if track.is_ensemble else _MODEL_RADIUS
 
         label_font = painter.font()
@@ -163,7 +155,9 @@ class PaintCanvas(QWidget):
         label_font.setBold(track.is_ensemble)
 
         any_drawn = False
-        for i, (name, (reader_x, reader_y)) in enumerate(sorted(track.points.items())):
+        # Sorted for deterministic paint order only; colour is name-keyed and
+        # does not depend on this ordering (see tracking_colors.color_for_point).
+        for name, (reader_x, reader_y) in sorted(track.points.items()):
             x_value = reader_x.value_at(self.t)
             y_value = reader_y.value_at(self.t)
             if np.isnan(x_value) or np.isnan(y_value):
@@ -171,8 +165,7 @@ class PaintCanvas(QWidget):
             x = offset_x + x_value * scale
             y = offset_y + y_value * scale
 
-            color_rgb = _POINT_COLORS[i % len(_POINT_COLORS)]
-            color = QColor(*color_rgb)
+            color = QColor(*color_for_point(name))
             pen = QPen(color, 2 if track.is_ensemble else 1)
             painter.setPen(pen)
             painter.setBrush(color)
@@ -209,7 +202,6 @@ class PaintCanvas(QWidget):
     def _draw_loose_readers(
         self, painter: QPainter, scale: float, offset_x: float, offset_y: float
     ) -> None:
-        from avialview.ui.tracking_3d_pane import _POINT_COLORS
         points: dict[str, dict[str, float]] = {}
         for reader in self.readers:
             value = reader.value_at(self.t)
@@ -219,10 +211,10 @@ class PaintCanvas(QWidget):
                 if reader.channel_id.endswith(suffix):
                     points.setdefault(reader.channel_id[:-2], {})[suffix[1:]] = value
 
-        for i, (_name, point) in enumerate(sorted(points.items())):
+        for name, point in sorted(points.items()):
             if "x" not in point or "y" not in point:
                 continue
-            color = _POINT_COLORS[i % len(_POINT_COLORS)]
+            color = color_for_point(name)
             painter.setPen(QPen(QColor(*color), 3))
             painter.setBrush(QColor(*color))
             x = offset_x + point["x"] * scale
