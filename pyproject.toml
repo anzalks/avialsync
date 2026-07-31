@@ -25,6 +25,7 @@ dev = [
     "pytest-qt",
     "pytest-benchmark",
     "pytest-timeout>=2.3",
+    "pytest-cov>=5.0",  # MIT; TESTING §1 coverage targets
     "hypothesis",
     "build",  # MIT; release helper builds the wheel and sdist before tagging.
     "twine",  # Apache-2.0; release helper validates distribution metadata.
@@ -51,6 +52,19 @@ aol_eks = "avialview.loaders.aol_eks_loader:AOLEksLoader"
 [tool.hatch.build.targets.wheel]
 packages = ["src/avialview"]
 include = ["src/avialview/resources/avialview.png"]
+
+[tool.coverage.run]
+source = ["avialview"]
+branch = true
+omit = ["*/__main__.py"]
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+    "\\.\\.\\.",
+]
 
 [tool.ruff]
 line-length = 100
