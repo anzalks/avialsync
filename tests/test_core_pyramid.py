@@ -100,11 +100,14 @@ def test_pyramid_builder_and_reader(tmp_path: Path):
     assert gap_q.sum() == 0
     assert t_q[0] == 100.0
 
-    # Query coarse resolution (forcing level 256)
-    t_c, vmin_c, vmax_c, gap_c = reader.query(
-        0, 1000, max_points=50
-    )  # 1000 pts // 16 = 62 > 50; 1000 pts // 256 = 3 <= 50. So it picks level 256.
-    assert len(t_c) == 4  # 1000 // 256 = 3 + 1 remainder block = 4
+    # Coarse resolution must approach the budget, not fall far under it.
+    # This used to assert 4 points for a budget of 50: stored levels step by 16,
+    # and picking the first level that merely *fits* undershoots by up to that
+    # much (D-058).  Four columns across a 50-column budget is a zigzag, not a
+    # signal.  The query now aggregates a finer level down to the budget.
+    t_c, vmin_c, vmax_c, gap_c = reader.query(0, 1000, max_points=50)
+    assert len(t_c) <= 50, "the budget is a hard ceiling"
+    assert len(t_c) > 50 // 2, "and must not be undershot by a wide margin"
     assert t_c[0] == 0.0
 
 
@@ -174,3 +177,63 @@ def test_pathological_gap_mask():
     assert not mask[-1002]
     assert mask[-1000]
     assert mask[-2]
+
+
+def test_query_fills_the_point_budget_at_every_scale(tmp_path: Path):
+    """A plot must get roughly one column per pixel, not one per fifteen.
+
+    Stored levels step by 16x.  Choosing the first level that merely *fits* the
+    budget undershoots it by up to that factor, so a window was drawn with far
+    fewer columns than the plot had pixels: 1 M samples became 244 columns
+    across a 1400-pixel row, one point every six pixels.  Long straight segments
+    between sparse min/max extremes is what "jagged" looks like (D-058).
+    """
+    budget = 1408
+    for n_samples in (2_000, 10_000, 50_000, 400_000):
+        t = np.arange(n_samples, dtype=float)
+        v = np.sin(t / 500.0)
+        cache = tmp_path / f"n{n_samples}"
+        cache.mkdir()
+        PyramidBuilder(cache, "ch").build_and_save(t, v)
+
+        t_q, _, _, _ = PyramidReader(cache, "ch").query(0.0, float(n_samples), max_points=budget)
+
+        assert len(t_q) <= budget, f"{n_samples}: budget is a hard ceiling"
+        assert len(t_q) > budget // 2, (
+            f"{n_samples}: got {len(t_q)} columns for a {budget} budget — "
+            "that is the undershoot that makes traces look jagged"
+        )
+
+
+def test_query_never_returns_more_than_the_budget(tmp_path: Path):
+    """The ceiling has to hold when even the coarsest stored level is too fine.
+
+    The old level search fell through to the coarsest level unconditionally and
+    returned whatever it held — 43,945 points for a 180 M-sample recording, far
+    past the budget and straight into pyqtgraph (ARCHITECTURE rule 4).
+    """
+    n_samples = 300_000
+    t = np.arange(n_samples, dtype=float)
+    PyramidBuilder(tmp_path, "ch").build_and_save(t, np.sin(t / 100.0))
+
+    for budget in (16, 64, 256, 1024):
+        t_q, vmin_q, vmax_q, gap_q = PyramidReader(tmp_path, "ch").query(
+            0.0, float(n_samples), max_points=budget
+        )
+        assert len(t_q) <= budget
+        assert len(vmin_q) == len(t_q)
+        assert len(vmax_q) == len(t_q)
+        assert len(gap_q) == len(t_q)
+
+
+def test_a_window_that_already_fits_is_returned_unaggregated(tmp_path: Path):
+    """Below the budget the user must see real samples, not an envelope."""
+    t = np.arange(500, dtype=float)
+    v = np.sin(t / 50.0)
+    PyramidBuilder(tmp_path, "ch").build_and_save(t, v)
+
+    t_q, vmin_q, vmax_q, _ = PyramidReader(tmp_path, "ch").query(0.0, 500.0, max_points=1408)
+
+    assert len(t_q) == 500
+    # No aggregation means no envelope: min and max are the same sample.
+    assert np.array_equal(vmin_q, vmax_q)

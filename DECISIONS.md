@@ -1351,3 +1351,45 @@ vertices of the old single boundary line, and that roughly offsets deleting the 
 D-054, the wall-clock win comes from repainting half as often, not from removing shading — recorded
 so nobody re-adds a fill expecting it to be free. `test_decimated_plot_preserves_minimum_and_maximum_envelope`
 now asserts the spike survives by reading the one curve, which is a stronger guarantee than before.
+
+## 2026-07 · D-058 · The pyramid query fills the point budget instead of undershooting it by up to 16x
+
+**Context:** traces looked jagged and blocky rather than following the sampling rate. It was neither
+the data nor the min/max rendering of D-057. `PyramidReader.query` chose the *first* stored level
+whose point count fit the budget. Levels step by 16 (`LEVELS = [1, 16, 256, 4096]`), so the result
+routinely fell far below the budget — the plot was handed a fraction of the columns it had pixels
+for, and long straight segments between sparse min/max extremes is what "jagged" looks like:
+
+| samples in window | columns drawn (before) | px per column @1400 px | columns (after) |
+|---|---|---|---|
+| 1 500 | 93 | 15.1 | 750 |
+| 50 000 | 195 | 7.2 | 1 041 |
+| 1 000 000 | 244 | 5.7 | 1 302 |
+
+The same search also had a fall-through that returned the coarsest level *unconditionally*, so a
+180 M-sample recording returned **43 945 points** — far past the budget and straight into
+pyqtgraph, against ARCHITECTURE rule 4.
+
+**Decision:** take the coarsest stored level that still holds *at least* `max_points` (which bounds
+the read to under `16 * max_points`), then aggregate that down to the budget with the existing
+`_aggregate_pyramid_level` / `_aggregate_gap_mask` helpers. A window whose raw samples already fit
+is returned untouched — exact samples, `vmin == vmax`, no envelope at all. The budget is now a hard
+ceiling in both directions.
+
+**Alternatives rejected:** adding more stored levels, e.g. a 4x step (multiplies sidecar size and
+build time for the same result); lowering `point_budget_for_width` to make the undershoot less
+visible (draws less of the signal, which is the complaint); rendering the column midpoint (smooth,
+but discards both extremes and hides spikes — see D-057).
+
+**Consequences — a real trade-off, recorded rather than buried.** `test_bench_four_channel_window_refresh`
+improved 6.6x (6 195 us → 928 us) because a refresh no longer pushes tens of thousands of points
+into pyqtgraph. `test_bench_pyramid_query` **regressed 10x** (8.9 us → 89 us) because the query now
+does the aggregation the plot layer used to force downstream; it sits at 1.8 % of its declared 5 ms
+budget, so the gate passes with wide headroom, and the composite operation is what got faster.
+
+Repaint cost rose with resolution, because drawing more of the signal costs more: at 16 rows,
+7.1 ms → 12.3 ms per repaint (21 % → 37 % of the UI thread at 30 Hz). A measured sweep of
+columns-per-pixel at 16 rows: 1.0 → 13.7 ms, 0.5 → 9.9 ms, 0.25 → 7.2 ms. **One column per pixel is
+kept.** Below that the trace is visibly under-resolved, which is the defect this entry fixes; buying
+back UI-thread time by drawing less of the signal is not a trade this project makes. Sessions with
+very many plot rows should hide rows rather than have every row drawn wrong.

@@ -425,9 +425,18 @@ class PyramidReader:
     def query(
         self, t0: float, t1: float, max_points: int
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Return (t, vmin, vmax, gap_mask) for the given time range,
-        choosing appropriate resolution.
+        """Return ``(t, vmin, vmax, gap_mask)`` at close to ``max_points`` columns.
+
+        Stored levels step by 16, so picking the first level that merely *fits*
+        the budget undershoots it by up to 16x: a 1 M-sample window used to be
+        drawn with 244 columns across a 1400-pixel plot, one point every six
+        pixels, which reads as a jagged zigzag rather than a signal.
+
+        Instead, take the coarsest stored level that still holds *at least* the
+        budget — bounding the read to under ``16 * max_points`` points — and
+        aggregate that down to the budget here.  The plot then gets roughly one
+        column per pixel at every zoom, and a window whose raw samples already
+        fit is returned untouched (exact samples, no envelope at all).
         """
         # Find time indices on base level
         t_base, _, _, _ = self._load_level(1)
@@ -438,24 +447,31 @@ class PyramidReader:
         i0 = np.searchsorted(t_base, t0)
         i1 = np.searchsorted(t_base, t1, side="right")
 
-        points_in_range = i1 - i0
+        points_in_range = int(i1 - i0)
+        budget = max(1, int(max_points))
 
-        # Choose level
         chosen_level = LEVELS[0]
         for level in LEVELS:
-            if (points_in_range // level) <= max_points:
-                chosen_level = level
+            if (points_in_range // level) < budget:
                 break
-        else:
-            chosen_level = LEVELS[-1]
+            chosen_level = level
 
-        # Extract from chosen level
         t, vmin, vmax, gap = self._load_level(chosen_level)
 
-        lvl_i0 = np.searchsorted(t, t0)
-        lvl_i1 = np.searchsorted(t, t1, side="right")
+        lvl_i0 = int(np.searchsorted(t, t0))
+        lvl_i1 = int(np.searchsorted(t, t1, side="right"))
+        t = t[lvl_i0:lvl_i1]
+        vmin = vmin[lvl_i0:lvl_i1]
+        vmax = vmax[lvl_i0:lvl_i1]
+        gap = gap[lvl_i0:lvl_i1]
 
-        return t[lvl_i0:lvl_i1], vmin[lvl_i0:lvl_i1], vmax[lvl_i0:lvl_i1], gap[lvl_i0:lvl_i1]
+        if len(t) <= budget:
+            return t, vmin, vmax, gap
+
+        # -(-a // b) is ceiling division: land at or under the budget, never over.
+        factor = int(-(-len(t) // budget))
+        t_dec, min_dec, max_dec = _aggregate_pyramid_level(t, vmin, vmax, factor)
+        return t_dec, min_dec, max_dec, _aggregate_gap_mask(gap, factor)
 
     def value_at(self, t_target: float) -> float:
         """

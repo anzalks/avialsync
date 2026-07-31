@@ -915,3 +915,13 @@ while avoiding repeated full-resolution passes. Its current coarse gap masks are
 recomputed from coarse timestamps, however, so P3.5 must OR-reduce raw gap evidence
 into parent buckets. The raw gap scan is chunked to avoid a large temporary
 timestamp-difference allocation.
+
+### 8f. The pyramid query must fill the point budget, not merely fit under it
+Stored levels step by 16. Choosing the first level that fits undershoots by up to that factor: 1 M
+samples used to be drawn with 244 columns across a 1400-pixel row, which reads as a jagged zigzag.
+The old search also fell through to the coarsest level unconditionally and could return 43 945
+points, past the budget and into pyqtgraph.  
+**Fix:** `PyramidReader.query` takes the coarsest level holding at least `max_points` (bounding the
+read to `<16 * max_points`) and aggregates down to the budget. A window whose raw samples already
+fit is returned exact, with `vmin == vmax` and no envelope. Keep one column per pixel: drawing
+fewer is the defect, not an optimisation (D-058).
