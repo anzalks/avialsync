@@ -422,7 +422,7 @@ commit, full gate green after each.
 
 | ID | Why it is still open |
 |---|---|
-| V-09 | `ui/main_window.py` is ~2 500 lines. A mixin split was implemented and **reverted**: inherited `@Slot` methods lose `sender()` and get direct instead of queued connections, which put `video_grid.add_pane` on a worker thread. See D-051 — it must be done as QObject composition. |
+| V-09 | **Addressed as the property, not the line count** (`e664678`). The window now always closes, every job is owned/labelled/watched by `JobManager`, and `UiHeartbeat` measures UI-thread stalls. `main_window.py` is still oversized; the mixin split remains rejected (D-051) and a QObject-composition split is still available as follow-up, but the freeze/trap behaviour it was filed for is fixed and tested. |
 
 
 **Not from this ledger, also open:** the P3.5/P4.6 populated-workload

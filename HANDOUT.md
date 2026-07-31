@@ -359,6 +359,8 @@ contradicts the runtime.
 | `loaders/aol_eks_loader.py` | AOL 2D/3D pose CSV ingest | `AOLEksLoader` |
 | `loaders/aol_encoder_loader.py` | AOL encoder log ingest | `AOLEncoderLoader` |
 | `ui/video_overlay.py` | Live pose overlay with named markers | `PaintCanvas`, `OverlayTrack` |
+| `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown | `JobManager`, `Job`, `JobState` |
+| `ui/ui_heartbeat.py` | Measures UI-thread stalls and reports them | `UiHeartbeat` |
 | `ui/recent_files.py` | Recent-session list in QSettings — kept out of `core/` (rule 2) | `add_recent()`, `get_recent()`, `clear_recent()` |
 | `ui/offsets_panel.py` | Stub — offset editing stays in `VideoInfoWidget.offset_spin`; not filled by D-020 | — |
 | `ui/readout_panel.py` | Live per-channel values + units + sample index + Δ section | `update_sources()`, `set_cursor()`, `show_region_stats()`, `show_delta()` |
@@ -670,6 +672,43 @@ toggled. `_collect_2d_tracks` keeps only `*_eks.csv` (one per camera); the
 `model_N/` contributing predictions are intermediate pipeline output. Pose data
 never reaches a plot row: `overlay2d`/`pose3d` roles route through
 `_register_tracking_source`, not `plot_pane.load_channels`.
+
+### 27. The window must always close; jobs are owned by JobManager (V-09)
+
+`closeEvent` must never `event.ignore()`. It used to, whenever a background job
+was running, which trapped the user whenever an ffprobe wedged on a network
+share. Shutdown asks jobs to cancel, waits a bounded moment, then closes and
+names what it abandoned. That is safe *because* cache commits are atomic — an
+abandoned write leaves the previous valid sidecar.
+
+Start background work only through `MainWindow._run_job` /
+`JobManager.start(label, worker)`. It labels the job for the status bar, watches
+it for stalls, quits the thread when the worker finishes, and can abandon it at
+shutdown.
+
+Two traps inside that:
+- **A worker's thread must be quit when it finishes.** Without it the event loop
+  runs forever, the job never leaves the registry, the status bar stays busy,
+  and the still-running QThread makes Qt abort at interpreter exit. `start()`
+  wires `finished`/`error`/`cancelled` to `thread.quit()`.
+- **Never `QThread.terminate()`.** On a thread blocked in Python it deadlocks
+  against the GIL. Abandoned threads are retained instead (module-level
+  `_ABANDONED`), because Qt aborts if a running QThread is garbage-collected.
+  `drain_abandoned()` exists for tests, which must not leave threads running at
+  interpreter exit.
+
+### 28. UI-thread stalls are measured, not guessed (`ui/ui_heartbeat.py`)
+
+`UiHeartbeat` times how late a 100 ms timer actually fires; lateness is
+UI-thread blocking by definition. Stalls over 250 ms are logged and surfaced in
+the status area. Use it in a test to assert responsiveness rather than asserting
+that work "is on a thread" — `tests/test_workload_responsiveness.py` does this
+over 32 channels x 200k samples.
+
+Measured there (offscreen, dev machine): cursor tick 0.72 ms against a 30 ms
+ceiling, window close 1.9 ms fully loaded, keyframe scrub ~56 ms against the
+250 ms budget. These are indicative, not the certification the BLUEPRINT
+requires.
 
 ### 17. Annotation schema (v3) — per-video frame records
 
