@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialview.runtime import require_ffmpeg
+from avialview.runtime import no_window_kwargs, require_ffmpeg
 
 if TYPE_CHECKING:
     from avialview.ui.main_window import MainWindow
@@ -112,6 +112,7 @@ def _generate_video(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        **no_window_kwargs(),
     )
     assert process.stdout is not None
     for line in process.stdout:

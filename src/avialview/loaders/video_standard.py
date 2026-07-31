@@ -13,7 +13,7 @@ import numpy as np
 from avialview.core.cache import CacheManager
 from avialview.core.errors import CacheError
 from avialview.core.source import VideoMetadata, VideoSource
-from avialview.runtime import MediaRuntimeError, require_ffprobe
+from avialview.runtime import MediaRuntimeError, no_window_kwargs, require_ffprobe
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,9 @@ class VideoStandardLoader(VideoSource):
         ]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, check=True, **no_window_kwargs()
+            )
             meta = json.loads(result.stdout)
         except MediaRuntimeError as e:
             raise ValueError(str(e)) from e
@@ -176,7 +178,9 @@ class VideoStandardLoader(VideoSource):
             str(path),
         ]
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, check=True, **no_window_kwargs()
+            )
             times = []
             for line in result.stdout.strip().split("\n"):
                 value = line.split(",", maxsplit=1)[0].strip()

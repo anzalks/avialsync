@@ -11,6 +11,8 @@ import numpy as np
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QWidget
 
+from avialview.runtime import no_window_kwargs
+
 
 def _raw_slice(reader: Any, t0: float, t1: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return exact cached values in a time range without a recording-sized mask."""
@@ -211,6 +213,7 @@ def trim_video_clip(
             check=True,
             capture_output=True,
             timeout=120,
+            **no_window_kwargs(),
         )
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):

@@ -7,6 +7,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 
+from avialview.runtime import no_window_kwargs
+
 
 def proxy_path_for(video_path: Path) -> Path:
     """Return the sidecar proxy path for a given video."""
@@ -71,6 +73,7 @@ class ProxyWorker(QObject):
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                **no_window_kwargs(),
             )
             self._proc = proc
 
