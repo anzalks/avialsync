@@ -91,16 +91,18 @@ class PaintCanvas(QWidget):
         self.update()
 
     def _video_scale(self) -> tuple[float, float, float] | None:
-        """Return ``(scale, offset_x, offset_y)`` mapping video pixels to widget."""
-        pane = self.parent()
-        player = getattr(pane, "mpv", None)
-        if player is None:
+        """Return ``(scale, offset_x, offset_y)`` mapping video pixels to widget.
+
+        The size comes from the pane's mirrored copy of libmpv's
+        ``video-out-params``, never from libmpv itself.  Reading ``dwidth``
+        here would take libmpv's core lock inside ``paintEvent``, on the UI
+        thread, while the decoder threads are contending for it — measured at
+        26-34 us typical and 165 us at p99, paid once per pane per frame.
+        """
+        size = getattr(self.parent(), "video_size", None)
+        if size is None:
             return None
-        try:
-            video_width = player.dwidth
-            video_height = player.dheight
-        except (AttributeError, RuntimeError):
-            return None
+        video_width, video_height = size
         if not video_width or not video_height:
             return None
         scale = min(self.width() / video_width, self.height() / video_height)
@@ -257,5 +259,14 @@ class PaintCanvas(QWidget):
             y += line_height
 
     def update_time(self, t: float) -> None:
+        """Move the overlay to *t*, repainting only if it has marks to move.
+
+        A pane with no tracking data still runs this once per presented frame.
+        ``paintEvent`` would return immediately, but scheduling the repaint at
+        all still costs a composite of a translucent widget stacked over the
+        video surface — per pane, per frame, for nothing.  Sources without an
+        overlay are the common case.
+        """
         self.t = t
-        self.update()
+        if self.readers or self.tracks:
+            self.update()

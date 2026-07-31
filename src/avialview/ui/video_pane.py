@@ -3,10 +3,11 @@
 import logging
 import sys
 import threading
+import time
 from typing import Any
 
 import numpy as np
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
@@ -17,6 +18,19 @@ from avialview.ui.video_overlay import PaintCanvas
 from avialview.ui.video_timing import VideoTimingMixin, format_video_osd
 
 logger = logging.getLogger(__name__)
+
+#: Fastest rate at which a pane repaints its OSD text and tracking overlay.
+#: Matches the presentation rate the timeline observers already use
+#: (``engine.player._PRESENTATION_HZ``): decoded frames arrive far faster than
+#: this on high-fps footage, but nobody can read a clock or follow a marker
+#: above ~20 Hz, and every extra repaint is UI-thread time the decoders need.
+_OSD_MAX_HZ = 20.0
+_OSD_MIN_INTERVAL_S = 1.0 / _OSD_MAX_HZ
+
+#: Slack on the "is the next paint due yet" test.  Below one timer tick there is
+#: nothing to gain by deferring, and an exact comparison would arm a timer for a
+#: rounding error's worth of time.
+_OSD_DUE_EPSILON_S = 0.001
 
 
 def _release_mpv_render_context(widget: Any) -> None:
@@ -87,6 +101,13 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._osd_lock = threading.Lock()
         self._pending_osd: tuple[float, float] = (0.0, 0.0)
         self._osd_event_pending = False
+        self._osd_flush_timer: QTimer | None = None
+        self._last_osd_flush = 0.0
+        #: Displayed video dimensions, mirrored from libmpv by a property
+        #: observer.  The overlay repaints once per presented frame; reading
+        #: ``dwidth``/``dheight`` there would take libmpv's core lock from
+        #: inside ``paintEvent`` while the decoder threads hold it.
+        self.video_size: tuple[int, int] | None = None
 
         from avialview.core.timeline import TimeMap
 
@@ -133,6 +154,7 @@ class VideoPane(VideoTimingMixin, QWidget):
                         hr_seek_framedrop=False,
                         keep_open="yes",
                         vo="libmpv",
+                        audio="no",
                         input_default_bindings="no",
                         input_vo_keyboard="no",
                     )
@@ -160,6 +182,13 @@ class VideoPane(VideoTimingMixin, QWidget):
                                 self.parent_pane._observe_seeking(bool(value))
                             except RuntimeError:
                                 pass
+
+                    @self.mpv.property_observer("video-out-params")
+                    def video_params_observer(_name: str, value: object) -> None:
+                        try:
+                            self.parent_pane._observe_video_params(value)
+                        except RuntimeError:
+                            pass
 
                 def initializeGL(self) -> None:
                     ctx = QOpenGLContext.currentContext()
@@ -239,6 +268,7 @@ class VideoPane(VideoTimingMixin, QWidget):
                     hwdec="auto-safe",
                     hr_seek_framedrop=False,
                     keep_open="yes",
+                    audio="no",
                     input_default_bindings="no",
                     input_vo_keyboard="no",
                 )
@@ -252,6 +282,7 @@ class VideoPane(VideoTimingMixin, QWidget):
                     hwdec="auto-safe",
                     hr_seek_framedrop=False,
                     keep_open="yes",
+                    audio="no",
                     input_default_bindings="no",
                     input_vo_keyboard="no",
                 )
@@ -270,6 +301,10 @@ class VideoPane(VideoTimingMixin, QWidget):
             def seeking_observer(_name: str, value: bool) -> None:
                 if value is not None:
                     self._observe_seeking(bool(value))
+
+            @self.mpv.property_observer("video-out-params")
+            def video_params_observer(_name: str, value: object) -> None:
+                self._observe_video_params(value)
 
         # Set up PaintCanvas for tracking
         @self.mpv.event_callback("file-loaded")
@@ -306,6 +341,15 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Draw named 2D prediction sources (ensemble + models) over this pane."""
         self.paint_canvas.set_tracks(tracks)
 
+    def _observe_video_params(self, params: object) -> None:
+        """Mirror libmpv's displayed video size so painting never queries mpv."""
+        if not isinstance(params, dict):
+            return
+        width = params.get("dw")
+        height = params.get("dh")
+        if width and height:
+            self.video_size = (int(width), int(height))
+
     def _queue_osd_update(self, t: float, fps: float) -> None:
         """Queue at most one UI-thread OSD/overlay update, retaining the newest frame."""
         with self._osd_lock:
@@ -317,10 +361,43 @@ class VideoPane(VideoTimingMixin, QWidget):
 
     @Slot()
     def _flush_osd_update(self) -> None:
+        """Repaint the OSD and overlay, but never faster than a person can read.
+
+        This runs once per *presented frame* per pane.  Six cameras at 120 fps
+        would otherwise relayout six OSD labels and composite six translucent
+        overlays 720 times a second on the UI thread, which is the whole tick
+        budget.  The first frame after a quiet period paints immediately — a
+        paused seek or a frame step must show its result at once — and a
+        trailing timer guarantees the final frame of a burst is not dropped.
+        """
+        now = time.monotonic()
+        remaining = _OSD_MIN_INTERVAL_S - (now - self._last_osd_flush)
+        # Anything this close to due is painted now.  Deferring it would arm a
+        # timer for less than the clock's own resolution.
+        if remaining > _OSD_DUE_EPSILON_S:
+            # Leave _osd_event_pending set: newer frames keep overwriting
+            # _pending_osd instead of queueing more events, so the timer paints
+            # the newest frame exactly once.
+            self._arm_osd_flush_timer(remaining)
+            return
+
         with self._osd_lock:
             t, fps = self._pending_osd
             self._osd_event_pending = False
+        self._last_osd_flush = now
         self._update_osd(t, fps)
+
+    def _arm_osd_flush_timer(self, delay_s: float) -> None:
+        """Schedule the deferred trailing OSD paint, at most one outstanding."""
+        timer = self._osd_flush_timer
+        if timer is None:
+            timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.setTimerType(Qt.TimerType.CoarseTimer)
+            timer.timeout.connect(self._flush_osd_update)
+            self._osd_flush_timer = timer
+        if not timer.isActive():
+            timer.start(max(1, int(delay_s * 1000.0)))
 
     def eventFilter(self, obj, event):
         if obj == self._video_widget:

@@ -338,8 +338,8 @@ contradicts the runtime.
 | `engine/session_worker.py` | Off-UI-thread session save/load and annotation export (D-046) | `SessionSaveWorker`, `SessionLoadWorker`, `AnnotationExportWorker` |
 | `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `ui/main_window.py` | Top-level; wires all signals; session lifecycle; `_inspections` dict | `MainWindow` |
-| `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane`, `set_sync_correction()` |
-| `ui/video_timing.py` | Timestamp rate/readout/frame-index helpers and pane timing mixin | `VideoTimingMixin`, `format_video_osd()` |
+| `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane`, `set_sync_correction()`, `video_size` (mirrored from `video-out-params`; the paint path must read this, never mpv) |
+| `ui/video_timing.py` | Timestamp rate/readout/frame-index helpers and pane timing mixin | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
 | `ui/video_overlay.py` | Transparent current-frame tracking paint layer | `PaintCanvas` |
 | `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()` |
 | `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
@@ -526,9 +526,40 @@ QTimer fires late under UI load. Accumulating the interval leads to drift.
 
 ### 8. Drift correction needs hysteresis (5 consecutive ticks)
 Seeking on every off-target tick causes stutter cascades.  
-**Fix:** Player keys `_drift_counts` by pane identity; re-seeks only after 5 consecutive ticks
-above the frame-aware hard threshold, then resets the counter. A seeking pane is skipped while
-healthy panes continue, and no decoder may freeze `MasterClock`.
+**Fix:** Player keys `_drift_counts` by pane identity; corrects only after 5 consecutive ticks
+outside the deadband (`_DRIFT_HYSTERESIS_TICKS`), then resets the counter. This applies to the
+soft speed nudge as well as the hard re-seek — it used to guard only the re-seek. A seeking pane
+is skipped while healthy panes continue, and no decoder may freeze `MasterClock`.
+
+### 8b. `time_pos` is a staircase — never judge drift against a sub-frame tolerance
+libmpv reports the timestamp of the frame *on screen*, so it only advances when a frame is
+presented. Sampled by the 60 Hz tick against a continuous master clock, a decoder that is keeping
+perfect time still reads back as 0–1 whole frame intervals behind. Comparing that against a
+half-frame tolerance declared healthy panes out of sync about half the time and rewrote
+`mpv.speed` ~48×/s/pane; each write takes libmpv's core lock away from the decoder threads.  
+**Fix:** `Player._on_tick` centres the expectation with
+`residual = (time_pos - source_t) + interval/2`, uses `frame_interval_at_master()` (not the old
+`sync_tolerance_at_master()`), smooths the residual per pane (`_DRIFT_SMOOTHING`) because the raw
+value is frame-quantised, and quantises the commanded speed (`_CORRECTION_STEP`) so writes are
+rare. A corrective seek must also drop that pane's `_drift_estimates` entry — the estimate
+describes where the pane *was*, and keeping it re-seeks the pane in a loop. Covered by
+`tests/test_playback_smoothness.py`.
+
+### 8c. Per-frame UI work must not scale with the decoded frame rate
+`_observe_time` fires once per presented frame per pane. It used to relayout the OSD label and
+composite the tracking overlay every time — at six cameras and 120 fps that is 720 UI-thread
+repaints a second for text nobody can read that fast.  
+**Fix:** `VideoPane._flush_osd_update` is rate-limited to `_OSD_MAX_HZ` (20 Hz, matching
+`player._PRESENTATION_HZ`), leading-edge so a paused seek or frame step still paints at once, with
+a single-shot trailing timer so the last frame of a burst is never dropped. `PaintCanvas.update_time`
+skips the repaint entirely when there are no readers or tracks.
+
+### 8d. `paintEvent` must never read an mpv property
+`PaintCanvas._video_scale` used to read `mpv.dwidth`/`dheight`, taking libmpv's core lock on the UI
+thread inside a paint while the decoders contend for it (measured 26–34 µs typical, 165 µs p99, per
+pane per frame).  
+**Fix:** a `video-out-params` property observer mirrors the size into `VideoPane.video_size`; the
+overlay reads that. Do not reintroduce a property read on the paint path.
 
 ### 9. polars `read_csv` type inference flips per-chunk
 Without an explicit schema, the timestamp column type can change between chunks.  

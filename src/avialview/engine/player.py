@@ -31,6 +31,37 @@ logger = logging.getLogger(__name__)
 _PRESENTATION_HZ = 20.0
 _PRESENTATION_INTERVAL_S = 1.0 / _PRESENTATION_HZ
 
+#: Drift deadband, in frame intervals of the pane being judged.  Anything
+#: inside this is explained by frame quantisation and normal presentation
+#: jitter, not by a decoder losing the clock, and correcting it would only
+#: add jitter of our own.  One full interval tolerates a pane that is one
+#: frame late — routine under load, and self-correcting.
+_SOFT_CORRECTION_FRAMES = 1.0
+
+#: Beyond this many frame intervals a speed nudge cannot catch up in
+#: reasonable time, so the pane is re-seeked instead.  Floored at 250 ms.
+_HARD_SEEK_FRAMES = 8.0
+
+#: Consecutive off-target ticks required before *any* correction is applied.
+#: Qt timers run late under UI load; without this, a burst of late ticks reads
+#: as drift and triggers a correction cascade that causes the very stutter it
+#: is trying to fix.
+_DRIFT_HYSTERESIS_TICKS = 5
+
+#: Granularity of the speed multiplier actually written to libmpv.  Each write
+#: takes libmpv's core lock, so the correction is snapped to a grid and only
+#: written when it lands on a different step.  0.5 % is far below the ~2 %
+#: threshold at which a rate change becomes visible.
+_CORRECTION_STEP = 0.005
+
+#: Smoothing factor for the per-pane drift estimate.  The raw residual is
+#: quantised to one frame interval, so feeding it straight into a proportional
+#: correction makes the commanded speed rattle between adjacent steps even when
+#: the underlying drift is steady.  At 60 Hz this is roughly a third-second
+#: time constant: slow enough to average the staircase away, fast enough that a
+#: decoder losing the clock is caught well inside a second.
+_DRIFT_SMOOTHING = 0.05
+
 
 class Player(QObject):
     """Coordinates playback between UI and MasterClock."""
@@ -61,6 +92,7 @@ class Player(QObject):
         self.video_grid.displayed_panes_changed.connect(self._on_displayed_panes_changed)
 
         self._drift_counts: dict[int, int] = {}
+        self._drift_estimates: dict[int, float] = {}
         self._playing_pane_ids: set[int] = set()
         self._displayed_pane_ids = {id(pane) for pane in self.video_grid.visible_panes()}
         self._last_tick_monotonic = time.monotonic()
@@ -149,8 +181,10 @@ class Player(QObject):
         now = time.monotonic()
         self._update_timeline_views(self.clock.state.t, now, force=True)
 
-        # Reset drift hysteresis
+        # Reset drift hysteresis: the estimate before a seek says nothing about
+        # the position after it.
         self._drift_counts.clear()
+        self._drift_estimates.clear()
         self._last_tick_monotonic = now
 
     def _snap_to_frame_evidence(self, t_master: float) -> float:
@@ -220,6 +254,7 @@ class Player(QObject):
                     pane.pause()
                     self._playing_pane_ids.discard(pane_id)
                 self._drift_counts.pop(pane_id, None)
+                self._drift_estimates.pop(pane_id, None)
                 continue
             has_footage = pane.has_footage_at_master(t_master)
             if getattr(pane, "_master_has_footage", None) != has_footage:
@@ -293,41 +328,78 @@ class Player(QObject):
                         continue
 
                     source_t = pane.time_map.to_source(t)
-                    drift = vid_t - source_t
                     pane_id = id(pane)
                     pane.set_mapping_rate_at(t)
-                    tolerance = pane.sync_tolerance_at_master(t)
-                    hard_threshold = max(0.25, tolerance * 8.0)
 
-                    if abs(drift) > hard_threshold:
+                    # ``time_pos`` is the timestamp of the frame *on screen*, so
+                    # a decoder that is exactly in sync reads back anywhere from
+                    # 0 to one whole frame behind the continuous master clock.
+                    # Judging that staircase against a sub-frame tolerance
+                    # declares a healthy pane out of sync roughly half the time;
+                    # measured at 48 mpv.speed writes per second per pane, each
+                    # one taking libmpv's core lock away from the decoders.
+                    # Centre the expectation in that window instead.
+                    interval = pane.frame_interval_at_master(t)
+                    residual = self._smoothed_residual(pane_id, (vid_t - source_t) + interval * 0.5)
+                    hard_threshold = max(0.25, interval * _HARD_SEEK_FRAMES)
+
+                    if abs(residual) > hard_threshold:
                         # Huge drift (e.g. delayed start), hard seek after brief hysteresis
                         self._drift_counts[pane_id] = self._drift_counts.get(pane_id, 0) + 1
-                        if self._drift_counts[pane_id] > 5:
+                        if self._drift_counts[pane_id] > _DRIFT_HYSTERESIS_TICKS:
                             logger.debug(
                                 "Correcting %.1f ms video drift with an exact seek",
-                                drift * 1000,
+                                residual * 1000,
                             )
                             self.seeker.seek_pane(pane, source_t, exact=True)
                             self._drift_counts[pane_id] = 0
-                            pane.set_sync_correction(1.0)
-                    elif abs(drift) > tolerance:
-                        # Moderate drift: Soft PLL speed correction
-                        self._drift_counts[pane_id] = 0
-                        # If vid_t < source_t, drift is negative -> need to speed up
-                        correction = 1.0 - (drift * 0.5)
-                        correction = max(0.8, min(1.2, correction))
-                        if abs(pane.sync_correction - correction) > 0.01:
-                            pane.set_sync_correction(correction)
+                            # The estimate describes where the pane *was*; a seek
+                            # discontinuity invalidates it. Leaving it would keep
+                            # the pane above threshold and re-seek it repeatedly.
+                            self._drift_estimates.pop(pane_id, None)
+                            self._set_correction(pane, 1.0)
+                    elif abs(residual) > interval * _SOFT_CORRECTION_FRAMES:
+                        # Real drift, beyond what frame quantisation can explain.
+                        # Hysteresis here too: a couple of late Qt timers under UI
+                        # load must not be mistaken for a decoder falling behind.
+                        self._drift_counts[pane_id] = self._drift_counts.get(pane_id, 0) + 1
+                        if self._drift_counts[pane_id] > _DRIFT_HYSTERESIS_TICKS:
+                            # residual < 0 means the pane is behind -> speed up.
+                            correction = 1.0 - (residual * 0.5)
+                            correction = max(0.8, min(1.2, correction))
+                            self._set_correction(pane, correction)
                     else:
                         # In sync
                         self._drift_counts[pane_id] = 0
-                        if pane.sync_correction != 1.0:
-                            pane.set_sync_correction(1.0)
+                        self._set_correction(pane, 1.0)
 
             # Update UI
             self._update_timeline_views(t, now)
 
         self._last_tick_monotonic = now
+
+    def _smoothed_residual(self, pane_id: int, residual: float) -> float:
+        """Return the pane's drift estimate with frame quantisation averaged out."""
+        previous = self._drift_estimates.get(pane_id)
+        if previous is None:
+            smoothed = residual
+        else:
+            smoothed = previous + _DRIFT_SMOOTHING * (residual - previous)
+        self._drift_estimates[pane_id] = smoothed
+        return smoothed
+
+    @staticmethod
+    def _set_correction(pane: VideoPane, correction: float) -> None:
+        """Write a speed correction to a pane only when it changes materially.
+
+        Every write reaches libmpv's core lock, which the decoder threads are
+        contending for, so the value is quantised to :data:`_CORRECTION_STEP`
+        and skipped when it lands on the step already applied.
+        """
+        stepped = round(correction / _CORRECTION_STEP) * _CORRECTION_STEP
+        if abs(pane.sync_correction - stepped) < _CORRECTION_STEP * 0.5:
+            return
+        pane.set_sync_correction(stepped)
 
     def _update_timeline_views(self, t_master: float, now: float, force: bool = False) -> None:
         """Move every timeline observer from one master-time value.

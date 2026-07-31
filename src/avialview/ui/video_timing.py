@@ -214,9 +214,16 @@ class VideoTimingMixin:
         self._mapping_rate_scale = scale
         self._apply_rate()
 
-    def sync_tolerance_at_master(self, t_master: float) -> float:
-        """Return a half-frame source-time drift tolerance."""
-        return self._frame_tolerance(self.time_map.to_source(t_master))
+    def frame_interval_at_master(self, t_master: float) -> float:
+        """Return the displayed frame's duration in source-time seconds.
+
+        This is the quantum of :attr:`time_pos`: libmpv reports the timestamp
+        of the frame currently on screen, so a decoder that is *perfectly* in
+        sync still reads back as up to one whole interval behind the
+        continuous master clock.  Drift has to be judged against this, not
+        against a tighter tolerance the observable can never satisfy.
+        """
+        return self._frame_tolerance(self.time_map.to_source(t_master)) * 2.0
 
     def _apply_rate(self) -> None:
         """Apply the concrete pane's composed playback rate."""

@@ -1161,3 +1161,57 @@ manual imports. When manual, the loader subtracts its first timestamp to become
 "time only" (relative, starting at 0.0), perfectly aligning it with manual video
 and tracking streams. AOL session loads remain unaffected and preserve the strict
 seconds-since-midnight axis needed for multi-camera correlation.
+
+## 2026-07 · D-053 · Drift is judged against the frame interval, and per-frame UI work is capped
+
+**Context:** playback juddered on Windows and on fast machines with 4+ cameras, described as a
+"seek and show" behaviour. Two independent costs scaled with `panes × decoded fps` on the UI
+thread.
+
+First, the drift corrector. libmpv's `time-pos` is the timestamp of the frame *on screen*, so it
+only advances when a frame is presented. Sampled by the 60 Hz tick against a continuous master
+clock, a decoder keeping perfect time still reads back as 0–1 whole frame intervals behind. The
+corrector compared `|time_pos - source_t|` against a *half*-frame tolerance — a deadband narrower
+than the observable's own quantum, which no healthy pane can satisfy. Driving the real
+`Player._on_tick` with a decoder pinned exactly to master measured **48 `mpv.speed` writes per
+second per pane**. Each write takes libmpv's core lock away from the decoder threads.
+
+Second, presentation. `_observe_time` fires once per presented frame per pane and relaid out the
+OSD label and composited the tracking overlay every time — 720 UI-thread repaints/sec at six
+cameras and 120 fps. `PaintCanvas._video_scale` additionally read `mpv.dwidth`/`dheight` from
+inside `paintEvent`, taking libmpv's core lock on the UI thread during a paint (measured 26–34 µs
+typical, 165 µs p99, per pane per frame).
+
+**Decision:**
+
+1. Drift is measured as `residual = (time_pos - source_t) + interval/2`, centring the expectation
+   inside the frame-display window, with a deadband of one full interval
+   (`_SOFT_CORRECTION_FRAMES`). `VideoTimingMixin.frame_interval_at_master()` replaces
+   `sync_tolerance_at_master()` so the units are unambiguous at the call site.
+2. The residual is smoothed per pane (`_DRIFT_SMOOTHING`) because the raw value is frame-quantised,
+   and the commanded speed is quantised (`_CORRECTION_STEP`) and written only on a change of step.
+3. The 5-tick hysteresis now guards the soft speed nudge as well as the hard re-seek.
+4. A corrective seek drops that pane's `_drift_estimates` entry: the estimate describes where the
+   pane *was*, and keeping it holds the pane above threshold and re-seeks it in a loop.
+5. OSD text and overlay repaints are rate-limited to `_OSD_MAX_HZ` (20 Hz, matching
+   `player._PRESENTATION_HZ`), leading-edge with a trailing single-shot timer. `PaintCanvas`
+   skips the repaint entirely when it has no readers or tracks.
+6. `paintEvent` never reads an mpv property. A `video-out-params` observer mirrors the displayed
+   size into `VideoPane.video_size`.
+7. Every pane sets `audio="no"`. The application exposes no audio feature anywhere, yet each pane
+   was opening an audio output and letting mpv's default `video-sync=audio` slave video timing to
+   it. Measured to roughly halve the cost of the property calls above.
+
+**Alternatives rejected:** removing the corrector entirely (real drift on a struggling decoder
+would go uncorrected); tightening the gate on `mpv.speed` writes without fixing the deadband
+(treats the symptom, and the underlying oscillation still commands a modulated rate); moving OSD
+updates onto the existing `Player` presentation tick (a paused seek or frame step must paint
+immediately, which a fixed tick cannot guarantee); flipping `hr-seek-framedrop` back to mpv's
+default — that is D-035's settled fidelity trade and it affects paused exact seeks, not playback.
+
+**Consequences:** a healthy pane now provokes zero speed writes and zero re-seeks; a decoder
+running 3 % slow is still corrected and held within ~2 frames, at ~1.6 writes/sec instead of ~56; a
+pane starting 2 s behind is re-seeked exactly once. The OSD clock and tracking markers update at
+20 Hz rather than at the decode rate — deliberate, and the same rate the readout panel has always
+used. Regression coverage is in `tests/test_playback_smoothness.py`; the golden sync tests are
+untouched and passing.
