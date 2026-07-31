@@ -68,3 +68,51 @@ def test_video_osd_queue_keeps_only_latest_frame() -> None:
     assert pane._pending_osd == (9999 / 30.0, 30.0)
     assert pane._osd_event_pending is True
     assert signal.emissions == 1
+
+
+# ── libmpv missing: guided dialog, then a usable pane (V-11 / D-013) ──
+
+
+def _pane_without_libmpv(monkeypatch):
+    """Construct a VideoPane as if the libmpv probe had failed."""
+    import avialview.ui.video_pane as video_pane_module
+
+    monkeypatch.setattr(video_pane_module, "probe_libmpv", lambda _pane: False)
+    return video_pane_module.VideoPane()
+
+
+def test_pane_without_libmpv_still_builds_its_overlay(qapp, monkeypatch) -> None:
+    """__init__ used to abort before the labels existed."""
+    pane = _pane_without_libmpv(monkeypatch)
+
+    assert pane.paint_canvas is not None
+    assert pane.overlay is not None
+    assert pane.lbl_name is not None
+    assert pane.lbl_osd is not None
+    assert pane.lbl_no_footage is not None
+
+
+def test_pane_without_libmpv_says_why(qapp, monkeypatch) -> None:
+    pane = _pane_without_libmpv(monkeypatch)
+
+    assert pane.lbl_no_footage.isVisible() or pane.lbl_no_footage.text()
+    assert "libmpv" in pane.lbl_no_footage.text()
+
+
+def test_pane_without_libmpv_survives_the_normal_call_sequence(qapp, monkeypatch) -> None:
+    """Every one of these raised AttributeError after the guided dialog."""
+    pane = _pane_without_libmpv(monkeypatch)
+
+    pane.set_label("Camera 1")
+    pane.set_has_footage(False)
+    pane.set_has_footage(True)
+    pane.set_tracking_readers([])
+
+    assert pane.lbl_name.text() == "Camera 1"
+
+
+def test_pane_without_libmpv_reports_no_media(qapp, monkeypatch) -> None:
+    pane = _pane_without_libmpv(monkeypatch)
+
+    assert pane.mpv is None
+    assert pane._video_widget is None

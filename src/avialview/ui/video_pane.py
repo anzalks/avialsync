@@ -99,6 +99,10 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
 
         if not probe_libmpv(self):
+            # Build the chrome anyway: a half-constructed pane turns every later
+            # set_label/set_has_footage/_update_osd call into an AttributeError.
+            self._build_overlay_chrome()
+            self._show_playback_unavailable()
             return
 
         import os
@@ -270,42 +274,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         def file_loaded(_event: object) -> None:
             self.file_loaded.emit()
 
-        self.paint_canvas = PaintCanvas(self)
-        self.layout().addWidget(self.paint_canvas, 0, 0)
-
-        # Set up overlay
-        self.overlay = QWidget()
-        self.overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.overlay.setStyleSheet("background: transparent;")
-        olayout = QVBoxLayout(self.overlay)
-        olayout.setContentsMargins(0, 0, 0, 0)
-
-        self.lbl_name = QLabel("")
-        self.lbl_name.setStyleSheet(
-            "color: white; background-color: rgba(0,0,0,128); padding: 4px;"
-        )
-        self.lbl_name.setVisible(False)
-
-        self.lbl_osd = QLabel(format_video_osd(0.0, 0.0, self._metadata))
-        mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
-        self.lbl_osd.setStyleSheet("color: white; background-color: rgba(0,0,0,128); padding: 4px;")
-        set_font_family(self.lbl_osd, mono_font)
-
-        top_layout = QHBoxLayout()
-        _top = Qt.AlignmentFlag.AlignTop
-        top_layout.addWidget(self.lbl_name, alignment=_top | Qt.AlignmentFlag.AlignLeft)
-        top_layout.addStretch()
-        top_layout.addWidget(self.lbl_osd, alignment=_top | Qt.AlignmentFlag.AlignRight)
-
-        olayout.addLayout(top_layout)
-
-        self.lbl_no_footage = QLabel("No Footage")
-        self.lbl_no_footage.setStyleSheet("color: white; background-color: rgb(0,0,0);")
-        self.lbl_no_footage.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_no_footage.setVisible(False)
-        olayout.addWidget(self.lbl_no_footage, 1)  # stretch
-
-        self.layout().addWidget(self.overlay, 0, 0)
+        self._build_overlay_chrome()
 
         self._osd_update.connect(self._flush_osd_update)
 
@@ -429,6 +398,60 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._apply_rate()
 
     @Slot()
+    def _build_overlay_chrome(self) -> None:
+        """Create the paint canvas, name/OSD labels, and placeholder overlay.
+
+        Called on every construction path, including the one where libmpv is
+        missing.  ``__init__`` used to abort before this ran, leaving a pane
+        whose ``set_label``/``set_has_footage``/``_update_osd`` calls all raised
+        AttributeError — a crash cascade immediately after the guided-install
+        dialog, which is exactly what D-013 exists to prevent.
+        """
+        self.paint_canvas = PaintCanvas(self)
+        self.layout().addWidget(self.paint_canvas, 0, 0)
+
+        # Set up overlay
+        self.overlay = QWidget()
+        self.overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.overlay.setStyleSheet("background: transparent;")
+        olayout = QVBoxLayout(self.overlay)
+        olayout.setContentsMargins(0, 0, 0, 0)
+
+        self.lbl_name = QLabel("")
+        self.lbl_name.setStyleSheet(
+            "color: white; background-color: rgba(0,0,0,128); padding: 4px;"
+        )
+        self.lbl_name.setVisible(False)
+
+        self.lbl_osd = QLabel(format_video_osd(0.0, 0.0, self._metadata))
+        mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
+        self.lbl_osd.setStyleSheet("color: white; background-color: rgba(0,0,0,128); padding: 4px;")
+        set_font_family(self.lbl_osd, mono_font)
+
+        top_layout = QHBoxLayout()
+        _top = Qt.AlignmentFlag.AlignTop
+        top_layout.addWidget(self.lbl_name, alignment=_top | Qt.AlignmentFlag.AlignLeft)
+        top_layout.addStretch()
+        top_layout.addWidget(self.lbl_osd, alignment=_top | Qt.AlignmentFlag.AlignRight)
+
+        olayout.addLayout(top_layout)
+
+        self.lbl_no_footage = QLabel("No Footage")
+        self.lbl_no_footage.setStyleSheet("color: white; background-color: rgb(0,0,0);")
+        self.lbl_no_footage.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_no_footage.setVisible(False)
+        olayout.addWidget(self.lbl_no_footage, 1)  # stretch
+
+        self.layout().addWidget(self.overlay, 0, 0)
+
+    def _show_playback_unavailable(self) -> None:
+        """Leave a usable, self-explanatory pane when libmpv is absent (D-013)."""
+        self.lbl_no_footage.setText(
+            "Video playback unavailable\n(libmpv was not found on this system)"
+        )
+        self.lbl_no_footage.setVisible(True)
+        self.lbl_osd.setVisible(False)
+
     def _on_file_loaded(self) -> None:
         """Dispatch a seek only after libmpv confirms that commands are accepted."""
         self._media_loaded = True
