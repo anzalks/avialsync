@@ -148,12 +148,14 @@ class CSVLoader(TimeSeriesSource):
             return "us"
         if fmt == "epoch_ns":
             return "ns"
-        return self._config.get("time_unit", "s")
+        return str(self._config.get("time_unit", "s"))
 
     def _timestamp_dtype(self) -> pl.DataType:
         """Return the explicit parser dtype required by the chosen time format."""
         category = self._classify_format(self._config.get("time_format", "numeric"))
-        return pl.Float64 if category == "numeric" else pl.Utf8
+        # polars exposes these as DataType subclasses; instantiate so the
+        # declared return type is the value actually handed to schema_overrides.
+        return pl.Float64() if category == "numeric" else pl.Utf8()
 
     def _timezone_name(self) -> str:
         """Resolve the wizard's explicit timezone to an IANA-compatible name."""
@@ -214,7 +216,7 @@ class CSVLoader(TimeSeriesSource):
             sec_since_midnight = ns_since_midnight / 1e9
 
             try:
-                timezone = ZoneInfo(self._timezone_name())
+                zone = ZoneInfo(self._timezone_name())
             except ZoneInfoNotFoundError as error:
                 raise SourceOpenError(
                     "The selected timezone is unavailable on this system."
@@ -223,7 +225,7 @@ class CSVLoader(TimeSeriesSource):
                 anchor_date.year,
                 anchor_date.month,
                 anchor_date.day,
-                tzinfo=timezone,
+                tzinfo=zone,
             ).timestamp()
             t_arr = sec_since_midnight + anchor_epoch
 
@@ -284,10 +286,13 @@ class CSVLoader(TimeSeriesSource):
                 for value_array in values.values():
                     value_array[value_array == sentinel] = np.nan
 
-            if pending_time is not None:
-                t = np.concatenate(([pending_time], t))
+            if pending_time is not None and pending_values is not None:
+                t = np.concatenate((np.asarray([pending_time], dtype=np.float64), t))
+                carried = pending_values
                 values = {
-                    name: np.concatenate(([pending_values[name]], value_array))
+                    name: np.concatenate(
+                        (np.asarray([carried[name]], dtype=np.float64), value_array)
+                    )
                     for name, value_array in values.items()
                 }
 

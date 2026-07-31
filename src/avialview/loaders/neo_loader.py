@@ -213,7 +213,7 @@ class NeoLoader(TimeSeriesSource):
                     )
                     self._channel_map[unique_name] = (seg_idx, asig_idx, ch_idx)
 
-        self._event_map = {}
+        self._event_map: dict[str, tuple[int, int]] = {}
         for seg_idx, segment in enumerate(self._block.segments):
             for ev_idx, event in enumerate(segment.events):
                 ch_names = event.name

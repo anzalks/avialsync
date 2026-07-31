@@ -16,7 +16,8 @@ from avialview.runtime import no_window_kwargs
 
 def _raw_slice(reader: Any, t0: float, t1: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return exact cached values in a time range without a recording-sized mask."""
-    return reader.raw_slice(t0, t1)
+    sliced: tuple[np.ndarray, np.ndarray, np.ndarray] = reader.raw_slice(t0, t1)
+    return sliced
 
 
 def _source_label(reader: Any) -> str:
@@ -66,7 +67,13 @@ def save_snapshot_images(
         y += image.height()
     painter.end()
 
-    if not combined.save(str(path), "PNG"):
+    # PySide6's stub declares QImage.save's `format` as bytes, but the runtime
+    # rejects bytes and accepts str:
+    #   QImage.save(path, b"PNG") -> ValueError: called with wrong argument values
+    #   QImage.save(path, "PNG")  -> True
+    # (QPixmap.save's stub correctly says str; QImage's does not.) Matching the
+    # stub would break snapshot export, so the stub is what is wrong here.
+    if not combined.save(str(path), "PNG"):  # type: ignore[call-overload]
         raise OSError(f"Could not write snapshot: {path}")
 
 

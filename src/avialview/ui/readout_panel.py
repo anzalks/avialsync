@@ -104,7 +104,13 @@ class _CameraRow(QWidget):
         layout.addWidget(lbl)
         layout.addWidget(self._info_lbl, stretch=1)
 
-    def update(self, time_pos: float, fps: float) -> None:
+    def set_state(self, time_pos: float, fps: float) -> None:
+        """Show this camera's frame number and media time.
+
+        Deliberately not called ``update``: that is ``QWidget.update``, which Qt
+        calls with no arguments to request a repaint. Overriding it with a
+        required two-argument signature makes the widget unrepaintable.
+        """
         if fps > 0:
             frame_num = int(time_pos * fps)
             self._info_lbl.setText(f"frame {frame_num}  ({time_pos:.3f} s)")
@@ -244,7 +250,7 @@ class ReadoutPanel(QGroupBox):
         self._layout.insertWidget(0, self._cam_label)
         for i, (label, time_pos, fps) in enumerate(states):
             row = _CameraRow(label)
-            row.update(time_pos, fps)
+            row.set_state(time_pos, fps)
             self._layout.insertWidget(1 + i, row)
             self._cam_rows.append(row)
 
@@ -257,7 +263,7 @@ class ReadoutPanel(QGroupBox):
         self._stats_label.setVisible(True)
         self._layout.insertWidget(self._layout.count() - 1, self._stats_label)
         for stats in stats_list:
-            ch = stats.get("channel", "?")
+            ch = str(stats.get("channel", "?"))
             row = _StatsRow(ch)
             row.set_stats(stats)
             self._layout.insertWidget(self._layout.count() - 1, row)

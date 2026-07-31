@@ -19,7 +19,7 @@ from avialview.ui.video_timing import VideoTimingMixin, format_video_osd
 logger = logging.getLogger(__name__)
 
 
-def _release_mpv_render_context(widget: object) -> None:
+def _release_mpv_render_context(widget: Any) -> None:
     """Free a libmpv OpenGL render context before its client is terminated."""
     context = getattr(widget, "ctx", None)
     if context is None:
@@ -77,7 +77,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._seek_target = 0.0
         self._seek_exact = True
         self.mpv = None
-        self._video_widget = None
+        self._video_widget: QWidget | None = None
         self._media_loaded = False
         self._pending_seek: tuple[float, bool] | None = None
         self._target_pause = True
@@ -94,8 +94,9 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._source_bounds: tuple[float, float] | None = None
         self._master_has_footage: bool | None = None
 
-        self.setLayout(QGridLayout())
-        self.layout().setContentsMargins(0, 0, 0, 0)
+        self._grid = QGridLayout()
+        self.setLayout(self._grid)
+        self._grid.setContentsMargins(0, 0, 0, 0)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
 
         if not probe_libmpv(self):
@@ -193,7 +194,8 @@ class VideoPane(VideoTimingMixin, QWidget):
                             with self._render_update_lock:
                                 self._render_update_pending = False
 
-                    self.ctx.update_cb = on_mpv_update
+                    if self.ctx is not None:
+                        self.ctx.update_cb = on_mpv_update
 
                     # If open() was called before we had a context, play it now
                     if hasattr(self.parent_pane, "_pending_play"):
@@ -220,7 +222,7 @@ class VideoPane(VideoTimingMixin, QWidget):
             self.gl_widget = MpvGLWidget(self)
             self.gl_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
             self._video_widget = self.gl_widget
-            self.layout().addWidget(self.gl_widget, 0, 0)
+            self._grid.addWidget(self.gl_widget, 0, 0)
             self.mpv = self.gl_widget.mpv
 
         else:
@@ -229,7 +231,7 @@ class VideoPane(VideoTimingMixin, QWidget):
             self.video_container.setAttribute(Qt.WidgetAttribute.WA_DontCreateNativeAncestors)
             self.video_container.setAttribute(Qt.WidgetAttribute.WA_NativeWindow)
             self.video_container.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            self.layout().addWidget(self.video_container, 0, 0)
+            self._grid.addWidget(self.video_container, 0, 0)
 
             if is_offscreen:
                 self.mpv = mpv.MPV(
@@ -284,17 +286,18 @@ class VideoPane(VideoTimingMixin, QWidget):
 
     def set_source_bounds(self, bounds: tuple[float, float]) -> None:
         """Set the source-time interval that contains decodable media."""
-        self._source_bounds = tuple(sorted(bounds))
+        low, high = sorted(bounds)
+        self._source_bounds = (low, high)
 
     def has_footage_at_master(self, t_master: float) -> bool:
         """Return whether this pane has media at the supplied master time."""
-        if not self.time_map.contains_master_time(t_master):
+        if not bool(self.time_map.contains_master_time(t_master)):
             return False
         if self._source_bounds is None:
             return True
         t_source = self.time_map.to_source(t_master)
         start, end = self._source_bounds
-        return start <= t_source <= end
+        return bool(start <= t_source <= end)
 
     def set_tracking_readers(self, readers: list) -> None:
         self.paint_canvas.set_readers(readers)
@@ -408,7 +411,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         dialog, which is exactly what D-013 exists to prevent.
         """
         self.paint_canvas = PaintCanvas(self)
-        self.layout().addWidget(self.paint_canvas, 0, 0)
+        self._grid.addWidget(self.paint_canvas, 0, 0)
 
         # Set up overlay
         self.overlay = QWidget()
@@ -442,7 +445,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.lbl_no_footage.setVisible(False)
         olayout.addWidget(self.lbl_no_footage, 1)  # stretch
 
-        self.layout().addWidget(self.overlay, 0, 0)
+        self._grid.addWidget(self.overlay, 0, 0)
 
     def _show_playback_unavailable(self) -> None:
         """Leave a usable, self-explanatory pane when libmpv is absent (D-013)."""
@@ -495,11 +498,15 @@ class VideoPane(VideoTimingMixin, QWidget):
         except Exception:
             logger.warning("Frame step failed", exc_info=True)
 
-    def close(self) -> None:
-        """Terminate mpv before closing the widget."""
+    def close(self) -> bool:
+        """Terminate mpv before closing the widget.
+
+        Returns whatever ``QWidget.close`` returns: this overrides a Qt method,
+        and callers (and Qt itself) may act on the result.
+        """
         player = self.mpv
         if player:
             gl_widget = getattr(self, "gl_widget", None)
             _shutdown_mpv_client(player, gl_widget)
             self.mpv = None
-        super().close()
+        return bool(super().close())

@@ -86,25 +86,10 @@ testpaths = ["tests"]
 pythonpath = ["."]
 
 
-[[tool.mypy.overrides]]
-module = "avialview.ui.transport"
-ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "avialview.ui.sidebar"
-ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "avialview.ui.relink_dialog"
-ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "avialview.ui.diagnostics"
-ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "avialview.ui.plot_pane"
-ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "avialview.ui.plot_row"
@@ -126,26 +111,9 @@ module = "avialview.ui.plot_overlays"
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 
+# These third-party packages ship no type stubs and no py.typed marker. This is
+# the one legitimate suppression (AGENTS §Coding standards): it silences the
+# *absence of stubs*, not errors in our own code.
 [[tool.mypy.overrides]]
-module = "avialview.ui.video_pane"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "avialview.ui.readout_panel"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "avialview.ui.video_grid"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "avialview.engine.export"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "avialview.loaders.neo_loader"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "avialview.loaders.csv_loader"
-ignore_errors = true
+module = ["mpv.*", "pyqtgraph.*", "neo.*", "quantities.*", "pyarrow.*", "polars.*", "xxhash.*"]
+ignore_missing_imports = true

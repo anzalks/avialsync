@@ -141,29 +141,30 @@ class AOLEksLoader(TimeSeriesSource):
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         """Yield (time, value) chunks for one channel.
 
-        Compatibility shim for the frozen v1 contract. ``read_all_chunks`` is the
-        primary API and the importer prefers it; calling this per channel costs
-        one full CSV pass *per channel*, so it is only for hosts that predate the
-        bulk protocol.
+        Compatibility path for the frozen v1 contract; the importer prefers
+        ``read_all_chunks``.  A caller that loops over every channel still pays
+        one pass each — that is inherent to the per-channel API shape — but each
+        pass now projects only the requested column instead of all of them, so
+        a 15-channel file costs 15 single-column scans rather than 15 scans of
+        45 columns (V-05).
         """
         if ch not in self._xyz_channels:
             raise MissingColumnError(ch, list(self._xyz_channels))
-        logger.warning(
-            "AOLEksLoader.read_chunks(%r) re-scans %s; prefer read_all_chunks() "
-            "to read every channel in one pass.",
-            ch,
-            self._path.name if self._path else "<unopened>",
-        )
-        for chunk in self.read_all_chunks():
+        for chunk in self.read_all_chunks(channels=(ch,)):
             if ch in chunk:
                 yield chunk[ch]
 
-    def read_all_chunks(self) -> Iterator[dict[str, tuple[np.ndarray, np.ndarray]]]:
-        """Yield all x/y/z channels from a single CSV pass.
+    def read_all_chunks(
+        self, channels: "tuple[str, ...] | None" = None
+    ) -> Iterator[dict[str, tuple[np.ndarray, np.ndarray]]]:
+        """Yield x/y/z channels from a single CSV pass.
 
-        Batch boundaries are carried the same way ``CSVLoader._read_batches``
-        carries them, so a duplicate or backward frame number spanning two
-        batches is treated exactly like one inside a batch.
+        ``channels`` restricts the projection to a subset; the default reads
+        every channel, which is what the importer wants.  Restricting it does not
+        change chronology handling — batch boundaries are carried the same way
+        ``CSVLoader._read_batches`` carries them, so a duplicate or backward
+        frame number spanning two batches is treated exactly like one inside a
+        batch.
         """
         if self._path is None:
             raise SourceOpenError("EKS source used before open(). Call open(path, config) first.")
@@ -172,7 +173,14 @@ class AOLEksLoader(TimeSeriesSource):
 
         # Determine which columns to read and force them to Float64
         # to prevent Polars from inferring them as Int64 if the first few rows are integers.
-        use_cols = list(self._col_mapping.values())
+        selected = (
+            {name: col for name, col in self._col_mapping.items() if name in channels}
+            if channels is not None
+            else dict(self._col_mapping)
+        )
+        if not selected:
+            return
+        use_cols = list(selected.values())
         if self._has_fnum:
             use_cols.append("fnum")
 
@@ -205,7 +213,7 @@ class AOLEksLoader(TimeSeriesSource):
 
             # Map original cols back to stripped channel names for yielding
             values: dict[str, np.ndarray] = {}
-            for ch_name, orig_col in self._col_mapping.items():
+            for ch_name, orig_col in selected.items():
                 if orig_col in batch.columns:
                     values[ch_name] = batch[orig_col].cast(pl.Float64).to_numpy()
 

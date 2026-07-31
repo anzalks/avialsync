@@ -1,6 +1,7 @@
 """Left Sidebar / Inspector Pane."""
 
 from pathlib import Path
+from typing import TypeVar
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -19,7 +20,28 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialview.core.inspection import SourceInspection
 from avialview.ui.source_properties import VideoPropertiesPanel
+
+_W = TypeVar("_W", bound=QWidget)
+
+
+def _widgets_of(layout: QVBoxLayout, kind: type[_W]) -> "list[_W]":
+    """Return the layout's direct child widgets of *kind*, skipping empty slots.
+
+    ``QLayout.itemAt`` and ``QLayoutItem.widget`` both return None for a spacer
+    or a slot that has been taken; every call site here wants "the real widgets
+    of this type", so express that once.
+    """
+    found: list[_W] = []
+    for index in range(layout.count()):
+        item = layout.itemAt(index)
+        if item is None:
+            continue
+        widget = item.widget()
+        if isinstance(widget, kind):
+            found.append(widget)
+    return found
 
 
 class SensorInfoWidget(QFrame):
@@ -199,7 +221,7 @@ class SensorInfoWidget(QFrame):
         """Return the displayed ``(offset_s, drift_ppm)``."""
         return self.offset_spin.value(), self.drift_spin.value()
 
-    def set_inspection(self, inspection: object) -> None:
+    def set_inspection(self, inspection: SourceInspection) -> None:
         """Update badge and properties panel from a SourceInspection."""
         flags = getattr(inspection, "integrity_flags", None)
         if flags and getattr(flags, "any_flag", False):
@@ -212,8 +234,7 @@ class SensorInfoWidget(QFrame):
         self._props_panel.update_inspection(inspection)
 
 
-def _make_empty_inspection(path: str) -> object:
-    from avialview.core.inspection import SourceInspection
+def _make_empty_inspection(path: str) -> SourceInspection:
 
     return SourceInspection(path=path)
 
@@ -310,13 +331,15 @@ class VideoInfoWidget(QFrame):
         self._props_panel.setParent(None)
         self._props_panel.deleteLater()
         self._props_panel = VideoPropertiesPanel(loader=loader, parent=self)
-        self.layout().addWidget(self._props_panel)
+        panel_layout = self.layout()
+        if panel_layout is not None:
+            panel_layout.addWidget(self._props_panel)
 
     def set_pane(self, pane: object) -> None:
         """Attach the VideoPane for live mpv property reads."""
         self._props_panel.set_pane(pane)
 
-    def set_inspection(self, inspection: object) -> None:
+    def set_inspection(self, inspection: SourceInspection) -> None:
         """Show badge if integrity flags are set."""
         flags = getattr(inspection, "integrity_flags", None)
         if flags and getattr(flags, "any_flag", False):
@@ -354,9 +377,9 @@ class SidebarPane(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll_area = QScrollArea()
+        self._scroll_area.setWidgetResizable(True)
+        self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         scroll_content = QWidget()
         self.content_layout = QVBoxLayout(scroll_content)
@@ -399,8 +422,8 @@ class SidebarPane(QWidget):
 
         self.content_layout.addStretch(1)
 
-        self.scroll.setWidget(scroll_content)
-        main_layout.addWidget(self.scroll)
+        self._scroll_area.setWidget(scroll_content)
+        main_layout.addWidget(self._scroll_area)
 
     def add_video(self, path: str, metadata: dict) -> None:
         """Add a video info widget to the sidebar."""
@@ -427,11 +450,9 @@ class SidebarPane(QWidget):
         """Add a sensor info widget to the sidebar."""
         # Remove placeholder if present
         if self.sensors_layout.count() == 1:
-            item = self.sensors_layout.itemAt(0)
-            if item.widget() and isinstance(item.widget(), QLabel):
-                w = item.widget()
-                self.sensors_layout.removeWidget(w)
-                w.deleteLater()
+            for placeholder in _widgets_of(self.sensors_layout, QLabel):
+                self.sensors_layout.removeWidget(placeholder)
+                placeholder.deleteLater()
 
         widget = SensorInfoWidget(path, channels)
         widget.remove_requested.connect(self.sensor_remove_requested)
@@ -454,21 +475,15 @@ class SidebarPane(QWidget):
             if widget is not None:
                 return widget.set_channel_visible(channel, visible)
             return False
-        for i in range(self.sensors_layout.count()):
-            item = self.sensors_layout.itemAt(i)
-            widget = item.widget()
-            if isinstance(widget, SensorInfoWidget) and widget.set_channel_visible(
-                channel, visible
-            ):
+        for widget in _widgets_of(self.sensors_layout, SensorInfoWidget):
+            if widget.set_channel_visible(channel, visible):
                 return True
         return False
 
     def remove_sensor(self, path: str) -> None:
         """Remove a sensor info widget."""
-        for i in range(self.sensors_layout.count()):
-            item = self.sensors_layout.itemAt(i)
-            w = item.widget()
-            if isinstance(w, SensorInfoWidget) and w.path == path:
+        for w in _widgets_of(self.sensors_layout, SensorInfoWidget):
+            if True and w.path == path:
                 self.sensors_layout.removeWidget(w)
                 w.deleteLater()
                 break
@@ -488,7 +503,7 @@ class SidebarPane(QWidget):
         if w:
             w.set_pane(pane)
 
-    def set_video_inspection(self, path: str, inspection: object) -> None:
+    def set_video_inspection(self, path: str, inspection: SourceInspection) -> None:
         """Forward SourceInspection to the VideoInfoWidget badge."""
         w = self._video_widgets.get(path)
         if w:
@@ -496,9 +511,8 @@ class SidebarPane(QWidget):
 
     def sensor_widget(self, path: str) -> SensorInfoWidget | None:
         """Return the widget owning *path*, or None when it is not loaded."""
-        for i in range(self.sensors_layout.count()):
-            widget = self.sensors_layout.itemAt(i).widget()
-            if isinstance(widget, SensorInfoWidget) and widget.path == path:
+        for widget in _widgets_of(self.sensors_layout, SensorInfoWidget):
+            if True and widget.path == path:
                 return widget
         return None
 
@@ -513,10 +527,9 @@ class SidebarPane(QWidget):
         widget = self.sensor_widget(path)
         return widget.mapping() if widget is not None else (0.0, 0.0)
 
-    def set_sensor_inspection(self, path: str, inspection: object) -> None:
+    def set_sensor_inspection(self, path: str, inspection: SourceInspection) -> None:
         """Forward SourceInspection to the SensorInfoWidget badge + panel."""
-        for i in range(self.sensors_layout.count()):
-            w = self.sensors_layout.itemAt(i).widget()
-            if isinstance(w, SensorInfoWidget) and w.path == path:
+        for w in _widgets_of(self.sensors_layout, SensorInfoWidget):
+            if True and w.path == path:
                 w.set_inspection(inspection)
                 break

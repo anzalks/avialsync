@@ -109,7 +109,9 @@ class RelinkDialog(QDialog):
         )
         if path:
             self._mapping[original] = path
-            self._table.item(row, 2).setText(path)
+            cell = self._table.item(row, 2)
+            if cell is not None:
+                cell.setText(path)
 
     def resolved_mapping(self) -> dict[str, str]:
         """Return {original_path: new_path} for files the user relocated."""

@@ -1,5 +1,6 @@
 """Playback transport controls."""
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -45,6 +46,36 @@ class JumpSlider(QSlider):
 
 
 _EMPTY_TIMES = np.empty(0, dtype=np.float64)
+
+
+@dataclass(frozen=True)
+class _CoverageLane:
+    """One source's coverage span."""
+
+    source_id: str
+    start: float
+    end: float
+    kind: str
+
+
+@dataclass(frozen=True)
+class _EventLane:
+    """Point events (accepted TTL matches, or imported data gaps)."""
+
+    events: tuple[tuple[float, str], ...]
+
+
+@dataclass(frozen=True)
+class _AnnotationLane:
+    """Point and range annotation markers."""
+
+    markers: tuple[tuple[float, float | None, str], ...]
+
+
+#: A lane is its display label, its kind tag, and a payload whose shape depends
+#: on that tag. Typed records let the paint and hover branches unpack safely;
+#: the payload used to be `object`, which nothing could destructure.
+_LanePayload = "_CoverageLane | _EventLane | _AnnotationLane | None"
 
 
 def _normalise_events(
@@ -203,17 +234,21 @@ class TimelineOverview(QWidget):
         kind_label = "Video" if kind == "video" else "Data"
         return f"{kind_label} · {Path(source_id).name}"
 
-    def _lanes(self) -> list[tuple[str, str, object]]:
-        lanes: list[tuple[str, str, object]] = [
-            (self._coverage_label(source_id, kind), "coverage", (source_id, start, end, kind))
+    def _lanes(self) -> list[tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | None]]:
+        lanes: list[tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | None]] = [
+            (
+                self._coverage_label(source_id, kind),
+                "coverage",
+                _CoverageLane(source_id, start, end, kind),
+            )
             for source_id, (start, end, kind) in self._coverage.items()
         ]
         if self._ttl_events:
-            lanes.append(("Sync / TTL", "ttl", self._ttl_events))
+            lanes.append(("Sync / TTL", "ttl", _EventLane(self._ttl_events)))
         if self._gap_events:
-            lanes.append(("Data gaps", "gap", self._gap_events))
+            lanes.append(("Data gaps", "gap", _EventLane(self._gap_events)))
         if self._markers:
-            lanes.append(("Annotations", "annotation", self._markers))
+            lanes.append(("Annotations", "annotation", _AnnotationLane(self._markers)))
         return lanes
 
     def _content_x(self, time: float) -> int:
@@ -322,13 +357,12 @@ class TimelineOverview(QWidget):
             )
             painter.setPen(palette.color(palette.ColorRole.Mid))
             painter.drawLine(self._LABEL_WIDTH, bottom, self.width() - 1, bottom)
-            if lane_kind == "coverage":
-                _, start, end, kind = payload
-                span = self._visible_span_x(start, end)
+            if isinstance(payload, _CoverageLane):
+                span = self._visible_span_x(payload.start, payload.end)
                 if span is None:
                     continue
                 left, right = span
-                color = accent if kind == "video" else data_color
+                color = accent if payload.kind == "video" else data_color
                 painter.fillRect(
                     left, top + 2, max(1, right - left), max(2, lane_height - 4), color
                 )
@@ -340,21 +374,23 @@ class TimelineOverview(QWidget):
                 painter.setPen(QColor("#d64545"))
                 for x in self._visible_event_x("gap", t0, t1):
                     painter.drawLine(x, top + 2, x, bottom - 2)
-            elif lane_kind == "annotation":
-                for start, end, color in payload:
+            elif isinstance(payload, _AnnotationLane):
+                for start, end, marker_color in payload.markers:
                     span = self._visible_span_x(start, start if end is None else end)
                     if span is None:
                         continue
                     left, right = span
                     if end is None:
-                        painter.fillRect(left, top + 2, 2, max(2, lane_height - 4), QColor(color))
+                        painter.fillRect(
+                            left, top + 2, 2, max(2, lane_height - 4), QColor(marker_color)
+                        )
                     else:
                         painter.fillRect(
                             left,
                             top + 2,
                             max(2, right - left),
                             max(2, lane_height - 4),
-                            QColor(color).darker(130),
+                            QColor(marker_color).darker(130),
                         )
 
         viewport = self._visible_span_x(
@@ -385,18 +421,19 @@ class TimelineOverview(QWidget):
         label, kind, payload = lanes[lane_index]
         time = self._time_at_x(x)
         tolerance = (t1 - t0) * 8 / max(1, self.width() - self._LABEL_WIDTH)
-        if kind == "coverage":
-            source, start, end, _ = payload
-            if start <= time <= end:
-                return f"Coverage\nSource: {Path(source).name}\nMaster time: {time:.6f} s"
+        if isinstance(payload, _CoverageLane):
+            if payload.start <= time <= payload.end:
+                return (
+                    f"Coverage\nSource: {Path(payload.source_id).name}\nMaster time: {time:.6f} s"
+                )
         if kind in {"ttl", "gap"}:
             nearest = self._nearest_event(kind, time, tolerance)
             if nearest is not None:
                 event_name = "Accepted sync / TTL event" if kind == "ttl" else "Imported data gap"
                 extra = f"\n{nearest[1]}" if nearest[1] else ""
                 return f"{event_name}\nMaster time: {nearest[0]:.6f} s{extra}"
-        if kind == "annotation":
-            for start, end, _ in payload:
+        if isinstance(payload, _AnnotationLane):
+            for start, end, _ in payload.markers:
                 if start - tolerance <= time <= (end if end is not None else start) + tolerance:
                     return f"Annotation\nMaster time: {start:.6f} s"
         return f"{label}\nMaster time: {time:.6f} s"
@@ -457,7 +494,7 @@ class TimelineEvidence(QWidget):
         layout.addLayout(header)
         self.overview = TimelineOverview(self)
         layout.addWidget(self.overview)
-        collapsed = self._settings.value("timeline_evidence/collapsed", False, type=bool)
+        collapsed = bool(self._settings.value("timeline_evidence/collapsed", False, type=bool))
         self.set_collapsed(collapsed, persist=False)
 
     def toggle_collapsed(self) -> None:
