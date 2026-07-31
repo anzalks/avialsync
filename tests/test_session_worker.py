@@ -244,8 +244,8 @@ def test_main_window_autosave_uses_a_worker(qtbot, tmp_path: Path) -> None:
 
     window._autosave()
 
-    assert window._jobs, "autosave did not register an owned background job"
-    thread = next(iter(window._jobs))
+    assert window._job_manager.is_busy(), "autosave did not register an owned job"
+    thread = window._job_manager.jobs()[0].thread
     with qtbot.waitSignal(thread.finished, timeout=10_000):
         pass
     assert (tmp_path / "auto.avv").exists()
@@ -261,4 +261,4 @@ def test_main_window_close_writes_the_final_autosave_synchronously(qtbot, tmp_pa
     window.close()
 
     assert (tmp_path / "final.avv").exists()
-    assert not window._jobs
+    assert not window._job_manager.is_busy()

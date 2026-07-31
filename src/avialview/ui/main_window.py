@@ -34,12 +34,14 @@ from avialview.core.timeline import MasterClock, TimeMap
 from avialview.engine.export_worker import ReaderReference
 from avialview.engine.player import Player
 from avialview.ui.annotations import AnnotationPanel, AnnotationStore
+from avialview.ui.job_manager import JobManager
 from avialview.ui.plot_pane import PlotPane
 from avialview.ui.readout_panel import ReadoutPanel
 from avialview.ui.recent_files import add_recent, get_recent
 from avialview.ui.time_format import TimeDisplayMode
 from avialview.ui.tracking_3d_pane import Tracking3DPane
 from avialview.ui.transport import Transport
+from avialview.ui.ui_heartbeat import UiHeartbeat
 from avialview.ui.video_grid import VideoGrid
 
 logger = logging.getLogger(__name__)
@@ -50,6 +52,25 @@ _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
 #: spawns a subprocess and reads from the same disk; unbounded fan-out on a
 #: 32-camera session would thrash rather than parallelise.
 _MAX_VIDEO_PROBES = 3
+
+
+def _quit_legacy_jobs(registry: "dict[QThread, object]") -> None:
+    """Ask the pre-JobManager registries to stop, without blocking on them.
+
+    These export/snapshot/clip jobs still keep their own dicts. Shutdown must not
+    wait on any of them: the window closing is more important than a job
+    finishing, and their outputs are written atomically.
+    """
+    for thread in list(registry):
+        worker = registry.get(thread)
+        cancel = getattr(worker, "cancel", None)
+        if callable(cancel):
+            try:
+                cancel()
+            except RuntimeError:
+                pass
+        thread.quit()
+    registry.clear()
 
 
 class _JobWorker(Protocol):
@@ -117,6 +138,16 @@ class MainWindow(QMainWindow):
         self._pending_sensor_mappings: dict[str, tuple[float, float]] = {}
         self._time_mode = TimeDisplayMode.RELATIVE
         self._save_in_progress = False
+
+        # One owner for background work: names it for the status bar, watches it
+        # for stalls, and abandons it at shutdown so the window always closes.
+        self._job_manager = JobManager(self)
+        self._job_manager.jobs_changed.connect(self._on_jobs_changed)
+        # Off-thread work is only half the guarantee; this notices when the UI
+        # thread blocks anyway and says so instead of just feeling laggy.
+        self._heartbeat = UiHeartbeat(self)
+        self._heartbeat.stalled.connect(self._on_ui_stalled)
+        self._heartbeat.start()
 
         # Core
         self.clock = MasterClock()
@@ -289,20 +320,27 @@ class MainWindow(QMainWindow):
 
     # ── Background job lifetime ──────────────────────────────────────
 
-    def _run_job(self, worker: _JobWorker) -> QThread:
+    def _run_job(self, worker: _JobWorker, label: str = "Working") -> QThread:
         """Own a worker/thread pair for the whole life of a background job.
 
-        A QObject moved to a QThread with no Python reference is collected
-        before QThread.started fires, so its run() slot never runs at all.
-        Every background job started by this window must be registered here.
+        Delegates to :class:`JobManager`, which additionally names the job for
+        the status bar, watches it for stalls, and can abandon it at shutdown so
+        the window always closes.
         """
-        thread = QThread(self)
-        worker.moveToThread(thread)
-        self._jobs[thread] = worker
-        thread.started.connect(worker.run)
-        thread.finished.connect(lambda t=thread: self._jobs.pop(t, None))
-        thread.finished.connect(thread.deleteLater)
-        return thread
+        return self._job_manager.start(label, worker)
+
+    def _on_jobs_changed(self) -> None:
+        """Mirror background-job state into the transport status area."""
+        text = self._job_manager.status_text()
+        if not text:
+            self.transport.set_status("Ready")
+            return
+        kind = "error" if self._job_manager.stalled_jobs() else "busy"
+        self.transport.set_status(text, kind)
+
+    def _on_ui_stalled(self, milliseconds: float) -> None:
+        """Tell the user when the UI thread itself was blocked."""
+        self.transport.set_status(f"Interface stalled for {milliseconds / 1000:.1f} s", "error")
 
     # ── Sources / units ──────────────────────────────────────────────
 
@@ -1015,18 +1053,28 @@ class MainWindow(QMainWindow):
     # ── Window close ─────────────────────────────────────────────────
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        if (
-            self._video_load_jobs
-            or self._data_export_jobs
-            or self._region_stats_jobs
-            or self._video_clip_jobs
-            or self._snapshot_jobs
-            or self._jobs
-        ):
-            self.transport.set_status("Waiting for background work to finish", "busy")
-            event.ignore()
-            return
+        """Always close.
+
+        This used to ``event.ignore()`` while any background job was running, so
+        a wedged ffprobe on a network share left the user in an application they
+        could not quit. Jobs are asked to cancel and given a bounded moment;
+        whatever has not stopped is abandoned and named in the log. Cache
+        commits are atomic, so an abandoned job leaves the previous valid
+        sidecar rather than a half-written one.
+        """
+        self._heartbeat.stop()
         self.player.stop()
+        abandoned = self._job_manager.shutdown()
+        for registry in (
+            self._video_load_jobs,
+            self._data_export_jobs,
+            self._region_stats_jobs,
+            self._video_clip_jobs,
+            self._snapshot_jobs,
+        ):
+            _quit_legacy_jobs(registry)
+        if abandoned:
+            logger.warning("Closed while %d job(s) were still running.", len(abandoned))
         self.video_grid.shutdown()
         self._save_geometry()
         self._autosave_before_close()

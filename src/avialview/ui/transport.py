@@ -500,6 +500,10 @@ class TimelineEvidence(QWidget):
     def toggle_collapsed(self) -> None:
         self.set_collapsed(not self.overview.isHidden())
 
+    def status_text(self) -> str:
+        """The currently displayed status message, without its label prefix."""
+        return self._status_label.text().removeprefix("Status: ")
+
     def set_status(self, message: str, severity: str = "info") -> None:
         """Show active work beside Reset Zoom and clear non-active messages shortly after."""
         colors = {"info": "#b8c7d9", "busy": "#f0c674", "warning": "#ff9f43", "error": "#ff6b6b"}
@@ -766,6 +770,10 @@ class Transport(QWidget):
     def set_t_epoch(self, epoch: float) -> None:
         self._t_epoch = epoch
         self._end_time_label.setText(format_time(self._bounds[1], self._time_mode, self._t_epoch))
+
+    def status_text(self) -> str:
+        """The currently displayed status message."""
+        return self.evidence.status_text()
 
     def set_status(self, message: str, severity: str = "info") -> None:
         """Show compact, non-blocking status text beside Reset Zoom."""
