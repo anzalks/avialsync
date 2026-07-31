@@ -36,7 +36,6 @@ class ChannelPlot:
     envelope_fill: pg.FillBetweenItem
     retained_curve: SweepCurveItem
     retained_upper: SweepCurveItem
-    sweep_eraser: pg.LinearRegionItem
     cursor_line: pg.InfiniteLine
     close_button: QToolButton
     close_proxy: QGraphicsProxyWidget
@@ -237,18 +236,13 @@ def create_channel_plot(
     # the whole row on every repaint purely to tint data about to be overwritten
     # (D-054).  A thin pen costs a line, not a blended polygon.
     retained_upper = SweepCurveItem(pen=retained_pen, connect="finite")
-    sweep_eraser = pg.LinearRegionItem(
-        values=[0.0, 0.0], movable=False, brush=pg.mkBrush(0, 0, 0, 180), pen=None
-    )
     retained_curve.setZValue(0)
     retained_upper.setZValue(0)
-    sweep_eraser.setZValue(1)
     envelope_fill.setZValue(1.5)
     curve.setZValue(2)
     envelope_upper.setZValue(2)
     plot_item.addItem(retained_curve)
     plot_item.addItem(retained_upper)
-    plot_item.addItem(sweep_eraser)
     plot_item.addItem(curve)
     plot_item.addItem(envelope_upper)
     plot_item.addItem(envelope_fill)
@@ -275,7 +269,6 @@ def create_channel_plot(
         envelope_fill=envelope_fill,
         retained_curve=retained_curve,
         retained_upper=retained_upper,
-        sweep_eraser=sweep_eraser,
         cursor_line=cursor_line,
         close_button=close_button,
         close_proxy=close_proxy,

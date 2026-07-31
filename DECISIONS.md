@@ -1266,3 +1266,44 @@ further, the next lever is the row count and the retained page's second outline,
 removal. The envelope fill between `curve` and `envelope_upper` is **data** — the min/max range of
 decimated samples, the only thing showing true signal excursion at 50 kHz — and is deliberately
 retained. Covered by `tests/test_playback_smoothness.py`.
+
+## 2026-07 · D-055 · The sweep write-head band is removed; the cursor is a plain line
+
+**Context:** each plot row drew a yellow `cursor_line` at the sweep phase *and* a `sweep_eraser`
+`LinearRegionItem` — a dark band from `phase` to `phase + max(window*0.006, 0.002)` — immediately
+beside it, to imitate an oscilloscope write head separating new data from the page being
+overwritten. On screen this reads as two cursors: a line with a blinking dark companion trailing
+it, and the band's width scales with the window so it is wider on longer pages.
+
+**Decision:** the band is removed. The boundary between new and retained data is the cursor line
+itself. The plot cursor is a plain vertical line with no companion marks, no animation, no
+easing, and no fade. Per D-054 §3 this is a standing policy, not a one-off cleanup.
+
+**Alternatives rejected:** narrowing or dimming the band (it would still be a second moving mark);
+making it a preference (a toggle for a decoration that costs a `LinearRegionItem` repaint per row
+per frame is not worth the setting, the code path, or the test).
+
+**Consequences:** one fewer graphics item per row, and one fewer `setRegion` + `setBrush` pair per
+visible row per repaint. Measured effect on repaint cost is small (14.9 ms → 14.5 ms at 32 rows,
+~3 %) — the change is primarily a correctness-of-appearance fix, and it is reported as such rather
+than dressed up as a performance win. `test_live_sweep_retains_only_the_previous_page_until_overwritten`
+now asserts the cursor position where it used to assert the band's region.
+
+## 2026-07 · D-056 · Fonts are read from the platform, never asserted
+
+**Context:** re-confirmed while auditing UI cost. Test runs emit
+`Populating font family aliases took ~100 ms … missing font family "Sans Serif"`, which looks like
+a startup cost the application is paying.
+
+**Decision:** it is not, and no font handling changes. `theme._system_font()` captures
+`QApplication.font()` — the platform font, `.AppleSystemUIFont` on macOS — and monospace readouts
+use `QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)`. AvialView ships no font files,
+registers nothing with `QFontDatabase.addApplicationFont`, and names no family literal anywhere.
+`set_font_family()` only re-applies an already-resolved platform family so a widget keeps its role
+through application font scaling.
+
+**Evidence:** with the real `cocoa` platform the app font is `.AppleSystemUIFont` and **no** font
+message is emitted. The warning appears only under `QT_QPA_PLATFORM=offscreen`, whose plugin has
+no platform font theme and falls back to the `"Sans Serif"` alias. It is an artifact of the
+headless test environment and must not be "fixed" by hardcoding a family — doing so would
+override the user's system font choice, which is exactly what this design avoids.

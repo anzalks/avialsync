@@ -375,18 +375,6 @@ def test_the_player_marks_discrete_events_immediate(qapp: QApplication) -> None:
     assert player.plot_pane.set_cursor.call_args_list[1].kwargs["immediate"] is False
 
 
-def test_the_sweep_eraser_brush_is_not_reallocated_each_tick(qapp: QApplication) -> None:
-    """The eraser colour comes from the palette and cannot change between ticks."""
-    from avialview.ui import plot_pane as plot_pane_module
-
-    pane = plot_pane_module.PlotPane()
-
-    first = pane._sweep_eraser_brush()
-    second = pane._sweep_eraser_brush()
-
-    assert first is second
-
-
 # ── Painting must never reach into libmpv ─────────────────────────────
 
 

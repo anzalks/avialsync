@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QResizeEvent
+from PySide6.QtGui import QAction, QResizeEvent
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from avialview.core.channel_reader import ChannelKey
@@ -111,8 +111,6 @@ class PlotPane(QWidget):
         self._resize_refresh_timer.timeout.connect(self._refresh_after_resize)
         self._last_point_budget = 0
         self._last_cursor_repaint = 0.0
-        self._eraser_brush: object | None = None
-        self._eraser_brush_key: int | None = None
         self._page_label_text: str | None = None
 
         # State
@@ -532,8 +530,6 @@ class PlotPane(QWidget):
             channel.envelope_upper.set_reveal_enabled(not review)
             channel.retained_curve.setVisible(sweep and channel.visible)
             channel.retained_upper.setVisible(sweep and channel.visible)
-            channel.sweep_eraser.setVisible(sweep and channel.visible)
-        self._update_sweep_eraser()
 
     def _set_sweep_for_time(self, t: float, *, force: bool = False) -> float:
         """Derive sweep position from master time and refresh only at boundaries."""
@@ -558,7 +554,6 @@ class PlotPane(QWidget):
                 ch.envelope_upper.set_sweep_position(position.phase)
                 ch.retained_curve.set_sweep_position(self.window_duration)
                 ch.retained_upper.set_sweep_position(self.window_duration)
-        self._update_sweep_eraser(position.phase)
         self._update_page_label(position.start)
         self.view_window_changed.emit(position.start, self.window_duration, position.phase)
         return position.phase
@@ -578,33 +573,6 @@ class PlotPane(QWidget):
             return False
         self._last_cursor_repaint = now
         return True
-
-    def _update_sweep_eraser(self, phase: float | None = None) -> None:
-        """Place one narrow background gap ahead of live Sweep data."""
-        if self.presentation != PlotPresentation.SWEEP:
-            return
-        if phase is None:
-            phase = self._sweep_control.advance(self._sweep_control.last_master_time).phase
-        gap = max(self.window_duration * 0.006, 0.002)
-        brush = self._sweep_eraser_brush()
-        for channel in self.channels:
-            if channel.visible:
-                channel.sweep_eraser.setBrush(brush)
-                channel.sweep_eraser.setRegion([phase, min(self.window_duration, phase + gap)])
-
-    def _sweep_eraser_brush(self) -> object:
-        """Return the cached eraser brush, rebuilt only when the palette changes.
-
-        This used to allocate a fresh ``QBrush`` per visible row per tick — the
-        colour is derived from the palette and cannot change between ticks.
-        """
-        base = self.palette().color(self.palette().ColorRole.Base)
-        if self._eraser_brush is None or self._eraser_brush_key != base.rgb():
-            color = QColor(base)
-            color.setAlpha(235)
-            self._eraser_brush = pg.mkBrush(color)
-            self._eraser_brush_key = base.rgb()
-        return self._eraser_brush
 
     def _update_page_label(self, start: float | None = None) -> None:
         if start is None:

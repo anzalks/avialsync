@@ -67,8 +67,10 @@ def test_live_sweep_retains_only_the_previous_page_until_overwritten(sweep_pane)
     assert pane.presentation is PlotPresentation.SWEEP
     assert retained_x is not None and retained_y is not None
     assert pane.channels[0].retained_curve.isVisible()
-    assert pane.channels[0].sweep_eraser.isVisible()
-    assert pane.channels[0].sweep_eraser.getRegion()[0] == pytest.approx(0.5)
+    # The sweep write-head band was removed (D-055): it read as a second cursor
+    # beside the yellow line, and cost a LinearRegionItem repaint per row.  The
+    # boundary between new and retained data is the cursor itself.
+    assert pane.channels[0].cursor_line.value() == pytest.approx(0.5)
 
 
 def test_live_scope_keeps_clear_and_restart_compatibility(sweep_pane) -> None:
