@@ -297,13 +297,17 @@ with explicit user acceptance and session provenance. Native plugin event provid
   workers are retained until their QThread finishes, so dropped videos now open reliably; Neo,
   tracking, sensor, and third-party source types route to their matching import pipeline.
 
-### Pre-existing mypy errors (suppressed in pyproject.toml — cleanup is separate)
-The standard full-package check still relies on module overrides for `ui/transport`, `ui/sidebar`,
-`ui/relink_dialog`, `ui/diagnostics`, `ui/plot_pane`, `ui/video_pane`, `ui/readout_panel`,
-`ui/video_grid`, `engine/export`, `loaders/neo_loader`, and `loaders/csv_loader`. Removing them
-exposes 56 pre-existing Qt-stub, third-party-stub, and annotation errors. Strict `core/` checking
-remains unsuppressed. A core-only mypy run reports UI overrides as unused because those modules are
-outside that invocation; that message does not mean the full-package overrides are obsolete.
+### mypy is clean — keep it that way (V-07)
+Both `mypy src/avialview/core` (strict) and `mypy src/avialview` report **0 errors**, with no
+`ignore_errors` override anywhere. The only suppression in `pyproject.toml` is
+`ignore_missing_imports` for third-party packages that ship no stubs (mpv, pyqtgraph, neo,
+quantities, pyarrow) — that silences the *absence of stubs*, not errors in our own code.
+
+Do not add an `ignore_errors` block to make a change land. Removing the previous 11 uncovered two
+real crashes: `_CameraRow.update()` shadowed `QWidget.update()` (so the widget could not be
+repainted) and `SidebarPane` assigned a `QScrollArea` over `QWidget.scroll`. There is exactly one
+`# type: ignore` in the tree, in `engine/export.py`, and it documents a PySide6 stub that
+contradicts the runtime.
 
 ---
 

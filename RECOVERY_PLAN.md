@@ -409,17 +409,21 @@ commit, full gate green after each.
 | V-13 | `89307ba` | All eight `engine` -> `ui` imports deferred under `TYPE_CHECKING`; `Transport.bounds` replaces the `_bounds` reach-in. AST guard test added. |
 | V-19 | this commit | `CSVLoader` reports `rate_hz` when the sample proves regular sampling, and still `None` when it does not. The AOL encoder's `None` was already correct and documented. |
 
+**Closed in the final pass**
+
+| ID | Commit | What changed |
+|---|---|---|
+| V-04a, V-04b, V-18 | merge `73c8dbc` | Already fixed by the branch being merged in: `_MidnightUnwrapper`, blank-token filtering, deterministic bodypart ordering. Verified, not assumed. |
+| V-05 | `3cf8068` | `read_chunks` projects only the requested column. |
+| V-07 | `3cf8068` | **All 11 `ignore_errors` overrides removed**; `mypy src/avialview` at 0 errors. The 59 real errors they hid are fixed, including two Qt-method shadows that made widgets unrepaintable. |
+| V-15 | `3cf8068` | Verified already correct and pinned by `tests/test_aol_chunk_boundaries.py`. |
+
 **Still open**
 
 | ID | Why it is still open |
 |---|---|
-| V-04a, V-04b | Encoder midnight rollover and the EKS camera-token match. Both need a real session crossing 00:00 to verify against. |
-| V-05 | `AOLEksLoader.read_chunks` re-scans the CSV per channel. Only the bulk path is fast; the frozen v1 API still pays N passes. |
-| V-07 | 11 `ignore_errors` mypy overrides. Removing them exposes ~56 pre-existing Qt/stub errors — a wave of its own. |
 | V-09 | `ui/main_window.py` is ~2 500 lines. A mixin split was implemented and **reverted**: inherited `@Slot` methods lose `sender()` and get direct instead of queued connections, which put `video_grid.add_pane` on a worker thread. See D-051 — it must be done as QObject composition. |
 
-| V-15 | AOL loaders validate monotonicity within a batch only. |
-| V-18 | `AOLEksLoader.open` iterates a `set`, so channel names are not reproducible under hash randomisation. |
 
 **Not from this ledger, also open:** the P3.5/P4.6 populated-workload
 measurements, and Phase 6 (P6.1 coverage, P6.2 community files, P6.3 release).
