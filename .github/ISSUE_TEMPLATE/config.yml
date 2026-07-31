@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or usage help
+    url: https://github.com/anzalks/avialview/discussions
+    about: For "how do I…" questions, please use Discussions rather than an issue.

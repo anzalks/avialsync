@@ -1,0 +1,58 @@
+name: Bug report
+description: Something behaves incorrectly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not attach private research data. If the bug only reproduces
+        on your own recordings, describe their shape instead (rate, duration,
+        channel count, container) and we will try to build a matching fixture.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what actually happened.
+      placeholder: |
+        1. Opened a session with 3 cameras and a 50 kHz CSV
+        2. Dragged the seek bar to ~00:04:12 and released
+        3. Expected the plots and video to land on the same instant
+        4. The middle camera stayed one frame behind until I paused
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: AvialView version
+      placeholder: "0.1.0b4, or a commit SHA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, macOS, Linux]
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: >
+        Help → Diagnostics → "Copy diagnostics", pasted here. This carries your
+        Python and Qt versions, libmpv availability, hardware-decode support,
+        and disk speed — it answers most of the follow-up questions at once.
+      render: text
+
+  - type: textarea
+    id: sources
+    attributes:
+      label: Sources loaded (timing issues only)
+      description: >
+        For a synchronisation or timing problem: which sources were loaded, what
+        their offsets and drift were, and whether any accepted TTL alignment was
+        in effect. This is usually the whole answer.

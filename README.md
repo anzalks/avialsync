@@ -89,6 +89,25 @@ The documentation also includes [supported formats](docs/formats.md), [troublesh
 [synchronization guidance](docs/tutorials/synchronization.md), and a separate
 [technical reference](docs/technical/index.md) for people maintaining the software or writing plugins.
 
+## How it compares
+
+Neighbouring open-source tools, described as their authors position them. Pick
+the one that matches your problem — they overlap less than the names suggest.
+
+| | **AvialView** | PlotJuggler | Rerun | Foxglove |
+|---|---|---|---|---|
+| Primary use | Scrub multi-camera video against dense signals | Plot and analyse time series | Log and replay multimodal robot data | Inspect and visualise robotics data |
+| Video playback | libmpv, frame-exact when paused | Not a focus | Yes, alongside other modalities | Yes |
+| Dense signals | 50 kHz × many channels via a decimation pyramid | Strong, its core purpose | Yes | Yes |
+| Per-source offset/drift | Yes, with evidence-based TTL alignment | Manual offsets | Timeline-based | Timeline-based |
+| Data model | Reads your files in place | Reads your files in place | You log into its own format | ROS/MCAP-oriented |
+| Licence | Apache-2.0 | MPL-2.0 | Apache-2.0 | Source-available + hosted |
+
+If you mainly plot signals, PlotJuggler is likely a better fit. If you are in a
+ROS ecosystem, Foxglove and Rerun are built for it. AvialView exists for the
+narrower case where **the video and the signal have to agree on the same
+instant**, and the recordings came off independently-clocked hardware.
+
 ## What AvialView does not do
 
 AvialView is not an acquisition system, a replacement for your analysis pipeline, or a tool that
@@ -133,3 +152,14 @@ It validates the version, updates both package-version authorities, builds and c
 commits the change, creates annotated `v0.1.0b1`, and pushes it. GitHub Actions remains the sole
 publisher. The helper permits only the offline `graphify-out/graph.json` as a pre-existing dirty
 file; commit or resolve every other change first.
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
+the four-command gate every change must pass, and the architecture rules that
+exist because breaking them caused real bugs. Participation is governed by our
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+Good places to start are format plugins (the `TimeSeriesSource` /`VideoSource`
+contracts are frozen — see [the plugin guide](docs/plugin-guide.md)), platform
+verification on real hardware, and the open items in `RECOVERY_PLAN.md`.

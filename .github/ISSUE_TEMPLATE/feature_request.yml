@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest a capability
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        AvialView is a visual inspection tool. Acquisition and built-in
+        scientific analysis are deliberately out of scope — those belong in
+        plugins. See BLUEPRINT.md for the scope boundary.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: >
+        Describe the research task, not the feature. "I need to check whether
+        the encoder and the cameras drifted apart over an hour" tells us more
+        than "add a drift graph".
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: How do you do it today
+      description: What you currently do instead, and why that is unsatisfying.
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Does this belong in core or in a plugin?
+      description: Lab-specific formats and event semantics are plugin territory.
+      options:
+        - Not sure
+        - Core — every user needs it
+        - Plugin — specific to my lab's formats or workflow
