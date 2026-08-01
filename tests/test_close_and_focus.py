@@ -211,3 +211,83 @@ def test_closing_is_never_refused(window) -> None:
     window.close()
 
     assert window.isHidden()
+
+
+# ── Loading must not take the UI thread away ──────────────────────────
+
+
+def _pyramid_channels(tmp_path: Path, count: int) -> Path:
+    """Build *count* cheap channels in one cache directory."""
+    import numpy as np
+
+    from avialview.core.pyramid import PyramidBuilder
+
+    cache = tmp_path / "many.avialcache"
+    cache.mkdir(parents=True, exist_ok=True)
+    times = np.linspace(0.0, 10.0, 2_000)
+    for index in range(count):
+        PyramidBuilder(cache, f"ch{index}").build_and_save(times, np.sin(times * (index + 1)))
+    return cache
+
+
+def test_a_large_load_does_not_build_every_row_at_once(window, tmp_path) -> None:
+    """Row construction is ~10 ms each; 32 in one call is a third of a second frozen."""
+    cache = _pyramid_channels(tmp_path, 32)
+
+    window.plot_pane.load_channels(cache, [f"ch{i}" for i in range(32)])
+
+    assert window.plot_pane._pending_rows, "the whole selection was built in one blocking call"
+    assert window.plot_pane.channels, "the first slice must still appear immediately"
+
+
+def test_the_playhead_still_answers_while_rows_are_being_built(window, qapp, tmp_path) -> None:
+    """The window must stay usable during a load, not go white."""
+    cache = _pyramid_channels(tmp_path, 32)
+    window.plot_pane.load_channels(cache, [f"ch{i}" for i in range(32)])
+    assert window.plot_pane._pending_rows
+    seen = _playhead_events(window)
+
+    qapp.processEvents()
+    _press(qapp, Qt.Key.Key_Space)
+
+    assert seen, "playback control was unavailable mid-load"
+
+
+def test_closing_mid_load_is_accepted_and_abandons_the_queue(window, tmp_path) -> None:
+    """A close must never wait for row construction it no longer needs."""
+    cache = _pyramid_channels(tmp_path, 32)
+    window.plot_pane.load_channels(cache, [f"ch{i}" for i in range(32)])
+    assert window.plot_pane._pending_rows
+
+    window.close()
+
+    assert window.isHidden()
+    assert window.plot_pane._pending_rows == []
+
+
+def test_every_row_lands_on_the_shared_window(qtbot, tmp_path) -> None:
+    """A row built in a later slice used to keep a default X range.
+
+    An X link only propagates on a *change* of the master's range, so rows
+    linked afterwards were left mis-scaled against the rows already on screen.
+    The pane is given a real size: pyqtgraph maps a link through view geometry,
+    and an unsized offscreen viewport produces meaningless ranges.
+    """
+    from avialview.ui.plot_pane import PlotPane
+
+    cache = _pyramid_channels(tmp_path, 8)
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    pane.resize(900, 500)
+    pane.set_timeline_bounds(0.0, 10.0)
+
+    pane.load_channels(cache, [f"ch{i}" for i in range(8)])
+    assert pane._pending_rows, "this test is only meaningful across several slices"
+    pane.wait_for_pending_rows()
+    pane.set_window_duration(2.5)
+
+    ranges = [tuple(ch.plot_item.viewRange()[0]) for ch in pane.channels]
+
+    assert len(ranges) == 8
+    for observed in ranges[1:]:
+        assert observed == pytest.approx(ranges[0])

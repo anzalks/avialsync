@@ -49,6 +49,13 @@ _CURSOR_REPAINT_INTERVAL_S = 1.0 / _CURSOR_REPAINT_HZ
 #: beats down to ~22 Hz instead of the intended 30.
 _CURSOR_REPAINT_SLACK_S = 1.0 / 120.0
 
+#: How long row construction may hold the UI thread before yielding. One row
+#: costs ~8-12 ms of Qt widget construction, so a large channel selection has to
+#: be built across several event-loop turns or the window stops answering
+#: entirely — no playback keys, no drops, no close button (D-060). Below one
+#: 60 Hz frame, so a load stays interactive.
+_ROW_BUILD_SLICE_S = 0.012
+
 
 class PlotPane(QWidget):
     """
@@ -68,6 +75,10 @@ class PlotPane(QWidget):
     channel_close_requested = Signal(str, str)  # source_id, channel_id
     # Absolute current page plus cursor phase for the shared Data Streams navigator.
     view_window_changed = Signal(float, float, float)
+    # Every queued row now exists; bounds derived from readers are final.
+    channels_loaded = Signal()
+    # Rows still queued for construction, 0 when the load is complete.
+    rows_pending = Signal(int)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -110,6 +121,7 @@ class PlotPane(QWidget):
         self._resize_refresh_timer.timeout.connect(self._refresh_after_resize)
         self._last_point_budget = 0
         self._last_cursor_repaint = 0.0
+        self._pending_rows: list[tuple[Path, str, TimeMap, str]] = []
         self._page_label_text: str | None = None
 
         # State
@@ -172,18 +184,34 @@ class PlotPane(QWidget):
         if not channel_names:
             return
 
-        start_row = len(self.channels)
         time_map = self._source_time_maps.setdefault(cache_dir, TimeMap())
         time_map.offset = float(offset)
         time_map.drift_ppm = float(drift_ppm)
 
-        for i, ch_name in enumerate(channel_names):
+        self._pending_rows.extend((cache_dir, name, time_map, source_id) for name in channel_names)
+        self._build_pending_rows()
+
+    def _build_pending_rows(self) -> None:
+        """Build queued rows in time slices, letting the event loop run between them.
+
+        A row costs ~8-12 ms of Qt widget construction, so building a 64-channel
+        selection in one call blocked the UI thread for most of a second — the
+        window went white and answered nothing: no playback keys, no drops, no
+        close button (D-060). Qt graphics objects must be created on this thread,
+        so the work cannot move to a worker; it is sliced instead, and a
+        zero-delay timer hands control back to the event loop between slices.
+        """
+        deadline = time.monotonic() + _ROW_BUILD_SLICE_S
+        built: list[ChannelPlot] = []
+        while self._pending_rows:
+            cache_dir, name, time_map, source_id = self._pending_rows.pop(0)
+            row = len(self.channels)
             channel = create_channel_plot(
                 self.graphics_layout,
-                start_row + i,
+                row,
                 cache_dir,
-                ch_name,
-                start_row + i,
+                name,
+                row,
                 self._request_channel_close,
                 time_map,
                 source_id,
@@ -191,15 +219,79 @@ class PlotPane(QWidget):
             if self._master_plot is None:
                 self._master_plot = channel.plot_item
             else:
+                # Range first, then link. An X link only propagates on a change
+                # of the master's range, so a row linked later kept whatever it
+                # was constructed with and sat mis-scaled beside the rows
+                # already on screen. Setting it after linking is worse still:
+                # the value feeds back through the link and rescales the master.
+                if self.window_duration > 0:
+                    channel.plot_item.setXRange(0.0, self.window_duration, padding=0)
                 channel.plot_item.setXLink(self._master_plot)
             self.channels.append(channel)
+            built.append(channel)
+            if time.monotonic() >= deadline:
+                break
 
+        # Fill in this slice's rows now rather than leaving every row's pyramid
+        # query to the end: 64 of them at once was a 62 ms hitch on completion.
+        self._refresh_rows(built)
+
+        if self._pending_rows:
+            self.rows_pending.emit(len(self._pending_rows))
+            QTimer.singleShot(0, self._build_pending_rows)
+            return
+        self._finish_loading()
+
+    def _refresh_rows(self, channels: list[ChannelPlot]) -> None:
+        """Load pyramid data for *channels* only, if a page is established."""
+        if self.sweep_start is None or not channels:
+            return
+        t0 = self.sweep_start
+        t1 = t0 + self.window_duration
+        budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
+        for channel in channels:
+            if not channel.visible:
+                continue
+            refresh_channel_plot(channel, t0, t1, budget)
+            if channel.y_mode == Y_FIT_ONCE and channel.y_range is None:
+                fit_channel_y(channel)
+                if channel.y_range is not None:
+                    channel.y_mode = Y_MANUAL
+
+    def cancel_pending_rows(self) -> None:
+        """Abandon queued row building.
+
+        Called when the window closes. A queued slice would otherwise keep
+        firing into a pane whose widgets are being destroyed, and the close must
+        never wait for construction it no longer needs.
+        """
+        self._pending_rows.clear()
+
+    def _finish_loading(self) -> None:
+        """Apply the once-per-load work after the last queued row exists."""
+        # pyqtgraph maps an X link through the two views' *pixel* geometry, and
+        # a row created in this same call has not been laid out yet, so its
+        # width is still a placeholder. Linking against that produced a wildly
+        # wrong range on the final row of every load. Settle the layout first.
+        self.graphics_layout.ci.layout.activate()
         self._configure_shared_x_range()
         self._update_axis_visibility()
         self._set_sweep_for_time(self._sweep_control.last_master_time, force=True)
         self._apply_presentation()
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._interactions.redraw_annotations()
+        self.rows_pending.emit(0)
+        self.channels_loaded.emit()
+
+    def wait_for_pending_rows(self) -> None:
+        """Finish any queued row building immediately.
+
+        For callers that need every row to exist before they continue — session
+        restore and tests. Interactive loads must not use this: blocking is the
+        defect the slicing exists to avoid.
+        """
+        while self._pending_rows:
+            self._build_pending_rows()
 
     def set_source_mapping(self, cache_dir: Path, offset: float, drift_ppm: float) -> None:
         """Re-align one time-series source against the master clock.
@@ -482,6 +574,13 @@ class PlotPane(QWidget):
             self.update_plots()
 
     def _configure_shared_x_range(self) -> None:
+        """Set the window on the link master, which propagates to every row.
+
+        Only the master is set. Assigning a range to an already-linked child
+        feeds back through the link and rescales the master instead, which
+        desynchronised the rows it was meant to align. A row gets its range
+        *before* it is linked — see :meth:`_build_pending_rows`.
+        """
         if self._master_plot is None or self.window_duration <= 0:
             return
         self._master_plot.setXRange(0.0, self.window_duration, padding=0)

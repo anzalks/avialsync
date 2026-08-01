@@ -29,6 +29,7 @@ def test_exact_sync_flow(qtbot, tmp_path: Path):
     PyramidBuilder(cache_dir, "trigger").build_and_save(master_times, np.ones_like(master_times))
     window.plot_pane.set_timeline_bounds(float(master_times[0]), float(master_times[-1]))
     window.plot_pane.load_channels(cache_dir, ["trigger"])
+    window.plot_pane.wait_for_pending_rows()
 
     # 3. Open Sync Wizard and interact
     def interact():

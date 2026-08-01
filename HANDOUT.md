@@ -945,3 +945,15 @@ disabled playback control.
 hands those keys back, except to an editor mid-edit (caret keys only, never Space) and never
 outside this window. **The filter must be removed in `closeEvent`** — a destroyed window left
 installed on the QApplication aborts the process on the next key event (D-059).
+
+### 8i. Never build all plot rows in one call
+A row costs ~8-12 ms of Qt widget construction. Building a whole selection at once froze the window
+for 128 ms (16 channels) to 550 ms (64) — no drops, no playback keys, no close button. A user
+reporting "drag and drop doesn't work" is usually reporting this.  
+**Fix:** `PlotPane.load_channels()` queues rows; `_build_pending_rows` builds them in 12 ms slices
+with `QTimer.singleShot(0, ...)` between. Traps that cost real debugging (D-060): set a row's X
+range *before* `setXLink` (after linking it feeds back and rescales the master); call
+`graphics_layout.ci.layout.activate()` before `_configure_shared_x_range` in `_finish_loading`
+(pyqtgraph maps links through pixel geometry, and the last row is not laid out yet); do **not**
+call `_configure_shared_x_range` per slice (O(rows) → quadratic load). `cancel_pending_rows()` runs
+in `closeEvent`. Tests needing every row must call `wait_for_pending_rows()`.

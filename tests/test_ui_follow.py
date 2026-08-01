@@ -27,6 +27,9 @@ def sweep_pane(qtbot, tmp_path: Path) -> PlotPane:
     pane.presentation_combo.setCurrentText("Scope")
     pane.set_timeline_bounds(100.0, 140.0)
     pane.load_channels(tmp_path, ["alpha", "beta"])
+    # Rows are built across event-loop turns so a big load stays interactive
+    # (D-060); a test that asserts on every row must wait for them.
+    pane.wait_for_pending_rows()
     pane.set_window_duration(5.5)
     return pane
 
@@ -158,6 +161,7 @@ def test_decimated_plot_preserves_minimum_and_maximum_envelope(qtbot, tmp_path: 
     pane.presentation_combo.setCurrentText("Scope")
     pane.set_timeline_bounds(100.0, 140.0)
     pane.load_channels(tmp_path, ["spike"])
+    pane.wait_for_pending_rows()
     pane.set_window_duration(5.5)
 
     channel = pane.channels[0]

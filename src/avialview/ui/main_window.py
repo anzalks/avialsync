@@ -175,6 +175,9 @@ class MainWindow(QMainWindow):
         # Sensor source path → its sidecar cache dir, so an offset edit can find
         # the plot rows it owns without walking every channel.
         self._sensor_cache_dirs: dict[str, Path] = {}
+        # Sources whose plot rows are still being built; their exact reader-derived
+        # bounds are applied when PlotPane reports the load complete (D-060).
+        self._pending_bounds_sources: dict[str, Path] = {}
         # Accepted mappings restored from a session, applied once their
         # asynchronous import reports back.
         self._pending_sensor_mappings: dict[str, tuple[float, float]] = {}
@@ -247,6 +250,8 @@ class MainWindow(QMainWindow):
 
         # Readout panel
         self.readout_panel = ReadoutPanel(self)
+        self.plot_pane.channels_loaded.connect(self._refine_source_bounds)
+        self.plot_pane.rows_pending.connect(self._on_rows_pending)
         self.plot_pane.sources_changed.connect(self._on_sources_changed)
         self.plot_pane.sources_changed.connect(self.video_grid.set_tracking_readers)
         self.plot_pane.measure_changed.connect(self._on_measure_changed)
@@ -439,6 +444,28 @@ class MainWindow(QMainWindow):
         self._content_splitter.setSizes([620, 160])
         self._v_splitter.setSizes([380, 240])
         self._media_splitter.setSizes([700, 300])
+
+    def _refine_source_bounds(self) -> None:
+        """Apply exact reader-derived bounds once every queued row exists.
+
+        Rows are built across several event-loop turns so a large selection does
+        not freeze the window (D-060). Until they exist, `_on_import_finished`
+        uses the import worker's bounds; this replaces them with the mapped span
+        the readers actually cover, which differs whenever a source carries an
+        offset or drift.
+        """
+        for path, cache_dir in list(self._pending_bounds_sources.items()):
+            span = self.plot_pane.source_bounds(cache_dir)
+            if span is None:
+                continue
+            self._pending_bounds_sources.pop(path, None)
+            self._update_bounds(span[0], span[1])
+            self.transport.set_source_coverage(path, span[0], span[1], "data")
+
+    def _on_rows_pending(self, remaining: int) -> None:
+        """Say that rows are still appearing, so a partial plot is not read as all of it."""
+        if remaining:
+            self.transport.set_status(f"Building plot rows… {remaining} left")
 
     def _on_sources_changed(self, readers: list[Any]) -> None:
         """Forward to ReadoutPanel with accumulated units for known channels."""
@@ -1135,6 +1162,7 @@ class MainWindow(QMainWindow):
         # not skip the ones after it: that leaves those threads running and the
         # process never exits, which is the "window won't close" the user sees.
         self._close_step("releasing the application event filter", self._remove_app_event_filter)
+        self._close_step("cancelling queued plot rows", self.plot_pane.cancel_pending_rows)
         self._close_step("stopping the heartbeat", self._heartbeat.stop)
         self._close_step("stopping playback", self.player.stop)
         self._close_step("saving window geometry", self._save_geometry)
@@ -2538,7 +2566,13 @@ class MainWindow(QMainWindow):
                 Path(cache_dir), channels, offset, drift_ppm, source_id=path
             )
             self._sensor_cache_dirs[path] = Path(cache_dir)
+            # Rows are built across several event-loop turns so the window stays
+            # usable during a large selection (D-060), so reader-derived bounds
+            # may not exist yet. The worker's bounds are the correct stand-in
+            # until they do; `_refine_source_bounds` re-applies the exact span
+            # once every row exists.
             mapped = self.plot_pane.source_bounds(Path(cache_dir)) or bounds
+            self._pending_bounds_sources[path] = Path(cache_dir)
         self._update_bounds(mapped[0], mapped[1])
         self.transport.set_source_coverage(path, mapped[0], mapped[1], "data")
         self.sidebar.add_sensor(path, channels)

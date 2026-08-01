@@ -1443,3 +1443,46 @@ would leak the shortcuts into dialogs); giving the editors `NoFocus` (they must 
 `received == []` for Space pressed inside an editor — it encoded the defect as the contract. Its
 real subject, that accepting a value returns focus to a playback surface, is unchanged and still
 asserted; only the Space expectation was corrected. Covered by `tests/test_close_and_focus.py`.
+
+## 2026-08 · D-060 · Plot rows are built in time slices, so a load never takes the UI thread
+
+**Context:** reported as "drag and drop is not working" plus "many UI blockages". Drag and drop was
+measured to be fine: with the correct enter-then-drop sequence, every one of ten candidate targets
+routes exactly once. The real fault is that `PlotPane.load_channels()` built every row in one call
+at ~8-12 ms of Qt widget construction each — 128 ms for 16 channels, 550 ms for 64, worse on
+Windows with real data. During that the window processes no events at all, so drops, playback keys
+and the close button all appear dead. "Drag and drop is broken" was a symptom of the freeze.
+
+**Decision:** rows are queued and built in `_ROW_BUILD_SLICE_S` (12 ms) slices, with
+`QTimer.singleShot(0, ...)` returning control to the event loop between them. Qt graphics objects
+must be created on the UI thread, so the work cannot move to a worker; slicing is the available
+mechanism. Supporting parts:
+
+* Each slice loads pyramid data for only the rows it just built. Leaving all 64 to the end made
+  completion a 62 ms hitch; it is now 5 ms.
+* A new row gets its X range **before** it is linked. An X link only propagates on a *change* of
+  the master's range, so a row linked later kept its construction default. Setting the range after
+  linking is worse: it feeds back through the link and rescales the master.
+* `_finish_loading` activates the graphics layout before configuring the shared range. pyqtgraph
+  maps a link through the two views' *pixel* geometry, and a row created in the same call has not
+  been laid out, so the final row of every load got a wildly wrong range.
+* `_configure_shared_x_range` is **not** called per slice — it is O(rows), which made the load
+  quadratic and measurably slower (1261 ms) as it became more responsive.
+* `cancel_pending_rows()` runs in `closeEvent`. A close must never wait for construction it no
+  longer needs, and a queued slice must not fire into a pane being destroyed.
+* `channels_loaded` lets `MainWindow` re-apply exact reader-derived bounds once every row exists;
+  until then the import worker's bounds stand in. `rows_pending` reports progress so a partial plot
+  is not mistaken for the whole thing.
+* `wait_for_pending_rows()` exists for callers that genuinely need every row now — tests and
+  session restore. Interactive loads must not use it.
+
+**Measured, 64 channels:** event-loop turns serviced during the load went from 0 to 35; the worst
+single UI block from ~550 ms to ~89 ms; total load time 550 ms → 927 ms. **The load is slower on
+purpose** — yielding costs wall-clock, and a responsive window during a one-second load beats a
+frozen one during half a second. Verified interactively: Space and Home reach the playhead
+mid-load, and closing mid-load is accepted in 3 ms with the queue abandoned.
+
+**Alternatives rejected:** a worker thread (Qt graphics objects are main-thread only);
+`QApplication.processEvents()` between rows (forbidden by AGENTS, and it re-enters arbitrary
+handlers mid-construction); building rows lazily as they scroll into view (the rows must exist for
+bounds, readout and annotation wiring).
