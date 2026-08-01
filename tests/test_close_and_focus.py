@@ -17,6 +17,7 @@ Two reported defects, plus a third found while reproducing them:
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -291,3 +292,60 @@ def test_every_row_lands_on_the_shared_window(qtbot, tmp_path) -> None:
     assert len(ranges) == 8
     for observed in ranges[1:]:
         assert observed == pytest.approx(ranges[0])
+
+
+def test_completion_does_not_ride_on_the_tail_of_a_slice(qtbot, tmp_path) -> None:
+    """Finishing a load is its own event-loop turn.
+
+    `_finish_loading` costs ~19 ms. Running it directly from the last slice made
+    one block out of two and was most of what kept the worst case near 90 ms.
+    """
+    from avialview.ui.plot_pane import PlotPane
+
+    cache = _pyramid_channels(tmp_path, 8)
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    pane.resize(900, 500)
+    pane.set_timeline_bounds(0.0, 10.0)
+
+    finished: list[int] = []
+    pane.channels_loaded.connect(lambda: finished.append(1))
+    pane.load_channels(cache, [f"ch{i}" for i in range(8)])
+
+    # Drain only the row-building turns; completion must still be outstanding.
+    while pane._pending_rows:
+        qtbot.wait(1)
+    assert finished == [], "completion ran inside the final build slice"
+
+    qtbot.waitUntil(lambda: finished == [1], timeout=2000)
+
+
+def test_a_slice_stops_before_a_row_would_overrun_it(qtbot, tmp_path, monkeypatch) -> None:
+    """The budget is checked before the next row, not after one already overran.
+
+    Checking afterwards let a slice run to roughly twice its budget whenever a
+    row started just under the deadline.
+    """
+    from avialview.ui import plot_pane as plot_pane_module
+
+    cache = _pyramid_channels(tmp_path, 12)
+    pane = plot_pane_module.PlotPane()
+    qtbot.addWidget(pane)
+    pane.resize(900, 500)
+    pane.set_timeline_bounds(0.0, 10.0)
+
+    # A row that costs the entire budget: exactly one may be built per slice.
+    real_create = plot_pane_module.create_channel_plot
+
+    def slow_create(*args, **kwargs):
+        result = real_create(*args, **kwargs)
+        time.sleep(plot_pane_module._ROW_BUILD_SLICE_S)
+        return result
+
+    monkeypatch.setattr(plot_pane_module, "create_channel_plot", slow_create)
+
+    pane.load_channels(cache, [f"ch{i}" for i in range(12)])
+
+    assert len(pane.channels) == 1, (
+        f"a slice built {len(pane.channels)} rows when each one costs the whole budget"
+    )

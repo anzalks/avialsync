@@ -957,3 +957,9 @@ range *before* `setXLink` (after linking it feeds back and rescales the master);
 (pyqtgraph maps links through pixel geometry, and the last row is not laid out yet); do **not**
 call `_configure_shared_x_range` per slice (O(rows) → quadratic load). `cancel_pending_rows()` runs
 in `closeEvent`. Tests needing every row must call `wait_for_pending_rows()`.
+
+Keeping the worst block near one row's cost needs three more things: stop a slice before the *next*
+row would overrun (not after one already has); load each row's pyramid data inside the timed
+region; and run completion in its own event-loop turn instead of on the tail of the last slice.
+Both deferrals must use the context-object overload `QTimer.singleShot(0, self, slot)` — otherwise
+Qt fires into a destroyed `PlotPane` and raises `Internal C++ object already deleted`.

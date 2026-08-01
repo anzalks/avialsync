@@ -1476,11 +1476,28 @@ mechanism. Supporting parts:
 * `wait_for_pending_rows()` exists for callers that genuinely need every row now — tests and
   session restore. Interactive loads must not use it.
 
-**Measured, 64 channels:** event-loop turns serviced during the load went from 0 to 35; the worst
-single UI block from ~550 ms to ~89 ms; total load time 550 ms → 927 ms. **The load is slower on
-purpose** — yielding costs wall-clock, and a responsive window during a one-second load beats a
-frozen one during half a second. Verified interactively: Space and Home reach the playhead
-mid-load, and closing mid-load is accepted in 3 ms with the queue abandoned.
+**Measured, 64 channels.** First pass: event-loop turns serviced went from 0 to 35, worst single
+UI block ~550 ms → ~89 ms. Three further changes took it the rest of the way:
+
+* the slice stops before the *next* row would overrun, not after one already has — checking
+  afterwards let a slice run to roughly twice its budget;
+* each row's pyramid data loads inside the timed region, so the budget covers it;
+* completion runs in its own event-loop turn rather than on the tail of the last slice, which had
+  been making one block out of two.
+
+`_ROW_BUILD_SLICE_S` was then chosen by measurement rather than reasoning: 12 ms gave a 31-38 ms
+worst block, 5 ms was no better (39 ms), and 8 ms won on every axis. Final: **worst single UI block
+18-37 ms** (from ~550 ms), event-loop turns 55-64, total load 614-946 ms against 550 ms originally.
+A slice always builds at least one row, so a single expensive row sets the floor — the worst case
+cannot go below one row's cost by shrinking the slice further.
+
+**The load is slower on purpose** — yielding costs wall-clock, and a responsive window during a
+one-second load beats a frozen one during half a second. Verified interactively: Space and Home
+reach the playhead mid-load, and closing mid-load is accepted in 3 ms with the queue abandoned.
+
+Both deferrals use `QTimer.singleShot(0, self, slot)` — the context-object overload. Without it Qt
+fires the callback into a destroyed `PlotPane` and raises `Internal C++ object already deleted`,
+which surfaced as two benchmark failures.
 
 **Alternatives rejected:** a worker thread (Qt graphics objects are main-thread only);
 `QApplication.processEvents()` between rows (forbidden by AGENTS, and it re-enters arbitrary

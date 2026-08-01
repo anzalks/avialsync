@@ -52,9 +52,14 @@ _CURSOR_REPAINT_SLACK_S = 1.0 / 120.0
 #: How long row construction may hold the UI thread before yielding. One row
 #: costs ~8-12 ms of Qt widget construction, so a large channel selection has to
 #: be built across several event-loop turns or the window stops answering
-#: entirely — no playback keys, no drops, no close button (D-060). Below one
-#: 60 Hz frame, so a load stays interactive.
-_ROW_BUILD_SLICE_S = 0.012
+#: entirely — no playback keys, no drops, no close button (D-060).
+#:
+#: Chosen by measuring a 64-channel load, not by reasoning: 12 ms gave a 31-38 ms
+#: worst block, 5 ms was no better (39 ms), and 8 ms won on every axis — an
+#: 18-33 ms worst block *and* the shortest total load. A slice always builds at
+#: least one row, so one expensive row sets the floor: shrinking this further
+#: cannot push the worst case below the cost of a single row.
+_ROW_BUILD_SLICE_S = 0.008
 
 
 class PlotPane(QWidget):
@@ -122,6 +127,9 @@ class PlotPane(QWidget):
         self._last_point_budget = 0
         self._last_cursor_repaint = 0.0
         self._pending_rows: list[tuple[Path, str, TimeMap, str]] = []
+        # Worst observed cost of one row, used to stop a slice before the next
+        # row would overrun its budget rather than after one already has.
+        self._row_build_cost_s = 0.0
         self._page_label_text: str | None = None
 
         # State
@@ -201,9 +209,9 @@ class PlotPane(QWidget):
         so the work cannot move to a worker; it is sliced instead, and a
         zero-delay timer hands control back to the event loop between slices.
         """
-        deadline = time.monotonic() + _ROW_BUILD_SLICE_S
-        built: list[ChannelPlot] = []
+        started = time.monotonic()
         while self._pending_rows:
+            row_started = time.monotonic()
             cache_dir, name, time_map, source_id = self._pending_rows.pop(0)
             row = len(self.channels)
             channel = create_channel_plot(
@@ -228,19 +236,28 @@ class PlotPane(QWidget):
                     channel.plot_item.setXRange(0.0, self.window_duration, padding=0)
                 channel.plot_item.setXLink(self._master_plot)
             self.channels.append(channel)
-            built.append(channel)
-            if time.monotonic() >= deadline:
-                break
+            # Fill this row in now rather than leaving all 64 pyramid queries to
+            # the end, and inside the timed region so the slice budget covers it.
+            self._refresh_rows([channel])
 
-        # Fill in this slice's rows now rather than leaving every row's pyramid
-        # query to the end: 64 of them at once was a 62 ms hitch on completion.
-        self._refresh_rows(built)
+            # Stop before the *next* row would overrun, not after this one
+            # already has. Checking afterwards let a slice run to twice its
+            # budget whenever a row started just under the deadline.
+            self._row_build_cost_s = max(self._row_build_cost_s, time.monotonic() - row_started)
+            elapsed = time.monotonic() - started
+            if elapsed + self._row_build_cost_s > _ROW_BUILD_SLICE_S:
+                break
 
         if self._pending_rows:
             self.rows_pending.emit(len(self._pending_rows))
-            QTimer.singleShot(0, self._build_pending_rows)
+            # Context-object overload: Qt drops the callback if this pane is
+            # destroyed first, instead of firing into a deleted C++ object.
+            QTimer.singleShot(0, self, self._build_pending_rows)
             return
-        self._finish_loading()
+        # Completion is its own event-loop turn. Stacking it onto the tail of a
+        # slice made one block out of two, which is what kept the worst-case
+        # near 90 ms.
+        QTimer.singleShot(0, self, self._finish_loading)
 
     def _refresh_rows(self, channels: list[ChannelPlot]) -> None:
         """Load pyramid data for *channels* only, if a page is established."""
@@ -292,6 +309,9 @@ class PlotPane(QWidget):
         """
         while self._pending_rows:
             self._build_pending_rows()
+        # `_build_pending_rows` defers completion to the event loop; a caller
+        # that asked to wait needs it applied before it continues.
+        self._finish_loading()
 
     def set_source_mapping(self, cache_dir: Path, offset: float, drift_ppm: float) -> None:
         """Re-align one time-series source against the master clock.
