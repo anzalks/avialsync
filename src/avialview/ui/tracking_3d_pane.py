@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from avialview.core.channel_reader import MappedChannelReader
 from avialview.core.timeline import TimeMap
-from avialview.ui.tracking_colors import color_for_point
+from avialview.ui.tracking_colors import color_for_point, register_points
 
 _MAX_LABELS = 24
 _SAMPLE_TOLERANCE_S = 0.1
@@ -282,6 +282,10 @@ class Tracking3DCanvas(QWidget):
         """Select complete XYZ triplets and retain only their mmap-backed arrays."""
         self._sources = _build_sources(readers)
         self._names = tuple(point.name for source in self._sources for point in source.points)
+        # Colours are decided here, on the whole point set, rather than at paint
+        # time: a body part the 2D overlay already named keeps that colour, and
+        # one only this view knows about gets its own.
+        register_points(self._names)
         self._positions = np.full((len(self._names), 3), np.nan, dtype=np.float64)
         self._valid = np.zeros(len(self._names), dtype=bool)
         self._has_scene_bounds = False

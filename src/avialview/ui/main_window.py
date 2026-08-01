@@ -2665,6 +2665,12 @@ class MainWindow(QMainWindow):
             logger.warning("2D pose source %s produced no complete XY points.", path)
             return
 
+        # Decide colours now, while the whole set of body parts for this source
+        # is in hand, so the overlay and the 3D view agree from the first paint.
+        from avialview.ui.tracking_colors import register_points
+
+        register_points(points)
+
         self._overlay_sources.setdefault(video, {})[path] = {
             "label": str(config.get("overlay_label", Path(path).stem)),
             "is_ensemble": bool(config.get("overlay_is_ensemble", False)),
