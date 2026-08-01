@@ -45,8 +45,20 @@ def human_file_size(size_bytes: int) -> str:
     return "0 B"
 
 
-def format_video_osd(t: float, current_fps: float, metadata: VideoMetadata) -> str:
-    """Build the compact, timestamp-authoritative video-pane information block."""
+def format_video_osd(
+    t: float,
+    current_fps: float,
+    metadata: VideoMetadata,
+    frame: tuple[int, int | None] | None = None,
+) -> str:
+    """Build the compact, timestamp-authoritative video-pane information block.
+
+    ``frame`` is ``(index, total)``, both counted the way every other frame
+    number in the app is: zero-based, so what the overlay shows is the same
+    integer an exported annotation row or a DLC sidecar carries.  It is None
+    when the rate is unknown, because a guessed frame number would be indistin-
+    guishable from a measured one.
+    """
     h = int(t // 3600)
     m = int((t % 3600) // 60)
     s = t % 60
@@ -60,16 +72,36 @@ def format_video_osd(t: float, current_fps: float, metadata: VideoMetadata) -> s
         measured = metadata.measured_fps or current_fps
         rate_lines = f"CFR: {metadata.nominal_fps:.3f} fps · measured {measured:.3f}"
     codec = metadata.codec.upper() if metadata.codec else "UNKNOWN"
+    if frame is None:
+        frame_text = "—"
+    else:
+        index, total = frame
+        frame_text = f"{index}" if total is None else f"{index} / {total - 1}"
     return (
         f"Time: {h:02d}:{m:02d}:{s:06.3f}\n"
+        f"Frame: {frame_text}\n"
         f"{rate_lines}\n"
         f"Codec: {codec} · Size: {human_file_size(metadata.file_size_bytes)}"
     )
 
 
+#: Slack on every comparison between a decoder timestamp and the frame table.
+#:
+#: The table comes from ``ffprobe``, which prints ``pts_time`` rounded to six
+#: decimals, while libmpv reports the unrounded value: frame 2 of 30 fps footage
+#: is ``0.066667`` in the table and ``0.06666666666666667`` from the decoder.  A
+#: frame's own timestamp can therefore land *below* its own table entry, which a
+#: strict search reads as the frame before it — so the readout named the wrong
+#: frame and a forward step returned the frame already on screen, i.e. did
+#: nothing.  One rounding quantum absorbs that.  It is thousands of times
+#: shorter than any real inter-frame interval (4.3 ms even at 230 fps), so it
+#: can never reach past a neighbouring frame.
+_PTS_EPSILON_S = 1e-6
+
+
 def frame_index_at(frame_times: np.ndarray, source_time: float) -> int:
     """Return the presentation frame active at ``source_time``."""
-    index = int(np.searchsorted(frame_times, source_time, side="right")) - 1
+    index = int(np.searchsorted(frame_times, source_time + _PTS_EPSILON_S, side="right")) - 1
     return max(0, min(index, len(frame_times) - 1))
 
 
@@ -78,12 +110,16 @@ def adjacent_frame_time(
     source_time: float,
     direction: int,
 ) -> float:
-    """Return the adjacent real presentation timestamp."""
+    """Return the adjacent real presentation timestamp.
+
+    Anchored on the frame *containing* ``source_time`` — the one the decoder is
+    showing — so a step always lands on a different frame.
+    """
     if direction > 0:
-        index = int(np.searchsorted(frame_times, source_time, side="right"))
+        index = int(np.searchsorted(frame_times, source_time + _PTS_EPSILON_S, side="right"))
         index = min(index, len(frame_times) - 1)
     else:
-        index = int(np.searchsorted(frame_times, source_time, side="left")) - 1
+        index = int(np.searchsorted(frame_times, source_time - _PTS_EPSILON_S, side="left")) - 1
         index = max(index, 0)
     return float(frame_times[index])
 
@@ -112,8 +148,24 @@ class VideoTimingMixin:
         """Queue the concrete pane's coalesced UI-thread update."""
         raise NotImplementedError
 
+    def _source_frame(self, source_time: float) -> tuple[int, int | None] | None:
+        """Return ``(index, total)`` for the frame on screen at *source_time*.
+
+        Costs one binary search over the decoded presentation timestamps — a
+        few microseconds, paid at most ``_OSD_MAX_HZ`` times per pane because
+        the only caller is the already-coalesced OSD paint.  Nothing here
+        touches libmpv, so it cannot contend with the decoder threads.
+        """
+        frame_times = self._frame_times
+        if frame_times is not None and len(frame_times):
+            return frame_index_at(frame_times, source_time), len(frame_times)
+        fps = self._nominal_fps or self._decoder_fps
+        if fps <= 0:
+            return None
+        return max(0, int(source_time * fps)), None
+
     def _update_osd(self, t: float, fps: float) -> None:
-        self.lbl_osd.setText(format_video_osd(t, fps, self._metadata))
+        self.lbl_osd.setText(format_video_osd(t, fps, self._metadata, self._source_frame(t)))
         # The overlay's data readers expect master time (via MappedChannelReader)
         master_t = self.time_map.to_master(t)
         self.paint_canvas.update_time(master_t)

@@ -10,8 +10,10 @@ from avialview.core.timeline import TimeMap
 from avialview.ui.video_pane import PaintCanvas
 from avialview.ui.video_timing import (
     VideoTimingMixin,
+    adjacent_frame_time,
     displayed_frame_rate,
     format_video_osd,
+    frame_index_at,
     instantaneous_frame_rate,
 )
 
@@ -63,6 +65,56 @@ def test_cfr_osd_shows_measured_timestamp_rate() -> None:
 
     assert "CFR: 29.970 fps · measured 29.969" in text
     assert "Codec: HEVC · Size: 1.5 KB" in text
+
+
+def test_osd_frame_number_comes_from_the_decoded_timestamps() -> None:
+    """The overlay frame must be the decoded one, matching exported annotations."""
+
+    class _Harness(VideoTimingMixin):
+        def _apply_rate(self) -> None:
+            pass
+
+    timing = _Harness()
+    timing._frame_times = np.array([0.0, 0.033, 0.100])
+    timing._nominal_fps = 30.0
+    timing._decoder_fps = 0.0
+
+    assert timing._source_frame(0.050) == (1, 3)
+    assert format_video_osd(0.05, 30.0, VideoMetadata(), timing._source_frame(0.05)).splitlines()[
+        1
+    ] == ("Frame: 1 / 2")
+
+
+def test_frame_lookup_survives_the_frame_table_being_rounded_to_microseconds() -> None:
+    """ffprobe rounds pts_time to 6 decimals; libmpv does not.
+
+    A frame's own decoder timestamp can land just below its own table entry, so
+    a strict search named the previous frame and a forward step returned the
+    frame already on screen — arrow keys that did nothing.
+    """
+    table = np.round(np.arange(300) / 30.0, 6)  # what ffprobe emits
+    for k in (1, 2, 5, 150, 298):
+        decoder_time = k / 30.0  # what libmpv reports for that same frame
+
+        assert frame_index_at(table, decoder_time) == k
+        assert adjacent_frame_time(table, decoder_time, 1) == table[k + 1]
+        assert adjacent_frame_time(table, decoder_time, -1) == table[k - 1]
+
+
+def test_osd_frame_number_is_withheld_when_no_rate_is_known() -> None:
+    """A guessed frame number would be indistinguishable from a measured one."""
+
+    class _Harness(VideoTimingMixin):
+        def _apply_rate(self) -> None:
+            pass
+
+    timing = _Harness()
+    timing._frame_times = None
+    timing._nominal_fps = 0.0
+    timing._decoder_fps = 0.0
+
+    assert timing._source_frame(12.5) is None
+    assert "Frame: —" in format_video_osd(12.5, 0.0, VideoMetadata(), None)
 
 
 def test_exact_seek_settles_only_after_state_and_target_evidence() -> None:
