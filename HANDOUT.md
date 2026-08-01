@@ -925,3 +925,23 @@ points, past the budget and into pyqtgraph.
 read to `<16 * max_points`) and aggregates down to the budget. A window whose raw samples already
 fit is returned exact, with `vmin == vmax` and no envelope. Keep one column per pixel: drawing
 fewer is the defect, not an optimisation (D-058).
+
+### 8g. Shutdown steps are isolated and ordered; never let one raise skip the rest
+Each `VideoPane` owns a libmpv event thread that outlives its widget, so a step that raises before
+`video_grid.shutdown()` leaves those threads running and the process never exits — the window
+appears to refuse to close.  
+**Fix:** every `closeEvent` step goes through `MainWindow._close_step` (log and continue);
+`VideoGrid.shutdown()` isolates each pane; `_release_mpv_render_context` guards `makeCurrent`.
+**Order is load-bearing:** `_build_session_state()` reads `video_grid.panes`, so the autosave and
+geometry save run *before* `video_grid.shutdown()` clears them. Running it after wrote a session
+with zero videos (D-059).
+
+### 8h. Text editors steal the playhead keys unless they are explicitly reserved
+Qt offers every key to the focused widget as a `ShortcutOverride` before running a window shortcut.
+`QLineEdit` and `QAbstractSpinBox` accept it for Space/arrows/Home/End — those are the only two of
+37 focusable widget classes that do — so one click into the time field or the sweep-length spin box
+disabled playback control.  
+**Fix:** `MainWindow` is installed as an application-level event filter and `_reserve_playhead_key`
+hands those keys back, except to an editor mid-edit (caret keys only, never Space) and never
+outside this window. **The filter must be removed in `closeEvent`** — a destroyed window left
+installed on the QApplication aborts the process on the next key event (D-059).

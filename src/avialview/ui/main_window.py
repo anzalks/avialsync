@@ -3,15 +3,26 @@
 import dataclasses
 import logging
 from collections import deque
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol, cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QThread, QTimer, Signal, Slot
-from PySide6.QtGui import QAction, QCloseEvent, QDragEnterEvent, QDropEvent, QImage
+from PySide6.QtGui import (
+    QAction,
+    QCloseEvent,
+    QDragEnterEvent,
+    QDropEvent,
+    QImage,
+    QKeyEvent,
+)
 from PySide6.QtWidgets import (
+    QAbstractSpinBox,
+    QApplication,
     QFileDialog,
     QHBoxLayout,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -47,6 +58,37 @@ from avialview.ui.video_grid import VideoGrid
 logger = logging.getLogger(__name__)
 
 _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
+
+#: Keys that drive the playhead and must reach it from anywhere in the window.
+#: Qt offers each of these to the focused widget first, and text editors accept
+#: them, which is how one click into a spin box used to disable playback control
+#: (D-059).
+_PLAYHEAD_KEYS = frozenset(
+    {
+        Qt.Key.Key_Space,
+        Qt.Key.Key_Left,
+        Qt.Key.Key_Right,
+        Qt.Key.Key_Home,
+        Qt.Key.Key_End,
+        Qt.Key.Key_Comma,
+        Qt.Key.Key_Period,
+    }
+)
+
+
+def _is_mid_edit(widget: QWidget) -> bool:
+    """Return whether *widget* is a text editor with an edit in progress.
+
+    Only such a widget keeps the caret keys; an editor merely holding focus has
+    no claim on them.
+    """
+    if isinstance(widget, QLineEdit):
+        return bool(widget.isModified())
+    if isinstance(widget, QAbstractSpinBox):
+        line_edit = widget.lineEdit()
+        return bool(line_edit is not None and line_edit.isModified())
+    return False
+
 
 #: Concurrent ffprobe metadata/timestamp probes.  Bounded because each one
 #: spawns a subprocess and reads from the same disk; unbounded fan-out on a
@@ -281,6 +323,14 @@ class MainWindow(QMainWindow):
         ):
             drop_target.setAcceptDrops(True)
             drop_target.installEventFilter(self)
+
+        # Qt delivers ShortcutOverride to whichever widget has focus, not to the
+        # window, so reserving the playhead keys needs an application-wide
+        # filter. `_reserve_playhead_key` scopes every decision back to this
+        # window, so dialogs keep their own editing keys (D-059).
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            app.installEventFilter(self)
 
         # Menu
         self._setup_menu()
@@ -1062,23 +1112,60 @@ class MainWindow(QMainWindow):
         commits are atomic, so an abandoned job leaves the previous valid
         sidecar rather than a half-written one.
         """
-        self._heartbeat.stop()
-        self.player.stop()
-        abandoned = self._job_manager.shutdown()
-        for registry in (
-            self._video_load_jobs,
-            self._data_export_jobs,
-            self._region_stats_jobs,
-            self._video_clip_jobs,
-            self._snapshot_jobs,
-        ):
-            _quit_legacy_jobs(registry)
-        if abandoned:
-            logger.warning("Closed while %d job(s) were still running.", len(abandoned))
-        self.video_grid.shutdown()
-        self._save_geometry()
-        self._autosave_before_close()
+
+        def _quit_all_legacy_jobs() -> None:
+            for registry in (
+                self._video_load_jobs,
+                self._data_export_jobs,
+                self._region_stats_jobs,
+                self._video_clip_jobs,
+                self._snapshot_jobs,
+            ):
+                _quit_legacy_jobs(registry)
+
+        # Ordering matters twice over.
+        #
+        # State is captured before anything is torn down: `_build_session_state`
+        # reads `video_grid.panes`, and `video_grid.shutdown()` clears them, so
+        # running the autosave afterwards wrote a session with zero videos and
+        # silently discarded the user's video list on every close (D-059).
+        #
+        # libmpv teardown goes last, and every step is isolated. Each pane owns
+        # an event thread that outlives its widget, so a step that raises must
+        # not skip the ones after it: that leaves those threads running and the
+        # process never exits, which is the "window won't close" the user sees.
+        self._close_step("releasing the application event filter", self._remove_app_event_filter)
+        self._close_step("stopping the heartbeat", self._heartbeat.stop)
+        self._close_step("stopping playback", self.player.stop)
+        self._close_step("saving window geometry", self._save_geometry)
+        self._close_step("writing the final autosave", self._autosave_before_close)
+        self._close_step("stopping background jobs", self._job_manager.shutdown)
+        self._close_step("stopping legacy jobs", _quit_all_legacy_jobs)
+        self._close_step("shutting down video panes", self.video_grid.shutdown)
         super().closeEvent(event)
+
+    def _remove_app_event_filter(self) -> None:
+        """Detach from the application before this window is destroyed.
+
+        A filter installed on the QApplication outlives the widget that
+        installed it. Leaving a destroyed window in that chain means the next
+        key event calls into a deleted C++ object, which aborts the process.
+        """
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            app.removeEventFilter(self)
+
+    @staticmethod
+    def _close_step(description: str, step: Callable[[], object]) -> None:
+        """Run one shutdown step; log and continue if it fails.
+
+        Closing is the one path with no later chance to recover. A raised
+        exception here used to abandon every remaining step.
+        """
+        try:
+            step()
+        except Exception:
+            logger.exception("Ignoring a failure while %s during shutdown", description)
 
     # ── Drag and Drop ────────────────────────────────────────────────
 
@@ -1087,14 +1174,52 @@ class MainWindow(QMainWindow):
             event.acceptProposedAction()
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        """Forward drops over child panes to the main-window source router."""
-        if event.type() == QEvent.Type.DragEnter:
+        """Forward drops over child panes, and keep the playhead keys reserved."""
+        event_type = event.type()
+        if event_type == QEvent.Type.ShortcutOverride and self._reserve_playhead_key(event):
+            # Ignoring a ShortcutOverride is what lets the window QAction run.
+            event.ignore()
+            return True
+        if event_type == QEvent.Type.DragEnter:
             self.dragEnterEvent(cast(QDragEnterEvent, event))
             return event.isAccepted()
-        if event.type() == QEvent.Type.Drop:
+        if event_type == QEvent.Type.Drop:
             self.dropEvent(cast(QDropEvent, event))
             return event.isAccepted()
         return super().eventFilter(watched, event)
+
+    def _reserve_playhead_key(self, event: QEvent) -> bool:
+        """Return whether this key belongs to the playhead rather than the focus widget.
+
+        Qt offers every key to the focused widget as a ShortcutOverride before
+        running a window shortcut. ``QLineEdit`` and ``QAbstractSpinBox`` accept
+        that offer for Space, the arrows, Home and End, so one click into the
+        transport's time field or the sweep-length spin box silently killed
+        every playhead binding until focus moved elsewhere (D-059).
+
+        Those keys are given back to the playhead, with one exception: a text
+        editor the user is part-way through typing into keeps its caret keys, so
+        correcting a half-entered timecode still works. Space is never returned
+        to the editor — neither a timecode nor a number contains one.
+        """
+        if not isinstance(event, QKeyEvent):
+            return False
+        key = event.key()
+        if key not in _PLAYHEAD_KEYS:
+            return False
+
+        app = QApplication.instance()
+        focus = app.focusWidget() if isinstance(app, QApplication) else None
+        if focus is None:
+            return False
+        # Never reach into a dialog: its own editors own their keys, and the
+        # window shortcuts are not active for it anyway.
+        if focus.window() is not self:
+            return False
+
+        if key != Qt.Key.Key_Space and _is_mid_edit(focus):
+            return False
+        return True
 
     def dropEvent(self, event: QDropEvent) -> None:
         if not event.mimeData().hasUrls():

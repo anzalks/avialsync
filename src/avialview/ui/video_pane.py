@@ -34,16 +34,25 @@ _OSD_DUE_EPSILON_S = 0.001
 
 
 def _release_mpv_render_context(widget: Any) -> None:
-    """Free a libmpv OpenGL render context before its client is terminated."""
+    """Free a libmpv OpenGL render context before its client is terminated.
+
+    ``makeCurrent`` is inside the guarded region on purpose: it fails on a
+    widget whose surface was never created or is already gone, and an escaping
+    exception here used to abort the whole shutdown loop and strand the
+    remaining panes' libmpv event threads (D-059).
+    """
     context = getattr(widget, "ctx", None)
     if context is None:
         return
-    widget.makeCurrent()
     try:
+        widget.makeCurrent()
         context.free()
     finally:
         widget.ctx = None
-        widget.doneCurrent()
+        try:
+            widget.doneCurrent()
+        except Exception:
+            logger.debug("Could not release the GL context", exc_info=True)
 
 
 def _shutdown_mpv_client(player: Any, gl_widget: Any | None = None) -> None:
@@ -581,6 +590,16 @@ class VideoPane(VideoTimingMixin, QWidget):
         Returns whatever ``QWidget.close`` returns: this overrides a Qt method,
         and callers (and Qt itself) may act on the result.
         """
+        # Stop the deferred OSD paint before the widgets it touches go away:
+        # a timer that fires during teardown paints into a half-destroyed pane.
+        timer = self._osd_flush_timer
+        if timer is not None:
+            try:
+                timer.stop()
+            except RuntimeError:
+                logger.debug("OSD flush timer was already destroyed", exc_info=True)
+            self._osd_flush_timer = None
+
         player = self.mpv
         if player:
             gl_widget = getattr(self, "gl_widget", None)

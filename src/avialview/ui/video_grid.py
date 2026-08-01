@@ -1,5 +1,6 @@
 """Video grid layout manager."""
 
+import logging
 import math
 from collections.abc import Callable
 from pathlib import Path
@@ -10,6 +11,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
 
 from avialview.ui.video_pane import VideoPane
+
+logger = logging.getLogger(__name__)
 
 
 class VideoGrid(QWidget):
@@ -156,10 +159,22 @@ class VideoGrid(QWidget):
             self.displayed_panes_changed.emit()
 
     def shutdown(self) -> None:
-        """Terminate all libmpv panes before their Qt parent is destroyed."""
+        """Terminate all libmpv panes before their Qt parent is destroyed.
+
+        Each pane is torn down independently. A pane owns a libmpv event thread
+        that outlives its widget, so letting one failure abort the loop leaves
+        every later pane's thread running and the process never exits — the
+        window appears to refuse to close (D-059).
+        """
         for pane in self.panes:
-            pane.close()
-            pane.deleteLater()
+            try:
+                pane.close()
+            except Exception:
+                logger.exception("Ignoring a failure while closing a video pane")
+            try:
+                pane.deleteLater()
+            except RuntimeError:
+                logger.debug("Video pane was already destroyed", exc_info=True)
         self.panes.clear()
         self._paths.clear()
         self._fullscreen_pane = None

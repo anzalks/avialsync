@@ -238,7 +238,16 @@ def test_entered_time_editor_returns_focus_to_playback_surface(
     qtbot,
     editor_name: str,
 ) -> None:
-    """An accepted time value must make the next Space a playback command."""
+    """Accepting a time value returns focus to a playback surface.
+
+    This used to also assert that Space *inside* the editor did nothing. That
+    was the defect, not the contract: a numeric editor holding focus silently
+    disabled every playhead key until the user happened to press Return, which
+    is what "the key bindings stop working after some operations" meant. Space
+    is now a playback command from anywhere in the window — no timecode or
+    number contains one (D-059). Returning focus on accept still matters, and
+    is what this test guards.
+    """
     received: list[bool] = []
     main_window.transport.play_toggled.connect(received.append)
     if editor_name == "plot_limit":
@@ -252,13 +261,13 @@ def test_entered_time_editor_returns_focus_to_playback_surface(
 
     editor.setFocus()
     qtbot.keyClick(editor, Qt.Key.Key_Space)
-    assert received == []
+    assert received == [True], "Space must reach playback even from an editor"
 
     qtbot.keyClick(editor, Qt.Key.Key_Return)
     assert QApplication.focusWidget() is expected_focus
 
     qtbot.keyClick(expected_focus, Qt.Key.Key_Space)
-    assert received == [True]
+    assert received == [True, False], "and must keep toggling once focus returns"
 
 
 # ── Shortcuts dialog derives from registry (D-022.6) ──────────────────────────

@@ -1393,3 +1393,53 @@ columns-per-pixel at 16 rows: 1.0 → 13.7 ms, 0.5 → 9.9 ms, 0.25 → 7.2 ms. 
 kept.** Below that the trace is visibly under-resolved, which is the defect this entry fixes; buying
 back UI-thread time by drawing less of the signal is not a trade this project makes. Sessions with
 very many plot rows should hide rows rather than have every row drawn wrong.
+
+## 2026-08 · D-059 · Shutdown is fault-isolated and ordered; the playhead keys are reserved
+
+**Context:** two reported defects, plus a third found while reproducing them.
+
+*The window sometimes would not close.* `closeEvent` ran its teardown steps in bare sequence. A
+raise in any step skipped every later one — including `video_grid.shutdown()`. Each pane owns a
+libmpv event thread that outlives its widget, so a stranded pane keeps the process alive after the
+window hides. The trigger is state-dependent, which is why it was intermittent:
+`_release_mpv_render_context` called `widget.makeCurrent()` *outside* its `try`, and that raises on
+a `QOpenGLWidget` whose surface was never created or is already gone.
+
+*Playhead keys stopped working after some operations.* Qt offers every key to the focused widget as
+a `ShortcutOverride` before running a window shortcut. Probing all 37 focusable widgets in the
+window showed exactly two classes accept that offer: `QLineEdit` and `QAbstractSpinBox`, and they
+take Space, Left, Right, Home and End. Both are one click away — the transport's time field and the
+sweep-length spin box — so a single click silently disabled playback control.
+
+*The final autosave wrote a session with no videos.* `_build_session_state()` reads
+`video_grid.panes`, and `closeEvent` called `video_grid.shutdown()` — which clears them — first.
+Measured directly: two open videos, zero written. Every close with a session open discarded the
+user's video list.
+
+**Decision:**
+
+1. Every `closeEvent` step runs through `_close_step`, which logs and continues. Closing is the one
+   path with no later chance to recover, so no single failure may abandon the rest.
+2. State is captured before anything is torn down: geometry and the final autosave run first, and
+   libmpv teardown runs last.
+3. `VideoGrid.shutdown()` isolates each pane, so one pane's failure cannot strand the next pane's
+   event thread. `_release_mpv_render_context` guards `makeCurrent` and `doneCurrent` too.
+4. Space, Left, Right, Home, End, comma and period are reserved for the playhead across the window
+   via an application-level `ShortcutOverride` filter. Two exceptions: a text editor the user is
+   part-way through typing into keeps its caret keys (`QLineEdit.isModified()`), so correcting a
+   half-entered timecode still works; and the filter never applies outside this window, so a
+   dialog's editors keep everything.
+5. **Space is never returned to an editor.** No timecode and no number contains one.
+6. The filter is removed in `closeEvent`. A filter installed on the `QApplication` outlives the
+   widget that installed it, and a destroyed window left in that chain aborts the process on the
+   next key event.
+
+**Alternatives rejected:** restoring focus to a neutral widget after each operation (only fixes the
+paths someone remembers to wire, and the defect is that focus is *somewhere unexpected*);
+`Qt.ShortcutContext.ApplicationShortcut` (does not change which widget wins a ShortcutOverride, and
+would leak the shortcuts into dialogs); giving the editors `NoFocus` (they must be typeable).
+
+**Consequences:** `test_entered_time_editor_returns_focus_to_playback_surface` asserted
+`received == []` for Space pressed inside an editor — it encoded the defect as the contract. Its
+real subject, that accepting a value returns focus to a playback surface, is unchanged and still
+asserted; only the Space expectation was corrected. Covered by `tests/test_close_and_focus.py`.
