@@ -1503,3 +1503,58 @@ which surfaced as two benchmark failures.
 `QApplication.processEvents()` between rows (forbidden by AGENTS, and it re-enters arbitrary
 handlers mid-construction); building rows lazily as they scroll into view (the rows must exist for
 bounds, readout and annotation wiring).
+
+## 2026-08 · D-061 · Panes keep their share of the window; controls keep their size
+
+**Context:** resizing the window did not rescale the workspace. `QSplitter` distributes only the
+*delta* of a resize, by stretch factor, and a pane already sitting on its minimum absorbs none of
+it — its sibling takes the entire change. Measured on the built window:
+
+| window | video : plots | video : 3D |
+|---|---|---|
+| 1280x800 | 34 : 66 | 59 : 41 |
+| 1000x600 | 47 : 53 | 47 : 53 |
+| 2000x1200 | 29 : 71 | 61 : 39 |
+
+The drift is one-way: growing the window back did not restore the ratio, so a session accumulated
+skew every time the window changed size. Two floors caused the pinning — the empty video area's
+drop-target placeholder (`lbl_empty`, a hard 200 px minimum height) and the 3D pane's header row
+(406 px minimum width).
+
+Separately, `_apply_default_splitter_sizes` never took effect. Its pixel counts were discarded by
+the first real resize, so what a fresh profile actually got was decided by whichever pane had the
+largest minimum — for the vertical split, the placeholder above.
+
+**Decision:**
+
+1. `ui/pane_proportions.py` reallocates each managed splitter's whole span by remembered fractions
+   on every window resize, clamping to minimums and re-sharing what is left. Managed: the
+   workspace/Data Streams, video/plots, and video/3D splitters.
+2. **Panes scale; controls do not.** No button width, icon, font size, or label text changes with
+   the window. This was the user's explicit constraint and it is not to be relaxed into a "UI scale
+   factor" later: text that resizes with the window is a different product decision, and a
+   measurement tool whose readouts change size is worse, not better.
+3. The inspector column (`_h_splitter`) is deliberately **not** managed. A source list that widens
+   with the monitor only takes width the media panes want.
+4. The remembered ratio is always one the layout actually produced. A drag records the user's
+   choice; restoring a session records what was restored; a visible pane measuring zero is refused,
+   because that is a layout that has not happened yet and recording it pins that pane forever.
+5. First-run defaults are ratios, not sizes: the same numbers seed `setSizes` and the proportion
+   store, and only the store survives the first resize.
+6. The placeholder's 200 px minimum becomes a preference, not a floor. An empty video area is still
+   readable as a drop target (`VideoGrid` minimum height 72) without dictating how the window's
+   height is shared.
+
+**Consequences:** proportions now hold exactly from 2000x1200 down to the window's minimum, and a
+shrink-then-grow returns to the original arrangement. Reallocation is coalesced at 16 ms, so a
+drag-resize costs one relayout per frame rather than one per pixel of mouse travel.
+
+Remaining floors are chrome, left untouched under decision 2: the window cannot be narrower than
+**966 px**, set by the Data Streams header row (764 px) plus the inspector (198 px), with the
+transport's timeline row close behind at 680 px. Below ~1280 px the 3D pane also stops scaling, held
+at its own header's 406 px. Narrowing further requires shortening or wrapping those rows.
+
+**Alternatives rejected:** scaling control metrics and fonts with the window (rejected by the user:
+buttons, icons, and text must not change); applying proportions only when the resize settles (the
+layout visibly snaps on release); trusting `QSplitter` stretch factors alone (they distribute the
+delta, which is the bug).

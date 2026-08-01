@@ -16,6 +16,7 @@ from PySide6.QtGui import (
     QDropEvent,
     QImage,
     QKeyEvent,
+    QResizeEvent,
 )
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
@@ -46,6 +47,7 @@ from avialview.engine.export_worker import ReaderReference
 from avialview.engine.player import Player
 from avialview.ui.annotations import AnnotationPanel, AnnotationStore
 from avialview.ui.job_manager import JobManager
+from avialview.ui.pane_proportions import PaneProportions
 from avialview.ui.plot_pane import PlotPane
 from avialview.ui.readout_panel import ReadoutPanel
 from avialview.ui.recent_files import add_recent, get_recent
@@ -58,6 +60,12 @@ from avialview.ui.video_grid import VideoGrid
 logger = logging.getLogger(__name__)
 
 _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
+
+#: How long to let window-resize events pile up before rescaling the panes.
+#: A drag-resize delivers one event per pixel of mouse travel; at this interval
+#: the panes still follow the edge continuously (~60 Hz) while the relayout runs
+#: once per frame instead of once per pixel.
+_PANE_RESIZE_COALESCE_MS = 16
 
 #: Keys that drive the playhead and must reach it from anywhere in the window.
 #: Qt offers each of these to the focused widget first, and text editors accept
@@ -312,6 +320,21 @@ class MainWindow(QMainWindow):
         # fully collapsed.  Seed explicit proportions and forbid a drag from
         # collapsing a pane to nothing: a zero-height plot area or zero-width
         # video area has no handle affordance left to bring it back.
+        # Resizing the window must rescale the panes, not hand the whole change
+        # to whichever pane happens not to be sitting on its minimum. The
+        # inspector column is deliberately left out: a source list that widens
+        # with the monitor wastes the width the media panes want.
+        self._pane_proportions = PaneProportions(self)
+        self._pane_proportions.track(
+            self._content_splitter,
+            self._v_splitter,
+            self._media_splitter,
+        )
+        self._pane_resize_timer = QTimer(self)
+        self._pane_resize_timer.setSingleShot(True)
+        self._pane_resize_timer.setInterval(_PANE_RESIZE_COALESCE_MS)
+        self._pane_resize_timer.timeout.connect(self._pane_proportions.reapply)
+
         self._enforce_splitter_policy()
         self._apply_default_splitter_sizes()
 
@@ -435,15 +458,30 @@ class MainWindow(QMainWindow):
                 return
 
     def _apply_default_splitter_sizes(self) -> None:
-        """Seed proportional splitter sizes so no pane starts with zero pixels.
+        """Seed the first-run pane layout, as sizes now and as shares thereafter.
 
         Called before any saved state is restored; ``_restore_geometry`` still
         wins when the user has arranged the window before.
+
+        These pixel counts have only ever described a *ratio*: the first window
+        resize redistributes them by stretch factor and minimum size, so what a
+        new profile actually got was decided by whichever pane had the largest
+        minimum — for the vertical split, an empty drop-target placeholder.
+        Handing the same ratios to the proportion store is what makes the
+        intent below the thing the user sees.
         """
-        self._h_splitter.setSizes([280, 1000])
-        self._content_splitter.setSizes([620, 160])
-        self._v_splitter.setSizes([380, 240])
-        self._media_splitter.setSizes([700, 300])
+        defaults = (
+            (self._h_splitter, (280, 1000)),
+            (self._content_splitter, (620, 160)),
+            (self._v_splitter, (380, 240)),
+            (self._media_splitter, (700, 300)),
+        )
+        for splitter, sizes in defaults:
+            splitter.setSizes(list(sizes))
+        # The inspector column is skipped: it is not proportion-managed, because
+        # a source list that widens with the monitor only steals media width.
+        for splitter, sizes in defaults[1:]:
+            self._pane_proportions.set_fractions(splitter, sizes)
 
     def _refine_source_bounds(self) -> None:
         """Apply exact reader-derived bounds once every queued row exists.
@@ -551,6 +589,18 @@ class MainWindow(QMainWindow):
 
     # ── Geometry persistence ─────────────────────────────────────────
 
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        """Rescale the panes with the window instead of letting one absorb it all.
+
+        Coalesced: a drag-resize delivers an event per pixel of travel, and
+        every reallocation costs a full workspace relayout (mpv surfaces, the
+        pyqtgraph stack, the overview strip). Running one per frame keeps the
+        panes visibly tracking the window edge without putting a relayout storm
+        on the UI thread.
+        """
+        super().resizeEvent(event)
+        self._pane_resize_timer.start()
+
     def _restore_geometry(self) -> None:
         settings = QSettings("AvialView", "AvialView")
         geom = settings.value("window/geometry")
@@ -574,6 +624,10 @@ class MainWindow(QMainWindow):
         # pane from an older layout; re-assert the policy and repair.
         self._enforce_splitter_policy()
         self._repair_collapsed_panes()
+        # The restored arrangement is the user's own, so it becomes the ratio to
+        # hold. Recording it here rather than letting the first resize adopt it
+        # keeps a session that opens already-resized from drifting.
+        self._pane_proportions.record_all()
 
     def _save_geometry(self) -> None:
         settings = QSettings("AvialView", "AvialView")
@@ -2700,6 +2754,9 @@ class MainWindow(QMainWindow):
         if has_points:
             width = max(self._media_splitter.width(), 600)
             self._media_splitter.setSizes([int(width * 0.65), int(width * 0.35)])
+        # Showing or hiding a pane changes which panes share the width, so the
+        # split that results is the one to hold from here on.
+        self._pane_proportions.record(self._media_splitter)
 
     def _refresh_overlays(self, video: str) -> None:
         """Rebuild one camera's overlay track list, ensemble last."""

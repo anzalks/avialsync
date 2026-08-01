@@ -361,6 +361,7 @@ contradicts the runtime.
 | `ui/video_overlay.py` | Live pose overlay with named markers | `PaintCanvas`, `OverlayTrack` |
 | `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown | `JobManager`, `Job`, `JobState` |
 | `ui/ui_heartbeat.py` | Measures UI-thread stalls and reports them | `UiHeartbeat` |
+| `ui/pane_proportions.py` | Holds each splitter pane's share of the window across a resize; first-run defaults are ratios, not pixels | `PaneProportions`, `distribute()` |
 | `ui/recent_files.py` | Recent-session list in QSettings — kept out of `core/` (rule 2) | `add_recent()`, `get_recent()`, `clear_recent()` |
 | `ui/offsets_panel.py` | Stub — offset editing stays in `VideoInfoWidget.offset_spin`; not filled by D-020 | — |
 | `ui/readout_panel.py` | Live per-channel values + units + sample index + Δ section | `update_sources()`, `set_cursor()`, `show_region_stats()`, `show_delta()` |

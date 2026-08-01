@@ -69,6 +69,7 @@ avialview/                          # repo root = GitHub repo `avialview`
 │   │   ├── plot_interactions.py      # plot context actions, measurement, annotation, gap state
 │   │   ├── plot_overlays.py          # bounded page-local overlay drawing + context menu helpers
 |   |   |-- tracking_3d_pane.py       # cache-backed current-pose projection; orbit/zoom (D-041); head-up axis (D-046)
+│   │   ├── pane_proportions.py       # panes keep their share of the window on resize; minimum-aware allocator
 │   │   ├── transport.py              # two-row timeline + named evidence lanes, controls, status, A/B loop
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
 │   │   ├── sync_wizard.py            # evidence selection, residual preview, explicit acceptance (D-026)

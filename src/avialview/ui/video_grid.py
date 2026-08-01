@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
+from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy, QWidget
 
 from avialview.ui.video_pane import VideoPane
 
@@ -45,8 +45,16 @@ class VideoGrid(QWidget):
             "files here.\nDouble-click a pane to maximise."
         )
         self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_empty.setMinimumHeight(200)
+        # The placeholder asks for a drop-target's worth of height but must not
+        # *demand* it: as a hard minimum it pinned the whole media row at 200 px,
+        # so shrinking the window took every lost pixel out of the plot area
+        # instead of scaling the two together.
+        self.lbl_empty.setMinimumHeight(0)
+        self.lbl_empty.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Ignored)
         self._layout.addWidget(self.lbl_empty, 0, 0)
+        # Keep an empty grid readable as a pane and as a drop target, without
+        # letting it dictate how the window's height is shared.
+        self.setMinimumHeight(72)
 
     # ── Public API ────────────────────────────────────────────────────
 
