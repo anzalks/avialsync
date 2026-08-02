@@ -143,9 +143,23 @@ wheel and source distribution, and smoke-tests the wheel in a clean environment 
 the platform installers. PyPI publishing starts only after every installer succeeds, and GitHub
 creates the release last.
 
-Release administrators configure PyPI trusted publishing. The release workflow itself pins and
-verifies the AppImage build tool before creating the Linux AppImage; no package-upload token or
-repository variable is needed.
+The release workflow itself pins and verifies the AppImage build tool before creating the Linux
+AppImage; no package-upload token or repository variable is needed.
+
+Two things must exist before a tag can complete, and neither lives in this repository. Both fail
+late — after every installer has already been built — so confirm them before tagging:
+
+1. **PyPI trusted publishing** for the `avialview` project, naming this repository, the `Release`
+   workflow, and the `pypi` environment. If the `pypi` GitHub environment has required reviewers,
+   the release waits for an approval rather than failing.
+2. **A tag reachable from `main`.** The workflow refuses to publish a side branch, and it also
+   requires the tag, `pyproject.toml`, and `src/avialview/__init__.py` to name one identical
+   version — which is what `tools/prepare_release.py` guarantees.
+
+Release artifacts are not yet code-signed or notarized. `packaging/windows/sign.ps1` and
+`packaging/macos/sign_notarize.sh` are placeholders, and nothing in CI invokes them; signing needs
+an Apple Developer account and a Windows code-signing certificate. Until then, every download
+carries the first-launch warnings described under [Install](#install-and-open-your-first-experiment).
 
 To prepare a future tag release from a clean `main` checkout, use the guarded helper rather than
 editing versions or creating tags by hand:
