@@ -16,7 +16,7 @@ concurrency:
 jobs:
   verify_release_ref:
     name: Verify tag is reachable from main
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     outputs:
@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-24.04, macos-15, windows-2022]
         python-version: ["3.11", "3.12"]
     env:
       PYTHONUTF8: 1
@@ -99,7 +99,7 @@ jobs:
           choco install --no-progress ffmpeg
           $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
           $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
-          curl.exe --fail --location --silent --show-error --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
+          curl.exe --fail --location --silent --show-error --retry 5 --retry-all-errors --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
           if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
             throw 'Downloaded libmpv archive did not match its pinned SHA-256'
           }
@@ -139,11 +139,11 @@ jobs:
           '
       - name: Run tests
         # Keep the release matrix diagnostically identical to PR CI.
-        run: pytest -x -q --durations=20 --timeout=60 --timeout-method=thread --ignore=tests/benchmarks
+        run: pytest --maxfail=5 -q --durations=20 --timeout=60 --timeout-method=thread --ignore=tests/benchmarks
 
   docs:
     name: Release documentation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: verify_release_ref
     permissions:
       contents: read
@@ -160,7 +160,7 @@ jobs:
   distributions:
     name: Build Python distributions
     needs: [verify_release_ref, quality, docs]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -181,7 +181,7 @@ jobs:
   smoke_test:
     name: Smoke test release wheel
     needs: distributions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/setup-python@v6
         with:
@@ -209,18 +209,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-2022
             artifact: AvialView-windows-bundle
-          - os: macos-latest
+          - os: macos-15
             artifact: AvialView-macos-bundle
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             artifact: AvialView-linux-bundle
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - run: pip install -e . pyinstaller
+      - run: pip install -e . "pyinstaller==6.21.0"
       - name: Install media dependencies (Linux)
         if: runner.os == 'Linux'
         # AppImageTool release 12 loads libfuse.so.2. Ubuntu 24.04 provides
@@ -238,7 +238,7 @@ jobs:
           choco install --no-progress ffmpeg
           $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
           $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
-          curl.exe --fail --location --silent --show-error --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
+          curl.exe --fail --location --silent --show-error --retry 5 --retry-all-errors --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
           if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
             throw 'Downloaded libmpv archive did not match its pinned SHA-256'
           }
@@ -260,10 +260,24 @@ jobs:
       - name: Stage media libraries (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: python packaging/fetch_media_libs.py --source "$env:RUNNER_TEMP\libmpv" --source 'C:\ProgramData\chocolatey\lib\ffmpeg' --destination packaging/media
+        # Both package layouts: `ffmpeg` has shipped the binaries directly and
+        # has also been a meta-package pointing at `ffmpeg-full`. A source that
+        # does not exist is skipped, so naming both survives either.
+        run: python packaging/fetch_media_libs.py --source "$env:RUNNER_TEMP\libmpv" --source 'C:\ProgramData\chocolatey\lib\ffmpeg' --source 'C:\ProgramData\chocolatey\lib\ffmpeg-full' --destination packaging/media
       - run: python packaging/build_bundle.py --media-root packaging/media --dist-dir dist
       - name: Smoke test staged-media bundle
-        run: python packaging/smoke_test.py dist/avialview --demo --timeout 120
+        run: python packaging/smoke_test.py dist/avialview --demo --timeout 300
+      - name: Prove the Linux bundle opens on a real display
+        if: runner.os == 'Linux'
+        # Every other check runs offscreen, which never loads the xcb plugin a
+        # desktop uses: a bundle can pass them all and still fail to open a
+        # window. These xcb runtime libraries are present on any real desktop,
+        # so installing them keeps this a test of the bundle's plugin set.
+        run: |
+          sudo apt-get install -y xvfb libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
+            libxcb-xinerama0 libxkbcommon-x11-0
+          xvfb-run -a python packaging/smoke_test.py dist/avialview --qt-platform xcb --timeout 180
 
       - name: Build Windows installer
         if: runner.os == 'Windows'
@@ -275,7 +289,7 @@ jobs:
       - name: Smoke test the macOS application bundle
         if: runner.os == 'macOS'
         # The .app is what the disk image ships, so it is what must start.
-        run: python packaging/smoke_test.py dist --timeout 120
+        run: python packaging/smoke_test.py dist --timeout 180
       - name: Build macOS disk image
         if: runner.os == 'macOS'
         run: |
@@ -288,7 +302,7 @@ jobs:
           APPIMAGETOOL_SHA256: d918b4df547b388ef253f3c9e7f6529ca81a885395c31f619d9aaf7030499a13
         run: |
           mkdir -p installer-output tooling
-          curl --fail --location --silent --show-error "$APPIMAGETOOL_URL" --output tooling/appimagetool
+          curl --fail --location --silent --show-error --retry 5 --retry-all-errors "$APPIMAGETOOL_URL" --output tooling/appimagetool
           echo "$APPIMAGETOOL_SHA256  tooling/appimagetool" | sha256sum --check --status
           chmod +x tooling/appimagetool
           APPIMAGETOOL="$PWD/tooling/appimagetool" bash packaging/linux/make_appimage.sh dist/avialview installer-output/AvialView.AppImage
@@ -300,7 +314,7 @@ jobs:
   pypi_publish:
     name: Publish to PyPI
     needs: packages
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: pypi
       url: https://pypi.org/p/avialview
@@ -321,7 +335,7 @@ jobs:
   github_release:
     name: Create GitHub release
     needs: [verify_release_ref, packages, pypi_publish]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: read
       contents: write

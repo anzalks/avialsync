@@ -2,6 +2,7 @@
 
 import argparse
 import locale
+import os
 import sys
 import time
 from importlib.resources import files
@@ -49,6 +50,10 @@ def main() -> None:
         QTimer.singleShot(250, win.close)
     elif args.smoke_test:
         smoke_started = time.monotonic()
+        # The harness sets this below its own timeout so this deadline fires
+        # first and reports what the demo was still waiting for. A slow runner
+        # needs a longer budget than a workstation, so it is not a constant.
+        smoke_deadline = float(os.environ.get("AVIALVIEW_SMOKE_DEADLINE_S", "110"))
 
         def poll_demo_ready() -> None:
             panes = win.video_grid.panes
@@ -67,7 +72,7 @@ def main() -> None:
             if videos_ready and data_ready:
                 win.close()
                 return
-            if time.monotonic() - smoke_started >= 110.0:
+            if time.monotonic() - smoke_started >= smoke_deadline:
                 print(
                     "Demo smoke timed out: "
                     f"videos={len(panes)}/{DEMO_VIDEO_COUNT}, "

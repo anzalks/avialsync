@@ -68,6 +68,9 @@ def test_demo_bundle_smoke_uses_fresh_data_and_waits_for_readiness(
     assert command == [str(executable), "demo", "--smoke-test"]
     demo_dir = Path(str(kwargs["env"]["AVIALVIEW_DEMO_DIR"]))
     assert demo_dir.parent == tmp_path.parent
+    # The application must give up before the harness kills it, so the failure
+    # names what it was waiting for instead of only how long it took.
+    assert float(str(kwargs["env"]["AVIALVIEW_SMOKE_DEADLINE_S"])) < 120.0
 
 
 def test_script_entrypoint_runs_bundle_smoke(
@@ -86,12 +89,46 @@ def test_script_entrypoint_runs_bundle_smoke(
     runpy.run_path("packaging/smoke_test.py", run_name="__main__")
 
     assert calls == [[str(executable), "--smoke-test"]]
-    assert capsys.readouterr().out == "AvialView bundle smoke test passed\n"
+    assert capsys.readouterr().out == "AvialView bundle smoke test passed (offscreen)\n"
+
+
+def test_bundle_smoke_can_require_a_real_platform_plugin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The shipped bundle must be checkable against the plugin a desktop loads.
+
+    "offscreen" proves nothing about xcb: a bundle can start headlessly and
+    still fail to open a window on a real display.
+    """
+    smoke = _load_smoke_module()
+    executable = tmp_path / ("avialview.exe" if smoke.sys.platform == "win32" else "avialview")
+    executable.touch()
+    calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def fake_run(command: list[str], **kwargs: object) -> None:
+        calls.append((command, kwargs))
+
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    smoke.smoke_bundle(tmp_path, timeout=7.0, qt_platform="xcb")
+
+    assert calls[0][1]["env"]["QT_QPA_PLATFORM"] == "xcb"
 
 
 def test_quality_workflows_smoke_test_bundles() -> None:
     command = "python packaging/smoke_test.py dist/avialview"
-    release_command = f"{command} --demo --timeout 120"
+    release_command = f"{command} --demo --timeout 300"
 
     assert command in Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert release_command in Path(".github/workflows/release.yml").read_text(encoding="utf-8")
+
+
+def test_linux_release_proves_the_bundle_opens_on_a_real_display() -> None:
+    """A Linux bundle that only ever ran offscreen is an untested installer."""
+    release_workflow = Path(".github/workflows/release.yml").read_text(encoding="utf-8")
+
+    assert "--qt-platform xcb" in release_workflow
+    assert "xvfb-run" in release_workflow
+    # Qt 6 loads these through the xcb plugin; a desktop has them, so the check
+    # is of the bundle's own plugin set rather than of the runner image.
+    assert "libxcb-cursor0" in release_workflow

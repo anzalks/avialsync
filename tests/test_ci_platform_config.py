@@ -7,7 +7,8 @@ WORKFLOW_PATHS = (
     Path(".github/workflows/release.yml"),
 )
 TEST_COMMAND = (
-    "pytest -x -q --durations=20 --timeout=60 --timeout-method=thread --ignore=tests/benchmarks"
+    "pytest --maxfail=5 -q --durations=20 --timeout=60 --timeout-method=thread"
+    " --ignore=tests/benchmarks"
 )
 WINDOWS_LIBMPV_SHA256 = "FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6"
 
@@ -21,7 +22,10 @@ def test_cross_platform_quality_workflows_share_headless_media_contract() -> Non
         workflow = workflow_path.read_text(encoding="utf-8")
         assert "QT_QPA_PLATFORM: offscreen" in workflow
         assert "QT_QPA_PLATFORM: windows" not in workflow
-        assert "os: [ubuntu-latest, macos-latest, windows-latest]" in workflow
+        # Pinned images: a floating label already broke this pipeline once,
+        # when an image bump renamed fuse to libfuse2t64.
+        assert "os: [ubuntu-24.04, macos-15, windows-2022]" in workflow
+        assert "-latest" not in workflow
         assert 'python-version: ["3.11", "3.12"]' in workflow
         assert "ffmpeg libmpv2 libegl1" in workflow
         assert "brew install ffmpeg mpv" in workflow
