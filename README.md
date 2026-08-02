@@ -32,8 +32,18 @@ application.
 These artifacts are not yet code-signed or notarized, so the operating system warns about an
 unidentified developer on first launch. On macOS, right-click **AvialView** and choose **Open**
 once (or run `xattr -dr com.apple.quarantine /Applications/AvialView.app`); on Windows, choose
-**More info → Run anyway** in the SmartScreen prompt. The macOS disk image is built for Apple
-silicon, and the Linux AppImage targets Ubuntu 24.04 or newer.
+**More info → Run anyway** in the SmartScreen prompt.
+
+Two installers have a deliberate support boundary; use the PyPI install below if you fall outside
+one:
+
+| Installer | Requires | Otherwise |
+|---|---|---|
+| `AvialView.dmg` | Apple silicon | Intel Macs: `pip install avialview` |
+| `AvialView.AppImage` | glibc 2.39 or newer (Ubuntu 24.04+, Fedora 40+) | Debian 12, Ubuntu 22.04: `pip install avialview` |
+
+The AppImage also needs FUSE 2 to mount itself; without it, run
+`./AvialView.AppImage --appimage-extract-and-run`.
 
 If you use Python, install it from PyPI with Python 3.11 or 3.12:
 
