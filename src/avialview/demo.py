@@ -137,6 +137,35 @@ def _generate_video(
     partial_path.replace(video_path)
 
 
+# The demo's shape, declared once. A release smoke test waits for exactly this
+# many videos and channels before it accepts that the demo finished loading, so
+# a change to the generated tables has to be visible here. Left as a hand-copied
+# literal it becomes a target the demo can never reach, and the smoke test hangs
+# until its timeout instead of failing.
+DEMO_VIDEO_COUNT = 4
+SENSOR_CHANNEL_NAMES = ("Accel_X", "Accel_Y", "Gyro_Z", "Steering_Angle")
+EPHYS_CHANNEL_NAMES = ("Electrode_1", "TTL")
+TRACKING_PART_NAMES = (
+    "left_toe",
+    "left_paw",
+    "left_elbow",
+    "left_shoulder",
+    "head",
+    "right_shoulder",
+    "right_elbow",
+    "right_paw",
+    "right_toe",
+)
+# DeepLabCut-style tables carry these fields for every tracked part, and the
+# tracking loader turns each one into its own channel.
+TRACKING_PART_FIELDS = ("x", "y", "z", "likelihood")
+SENSOR_HEADER = ",".join(("time", *SENSOR_CHANNEL_NAMES))
+EPHYS_HEADER = ",".join(("time", *EPHYS_CHANNEL_NAMES))
+TRACKING_COLUMN_COUNT = len(TRACKING_PART_NAMES) * len(TRACKING_PART_FIELDS)
+TRACKING_HEADER = ",".join(["scorer"] + ["DLC"] * TRACKING_COLUMN_COUNT)
+DEMO_CHANNEL_COUNT = len(SENSOR_CHANNEL_NAMES) + len(EPHYS_CHANNEL_NAMES) + TRACKING_COLUMN_COUNT
+
+
 def _write_sensors(path: Path) -> None:
     """Write a deterministic 1 kHz four-channel sensor trace."""
     rng = np.random.default_rng(42)
@@ -154,7 +183,7 @@ def _write_sensors(path: Path) -> None:
         path,
         values,
         delimiter=",",
-        header="time,Accel_X,Accel_Y,Gyro_Z,Steering_Angle",
+        header=SENSOR_HEADER,
         comments="",
     )
 
@@ -177,7 +206,7 @@ def _write_ephys(path: Path) -> None:
         path,
         np.column_stack((times, electrode, ttl)),
         delimiter=",",
-        header="time,Electrode_1,TTL",
+        header=EPHYS_HEADER,
         comments="",
     )
 
@@ -252,30 +281,18 @@ def _write_tracking(path: Path) -> None:
     parts_data["right_paw"] = local_to_global(R_paw_f, 15, R_paw_u)
     parts_data["right_toe"] = local_to_global(R_paw_f + 6, 15, R_paw_u)
 
-    part_names = [
-        "left_toe",
-        "left_paw",
-        "left_elbow",
-        "left_shoulder",
-        "head",
-        "right_shoulder",
-        "right_elbow",
-        "right_paw",
-        "right_toe",
-    ]
-
     columns = [frames.astype(float)]
     scorer_fields = ["scorer"]
     bodyparts_fields = ["bodyparts"]
     coords_fields = ["coords"]
 
-    for name in part_names:
+    for name in TRACKING_PART_NAMES:
         x, y, z = parts_data[name]
         lk = rng.uniform(0.75, 1.0, n_frames)
         columns.extend([x, y, z, lk])
-        scorer_fields.extend(["DLC"] * 4)
-        bodyparts_fields.extend([name] * 4)
-        coords_fields.extend(["x", "y", "z", "likelihood"])
+        scorer_fields.extend(["DLC"] * len(TRACKING_PART_FIELDS))
+        bodyparts_fields.extend([name] * len(TRACKING_PART_FIELDS))
+        coords_fields.extend(TRACKING_PART_FIELDS)
 
     data = np.column_stack(columns)
     headers = (
@@ -336,15 +353,9 @@ def ensure_demo_data(
             )
 
     generated_tables = (
-        (
-            sensors,
-            _write_sensors,
-            80,
-            "sensor trace",
-            "time,Accel_X,Accel_Y,Gyro_Z,Steering_Angle",
-        ),
-        (ephys, _write_ephys, 88, "ephys trace", "time,Electrode_1,TTL"),
-        (tracking, _write_tracking, 96, "tracking data", ",".join(["scorer"] + ["DLC"] * 36)),
+        (sensors, _write_sensors, 80, "sensor trace", SENSOR_HEADER),
+        (ephys, _write_ephys, 88, "ephys trace", EPHYS_HEADER),
+        (tracking, _write_tracking, 96, "tracking data", TRACKING_HEADER),
     )
     for path, writer, value, label, header in generated_tables:
         if is_cancelled():

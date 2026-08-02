@@ -101,6 +101,31 @@ def test_demo_replaces_obsolete_toy_sensor_cache(monkeypatch, tmp_path: Path) ->
     )
 
 
+def test_demo_channel_count_matches_the_tables_the_demo_generates(tmp_path: Path) -> None:
+    """The release smoke gate waits for this count, so it must be reachable.
+
+    It was hand-copied as 12 while the demo grew to 42 channels, which turned
+    the staged-bundle gate into a guaranteed timeout instead of a check.
+    """
+    sensors = tmp_path / "sensors.csv"
+    ephys = tmp_path / "ephys_gaps.csv"
+    tracking = tmp_path / "pose.csv"
+    demo._write_sensors(sensors)
+    demo._write_ephys(ephys)
+    demo._write_tracking(tracking)
+
+    def channel_columns(path: Path) -> int:
+        """Count a table's data columns, excluding its time or frame column."""
+        header = path.read_text(encoding="utf-8").splitlines()[0]
+        return len(header.split(",")) - 1
+
+    assert (
+        channel_columns(sensors) + channel_columns(ephys) + channel_columns(tracking)
+        == demo.DEMO_CHANNEL_COUNT
+    )
+    assert demo.DEMO_VIDEO_COUNT == 4
+
+
 def test_demo_progress_dialog_shows_status_and_log(qtbot) -> None:
     """First-run preparation is visible rather than appearing as a frozen window."""
     parent = QWidget()

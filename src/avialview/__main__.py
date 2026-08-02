@@ -23,7 +23,7 @@ def main() -> None:
     from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import QApplication
 
-    from avialview.demo import DemoLaunch
+    from avialview.demo import DEMO_CHANNEL_COUNT, DEMO_VIDEO_COUNT, DemoLaunch
     from avialview.ui.main_window import MainWindow
     from avialview.ui.theme import load_saved_font_size, load_saved_theme
 
@@ -53,14 +53,14 @@ def main() -> None:
         def poll_demo_ready() -> None:
             panes = win.video_grid.panes
             videos_ready = (
-                len(panes) == 4
+                len(panes) == DEMO_VIDEO_COUNT
                 and all(pane._media_loaded for pane in panes)
                 and not win._pending_video_loads
                 and not win._video_load_jobs
                 and win._video_pane_initializing is None
             )
             data_ready = (
-                len(win.plot_pane.channels) == 12
+                len(win.plot_pane.channels) == DEMO_CHANNEL_COUNT
                 and not win._pending_imports
                 and win._import_thread is None
             )
@@ -70,7 +70,8 @@ def main() -> None:
             if time.monotonic() - smoke_started >= 110.0:
                 print(
                     "Demo smoke timed out: "
-                    f"videos={len(panes)}/4, channels={len(win.plot_pane.channels)}/12",
+                    f"videos={len(panes)}/{DEMO_VIDEO_COUNT}, "
+                    f"channels={len(win.plot_pane.channels)}/{DEMO_CHANNEL_COUNT}",
                     file=sys.stderr,
                 )
                 app.exit(2)
