@@ -493,7 +493,14 @@ class DemoLaunch(QObject):
         self._worker.failed.connect(self._on_failed)
         self._worker.finished.connect(self._thread.quit)
         self._worker.failed.connect(self._thread.quit)
-        self._thread.finished.connect(self._worker.deleteLater)
+        # No `self._thread.finished.connect(self._worker.deleteLater)`: that
+        # signal is emitted in the worker thread and the worker lives there, so
+        # the connection is direct and ~QObject would run inside the dying
+        # thread — severing the progress dialog's connections while holding one
+        # of Qt's pooled signal/slot mutexes and then taking the GIL, which
+        # deadlocks against a GUI thread that holds the GIL and waits on a
+        # colliding mutex from that pool (D-062). Python owns the worker and
+        # destroys it with this object, on the GUI thread.
         self._dialog.cancelled.connect(self._on_cancelled)
 
     def start(self) -> None:

@@ -163,6 +163,9 @@ class MainWindow(QMainWindow):
         self._frame_indexed_sources: list[tuple[Path, type, dict[str, Any]]] = []
         self._pending_imports: deque[tuple[Path, type, dict[str, Any]]] = deque()
         self._import_thread: QThread | None = None
+        # Held until the import thread has finished so the worker is destroyed
+        # on this thread; see the wiring in the import starter for why.
+        self._import_worker: QObject | None = None
         self._data_export_jobs: dict[QThread, object] = {}
         self._region_stats_jobs: dict[QThread, object] = {}
         self._video_clip_jobs: dict[QThread, object] = {}
@@ -758,8 +761,13 @@ class MainWindow(QMainWindow):
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        worker.error.connect(worker.deleteLater)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
         # Un-latch even if the thread ends abnormally (e.g. worker deleted
         # without emitting finished/error), so a stuck save cannot
         # permanently block every later save.
@@ -802,8 +810,13 @@ class MainWindow(QMainWindow):
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        worker.error.connect(worker.deleteLater)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
 
         thread.start()
 
@@ -967,7 +980,13 @@ class MainWindow(QMainWindow):
         worker.error.connect(self._on_region_stats_error)
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        thread.finished.connect(worker.deleteLater)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
         thread.finished.connect(self._on_region_stats_thread_finished)
         thread.start()
 
@@ -1042,8 +1061,13 @@ class MainWindow(QMainWindow):
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        worker.error.connect(worker.deleteLater)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
 
         thread.start()
 
@@ -1331,8 +1355,13 @@ class MainWindow(QMainWindow):
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        worker.error.connect(worker.deleteLater)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
 
         thread.start()
 
@@ -1810,7 +1839,13 @@ class MainWindow(QMainWindow):
         worker.error.connect(self._on_snapshot_error)
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        thread.finished.connect(worker.deleteLater)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
         thread.finished.connect(self._on_snapshot_thread_finished)
         self.transport.set_status(f"Exporting snapshot: {path.name}", "busy")
         thread.start()
@@ -1875,7 +1910,13 @@ class MainWindow(QMainWindow):
         worker.error.connect(self._on_data_export_error)
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        thread.finished.connect(worker.deleteLater)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
         thread.finished.connect(self._on_data_export_thread_finished)
         self.transport.set_status(f"Exporting data: {path.name}", "busy")
         thread.start()
@@ -1954,7 +1995,13 @@ class MainWindow(QMainWindow):
         worker.error.connect(self._on_video_clip_error)
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        thread.finished.connect(worker.deleteLater)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
         thread.finished.connect(self._on_video_clip_thread_finished)
         self.transport.set_status("Exporting video clip", "busy")
         thread.start()
@@ -2095,7 +2142,14 @@ class MainWindow(QMainWindow):
         worker.opened.connect(thread.quit)
         worker.error.connect(thread.quit)
         worker.cancelled.connect(thread.quit)
-        thread.finished.connect(worker.deleteLater)
+        # `_on_video_thread_finished` drops the registry's reference, which is
+        # the worker's only owner, so it is destroyed on the UI thread as that
+        # slot promises. A `thread.finished.connect(worker.deleteLater)` here
+        # would beat it: `finished` is emitted in the worker thread and the
+        # worker lives there, making that connection direct and running
+        # ~QObject inside the dying thread — where severing connections holds
+        # one of Qt's pooled signal/slot mutexes and PySide's disconnectNotify
+        # then blocks on the GIL, deadlocking the UI thread (D-062).
         thread.finished.connect(self._on_video_thread_finished)
         thread.start()
 
@@ -2548,7 +2602,16 @@ class MainWindow(QMainWindow):
 
         self._import_worker.finished.connect(self._on_import_finished)
         self._import_worker.finished.connect(self._import_thread.quit)
-        self._import_worker.finished.connect(self._import_worker.deleteLater)
+        # The worker is released in `_on_import_thread_finished`, on this
+        # thread. It must NOT be `deleteLater`-ed from its own `finished`:
+        # that signal is emitted in the worker thread, the worker lives there
+        # too, so the connection is direct and ~QObject then runs inside the
+        # worker's event loop. Destroying a QObject severs its connections
+        # while holding one of Qt's 131 *pooled* signal/slot mutexes, and
+        # PySide's `disconnectNotify` override takes the GIL to look for a
+        # Python override. Meanwhile the GUI thread holds the GIL and closes
+        # the progress dialog, which waits on a mutex from that same pool.
+        # Colliding addresses deadlock both threads permanently (D-062).
         self._import_thread.finished.connect(self._import_thread.deleteLater)
         self._import_thread.finished.connect(self._on_import_thread_finished)
 
@@ -2562,6 +2625,10 @@ class MainWindow(QMainWindow):
     def _on_import_thread_finished(self) -> None:
         """Release the completed import and begin the next queued source."""
         self._import_thread = None
+        # Dropping the last reference destroys the worker here, on the GUI
+        # thread, which already holds the GIL that ~QObject needs to sever the
+        # progress dialog's `canceled` connection.
+        self._import_worker = None
         if not self._pending_imports:
             return
         path, loader_cls, config = self._pending_imports.popleft()

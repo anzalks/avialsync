@@ -160,7 +160,14 @@ class SyncWizard(QDialog):
         self._worker.error.connect(self._on_error)
         self._worker.finished.connect(self._thread.quit)
         self._worker.error.connect(self._thread.quit)
-        self._thread.finished.connect(self._worker.deleteLater)
+        # No `self._thread.finished.connect(self._worker.deleteLater)`:
+        # `finished` is emitted in the worker thread and the worker lives
+        # there, so that connection is direct and ~QObject would run inside
+        # the dying thread — severing connections while holding one of Qt's
+        # pooled signal/slot mutexes and then taking the GIL for PySide's
+        # disconnectNotify, deadlocking a UI thread that holds the GIL and
+        # waits on a colliding mutex from that pool (D-062).
+        # `_on_thread_finished` drops the reference on the UI thread instead.
         self._thread.finished.connect(self._on_thread_finished)
         self._thread.start()
 

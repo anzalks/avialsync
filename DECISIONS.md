@@ -1558,3 +1558,50 @@ at its own header's 406 px. Narrowing further requires shortening or wrapping th
 buttons, icons, and text must not change); applying proportions only when the resize settles (the
 layout visibly snaps on release); trusting `QSplitter` stretch factors alone (they distribute the
 delta, which is the bug).
+
+## 2026-08 · D-062 · Background workers are destroyed on the UI thread, never inside their own
+
+**Context:** the staged-bundle release gate (`packaging/smoke_test.py --demo`) hung permanently
+instead of failing. `sample` on the stuck process showed a two-thread cycle:
+
+| thread | holds | waits for |
+|---|---|---|
+| worker `QThread` | a Qt signal/slot mutex (inside `~QObject`) | the GIL, via PySide's `disconnectNotify` |
+| UI thread | the GIL | a Qt signal/slot mutex, closing a `QProgressDialog` |
+
+`QObject::~QObject` severs the object's connections while holding one of Qt's **131 pooled**
+signal/slot mutexes — pooled by object address, so two unrelated objects share a mutex whenever
+their addresses collide. PySide overrides `disconnectNotify` on every wrapper, so severing a
+connection calls `PyGILState_Ensure`. Destroy a worker on its own thread and that sequence runs
+there; a UI thread inside any PySide virtual dispatch holds the GIL and can be waiting on the
+colliding mutex. Neither side can yield.
+
+The workers were reaching that state through `worker.finished.connect(worker.deleteLater)` and
+`thread.finished.connect(worker.deleteLater)`. Both signals are emitted **in the worker thread**,
+and the worker was moved there, so both connections are *direct*: `deleteLater()` posted a
+`DeferredDelete` to the worker's own event loop, which then ran the destructor there.
+
+Because the trigger is an address collision, the hang was intermittent — about one demo launch in
+six from source, and roughly half of frozen-bundle runs.
+
+**Decision:**
+
+1. No worker moved onto a `QThread` is `deleteLater`-ed from a signal that thread emits. Every
+   owner already had a UI-thread slot (`_on_*_thread_finished`, `JobManager._on_thread_finished`,
+   `SyncWizard._on_thread_finished`) that drops the registry reference; that release — on the UI
+   thread, where the GIL is already held — is now the only one, which is what those slots'
+   docstrings already claimed.
+2. `MainWindow._import_worker` is declared in `__init__` and cleared in
+   `_on_import_thread_finished`, so the import worker follows the same rule.
+3. `tests/test_worker_thread_teardown.py` fails on any reintroduction of the pattern.
+
+`deleteLater` on the `QThread` objects themselves is unaffected: a `QThread` lives in the thread
+that created it, so those connections are queued onto the UI thread already.
+
+**Evidence:** 1/6 source runs hung before; 0/40 after. Full suite 705 passed.
+
+**Alternatives rejected:** deleting the worker from the UI thread with `deleteLater` (it always
+posts to the object's *own* thread, which by then is dead — the event is never processed);
+`moveToThread` back to the UI thread on completion (an object cannot be pushed from another
+thread); joining every worker in `closeEvent` (D-059 established that closing must never block on
+a background job).
