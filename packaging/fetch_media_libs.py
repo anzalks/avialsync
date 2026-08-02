@@ -8,6 +8,7 @@ in the workflow and prevents an unreviewed URL from becoming a supply-chain depe
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -58,7 +59,14 @@ def _is_media_runtime_file(path: Path) -> bool:
         return path.suffix.lower() == ".dll"
     if sys.platform == "darwin":
         return path.suffix.lower() == ".dylib"
-    return False
+    # Linux names these libraries with a "lib" prefix (libavcodec.so.62, not
+    # avcodec.dll), so the bare-name rules above match none of them: the ffmpeg
+    # libraries reached the bundle only as transitive dependencies of the
+    # ffmpeg binary. Match the prefixed form too, but require the shape of a
+    # shared object as well — the man pages installed beside them
+    # (libavcodec.3) otherwise match exactly the same name prefixes.
+    unprefixed = name.removeprefix("lib")
+    return ".so" in name and unprefixed.startswith(MEDIA_LIBRARY_PREFIXES)
 
 
 def discover_media_files(sources: list[Path]) -> list[Path]:
@@ -95,10 +103,22 @@ def stage_media_files(sources: list[Path], destination: Path) -> list[Path]:
     files = discover_media_files(sources)
     validate_media_files(files)
     destination.mkdir(parents=True, exist_ok=True)
+    staged_names = {path.name for path in files}
     staged = []
     for source in files:
         target = destination / source.name
-        shutil.copy2(source, target)
+        target.unlink(missing_ok=True)
+        # Package managers ship a versioned library beside unversioned aliases
+        # (libavcodec.dylib and libavcodec.62.dylib both point at
+        # libavcodec.62.28.102.dylib). Following every one of them copied the
+        # same library three times under three names. Recreate the alias as a
+        # link when its target is staged too: everything lands in one flat
+        # directory, so a same-directory relative link still resolves.
+        alias = os.readlink(source) if source.is_symlink() else None
+        if alias is not None and "/" not in alias and alias in staged_names:
+            target.symlink_to(alias)
+        else:
+            shutil.copy2(source, target)
         staged.append(target)
     return staged
 

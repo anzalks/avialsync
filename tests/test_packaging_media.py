@@ -67,6 +67,85 @@ def test_windows_media_staging_keeps_dependency_dlls(monkeypatch, tmp_path: Path
     }
 
 
+def test_linux_media_staging_keeps_versioned_shared_objects(monkeypatch, tmp_path: Path) -> None:
+    """The Linux branch has never run in CI; pin what it accepts and rejects."""
+    source = tmp_path / "source"
+    source.mkdir()
+    for name in (
+        "libmpv.so.2",
+        "libavcodec.so.62",
+        "libavutil.so.60.26.100",
+        "ffmpeg",
+        "ffprobe",
+    ):
+        (source / name).write_bytes(b"runtime")
+    # libavcodec.3 is a man page: it matches the same name prefix as the
+    # library and is installed beside it.
+    for name in ("avcodec.h", "libavcodec.a", "libmpv.pc", "mpv-symbolic.svg", "libavcodec.3"):
+        (source / name).write_bytes(b"not runtime")
+    stager = _media_stager()
+    monkeypatch.setattr(stager.sys, "platform", "linux")
+
+    staged = {path.name for path in stager.stage_media_files([source], tmp_path / "media")}
+
+    assert staged == {
+        "ffmpeg",
+        "ffprobe",
+        "libmpv.so.2",
+        "libavcodec.so.62",
+        "libavutil.so.60.26.100",
+    }
+
+
+def test_windows_media_staging_rejects_package_manager_metadata(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Chocolatey ships nuspec/html/txt beside the binaries; none of it is code."""
+    source = tmp_path / "source"
+    source.mkdir()
+    for name in ("libmpv-2.dll", "ffmpeg.exe", "ffprobe.exe", "dependency.dll"):
+        (source / name).write_bytes(b"runtime")
+    for name in ("ffmpeg.nuspec", "ffmpeg-all.html", "ffmpeg-release-essentials.7z.txt"):
+        (source / name).write_bytes(b"not runtime")
+    stager = _media_stager()
+    monkeypatch.setattr(stager.sys, "platform", "win32")
+
+    staged = {path.name for path in stager.stage_media_files([source], tmp_path / "media")}
+
+    assert staged == {"libmpv-2.dll", "ffmpeg.exe", "ffprobe.exe", "dependency.dll"}
+
+
+def test_media_staging_links_aliases_instead_of_duplicating_them(tmp_path: Path) -> None:
+    """A versioned library and its aliases must not be staged as three copies."""
+    source = tmp_path / "source"
+    source.mkdir()
+    real = source / "libavcodec.62.28.102.dylib"
+    real.write_bytes(b"x" * 4096)
+    (source / "libavcodec.62.dylib").symlink_to("libavcodec.62.28.102.dylib")
+    (source / "libavcodec.dylib").symlink_to("libavcodec.62.28.102.dylib")
+    (source / "libmpv.dylib").write_bytes(b"mpv")
+    (source / "ffmpeg").write_bytes(b"ffmpeg")
+    (source / "ffprobe").write_bytes(b"ffprobe")
+    destination = tmp_path / "media"
+
+    staged = _media_stager().stage_media_files([source], destination)
+
+    # Every name a linker might ask for is still present…
+    assert {path.name for path in staged} >= {
+        "libavcodec.dylib",
+        "libavcodec.62.dylib",
+        "libavcodec.62.28.102.dylib",
+    }
+    # …but only one of them holds the bytes, and the aliases still resolve.
+    assert (destination / "libavcodec.dylib").is_symlink()
+    assert (destination / "libavcodec.62.dylib").is_symlink()
+    assert not (destination / "libavcodec.62.28.102.dylib").is_symlink()
+    assert (destination / "libavcodec.dylib").resolve() == (
+        destination / "libavcodec.62.28.102.dylib"
+    )
+    assert (destination / "libavcodec.dylib").read_bytes() == b"x" * 4096
+
+
 def test_appimage_declares_and_stages_its_desktop_icon() -> None:
     """AppImageTool receives the icon named by the desktop entry."""
     script = Path("packaging/linux/make_appimage.sh")
