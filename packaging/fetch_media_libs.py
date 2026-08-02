@@ -24,11 +24,34 @@ MEDIA_LIBRARY_PREFIXES = (
     "swresample",
     "swscale",
 )
+# Package managers install headers, static archives, pkg-config files, and icon
+# artwork beside the runtime libraries, and those match the name rules above
+# (``avcodec.h``, ``mpv-symbolic.svg``).  The spec declares every staged file as
+# a PyInstaller *binary*, so anything that is not loadable code must be rejected
+# here rather than shipped and post-processed as one.
+NON_RUNTIME_SUFFIXES = frozenset(
+    {
+        ".a",
+        ".cmake",
+        ".h",
+        ".hpp",
+        ".json",
+        ".la",
+        ".md",
+        ".pc",
+        ".png",
+        ".svg",
+        ".txt",
+        ".xml",
+    }
+)
 
 
 def _is_media_runtime_file(path: Path) -> bool:
     """Return whether a package-manager file belongs in the media runtime."""
     name = path.name.lower()
+    if path.suffix.lower() in NON_RUNTIME_SUFFIXES:
+        return False
     if name in MEDIA_EXECUTABLES or name.startswith(MEDIA_LIBRARY_PREFIXES):
         return True
     if sys.platform == "win32":

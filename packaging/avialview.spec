@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -67,3 +68,31 @@ coll = COLLECT(
     upx_exclude=[],
     name='avialview',
 )
+
+if sys.platform == "darwin":
+    # A one-directory tree is not a launchable macOS application: double-clicking
+    # its plain executable in Finder opens Terminal instead of the app. The disk
+    # image ships this .app; COLLECT stays for the smoke test and other platforms.
+    version_source = (project_root / "src" / "avialview" / "__init__.py").read_text(encoding="utf-8")
+    version_match = re.search(r'^__version__ = "([^"]+)"', version_source, re.MULTILINE)
+    if version_match is None:
+        raise RuntimeError("src/avialview/__init__.py declares no __version__")
+    full_version = version_match.group(1)
+    # CFBundleShortVersionString takes the numeric release only; a PEP 440
+    # pre-release suffix such as "0.1.0b4" is not a valid value for it.
+    release_version = re.match(r"\d+(?:\.\d+)*", full_version).group(0)
+    app = BUNDLE(
+        coll,
+        name='AvialView.app',
+        icon=str(application_icon),
+        bundle_identifier='io.github.anzalks.avialview',
+        version=full_version,
+        info_plist={
+            'CFBundleName': 'AvialView',
+            'CFBundleDisplayName': 'AvialView',
+            'CFBundleShortVersionString': release_version,
+            'CFBundleVersion': full_version,
+            'NSHighResolutionCapable': True,
+            'LSApplicationCategoryType': 'public.app-category.education',
+        },
+    )

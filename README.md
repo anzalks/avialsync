@@ -24,9 +24,16 @@ workflows through plugins.
 ## Install and open your first experiment
 
 The simplest route is the desktop artifact from the [GitHub Releases page](https://github.com/anzalks/avialview/releases):
-use `AvialView-Setup.exe` on Windows, open `AvialView.dmg` on macOS, or mark
-`AvialView.AppImage` executable and open it on Linux. The AppImage is portable: no system-wide
-installation is required. Then open **AvialView** like any other desktop application.
+use `AvialView-Setup.exe` on Windows, open `AvialView.dmg` on macOS and drag **AvialView** to
+Applications, or mark `AvialView.AppImage` executable and open it on Linux. The AppImage is
+portable: no system-wide installation is required. Then open **AvialView** like any other desktop
+application.
+
+These artifacts are not yet code-signed or notarized, so the operating system warns about an
+unidentified developer on first launch. On macOS, right-click **AvialView** and choose **Open**
+once (or run `xattr -dr com.apple.quarantine /Applications/AvialView.app`); on Windows, choose
+**More info → Run anyway** in the SmartScreen prompt. The macOS disk image is built for Apple
+silicon, and the Linux AppImage targets Ubuntu 24.04 or newer.
 
 If you use Python, install it from PyPI with Python 3.11 or 3.12:
 
