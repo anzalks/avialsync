@@ -3,8 +3,15 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Re-run a release that failed after the tag was already published, without
+  # deleting and re-pushing the tag. Select the tag as the dispatch ref.
+  workflow_dispatch:
 
 permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   verify_release_ref:
@@ -12,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      version: ${{ steps.declared_version.outputs.version }}
+      prerelease: ${{ steps.declared_version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -23,6 +33,36 @@ jobs:
             echo "Release tag $GITHUB_REF_NAME does not point to a commit reachable from main." >&2
             exit 1
           }
+      - name: Require the tag to match the declared package version
+        id: declared_version
+        run: |
+          python3 - "$GITHUB_REF_NAME" <<'VERSION_GATE'
+          import os
+          import pathlib
+          import re
+          import sys
+          import tomllib
+
+          tag = sys.argv[1]
+          project = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
+          declared = project["project"]["version"]
+          module_source = pathlib.Path("src/avialview/__init__.py").read_text(encoding="utf-8")
+          module = re.search(r'^__version__ = "([^"]+)"', module_source, re.MULTILINE)
+          if module is None:
+              sys.exit("src/avialview/__init__.py declares no __version__.")
+          if tag != f"v{declared}" or module.group(1) != declared:
+              sys.exit(
+                  f"Release ref {tag} disagrees with pyproject.toml ({declared}) or "
+                  f"src/avialview/__init__.py ({module.group(1)}). PyPI and the GitHub "
+                  "release must publish one agreed version; use tools/prepare_release.py."
+              )
+          # PEP 440 pre-release segments must not be advertised as a stable release.
+          prerelease = bool(re.search(r"(a|b|rc)\d+$|\.dev\d+$", declared))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={declared}\n")
+              output.write(f"prerelease={str(prerelease).lower()}\n")
+          print(f"{tag} publishes version {declared} (prerelease={prerelease}).")
+          VERSION_GATE
 
   quality:
     name: Release quality · ${{ matrix.os }} · Python ${{ matrix.python-version }}
@@ -162,6 +202,7 @@ jobs:
     name: Bundle ${{ matrix.os }}
     needs: smoke_test
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     permissions:
       contents: read
     strategy:
@@ -184,7 +225,9 @@ jobs:
         if: runner.os == 'Linux'
         # AppImageTool release 12 loads libfuse.so.2. Ubuntu 24.04 provides
         # that ABI as libfuse2t64; do not install the obsolete fuse package.
-        run: sudo apt-get update && sudo apt-get install -y desktop-file-utils ffmpeg libmpv2 libfuse2t64
+        # libegl1 is what the quality matrix treats as Qt's Linux floor, and the
+        # bundle now starts Qt in this job too.
+        run: sudo apt-get update && sudo apt-get install -y desktop-file-utils ffmpeg libmpv2 libfuse2t64 libegl1
       - name: Install media dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install ffmpeg mpv
@@ -229,11 +272,15 @@ jobs:
           choco install --no-progress innosetup
           $env:AVIALVIEW_VERSION = "${{ github.ref_name }}".TrimStart("v")
           iscc packaging/windows/avialview.iss
+      - name: Smoke test the macOS application bundle
+        if: runner.os == 'macOS'
+        # The .app is what the disk image ships, so it is what must start.
+        run: python packaging/smoke_test.py dist --timeout 120
       - name: Build macOS disk image
         if: runner.os == 'macOS'
         run: |
           mkdir -p installer-output
-          bash packaging/macos/make_dmg.sh dist/avialview installer-output/AvialView.dmg
+          bash packaging/macos/make_dmg.sh dist/AvialView.app installer-output/AvialView.dmg
       - name: Build Linux AppImage from the verified repository tool source
         if: runner.os == 'Linux'
         env:
@@ -266,10 +313,14 @@ jobs:
           path: dist
       - name: Publish wheel and source distribution through PyPI trusted publishing
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Re-running a release that failed after upload must not fail here;
+          # verify_release_ref already proved the tag owns this exact version.
+          skip-existing: true
 
   github_release:
     name: Create GitHub release
-    needs: [packages, pypi_publish]
+    needs: [verify_release_ref, packages, pypi_publish]
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -279,8 +330,15 @@ jobs:
         with:
           pattern: AvialView-*-bundle
           path: release-assets
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: release-assets/python-distributions
       - name: Create GitHub release after installers and PyPI publish pass
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          prerelease: ${{ needs.verify_release_ref.outputs.prerelease == 'true' }}
+          # An empty release is a silent failure; the installers are the release.
+          fail_on_unmatched_files: true
           files: release-assets/**

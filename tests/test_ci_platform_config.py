@@ -60,4 +60,42 @@ def test_release_tags_must_reference_main() -> None:
     assert "verify_release_ref:" in release_workflow
     assert "git fetch origin main" in release_workflow
     assert 'git merge-base --is-ancestor "$GITHUB_SHA" origin/main' in release_workflow
+
+
+def test_release_tag_must_agree_with_the_declared_version() -> None:
+    """PyPI and the GitHub release must not publish two different versions.
+
+    Nothing tied the tag to pyproject.toml, so tagging v0.1.0b5 against a tree
+    still declaring 0.1.0b4 would have uploaded the wrong version under the
+    right tag, only failing once the artifacts were already public.
+    """
+    release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
+
+    assert "Require the tag to match the declared package version" in release_workflow
+    assert 'project["project"]["version"]' in release_workflow
+    assert "src/avialview/__init__.py" in release_workflow
+
+
+def test_prerelease_tags_are_not_published_as_stable_releases() -> None:
+    """A PEP 440 pre-release tag must be marked as one on the release page."""
+    release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
+
+    assert "prerelease=" in release_workflow
+    assert "prerelease: ${{ needs.verify_release_ref.outputs.prerelease == 'true' }}" in (
+        release_workflow
+    )
+    # An installer-less release is a silent failure, not a successful one.
+    assert "fail_on_unmatched_files: true" in release_workflow
+
+
+def test_macos_disk_image_ships_a_launchable_application() -> None:
+    """A one-directory tree is not a macOS app; Finder opens it in Terminal."""
+    release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
+    spec = Path("packaging/avialview.spec").read_text(encoding="utf-8")
+    make_dmg = Path("packaging/macos/make_dmg.sh").read_text(encoding="utf-8")
+
+    assert "name='AvialView.app'" in spec
+    assert "bundle_identifier=" in spec
+    assert "make_dmg.sh dist/AvialView.app" in release_workflow
+    assert '*.app) cp -R "$bundle_dir" "$staging_dir/AvialView.app"' in make_dmg
     assert "needs: verify_release_ref" in release_workflow
