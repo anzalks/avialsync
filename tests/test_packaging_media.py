@@ -115,8 +115,15 @@ def test_windows_media_staging_rejects_package_manager_metadata(
     assert staged == {"libmpv-2.dll", "ffmpeg.exe", "ffprobe.exe", "dependency.dll"}
 
 
-def test_media_staging_links_aliases_instead_of_duplicating_them(tmp_path: Path) -> None:
-    """A versioned library and its aliases must not be staged as three copies."""
+def test_media_staging_links_aliases_instead_of_duplicating_them(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """A versioned library and its aliases must not be staged as three copies.
+
+    Homebrew's layout, so the platform is pinned the way the Windows case
+    pins its own: ``.dylib`` is only a media file on darwin, and left to the
+    host this passed on macOS and failed everywhere else.
+    """
     source = tmp_path / "source"
     source.mkdir()
     real = source / "libavcodec.62.28.102.dylib"
@@ -127,8 +134,10 @@ def test_media_staging_links_aliases_instead_of_duplicating_them(tmp_path: Path)
     (source / "ffmpeg").write_bytes(b"ffmpeg")
     (source / "ffprobe").write_bytes(b"ffprobe")
     destination = tmp_path / "media"
+    stager = _media_stager()
+    monkeypatch.setattr(stager.sys, "platform", "darwin")
 
-    staged = _media_stager().stage_media_files([source], destination)
+    staged = stager.stage_media_files([source], destination)
 
     # Every name a linker might ask for is still present…
     assert {path.name for path in staged} >= {

@@ -142,9 +142,15 @@ def test_a_quiet_job_is_reported_as_not_responding(qapp, qtbot, release) -> None
     manager.start("Probing a network share", _WedgedWorker(release))
     qtbot.waitUntil(manager.is_busy, timeout=2_000)
 
-    # Collapse the watchdog window rather than waiting 20 real seconds.
+    # Age the job rather than waiting 20 real seconds, and shorten the window
+    # to match. Collapsing the window to zero instead made the check
+    # `quiet_for > 0.0`, which is false whenever the monotonic clock has not
+    # ticked since the job was registered — that is routine on Windows, where
+    # this failed while passing everywhere else.
+    for job in manager._jobs.values():
+        job.last_progress_at -= 1.0
     original = module.NOT_RESPONDING_AFTER_S
-    module.NOT_RESPONDING_AFTER_S = 0.0
+    module.NOT_RESPONDING_AFTER_S = 0.5
     try:
         manager._check_for_stalls()
     finally:

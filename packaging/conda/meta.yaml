@@ -39,6 +39,10 @@ requirements:
     - polars
     - xxhash
     - neo
+    # Windows has no system IANA time zone database. Declared for every
+    # platform because a noarch package cannot carry a platform selector, and
+    # the package is small and harmless where the system already provides one.
+    - tzdata
     # Supplied here rather than left to the user: these are the two native
     # components the PyPI install cannot provide (D-013, D-014).
     - mpv

@@ -30,7 +30,11 @@ from avialview.ui.main_window import MainWindow
 def window(qapp: QApplication, qtbot) -> MainWindow:
     win = MainWindow()
     qtbot.addWidget(win)
-    win.resize(1400, 900)
+    # Tall enough that the panes' minimum heights leave room to move. At
+    # 900 the Linux font metrics inflate those minimums until they consume
+    # the whole splitter, so a drag genuinely cannot move and the tests
+    # below were asserting freedom the layout did not have.
+    win.resize(1400, 1600)
     win.show()
     qapp.processEvents()
     yield win
@@ -89,10 +93,18 @@ def test_policy_survives_restoring_a_permissive_saved_layout(
 
 def test_a_stale_zero_sized_pane_is_repaired(window: MainWindow, qapp: QApplication) -> None:
     """A layout saved before this policy could carry a zero pane; repair it."""
+    collapsed = window._v_splitter.widget(1)
+    # Qt honours a child's minimum height even when collapsing is allowed, and
+    # that minimum is larger than zero on every platform, so the stale state
+    # has to be staged rather than merely requested. This is the setup, not the
+    # thing under test: the repair below is.
+    minimum_height = collapsed.minimumHeight()
+    collapsed.setMinimumHeight(0)
     window._v_splitter.setChildrenCollapsible(True)
     window._v_splitter.setSizes([window._v_splitter.height(), 0])
     qapp.processEvents()
     assert window._v_splitter.sizes()[1] == 0
+    collapsed.setMinimumHeight(minimum_height)
 
     window._enforce_splitter_policy()
     window._repair_collapsed_panes()
@@ -129,6 +141,7 @@ def test_user_splitter_positions_are_honoured(window: MainWindow, qapp: QApplica
     qapp.processEvents()
 
     sizes = window._v_splitter.sizes()
+    assert sum(sizes) == total, "the splitter changed size instead of redistributing"
     assert sizes[1] > sizes[0], "splitter position did not stick"
 
 

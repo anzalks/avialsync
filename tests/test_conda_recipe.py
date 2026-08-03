@@ -33,7 +33,11 @@ def test_recipe_runtime_covers_every_declared_dependency() -> None:
     run_section = recipe.split("run:", 1)[1].split("test:", 1)[0]
 
     for dependency in _project_metadata()["dependencies"]:
-        name = re.split(r"[<>=!\[]", dependency, maxsplit=1)[0].strip().lower()
+        # Strip an environment marker ("tzdata; sys_platform == 'win32'")
+        # before the version specifier, or the marker's own operators split
+        # the name and the assertion looks for something like "tzdata; sys".
+        requirement = dependency.split(";", 1)[0]
+        name = re.split(r"[<>=!\[]", requirement, maxsplit=1)[0].strip().lower()
         assert f"- {name}" in run_section, f"{name} missing from the recipe's run section"
 
 

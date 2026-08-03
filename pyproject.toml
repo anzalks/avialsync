@@ -16,7 +16,11 @@ dependencies = [
     "numpy",
     "polars",
     "xxhash",
-    "neo"
+    "neo",
+    # Windows ships no IANA time zone database, so `zoneinfo` finds nothing and
+    # every timezone-aware CSV import fails there with "The selected timezone is
+    # unavailable on this system." Every other platform reads the system copy.
+    "tzdata; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
