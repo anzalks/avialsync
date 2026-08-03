@@ -23,6 +23,25 @@ Duplicate timestamps keep the final value. Sort non-monotonic input or raise
 See `examples/plugins/avialsync-plugin-example` for an installable toy binary
 loader.
 
+### Optional: single-pass bulk ingest
+
+`read_chunks` is called once per channel, so a format parsed in one pass is
+re-parsed for every channel it declares — an 80-channel file, 80 times. If your
+format is like that, you may also define `read_all_chunks`:
+
+```python
+def read_all_chunks(self) -> Iterator[dict[str, tuple[np.ndarray, np.ndarray]]]:
+    """Yield {channel_name: (t, v)} per chunk, every declared channel aligned."""
+```
+
+AvialSync uses it in place of the per-channel calls when it is present, and
+falls back to `read_chunks` when it is not. This is an optional extension, not
+part of the frozen v1 contract: it is absent from `TimeSeriesSource`, and a
+plugin that never defines it is fully supported. If you do define it, every
+chunk must carry every channel you declared, on the same rows, under the same
+ordering, duplicate, and NaN rules as `read_chunks` — both paths must build the
+same cache from the same file.
+
 ## Video plugins
 
 Subclass `VideoSource` and implement every abstract method. `open()` runs in a
