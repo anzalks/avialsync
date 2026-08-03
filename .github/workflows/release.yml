@@ -106,9 +106,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
+      # Recommends are excluded deliberately — see the note in ci.yml: ffmpeg's
+      # recommends are a speech model and a downloader, and fetching them once
+      # cost more than the entire job budget.
       - name: Install media dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y -o Acquire::Retries=3 ffmpeg libmpv2 libegl1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 ffmpeg libmpv2 libegl1
       - name: Install media dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install ffmpeg mpv
@@ -247,7 +250,7 @@ jobs:
         # that ABI as libfuse2t64; do not install the obsolete fuse package.
         # libegl1 is what the quality matrix treats as Qt's Linux floor, and the
         # bundle now starts Qt in this job too.
-        run: sudo apt-get update && sudo apt-get install -y -o Acquire::Retries=3 desktop-file-utils ffmpeg libmpv2 libfuse2t64 libegl1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 desktop-file-utils ffmpeg libmpv2 libfuse2t64 libegl1
       - name: Install media dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install ffmpeg mpv

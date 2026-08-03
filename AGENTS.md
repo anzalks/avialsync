@@ -149,6 +149,10 @@ conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format 
 
 - `.gitignore` ignores `*.spec` files by default. If you create or modify `packaging/avialsync.spec`, you must force-add it or it will be silently excluded from commits and break CI.
 - The GitHub Actions Windows runner does not have `ffmpeg` pre-installed (unlike Ubuntu/macOS). Any script that invokes `ffmpeg` (like `make_fixtures.py`) will fail with `FileNotFoundError` unless `choco install ffmpeg` is in the CI workflow. Chocolatey is used because it is preinstalled on that image; WinGet is a Windows *client* feature and is not available on the Server image. This is a build-time concern only — released installers bundle their own media runtime.
+- Every `apt-get install` in a workflow passes `--no-install-recommends`. `ffmpeg`'s recommends pull
+  `yt-dlp`, pipewire, and a 27 MB pocketsphinx speech model; on a slow archive mirror that download
+  ran twelve minutes and took the whole 15-minute job with it, which reads like a hung test suite
+  rather than an infrastructure stall. The codecs the fixtures need are *depends*, not recommends.
 - Runner images are pinned (`ubuntu-24.04`, `macos-15`, `windows-2022`), not `*-latest`. A floating label already broke the release once, when an image bump renamed `fuse` to `libfuse2t64`. `tests/test_ci_platform_config.py` fails if a floating label reappears.
 - Windows CI also needs an explicit, pinned libmpv DLL archive with SHA-256 verification and an
   `import mpv` probe. Do not assume a runner image provides a compatible DLL.

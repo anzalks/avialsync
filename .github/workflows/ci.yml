@@ -62,9 +62,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           
+      # --no-install-recommends is load-bearing, not tidiness: ffmpeg's
+      # recommends pull yt-dlp, pipewire and a 27 MB pocketsphinx speech model,
+      # none of which encode a fixture. A slow archive mirror spent twelve
+      # minutes on them and took the whole 15-minute job down with it. The
+      # codecs the fixtures need (libx264, libx265) are depends, not
+      # recommends, and the Make Fixtures step below proves they arrived.
       - name: Install System Dependencies (Ubuntu)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y -o Acquire::Retries=3 ffmpeg libmpv2 libegl1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 ffmpeg libmpv2 libegl1
         
       - name: Install System Dependencies (macOS)
         if: runner.os == 'macOS'
