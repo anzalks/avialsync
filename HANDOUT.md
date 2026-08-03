@@ -483,6 +483,18 @@ overload `QTimer.singleShot(interval, owner, callback)`. `shiboken6.isValid` gua
 already hold; it cannot help while the list itself is being built.
 `tests/test_worker_thread_teardown.py` fails on any reintroduction.
 
+### 0b. Building a widget list can free the widgets in it (D-065)
+The hole D-064 left open, which later killed a macOS runner. `QApplication.allWidgets()` copies a
+pointer list in C++ then wraps the pointers in Python one at a time, and each wrap allocates. An
+allocation can trip the cyclic collector; collecting a cycle that owns a parentless widget destroys
+it *and its children*; the rest of the copied list still points at them, so the next wrap reads
+freed memory. SIGSEGV, not an exception, and `isValid` can say nothing because it needs the wrapper
+this step is producing. Timing-dependent, so it fails on one runner and passes on the next.
+**Fix:** `theme._live_widgets` takes its snapshot inside `_collection_paused()` and roots it in
+`topLevelWidgets()` + `findChildren` instead of the global set. Same coverage — a parentless
+`QWidget` is a top-level window — over a few pointers rather than every widget ever made. Never add
+a bare `allWidgets()` walk back. `tests/test_theme_tooltips.py` pins both halves.
+
 ### 0a. A `QObject` moved to a `QThread` needs an owning Python reference
 `worker.moveToThread(thread)` does **not** transfer ownership. With no Python reference the wrapper
 is garbage-collected before `QThread.started` fires and `run()` never executes — silently, with no

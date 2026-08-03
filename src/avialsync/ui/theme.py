@@ -9,8 +9,11 @@ selection never changes widget geometry, input behaviour, view state, or playbac
 
 from __future__ import annotations
 
+import gc
 import subprocess
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 from PySide6.QtCore import QSettings
 from PySide6.QtGui import QColor, QFont, QPalette
@@ -74,15 +77,49 @@ def _scaled_font(font: QFont, factor: float) -> QFont:
     return scaled
 
 
+@contextmanager
+def _collection_paused() -> Iterator[None]:
+    """Hold Python's cyclic collector off for a block, restoring its prior state."""
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        yield
+    finally:
+        if was_enabled:
+            gc.enable()
+
+
 def _live_widgets(app: QApplication) -> list[QWidget]:
     """Return the widgets of *app* whose C++ objects still exist.
 
-    ``allWidgets`` hands back a snapshot, and setting a font on one widget can
-    run layout that flushes a pending deleteLater for another. Touching the
-    freed entry that leaves behind is a segfault, not an exception — it crashed
-    the Linux test run with SIGSEGV rather than a failure.
+    Two hazards, and ``isValid`` only answers the second one (D-064).
+
+    Building the list is itself a dereference. ``allWidgets`` copies a pointer
+    list in C++, then wraps each pointer in a Python object one at a time, and
+    wrapping allocates. An allocation can trip the cyclic collector, collecting
+    a cycle can free a parentless widget along with its children, and the rest
+    of the already-copied list still points at them — so the next wrap reads
+    freed memory and the process dies with SIGSEGV. ``isValid`` cannot help:
+    it needs a wrapper that this step is what produces. Hence two changes from
+    the walk that crashed a macOS runner: the collector is held off across the
+    snapshot, and the snapshot is rooted in the window trees rather than taken
+    from Qt's global set, which keeps the pointers Qt hands over down to the
+    handful of top-level widgets. Coverage is unchanged — a parentless QWidget
+    *is* a top-level window in Qt, so every widget is a window or a descendant
+    of one.
+
+    The filter still runs, because setting a font during the walk that follows
+    can free a later entry, and by then the entries are wrappers.
     """
-    return [widget for widget in app.allWidgets() if isValid(widget)]
+    with _collection_paused():
+        found: list[QWidget] = []
+        seen: set[int] = set()
+        for window in app.topLevelWidgets():
+            for widget in (window, *window.findChildren(QWidget)):
+                if id(widget) not in seen:
+                    seen.add(id(widget))
+                    found.append(widget)
+    return [widget for widget in found if isValid(widget)]
 
 
 def _capture_widget_base_fonts(app: QApplication) -> None:
@@ -279,11 +316,9 @@ def apply_font_size(app: QApplication, pref: str = FONT_SYSTEM) -> None:
     # Applied here rather than from a zero-delay timer. Deferring it coalesced
     # rapid preference changes, which a menu action does not need, and bought
     # that with a window in which the callback could run after the widgets it
-    # walks — or the application itself — had been torn down. `allWidgets()`
-    # then hands back freed pointers and the process dies with SIGSEGV instead
-    # of raising, which is how it crashed the Linux test run. `setFont` has
-    # already propagated synchronously by this point, so there is nothing to
-    # wait for.
+    # walks — or the application itself — had been torn down, which is a
+    # segfault rather than an exception (D-064). `setFont` has already
+    # propagated synchronously by this point, so there is nothing to wait for.
     _apply_font_to_existing_widgets(app, factors[pref])
     QSettings("AvialSync", "AvialSync").setValue("font/preference", pref)
 

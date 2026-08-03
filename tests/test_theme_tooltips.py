@@ -1,10 +1,11 @@
 """Theme tests for appearance-only changes on all supported appearances."""
 
+import gc
 from pathlib import Path
 
 import pytest
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QApplication, QStyle, QStyleOptionSlider
+from PySide6.QtWidgets import QApplication, QStyle, QStyleOptionSlider, QWidget
 
 from avialsync.ui import theme
 from avialsync.ui.plot_pane import PlotPane
@@ -203,6 +204,77 @@ def test_font_preference_scales_from_and_restores_the_system_font(monkeypatch, q
     qtbot.wait(10)
     assert app.font().pointSizeF() == original_size
     assert transport._time_edit.font().pointSizeF() == original_time_size
+
+
+# ── The font walk may not be interruptible by the collector ───────────
+#
+# The failure these guard against is a SIGSEGV, which cannot be asserted on:
+# the process dies without raising, so a test that provoked it would take the
+# run down with it rather than report. What is checked instead is the property
+# that makes it impossible — that no Python object can be freed while Qt is
+# handing over widget pointers (D-065).
+
+
+def test_the_widget_snapshot_is_taken_with_the_collector_held_off(qtbot) -> None:
+    """Collecting a cycle mid-snapshot frees widgets Qt has already handed over."""
+    app = QApplication.instance() or QApplication([])
+    window = QWidget()
+    qtbot.addWidget(window)
+    observed: list[bool] = []
+
+    real_top_level = app.topLevelWidgets
+
+    def spy() -> list[QWidget]:
+        observed.append(gc.isenabled())
+        return real_top_level()
+
+    app.topLevelWidgets = spy  # type: ignore[method-assign]
+    try:
+        theme._live_widgets(app)
+    finally:
+        del app.topLevelWidgets
+
+    assert observed, "the snapshot did not go through topLevelWidgets"
+    assert not any(observed), "widget pointers were converted with the collector armed"
+
+
+def test_the_collector_is_left_as_it_was_found() -> None:
+    """Pausing collection around the snapshot must not outlive it."""
+    app = QApplication.instance() or QApplication([])
+
+    assert gc.isenabled(), "precondition: the suite runs with collection on"
+    theme._live_widgets(app)
+    assert gc.isenabled(), "the collector was left disabled"
+
+    gc.disable()
+    try:
+        theme._live_widgets(app)
+        assert not gc.isenabled(), "a caller's disabled collector was switched back on"
+    finally:
+        gc.enable()
+
+
+def test_the_walk_still_reaches_widgets_nested_in_a_window(qtbot) -> None:
+    """Rooting the snapshot in the window trees may not narrow what it covers."""
+    app = QApplication.instance() or QApplication([])
+    window = QWidget()
+    child = QWidget(window)
+    grandchild = QWidget(child)
+    qtbot.addWidget(window)
+
+    reached = theme._live_widgets(app)
+
+    for widget in (window, child, grandchild):
+        assert widget in reached, "a widget in a live window tree was not reached"
+
+
+def test_the_walk_reaches_a_parentless_widget(qtbot) -> None:
+    """A widget with no parent is a top-level window in Qt, so it is still covered."""
+    app = QApplication.instance() or QApplication([])
+    orphan = QWidget()
+    qtbot.addWidget(orphan)
+
+    assert orphan in theme._live_widgets(app)
 
 
 def test_demo_launcher_uses_the_application_theme() -> None:

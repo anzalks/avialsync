@@ -1690,3 +1690,43 @@ for the first time in this repository's history on the commit that removed the t
 **Alternatives rejected:** keeping the deferral behind `isValid` (already tried; the crash moved
 rather than went away); passing `app` as the context object (the application outlives the widgets,
 so it drops nothing); catching the fault (a segmentation fault is not catchable in Python).
+
+## 2026-08 · D-065 · Widget snapshots are rooted in the window trees and taken with the collector paused
+
+**Context:** D-064 removed the deferral that let `apply_font_size`'s widget walk outlive its
+subjects, and recorded that filtering with `shiboken6.isValid` "is not sufficient on its own …
+*producing* the list is what dereferences freed memory". That residual hole stayed open, and it
+fired: a macOS runner died with `Fatal Python error: Segmentation fault` inside `_live_widgets`,
+on the line that builds the list, mid-way through the test session.
+
+The mechanism is not a Qt lifetime bug. `allWidgets` copies a pointer list in C++ and then hands
+the pointers to Python one at a time, and wrapping each one allocates. An allocation can trip the
+cyclic collector; collecting a cycle that owns a parentless widget runs `~QWidget` on it and on its
+children; and the rest of the already-copied list still points at them. The next wrap reads freed
+memory. `isValid` cannot arbitrate, because it needs a wrapper — which is precisely what the
+crashing step produces. That the fault is timing- and allocation-dependent is why it appears on one
+runner and not another, and why it is not reproducible on demand.
+
+**Decision:**
+
+1. Any snapshot of Qt-owned widget pointers is taken with Python's cyclic collector held off, and
+   the collector's prior state is restored afterwards. Nothing can be freed while Qt is mid-handover.
+2. The snapshot is rooted in `topLevelWidgets()` plus `findChildren`, not in Qt's global widget set.
+   Coverage is identical — a parentless `QWidget` is a top-level window in Qt, so every widget is a
+   window or a descendant of one — while the pointers Qt hands over drop from every widget the
+   process has ever made to the handful of live windows. A child reached through its parent is alive
+   by construction, since a destroyed `QObject` leaves its parent's child list as it dies.
+3. `isValid` still guards the walk that follows the snapshot, unchanged from D-064: applying a font
+   can free a later entry, and by that point the entries are wrappers, which is what it can answer for.
+
+**Evidence:** the crash is a SIGSEGV, so it cannot be asserted on — a test that provoked it would
+kill the run rather than report a failure. `tests/test_theme_tooltips.py` pins the properties that
+make it impossible instead: the snapshot is taken with collection off, the collector is left as it
+was found (both when it was on and when a caller had already disabled it), and the walk still
+reaches nested and parentless widgets.
+
+**Alternatives rejected:** flushing `DeferredDelete` before the walk (a widget awaiting deletion is
+still alive; it is not the one that gets freed); keeping `allWidgets` and widening the `isValid`
+filter (D-064 already tried and recorded that the crash moves rather than goes away); disabling the
+collector for the whole of `apply_font_size` (the font walk is thousands of `setFont` calls, and
+suspending collection across all of them trades a crash for memory growth).
