@@ -96,26 +96,6 @@ pythonpath = ["."]
 
 
 
-[[tool.mypy.overrides]]
-module = "avialsync.ui.plot_row"
-ignore_missing_imports = true
-disable_error_code = ["import-untyped"]
-
-[[tool.mypy.overrides]]
-module = "avialsync.ui.plot_sweep"
-ignore_missing_imports = true
-disable_error_code = ["import-untyped"]
-
-[[tool.mypy.overrides]]
-module = "avialsync.ui.plot_interactions"
-ignore_missing_imports = true
-disable_error_code = ["import-untyped"]
-
-[[tool.mypy.overrides]]
-module = "avialsync.ui.plot_overlays"
-ignore_missing_imports = true
-disable_error_code = ["import-untyped"]
-
 # These third-party packages ship no type stubs and no py.typed marker. This is
 # the one legitimate suppression (AGENTS §Coding standards): it silences the
 # *absence of stubs*, not errors in our own code.

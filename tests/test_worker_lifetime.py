@@ -2,9 +2,10 @@
 
 A QObject moved to a QThread with no owning Python reference is garbage
 collected before QThread.started fires, so its run() slot never executes.
-Before RECOVERY_PROMPT.md Phase 1, _start_drop_scan, _start_session_save,
-and _start_session_load all did this — dropping any file, saving a
-session, and loading a session were silently no-ops.
+_start_drop_scan, _start_session_save, and _start_session_load all did this
+once — dropping any file, saving a session, and loading a session were
+silently no-ops. They now route through MainWindow._run_job, which owns the
+worker/thread pair for the life of the job.
 """
 
 from pathlib import Path

@@ -177,7 +177,7 @@ class TestAOLEncoderLoader:
         session with a resolved anchor date: ``anchor_date`` together with
         ``auto_resolved``. Regression guard for a withdrawn "fix" that added
         the anchor-date epoch here and desynchronised the encoder by a whole
-        date (see the module docstring and RECOVERY_PLAN.md V-04), and for the
+        date (see the module docstring and D-045), and for the
         inverted manual/auto signal bug the module docstring documents as
         D-052 -- ``anchor_date`` presence alone cannot mean "manual", since a
         normal auto session carries it too.

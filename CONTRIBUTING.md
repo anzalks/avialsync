@@ -102,8 +102,8 @@ added a trap, or fixed a listed bug, update `HANDOUT.md` in the same commit.
 - **Platform verification.** Video rendering is intentionally platform-specific
   at one boundary (Qt OpenGL on Windows/macOS, native `wid` on Linux). Reports
   from real hardware are valuable — CI is headless everywhere.
-- **The open items in `RECOVERY_PLAN.md`**, which lists known violations with
-  their evidence.
+- **The open items under "Pending" in `HANDOUT.md`**, which lists known gaps
+  with the evidence behind each.
 
 ## Reporting bugs
 

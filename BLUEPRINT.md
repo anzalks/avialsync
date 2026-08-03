@@ -230,8 +230,9 @@ Deliverables:
 - Docs site (Read the Docs/Sphinx): quickstart ≤ 5 min, plugin author guide, format notes (short-GOP advice), troubleshooting.
 
 Exit criteria: a stranger can `pip install avialsync` **on a machine WITHOUT mpv installed**
-(guided dialog / auto-fetch gets them running) or download an installer, and open the sample
-dataset in < 5 minutes with zero manual dependency steps; users can drop a `.py` plugin into their folder and it appears in the import dialog; installers verified to contain LGPL-flavor binaries.
+(the app opens; the guided dialog and the documented per-OS prerequisites get them running) or
+download an installer, and open the sample dataset in < 5 minutes — zero manual dependency steps
+from an installer, one documented native install from pip; users can drop a `.py` plugin into their folder and it appears in the import dialog; installers verified to contain LGPL-flavor binaries.
 
 ### P5.4 — Evidence-based synchronization (TTL/events)
 

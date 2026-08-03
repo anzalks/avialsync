@@ -1,6 +1,10 @@
 # AvialSync Plot UX Refinement Plan
 
-Status: **approved target, not yet implemented**
+Status: **implemented; release certification outstanding.** The presentation, time-span, navigator,
+Y-scale, layout, focus, and compatibility slices are in the code and covered by offscreen tests.
+What remains is §14 certification: the representative 4/32/128-channel performance measurements and
+the three-platform manual field-data checklist in `TESTING.md` §6. This document stays the canonical
+contract — do not describe a further item as shipped until code, tests, and `HANDOUT.md` agree.
 
 Governing decisions: D-042 and D-044
 

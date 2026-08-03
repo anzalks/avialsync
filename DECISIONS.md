@@ -209,8 +209,9 @@ Render-API embedding on macOS is the project's highest integration risk; Phase 2
 ## 2026-07 · D-012 · Distribution channels & zero-step guarantee
 Release = ONE tag → CI builds ALL channels: (a) OS installers (Inno .exe, .dmg, AppImage) with
 LGPL libmpv + ffmpeg BUNDLED — end user does nothing but install & run; (b) PyPI wheel+sdist —
-pip users get everything Python-side automatically; libmpv/ffmpeg gap handled by startup probe
-(D-013) and Windows auto-fetch (D-014). conda-forge recipe as supplementary channel.
+pip users get everything Python-side automatically; libmpv/ffmpeg gap handled by the startup probe
+(D-013) plus documented per-OS prerequisites (D-014 superseded). conda-forge recipe as
+supplementary channel.
 Never ship a release where installers and PyPI are out of version sync.
 
 ## 2026-07 · D-028 · Release wheel smoke test gates installers and PyPI
@@ -248,13 +249,25 @@ one commit. A tag release remains fully hands-off after PyPI Trusted Publishing 
 ## 2026-07 · D-013 · Lazy mpv import + startup probe (never crash on missing libmpv)
 `import mpv` is FORBIDDEN at module top level anywhere. video_pane imports lazily after
 diagnostics probes for libmpv. Missing lib → app still opens, shows an OS-detected dialog with
-the exact install one-liner (apt/dnf/pacman/brew) or the Windows auto-fetch offer. A ctypes
-traceback at launch is a release-blocking bug.
+the exact install one-liner (apt/dnf/pacman/brew), or on Windows the mpv-dev archive plus
+`AVIALSYNC_MEDIA_ROOT`. Every branch must name a route the reader can take without a conda prefix
+or the desktop installer, because a pip user has neither. A ctypes traceback at launch is a
+release-blocking bug.
 
-## 2026-07 · D-014 · Windows pip auto-fetch of libmpv
-First run without libmpv on Windows: offer one-click download of the pinned LGPL libmpv build
-(URL + SHA256 hardcoded per release) into the app data dir; loaded from there. Makes pip on
-Windows effectively zero-step. Optional `avialsync[media]` binary companion wheel is post-1.0.
+## 2026-07 · D-014 · Windows pip auto-fetch of libmpv — SUPERSEDED
+Original decision: first run without libmpv on Windows offers a one-click download of the pinned
+LGPL libmpv build (URL + SHA256 hardcoded per release) into the app data dir; loaded from there.
+
+**Superseded during Phase 5 by BLUEPRINT.md ("source-checkout native-prerequisite guidance rather
+than Windows pip auto-fetch of libmpv").** The app never gained a download path. An application
+that fetches and executes a remote binary is a supply-chain surface the project keeps confined to
+reviewed CI workflows, which is the same reason `packaging/fetch_media_libs.py` stages only
+locally installed media instead of downloading it. Windows pip users therefore install libmpv
+themselves and point `AVIALSYNC_MEDIA_ROOT` at it — the route `avialsync.runtime` already
+supports, now named by the D-013 dialog and documented in README and `docs/quickstart.md`.
+
+An optional `avialsync[media]` binary companion wheel remains the post-1.0 way to make Windows pip
+zero-step. Do not reintroduce an in-app downloader instead.
 
 ## 2026-07 · D-015 · LGPL-configured libmpv ONLY in bundles
 libmpv is dual GPL/LGPL; bundling a GPL-configured build would poison D-003. Packaging must use
@@ -1730,3 +1743,71 @@ still alive; it is not the one that gets freed); keeping `allWidgets` and wideni
 filter (D-064 already tried and recorded that the crash moves rather than goes away); disabling the
 collector for the whole of `apply_font_size` (the font walk is thousands of `setFont` calls, and
 suspending collection across all of them trades a crash for memory growth).
+
+## 2026-08 · D-066 · MainWindow behaviour lives in controller modules of plain functions
+
+**Context:** `ui/main_window.py` reached 2884 lines against the ~500-line ceiling in AGENTS.md,
+owning drop routing, session persistence, import orchestration, video queueing, export, snapshots,
+region statistics, sync, menus, and shortcuts at once. The post-refactor repair plan (retired
+2026-08-03, its leftovers folded into HANDOUT.md) specified the
+split but not the mechanism, and the obvious mechanisms both break things: controller *objects*
+would have to re-own every Qt connection, and mixin classes would hide which file a method comes
+from while leaving `self` ambiguous.
+
+**Decision:** each responsibility moves to a module under `ui/controllers/` as plain functions whose
+first parameter is the window. `MainWindow` keeps one thin method per function, so every Qt
+connection, virtual override, and existing test target still resolves against the window itself.
+
+Two rules make this safe and are not optional:
+
+1. Moved code addresses the window as `window` where it said `self`, and nothing else changes.
+2. Moved code calls **the window's** methods (`window._start_drop_scan(...)`), never the sibling
+   module function. A test that replaces `window._start_drop_scan` must still intercept the call;
+   calling `drop_controller.start_drop_scan` directly would bypass the patched instance attribute
+   and silently defeat the tests that pin this behaviour.
+
+**Alternatives rejected:** controller classes owning their own Qt connections (re-wires signals the
+refactor is supposed to leave untouched); mixin classes (`self` keeps working, but method
+resolution becomes implicit and mypy loses the receiver type); moving methods without leaving
+delegators and updating call sites (breaks instance-level monkeypatching and every `@Slot`).
+
+**Consequences:** `main_window.py` is 1751 lines and now holds widget construction, the
+menu/shortcut table, and controller wiring. Crossing the module boundary made three latent
+defects visible to mypy that class-local assignment had hidden — `_aol_camera_fps`,
+`_aol_anchor_epoch`, and `_progress_dialog` were created inside the methods that set them and read
+by others; all three are now declared in `__init__`. Adding behaviour to the window means adding it
+to a controller, not to `MainWindow`.
+
+## 2026-08 · D-067 · `read_all_chunks` is an optional bulk-ingest extension, never part of API v1
+
+**Context:** the plugin ABCs are frozen as API v1 (§4) and `read_chunks(ch)` is the mandatory
+ingest path — the importer pulls one channel at a time so a 50 GB file never has to fit in RAM.
+For a format parsed in a single pass that is quadratic work: an 80-channel CSV is re-parsed 80
+times, once per channel, to produce data one pass already had in hand.
+
+`read_all_chunks` was added to close that gap and is implemented by `csv_loader`,
+`tracking_loader`, and `aol_eks_loader`. It shipped undocumented — absent from ARCHITECTURE.md
+and from DECISIONS.md — while `engine/importer.py` selects it by name at runtime. A frozen
+contract with an undocumented extension point is worse than either: a plugin author reading §4
+cannot know the faster path exists, and a future agent reading only the importer cannot know
+whether omitting the method is legal.
+
+**Decision:** `read_all_chunks` is an **optional additive extension**, documented in §4 and
+explicitly outside API v1. `TimeSeriesSource` does not declare it and must not grow it. The
+importer discovers it duck-typed (`getattr(loader, "read_all_chunks", None)`) and falls back to
+per-channel `read_chunks` whenever it is absent. Implementing it is a performance choice, never a
+compatibility requirement, and a plugin that never heard of it stays fully supported.
+
+A loader that does offer it owes the same guarantees `read_chunks` owes — time ordering,
+keep-last duplicates, NaN and sentinel handling — plus one more: every chunk carries every
+declared channel, aligned on the same rows. Both paths must produce byte-identical caches for the
+same input; that equivalence is what makes the fallback safe.
+
+**Alternatives rejected:** adding it to the ABC as an abstract method (breaks every existing
+third-party plugin and forces single-pass semantics onto formats that cannot provide them);
+adding it as a concrete ABC method defaulting to `NotImplemented` (still enlarges the frozen v1
+surface); leaving it undocumented (the status quo this entry closes).
+
+**Consequences:** §4 now shows the method with its contract and its "not part of v1" status. The
+two importer paths (`_build_bulk_channels`, `_build_channel_by_channel`) are a permanent pair, not
+a migration — neither is deprecated, and a change to one needs the same change proven in the other.

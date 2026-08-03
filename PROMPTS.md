@@ -97,7 +97,8 @@ Work in small increments and run `pytest -x -q` + `ruff check .` after each incr
   VideoSource needs_conversion()/prepare() flow (D-006) incl. the image-sequence fixture
   end-to-end and ui/diagnostics.py (disk read probe,
   hwdec probe, slow-drive warning, copy-diagnostics, libmpv probe + guided-install dialog +
-  lazy mpv import per D-013; Windows auto-fetch offer per D-014)."
+  lazy mpv import per D-013; the dialog's Windows branch names the mpv-dev archive plus
+  `AVIALSYNC_MEDIA_ROOT` — D-014's in-app auto-fetch is superseded, do not build a downloader)."
 - **P3.5 Perf hardening**: "Run all benchmarks against the big fixtures; profile and fix until
   BLUEPRINT budgets pass. Report before/after numbers in the PR description."
 
@@ -129,8 +130,9 @@ and one failure path. Update docs/user-guide stub. Keyboard-first where sensible
 - **P5.2 Packaging**: "Implement ARCHITECTURE §6 exactly: one-dir PyInstaller specs per OS
   bundling LGPL-verified mpv/ffmpeg (CI asserts build flavor, D-015); Inno Setup; arm64 dmg;
   AppImage; release.yml building installers AND PyPI atomically from one tag, with signing/
-  notarization steps stubbed behind secrets-present conditionals (D-016); Windows libmpv
-  auto-fetch with pinned SHA256 (D-014); conda-forge recipe skeleton. Packaging smoke test:
+  notarization steps stubbed behind secrets-present conditionals (D-016); documented per-OS native
+  prerequisites for pip users rather than an in-app libmpv downloader (D-014 superseded);
+  conda-forge recipe skeleton. Packaging smoke test:
   each bundle launches headless, opens sample session, exits 0; plus a pip-install test in a
   clean container WITHOUT libmpv asserting the guided dialog appears (D-013). `SPECPATH` is the
   spec directory, so derive the project root from it. Stage media only from a non-empty, validated
