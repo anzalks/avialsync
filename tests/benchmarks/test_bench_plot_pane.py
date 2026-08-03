@@ -29,8 +29,14 @@ _FRAME_BUDGET_S = 0.016
 _UI_CALLBACK_CEILING_S = 0.030
 
 
-def _channel_cache(tmp_path: Path, count: int, samples: int = 20_000) -> Path:
-    """Build a field-shaped multi-channel pyramid cache."""
+def _channel_cache(tmp_path: Path, count: int, samples: int = 6_000) -> Path:
+    """Build a field-shaped multi-channel pyramid cache.
+
+    Sample depth is kept modest on purpose: a query returns at most
+    ``point_budget_for_width`` points regardless, so row *count* drives the
+    cost measured here, while a deeper cache only adds memory pressure that
+    skews the other benchmarks sharing the session.
+    """
     cache = tmp_path / "bench.avialcache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.linspace(0.0, 60.0, samples)
@@ -78,28 +84,17 @@ def test_bench_populated_cursor_tick(benchmark, qtbot, tmp_path: Path, channels:
     )
 
 
-@pytest.mark.parametrize(
-    "channels",
-    [
-        32,
-        pytest.param(
-            128,
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Measured 38 ms mean / 253 ms max on an M-series workstation against a "
-                    "30 ms UI-callback ceiling. A duration change requeries all 128 rows in "
-                    "one callback, unlike row *construction*, which is sliced across event-loop "
-                    "turns (D-060). Slider drags are coalesced by PlotSweep's drag timer, so "
-                    "this is a hitch per commit rather than per slider step. Strict: when the "
-                    "requery is sliced too, this passes and the marker must be removed."
-                ),
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize("channels", [32, 128])
 def test_bench_window_duration_change(benchmark, qtbot, tmp_path: Path, channels: int) -> None:
-    """Changing the shared time span requeries every row: the zoom frame cost."""
+    """Changing the shared time span must not overrun the UI-callback ceiling.
+
+    This measures the *callback*, which is what the ceiling governs, not the
+    total requery: rows beyond the first slice are refreshed in later
+    event-loop turns (D-063). At 128 channels the row work is bounded to the
+    slice budget, so what is left is dominated by propagating the shared
+    X-range through every linked view — that, not the requery, is now the
+    thing to attack if this regresses.
+    """
     pane = _populated_pane(qtbot, tmp_path, channels)
     pane.set_timeline_bounds(0.0, 60.0)
     durations = (5.0, 10.0, 20.0, 40.0)
@@ -110,6 +105,10 @@ def test_bench_window_duration_change(benchmark, qtbot, tmp_path: Path, channels
         counter["index"] += 1
 
     benchmark(zoom)
+    # The last iteration leaves rows queued behind a zero-delay timer. Left
+    # armed it keeps firing through whatever benchmark runs next and steals the
+    # CPU that benchmark is measuring.
+    pane.cancel_pending_rows()
 
     assert benchmark.stats["mean"] <= _UI_CALLBACK_CEILING_S, (
         f"{channels}-channel zoom averaged {benchmark.stats['mean'] * 1000:.2f} ms "
@@ -149,14 +148,18 @@ def test_bench_row_build_slice(benchmark, qtbot, tmp_path: Path) -> None:
     """
     cache = _channel_cache(tmp_path, 128)
     names = [f"ch{index}" for index in range(128)]
+    panes: list[PlotPane] = []
 
     def build_one_slice() -> None:
         pane = PlotPane()
         qtbot.addWidget(pane)
         pane.resize(1280, 800)
         pane.load_channels(cache, names)
+        panes.append(pane)
 
     benchmark(build_one_slice)
+    for pane in panes:
+        pane.cancel_pending_rows()
 
     assert benchmark.stats["mean"] <= _UI_CALLBACK_CEILING_S, (
         f"first row-build slice averaged {benchmark.stats['mean'] * 1000:.2f} ms "

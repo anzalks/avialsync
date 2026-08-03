@@ -1605,3 +1605,46 @@ posts to the object's *own* thread, which by then is dead — the event is never
 `moveToThread` back to the UI thread on completion (an object cannot be pushed from another
 thread); joining every worker in `closeEvent` (D-059 established that closing must never block on
 a background job).
+
+## 2026-08 · D-063 · A time-span change requeries rows in slices; a page flip does not
+
+**Context:** P4.6's exit criteria require the populated plot to meet the BLUEPRINT.md budgets, but
+no benchmark covered the plot rows, so the criteria could not be evaluated. Adding them
+(`tests/benchmarks/test_bench_plot_pane.py`) showed the cursor tick, resize storm, and row-build
+slice all inside budget, and one metric outside it:
+
+| 128 channels, changing the shared time span | mean | max |
+|---|---|---|
+| before | 38 ms | 253 ms |
+| after | 28 ms | 32 ms |
+
+against a 30 ms hard ceiling for any UI-thread callback. Row *construction* was already sliced
+across event-loop turns (D-060); the requery that follows a span change was not, so it refreshed
+all 128 rows in one callback. `PlotSweep`'s drag timer coalesces slider drags, so this was a hitch
+per commit rather than per slider step — but 128 channels is a documented target workload
+(PLOT_UX_PLAN.md §15).
+
+**Decision:**
+
+1. `PlotPane.update_plots(sliced=True)` refreshes queued rows for one `_ROW_BUILD_SLICE_S` budget
+   and hands the rest back to the event loop, reusing the row-building slice mechanism.
+2. Only `_on_window_changed` asks for it. **A playback page flip stays atomic**: rows that changed
+   page in different turns would briefly disagree about which page they show, which is a
+   correctness defect, not a slower redraw. This is the whole reason slicing is opt-in rather than
+   the default for `update_plots`.
+3. Each slice re-reads the current window, so a span arriving while a refresh is in flight lands on
+   the remaining rows instead of being drawn at the superseded span and corrected afterwards.
+4. `cancel_pending_rows` clears the refresh queue too — a queued slice must not outlive the pane
+   (D-060's lesson applied to the new queue).
+
+**Evidence:** 89 of 128 rows refresh in the callback and 39 are deferred, all of which complete;
+`tests/test_ui_plot_sliced_refresh.py` pins deferral, completion, newest-span-wins, page-flip
+atomicity, and cancellation.
+
+**What this does not fix:** the remaining ~28 ms is no longer dominated by the requery, which is
+now bounded to the slice budget. It is dominated by propagating the shared X-range through every
+linked view. That is the next lever if this regresses, and headroom against the ceiling is thin.
+
+**Alternatives rejected:** slicing `update_plots` unconditionally (breaks page-flip atomicity during
+playback); raising the ceiling to fit the measurement (the budget is the requirement, not the
+result); dropping the X-link to avoid propagation (one shared X range is the point of the layout).

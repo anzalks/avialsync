@@ -127,6 +127,7 @@ class PlotPane(QWidget):
         self._last_point_budget = 0
         self._last_cursor_repaint = 0.0
         self._pending_rows: list[tuple[Path, str, TimeMap, str]] = []
+        self._pending_refresh: list[ChannelPlot] = []
         # Worst observed cost of one row, used to stop a slice before the next
         # row would overrun its budget rather than after one already has.
         self._row_build_cost_s = 0.0
@@ -283,6 +284,7 @@ class PlotPane(QWidget):
         never wait for construction it no longer needs.
         """
         self._pending_rows.clear()
+        self._pending_refresh.clear()
 
     def _finish_loading(self) -> None:
         """Apply the once-per-load work after the last queued row exists."""
@@ -309,6 +311,8 @@ class PlotPane(QWidget):
         """
         while self._pending_rows:
             self._build_pending_rows()
+        while self._pending_refresh:
+            self._refresh_pending_slice()
         # `_build_pending_rows` defers completion to the event loop; a caller
         # that asked to wait needs it applied before it continues.
         self._finish_loading()
@@ -408,9 +412,22 @@ class PlotPane(QWidget):
         """Backwards compatibility for Phase 2 single-channel load."""
         self.load_channels(cache_dir, [channel_id])
 
-    def update_plots(self) -> None:
-        """Refresh the current sweep from the decimation pyramid."""
+    def update_plots(self, *, sliced: bool = False) -> None:
+        """Refresh the current sweep from the decimation pyramid.
+
+        ``sliced`` spreads the requery across event-loop turns. It is opt-in
+        because a page flip during playback must be atomic: rows that changed
+        page in different turns would briefly disagree about which page they
+        show. Only a user-driven change of the shared time span asks for it,
+        where a row arriving a turn late reads as progressive redraw and a
+        synchronous pass reads as a freeze (D-063).
+        """
         if self.sweep_start is None or not self.channels:
+            return
+
+        if sliced:
+            self._pending_refresh = [ch for ch in self.channels if ch.visible]
+            self._refresh_pending_slice()
             return
 
         t0 = self.sweep_start
@@ -421,11 +438,41 @@ class PlotPane(QWidget):
         for ch in self.channels:
             if not ch.visible:
                 continue
-            refresh_channel_plot(ch, t0, t1, point_budget)
-            if ch.y_mode == Y_FIT_ONCE and ch.y_range is None:
-                fit_channel_y(ch)
-                if ch.y_range is not None:
-                    ch.y_mode = Y_MANUAL
+            self._refresh_one_row(ch, t0, t1, point_budget)
+
+    def _refresh_one_row(self, channel: ChannelPlot, t0: float, t1: float, budget: int) -> None:
+        """Requery one row and settle its once-only Y fit."""
+        refresh_channel_plot(channel, t0, t1, budget)
+        if channel.y_mode == Y_FIT_ONCE and channel.y_range is None:
+            fit_channel_y(channel)
+            if channel.y_range is not None:
+                channel.y_mode = Y_MANUAL
+
+    def _refresh_pending_slice(self) -> None:
+        """Requery queued rows for one time slice, then yield to the event loop.
+
+        The window is read afresh every slice, so a span change arriving while
+        a refresh is in flight lands on the remaining rows rather than being
+        drawn at the previous span and corrected later.
+        """
+        if self.sweep_start is None:
+            self._pending_refresh.clear()
+            return
+        started = time.monotonic()
+        t0 = self.sweep_start
+        t1 = t0 + self.window_duration
+        point_budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
+        self._last_point_budget = point_budget
+
+        while self._pending_refresh:
+            self._refresh_one_row(self._pending_refresh.pop(0), t0, t1, point_budget)
+            if time.monotonic() - started > _ROW_BUILD_SLICE_S:
+                break
+
+        if self._pending_refresh:
+            # Context-object overload: Qt drops the callback if this pane is
+            # destroyed first, rather than firing into a deleted C++ object.
+            QTimer.singleShot(0, self, self._refresh_pending_slice)
 
     def set_cursor(self, t: float, *, immediate: bool = False) -> None:
         """Advance the fixed sweep from the master-clock time.
@@ -584,8 +631,13 @@ class PlotPane(QWidget):
         return self._interactions._extra_context_actions
 
     def _on_window_changed(self, _seconds: float) -> None:
+        """Requery every row for the new span, without freezing the window.
+
+        At 128 channels a synchronous requery averaged 38 ms against the
+        30 ms UI-callback ceiling, so this is the one refresh that slices.
+        """
         self._configure_shared_x_range()
-        self._set_sweep_for_time(self._sweep_control.last_master_time, force=True)
+        self._set_sweep_for_time(self._sweep_control.last_master_time, force=True, sliced=True)
 
     def _refresh_after_resize(self) -> None:
         enforce_channel_visibility(self.channels)
@@ -645,11 +697,11 @@ class PlotPane(QWidget):
         for channel in self.channels:
             channel.curve.set_reveal_enabled(not review)
 
-    def _set_sweep_for_time(self, t: float, *, force: bool = False) -> float:
+    def _set_sweep_for_time(self, t: float, *, force: bool = False, sliced: bool = False) -> float:
         """Derive sweep position from master time and refresh only at boundaries."""
         position = self._sweep_control.advance(t)
         if position.changed or force:
-            self.update_plots()
+            self.update_plots(sliced=sliced)
             self._redraw_sweep_overlays()
 
         # Time has already advanced; from here down we are only moving pixels.
