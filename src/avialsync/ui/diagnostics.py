@@ -219,4 +219,13 @@ def format_diagnostics(diag: dict) -> str:
     speed = diag.get("disk_speed_mbps", 0)
     lines.append(f"Disk speed: {speed:.0f} MB/s")
 
+    # A plugin that fails to import looks exactly like one that was never
+    # installed — its formats just do not appear. Naming the failure here is the
+    # only place the person who installed it will see it.
+    plugin_errors = diag.get("plugin_errors") or []
+    if plugin_errors:
+        lines.append("")
+        lines.append(f"Plugins that failed to load ({len(plugin_errors)}):")
+        lines.extend(f"  {source}: {reason}" for source, reason in plugin_errors)
+
     return "\n".join(lines)

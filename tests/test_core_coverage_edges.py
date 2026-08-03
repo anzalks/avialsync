@@ -284,6 +284,8 @@ def test_a_path_with_no_import_spec_is_reported(tmp_path: Path, monkeypatch, cap
     )
 
     with caplog.at_level(logging.WARNING, logger="avialsync.core.registry"):
-        assert registry_module.LoaderRegistry._load_module(tmp_path / "toy.py") is None
+        module, reason = registry_module.LoaderRegistry._load_module(tmp_path / "toy.py")
 
+    assert module is None
+    assert reason is not None
     assert any("import spec" in record.getMessage() for record in caplog.records)

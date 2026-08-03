@@ -92,10 +92,11 @@ def test_module_name_is_stable_across_processes(tmp_path: Path) -> None:
     plugin = tmp_path / "toy.py"
     plugin.write_text(_PLUGIN_SOURCE, encoding="utf-8")
 
-    first = LoaderRegistry._load_module(plugin)
-    second = LoaderRegistry._load_module(plugin)
+    first, first_error = LoaderRegistry._load_module(plugin)
+    second, second_error = LoaderRegistry._load_module(plugin)
 
     assert first is not None and second is not None
+    assert first_error is None and second_error is None
     assert first.__name__ == second.__name__
     # Derived from the path, so it is reproducible rather than run-dependent.
     assert first.__name__.startswith("avialsync_plugin_toy_")
@@ -108,10 +109,12 @@ def test_a_broken_plugin_is_reported_not_silently_dropped(tmp_path: Path, caplog
     broken.write_text("this is not valid python(", encoding="utf-8")
 
     with caplog.at_level(logging.WARNING, logger="avialsync.core.registry"):
-        module = LoaderRegistry._load_module(broken)
+        module, reason = LoaderRegistry._load_module(broken)
 
     assert module is None
     assert any("broken.py" in record.getMessage() for record in caplog.records)
+    # The reason travels back to the caller too, so Diagnostics can show it.
+    assert reason is not None and "SyntaxError" in reason
 
 
 def test_a_plugin_exporting_nothing_is_reported(tmp_path: Path, caplog) -> None:

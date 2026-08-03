@@ -1307,7 +1307,10 @@ class MainWindow(QMainWindow):
     def _show_diagnostics(self) -> None:
         from avialsync.ui.diagnostics import format_diagnostics
 
-        diag = getattr(self, "_diag", {})
+        diag = dict(getattr(self, "_diag", {}))
+        # Read at display time, not at probe time: the registry finishes
+        # discovery during window construction, after the startup probe starts.
+        diag["plugin_errors"] = self._registry.plugin_errors
         text = format_diagnostics(diag)
 
         msg = QMessageBox(self)

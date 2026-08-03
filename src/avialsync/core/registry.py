@@ -19,6 +19,13 @@ class LoaderRegistry:
 
     def __init__(self, plugin_dirs: Iterable[Path] | None = None) -> None:
         self._loaders: list[type[TimeSeriesSource | VideoSource]] = []
+        #: Plugins that were found but could not be used, as ``(source, reason)``.
+        #: A plugin that fails to import is otherwise indistinguishable from one
+        #: that was never installed: the format simply does not appear, with
+        #: nothing to tell the user why. A log line is not enough — the person
+        #: who installed the plugin is not reading the log. `ui/diagnostics.py`
+        #: renders this list so **Help → Diagnostics** can answer the question.
+        self.plugin_errors: list[tuple[str, str]] = []
         self._plugin_dirs = (
             list(plugin_dirs) if plugin_dirs is not None else self._default_plugin_dirs()
         )
@@ -71,10 +78,13 @@ class LoaderRegistry:
         for ep in eps:
             try:
                 plugin_cls = ep.load()
-            except (ImportError, AttributeError, TypeError) as error:
+            except Exception as error:  # noqa: BLE001 - plugin boundary, as in _load_module
                 # A broken third-party plugin must be diagnosable. Silently
                 # continuing made it vanish with no way to tell why.
                 logger.warning("Loader entry point %r failed to load: %s", ep.name, error)
+                self.plugin_errors.append(
+                    (f"entry point {ep.name!r}", f"{type(error).__name__}: {error}")
+                )
                 continue
             if plugin_cls not in self._loaders:
                 self._loaders.append(plugin_cls)
@@ -89,8 +99,9 @@ class LoaderRegistry:
         for path in sorted(plugin_dir.glob("*.py")):
             if path.name.startswith("_"):
                 continue
-            module = self._load_module(path)
+            module, error = self._load_module(path)
             if module is None:
+                self.plugin_errors.append((path.name, error or "could not be imported"))
                 continue
             exported = 0
             for candidate in vars(module).values():
@@ -106,10 +117,17 @@ class LoaderRegistry:
                 logger.warning(
                     "Plugin %s exported no TimeSeriesSource or VideoSource subclass.", path.name
                 )
+                self.plugin_errors.append(
+                    (path.name, "exported no TimeSeriesSource or VideoSource subclass")
+                )
 
     @staticmethod
-    def _load_module(path: Path) -> ModuleType | None:
+    def _load_module(path: Path) -> tuple[ModuleType | None, str | None]:
         """Import one loose plugin module without adding its directory to ``sys.path``.
+
+        Returns ``(module, None)`` on success and ``(None, reason)`` on failure,
+        so the caller can report *why* a plugin is missing rather than only that
+        it is.
 
         The generated module name is derived from a SHA-1 of the resolved path
         rather than ``hash()``.  Python salts ``hash()`` per process, so the same
@@ -123,14 +141,21 @@ class LoaderRegistry:
         spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
             logger.warning("Plugin %s could not be turned into an import spec.", path)
-            return None
+            return None, "not importable as a Python module"
         module = importlib.util.module_from_spec(spec)
         try:
             spec.loader.exec_module(module)
-        except (ImportError, OSError, SyntaxError, ValueError, TypeError) as error:
+        except Exception as error:  # noqa: BLE001 - plugin boundary, see below
+            # Deliberately broad, and one of the few places that is correct.
+            # Executing a plugin module runs arbitrary third-party code, which
+            # can raise literally anything. A narrower tuple let a plugin
+            # raising, say, RuntimeError at import propagate out of __init__ —
+            # and the registry is built inside MainWindow.__init__, so one bad
+            # plugin file took down application startup. This is a catch, not a
+            # silence: the reason is returned, logged, and shown in Diagnostics.
             logger.warning("Plugin %s failed to import: %s", path.name, error)
-            return None
-        return module
+            return None, f"{type(error).__name__}: {error}"
+        return module, None
 
     def find_best_loader(self, path: Path) -> type[TimeSeriesSource | VideoSource] | None:
         """Return the loader with the highest can_open() score > 0."""
