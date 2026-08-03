@@ -1,3 +1,7 @@
+# Correctness on every push, on every branch: lint, types, and the full
+# OS x Python test matrix. Nothing here freezes a bundle or builds an
+# installer — that work belongs to a release tag and lives in release.yml,
+# which additionally refuses any tag not reachable from main.
 name: CI
 
 on:
@@ -128,86 +132,3 @@ jobs:
         run: pip install -e ".[docs]"
       - name: Build documentation with warnings as errors
         run: sphinx-build -W --keep-going -b html docs docs/_build/html
-
-
-  build-artifacts:
-    name: Build Artifacts (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    needs: [test, docs]
-    # Staging a media runtime and freezing it costs far more than the bare
-    # PyInstaller run this job used to do; the Windows bundle alone took over
-    # eight minutes in the release workflow.
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-15, windows-2022]
-    steps:
-      - uses: actions/checkout@v5
-      
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          
-      - name: Install Project
-        run: pip install -e .
-
-      - name: Install PyInstaller
-        run: pip install "pyinstaller==6.21.0"
-
-      # Without a media runtime this job built and smoke-tested a bundle that
-      # could not decode anything, so a media packaging regression was only
-      # ever caught by the release workflow — at tag time, the worst moment to
-      # discover it. Match the release job's dependencies and staging.
-      - name: Install System Dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg libmpv2 libegl1
-
-      - name: Install System Dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ffmpeg mpv
-
-      - name: Install System Dependencies (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          choco install --no-progress ffmpeg
-          $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
-          $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
-          curl.exe --fail --location --silent --show-error --retry 5 --retry-all-errors --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
-          if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
-            throw 'Downloaded libmpv archive did not match its pinned SHA-256'
-          }
-          & "$env:ChocolateyInstall\tools\7z.exe" x $archive "-o$destination" -y | Out-Null
-          $libmpv = Get-ChildItem $destination -Filter 'libmpv-2.dll' -File -Recurse | Select-Object -First 1
-          if ($null -eq $libmpv) {
-            throw 'Pinned libmpv archive did not contain libmpv-2.dll'
-          }
-          $libmpv.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Stage media libraries (Linux)
-        if: runner.os == 'Linux'
-        run: python packaging/fetch_media_libs.py --source /usr/lib --source /usr/bin --destination packaging/media
-      - name: Stage media libraries (macOS)
-        if: runner.os == 'macOS'
-        run: python packaging/fetch_media_libs.py --source "$(brew --prefix mpv)" --source "$(brew --prefix ffmpeg)" --destination packaging/media
-      - name: Stage media libraries (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        # Both package layouts: `ffmpeg` has shipped the binaries directly and
-        # has also been a meta-package pointing at `ffmpeg-full`. A source that
-        # does not exist is skipped, so naming both survives either.
-        run: python packaging/fetch_media_libs.py --source "$env:RUNNER_TEMP\libmpv" --source 'C:\ProgramData\chocolatey\lib\ffmpeg' --source 'C:\ProgramData\chocolatey\lib\ffmpeg-full' --destination packaging/media
-
-      - name: Build with PyInstaller
-        run: python packaging/build_bundle.py --media-root packaging/media --dist-dir dist
-      - name: Smoke test built bundle
-        run: python packaging/smoke_test.py dist/avialview
-
-        
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: avialview-${{ matrix.os }}
-          path: dist/avialview

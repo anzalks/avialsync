@@ -115,12 +115,27 @@ def test_bundle_smoke_can_require_a_real_platform_plugin(
     assert calls[0][1]["env"]["QT_QPA_PLATFORM"] == "xcb"
 
 
-def test_quality_workflows_smoke_test_bundles() -> None:
+def test_release_workflow_smoke_tests_the_staged_bundle() -> None:
+    """Freezing a bundle is release-tag work, and it must be gated on startup."""
     command = "python packaging/smoke_test.py dist/avialview"
     release_command = f"{command} --demo --timeout 300"
 
-    assert command in Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert release_command in Path(".github/workflows/release.yml").read_text(encoding="utf-8")
+
+
+def test_ci_does_not_build_installers() -> None:
+    """CI proves correctness on every push; only a tag builds and ships.
+
+    Bundling on every push of every branch cost three PyInstaller runs per
+    push for work that only a release consumes.
+    """
+    ci_workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "pyinstaller" not in ci_workflow.lower()
+    assert "build_bundle.py" not in ci_workflow
+    assert "smoke_test.py" not in ci_workflow
+    # The matrix that does run must still cover every supported platform.
+    assert "os: [ubuntu-24.04, macos-15, windows-2022]" in ci_workflow
 
 
 def test_linux_release_proves_the_bundle_opens_on_a_real_display() -> None:
