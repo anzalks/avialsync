@@ -31,6 +31,10 @@ class AOLEksLoader(TimeSeriesSource):
     provides frame indices; otherwise row index is used.
     """
 
+    @classmethod
+    def display_name(cls) -> str:
+        return "AOL 3D Tracking"
+
     def __init__(self) -> None:
         self._path: Path | None = None
         self._config: dict[str, Any] = {}

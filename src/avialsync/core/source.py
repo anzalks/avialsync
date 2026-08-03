@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +45,129 @@ class VideoMetadata:
     file_size_bytes: int = 0
 
 
-class TimeSeriesSource(ABC):
+def default_display_name(cls: type) -> str:
+    """Derive a readable format name from a class name.
+
+    ``AOLEksLoader`` becomes "AOL Eks", ``CSVLoader`` becomes "CSV". Only a
+    fallback: a format that cares how it is listed overrides ``display_name``.
+    """
+    name = cls.__name__
+    for suffix in ("Loader", "Source"):
+        if name.endswith(suffix) and name != suffix:
+            name = name[: -len(suffix)]
+    words: list[str] = []
+    for char in name:
+        if char.isupper() and words and not words[-1][-1].isupper():
+            words.append(char)
+        elif words:
+            words[-1] += char
+        else:
+            words.append(char)
+    return " ".join(words) or cls.__name__
+
+
+class _Nameable:
+    """Naming hooks shared by every source contract.
+
+    The import dialog once held a table mapping loader class names to labels,
+    which meant adding a format meant editing the UI, and third-party plugins
+    were listed by bare class name because they were not in the table. A format
+    names itself instead.
+    """
+
+    @classmethod
+    def display_name(cls) -> str:
+        """Return the human-readable name for this format."""
+        return default_display_name(cls)
+
+    @classmethod
+    def display_aliases(cls) -> list[str]:
+        """Return extra labels this loader should also be offered under.
+
+        For a general-purpose format that users think of by *purpose* rather
+        than by encoding — a CSV that is a TTL log, a trigger list, or a plain
+        trace. Each alias appears as its own choice, all resolving here.
+        """
+        return []
+
+
+@dataclass(frozen=True)
+class SessionItem:
+    """One file a session contributes, with the loader and config it needs.
+
+    ``loader`` may be ``None`` to let the registry resolve it by capability,
+    which is what a session should do for ordinary media it does not own the
+    format of.
+    """
+
+    path: Path
+    loader: type["TimeSeriesSource | VideoSource"] | None = None
+    config: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SessionLayout:
+    """What a recording folder contains, plus the settings that span it.
+
+    Session-wide settings are fields rather than another entry in ``items``.
+    They were once smuggled through the item list as a fake ``Path`` row, which
+    every consumer then had to recognise and strip; anything that forgot leaked
+    a non-existent file into the import dialog.
+    """
+
+    items: list[SessionItem] = field(default_factory=list)
+
+    #: UTC epoch that session-relative timestamps are measured from. ``0.0``
+    #: means the session declares no absolute anchor and times stay relative.
+    anchor_epoch: float = 0.0
+
+    #: Nominal camera rate shared by the session's video and frame-indexed
+    #: sources. ``0.0`` means unknown; sources then resolve their own.
+    camera_fps: float = 0.0
+
+    #: Body-part pairs to draw as a skeleton over pose data, if any.
+    skeleton: list[tuple[str, str]] | None = None
+
+
+class SessionSource(ABC):
+    """Optional plugin contract for a whole recording folder.
+
+    Additive to API v1 and outside it: ``TimeSeriesSource`` and ``VideoSource``
+    are unchanged, and a plugin that implements neither this nor anything else
+    is unaffected. Implement it when one directory *is* the recording — several
+    videos, pose data, and instrument traces that only mean something together,
+    with a shared clock.
+
+    Without it a folder can still be claimed, by returning a non-zero
+    ``can_open`` from an ordinary loader, but that yields exactly one source.
+    This is what lets one folder fan out into many, each with its own loader and
+    role, which is the difference between "a directory of files" and "a session".
+
+    Registered under the ``avialsync.sessions`` entry-point group, separately
+    from ``avialsync.loaders``: a session scanner is asked about directories
+    before per-file capability resolution runs at all.
+    """
+
+    @classmethod
+    @abstractmethod
+    def can_open(cls, path: Path) -> float:
+        """Return 0..1 confidence that *path* is a session this can lay out.
+
+        Called with directories. Must be cheap — it runs for every dropped
+        folder, on the scan thread, before anything is read.
+        """
+
+    @abstractmethod
+    def scan(self, path: Path, registry: Any) -> SessionLayout:
+        """Return the session's contents and the settings that span them.
+
+        ``registry`` resolves loaders by capability, so a session names its own
+        formats explicitly and defers ordinary media to whatever can read it.
+        Runs off the UI thread; it may read files, and must not touch Qt.
+        """
+
+
+class TimeSeriesSource(_Nameable, ABC):
     """Frozen v1 plugin contract for chunked time-series ingestion.
 
     Instances are created and used by :class:`engine.importer.ImportWorker` on a
@@ -95,7 +217,7 @@ class TimeSeriesSource(ABC):
         return False
 
 
-class VideoSource(ABC):
+class VideoSource(_Nameable, ABC):
     """Frozen v1 plugin contract for video sources.
 
     ``open`` and optional ``prepare`` run in a background worker.  The returned

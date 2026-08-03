@@ -14,6 +14,9 @@ import datetime
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
+from avialsync.core.source import SessionItem, SessionLayout, SessionSource
 
 logger = logging.getLogger(__name__)
 
@@ -354,3 +357,200 @@ def _yaml_value(value: str) -> object:
     except ValueError:
         pass
     return value
+
+
+class AOLSessionSource(SessionSource):
+    """Lay out an AOL multi-camera experiment folder as a session.
+
+    This is the reference implementation of :class:`SessionSource`, and the
+    reason that ABC exists: the layout below used to live inside
+    ``engine/drop_worker.py``, which meant the application's own drop path
+    imported one lab's format by name. Another rig with a comparable folder had
+    no way in short of editing that file. Everything AOL-specific now lives
+    here, and the drop path knows only "some plugin claims this directory".
+
+    All timing is expressed on one axis. The encoder log is written as
+    seconds-since-midnight UTC, so video and pose start epochs are rebased onto
+    the same axis by subtracting the session's anchor epoch (D-045); do not
+    "fix" that by adding the anchor to encoder timestamps instead, which shifts
+    it by roughly 20 days.
+    """
+
+    @classmethod
+    def can_open(cls, path: Path) -> float:
+        return 1.0 if is_aol_session(path) else 0.0
+
+    def scan(self, path: Path, registry: Any) -> SessionLayout:
+        manifest = build_manifest(path)
+        anchor_epoch = _anchor_epoch(manifest)
+
+        items: list[SessionItem] = []
+        items.extend(_video_items(manifest, anchor_epoch, registry))
+        items.extend(_eks_items(manifest, anchor_epoch))
+        items.extend(_pose_2d_items(manifest, anchor_epoch, registry))
+        items.extend(_encoder_items(manifest))
+
+        logger.info(
+            "AOL session detected: %d items from %s (fps=%.1f)",
+            len(items),
+            path.name,
+            manifest.camera_fps,
+        )
+        return SessionLayout(
+            items=items,
+            anchor_epoch=anchor_epoch,
+            camera_fps=manifest.camera_fps,
+            skeleton=manifest.skeleton,
+        )
+
+
+def _anchor_epoch(manifest: AOLManifest) -> float:
+    """Return the session's UTC midnight anchor, or 0.0 when it declares none."""
+    if not manifest.anchor_date:
+        return 0.0
+    try:
+        anchor = datetime.datetime.strptime(manifest.anchor_date, "%Y-%m-%d")
+    except ValueError:
+        return 0.0
+    return anchor.replace(tzinfo=datetime.UTC).timestamp()
+
+
+def _rebased(start_epoch: float, anchor_epoch: float) -> float:
+    """Move an absolute start epoch onto the session's seconds-since-midnight axis."""
+    if anchor_epoch > 0.0 and start_epoch > 0.0:
+        return start_epoch - anchor_epoch
+    return start_epoch
+
+
+def _start_epoch_for(manifest: AOLManifest, video: Path) -> float:
+    for vid_path, epoch in manifest.video_start_epochs.items():
+        if Path(vid_path).name.lower() == video.name.lower():
+            return float(epoch)
+    return 0.0
+
+
+def _video_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) -> list[SessionItem]:
+    """Cameras, deferred to whatever loader can read the container."""
+    items: list[SessionItem] = []
+    for video in manifest.videos:
+        loader_cls = registry.find_best_loader(video)
+        if loader_cls is None:
+            logger.warning("No loader found for AOL video %s", video.name)
+            continue
+        start_epoch = _rebased(_start_epoch_for(manifest, video), anchor_epoch)
+        config: dict[str, Any] = {"offset": -start_epoch}
+        if manifest.camera_fps > 0:
+            config["fps"] = manifest.camera_fps
+        items.append(SessionItem(video, loader_cls, config))
+    return items
+
+
+def _eks_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionItem]:
+    """3D triangulated pose, which drives the 3D view rather than a plot row (D-046)."""
+    from avialsync.loaders.aol_eks_loader import AOLEksLoader
+
+    items: list[SessionItem] = []
+    for eks_file in manifest.eks_files:
+        start_epoch = _rebased(resolve_eks_start_epoch(eks_file, manifest), anchor_epoch)
+        items.append(
+            SessionItem(
+                eks_file,
+                AOLEksLoader,
+                {
+                    "fps": manifest.camera_fps,
+                    "start_epoch": start_epoch,
+                    "skeleton": manifest.skeleton,
+                    "auto_resolved": True,
+                    "_is_frame_indexed": True,
+                    "role": "pose3d",
+                },
+            )
+        )
+    return items
+
+
+def _pose_2d_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) -> list[SessionItem]:
+    """Per-camera 2D pose, drawn over its own video and never plotted."""
+    items: list[SessionItem] = []
+    video_by_camera = {
+        label: video for label, video in zip(manifest.camera_labels, manifest.videos, strict=False)
+    }
+    for track in manifest.pose_2d_tracks:
+        overlay_video = video_by_camera.get(track.camera)
+        if overlay_video is None:
+            logger.warning(
+                "Skipping 2D track %s: no video for camera %s", track.path.name, track.camera
+            )
+            continue
+        loader_cls = registry.find_best_loader(track.path)
+        if loader_cls is None:
+            logger.warning("No loader found for 2D pose file %s", track.path.name)
+            continue
+        start_epoch = _rebased(_start_epoch_for(manifest, overlay_video), anchor_epoch)
+        items.append(
+            SessionItem(
+                track.path,
+                loader_cls,
+                {
+                    "fps": manifest.camera_fps,
+                    "offset": -start_epoch,
+                    "auto_resolved": True,
+                    "_is_frame_indexed": True,
+                    # The overlay draws points only. Pose exports carry ~9
+                    # columns per body part (likelihood, ensemble medians and
+                    # variances); importing all of them built a pyramid per
+                    # derived column and froze the UI on a real session.
+                    "coords": ["x", "y"],
+                    "role": "overlay2d",
+                    "overlay_video": str(overlay_video),
+                    "overlay_camera": track.camera,
+                    "overlay_label": track.model,
+                    "overlay_is_ensemble": track.is_ensemble,
+                },
+            )
+        )
+    return items
+
+
+def _encoder_items(manifest: AOLManifest) -> list[SessionItem]:
+    """The rotary encoder trace, already on the session's own time axis."""
+    from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
+
+    if manifest.encoder_file is None:
+        return []
+    config: dict[str, Any] = {"auto_resolved": True}
+    if manifest.anchor_date:
+        config["anchor_date"] = manifest.anchor_date
+    return [SessionItem(manifest.encoder_file, AOLEncoderLoader, config)]
+
+
+def resolve_eks_start_epoch(eks_file: Path, manifest: AOLManifest) -> float:
+    """Pick the camera start epoch a 3D EKS file should be timed against.
+
+    The session-level file is literally named ``_eks.csv``, so its leading name
+    token is empty -- and an empty token is a substring of every video name.
+    Matching on it silently bound the file to whichever video came first. Blank
+    tokens are ignored here, and a file that identifies no camera falls back to
+    the earliest camera start with a log line rather than an arbitrary one.
+    """
+    epochs = manifest.video_start_epochs
+    if not epochs:
+        return 0.0
+
+    tokens = [
+        token
+        for token in (eks_file.name.split("_")[0], eks_file.parent.name.split("_")[0])
+        if token
+    ]
+    for token in tokens:
+        for vid_path, epoch in epochs.items():
+            if token.lower() in Path(vid_path).name.lower():
+                return float(epoch)
+
+    earliest = min(epochs.values())
+    logger.info(
+        "3D EKS file %s names no camera; timing it from the earliest camera start (%.3f).",
+        eks_file.name,
+        earliest,
+    )
+    return float(earliest)

@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 class TrackingLoader(TimeSeriesSource):
     """Loads DeepLabCut and LightningPose multi-index CSV files."""
 
+    @classmethod
+    def display_name(cls) -> str:
+        return "Tracking Data (2D/3D)"
+
     def __init__(self) -> None:
         self._path: Path | None = None
         self._config: dict[str, Any] = {}

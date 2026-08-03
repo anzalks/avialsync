@@ -14,8 +14,9 @@ Three properties this exists to guarantee, in priority order:
    and "stuck".
 3. **Ownership is explicit.** A ``QObject`` moved to a ``QThread`` with no
    Python reference is collected before ``started`` fires and its ``run`` slot
-   never executes (RECOVERY_PLAN V-01/V-02). Registering here is the only
-   supported way to start background work in this application.
+   never executes — which silently broke every drop, session save, and session
+   load until it was found. Registering here is the only supported way to start
+   background work in this application. ``tests/test_worker_lifetime.py`` pins it.
 
 This is a ``QObject`` rather than a mixin on ``MainWindow`` deliberately: slots
 inherited from a plain mixin lose ``sender()`` and get direct instead of queued

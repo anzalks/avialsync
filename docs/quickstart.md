@@ -8,9 +8,32 @@ Have one or more video files, plus any sensor, tracking, or recording files you 
 Standard videos that your local mpv/ffmpeg installation can open are supported. Your lab may also
 provide a plugin for its own recording format.
 
+## If you installed with pip
+
+`pip install avialsync` supplies every Python dependency, but not the two native components the
+program needs for video: **libmpv** and **FFmpeg** (`ffmpeg` and `ffprobe`). Those are shared
+libraries and programs rather than Python packages, so `pip` cannot deliver them. The desktop
+installers bundle both; a pip install needs them installed once:
+
+- macOS: `brew install ffmpeg mpv`
+- Debian/Ubuntu: `sudo apt install ffmpeg libmpv2`
+- Fedora: `sudo dnf install ffmpeg mpv-libs`
+- Arch: `sudo pacman -S ffmpeg mpv`
+
+On Windows, install FFmpeg with `winget install --id Gyan.FFmpeg.Shared -e`. No Windows package
+manager ships `libmpv-2.dll`, so download an `mpv-dev-x86_64-*` archive from the
+[mpv-player-windows libmpv files](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/),
+extract it, and set `AVIALSYNC_MEDIA_ROOT` to the folder that directly contains the DLL. AvialSync
+searches that folder before the conda environment and `PATH`, and it may hold `ffmpeg.exe` and
+`ffprobe.exe` too.
+
+AvialSync opens either way. Without libmpv the video panes stay disabled and a `Missing libmpv`
+dialog names the step for your platform; **Help → Diagnostics** reports what was found.
+
 ## Windows: running from a source checkout
 
-This section is only for developers running the repository, not people using `AvialSync-Setup.exe`.
+This section is for developers running the repository, not for people who used
+`AvialSync-Setup.exe` or `pip install avialsync`.
 Install Python 3.11 or 3.12, a standalone shared FFmpeg build, and a compatible libmpv build. Put
 `libmpv-2.dll` in the active conda environment's `Library\\bin` directory,
 or otherwise make it available on `PATH`.

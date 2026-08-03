@@ -6,6 +6,25 @@ from types import SimpleNamespace
 from avialsync.ui import diagnostics
 
 
+def test_install_guidance_names_a_route_on_every_platform() -> None:
+    """D-013 requires an actionable install step, not a description of the problem."""
+    assert "brew install mpv" in diagnostics.libmpv_install_guidance("darwin")
+
+    linux = diagnostics.libmpv_install_guidance("linux")
+    assert "apt install libmpv2" in linux
+    assert "dnf install mpv-libs" in linux
+    assert "pacman -S mpv" in linux
+
+
+def test_windows_install_guidance_serves_a_pip_install() -> None:
+    """A pip user has no conda prefix and no installer, so those cannot be the only routes."""
+    guidance = diagnostics.libmpv_install_guidance("win32")
+
+    assert "AvialSync-Setup.exe" in guidance
+    assert "AVIALSYNC_MEDIA_ROOT" in guidance
+    assert "libmpv-2.dll" in guidance
+
+
 def test_hwdec_probe_reports_failure_and_terminates_player(monkeypatch) -> None:
     """A failed capability query must remain observable and release libmpv."""
     terminated: list[bool] = []

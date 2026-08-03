@@ -52,6 +52,10 @@ SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
 class NeoLoader(TimeSeriesSource):
     """Loads electrophysiology data using the neo library."""
 
+    @classmethod
+    def display_name(cls) -> str:
+        return "Electrophysiology Data"
+
     def __init__(self) -> None:
         self._path: Path | None = None
         self._config: dict[str, Any] = {}

@@ -41,7 +41,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── video_standard.py         # ffprobe metadata + mmap-cached presentation timestamps
 │   │   ├── tracking_loader.py        # DeepLabCut CSV; multi-scorer, bodypart/coord flat-headers
 │   │   ├── neo_loader.py             # Neo electrophysiology; OpenEphys/NCS/NIX; BFS root detect
-│   │   ├── aol_session_loader.py     # AOL folder detection + manifest (videos, 2D/3D pose, encoder, timing)
+│   │   ├── aol_session_loader.py     # AOLSessionSource: first SessionSource implementation, not a special case (D-068)
 │   │   ├── aol_eks_loader.py         # AOL 3D EKS triangulation CSV; frame-indexed x/y/z triplets
 │   │   └── aol_encoder_loader.py     # AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045)
 │   ├── engine/                       # playback machinery (imports core + mpv, no widgets)
@@ -51,13 +51,19 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── export.py                 # snapshot, data slice (CSV/Parquet), video clip trim
 │   │   ├── proxy.py                  # ffmpeg short-GOP proxies + prepare() conversion flow (D-006)
 │   │   ├── sync_worker.py            # chunked event extraction and deterministic fitting (D-026)
-│   │   ├── drop_worker.py            # off-thread drop classification; AOL session fan-out + pose roles (D-046)
+│   │   ├── drop_worker.py            # off-thread drop classification; format-neutral, defers folders to SessionSource (D-068)
 │   │   ├── session_worker.py         # off-thread .avv save/load
 │   │   ├── export_worker.py          # off-thread region stats, data slice, clip, snapshot jobs
 │   │   └── video_worker.py           # off-thread video probe before native pane creation
 │   ├── runtime.py                    # bundled/env media-tool discovery; no_window_kwargs (V-14)
 │   ├── ui/                           # PySide6 widgets only; no business logic
-│   │   ├── main_window.py            # Left sidebar (metadata, offsets, file management) + right content (video grid, plots)
+│   │   ├── main_window.py            # widget construction, menu/shortcut table, controller wiring; behaviour lives in controllers/
+│   │   ├── controllers/              # MainWindow behaviour as plain functions taking the window (D-066)
+│   │   │   ├── drop_controller.py    # drag/drop intake, drop scan, capability-resolved candidate routing
+│   │   │   ├── session_controller.py # .avv save/load/restore, QSettings geometry, autosave, recent files
+│   │   │   ├── export_controller.py  # snapshot, data slice, video clip, annotations, A/B region stats
+│   │   │   ├── video_controller.py   # bounded concurrent ffprobe probes; serialized pane build (D-040)
+│   │   │   └── import_controller.py  # time-series import queue + pose routing to overlay/3D (D-046)
 │   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
 │   │   ├── video_timing.py           # timestamp rates, OSD text, frame lookup/step behavior
 │   │   ├── video_overlay.py          # transparent overlay; multi-source 2D pose tracks + legend (D-046)
@@ -82,7 +88,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── time_format.py            # TimeDisplayMode enum + format_time(t, mode, t_epoch) helper (D-020)
 │   │   ├── relink_dialog.py          # missing session files → browse/search (§5)
 │   │   ├── shortcuts_dialog.py       # keyboard shortcuts reference dialog (? key)
-│   │   ├── diagnostics.py            # startup probes: libmpv/hwdec/disk; guided-install; auto-fetch (D-013/14)
+│   │   ├── diagnostics.py            # startup probes: libmpv/hwdec/disk; guided per-OS install text (D-013)
 │   │   └── theme.py                  # native-aware system/dark/light appearance
 │   └── resources/                    # icons, .qss themes, sample-session manifest (packaged data)
 │
@@ -316,6 +322,39 @@ class TimeSeriesSource(ABC):
         NaN/inf pass through; sentinel codes (e.g. -9999) mapped to NaN only via explicit
         loader config, never guessed."""
 
+    # A loader also names itself for the import dialog via display_name() and
+    # display_aliases(); both have defaults, so no existing plugin changes.
+
+    # BULK INGEST (OPTIONAL, NOT PART OF v1): a loader whose format is parsed in one pass —
+    # a CSV, a tracking table — may additionally offer read_all_chunks. The importer detects
+    # it by name (`getattr(loader, "read_all_chunks", None)`) and, when present, uses it
+    # INSTEAD of calling read_chunks once per channel, so an 80-channel file is parsed once
+    # rather than 80 times. It is not on this ABC and never will be: a plugin that omits it
+    # is fully supported and takes the per-channel path. See D-067.
+    def read_all_chunks(self) -> Iterator[dict[str, tuple[np.ndarray, np.ndarray]]]:
+        """Yield {channel_name: (t, v)} per chunk, every channel aligned on the same rows.
+        Same ordering, duplicate, NaN, and sentinel rules as read_chunks. Yielding channels
+        the loader did not declare, or omitting declared ones, is a loader bug."""
+
+
+class SessionSource(ABC):
+    """OPTIONAL, NOT PART OF v1 (D-068). One directory that *is* a recording.
+
+    Published under the `avialsync.sessions` entry-point group. Asked about a
+    dropped folder before any per-file resolution runs; whichever scanner claims
+    it decides what the folder contains. This is what lets one folder fan out
+    into many sources with roles, which a folder-claiming ordinary loader cannot
+    express. AOL is its first implementation, not a built-in special case.
+    """
+
+    @classmethod
+    def can_open(cls, path: Path) -> float: ...  # directories; must be cheap
+
+    def scan(self, path: Path, registry) -> SessionLayout:
+        """Return SessionItem(path, loader, config) rows plus the settings that
+        span them (anchor_epoch, camera_fps, skeleton). Session-wide settings are
+        typed fields, never a synthetic item row. Runs off the UI thread."""
+
     # Timestamp handling contract: loader must resolve timezone (naive input → user chooses
     # in import wizard, default UTC with a visible warning), handle DST-ambiguous local
     # times by refusing ambiguity silently (ask), and support time-of-day-only formats via
@@ -431,13 +470,15 @@ One release tag → `.github/workflows/release.yml` builds and publishes ALL of:
 | Windows installer | Inno Setup `AvialSync-Setup.exe` (one-DIR PyInstaller inside; never one-file — AV false positives) | bundled (LGPL, verified D-015) | install → run |
 | macOS | `AvialSync.dmg` (arm64 v1; Intel via pip) | bundled | drag → run (right-click-Open until signed, D-016) |
 | Linux | `AvialSync.AppImage` | bundled | download → run |
-| PyPI | wheel + sdist | NOT included; probe+guide (D-013), Windows auto-fetch (D-014) | `pip install avialsync` → run |
+| PyPI | wheel + sdist | NOT included; probe+guide (D-013) | `pip install avialsync` → install libmpv + ffmpeg once (README) → run |
 | conda-forge | recipe (Phase 5) | pulled as conda deps | `conda install avialsync` → run |
 
 Startup sequence (all channels): diagnostics probe (libmpv present? hwdec? disk speed?) →
-missing libmpv → guided dialog (distro-specific one-liner / brew line / Windows auto-fetch
-button with pinned SHA256 download) → lazy `import mpv` only after probe passes. The app window
-ALWAYS opens; capability problems degrade to dialogs, never tracebacks.
+missing libmpv → guided dialog (distro-specific one-liner / brew line / Windows mpv-dev archive
+plus `AVIALSYNC_MEDIA_ROOT`) → lazy `import mpv` only after probe passes. The app window
+ALWAYS opens; capability problems degrade to dialogs, never tracebacks. Those prerequisites are
+documented for pip users in README "Native prerequisites for a pip install" and `docs/quickstart.md`;
+`ui/diagnostics.libmpv_install_guidance` holds the per-platform text the dialog shows.
 
 GitHub Actions is the only release authority: the tag workflow builds every installer and the PyPI
 wheel/sdist before either is published. The Linux AppImage tool URL and SHA256 are repository

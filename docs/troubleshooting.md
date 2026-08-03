@@ -1,5 +1,25 @@
 # Troubleshooting
 
+## A “Missing libmpv” dialog appears at startup
+
+This is expected after `pip install avialsync` on a machine that has no libmpv. libmpv is a shared
+library rather than a Python package: the `python-mpv` dependency is only a binding and loads a
+libmpv that already exists on the system. The desktop installers bundle one, so the dialog appears
+only for pip and source installs.
+
+AvialSync deliberately keeps running. Time series, tracking, annotations, and sessions all work;
+the video panes stay disabled until libmpv is present. Install it as described in
+[Quickstart](quickstart.md#if-you-installed-with-pip) — `brew install mpv`,
+`sudo apt install libmpv2`, `sudo dnf install mpv-libs`, or `sudo pacman -S mpv` — and restart.
+
+On Windows, download an `mpv-dev-x86_64-*` archive from the
+[mpv-player-windows libmpv files](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/)
+and set `AVIALSYNC_MEDIA_ROOT` to the folder that *directly* contains `libmpv-2.dll`; a parent
+folder is not searched. Set it with `setx`, then open a new terminal so the variable is present.
+The same missing-runtime rule applies to `ffmpeg` and `ffprobe`, which imports and exports need.
+
+**Help → Diagnostics** confirms what was found after a restart.
+
 ## A video says “No Footage”
 
 This is usually correct: the selected master time is outside that camera’s recording. Check its span

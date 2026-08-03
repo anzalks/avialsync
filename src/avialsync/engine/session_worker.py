@@ -10,7 +10,8 @@ can keep mutating its own state while the job runs.  Annotation export lives in
 ``engine/export_worker.py`` alongside the other export jobs.
 Callers must register them through ``MainWindow._run_job``: a ``QObject`` moved
 to a ``QThread`` with no Python reference is collected before ``started`` fires
-and its ``run`` slot never executes (RECOVERY_PLAN V-01/V-02).
+and its ``run`` slot never executes, which silently turned every session save
+and load into a no-op. ``tests/test_worker_lifetime.py`` pins it.
 """
 
 from __future__ import annotations

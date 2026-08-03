@@ -45,7 +45,8 @@ def test_recipe_supplies_the_native_media_runtime() -> None:
     """This is the reason to ship a conda package at all.
 
     A PyPI install cannot provide libmpv or ffmpeg, so it falls back to the
-    guided dialog (D-013, D-014). A conda package can declare them.
+    guided dialog and documented per-OS prerequisites (D-013). A conda package
+    can declare them as real dependencies instead.
     """
     run_section = _recipe_text().lower().split("run:", 1)[1].split("test:", 1)[0]
 

@@ -1,6 +1,5 @@
 """Main window for AvialSync."""
 
-import dataclasses
 import logging
 from collections import deque
 from collections.abc import Callable
@@ -8,7 +7,7 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 import numpy as np
-from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import (
     QAction,
     QCloseEvent,
@@ -26,6 +25,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
+    QProgressDialog,
     QSplitter,
     QTabWidget,
     QVBoxLayout,
@@ -35,22 +35,25 @@ from PySide6.QtWidgets import (
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.session import (
-    MarkerEntry,
-    SensorEntry,
     SessionState,
     SyncProvenance,
-    VideoEntry,
 )
 from avialsync.core.source import TimeSeriesSource, VideoSource
-from avialsync.core.timeline import MasterClock, TimeMap
+from avialsync.core.timeline import MasterClock
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.ui.annotations import AnnotationPanel, AnnotationStore
+from avialsync.ui.controllers import (
+    drop_controller,
+    export_controller,
+    import_controller,
+    session_controller,
+    video_controller,
+)
 from avialsync.ui.job_manager import JobManager
 from avialsync.ui.pane_proportions import PaneProportions
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.readout_panel import ReadoutPanel
-from avialsync.ui.recent_files import add_recent, get_recent
 from avialsync.ui.time_format import TimeDisplayMode
 from avialsync.ui.tracking_3d_pane import Tracking3DPane
 from avialsync.ui.transport import Transport
@@ -98,10 +101,9 @@ def _is_mid_edit(widget: QWidget) -> bool:
     return False
 
 
-#: Concurrent ffprobe metadata/timestamp probes.  Bounded because each one
-#: spawns a subprocess and reads from the same disk; unbounded fan-out on a
-#: 32-camera session would thrash rather than parallelise.
-_MAX_VIDEO_PROBES = 3
+#: Re-exported from the import controller, which owns the probe loop that
+#: enforces it.  Kept here because this is the name the bound is known by.
+_MAX_VIDEO_PROBES = video_controller.MAX_VIDEO_PROBES
 
 
 def _quit_legacy_jobs(registry: "dict[QThread, object]") -> None:
@@ -142,6 +144,13 @@ class MainWindow(QMainWindow):
 
         # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
         self._video_fps: dict[str, float] = {}
+        # Settings the last session plugin reported for a dropped folder, if
+        # any. Format-neutral: any SessionSource may declare them. Declared here
+        # rather than created on first use, because they are read outside the
+        # code that sets them and a window that never opened a session must
+        # still answer for them.
+        self._session_camera_fps: float = 0.0
+        self._session_anchor_epoch: float = 0.0
         # Keep QObject workers alive until their QThread has finished. Moving an
         # object to a thread does not transfer Python ownership.
         self._video_load_jobs: dict[QThread, object] = {}
@@ -166,6 +175,10 @@ class MainWindow(QMainWindow):
         # Held until the import thread has finished so the worker is destroyed
         # on this thread; see the wiring in the import starter for why.
         self._import_worker: QObject | None = None
+        # Modal progress for the running import. Declared here rather than
+        # created by the import starter: the finish and error handlers both
+        # read it, and a window that has never imported must still answer.
+        self._progress_dialog: QProgressDialog | None = None
         self._data_export_jobs: dict[QThread, object] = {}
         self._region_stats_jobs: dict[QThread, object] = {}
         self._video_clip_jobs: dict[QThread, object] = {}
@@ -512,7 +525,7 @@ class MainWindow(QMainWindow):
         """Forward to ReadoutPanel with accumulated units for known channels."""
         self.readout_panel.update_sources(readers, self._channel_units)
         # Plotted XYZ channels still feed the 3D view, but they are no longer its
-        # only feed: AOL pose sources register themselves without being plotted.
+        # only feed: pose sources register themselves without being plotted.
         self._plotted_readers = list(readers)
         self._refresh_pose_3d()
 
@@ -605,337 +618,39 @@ class MainWindow(QMainWindow):
         self._pane_resize_timer.start()
 
     def _restore_geometry(self) -> None:
-        settings = QSettings("AvialSync", "AvialSync")
-        geom = settings.value("window/geometry")
-        if geom:
-            self.restoreGeometry(geom)
-        h_state = settings.value("splitter/horizontal")
-        if h_state:
-            self._h_splitter.restoreState(h_state)
-        v_state = settings.value("splitter/vertical")
-        if v_state:
-            self._v_splitter.restoreState(v_state)
-        media_state = settings.value("splitter/media")
-        if media_state:
-            self._media_splitter.restoreState(media_state)
-        content_state = settings.value("splitter/content")
-        if content_state:
-            self._content_splitter.restoreState(content_state)
-        tab_index = cast(int, settings.value("inspector/tab", 0, type=int))
-        self._left_tabs.setCurrentIndex(max(0, min(tab_index, self._left_tabs.count() - 1)))
-        # restoreState also restores the collapsible flag and may carry a zero
-        # pane from an older layout; re-assert the policy and repair.
-        self._enforce_splitter_policy()
-        self._repair_collapsed_panes()
-        # The restored arrangement is the user's own, so it becomes the ratio to
-        # hold. Recording it here rather than letting the first resize adopt it
-        # keeps a session that opens already-resized from drifting.
-        self._pane_proportions.record_all()
+        session_controller.restore_geometry(self)
 
     def _save_geometry(self) -> None:
-        settings = QSettings("AvialSync", "AvialSync")
-        settings.setValue("window/geometry", self.saveGeometry())
-        settings.setValue(
-            "splitter/horizontal",
-            self._h_splitter.saveState(),
-        )
-        settings.setValue(
-            "splitter/vertical",
-            self._v_splitter.saveState(),
-        )
-        settings.setValue("splitter/content", self._content_splitter.saveState())
-        settings.setValue("splitter/media", self._media_splitter.saveState())
-        settings.setValue("inspector/tab", self._left_tabs.currentIndex())
+        session_controller.save_geometry(self)
 
-    # ── Session save / load ──────────────────────────────────────────
+    # ── Session save / load ────────────────────────────
 
     def _build_session_state(self) -> SessionState:
-        """Snapshot current app state into a SessionState."""
-        from avialsync.ui.sidebar import SensorInfoWidget
-
-        bounds = self.clock.state.bounds
-        videos = []
-        for p, pane in zip(self.video_grid._paths, self.video_grid.panes, strict=False):
-            ins = self._inspections.get(p)
-            videos.append(
-                VideoEntry(
-                    path=p,
-                    offset=pane.time_map.offset,
-                    drift_ppm=pane.time_map.drift_ppm,
-                    integrity_flags=ins.integrity_flags.as_dict() if ins else {},
-                    metadata=ins.import_config if ins else {},
-                )
-            )
-
-        sensors: list[SensorEntry] = []
-        for i in range(self.sidebar.sensors_layout.count()):
-            item = self.sidebar.sensors_layout.itemAt(i)
-            if item and item.widget():
-                w = item.widget()
-                if isinstance(w, SensorInfoWidget):
-                    ins = self._inspections.get(w.path)
-                    offset, drift_ppm = w.mapping()
-                    sensors.append(
-                        SensorEntry(
-                            path=w.path,
-                            channels=[],
-                            loader_id=ins.loader_id if ins else "",
-                            import_config=dict(ins.import_config) if ins else {},
-                            import_report=(
-                                ins.import_report.as_dict() if ins and ins.import_report else None
-                            ),
-                            offset=offset,
-                            drift_ppm=drift_ppm,
-                        )
-                    )
-
-        markers = [
-            MarkerEntry(
-                t_start=m.t_start,
-                t_end=m.t_end,
-                label=m.label,
-                video_frames=[dataclasses.asdict(vf) for vf in m.video_frames],
-            )
-            for m in self.annotation_store.markers
-        ]
-
-        # The fixed sweep always displays 0..window_duration.
-        plot_x0 = 0.0 if self.plot_pane.channels else None
-        plot_x1 = self.plot_pane.window_duration if self.plot_pane.channels else None
-
-        return SessionState(
-            videos=videos,
-            sensors=sensors,
-            markers=markers,
-            sync_provenance=list(self._sync_provenance),
-            t_start=bounds[0],
-            t_end=bounds[1],
-            plot_x0=plot_x0,
-            plot_x1=plot_x1,
-        )
+        return session_controller.build_session_state(self)
 
     def _save_session(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Session",
-            "",
-            "AvialSync Session (*.avv)",
-        )
-        if not path:
-            return
-        if not path.endswith(".avv"):
-            path += ".avv"
-
-        self._start_session_save(Path(path), is_autosave=False)
+        session_controller.save_session(self)
 
     def _start_session_save(self, path: Path, is_autosave: bool = False) -> None:
-        if self._save_in_progress:
-            return
-
-        self._save_in_progress = True
-        state = self._build_session_state()
-
-        from avialsync.engine.session_worker import SessionSaveWorker
-
-        worker = SessionSaveWorker(state, path)
-        thread = self._run_job(worker)
-
-        if not is_autosave:
-            self.transport.set_status("Saving session…")
-
-        def on_finished():
-            self._session_path = path
-            add_recent(str(path))
-            if not is_autosave:
-                self.transport.set_status("")
-
-        def on_error(msg: str):
-            if not is_autosave:
-                self.transport.set_status("")
-                QMessageBox.critical(self, "Save Error", f"Could not save session:\n{msg}")
-            else:
-                logger.exception("Autosave failed for %s: %s", path, msg)
-
-        worker.finished.connect(on_finished)
-        worker.error.connect(on_error)
-
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        # No `worker.deleteLater` here: these signals are emitted in the
-        # worker thread, where the worker also lives, so the connection is
-        # direct and ~QObject runs inside that thread — severing connections
-        # while holding one of Qt's pooled signal/slot mutexes and then
-        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
-        # The owning registry drops its reference on the UI thread instead.
-        # Un-latch even if the thread ends abnormally (e.g. worker deleted
-        # without emitting finished/error), so a stuck save cannot
-        # permanently block every later save.
-        thread.finished.connect(lambda: setattr(self, "_save_in_progress", False))
-
-        thread.start()
+        session_controller.start_session_save(self, path, is_autosave)
 
     def _open_session(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open Session",
-            "",
-            "AvialSync Session (*.avv)",
-        )
-        if not path:
-            return
-        self._start_session_load(Path(path))
+        session_controller.open_session(self)
 
     def _start_session_load(self, path: Path) -> None:
-        from avialsync.engine.session_worker import SessionLoadWorker
-
-        self.transport.set_status("Loading session…")
-        worker = SessionLoadWorker(path)
-        thread = self._run_job(worker)
-
-        def on_finished(state: SessionState):
-            self.transport.set_status("")
-            self._session_path = path
-            add_recent(str(path))
-            self._restore_session(state)
-
-        def on_error(msg: str):
-            self.transport.set_status("")
-            QMessageBox.critical(self, "Session Error", f"Could not load session:\n{msg}")
-
-        worker.finished.connect(on_finished)
-        worker.error.connect(on_error)
-
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        # No `worker.deleteLater` here: these signals are emitted in the
-        # worker thread, where the worker also lives, so the connection is
-        # direct and ~QObject runs inside that thread — severing connections
-        # while holding one of Qt's pooled signal/slot mutexes and then
-        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
-        # The owning registry drops its reference on the UI thread instead.
-
-        thread.start()
+        session_controller.start_session_load(self, path)
 
     def _on_session_load_error(self, error: str) -> None:
-        self.statusBar().clearMessage()
-        logger.error("Session load failed: %s", error)
-        QMessageBox.critical(self, "Session Error", f"Could not load session:\n{error}")
+        session_controller.on_session_load_error(self, error)
 
     def _restore_session(self, state: SessionState) -> None:
-        """Load all sources from a SessionState object."""
-        # Collect missing files for relink
-        missing: list[str] = []
-        kind_labels: dict[str, str] = {}
-
-        for ve in state.videos:
-            if not Path(ve.path).exists():
-                missing.append(ve.path)
-                kind_labels[ve.path] = "video"
-
-        for se in state.sensors:
-            if not Path(se.path).exists():
-                missing.append(se.path)
-                kind_labels[se.path] = "sensor"
-
-        relink_map: dict[str, str] = {}
-        if missing:
-            from avialsync.ui.relink_dialog import RelinkDialog
-
-            dlg = RelinkDialog(missing, kind_labels, self)
-            if dlg.exec() == RelinkDialog.DialogCode.Rejected:
-                return
-            relink_map = dlg.resolved_mapping()
-
-        self._sync_provenance = list(state.sync_provenance)
-        self._pending_exact_mappings.clear()
-        for provenance in state.sync_provenance:
-            if len(provenance.exact_master) and len(provenance.exact_source):
-                target = relink_map.get(provenance.target_id, provenance.target_id)
-                self._pending_exact_mappings[target] = (
-                    np.asarray(provenance.exact_master, dtype=np.float64),
-                    np.asarray(provenance.exact_source, dtype=np.float64),
-                )
-
-        for ve in state.videos:
-            p = Path(relink_map.get(ve.path, ve.path))
-            if p.exists():
-                self._load_video(p, offset=ve.offset, drift_ppm=ve.drift_ppm)
-                if ve.integrity_flags or ve.metadata:
-                    from avialsync.core.inspection import IntegrityFlags
-
-                    ins = SourceInspection(
-                        path=str(p),
-                        integrity_flags=IntegrityFlags.from_dict(ve.integrity_flags),
-                        import_config=ve.metadata,
-                    )
-                    self._inspections[str(p)] = ins
-
-        for se in state.sensors:
-            p = Path(relink_map.get(se.path, se.path))
-            if p.exists():
-                # Import is asynchronous, so the accepted mapping is held until
-                # the worker reports the cache back (see _on_import_finished).
-                self._pending_sensor_mappings[str(p)] = (se.offset, se.drift_ppm)
-                self._start_data_import(p)
-                if se.loader_id or se.import_report:
-                    from avialsync.core.inspection import ImportReport
-
-                    ins = SourceInspection(
-                        path=str(p),
-                        loader_id=se.loader_id,
-                        import_config=dict(se.import_config),
-                        import_report=(
-                            ImportReport.from_dict(se.import_report) if se.import_report else None
-                        ),
-                    )
-                    self._inspections[str(p)] = ins
-
-        # Restore annotations
-        from avialsync.ui.annotations import VideoFrame
-
-        for me in state.markers:
-            vfs = [
-                VideoFrame(
-                    path=str(vf["path"]),
-                    frame_index=int(vf["frame_index"]),
-                    media_timestamp=float(vf["media_timestamp"]),
-                )
-                for vf in me.video_frames
-            ]
-            if me.t_end is not None:
-                self.annotation_store.add_range(me.t_start, me.t_end, me.label, video_frames=vfs)
-            else:
-                self.annotation_store.add_point(me.t_start, me.label, video_frames=vfs)
-
-        # Restore the shared fixed-window duration even while sources load asynchronously.
-        if state.plot_x0 is not None and state.plot_x1 is not None:
-            self.plot_pane.set_window_duration(state.plot_x1 - state.plot_x0)
+        session_controller.restore_session(self, state)
 
     def _autosave(self) -> None:
-        """Silently autosave if a session path is set.
-
-        Runs on the same worker path as an explicit save, so a large session
-        never stalls playback on the two-minute timer.
-        """
-        if self._session_path is None or self._save_in_progress:
-            return
-        self._start_session_save(self._session_path, is_autosave=True)
+        session_controller.autosave(self)
 
     def _autosave_before_close(self) -> None:
-        """Flush a final synchronous autosave before the window closes.
-
-        A threaded save started here could never finish: the window (and its
-        worker registry) is gone right after this returns. This is the one
-        legitimate blocking write in the app — it runs after the final paint
-        and is bounded by a single small JSON write, not a UI-thread budget.
-        """
-        if self._session_path is None:
-            return
-        from avialsync.engine.session_worker import SessionSaveWorker
-
-        SessionSaveWorker(self._build_session_state(), self._session_path).run()
+        session_controller.autosave_before_close(self)
 
     # ── A/B loop stats ───────────────────────────────────────────────
 
@@ -948,68 +663,22 @@ class MainWindow(QMainWindow):
             self.readout_panel.clear_region_stats()
 
     def _reader_references(self) -> list[ReaderReference]:
-        """Return worker-safe references for the currently visible data channels."""
-        return [
-            ReaderReference(
-                channel.reader.cache_dir,
-                channel.reader.channel_id,
-                channel.reader.time_map.offset,
-                channel.reader.time_map.drift_ppm,
-            )
-            for channel in self.plot_pane.channels
-        ]
+        return export_controller.reader_references(self)
 
     def _start_region_stats(self, t0: float, t1: float) -> None:
-        """Calculate A/B statistics in a dedicated worker thread."""
-        if t0 >= t1:
-            self.readout_panel.clear_region_stats()
-            return
-
-        from avialsync.engine.export_worker import RegionStatsWorker
-
-        self._region_stats_request += 1
-        request_id = self._region_stats_request
-        thread = QThread(self)
-        worker = RegionStatsWorker(request_id, self._reader_references(), t0, t1)
-        self._region_stats_jobs[thread] = worker
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.finished.connect(self._on_region_stats_finished)
-        worker.error.connect(self._on_region_stats_error)
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        # No `worker.deleteLater` here: these signals are emitted in the
-        # worker thread, where the worker also lives, so the connection is
-        # direct and ~QObject runs inside that thread — severing connections
-        # while holding one of Qt's pooled signal/slot mutexes and then
-        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
-        # The owning registry drops its reference on the UI thread instead.
-        thread.finished.connect(self._on_region_stats_thread_finished)
-        thread.start()
+        export_controller.start_region_stats(self, t0, t1)
 
     @Slot(int, object)
     def _on_region_stats_finished(self, request_id: int, stats: object) -> None:
-        """Display only the newest completed region-statistics request."""
-        if request_id != self._region_stats_request:
-            return
-        if isinstance(stats, list):
-            self.readout_panel.display_region_stats(stats)
+        export_controller.on_region_stats_finished(self, request_id, stats)
 
     @Slot(int, str)
     def _on_region_stats_error(self, request_id: int, error: str) -> None:
-        """Keep stale or failed background requests out of the readout."""
-        if request_id == self._region_stats_request:
-            logger.warning("Could not calculate A/B region statistics: %s", error)
-            self.readout_panel.clear_region_stats()
+        export_controller.on_region_stats_error(self, request_id, error)
 
     @Slot()
     def _on_region_stats_thread_finished(self) -> None:
-        """Release ownership of a completed region-statistics worker."""
-        thread = self.sender()
-        if isinstance(thread, QThread):
-            self._region_stats_jobs.pop(thread, None)
-            thread.deleteLater()
+        export_controller.on_region_stats_thread_finished(self)
 
     # ── Annotations ──────────────────────────────────────────────────
 
@@ -1030,44 +699,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Marked frame at {t_master:.3f}s", 2000)
 
     def _export_annotations(self) -> None:
-        """Export annotation markers to CSV — one row per (marker, video)."""
-        if not self.annotation_store.markers:
-            QMessageBox.information(self, "No Annotations", "There are no markers to export.")
-            return
-        out_path, _ = QFileDialog.getSaveFileName(
-            self, "Export Annotations", "annotations.csv", "CSV Files (*.csv)"
-        )
-        if not out_path:
-            return
-        from avialsync.engine.export_worker import AnnotationExportWorker
-
-        worker = AnnotationExportWorker(self.annotation_store.markers, Path(out_path))
-        thread = self._run_job(worker)
-
-        def on_finished(path: Path, count: int):
-            QMessageBox.information(
-                self,
-                "Export Complete",
-                f"Exported {count} markers to:\n{path}",
-            )
-
-        def on_error(msg: str):
-            QMessageBox.critical(self, "Export Failed", f"Could not export annotations:\n{msg}")
-
-        worker.finished.connect(on_finished)
-        worker.error.connect(on_error)
-
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        # No `worker.deleteLater` here: these signals are emitted in the
-        # worker thread, where the worker also lives, so the connection is
-        # direct and ~QObject runs inside that thread — severing connections
-        # while holding one of Qt's pooled signal/slot mutexes and then
-        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
-        # The owning registry drops its reference on the UI thread instead.
-
-        thread.start()
+        export_controller.export_annotations(self)
 
     # ── Keyboard shortcuts ───────────────────────────────────────────
 
@@ -1326,18 +958,7 @@ class MainWindow(QMainWindow):
         return True
 
     def dropEvent(self, event: QDropEvent) -> None:
-        if not event.mimeData().hasUrls():
-            event.ignore()
-            return
-        event.acceptProposedAction()
-
-        paths = [Path(url.toLocalFile()) for url in event.mimeData().urls()]
-        paths = [p for p in paths if p.exists()]
-
-        if not paths:
-            return
-
-        self._start_drop_scan(paths)
+        drop_controller.drop_event(self, event)
 
     def open_path(self, path: Path) -> None:
         """Open a session file or a folder of recordings.
@@ -1350,77 +971,20 @@ class MainWindow(QMainWindow):
         self._start_drop_scan([path])
 
     def _start_drop_scan(self, paths: list[Path]) -> None:
-        """Launch background scanning for dropped paths."""
-        from avialsync.engine.drop_worker import DropScanWorker
-
-        self.transport.set_status("Scanning files…")
-        worker = DropScanWorker(paths, self._registry)
-        thread = self._run_job(worker)
-
-        worker.finished.connect(self._on_drop_scan_finished)
-        worker.session_found.connect(self._on_drop_session_found)
-        worker.error.connect(self._on_drop_scan_error)
-
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        # No `worker.deleteLater` here: these signals are emitted in the
-        # worker thread, where the worker also lives, so the connection is
-        # direct and ~QObject runs inside that thread — severing connections
-        # while holding one of Qt's pooled signal/slot mutexes and then
-        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
-        # The owning registry drops its reference on the UI thread instead.
-
-        thread.start()
+        drop_controller.start_drop_scan(self, paths)
 
     def _on_drop_session_found(self, path: str) -> None:
-        """Handle a .avv file found during drop scanning."""
-        self._start_session_load(Path(path))
+        drop_controller.on_drop_session_found(self, path)
 
     def _on_drop_scan_error(self, error_msg: str) -> None:
-        self.transport.set_status("")
-        QMessageBox.critical(self, "Import Error", f"Failed to scan dropped files:\n{error_msg}")
+        drop_controller.on_drop_scan_error(self, error_msg)
 
     def _on_drop_scan_finished(
-        self, candidates: list[tuple[Path, type | None, dict | None]], is_aol_session: bool
+        self,
+        candidates: list[tuple[Path, type | None, dict | None]],
+        layout: object = None,
     ) -> None:
-        self.transport.set_status("")
-
-        if not candidates:
-            return
-
-        # Check for the virtual AOL setup candidate. Compare Path objects: a
-        # string round-trip does not survive Windows path normalisation, which
-        # previously leaked this marker row into the import dialog and skipped
-        # the session's fps/anchor/skeleton setup entirely.
-        from avialsync.engine.drop_worker import AOL_SESSION_SETUP
-
-        setup_idx = next((i for i, c in enumerate(candidates) if c[0] == AOL_SESSION_SETUP), -1)
-        if setup_idx >= 0:
-            _, _, config = candidates.pop(setup_idx)
-            if config:
-                self._aol_camera_fps = config.get("camera_fps", 0.0)
-                self._aol_anchor_epoch = config.get("anchor_epoch", 0.0)
-                if self._aol_anchor_epoch > 0.0:
-                    self.plot_pane.set_time_mode(TimeDisplayMode.UTC, self._aol_anchor_epoch)
-                    self.transport.set_t_epoch(self._aol_anchor_epoch)
-
-                skeleton = config.get("skeleton")
-                if skeleton:
-                    self.tracking_3d_pane.set_skeleton(skeleton)
-
-        if len(candidates) == 1:
-            # Bypass dialog for single files only
-            for path, loader_cls, config in candidates:
-                if loader_cls is not None:
-                    self.video_grid.begin_batch_add()
-                    try:
-                        self._route_import_candidate(path, loader_cls, config)
-                    finally:
-                        self.video_grid.end_batch_add()
-            return
-
-        self._process_drop_candidates(candidates)
+        drop_controller.on_drop_scan_finished(self, candidates, layout)
 
     def _route_import_candidate(
         self,
@@ -1428,37 +992,12 @@ class MainWindow(QMainWindow):
         loader_cls: type[TimeSeriesSource | VideoSource],
         config: dict | None = None,
     ) -> None:
-        """Route one capability-resolved source through its normal loader path."""
-        if loader_cls is None:
-            logger.warning("Ignoring import candidate with no loader: %s", path)
-            return
-        config = config or {}
-        if issubclass(loader_cls, VideoSource):
-            offset = config.get("offset", 0.0)
-            if "offset" in config:
-                config = dict(config)
-                del config["offset"]
-            self._load_video(path, offset=offset, config=config)
-        else:
-            self._start_data_import(path, loader_cls, pre_config=config)
+        drop_controller.route_import_candidate(self, path, loader_cls, config)
 
     def _process_drop_candidates(
         self, candidates: list[tuple[Path, type | None, dict | None]]
     ) -> None:
-        """Present the batch import dialog and route accepted items."""
-        from PySide6.QtWidgets import QDialog
-
-        from avialsync.ui.batch_import_dialog import BatchImportDialog
-
-        dialog = BatchImportDialog(candidates, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            selections = dialog.get_selections()
-            self.video_grid.begin_batch_add()
-            try:
-                for path, loader_cls, config in selections:
-                    self._route_import_candidate(path, loader_cls, config)
-            finally:
-                self.video_grid.end_batch_add()
+        drop_controller.process_drop_candidates(self, candidates)
 
     # ── Menu ─────────────────────────────────────────────────────────
 
@@ -1618,27 +1157,10 @@ class MainWindow(QMainWindow):
         act.triggered.connect(self._show_about)
 
     def _rebuild_recent_menu(self) -> None:
-        self._recent_menu.clear()
-        recent = get_recent()
-        if not recent:
-            act = self._recent_menu.addAction("(no recent files)")
-            act.setEnabled(False)
-            return
-        for rpath in recent:
-            act = self._recent_menu.addAction(Path(rpath).name)
-            act.setToolTip(rpath)
-            act.triggered.connect(lambda _checked, p=rpath: self._open_recent(p))
+        session_controller.rebuild_recent_menu(self)
 
     def _open_recent(self, path: str) -> None:
-        p = Path(path)
-        if not p.exists():
-            QMessageBox.warning(
-                self,
-                "File Not Found",
-                f"Session file no longer exists:\n{path}",
-            )
-            return
-        self._start_session_load(p)
+        session_controller.open_recent(self, path)
 
     # ── Theme selection ─────────────────────────────────────────────
 
@@ -1740,24 +1262,7 @@ class MainWindow(QMainWindow):
                 cb.setText(text)
 
     def _export_snapshot_for_pane(self, path: str) -> None:
-        """Export a snapshot of a single video pane."""
-        try:
-            idx = self.video_grid._paths.index(path)
-        except ValueError:
-            return
-        pane = self.video_grid.panes[idx]
-        from avialsync.engine.export import snapshot_widget
-
-        px = snapshot_widget(pane)
-        out_path, _ = QFileDialog.getSaveFileName(
-            self,
-            f"Snapshot — {Path(path).name}",
-            f"snapshot_{Path(path).stem}.png",
-            "PNG Images (*.png)",
-        )
-        if not out_path:
-            return
-        self._start_snapshot_export(px.toImage().copy(), None, Path(out_path))
+        export_controller.export_snapshot_for_pane(self, path)
 
     def _on_annotate_at_requested(self, t: float) -> None:
         """Add a point marker at the clicked time on the plot (D-022)."""
@@ -1805,7 +1310,10 @@ class MainWindow(QMainWindow):
     def _show_diagnostics(self) -> None:
         from avialsync.ui.diagnostics import format_diagnostics
 
-        diag = getattr(self, "_diag", {})
+        diag = dict(getattr(self, "_diag", {}))
+        # Read at display time, not at probe time: the registry finishes
+        # discovery during window construction, after the startup probe starts.
+        diag["plugin_errors"] = self._registry.plugin_errors
         text = format_diagnostics(diag)
 
         msg = QMessageBox(self)
@@ -1817,228 +1325,62 @@ class MainWindow(QMainWindow):
     # ── Snapshot export ──────────────────────────────────────────────
 
     def _export_snapshot(self) -> None:
-        from avialsync.engine.export import snapshot_widget
-
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Export Snapshot",
-            "snapshot.png",
-            "PNG Images (*.png)",
-        )
-        if not path:
-            return
-
-        video_px = snapshot_widget(self._media_splitter)
-        plot_px = snapshot_widget(self.plot_pane)
-        self._start_snapshot_export(video_px.toImage().copy(), plot_px.toImage().copy(), Path(path))
+        export_controller.export_snapshot(self)
 
     def _start_snapshot_export(
         self, video_image: QImage | None, plot_image: QImage | None, path: Path
     ) -> None:
-        """Hand immutable UI captures to a background PNG encoder."""
-        from avialsync.engine.export_worker import SnapshotWorker
-
-        thread = QThread(self)
-        worker = SnapshotWorker(video_image, plot_image, path)
-        self._snapshot_jobs[thread] = worker
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.finished.connect(self._on_snapshot_finished)
-        worker.error.connect(self._on_snapshot_error)
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        # No `worker.deleteLater` here: these signals are emitted in the
-        # worker thread, where the worker also lives, so the connection is
-        # direct and ~QObject runs inside that thread — severing connections
-        # while holding one of Qt's pooled signal/slot mutexes and then
-        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
-        # The owning registry drops its reference on the UI thread instead.
-        thread.finished.connect(self._on_snapshot_thread_finished)
-        self.transport.set_status(f"Exporting snapshot: {path.name}", "busy")
-        thread.start()
+        export_controller.start_snapshot_export(self, video_image, plot_image, path)
 
     @Slot(str)
     def _on_snapshot_finished(self, path: str) -> None:
-        """Report background snapshot completion on the UI thread."""
-        self.transport.set_status(f"Exported snapshot: {Path(path).name}")
+        export_controller.on_snapshot_finished(self, path)
 
     @Slot(str)
     def _on_snapshot_error(self, error: str) -> None:
-        """Report background snapshot failure on the UI thread."""
-        self.transport.set_status("Snapshot export failed", "error")
-        QMessageBox.critical(self, "Export Error", error)
+        export_controller.on_snapshot_error(self, error)
 
     @Slot()
     def _on_snapshot_thread_finished(self) -> None:
-        """Release ownership of a completed snapshot encoder."""
-        thread = self.sender()
-        if isinstance(thread, QThread):
-            self._snapshot_jobs.pop(thread, None)
-            thread.deleteLater()
+        export_controller.on_snapshot_thread_finished(self)
 
-    # ── Data slice export ────────────────────────────────────────────
+    # ── Data slice export ────────────────────────────────
 
     def _export_data_slice(self) -> None:
-        if not self.plot_pane.channels:
-            QMessageBox.information(
-                self,
-                "No Data",
-                "Load sensor data before exporting.",
-            )
-            return
-
-        # Use A/B loop region if set, else full bounds
-        t0, t1 = self.clock.state.bounds
-        if self.player._ab_in is not None and self.player._ab_out is not None:
-            t0 = min(self.player._ab_in, self.player._ab_out)
-            t1 = max(self.player._ab_in, self.player._ab_out)
-
-        path, filt = QFileDialog.getSaveFileName(
-            self,
-            "Export Data Slice",
-            "data_export.csv",
-            "CSV files (*.csv);;Parquet files (*.parquet)",
-        )
-        if not path:
-            return
-
-        self._start_data_export(t0, t1, Path(path))
+        export_controller.export_data_slice(self)
 
     def _start_data_export(self, t0: float, t1: float, path: Path) -> None:
-        """Write a cached data slice on a worker thread."""
-        from avialsync.engine.export_worker import DataExportWorker
-
-        thread = QThread(self)
-        worker = DataExportWorker(self._reader_references(), t0, t1, path)
-        self._data_export_jobs[thread] = worker
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.finished.connect(self._on_data_export_finished)
-        worker.error.connect(self._on_data_export_error)
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        # No `worker.deleteLater` here: these signals are emitted in the
-        # worker thread, where the worker also lives, so the connection is
-        # direct and ~QObject runs inside that thread — severing connections
-        # while holding one of Qt's pooled signal/slot mutexes and then
-        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
-        # The owning registry drops its reference on the UI thread instead.
-        thread.finished.connect(self._on_data_export_thread_finished)
-        self.transport.set_status(f"Exporting data: {path.name}", "busy")
-        thread.start()
+        export_controller.start_data_export(self, t0, t1, path)
 
     @Slot(str)
     def _on_data_export_finished(self, path: str) -> None:
-        """Report a completed data export on the UI thread."""
-        self.transport.set_status(f"Exported data: {Path(path).name}")
-        QMessageBox.information(self, "Export Complete", f"Data exported to:\n{path}")
+        export_controller.on_data_export_finished(self, path)
 
     @Slot(str)
     def _on_data_export_error(self, error: str) -> None:
-        """Show a worker-side export failure on the UI thread."""
-        self.transport.set_status("Data export failed", "error")
-        QMessageBox.critical(self, "Export Error", error)
+        export_controller.on_data_export_error(self, error)
 
     @Slot()
     def _on_data_export_thread_finished(self) -> None:
-        """Release ownership of a completed data-export worker."""
-        thread = self.sender()
-        if isinstance(thread, QThread):
-            self._data_export_jobs.pop(thread, None)
-            thread.deleteLater()
+        export_controller.on_data_export_thread_finished(self)
 
     def _export_video_clip(self) -> None:
-        """Export a trimmed video clip for all loaded videos based on A/B loop."""
-        if not self.video_grid._paths:
-            QMessageBox.warning(self, "Export", "No videos are loaded.")
-            return
-
-        t0 = self.transport._ab_in_t
-        t1 = self.transport._ab_out_t
-        if t0 is None or t1 is None:
-            QMessageBox.warning(
-                self, "Export Error", "Please set an A/B loop first ([ and ] buttons)."
-            )
-            return
-
-        if t0 > t1:
-            t0, t1 = t1, t0
-
-        if len(self.video_grid._paths) == 1:
-            path, _ = QFileDialog.getSaveFileName(
-                self, "Export Trimmed Video", "", "Video files (*.mp4 *.mkv *.mov *.avi)"
-            )
-            if not path:
-                return
-            clips = [(self.video_grid._paths[0], t0, t1, Path(path))]
-        else:
-            dir_path = QFileDialog.getExistingDirectory(self, "Select Directory for Trimmed Clips")
-            if not dir_path:
-                return
-
-            out_dir = Path(dir_path)
-            clips = [
-                (
-                    orig_path,
-                    t0,
-                    t1,
-                    out_dir / f"{Path(orig_path).stem}_trim{Path(orig_path).suffix}",
-                )
-                for orig_path in self.video_grid._paths
-            ]
-        self._start_video_clip_export(clips)
+        export_controller.export_video_clip(self)
 
     def _start_video_clip_export(self, clips: list[tuple[str, float, float, Path]]) -> None:
-        """Run ffmpeg trim work in a worker thread."""
-        from avialsync.engine.export_worker import VideoClipWorker
-
-        thread = QThread(self)
-        worker = VideoClipWorker(clips)
-        self._video_clip_jobs[thread] = worker
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.finished.connect(self._on_video_clip_finished)
-        worker.error.connect(self._on_video_clip_error)
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        # No `worker.deleteLater` here: these signals are emitted in the
-        # worker thread, where the worker also lives, so the connection is
-        # direct and ~QObject runs inside that thread — severing connections
-        # while holding one of Qt's pooled signal/slot mutexes and then
-        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
-        # The owning registry drops its reference on the UI thread instead.
-        thread.finished.connect(self._on_video_clip_thread_finished)
-        self.transport.set_status("Exporting video clip", "busy")
-        thread.start()
+        export_controller.start_video_clip_export(self, clips)
 
     @Slot(int, int)
     def _on_video_clip_finished(self, successful: int, total: int) -> None:
-        """Show ffmpeg trim results once all worker jobs finish."""
-        if successful == total:
-            self.transport.set_status("Video clip export complete")
-            QMessageBox.information(self, "Export Complete", f"Exported {successful} clips.")
-        else:
-            self.transport.set_status("Video clip export incomplete", "error")
-            QMessageBox.warning(
-                self, "Export Incomplete", f"Exported {successful} of {total} clips."
-            )
+        export_controller.on_video_clip_finished(self, successful, total)
 
     @Slot(str)
     def _on_video_clip_error(self, error: str) -> None:
-        """Show an ffmpeg worker failure on the UI thread."""
-        self.transport.set_status("Video clip export failed", "error")
-        QMessageBox.critical(self, "Export Failed", error)
+        export_controller.on_video_clip_error(self, error)
 
     @Slot()
     def _on_video_clip_thread_finished(self) -> None:
-        """Release ownership of a completed ffmpeg worker."""
-        thread = self.sender()
-        if isinstance(thread, QThread):
-            self._video_clip_jobs.pop(thread, None)
-            thread.deleteLater()
+        export_controller.on_video_clip_thread_finished(self)
 
     # ── Proxy generation ─────────────────────────────────────────────
 
@@ -2108,58 +1450,13 @@ class MainWindow(QMainWindow):
         drift_ppm: float = 0.0,
         config: dict[str, Any] | None = None,
     ) -> None:
-        """Queue a video source for probing and, in request order, pane creation."""
-        self._pending_video_loads.append((path, offset, drift_ppm, config))
-        self._video_request_order.append(str(path))
-        self._start_next_video_load()
+        video_controller.load_video(self, path, offset, drift_ppm, config)
 
     def _start_next_video_load(self) -> None:
-        """Start probes up to the concurrency bound; pane creation stays serialized.
-
-        Two different limits apply here (P3.5 P1 loading).  ffprobe metadata and
-        presentation-timestamp extraction are independent per file and safe to
-        overlap, so up to :data:`_MAX_VIDEO_PROBES` run at once and a four-camera
-        session stops paying four serial probe latencies.  Constructing a native
-        render pane is *not* safe to overlap — libmpv must accept commands on one
-        pane before the next is built (D-040) — so that stays one at a time,
-        gated by ``_video_pane_initializing``.
-        """
-        while len(self._video_load_jobs) < _MAX_VIDEO_PROBES and self._pending_video_loads:
-            self._start_one_video_probe()
+        video_controller.start_next_video_load(self)
 
     def _start_one_video_probe(self) -> None:
-        """Spawn a single off-thread metadata/timestamp probe."""
-        from avialsync.engine.video_worker import VideoOpenWorker
-
-        path, offset, drift_ppm, config = self._pending_video_loads.popleft()
-        thread = QThread(self)
-        worker = VideoOpenWorker(path, config)
-        self._video_load_jobs[thread] = worker
-        self._video_load_offsets[str(path)] = offset
-        self._video_load_drifts[str(path)] = drift_ppm
-        remaining = len(self._pending_video_loads)
-        suffix = f" ({remaining} queued)" if remaining else ""
-        self.transport.set_status(f"Loading video: {path.name}{suffix}", "busy")
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        # These QObject slots are queued onto MainWindow's UI thread.  Do not
-        # replace them with lambdas: a lambda runs in the emitting worker thread
-        # and would create widgets off-thread.
-        worker.opened.connect(self._on_video_opened)
-        worker.error.connect(self._on_video_open_error)
-        worker.opened.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        worker.cancelled.connect(thread.quit)
-        # `_on_video_thread_finished` drops the registry's reference, which is
-        # the worker's only owner, so it is destroyed on the UI thread as that
-        # slot promises. A `thread.finished.connect(worker.deleteLater)` here
-        # would beat it: `finished` is emitted in the worker thread and the
-        # worker lives there, making that connection direct and running
-        # ~QObject inside the dying thread — where severing connections holds
-        # one of Qt's pooled signal/slot mutexes and PySide's disconnectNotify
-        # then blocks on the GIL, deadlocking the UI thread (D-062).
-        thread.finished.connect(self._on_video_thread_finished)
-        thread.start()
+        video_controller.start_one_video_probe(self)
 
     def _set_video_coverage(
         self,
@@ -2170,145 +1467,31 @@ class MainWindow(QMainWindow):
         exact_master: np.ndarray | None = None,
         exact_source: np.ndarray | None = None,
     ) -> None:
-        """Project media bounds through its TimeMap before drawing master-time coverage."""
-        if exact_master is not None and exact_source is not None and len(exact_master) >= 2:
-            master_bounds = (float(exact_master[0]), float(exact_master[-1]))
-        else:
-            mapping = TimeMap(offset, drift_ppm)
-            master_bounds = (
-                mapping.to_master(source_bounds[0]),
-                mapping.to_master(source_bounds[1]),
-            )
-        self._video_source_bounds[path] = source_bounds
-        self._video_time_mappings[path] = (offset, drift_ppm)
-        self._update_bounds(*master_bounds)
-        self.transport.set_source_coverage(path, *master_bounds, "video")
+        video_controller.set_video_coverage(
+            self, path, source_bounds, offset, drift_ppm, exact_master, exact_source
+        )
 
     @Slot(str, object, str)
     def _on_video_opened(self, original_path: str, loader: object, media_path: str) -> None:
-        """Hold the probe result until this file's turn to build a native pane.
-
-        Probes finish out of order because they run concurrently.  Panes are
-        still built one at a time, in the order the user asked for them, so the
-        grid layout does not depend on which file happened to probe fastest.
-        """
-        self._probed_videos[original_path] = (loader, media_path)
-        if original_path not in self._video_request_order:
-            # Opened outside the queue (session restore, direct call): it still
-            # takes its turn, appended at the end of the current order.
-            self._video_request_order.append(original_path)
-        self._build_next_video_pane()
+        video_controller.on_video_opened(self, original_path, loader, media_path)
 
     def _build_next_video_pane(self) -> None:
-        """Build the next pane in request order, if one is ready and none is busy."""
-        while self._video_pane_initializing is None and self._video_request_order:
-            next_path = self._video_request_order[0]
-            probed = self._probed_videos.pop(next_path, None)
-            if probed is None:
-                return  # Still probing; a later completion will call back here.
-            self._video_request_order.pop(0)
-            loader, media_path = probed
-            self._create_video_pane(next_path, loader, media_path)
+        video_controller.build_next_video_pane(self)
 
     def _create_video_pane(self, original_path: str, loader: object, media_path: str) -> None:
-        """Create UI state only after asynchronous source opening succeeds."""
-        offset = self._video_load_offsets.pop(original_path, 0.0)
-        drift_ppm = self._video_load_drifts.pop(original_path, 0.0)
-        exact_mapping = self._pending_exact_mappings.pop(original_path, None)
-        exact_master = exact_mapping[0] if exact_mapping is not None else None
-        exact_source = exact_mapping[1] if exact_mapping is not None else None
-        if not isinstance(loader, VideoSource):
-            self._on_video_open_error(original_path, "Selected loader is not a VideoSource.")
-            return
-        bounds = loader.time_bounds()
-        self._set_video_coverage(
-            original_path,
-            bounds,
-            offset,
-            drift_ppm,
-            exact_master,
-            exact_source,
-        )
-        self._video_pane_initializing = original_path
-        pane = self.video_grid.add_pane(
-            original_path,
-            media_path=media_path,
-            on_file_loaded=self._on_video_pane_ready,
-        )
-        video_metadata = loader.video_metadata()
-        metadata = {
-            "codec": video_metadata.codec,
-            "fps": video_metadata.nominal_fps,
-            "measured_fps": video_metadata.measured_fps,
-            "is_vfr": video_metadata.is_vfr,
-            "duration": video_metadata.duration,
-            "file_size_bytes": video_metadata.file_size_bytes,
-        }
-        self.sidebar.add_video(original_path, metadata)
-        self.sidebar.set_video_loader(original_path, loader)
-        self.sidebar.set_video_pane(original_path, pane)
-        if offset or drift_ppm or exact_mapping is not None:
-            self.video_grid.set_sync_mapping(
-                original_path,
-                offset,
-                drift_ppm,
-                exact_master,
-                exact_source,
-            )
-        self._video_fps[original_path] = loader.fps()
-        frame_times = loader.frame_times()
-        pane.set_frame_times(frame_times)
-        pane.set_video_metadata(video_metadata)
-        pane.set_source_bounds(bounds)
-        is_vfr = video_metadata.is_vfr
-        pane.set_vfr(is_vfr)
-        # The pane is added asynchronously, after the current master-time seek
-        # may already have run. Synchronize it now so paused media decodes its
-        # first visible frame and availability reflects the active timeline.
-        self.player.seek(self.clock.state.t, exact=True)
-        from avialsync.core.inspection import IntegrityFlags
-
-        inspection = SourceInspection(
-            path=original_path,
-            loader_id=type(loader).__name__,
-            integrity_flags=IntegrityFlags(is_vfr=is_vfr, drift_nonzero=bool(drift_ppm)),
-        )
-        self._inspections[original_path] = inspection
-        self.sidebar.set_video_inspection(original_path, inspection)
-        if frame_times is not None:
-            self._video_frame_times[original_path] = frame_times
-        if self._frame_indexed_sources and len(self._video_fps) == 1:
-            self._rebind_frame_indexed_sources(loader.fps())
-        self.transport.set_status(f"Ready · loaded {Path(original_path).name}")
+        video_controller.create_video_pane(self, original_path, loader, media_path)
 
     @Slot(str, str)
     def _on_video_open_error(self, path: str, error: str) -> None:
-        """Show a source-open error without leaving a partially-created pane."""
-        self._video_load_offsets.pop(path, None)
-        self._video_load_drifts.pop(path, None)
-        self._probed_videos.pop(path, None)
-        # Drop the failed file from the ordering so later files still get built.
-        if path in self._video_request_order:
-            self._video_request_order.remove(path)
-        self.transport.set_status(f"Video failed: {Path(path).name}", "error")
-        QMessageBox.critical(self, "Video Error", f"Could not open video:\n{path}\n\n{error}")
-        self._build_next_video_pane()
+        video_controller.on_video_open_error(self, path, error)
 
     @Slot()
     def _on_video_thread_finished(self) -> None:
-        """Release the worker ownership after its thread has stopped on the UI thread."""
-        thread = self.sender()
-        if isinstance(thread, QThread):
-            self._video_load_jobs.pop(thread, None)
-            thread.deleteLater()
-            QTimer.singleShot(0, self._start_next_video_load)
+        video_controller.on_video_thread_finished(self)
 
     @Slot()
     def _on_video_pane_ready(self) -> None:
-        """Build the next pane only after this one accepts media commands (D-040)."""
-        self._video_pane_initializing = None
-        self._build_next_video_pane()
-        self._start_next_video_load()
+        video_controller.on_video_pane_ready(self)
 
     def _on_video_offset_changed(self, path: str, offset: float) -> None:
         self.video_grid.set_offset(path, offset)
@@ -2502,157 +1685,23 @@ class MainWindow(QMainWindow):
         loader_cls: type[TimeSeriesSource] | None = None,
         pre_config: dict | None = None,
     ) -> None:
-        if loader_cls is None:
-            discovered_loader = self._registry.find_best_loader(path)
-            if discovered_loader is None:
-                QMessageBox.warning(
-                    self, "Unsupported File", "No suitable loader found for this file."
-                )
-                return
-            if not issubclass(discovered_loader, TimeSeriesSource):
-                QMessageBox.warning(
-                    self, "Unsupported File", "The selected loader is not time-series data."
-                )
-                return
-            loader_cls = discovered_loader
-
-        config = pre_config or {}
-
-        if getattr(loader_cls, "needs_import_wizard", lambda: False)():
-            if not config.get("auto_resolved"):
-                from avialsync.ui.import_wizard import ImportWizard
-
-                wizard = ImportWizard(path, self)
-                if wizard.exec() != ImportWizard.DialogCode.Accepted:
-                    return
-                config = wizard.config()
-        elif config.get("_is_frame_indexed") or loader_cls().is_frame_indexed():
-            if not config.get("auto_resolved") and "fps" not in config:
-                fps, ok = self._resolve_tracking_fps()
-                if not ok:
-                    return
-                config["fps"] = fps
-
-            if not self._video_fps:
-                self._frame_indexed_sources.append((path, loader_cls, config))
-
-        self._enqueue_import(path, loader_cls, config)
+        import_controller.start_data_import(self, path, loader_cls, pre_config)
 
     def _resolve_tracking_fps(self) -> tuple[float, bool]:
-        """Return (fps, ok) for a frame-indexed source, using loaded video fps when possible."""
-        from PySide6.QtWidgets import QInputDialog
-
-        n = len(self._video_fps)
-        if n == 1:
-            fps = next(iter(self._video_fps.values()))
-            _, ok = QInputDialog.getDouble(
-                self,
-                "Confirm Frame Rate",
-                "Frame rate for this tracking data (pre-filled from loaded video):",
-                fps,
-                1.0,
-                1000.0,
-                2,
-            )
-            return fps, ok
-        if n > 1:
-            items = list(self._video_fps.keys())
-            picked, ok = QInputDialog.getItem(
-                self,
-                "Select Video for Frame Rate",
-                "Use frame rate from which video?",
-                items,
-                0,
-                False,
-            )
-            return (self._video_fps[picked], ok) if ok else (30.0, False)
-        # No videos loaded — ask user for nominal fps
-        fps, ok = QInputDialog.getDouble(
-            self,
-            "Tracking Data FPS",
-            "Enter the video frame rate for this tracking data:",
-            30.0,
-            1.0,
-            1000.0,
-            2,
-        )
-        return fps, ok
+        return import_controller.resolve_tracking_fps(self)
 
     def _enqueue_import(self, path: Path, loader_cls: type, config: dict[str, Any]) -> None:
-        """Queue a source import so only one worker owns the import UI at a time."""
-        if self._import_thread is not None:
-            self._pending_imports.append((path, loader_cls, config))
-            return
-        self._start_import(path, loader_cls, config)
+        import_controller.enqueue_import(self, path, loader_cls, config)
 
     def _start_import(self, path: Path, loader_cls: type, config: dict[str, Any]) -> None:
-        """Start the next queued background import."""
-        from PySide6.QtCore import QThread
-        from PySide6.QtWidgets import QProgressDialog
-
-        from avialsync.engine.importer import ImportWorker
-
-        self._import_thread = QThread()
-        self.transport.set_status(f"Importing data: {path.name}", "busy")
-        self._import_worker = ImportWorker(path, config, loader_cls)
-        self._import_worker.moveToThread(self._import_thread)
-
-        self._progress_dialog = QProgressDialog("Importing…", "Cancel", 0, 100, self)
-        self._progress_dialog.setWindowTitle("Importing Data")
-        self._progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
-        self._progress_dialog.setAutoClose(True)
-        self._progress_dialog.setAutoReset(True)
-        self._progress_dialog.setValue(0)
-
-        self._import_thread.started.connect(self._import_worker.run)
-        self._import_worker.progress.connect(self._progress_dialog.setValue)
-        self._progress_dialog.canceled.connect(self._import_worker.cancel)
-
-        self._import_worker.finished.connect(self._on_import_finished)
-        self._import_worker.finished.connect(self._import_thread.quit)
-        # The worker is released in `_on_import_thread_finished`, on this
-        # thread. It must NOT be `deleteLater`-ed from its own `finished`:
-        # that signal is emitted in the worker thread, the worker lives there
-        # too, so the connection is direct and ~QObject then runs inside the
-        # worker's event loop. Destroying a QObject severs its connections
-        # while holding one of Qt's 131 *pooled* signal/slot mutexes, and
-        # PySide's `disconnectNotify` override takes the GIL to look for a
-        # Python override. Meanwhile the GUI thread holds the GIL and closes
-        # the progress dialog, which waits on a mutex from that same pool.
-        # Colliding addresses deadlock both threads permanently (D-062).
-        self._import_thread.finished.connect(self._import_thread.deleteLater)
-        self._import_thread.finished.connect(self._on_import_thread_finished)
-
-        self._import_worker.error.connect(self._on_import_error)
-        self._import_worker.error.connect(self._import_thread.quit)
-
-        self._progress_dialog.show()
-        self._import_thread.start()
+        import_controller.start_import(self, path, loader_cls, config)
 
     @Slot()
     def _on_import_thread_finished(self) -> None:
-        """Release the completed import and begin the next queued source."""
-        self._import_thread = None
-        # Dropping the last reference destroys the worker here, on the GUI
-        # thread, which already holds the GIL that ~QObject needs to sever the
-        # progress dialog's `canceled` connection.
-        self._import_worker = None
-        if not self._pending_imports:
-            return
-        path, loader_cls, config = self._pending_imports.popleft()
-        QTimer.singleShot(0, lambda: self._start_import(path, loader_cls, config))
+        import_controller.on_import_thread_finished(self)
 
     def _rebind_frame_indexed_sources(self, fps: float) -> None:
-        """Re-import all provisional frame-indexed sources using the video fps."""
-        from avialsync.core.cache import CacheManager
-
-        for dlc_path, loader_cls, config in self._frame_indexed_sources:
-            cache_dir = CacheManager(loader_version=3).get_cache_dir(dlc_path)
-            self.plot_pane.remove_channels(cache_dir)
-            self.sidebar.remove_sensor(str(dlc_path))
-            config["fps"] = fps
-            self._enqueue_import(dlc_path, loader_cls, config)
-        self._frame_indexed_sources.clear()
+        import_controller.rebind_frame_indexed_sources(self, fps)
 
     def _on_import_finished(
         self,
@@ -2662,82 +1711,9 @@ class MainWindow(QMainWindow):
         bounds: tuple[float, float],
         inspection: object = None,
     ) -> None:
-        progress_dialog = getattr(self, "_progress_dialog", None)
-        if progress_dialog is not None:
-            progress_dialog.close()
-        offset, drift_ppm = self._pending_sensor_mappings.pop(path, (0.0, 0.0))
+        import_controller.on_import_finished(self, path, cache_dir, channels, bounds, inspection)
 
-        role = ""
-        if isinstance(inspection, SourceInspection):
-            role = str(inspection.import_config.get("role", ""))
-            # If the config explicitly provides an offset (e.g. from drop_worker or wizard), use it.
-            if "offset" in inspection.import_config and offset == 0.0:
-                offset = float(inspection.import_config["offset"])
-            if "drift_ppm" in inspection.import_config and drift_ppm == 0.0:
-                drift_ppm = float(inspection.import_config["drift_ppm"])
-
-        if role in ("overlay2d", "pose3d"):
-            # Pose data drives the video overlay and the 3D view. It is not
-            # plotted: 27 3D channels or 81 per-camera 2D channels would bury
-            # the recorded signals a plot row is meant to show.
-            self._register_tracking_source(
-                path, Path(cache_dir), channels, role, inspection, offset, drift_ppm
-            )
-            if offset != 0.0 or drift_ppm != 0.0:
-                from avialsync.core.timeline import TimeMap
-
-                tm = TimeMap(offset=offset, drift_ppm=drift_ppm)
-                mapped = (tm.to_master(bounds[0]), tm.to_master(bounds[1]))
-            else:
-                mapped = bounds
-        else:
-            self.plot_pane.load_channels(
-                Path(cache_dir), channels, offset, drift_ppm, source_id=path
-            )
-            self._sensor_cache_dirs[path] = Path(cache_dir)
-            # Rows are built across several event-loop turns so the window stays
-            # usable during a large selection (D-060), so reader-derived bounds
-            # may not exist yet. The worker's bounds are the correct stand-in
-            # until they do; `_refine_source_bounds` re-applies the exact span
-            # once every row exists.
-            mapped = self.plot_pane.source_bounds(Path(cache_dir)) or bounds
-            self._pending_bounds_sources[path] = Path(cache_dir)
-        self._update_bounds(mapped[0], mapped[1])
-        self.transport.set_source_coverage(path, mapped[0], mapped[1], "data")
-        self.sidebar.add_sensor(path, channels)
-        if offset or drift_ppm:
-            self.sidebar.set_sensor_mapping(path, offset, drift_ppm)
-
-        if isinstance(inspection, SourceInspection):
-            self._inspections[path] = inspection
-            self.sidebar.set_sensor_inspection(path, inspection)
-            # Extract per-channel units from import config ("units" key → dict or mapping)
-            units_cfg = inspection.import_config.get("units", {})
-            if isinstance(units_cfg, dict):
-                # Units are source-scoped: two files may both declare "force_z"
-                # in different units and neither may relabel the other's row.
-                scoped: dict[ChannelKey | str, str] = {
-                    ChannelKey(path, str(channel)): str(unit) for channel, unit in units_cfg.items()
-                }
-                self._channel_units.update(
-                    {key: unit for key, unit in scoped.items() if isinstance(key, ChannelKey)}
-                )
-                self.plot_pane.set_channel_units(scoped)
-            # Overlay gap markers on each channel from this source
-            rep = inspection.import_report
-            if rep and rep.gap_locations:
-                gap_times = list(rep.gap_locations)
-                self._overview_gaps.update(
-                    {time: f"Source: {Path(path).name}" for time in gap_times}
-                )
-                self.transport.set_gap_events(sorted(self._overview_gaps.items()))
-                if not role:
-                    # Pose sources have no plot rows to mark.
-                    for ch in channels:
-                        self.plot_pane.set_gap_markers(ch, gap_times)
-        self.transport.set_status(f"Ready · imported {Path(path).name}")
-
-    # ── Pose sources (overlay + 3D view, never plotted) ──────────────
+    # ── Pose sources (overlay + 3D view, never plotted) ────
 
     def _register_tracking_source(
         self,
@@ -2749,124 +1725,21 @@ class MainWindow(QMainWindow):
         offset: float = 0.0,
         drift_ppm: float = 0.0,
     ) -> None:
-        """Route imported pose data to the overlay or the 3D view.
-
-        Readers are built straight from the source's own sidecar cache, so two
-        cameras or two models that both emit ``head_bar_x`` stay separate without
-        depending on globally unique channel names.
-        """
-        from avialsync.core.channel_reader import MappedChannelReader
-        from avialsync.core.pyramid import PyramidReader
-        from avialsync.core.timeline import TimeMap
-
-        config: dict[str, Any] = {}
-        if isinstance(inspection, SourceInspection):
-            config = dict(inspection.import_config)
-
-        time_map = TimeMap(offset=offset, drift_ppm=drift_ppm)
-
-        if role == "pose3d":
-            self._pose_3d_sources[path] = [
-                MappedChannelReader(PyramidReader(cache_dir, channel), time_map, source_id=path)
-                for channel in channels
-            ]
-            self._refresh_pose_3d()
-            return
-
-        video = str(config.get("overlay_video", ""))
-        if not video:
-            logger.warning("2D pose source %s has no overlay target; skipping.", path)
-            return
-
-        points: dict[str, tuple[MappedChannelReader, MappedChannelReader]] = {}
-        by_name: dict[str, dict[str, MappedChannelReader]] = {}
-        for channel in channels:
-            base, separator, axis = channel.rpartition("_")
-            if separator and axis in ("x", "y"):
-                by_name.setdefault(base, {})[axis] = MappedChannelReader(
-                    PyramidReader(cache_dir, channel), time_map, source_id=path
-                )
-        for name, axes in by_name.items():
-            if "x" in axes and "y" in axes:
-                points[name] = (axes["x"], axes["y"])
-
-        if not points:
-            logger.warning("2D pose source %s produced no complete XY points.", path)
-            return
-
-        # Decide colours now, while the whole set of body parts for this source
-        # is in hand, so the overlay and the 3D view agree from the first paint.
-        from avialsync.ui.tracking_colors import register_points
-
-        register_points(points)
-
-        self._overlay_sources.setdefault(video, {})[path] = {
-            "label": str(config.get("overlay_label", Path(path).stem)),
-            "is_ensemble": bool(config.get("overlay_is_ensemble", False)),
-            "points": points,
-        }
-        self._refresh_overlays(video)
+        import_controller.register_tracking_source(
+            self, path, cache_dir, channels, role, inspection, offset, drift_ppm
+        )
 
     def _refresh_pose_3d(self) -> None:
-        """Feed the 3D view from registered pose sources plus any plotted XYZ."""
-        readers: list[Any] = list(self._plotted_readers)
-        for source_readers in self._pose_3d_sources.values():
-            readers.extend(source_readers)
-        self.tracking_3d_pane.set_readers(readers)
-        self.tracking_3d_pane.set_cursor(self.clock.state.t)
-        self._update_tracking_pane_visibility()
+        import_controller.refresh_pose_3d(self)
 
     def _update_tracking_pane_visibility(self) -> None:
-        """Show the 3D pane only while a source provides complete XYZ triplets.
-
-        An always-present empty pane keeps a third of the media width and raises
-        the window's minimum width for sessions that have no tracking data.
-        """
-        has_points = self.tracking_3d_pane.canvas.point_count > 0
-        if self.tracking_3d_pane.isVisible() == has_points:
-            return
-        self.tracking_3d_pane.setVisible(has_points)
-        if has_points:
-            width = max(self._media_splitter.width(), 600)
-            self._media_splitter.setSizes([int(width * 0.65), int(width * 0.35)])
-        # Showing or hiding a pane changes which panes share the width, so the
-        # split that results is the one to hold from here on.
-        self._pane_proportions.record(self._media_splitter)
+        import_controller.update_tracking_pane_visibility(self)
 
     def _refresh_overlays(self, video: str) -> None:
-        """Rebuild one camera's overlay track list, ensemble last."""
-        from avialsync.ui.video_overlay import OverlayTrack, track_color
-
-        sources = self._overlay_sources.get(video, {})
-        tracks: list[OverlayTrack] = []
-        model_index = 0
-        for _source_path, entry in sorted(
-            sources.items(), key=lambda item: (not item[1]["is_ensemble"], item[1]["label"])
-        ):
-            is_ensemble = bool(entry["is_ensemble"])
-            color = track_color(model_index, is_ensemble=is_ensemble)
-            if not is_ensemble:
-                model_index += 1
-            tracks.append(
-                OverlayTrack(
-                    label=str(entry["label"]),
-                    points=entry["points"],
-                    color=color,
-                    is_ensemble=is_ensemble,
-                )
-            )
-        self.video_grid.set_overlay_tracks(video, tracks)
+        import_controller.refresh_overlays(self, video)
 
     def _on_import_error(self, err_msg: str) -> None:
-        progress_dialog = getattr(self, "_progress_dialog", None)
-        if progress_dialog is not None:
-            progress_dialog.close()
-        self.transport.set_status("Data import failed", "error")
-        QMessageBox.critical(
-            self,
-            "Import Error",
-            f"Failed to import CSV:\n{err_msg}",
-        )
+        import_controller.on_import_error(self, err_msg)
 
     def _update_bounds(self, t0: float, t1: float) -> None:
         if self.clock.state.bounds == (0.0, 0.0):

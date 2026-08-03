@@ -92,3 +92,80 @@ def test_loader_discovery(mock_eps):
 
     best_none = registry.find_best_loader(Path("unknown.xyz"))
     assert best_none is None
+
+
+# ── Broken plugins must be visible, not merely absent (5.4) ──────────
+
+_DROP_IN_SOURCE = """
+from collections.abc import Iterator
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from avialsync.core.source import ChannelInfo, TimeSeriesSource
+
+
+class DropInSource(TimeSeriesSource):
+    @classmethod
+    def can_open(cls, path: Path) -> float:
+        return 1.0 if path.suffix == ".dropin" else 0.0
+
+    def open(self, path: Path, config: dict[str, Any]) -> None:
+        self._path = path
+
+    def channels(self) -> list[ChannelInfo]:
+        return [ChannelInfo(name="v", unit="", dtype="float64", rate_hz=None)]
+
+    def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+        yield np.arange(3, dtype=np.float64), np.zeros(3)
+
+    def time_bounds(self) -> tuple[float, float]:
+        return (0.0, 2.0)
+"""
+
+
+def test_drop_in_plugin_is_discovered_and_routed(tmp_path: Path) -> None:
+    """The `~/.avialsync/plugins/` drop-in path is a supported way to add a format."""
+    (tmp_path / "good_plugin.py").write_text(_DROP_IN_SOURCE)
+
+    registry = LoaderRegistry(plugin_dirs=[tmp_path])
+
+    assert registry.plugin_errors == []
+    assert registry.find_best_loader(Path("x.dropin")) is not None
+
+
+def test_a_plugin_that_fails_to_import_is_reported(tmp_path: Path) -> None:
+    """A broken plugin is otherwise indistinguishable from one never installed.
+
+    Its formats simply stop appearing. The registry must be able to say why, or
+    the Diagnostics report has nothing to show the person who installed it.
+    """
+    (tmp_path / "broken_plugin.py").write_text("import a_module_that_does_not_exist\n")
+
+    registry = LoaderRegistry(plugin_dirs=[tmp_path])
+
+    assert len(registry.plugin_errors) == 1
+    source, reason = registry.plugin_errors[0]
+    assert source == "broken_plugin.py"
+    assert "a_module_that_does_not_exist" in reason
+
+
+def test_a_plugin_exporting_no_source_is_reported(tmp_path: Path) -> None:
+    """Importable but useless is still a failure the author needs told about."""
+    (tmp_path / "empty_plugin.py").write_text("class NotASource:\n    pass\n")
+
+    registry = LoaderRegistry(plugin_dirs=[tmp_path])
+
+    assert len(registry.plugin_errors) == 1
+    assert "no TimeSeriesSource, VideoSource, or SessionSource" in registry.plugin_errors[0][1]
+
+
+def test_a_broken_plugin_does_not_cost_the_built_ins(tmp_path: Path) -> None:
+    """One bad plugin must never take the application's own loaders with it."""
+    (tmp_path / "broken_plugin.py").write_text("raise RuntimeError('boom at import')\n")
+
+    registry = LoaderRegistry(plugin_dirs=[tmp_path])
+
+    assert len(registry.loaders()) == 6
+    assert registry.find_best_loader(Path("data.csv")) is not None

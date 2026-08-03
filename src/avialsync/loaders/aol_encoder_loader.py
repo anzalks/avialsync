@@ -62,6 +62,10 @@ class AOLEncoderLoader(TimeSeriesSource):
         wall-clock (HH:MM:SS:mmm)  counter  position  velocity
     """
 
+    @classmethod
+    def display_name(cls) -> str:
+        return "AOL Encoder Log"
+
     def __init__(self) -> None:
         self._path: Path | None = None
         self._config: dict[str, Any] = {}
