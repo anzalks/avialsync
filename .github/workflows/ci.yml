@@ -64,7 +64,7 @@ jobs:
           
       - name: Install System Dependencies (Ubuntu)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg libmpv2 libegl1
+        run: sudo apt-get update && sudo apt-get install -y -o Acquire::Retries=3 ffmpeg libmpv2 libegl1
         
       - name: Install System Dependencies (macOS)
         if: runner.os == 'macOS'

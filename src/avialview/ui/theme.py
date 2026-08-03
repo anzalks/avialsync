@@ -12,7 +12,7 @@ from __future__ import annotations
 import subprocess
 import sys
 
-from PySide6.QtCore import QSettings, QTimer
+from PySide6.QtCore import QSettings
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 from shiboken6 import isValid
@@ -31,7 +31,6 @@ _applying_palette: set[int] = set()
 _macos_accent: QColor | None = None
 _system_fonts: dict[int, QFont] = {}
 _font_scales: dict[int, float] = {}
-_font_requests: dict[int, int] = {}
 _BASE_FONT_PROPERTY = "avialview_base_font"
 _FONT_FAMILY_PROPERTY = "avialview_font_family"
 
@@ -277,15 +276,15 @@ def apply_font_size(app: QApplication, pref: str = FONT_SYSTEM) -> None:
         font.setPointSizeF(max(8.0, point_size * factors[pref]))
     _capture_widget_base_fonts(app)
     app.setFont(font)
-    app_id = id(app)
-    request = _font_requests.get(app_id, 0) + 1
-    _font_requests[app_id] = request
-
-    def apply_to_live_widgets() -> None:
-        if _font_requests.get(app_id) == request:
-            _apply_font_to_existing_widgets(app, factors[pref])
-
-    QTimer.singleShot(0, apply_to_live_widgets)
+    # Applied here rather than from a zero-delay timer. Deferring it coalesced
+    # rapid preference changes, which a menu action does not need, and bought
+    # that with a window in which the callback could run after the widgets it
+    # walks — or the application itself — had been torn down. `allWidgets()`
+    # then hands back freed pointers and the process dies with SIGSEGV instead
+    # of raising, which is how it crashed the Linux test run. `setFont` has
+    # already propagated synchronously by this point, so there is nothing to
+    # wait for.
+    _apply_font_to_existing_widgets(app, factors[pref])
     QSettings("AvialView", "AvialView").setValue("font/preference", pref)
 
 
