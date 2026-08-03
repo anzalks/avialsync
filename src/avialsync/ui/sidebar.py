@@ -44,6 +44,19 @@ def _widgets_of(layout: QVBoxLayout, kind: type[_W]) -> "list[_W]":
     return found
 
 
+#: Range of the per-source offset controls, in seconds. A full day either way.
+#:
+#: It was +/-1 hour, which silently truncated any session whose sources carry a
+#: wall-clock time base. An AOL recording is timed as seconds since midnight, so
+#: a mid-morning session needs about -34500 s; the spin box clamped that to
+#: -3600 and `mapping()` then reported the clamp as fact. Nothing warned, the
+#: live view stayed correct because the value is applied with signals blocked,
+#: and the wrong number only surfaced on save -- reopening the session put the
+#: source hours away from the video. A control that cannot express a legitimate
+#: value must not silently substitute one (D-026).
+_OFFSET_LIMIT_S = 86_400.0
+
+
 class SensorInfoWidget(QFrame):
     """Displays metadata and per-channel controls for one loaded sensor CSV."""
 
@@ -101,7 +114,7 @@ class SensorInfoWidget(QFrame):
         sync_layout = QHBoxLayout()
         sync_layout.addWidget(QLabel("Offset:"))
         self.offset_spin = QDoubleSpinBox()
-        self.offset_spin.setRange(-3600.0, 3600.0)
+        self.offset_spin.setRange(-_OFFSET_LIMIT_S, _OFFSET_LIMIT_S)
         self.offset_spin.setDecimals(3)
         self.offset_spin.setSingleStep(0.05)
         self.offset_spin.setSuffix(" s")
@@ -297,7 +310,7 @@ class VideoInfoWidget(QFrame):
         sync_layout = QHBoxLayout()
         sync_lbl = QLabel("Offset:")
         self.offset_spin = QDoubleSpinBox()
-        self.offset_spin.setRange(-3600.0, 3600.0)
+        self.offset_spin.setRange(-_OFFSET_LIMIT_S, _OFFSET_LIMIT_S)
         self.offset_spin.setDecimals(3)
         self.offset_spin.setSingleStep(0.05)
         self.offset_spin.setSuffix(" s")

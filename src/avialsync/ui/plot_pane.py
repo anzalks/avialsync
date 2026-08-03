@@ -292,6 +292,17 @@ class PlotPane(QWidget):
         # a row created in this same call has not been laid out yet, so its
         # width is still a placeholder. Linking against that produced a wildly
         # wrong range on the final row of every load. Settle the layout first.
+        #
+        # `activate()` alone is not enough: it arranges children *inside* the
+        # central item's current geometry, and that geometry is only refreshed
+        # by a resize reaching the view. Rows are built across event-loop turns
+        # (D-060), so the last resize often predates them and the central item
+        # still holds its pre-show default — every row then collapses to its
+        # ~8 px minimum while the pane around it is a thousand pixels wide.
+        # Intermittent, because it depends on whether a resize happened to land
+        # after the final row. `resizeEvent` ignores its argument and re-applies
+        # the view's real size, which is what pushes geometry onto the item.
+        self.graphics_layout.resizeEvent(None)
         self.graphics_layout.ci.layout.activate()
         self._configure_shared_x_range()
         self._update_axis_visibility()
