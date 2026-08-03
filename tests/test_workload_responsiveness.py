@@ -79,28 +79,35 @@ def _percentile(samples: list[float], fraction: float) -> float:
     return ordered[lower] + (position - lower) * (ordered[upper] - ordered[lower])
 
 
+#: How many callbacks may exceed the budget before it counts as a stall.
+#: Exactly one, and that tolerance is the difference between a test that runs on
+#: shared CI and one that gets disabled. A hosted runner is preempted by other
+#: tenants; a single 80 ms scheduling gap in a 40-iteration loop says nothing
+#: about this application. What it cannot produce is the *same* gap over and
+#: over, so a repeated overrun is signal and a lone one is noise. Anything
+#: periodic enough for a user to perceive clears this easily: a hitch every
+#: twentieth frame appears three times in a 60-sample run.
+_ALLOWED_OUTLIERS = 1
+
+
 def _assert_no_stall_tail(samples: list[float], label: str) -> None:
     """Assert the slow tail stays proportionate to the typical callback.
 
-    Two bounds, because they catch different failures and p95 alone catches
-    neither reliably. A hitch every twentieth frame *is* the top 5%, so it sits
-    exactly on the p95 boundary and slips through — the worst callback is what
-    exposes it. p95 covers the other shape, where a large fraction of frames
-    degrade without any single one being extreme.
+    Counting overruns rather than bounding the worst one, because p95 alone
+    misses the case that matters most: a hitch every twentieth frame *is* the
+    top 5%, so it lands exactly on the p95 boundary and slips through. The
+    count sees it, and unlike a bound on the maximum it is not thrown by one
+    preempted iteration.
     """
     p50 = _percentile(samples, 0.50)
-    p95 = _percentile(samples, 0.95)
-    worst = max(samples)
     budget = max(_TAIL_FLOOR_MS, p50 * _MAX_TAIL_RATIO)
+    over = [value for value in samples if value > budget]
 
-    assert worst <= budget, (
-        f"{label}: worst callback {worst:.1f} ms against a typical {p50:.1f} ms "
-        f"(budget {budget:.1f} ms). A spike this much worse than the median is a "
-        f"stall the user sees, even though the mean stays fine."
-    )
-    assert p95 <= budget, (
-        f"{label}: p95 {p95:.1f} ms against a typical {p50:.1f} ms "
-        f"(budget {budget:.1f} ms) — the slow tail has grown, not just one frame."
+    assert len(over) <= _ALLOWED_OUTLIERS, (
+        f"{label}: {len(over)} of {len(samples)} callbacks exceeded {budget:.1f} ms "
+        f"against a typical {p50:.1f} ms (p95 {_percentile(samples, 0.95):.1f} ms, "
+        f"worst {max(samples):.1f} ms). Repeated overruns are a stall the user sees, "
+        f"even though the mean stays fine."
     )
 
 

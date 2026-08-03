@@ -23,6 +23,29 @@ Duplicate timestamps keep the final value. Sort non-monotonic input or raise
 See `examples/plugins/avialsync-plugin-example` for an installable toy binary
 loader.
 
+### Claiming a whole recording folder
+
+`can_open(path)` is offered directories as well as files, so a rig with its own
+folder layout can be supported without changing AvialSync:
+
+```python
+@classmethod
+def can_open(cls, path: Path) -> float:
+    return 1.0 if path.is_dir() and (path / "myrig.marker").exists() else 0.0
+```
+
+When a plugin claims a directory, the drop scan stops there and hands the whole
+folder to it instead of recursing into the loose files inside. Your `open()`
+receives the directory, and the folder becomes **one** source with as many
+channels as you declare.
+
+What this cannot yet do is present one folder as *several* sources with
+different roles — separate videos, pose data routed to the 3D view, and a
+sensor trace, all sharing one anchor time. That fan-out exists for the built-in
+AOL session format but is not reachable from a plugin; see "Pending" in
+`HANDOUT.md`. If your folder needs it today, the workaround is to let users drop
+the individual files (or the subfolders) rather than the session root.
+
 ### Optional: single-pass bulk ingest
 
 `read_chunks` is called once per channel, so a format parsed in one pass is

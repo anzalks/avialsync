@@ -249,6 +249,15 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
 - Native synchronization plugin API (D-026).
+- **Session/folder plugin API — not implemented.** A plugin *can* claim a whole directory today:
+  `can_open` is offered directories, and a claim stops the drop scan recursing into the folder
+  (pinned by `tests/test_plugin_discovery.py`). But that yields exactly **one** source. Presenting a
+  folder as several sources with roles — videos, `pose3d`, `overlay2d`, an encoder trace, a shared
+  anchor epoch, camera fps, a skeleton — exists only for AOL, hardcoded in
+  `engine/drop_worker._collect_aol_candidates` behind a hardcoded `is_aol_session` import. Nothing
+  in `core/source.py` exposes it, so a second lab with a comparable folder layout cannot reach it
+  without editing `drop_worker`. Generalising that fan-out into a session ABC is the work; AOL is
+  then its first implementation rather than a special case.
 - **Post-refactor repair leftovers (audit 2026-07-30; `RECOVERY_PLAN.md` / `RECOVERY_PROMPT.md`
   retired 2026-08-03).** 25 of that plan's 33 tasks shipped, verified against the code; its progress
   tracker was never ticked, which is why the two files read as unstarted. What is genuinely left:

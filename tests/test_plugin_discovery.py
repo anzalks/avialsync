@@ -136,3 +136,85 @@ def test_builtins_are_registered_exactly_once(tmp_path: Path) -> None:
     loaders = LoaderRegistry(plugin_dirs=[tmp_path]).loaders()
 
     assert len(loaders) == len(set(loaders))
+
+
+# ── A plugin may claim a whole recording folder, not only a file ─────
+
+_FOLDER_PLUGIN = '''
+from collections.abc import Iterator
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from avialsync.core.source import ChannelInfo, TimeSeriesSource
+
+
+class RigSessionSource(TimeSeriesSource):
+    """Claims a directory that carries this rig's marker file."""
+
+    @classmethod
+    def can_open(cls, path: Path) -> float:
+        return 1.0 if path.is_dir() and (path / "myrig.marker").exists() else 0.0
+
+    def open(self, path: Path, config: dict[str, Any]) -> None:
+        self._path = path
+
+    def channels(self) -> list[ChannelInfo]:
+        return [ChannelInfo(name="rig_signal", unit="V", dtype="float64", rate_hz=100.0)]
+
+    def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+        yield np.arange(10, dtype=np.float64) / 100.0, np.zeros(10)
+
+    def time_bounds(self) -> tuple[float, float]:
+        return (0.0, 0.1)
+'''
+
+
+def _rig_session(root: Path) -> tuple[Path, Path]:
+    plugin_dir = root / "plugins"
+    plugin_dir.mkdir()
+    (plugin_dir / "rig.py").write_text(_FOLDER_PLUGIN, encoding="utf-8")
+
+    session = root / "session_2026_08_03"
+    session.mkdir()
+    (session / "myrig.marker").write_text("x", encoding="utf-8")
+    (session / "notes.txt").write_text("hello", encoding="utf-8")
+    return plugin_dir, session
+
+
+def test_a_plugin_can_claim_a_recording_folder(tmp_path: Path) -> None:
+    """`can_open` is offered directories, so a lab can adopt its own folder layout.
+
+    This is the whole reason a rig with a bespoke directory shape can be
+    supported without changing AvialSync. It is easy to break by accident, since
+    nothing in the loader ABC says a path might be a directory.
+    """
+    from avialsync.core.registry import LoaderRegistry
+
+    plugin_dir, session = _rig_session(tmp_path)
+    registry = LoaderRegistry(plugin_dirs=[plugin_dir])
+
+    assert registry.plugin_errors == []
+    chosen = registry.find_best_loader(session)
+    assert chosen is not None and chosen.__name__ == "RigSessionSource"
+
+
+def test_a_folder_claiming_plugin_wins_the_drop_scan(tmp_path: Path) -> None:
+    """Claiming the folder must stop the scan recursing into its files.
+
+    Otherwise the plugin is bypassed and the user gets one candidate per loose
+    file — the folder's meaning, which is the point of the plugin, is lost.
+    """
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.engine.drop_worker import DropScanWorker
+
+    plugin_dir, session = _rig_session(tmp_path)
+    worker = DropScanWorker([session], LoaderRegistry(plugin_dirs=[plugin_dir]))
+
+    candidates = worker._collect_drop_candidates(session)
+
+    assert len(candidates) == 1
+    path, loader_cls, _config = candidates[0]
+    assert path == session
+    assert loader_cls is not None and loader_cls.__name__ == "RigSessionSource"
