@@ -23570,11 +23570,19 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_packaging_smoke_test_quality_workflows_smoke_test_bundles",
-      "label": "test_quality_workflows_smoke_test_bundles()",
+      "id": "tests_test_packaging_smoke_test_release_workflow_smoke_tests_the_staged_bundle",
+      "label": "test_release_workflow_smoke_tests_the_staged_bundle()",
       "file_type": "code",
       "source_file": "tests/test_packaging_smoke.py",
       "source_location": "L118",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_packaging_smoke_test_ci_does_not_build_installers",
+      "label": "test_ci_does_not_build_installers()",
+      "file_type": "code",
+      "source_file": "tests/test_packaging_smoke.py",
+      "source_location": "L126",
       "_origin": "ast"
     },
     {
@@ -23582,7 +23590,7 @@
       "label": "test_linux_release_proves_the_bundle_opens_on_a_real_display()",
       "file_type": "code",
       "source_file": "tests/test_packaging_smoke.py",
-      "source_location": "L126",
+      "source_location": "L141",
       "_origin": "ast"
     },
     {
@@ -23602,11 +23610,27 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_packaging_smoke_rationale_119",
+      "label": "Freezing a bundle is release-tag work, and it must be gated on startup.",
+      "file_type": "rationale",
+      "source_file": "tests/test_packaging_smoke.py",
+      "source_location": "L119",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_packaging_smoke_rationale_127",
-      "label": "A Linux bundle that only ever ran offscreen is an untested installer.",
+      "label": "CI proves correctness on every push; only a tag builds and ships.      Bundling",
       "file_type": "rationale",
       "source_file": "tests/test_packaging_smoke.py",
       "source_location": "L127",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_packaging_smoke_rationale_142",
+      "label": "A Linux bundle that only ever ran offscreen is an untested installer.",
+      "file_type": "rationale",
+      "source_file": "tests/test_packaging_smoke.py",
+      "source_location": "L142",
       "_origin": "ast"
     },
     {
@@ -85956,7 +85980,7 @@
     },
     {
       "source": "tests_test_packaging_smoke",
-      "target": "tests_test_packaging_smoke_test_quality_workflows_smoke_test_bundles",
+      "target": "tests_test_packaging_smoke_test_release_workflow_smoke_tests_the_staged_bundle",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_packaging_smoke.py",
@@ -85966,11 +85990,21 @@
     },
     {
       "source": "tests_test_packaging_smoke",
-      "target": "tests_test_packaging_smoke_test_linux_release_proves_the_bundle_opens_on_a_real_display",
+      "target": "tests_test_packaging_smoke_test_ci_does_not_build_installers",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_packaging_smoke.py",
       "source_location": "L126",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_smoke",
+      "target": "tests_test_packaging_smoke_test_linux_release_proves_the_bundle_opens_on_a_real_display",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_smoke.py",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -86041,13 +86075,24 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_packaging_smoke_test_quality_workflows_smoke_test_bundles",
+      "source": "tests_test_packaging_smoke_test_release_workflow_smoke_tests_the_staged_bundle",
       "target": "tests_test_packaging_smoke_py_path",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_packaging_smoke.py",
-      "source_location": "L122",
+      "source_location": "L123",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_smoke_test_ci_does_not_build_installers",
+      "target": "tests_test_packaging_smoke_py_path",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_smoke.py",
+      "source_location": "L132",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -86058,7 +86103,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_packaging_smoke.py",
-      "source_location": "L128",
+      "source_location": "L143",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -86083,12 +86128,32 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_packaging_smoke_rationale_119",
+      "target": "tests_test_packaging_smoke_test_release_workflow_smoke_tests_the_staged_bundle",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_smoke.py",
+      "source_location": "L119",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_packaging_smoke_rationale_127",
-      "target": "tests_test_packaging_smoke_test_linux_release_proves_the_bundle_opens_on_a_real_display",
+      "target": "tests_test_packaging_smoke_test_ci_does_not_build_installers",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_packaging_smoke.py",
       "source_location": "L127",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_smoke_rationale_142",
+      "target": "tests_test_packaging_smoke_test_linux_release_proves_the_bundle_opens_on_a_real_display",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_smoke.py",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast"
     },
