@@ -78,8 +78,11 @@ def test_bench_populated_cursor_tick(benchmark, qtbot, tmp_path: Path, channels:
 
     benchmark(advance)
 
-    assert benchmark.stats["mean"] <= _CURSOR_BUDGET_S, (
-        f"{channels}-channel cursor tick averaged {benchmark.stats['mean'] * 1000:.2f} ms "
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= _CURSOR_BUDGET_S, (
+        f"{channels}-channel cursor tick averaged {stats['mean'] * 1000:.2f} ms "
         f"against a {_CURSOR_BUDGET_S * 1000:.0f} ms budget"
     )
 
@@ -110,8 +113,11 @@ def test_bench_window_duration_change(benchmark, qtbot, tmp_path: Path, channels
     # CPU that benchmark is measuring.
     pane.cancel_pending_rows()
 
-    assert benchmark.stats["mean"] <= _UI_CALLBACK_CEILING_S, (
-        f"{channels}-channel zoom averaged {benchmark.stats['mean'] * 1000:.2f} ms "
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= _UI_CALLBACK_CEILING_S, (
+        f"{channels}-channel zoom averaged {stats['mean'] * 1000:.2f} ms "
         f"against a {_UI_CALLBACK_CEILING_S * 1000:.0f} ms UI-callback ceiling"
     )
 
@@ -134,8 +140,11 @@ def test_bench_resize_storm(benchmark, qtbot, tmp_path: Path) -> None:
 
     benchmark(resize)
 
-    assert benchmark.stats["max"] <= _UI_CALLBACK_CEILING_S, (
-        f"worst resize callback was {benchmark.stats['max'] * 1000:.2f} ms "
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["max"] <= _UI_CALLBACK_CEILING_S, (
+        f"worst resize callback was {stats['max'] * 1000:.2f} ms "
         f"against a {_UI_CALLBACK_CEILING_S * 1000:.0f} ms ceiling"
     )
 
@@ -161,7 +170,10 @@ def test_bench_row_build_slice(benchmark, qtbot, tmp_path: Path) -> None:
     for pane in panes:
         pane.cancel_pending_rows()
 
-    assert benchmark.stats["mean"] <= _UI_CALLBACK_CEILING_S, (
-        f"first row-build slice averaged {benchmark.stats['mean'] * 1000:.2f} ms "
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= _UI_CALLBACK_CEILING_S, (
+        f"first row-build slice averaged {stats['mean'] * 1000:.2f} ms "
         f"against a {_UI_CALLBACK_CEILING_S * 1000:.0f} ms ceiling"
     )

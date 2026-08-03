@@ -185,6 +185,11 @@ def system_accent(palette: QPalette) -> QColor:
         if _macos_accent is not None:
             return QColor(_macos_accent)
         try:
+            # The one subprocess in this codebase that does not splat
+            # `runtime.no_window_kwargs()`, and deliberately: it is unreachable
+            # off macOS, and those kwargs carry only Windows' CREATE_NO_WINDOW.
+            # Splatting here would be dead code. If this call ever stops being
+            # darwin-only, it needs them.
             result = subprocess.run(
                 ["defaults", "read", "-g", "AppleAccentColor"],
                 capture_output=True,

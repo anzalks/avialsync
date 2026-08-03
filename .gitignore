@@ -146,6 +146,10 @@ docs/_build/
 .pypirc
 .release/
 
+# Console captures from a local run. One of these was committed once as a stale
+# UTF-16 capture of a failing suite; nothing should reach the tree this way.
+pytest_out.txt
+
 # User raw data directories.
 # Recording sessions are named HH-MM-SS by the acquisition rig, so the pattern
 # covers tomorrow's session too — listing them one by one only protects the ones
