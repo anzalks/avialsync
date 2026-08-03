@@ -299,6 +299,14 @@ def test_completion_does_not_ride_on_the_tail_of_a_slice(qtbot, tmp_path) -> Non
 
     `_finish_loading` costs ~19 ms. Running it directly from the last slice made
     one block out of two and was most of what kept the worst case near 90 ms.
+
+    The invariant is observed directly, by asking whether completion fired while
+    a build slice was on the stack. It used to be inferred: drain the row-building
+    turns with 1 ms waits, then check completion had not happened yet. That reads
+    naturally and is unsound on Windows, where the timer granularity is ~15 ms, so
+    a single `wait(1)` spins the loop long enough to run the final slice *and* the
+    zero-delay completion queued behind it. The sample then saw a finished load
+    and failed — on correct code, about half the time.
     """
     from avialsync.ui.plot_pane import PlotPane
 
@@ -308,16 +316,40 @@ def test_completion_does_not_ride_on_the_tail_of_a_slice(qtbot, tmp_path) -> Non
     pane.resize(900, 500)
     pane.set_timeline_bounds(0.0, 10.0)
 
+    slice_depth = 0
+    rode_along = False
+    build_slices = 0
+    build_pending_rows = pane._build_pending_rows
+
+    def tracked_build() -> None:
+        nonlocal slice_depth, build_slices
+        slice_depth += 1
+        build_slices += 1
+        try:
+            build_pending_rows()
+        finally:
+            slice_depth -= 1
+
+    pane._build_pending_rows = tracked_build  # type: ignore[method-assign]
+
     finished: list[int] = []
-    pane.channels_loaded.connect(lambda: finished.append(1))
-    pane.load_channels(cache, [f"ch{i}" for i in range(8)])
 
-    # Drain only the row-building turns; completion must still be outstanding.
-    while pane._pending_rows:
-        qtbot.wait(1)
-    assert finished == [], "completion ran inside the final build slice"
+    def on_channels_loaded() -> None:
+        nonlocal rode_along
+        if slice_depth:
+            rode_along = True
+        finished.append(1)
 
-    qtbot.waitUntil(lambda: finished == [1], timeout=2000)
+    pane.channels_loaded.connect(on_channels_loaded)
+    pane.load_channels(cache, [f"ch{index}" for index in range(8)])
+
+    qtbot.waitUntil(lambda: finished == [1], timeout=5_000)
+
+    assert build_slices > 1, "this test is only meaningful across several slices"
+    assert not rode_along, (
+        "completion ran inside a row-building slice; `_finish_loading` costs "
+        "~19 ms and doubles that slice's block on the UI thread"
+    )
 
 
 def test_a_slice_stops_before_a_row_would_overrun_it(qtbot, tmp_path, monkeypatch) -> None:
