@@ -18926,7 +18926,7 @@
       "label": "test_cross_platform_quality_workflows_share_headless_media_contract()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L16",
+      "source_location": "L18",
       "_origin": "ast"
     },
     {
@@ -18934,7 +18934,7 @@
       "label": "test_release_bundle_uses_the_verified_windows_libmpv()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L43",
+      "source_location": "L45",
       "_origin": "ast"
     },
     {
@@ -18942,7 +18942,7 @@
       "label": "test_release_appimage_tool_has_ubuntu_fuse_2_compatibility()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L53",
+      "source_location": "L55",
       "_origin": "ast"
     },
     {
@@ -18950,7 +18950,23 @@
       "label": "test_release_tags_must_reference_main()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L60",
+      "source_location": "L62",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ci_platform_config_test_only_a_version_tag_starts_a_release",
+      "label": "test_only_a_version_tag_starts_a_release()",
+      "file_type": "code",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L71",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ci_platform_config_test_every_release_job_is_gated_on_the_ref_check",
+      "label": "test_every_release_job_is_gated_on_the_ref_check()",
+      "file_type": "code",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L84",
       "_origin": "ast"
     },
     {
@@ -18958,7 +18974,7 @@
       "label": "test_release_tag_must_agree_with_the_declared_version()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L69",
+      "source_location": "L101",
       "_origin": "ast"
     },
     {
@@ -18966,7 +18982,7 @@
       "label": "test_prerelease_tags_are_not_published_as_stable_releases()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L83",
+      "source_location": "L115",
       "_origin": "ast"
     },
     {
@@ -18974,7 +18990,7 @@
       "label": "test_macos_disk_image_ships_a_launchable_application()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L95",
+      "source_location": "L127",
       "_origin": "ast"
     },
     {
@@ -18986,59 +19002,75 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_17",
+      "id": "tests_test_ci_platform_config_rationale_19",
       "label": "CI and tag quality runs must exercise the same supported media boundary.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L17",
+      "source_location": "L19",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_44",
+      "id": "tests_test_ci_platform_config_rationale_46",
       "label": "Release installers must not switch to an unverified mpv source on Windows.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L44",
+      "source_location": "L46",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_54",
+      "id": "tests_test_ci_platform_config_rationale_56",
       "label": "Ubuntu 24.04 must provide AppImageTool's libfuse.so.2 runtime ABI.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L54",
+      "source_location": "L56",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_61",
+      "id": "tests_test_ci_platform_config_rationale_63",
       "label": "A version tag must not release a side branch or detached commit.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L61",
+      "source_location": "L63",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_70",
+      "id": "tests_test_ci_platform_config_rationale_72",
+      "label": "Pushing a branch must never publish, and neither must a non-version tag.      wo",
+      "file_type": "rationale",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L72",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ci_platform_config_rationale_85",
+      "label": "No job may build or publish without the tag having been verified.",
+      "file_type": "rationale",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L85",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ci_platform_config_rationale_102",
       "label": "PyPI and the GitHub release must not publish two different versions.      Nothin",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L70",
+      "source_location": "L102",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_84",
+      "id": "tests_test_ci_platform_config_rationale_116",
       "label": "A PEP 440 pre-release tag must be marked as one on the release page.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L84",
+      "source_location": "L116",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_96",
+      "id": "tests_test_ci_platform_config_rationale_128",
       "label": "A one-directory tree is not a macOS app; Finder opens it in Terminal.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L96",
+      "source_location": "L128",
       "_origin": "ast"
     },
     {
@@ -76433,11 +76465,22 @@
     },
     {
       "source": "tests_test_ci_platform_config",
+      "target": "yaml",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ci_platform_config",
       "target": "tests_test_ci_platform_config_test_cross_platform_quality_workflows_share_headless_media_contract",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L16",
+      "source_location": "L18",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -76447,7 +76490,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L43",
+      "source_location": "L45",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -76457,7 +76500,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L53",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -76467,7 +76510,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L60",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ci_platform_config",
+      "target": "tests_test_ci_platform_config_test_only_a_version_tag_starts_a_release",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ci_platform_config",
+      "target": "tests_test_ci_platform_config_test_every_release_job_is_gated_on_the_ref_check",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L84",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -76477,7 +76540,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L69",
+      "source_location": "L101",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -76487,7 +76550,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L83",
+      "source_location": "L115",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -76497,7 +76560,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L95",
+      "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -76512,72 +76575,92 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_17",
+      "source": "tests_test_ci_platform_config_rationale_19",
       "target": "tests_test_ci_platform_config_test_cross_platform_quality_workflows_share_headless_media_contract",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L17",
+      "source_location": "L19",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_44",
+      "source": "tests_test_ci_platform_config_rationale_46",
       "target": "tests_test_ci_platform_config_test_release_bundle_uses_the_verified_windows_libmpv",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L44",
+      "source_location": "L46",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_54",
+      "source": "tests_test_ci_platform_config_rationale_56",
       "target": "tests_test_ci_platform_config_test_release_appimage_tool_has_ubuntu_fuse_2_compatibility",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L54",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_61",
+      "source": "tests_test_ci_platform_config_rationale_63",
       "target": "tests_test_ci_platform_config_test_release_tags_must_reference_main",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L61",
+      "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_70",
+      "source": "tests_test_ci_platform_config_rationale_72",
+      "target": "tests_test_ci_platform_config_test_only_a_version_tag_starts_a_release",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L72",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ci_platform_config_rationale_85",
+      "target": "tests_test_ci_platform_config_test_every_release_job_is_gated_on_the_ref_check",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L85",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ci_platform_config_rationale_102",
       "target": "tests_test_ci_platform_config_test_release_tag_must_agree_with_the_declared_version",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L70",
+      "source_location": "L102",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_84",
+      "source": "tests_test_ci_platform_config_rationale_116",
       "target": "tests_test_ci_platform_config_test_prerelease_tags_are_not_published_as_stable_releases",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L84",
+      "source_location": "L116",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_96",
+      "source": "tests_test_ci_platform_config_rationale_128",
       "target": "tests_test_ci_platform_config_test_macos_disk_image_ships_a_launchable_application",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L96",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
