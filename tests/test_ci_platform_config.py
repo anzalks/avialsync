@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import yaml
+
 WORKFLOW_PATHS = (
     Path(".github/workflows/ci.yml"),
     Path(".github/workflows/release.yml"),
@@ -64,6 +66,36 @@ def test_release_tags_must_reference_main() -> None:
     assert "verify_release_ref:" in release_workflow
     assert "git fetch origin main" in release_workflow
     assert 'git merge-base --is-ancestor "$GITHUB_SHA" origin/main' in release_workflow
+
+
+def test_only_a_version_tag_starts_a_release() -> None:
+    """Pushing a branch must never publish, and neither must a non-version tag.
+
+    workflow_dispatch can be launched from any ref, so the tag requirement is
+    re-checked inside the job rather than left to the trigger alone.
+    """
+    release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
+
+    assert 'tags: ["v[0-9]*"]' in release_workflow
+    assert "branches:" not in release_workflow
+    assert "refs/tags/*) ;;" in release_workflow
+
+
+def test_every_release_job_is_gated_on_the_ref_check() -> None:
+    """No job may build or publish without the tag having been verified."""
+    workflow = yaml.safe_load(WORKFLOW_PATHS[1].read_text(encoding="utf-8"))
+    jobs = workflow["jobs"]
+
+    def gated(name: str, seen: frozenset[str] = frozenset()) -> bool:
+        """Return whether *name* is transitively downstream of the gate."""
+        needs = jobs[name].get("needs") or []
+        needs = [needs] if isinstance(needs, str) else needs
+        return bool(needs) and all(
+            need == "verify_release_ref" or gated(need, seen | {name}) for need in needs
+        )
+
+    ungated = [name for name in jobs if name != "verify_release_ref" and not gated(name)]
+    assert not ungated, f"These run without the tag being verified: {ungated}"
 
 
 def test_release_tag_must_agree_with_the_declared_version() -> None:

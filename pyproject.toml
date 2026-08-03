@@ -30,6 +30,7 @@ dev = [
     "build",  # MIT; release helper builds the wheel and sdist before tagging.
     "twine",  # Apache-2.0; release helper validates distribution metadata.
     "Pillow",  # HPND; reproducibly generates PNG, ICO, and ICNS icon assets.
+    "PyYAML",  # MIT; workflow contract tests parse .github/workflows directly.
     "ruff",
     "mypy"
 ]
