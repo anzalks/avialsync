@@ -1658,3 +1658,35 @@ shared X link that PLOT_UX_PLAN.md §14 requires.
 **Alternatives rejected:** slicing `update_plots` unconditionally (breaks page-flip atomicity during
 playback); raising the ceiling to fit the measurement (the budget is the requirement, not the
 result); dropping the X-link to avoid propagation (one shared X range is the point of the layout).
+
+## 2026-08 · D-064 · Deferred UI work either runs synchronously or carries a context object
+
+**Context:** the first CI run that reached the test matrix died on Linux/Python 3.11 with SIGSEGV,
+exit 139, inside `theme.apply_font_size`. `apply_font_size` handed its widget walk to a zero-delay
+`QTimer.singleShot` with no context object. That callback can run after the widgets it walks — or
+the `QApplication` itself — have been torn down, and `QApplication.allWidgets()` then returns freed
+pointers. Dereferencing one kills the process instead of raising, so the traceback names the test
+that happened to be running rather than the code that scheduled the work.
+
+This is the same failure mode as D-062, reached by a different route: there, a worker was destroyed
+inside its own thread; here, a callback outlived its subjects. Both are "work scheduled without an
+owner".
+
+**Decision:**
+
+1. Deferred UI work must either run synchronously, or be scheduled with the context-object overload
+   `QTimer.singleShot(interval, owner, callback)` so Qt drops it when the owner dies.
+2. `apply_font_size` runs synchronously. The deferral existed to coalesce rapid preference changes,
+   which a menu action does not need; `setFont` has already propagated by that point, so there was
+   nothing to wait for. The request counter that discarded stale callbacks went with it.
+3. `shiboken6.isValid` still guards each widget inside the walk, because applying a font can free a
+   later entry in the same pass. It is not sufficient on its own: the first fix filtered the list
+   with it and the crash simply moved into `allWidgets()`, since *producing* the list is what
+   dereferences freed memory.
+
+**Evidence:** the whole matrix — lint, docs, and 3 operating systems x 2 Python versions — passed
+for the first time in this repository's history on the commit that removed the timer.
+
+**Alternatives rejected:** keeping the deferral behind `isValid` (already tried; the crash moved
+rather than went away); passing `app` as the context object (the application outlives the widgets,
+so it drops nothing); catching the fault (a segmentation fault is not catchable in Python).

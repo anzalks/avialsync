@@ -152,6 +152,28 @@ conda run -n avialview ruff check --fix . && conda run -n avialview ruff format 
 - Runner images are pinned (`ubuntu-24.04`, `macos-15`, `windows-2022`), not `*-latest`. A floating label already broke the release once, when an image bump renamed `fuse` to `libfuse2t64`. `tests/test_ci_platform_config.py` fails if a floating label reappears.
 - Windows CI also needs an explicit, pinned libmpv DLL archive with SHA-256 verification and an
   `import mpv` probe. Do not assume a runner image provides a compatible DLL.
+- CI does **not** run benchmarks: both workflows pass `--ignore=tests/benchmarks`. Seeing
+  `pytest-benchmark` in a CI log means `pip install -e ".[dev]"` installed it, not that it ran.
+  Speed is certified locally with `pytest --benchmark-only` (BLUEPRINT.md "Performance budgets").
+- A zero-delay `QTimer.singleShot` that walks widgets can outlive them, and `QApplication.allWidgets()`
+  then returns freed pointers: the process dies with SIGSEGV, not an exception, so there is no
+  traceback pointing at the real cause. Either do the work synchronously or pass a context object
+  (`QTimer.singleShot(0, owner, callback)`) so Qt drops the callback with its owner. `shiboken6.isValid`
+  guards a widget you already hold; it cannot save you while the list is being built (D-062, D-064).
+- A channel name becomes a cache filename. Windows rejects `< > : " / \ | ? *`, which are all legal
+  on POSIX, so a test that builds a channel from an exotic name passes on macOS and fails on Windows.
+- Do not assert pixel outcomes from Qt layout. Font metrics differ per platform, so minimum sizes
+  differ: the same window measures 966 px wide on macOS and 1114 px on Windows. Assert the policy
+  (nothing collapsed, a drag stuck) and give a test the room it needs itself rather than changing a
+  shared fixture — widening one broke an unrelated minimum-size test that had been passing.
+- Test ordering can hide a broken assertion. `test_window_minimum_width_fits_a_laptop_display` passed
+  for months only because earlier tests left the shared `QApplication` measuring smaller; alone it
+  failed everywhere. When a test fails only in CI, run it **alone** locally before assuming platform.
+- `mypy` results depend on the installed NumPy, not just on the code: NumPy 2.4.6 and 2.5.1 type
+  `np.concatenate` differently, so `mypy src/avialview/core` passed locally and failed in CI on
+  identical source. To reproduce CI exactly, build a venv pinned to the versions its log reports.
+- Windows ships no IANA time zone database, so `zoneinfo` finds nothing there. `tzdata` is declared
+  as a Windows-only dependency; without it every timezone-aware CSV import fails on Windows only.
 - Hosted CI is headless on every OS: keep `QT_QPA_PLATFORM=offscreen` global and make
   `VideoPane` select `vo=null` there. Never force `qwindows` or native `wid` embedding merely to
   make a Windows job pass; interactive Windows and macOS use the Qt OpenGL render API, while Linux

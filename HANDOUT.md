@@ -470,6 +470,19 @@ _start_data_import(path)
 
 ## Known Traps
 
+### 0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)
+Two variants, one cause. A worker `deleteLater`-ed from a signal its own thread emits is destroyed
+*inside* that thread, and `~QObject` then severs its connections while holding one of Qt's 131
+pooled signal/slot mutexes before taking the GIL — deadlocking a UI thread that holds the GIL and
+waits on a colliding mutex. A zero-delay `QTimer.singleShot` that walks widgets can fire after those
+widgets are gone, and `QApplication.allWidgets()` then hands back freed pointers: SIGSEGV, no
+traceback pointing anywhere useful.
+**Fix:** release a worker from the UI-thread slot that already owns its registry entry, never from
+its own `finished`. Run deferred UI work synchronously, or schedule it with the context-object
+overload `QTimer.singleShot(interval, owner, callback)`. `shiboken6.isValid` guards a widget you
+already hold; it cannot help while the list itself is being built.
+`tests/test_worker_thread_teardown.py` fails on any reintroduction.
+
 ### 0a. A `QObject` moved to a `QThread` needs an owning Python reference
 `worker.moveToThread(thread)` does **not** transfer ownership. With no Python reference the wrapper
 is garbage-collected before `QThread.started` fires and `run()` never executes — silently, with no
