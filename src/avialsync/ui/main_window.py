@@ -1286,7 +1286,8 @@ class MainWindow(QMainWindow):
             self,
             "About AvialSync",
             "AvialSync — The Advanced Video and Instrument Alignment Library.\n"
-            "Multi-camera video and time-series inspection.\nApache-2.0 licence.",
+            "Multi-camera video and time-series inspection.\n"
+            "AGPL-3.0-or-later; a commercial licence is available.",
         )
 
     # ── Shortcuts dialog ─────────────────────────────────────────────

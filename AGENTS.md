@@ -9,8 +9,9 @@ content there. If tool-specific config is unavoidable, it still must say "rules 
 GUI desktop app for visual synchronization and inspection of multi-camera video (h264/h265, incl.
 12-bit greyscale) together with dense time series (up to 50 kHz, 16-bit, CSV or plugin formats) on
 one master timeline. Acquisition and built-in scientific analysis are out of scope: labs extend file
-formats, TTL/event semantics, and optional analysis through plugins. Open-source (Apache-2.0),
-commercializable. Targets: Windows / macOS / Linux, mid-spec machines (8-core, 16 GB, SSD). Read
+formats, TTL/event semantics, and optional analysis through plugins. Open-source
+(AGPL-3.0-or-later) and dual-licensed: a commercial licence is sold separately (D-069), which is
+why copyright must stay assignable -- every contribution needs the CLA. Targets: Windows / macOS / Linux, mid-spec machines (8-core, 16 GB, SSD). Read
 `BLUEPRINT.md` for phases, `ARCHITECTURE.md` for structure,
 `DECISIONS.md` for settled choices. Do not re-litigate settled decisions; propose changes as a
 DECISIONS.md entry in the PR description instead of silently diverging.

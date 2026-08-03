@@ -60,8 +60,8 @@ about:
   summary: >-
     GUI desktop app to scrub time-synchronized multi-camera video and dense
     time series.
-  license: Apache-2.0
-  license_family: Apache
+  license: AGPL-3.0-or-later
+  license_family: AGPL
   license_file: LICENSE
   doc_url: https://avialsync.readthedocs.io
   dev_url: https://github.com/anzalks/avialsync

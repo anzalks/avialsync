@@ -105,6 +105,19 @@ added a trap, or fixed a listed bug, update `HANDOUT.md` in the same commit.
 - **The open items under "Pending" in `HANDOUT.md`**, which lists known gaps
   with the evidence behind each.
 
+## Licensing your contribution
+
+AvialSync is dual-licensed: AGPL-3.0-or-later for everyone, plus a commercial
+licence for organisations that cannot accept the AGPL's reciprocity. That only
+remains possible while one party can license the whole work under both, so
+contributions are accepted under [CLA.md](CLA.md).
+
+You keep the copyright in your work. Add this to your first pull request:
+
+```
+I have read CLA.md and I accept its terms for this and my future contributions.
+```
+
 ## Reporting bugs
 
 Include: what you did, what you expected, what happened, your OS and Python

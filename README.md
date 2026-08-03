@@ -2,6 +2,14 @@
 
 **The Advanced Video and Instrument Alignment Library.**
 
+[![PyPI](https://img.shields.io/pypi/v/avialsync.svg)](https://pypi.org/project/avialsync/)
+[![Python](https://img.shields.io/pypi/pyversions/avialsync.svg)](https://pypi.org/project/avialsync/)
+[![CI](https://github.com/anzalks/avialsync/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/anzalks/avialsync/actions/workflows/ci.yml)
+[![Documentation](https://readthedocs.org/projects/avialsync/badge/?version=latest)](https://avialsync.readthedocs.io/en/latest/)
+[![Licence](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](https://github.com/anzalks/avialsync/blob/main/LICENSE)
+[![Commercial licence](https://img.shields.io/badge/commercial%20licence-available-success.svg)](https://github.com/anzalks/avialsync/blob/main/COMMERCIAL-LICENCE.md)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/anzalks/avialsync/releases)
+
 AvialSync is a desktop viewer for looking through an experiment in time.
 
 Use it when you have video from one or more cameras together with recordings such as sensors,
@@ -12,12 +20,14 @@ It is designed for visual inspection and careful alignment. It does not acquire 
 does not perform scientific analysis for you. Your lab can add support for its own file types and
 workflows through plugins.
 
-![A camera recording and three signal channels on one shared timeline, with the Data Streams
-coverage bar showing where each source has data.](docs/_static/screenshots/demo_step3_csv_loaded.png)
+![Three synchronised camera views of a head-fixed mouse with 2D pose overlays, a 3D pose view, and
+the wheel encoder velocity trace, all on one master timeline.](https://raw.githubusercontent.com/anzalks/avialsync/main/docs/_static/screenshots/aol_session_overview.png)
 
-*One camera and three channels of the bundled sample session on a single master timeline.
-Reproduce this from a clean clone with
-`conda run -n avialsync python tools/generate_demo_screenshots.py`.*
+*A real recording session: three cameras at 230 fps with per-camera 2D pose drawn over each view,
+triangulated 3D pose on the right, and wheel-encoder velocity below — every source on one master
+clock, at one instant. The whole folder was opened by dropping it on the window: a
+[session plugin](https://github.com/anzalks/avialsync/blob/main/docs/plugin-guide.md#session-plugins) recognised the layout and placed each file,
+including the shared time base. Nothing in AvialSync knows this lab's format.*
 
 ## Why use it?
 
@@ -140,10 +150,17 @@ section shows when each file is available on the shared timeline.
 
 ## Documentation
 
-Start with the [Quickstart](docs/quickstart.md), then use the [first-session tutorial](docs/tutorials/first-session.md).
-The documentation also includes [supported formats](docs/formats.md), [troubleshooting](docs/troubleshooting.md),
-[synchronization guidance](docs/tutorials/synchronization.md), and a separate
-[technical reference](docs/technical/index.md) for people maintaining the software or writing plugins.
+![One camera and three signal channels of the bundled sample session on a shared timeline, with the
+Data Streams coverage bar below.](https://raw.githubusercontent.com/anzalks/avialsync/main/docs/_static/screenshots/demo_step3_csv_loaded.png)
+
+*The bundled sample session, which needs no data of your own. Unlike the recording at the top of
+this page, this one reproduces from a clean clone:
+`conda run -n avialsync python tools/generate_demo_screenshots.py`.*
+
+Start with the [Quickstart](https://github.com/anzalks/avialsync/blob/main/docs/quickstart.md), then use the [first-session tutorial](https://github.com/anzalks/avialsync/blob/main/docs/tutorials/first-session.md).
+The documentation also includes [supported formats](https://github.com/anzalks/avialsync/blob/main/docs/formats.md), [troubleshooting](https://github.com/anzalks/avialsync/blob/main/docs/troubleshooting.md),
+[synchronization guidance](https://github.com/anzalks/avialsync/blob/main/docs/tutorials/synchronization.md), and a separate
+[technical reference](https://github.com/anzalks/avialsync/blob/main/docs/technical/index.md) for people maintaining the software or writing plugins.
 
 ## How it compares
 
@@ -157,7 +174,7 @@ the one that matches your problem — they overlap less than the names suggest.
 | Dense signals | 50 kHz × many channels via a decimation pyramid | Strong, its core purpose | Yes | Yes |
 | Per-source offset/drift | Yes, with evidence-based TTL alignment | Manual offsets | Timeline-based | Timeline-based |
 | Data model | Reads your files in place | Reads your files in place | You log into its own format | ROS/MCAP-oriented |
-| Licence | Apache-2.0 | MPL-2.0 | Apache-2.0 | Source-available + hosted |
+| Licence | AGPL-3.0, plus a commercial option | MPL-2.0 | Apache-2.0 | Source-available + hosted |
 
 If you mainly plot signals, PlotJuggler is likely a better fit. If you are in a
 ROS ecosystem, Foxglove and Rerun are built for it. AvialSync exists for the
@@ -172,12 +189,35 @@ in your existing tools or in lab-provided plugins.
 
 ## For developers
 
-The documentation site is built with Read the Docs. Local preview:
+The documentation site is built with Read the Docs from `.readthedocs.yaml`. Local preview:
 
 ```bash
 python -m pip install -e ".[docs]"
 sphinx-build -W --keep-going -b html docs docs/_build/html
 ```
+
+### Publishing the documentation site
+
+The repository is already configured — `.readthedocs.yaml` pins Ubuntu 22.04, Python 3.11, and
+installs the `docs` extra, with `fail_on_warning: true` so a warning fails the build exactly as CI
+does. What remains is connecting the project once:
+
+1. Sign in at [readthedocs.org](https://readthedocs.org/) with the GitHub account that owns the
+   repository, and grant it access to `anzalks/avialsync`.
+2. **Import a Project → Import Manually** (or pick the repository from the list). Set the name to
+   `avialsync` so the site lands on `https://avialsync.readthedocs.io/`, which is the address the
+   badge above and the links below already use. A different name means editing both.
+3. Leave the default branch as `main`. Read the Docs finds `.readthedocs.yaml` itself; do not set a
+   configuration path.
+4. **Admin → Automation Rules** is worth one rule: activate and set as default any tag matching
+   `.*`, so a released version's docs are published and `/en/stable/` tracks the newest release
+   rather than the tip of `main`.
+5. Trigger the first build from **Builds → Build version**. It takes about a minute.
+
+The webhook is installed by the GitHub connection, so later pushes and tags build automatically.
+Until step 2 is done the documentation badge stays grey and
+`https://avialsync.readthedocs.io/` returns 404 — everything else in this README works regardless,
+and the same pages render locally with the command above.
 
 ## Development
 
@@ -225,11 +265,35 @@ file; commit or resolve every other change first.
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
+Contributions are welcome — see [CONTRIBUTING.md](https://github.com/anzalks/avialsync/blob/main/CONTRIBUTING.md) for setup,
 the four-command gate every change must pass, and the architecture rules that
 exist because breaking them caused real bugs. Participation is governed by our
-[Code of Conduct](CODE_OF_CONDUCT.md).
+[Code of Conduct](https://github.com/anzalks/avialsync/blob/main/CODE_OF_CONDUCT.md).
 
 Good places to start are format plugins (the `TimeSeriesSource` /`VideoSource`
-contracts are frozen — see [the plugin guide](docs/plugin-guide.md)), platform
+contracts are frozen — see [the plugin guide](https://github.com/anzalks/avialsync/blob/main/docs/plugin-guide.md)), platform
 verification on real hardware, and the open items under "Pending" in `HANDOUT.md`.
+
+Contributions are accepted under the terms in
+[CLA.md](https://github.com/anzalks/avialsync/blob/main/CLA.md): you keep the copyright in your
+work and grant the right to ship it under both licences below. One line in your first pull request
+covers it.
+
+## Licence
+
+AvialSync is dual-licensed.
+
+**[AGPL-3.0-or-later](https://github.com/anzalks/avialsync/blob/main/LICENSE)** for everyone. Use
+it, study it, modify it, redistribute it. The one condition is reciprocity: if you convey a
+modified version — including letting others use it over a network — you publish your changes under
+the same licence. Academic use, running it in your lab, publishing results, and writing plugins for
+your own rig all sit comfortably inside this and cost nothing.
+
+**A [commercial licence](https://github.com/anzalks/avialsync/blob/main/COMMERCIAL-LICENCE.md)** for
+anyone who cannot accept that reciprocity — shipping it inside a closed-source product, offering it
+as a hosted service without publishing changes, or embedding it in instrumentation you sell. Ask:
+<anzal.ks@gmail.com>.
+
+A plugin that only uses the documented `TimeSeriesSource`, `VideoSource` and `SessionSource`
+interfaces is your own work and you choose its licence — you are not required to publish a loader
+for your lab's proprietary format.

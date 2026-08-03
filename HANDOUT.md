@@ -2,7 +2,7 @@
 
 Desktop tool for scrubbing time-synchronized multi-camera video with dense time-series data on a single master timeline.  
 **Stack:** Python 3.11–3.12, PySide6, libmpv (python-mpv), pyqtgraph, polars, numpy
-**License:** Apache-2.0  
+**License:** AGPL-3.0-or-later, dual-licensed (D-069). Contributions require the CLA.  
 **Env:** `conda run -n avialsync <cmd>` — every command without exception
 
 ---

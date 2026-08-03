@@ -173,8 +173,11 @@ sample spacing); simpler math everywhere. Consequence: never use float32 for tim
 Alternatives rejected: QtMultimedia (inaccurate seeks), OpenCV (no proper playback pipeline),
 GStreamer (dependency pain on Windows/macOS). Consequence: bundle LGPL mpv in installers.
 
-## 2026-07 · D-003 · License Apache-2.0; no GPL deps
+## 2026-07 · D-003 · License Apache-2.0; no GPL deps — SUPERSEDED by D-069
 Enables commercialization and permissive reuse. PyQt (GPL) banned; PySide6 (LGPL) allowed.
+**The licence changed to AGPL-3.0-or-later in 2026-08 (D-069).** The dependency rule survives in a
+weaker form: LGPL dependencies are still preferred and PyQt is still banned, but the reason is no
+longer licence contamination.
 
 ## 2026-07 · D-004 · Sidecar cache format
 Parsed time series → `<file>.avialcache/` dir: `meta.json`, `t.npy`-style raw mmap arrays per channel,
@@ -1851,3 +1854,40 @@ broken plugin must never make a folder unopenable. `find_best_session` is asked 
 resolution, so a claimed directory is never swept for loose files. Verified against the real
 `09-35-24` session: identical 8 items, loaders, roles, and offsets to the hardcoded path, with the
 virtual row gone. Do not reintroduce format knowledge into `engine/` or `ui/`.
+
+## 2026-08 · D-069 · AGPL-3.0-or-later with a commercial licence, superseding D-003
+
+**Context:** D-003 chose Apache-2.0 to enable commercialization. It does the opposite of what the
+project now wants. Apache-2.0 lets anyone ship a closed derivative, host it as a service, or embed
+it in an instrument they sell, with nothing flowing back — and it gives the copyright holder no
+position from which to offer commercial terms, because there is nothing a customer needs to buy.
+
+The goal is: the work stays open, derivatives stay open, and an organisation that cannot live with
+that can negotiate instead.
+
+**Decision:** AvialSync is dual-licensed. The public licence is **AGPL-3.0-or-later**, chosen over
+GPL-3.0 because a hosted service is a realistic way to use this and the GPL would not require
+publishing changes in that case. A **commercial licence** is available separately from the
+copyright holder (`COMMERCIAL-LICENCE.md`). Contributions are accepted under a CLA (`CLA.md`) that
+grants the right to sublicense, which is the only thing that keeps the commercial option alive.
+
+Verified before committing to it: every dependency is copyleft-compatible — PySide6 is LGPL-3.0,
+python-mpv offers LGPLv2.1+, pyqtgraph is MIT, numpy/neo/xxhash are BSD, polars is MIT, and D-015
+already requires LGPL builds of libmpv and FFmpeg. Copyright is held by one person across all 251
+commits, which is what makes relicensing and dual licensing legally available at all.
+
+**Alternatives rejected:** staying Apache-2.0 (no commercial position, no reciprocity); GPL-3.0
+(leaves the hosted-service gap open); a source-available licence such as BSL or SSPL (not
+OSI-approved, disqualifies the project from much academic and institutional use for no gain here).
+
+**Consequences:** versions 0.1.0b1 through 0.1.0b5 were published under Apache-2.0 and stay that
+way permanently — relicensing is forward-only, and those artifacts can be forked freely. Accepting
+an outside contribution without the CLA silently forecloses commercial relicensing of every later
+release containing it, so the CLA is not optional politeness. D-015's LGPL-only constraint on
+bundled media is now a preference rather than a licence requirement; do not relax it without a
+separate decision, since it also keeps the installers redistributable on the simplest terms.
+
+A plugin written against the published `TimeSeriesSource`, `VideoSource`, or `SessionSource`
+interfaces is a separate work and its author picks its licence. That boundary is deliberate: labs
+must be able to keep a loader for a proprietary instrument format closed, or the plugin system
+fails at its purpose.
