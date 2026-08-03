@@ -228,7 +228,13 @@ def create_channel_plot(
     # so a channel named "I<V" or "a & b" would lose part of its name.
     plot_item.setLabel("left", html.escape(channel_name))
     plot_item.setLabel("bottom", "Master time", units="s")
-    plot_item.getAxis("left").setWidth(_GUTTER_WIDTH_PX)
+    left_axis = plot_item.getAxis("left")
+    left_axis.setWidth(_GUTTER_WIDTH_PX)
+    # The gutter is authored text — the channel's name, unit, and fitted range.
+    # Auto SI prefixing rewrites that label as the Y range changes, both
+    # appending a scale factor to a label that already states its range and
+    # re-rendering its HTML on a hot path.
+    left_axis.enableAutoSIPrefix(False)
     plot_item.showGrid(x=True, y=False, alpha=0.18)
     plot_item.setMouseEnabled(x=False, y=False)
     plot_item.enableAutoRange(axis="y", enable=False)

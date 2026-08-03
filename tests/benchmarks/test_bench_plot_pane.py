@@ -90,10 +90,10 @@ def test_bench_window_duration_change(benchmark, qtbot, tmp_path: Path, channels
 
     This measures the *callback*, which is what the ceiling governs, not the
     total requery: rows beyond the first slice are refreshed in later
-    event-loop turns (D-063). At 128 channels the row work is bounded to the
-    slice budget, so what is left is dominated by propagating the shared
-    X-range through every linked view — that, not the requery, is now the
-    thing to attack if this regresses.
+    event-loop turns (D-063). Row work is bounded to the slice budget and the
+    axis-label re-render is gone, so what remains is pyqtgraph applying the new
+    range to each linked ViewBox — irreducible per row without giving up the
+    shared X link the layout is built on.
     """
     pane = _populated_pane(qtbot, tmp_path, channels)
     pane.set_timeline_bounds(0.0, 60.0)

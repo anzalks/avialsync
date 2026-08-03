@@ -1641,9 +1641,19 @@ per commit rather than per slider step — but 128 channels is a documented targ
 `tests/test_ui_plot_sliced_refresh.py` pins deferral, completion, newest-span-wins, page-flip
 atomicity, and cancellation.
 
-**What this does not fix:** the remaining ~28 ms is no longer dominated by the requery, which is
-now bounded to the slice budget. It is dominated by propagating the shared X-range through every
-linked view. That is the next lever if this regresses, and headroom against the ceiling is thin.
+**Follow-up, same phase:** profiling the remaining ~28 ms showed it was *not* the geometry of link
+propagation, which was the obvious suspect and the wrong one. The single largest cost was
+`QGraphicsTextItem.setHtml` — 2048 calls for eight span changes — because every range change makes
+pyqtgraph recompute each axis's SI prefix and re-render its label. Two of those were waste:
+
+- the left axis carries authored text (name, unit, fitted range), so prefixing it both appends a
+  scale factor to a label that already states its range and re-renders it on a hot path;
+- only the last visible row shows a bottom axis, yet all 128 recomputed one.
+
+Disabling auto SI prefixing on the left axis, and on every bottom axis that is not the one on
+screen, took the callback from 27 ms to **21.7 ms** with no visible change. What is left is
+pyqtgraph applying the range to each ViewBox, which is irreducible per row short of abandoning the
+shared X link that PLOT_UX_PLAN.md §14 requires.
 
 **Alternatives rejected:** slicing `update_plots` unconditionally (breaks page-flip atomicity during
 playback); raising the ceiling to fit the measurement (the budget is the requirement, not the

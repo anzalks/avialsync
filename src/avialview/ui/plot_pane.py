@@ -674,6 +674,11 @@ class PlotPane(QWidget):
             show = channel is bottom
             axis.setStyle(showValues=show)
             axis.showLabel(show)
+            # Recomputing the SI prefix rewrites the axis label's HTML on every
+            # range change, and setHtml is the single most expensive thing a
+            # span change does at 128 rows. Only one bottom axis is ever on
+            # screen, so the other rows were re-rendering a label nobody sees.
+            axis.enableAutoSIPrefix(show)
 
     def _set_row_height(self, height: int) -> None:
         """Use one scrollable channel stack rather than shrinking many rows indefinitely."""
