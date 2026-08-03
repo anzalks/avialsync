@@ -1,5 +1,5 @@
 {% set name = "avialsync" %}
-{% set version = "0.1.0b5" %}
+{% set version = "0.1.0b6" %}
 
 # conda-forge recipe (BLUEPRINT.md Phase 5). Unlike the PyPI wheel, a conda
 # package can declare the native media runtime as real dependencies, so
