@@ -8,11 +8,11 @@ import numpy as np
 import pytest
 from PySide6.QtCore import Qt
 
-from avialview.core.pyramid import PyramidBuilder
-from avialview.ui.plot_pane import PlotPane
-from avialview.ui.plot_row import Y_AUTO, Y_MANUAL
-from avialview.ui.plot_sweep import PlotPresentation
-from avialview.ui.sidebar import SensorInfoWidget, SidebarPane
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.ui.plot_pane import PlotPane
+from avialsync.ui.plot_row import Y_AUTO, Y_MANUAL
+from avialsync.ui.plot_sweep import PlotPresentation
+from avialsync.ui.sidebar import SensorInfoWidget, SidebarPane
 
 
 @pytest.fixture

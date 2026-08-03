@@ -19,8 +19,8 @@ def app():
 
 class TestVideoPropertiesPanel:
     def test_as_plain_text_contains_title(self, app):
-        from avialview.core.source import VideoMetadata
-        from avialview.ui.source_properties import VideoPropertiesPanel
+        from avialsync.core.source import VideoMetadata
+        from avialsync.ui.source_properties import VideoPropertiesPanel
 
         class Loader:
             def video_metadata(self) -> VideoMetadata:
@@ -44,8 +44,8 @@ class TestVideoPropertiesPanel:
         assert "Video Properties" in text
 
     def test_as_plain_text_contains_codec(self, app):
-        from avialview.core.source import VideoMetadata
-        from avialview.ui.source_properties import VideoPropertiesPanel
+        from avialsync.core.source import VideoMetadata
+        from avialsync.ui.source_properties import VideoPropertiesPanel
 
         class Loader:
             def video_metadata(self) -> VideoMetadata:
@@ -65,8 +65,8 @@ class TestVideoPropertiesPanel:
         assert "prores" in text
 
     def test_as_plain_text_resolution(self, app):
-        from avialview.core.source import VideoMetadata
-        from avialview.ui.source_properties import VideoPropertiesPanel
+        from avialsync.core.source import VideoMetadata
+        from avialsync.ui.source_properties import VideoPropertiesPanel
 
         class Loader:
             def video_metadata(self) -> VideoMetadata:
@@ -89,8 +89,8 @@ class TestVideoPropertiesPanel:
         assert "720" in text
 
     def test_vfr_rates_are_timestamp_derived(self, app):
-        from avialview.core.source import VideoMetadata
-        from avialview.ui.source_properties import VideoPropertiesPanel
+        from avialsync.core.source import VideoMetadata
+        from avialsync.ui.source_properties import VideoPropertiesPanel
 
         class Loader:
             def video_metadata(self) -> VideoMetadata:
@@ -112,8 +112,8 @@ class TestVideoPropertiesPanel:
 
 class TestSensorPropertiesPanel:
     def test_as_plain_text_contains_title(self, app):
-        from avialview.core.inspection import ImportReport, IntegrityFlags, SourceInspection
-        from avialview.ui.source_properties import SensorPropertiesPanel
+        from avialsync.core.inspection import ImportReport, IntegrityFlags, SourceInspection
+        from avialsync.ui.source_properties import SensorPropertiesPanel
 
         ins = SourceInspection(
             path="/data/sensors.csv",
@@ -127,8 +127,8 @@ class TestSensorPropertiesPanel:
         assert "Sensor Properties" in text
 
     def test_as_plain_text_contains_path(self, app):
-        from avialview.core.inspection import SourceInspection
-        from avialview.ui.source_properties import SensorPropertiesPanel
+        from avialsync.core.inspection import SourceInspection
+        from avialsync.ui.source_properties import SensorPropertiesPanel
 
         ins = SourceInspection(path="/data/my_sensor.csv", loader_id="CSVLoader")
         panel = SensorPropertiesPanel(ins)
@@ -136,8 +136,8 @@ class TestSensorPropertiesPanel:
         assert "/data/my_sensor.csv" in text
 
     def test_as_plain_text_contains_loader(self, app):
-        from avialview.core.inspection import SourceInspection
-        from avialview.ui.source_properties import SensorPropertiesPanel
+        from avialsync.core.inspection import SourceInspection
+        from avialsync.ui.source_properties import SensorPropertiesPanel
 
         ins = SourceInspection(path="/data/x.csv", loader_id="NeoLoader")
         panel = SensorPropertiesPanel(ins)
@@ -145,8 +145,8 @@ class TestSensorPropertiesPanel:
         assert "NeoLoader" in text
 
     def test_as_plain_text_has_integrity_line(self, app):
-        from avialview.core.inspection import IntegrityFlags, SourceInspection
-        from avialview.ui.source_properties import SensorPropertiesPanel
+        from avialsync.core.inspection import IntegrityFlags, SourceInspection
+        from avialsync.ui.source_properties import SensorPropertiesPanel
 
         ins = SourceInspection(
             path="/x.csv",

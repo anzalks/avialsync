@@ -22,9 +22,9 @@ import pytest
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtWidgets import QApplication
 
-from avialview.ui.job_manager import JobManager, JobState, drain_abandoned
-from avialview.ui.main_window import MainWindow
-from avialview.ui.ui_heartbeat import REPORT_THRESHOLD_MS, UiHeartbeat
+from avialsync.ui.job_manager import JobManager, JobState, drain_abandoned
+from avialsync.ui.main_window import MainWindow
+from avialsync.ui.ui_heartbeat import REPORT_THRESHOLD_MS, UiHeartbeat
 
 
 class _WedgedWorker(QObject):
@@ -136,7 +136,7 @@ def test_closing_still_writes_the_final_autosave(qapp, qtbot, release, tmp_path)
 
 
 def test_a_quiet_job_is_reported_as_not_responding(qapp, qtbot, release) -> None:
-    import avialview.ui.job_manager as module
+    import avialsync.ui.job_manager as module
 
     manager = JobManager()
     manager.start("Probing a network share", _WedgedWorker(release))

@@ -3,8 +3,8 @@
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from avialview.ui.main_window import MainWindow
-from avialview.ui.pane_proportions import PaneProportions, distribute
+from avialsync.ui.main_window import MainWindow
+from avialsync.ui.pane_proportions import PaneProportions, distribute
 
 # ── The allocator ────────────────────────────────────────────────────
 

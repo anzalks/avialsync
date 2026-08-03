@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from avialview import runtime
+from avialsync import runtime
 
 
 def test_find_media_executable_prefers_configured_runtime(monkeypatch, tmp_path: Path) -> None:
@@ -10,7 +10,7 @@ def test_find_media_executable_prefers_configured_runtime(monkeypatch, tmp_path:
     executable_name = "ffprobe.exe" if runtime.sys.platform == "win32" else "ffprobe"
     ffprobe = tmp_path / executable_name
     ffprobe.write_bytes(b"probe")
-    monkeypatch.setenv("AVIALVIEW_MEDIA_ROOT", str(tmp_path))
+    monkeypatch.setenv("AVIALSYNC_MEDIA_ROOT", str(tmp_path))
     monkeypatch.setattr(runtime.shutil, "which", lambda _name: None)
 
     assert runtime.find_media_executable("ffprobe") == ffprobe

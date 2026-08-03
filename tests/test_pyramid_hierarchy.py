@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from avialview.core.pyramid import PyramidBuilder, build_pyramid_level
+from avialsync.core.pyramid import PyramidBuilder, build_pyramid_level
 
 
 def test_hierarchical_levels_match_direct_reduction(tmp_path) -> None:

@@ -6,8 +6,8 @@ import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter
 
-from avialview.core.pyramid import PyramidBuilder, PyramidReader
-from avialview.ui.tracking_3d_pane import Tracking3DPane
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.ui.tracking_3d_pane import Tracking3DPane
 
 
 def _tracking_readers(
@@ -171,7 +171,7 @@ def test_unrecognised_landmarks_keep_neutral_default(qtbot, tmp_path: Path) -> N
 
 
 def test_main_window_places_3d_view_beside_video_grid(qtbot, monkeypatch) -> None:
-    from avialview.ui.main_window import MainWindow
+    from avialsync.ui.main_window import MainWindow
 
     monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
     window = MainWindow()

@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from avialview.__main__ import main
-from avialview.loaders.tracking_loader import TrackingLoader
+from avialsync.__main__ import main
+from avialsync.loaders.tracking_loader import TrackingLoader
 from tools import launch_demo
 from tools.generate_demo_data import _is_dlc_pose_csv, _make_pose_csv
 
@@ -64,5 +64,5 @@ def test_generated_pose_csv_is_importable_dlc_data(tmp_path: Path) -> None:
 
 
 def test_tools_launcher_delegates_to_installed_application() -> None:
-    """The compatibility script cannot drift from ``avialview demo`` again."""
+    """The compatibility script cannot drift from ``avialsync demo`` again."""
     assert launch_demo.main is main

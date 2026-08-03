@@ -14,11 +14,11 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from avialview.core.inspection import ImportReport, IntegrityFlags, SourceInspection
-from avialview.ui.batch_import_dialog import BatchImportDialog
-from avialview.ui.import_report import ImportReportDialog
-from avialview.ui.import_wizard import ImportWizard
-from avialview.ui.relink_dialog import RelinkDialog
+from avialsync.core.inspection import ImportReport, IntegrityFlags, SourceInspection
+from avialsync.ui.batch_import_dialog import BatchImportDialog
+from avialsync.ui.import_report import ImportReportDialog
+from avialsync.ui.import_wizard import ImportWizard
+from avialsync.ui.relink_dialog import RelinkDialog
 
 # ── ImportWizard ──────────────────────────────────────────────────────
 
@@ -229,7 +229,7 @@ def test_import_report_handles_a_source_with_no_report(qapp: QApplication, qtbot
 def test_batch_dialog_offers_one_row_per_dropped_file(
     qapp: QApplication, qtbot, tmp_path: Path
 ) -> None:
-    from avialview.loaders.csv_loader import CSVLoader
+    from avialsync.loaders.csv_loader import CSVLoader
 
     candidates = [
         (tmp_path / "a.csv", CSVLoader, None),
@@ -245,7 +245,7 @@ def test_batch_dialog_offers_one_row_per_dropped_file(
 def test_batch_dialog_returns_the_selected_loader_for_each_file(
     qapp: QApplication, qtbot, tmp_path: Path
 ) -> None:
-    from avialview.loaders.csv_loader import CSVLoader
+    from avialsync.loaders.csv_loader import CSVLoader
 
     candidates = [(tmp_path / "a.csv", CSVLoader, {"time_col": "t"})]
 
@@ -264,7 +264,7 @@ def test_batch_dialog_preserves_each_files_own_config(
     qapp: QApplication, qtbot, tmp_path: Path
 ) -> None:
     """Configs are per-file; one file's settings must not leak onto another."""
-    from avialview.loaders.csv_loader import CSVLoader
+    from avialsync.loaders.csv_loader import CSVLoader
 
     candidates = [
         (tmp_path / "a.csv", CSVLoader, {"time_col": "t_a"}),

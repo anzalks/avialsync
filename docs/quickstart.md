@@ -1,6 +1,6 @@
 # Quickstart
 
-AvialView helps you look at an experiment in time. It does not change your original files.
+AvialSync helps you look at an experiment in time. It does not change your original files.
 
 ## Before you start
 
@@ -10,34 +10,34 @@ provide a plugin for its own recording format.
 
 ## Windows: running from a source checkout
 
-This section is only for developers running the repository, not people using `AvialView-Setup.exe`.
+This section is only for developers running the repository, not people using `AvialSync-Setup.exe`.
 Install Python 3.11 or 3.12, a standalone shared FFmpeg build, and a compatible libmpv build. Put
 `libmpv-2.dll` in the active conda environment's `Library\\bin` directory,
 or otherwise make it available on `PATH`.
 
 ```powershell
-conda create -n avialview python=3.12 -y
-conda run -n avialview python -m pip install -e ".[dev]"
-conda run -n avialview avialview
+conda create -n avialsync python=3.12 -y
+conda run -n avialsync python -m pip install -e ".[dev]"
+conda run -n avialsync avialsync
 ```
 
-`winget install --id Gyan.FFmpeg.Shared -e` is a suitable FFmpeg installation route. AvialView finds
+`winget install --id Gyan.FFmpeg.Shared -e` is a suitable FFmpeg installation route. AvialSync finds
 that standard WinGet location even when activation changes `PATH`. Do not use the
 conda FFmpeg package for this checkout because it can conflict with Qt DLLs. Windows uses libmpv's
 Qt OpenGL video renderer, so keep your GPU driver current.
 
 The Python `.[dev]` install supplies every Python dependency. FFmpeg and libmpv are native programs,
 not Python packages, so a source checkout needs the separate setup above. The desktop installer bundles
-and validates those runtime files; a normal user only installs `AvialView-Setup.exe`.
+and validates those runtime files; a normal user only installs `AvialSync-Setup.exe`.
 
-Run `avialview demo` to create and open the complete synchronized example: three 30 fps CFR cameras,
+Run `avialsync demo` to create and open the complete synchronized example: three 30 fps CFR cameras,
 one VFR camera, sensor and dense ephys/TTL traces, and frame-indexed tracking. It works from the
 installer, a pip installation with its native prerequisites, or an editable source checkout. A first
 run displays generation progress; subsequent runs validate and reuse the application-data cache.
 
 ## Open files
 
-Start AvialView. Drag files onto the main window, or use the buttons in the left panel.
+Start AvialSync. Drag files onto the main window, or use the buttons in the left panel.
 
 - Use **Open Videos** for camera recordings.
 - Use **Open Sensor/Ephys Data** for tables, recordings, tracking files, or lab formats.

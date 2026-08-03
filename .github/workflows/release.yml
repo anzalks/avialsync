@@ -66,14 +66,14 @@ jobs:
           tag = sys.argv[1]
           project = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
           declared = project["project"]["version"]
-          module_source = pathlib.Path("src/avialview/__init__.py").read_text(encoding="utf-8")
+          module_source = pathlib.Path("src/avialsync/__init__.py").read_text(encoding="utf-8")
           module = re.search(r'^__version__ = "([^"]+)"', module_source, re.MULTILINE)
           if module is None:
-              sys.exit("src/avialview/__init__.py declares no __version__.")
+              sys.exit("src/avialsync/__init__.py declares no __version__.")
           if tag != f"v{declared}" or module.group(1) != declared:
               sys.exit(
                   f"Release ref {tag} disagrees with pyproject.toml ({declared}) or "
-                  f"src/avialview/__init__.py ({module.group(1)}). PyPI and the GitHub "
+                  f"src/avialsync/__init__.py ({module.group(1)}). PyPI and the GitHub "
                   "release must publish one agreed version; use tools/prepare_release.py."
               )
           # PEP 440 pre-release segments must not be advertised as a stable release.
@@ -138,8 +138,8 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
-          mypy src/avialview/core
-          mypy src/avialview
+          mypy src/avialsync/core
+          mypy src/avialsync
       - name: Make fixtures
         run: python tools/make_fixtures.py --small
       - name: Verify fixture determinism
@@ -216,7 +216,7 @@ jobs:
           smoke-venv/bin/python -m pip install --upgrade pip
           smoke-venv/bin/python -m pip install dist/*.whl
       - name: Verify package import
-        run: smoke-venv/bin/python -c "import avialview; print('avialview import succeeded')"
+        run: smoke-venv/bin/python -c "import avialsync; print('avialsync import succeeded')"
 
   packages:
     name: Bundle ${{ matrix.os }}
@@ -230,11 +230,11 @@ jobs:
       matrix:
         include:
           - os: windows-2022
-            artifact: AvialView-windows-bundle
+            artifact: AvialSync-windows-bundle
           - os: macos-15
-            artifact: AvialView-macos-bundle
+            artifact: AvialSync-macos-bundle
           - os: ubuntu-24.04
-            artifact: AvialView-linux-bundle
+            artifact: AvialSync-linux-bundle
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -286,7 +286,7 @@ jobs:
         run: python packaging/fetch_media_libs.py --source "$env:RUNNER_TEMP\libmpv" --source 'C:\ProgramData\chocolatey\lib\ffmpeg' --source 'C:\ProgramData\chocolatey\lib\ffmpeg-full' --destination packaging/media
       - run: python packaging/build_bundle.py --media-root packaging/media --dist-dir dist
       - name: Smoke test staged-media bundle
-        run: python packaging/smoke_test.py dist/avialview --demo --timeout 300
+        run: python packaging/smoke_test.py dist/avialsync --demo --timeout 300
       - name: Prove the Linux bundle opens on a real display
         if: runner.os == 'Linux'
         # Every other check runs offscreen, which never loads the xcb plugin a
@@ -297,15 +297,15 @@ jobs:
           sudo apt-get install -y xvfb libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
             libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
             libxcb-xinerama0 libxkbcommon-x11-0
-          xvfb-run -a python packaging/smoke_test.py dist/avialview --qt-platform xcb --timeout 180
+          xvfb-run -a python packaging/smoke_test.py dist/avialsync --qt-platform xcb --timeout 180
 
       - name: Build Windows installer
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           choco install --no-progress innosetup
-          $env:AVIALVIEW_VERSION = "${{ github.ref_name }}".TrimStart("v")
-          iscc packaging/windows/avialview.iss
+          $env:AVIALSYNC_VERSION = "${{ github.ref_name }}".TrimStart("v")
+          iscc packaging/windows/avialsync.iss
       - name: Sign the Windows installer
         # Secrets are unavailable to forks and are not configured yet, so this
         # is skipped rather than failed: an unsigned release still builds.
@@ -314,7 +314,7 @@ jobs:
         env:
           WINDOWS_CERTIFICATE_PFX: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        run: pwsh packaging/windows/sign.ps1 -Path installer-output/AvialView-Setup.exe
+        run: pwsh packaging/windows/sign.ps1 -Path installer-output/AvialSync-Setup.exe
 
       - name: Sign the macOS application bundle
         # Before the smoke test and the disk image: the .app must be signed
@@ -325,7 +325,7 @@ jobs:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
           MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
-        run: bash packaging/macos/sign_notarize.sh sign dist/AvialView.app
+        run: bash packaging/macos/sign_notarize.sh sign dist/AvialSync.app
       - name: Smoke test the macOS application bundle
         if: runner.os == 'macOS'
         # The .app is what the disk image ships, so it is what must start.
@@ -334,7 +334,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           mkdir -p installer-output
-          bash packaging/macos/make_dmg.sh dist/AvialView.app installer-output/AvialView.dmg
+          bash packaging/macos/make_dmg.sh dist/AvialSync.app installer-output/AvialSync.dmg
       - name: Notarize and staple the macOS disk image
         # Stapling is what lets a downloaded image open without a network
         # round trip, so it must follow the image rather than the .app.
@@ -343,7 +343,7 @@ jobs:
           MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
           MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
           MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
-        run: bash packaging/macos/sign_notarize.sh notarize installer-output/AvialView.dmg
+        run: bash packaging/macos/sign_notarize.sh notarize installer-output/AvialSync.dmg
       - name: Build Linux AppImage from the verified repository tool source
         if: runner.os == 'Linux'
         env:
@@ -354,7 +354,7 @@ jobs:
           curl --fail --location --silent --show-error --retry 5 --retry-all-errors "$APPIMAGETOOL_URL" --output tooling/appimagetool
           echo "$APPIMAGETOOL_SHA256  tooling/appimagetool" | sha256sum --check --status
           chmod +x tooling/appimagetool
-          APPIMAGETOOL="$PWD/tooling/appimagetool" bash packaging/linux/make_appimage.sh dist/avialview installer-output/AvialView.AppImage
+          APPIMAGETOOL="$PWD/tooling/appimagetool" bash packaging/linux/make_appimage.sh dist/avialsync installer-output/AvialSync.AppImage
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -366,7 +366,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment:
       name: pypi
-      url: https://pypi.org/p/avialview
+      url: https://pypi.org/p/avialsync
     permissions:
       id-token: write
     steps:
@@ -391,7 +391,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: AvialView-*-bundle
+          pattern: AvialSync-*-bundle
           path: release-assets
       - uses: actions/download-artifact@v4
         with:

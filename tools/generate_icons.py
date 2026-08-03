@@ -1,4 +1,4 @@
-"""Generate AvialView's platform icon assets from its canonical raster source."""
+"""Generate AvialSync's platform icon assets from its canonical raster source."""
 
 from __future__ import annotations
 
@@ -28,18 +28,18 @@ def generate(source: Path, output_root: Path) -> None:
     """Write Linux, Windows, macOS, and runtime assets below ``output_root``."""
     image = _square_icon(source, PNG_SIZE)
     targets = (
-        output_root / "src/avialview/resources/avialview.png",
-        output_root / "packaging/linux/avialview.png",
+        output_root / "src/avialsync/resources/avialsync.png",
+        output_root / "packaging/linux/avialsync.png",
     )
     for target in targets:
         target.parent.mkdir(parents=True, exist_ok=True)
         image.save(target, format="PNG", optimize=True)
 
-    windows_icon = output_root / "packaging/windows/avialview.ico"
+    windows_icon = output_root / "packaging/windows/avialsync.ico"
     windows_icon.parent.mkdir(parents=True, exist_ok=True)
     image.save(windows_icon, format="ICO", sizes=ICO_SIZES)
 
-    macos_icon = output_root / "packaging/macos/avialview.icns"
+    macos_icon = output_root / "packaging/macos/avialsync.icns"
     macos_icon.parent.mkdir(parents=True, exist_ok=True)
     image.save(macos_icon, format="ICNS", sizes=ICNS_SIZES)
 

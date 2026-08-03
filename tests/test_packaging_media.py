@@ -158,14 +158,14 @@ def test_media_staging_links_aliases_instead_of_duplicating_them(
 def test_appimage_declares_and_stages_its_desktop_icon() -> None:
     """AppImageTool receives the icon named by the desktop entry."""
     script = Path("packaging/linux/make_appimage.sh")
-    icon = Path("packaging/linux/avialview.png")
+    icon = Path("packaging/linux/avialsync.png")
 
     content = script.read_text(encoding="utf-8")
 
-    assert "Icon=avialview" in content
-    assert '"$script_dir/avialview.png" "$appdir/avialview.png"' in content
-    assert 'ln -s avialview.png "$appdir/.DirIcon"' in content
-    assert 'desktop-file-validate "$appdir/avialview.desktop"' in content
+    assert "Icon=avialsync" in content
+    assert '"$script_dir/avialsync.png" "$appdir/avialsync.png"' in content
+    assert 'ln -s avialsync.png "$appdir/.DirIcon"' in content
+    assert 'desktop-file-validate "$appdir/avialsync.desktop"' in content
     assert icon.is_file()
 
 
@@ -183,7 +183,7 @@ def test_appimage_builder_stages_all_required_root_entries(tmp_path: Path) -> No
     """The manually assembled AppDir conforms before AppImageTool receives it."""
     bundle = tmp_path / "bundle"
     bundle.mkdir()
-    (bundle / "avialview").write_text("bundle executable", encoding="utf-8")
+    (bundle / "avialsync").write_text("bundle executable", encoding="utf-8")
     helpers = tmp_path / "helpers"
     helpers.mkdir()
     validator = helpers / "desktop-file-validate"
@@ -192,15 +192,15 @@ def test_appimage_builder_stages_all_required_root_entries(tmp_path: Path) -> No
     appimagetool.write_text(
         "#!/usr/bin/env sh\n"
         'test -f "$1/AppRun"\n'
-        'test -f "$1/avialview.desktop"\n'
-        'test -f "$1/avialview.png"\n'
+        'test -f "$1/avialsync.desktop"\n'
+        'test -f "$1/avialsync.png"\n'
         'test -L "$1/.DirIcon"\n'
         'touch "$2"\n',
         encoding="utf-8",
     )
     validator.chmod(0o755)
     appimagetool.chmod(0o755)
-    output = tmp_path / "AvialView.AppImage"
+    output = tmp_path / "AvialSync.AppImage"
     environment = os.environ | {
         "APPIMAGETOOL": str(appimagetool),
         "PATH": f"{helpers}:{os.environ['PATH']}",
@@ -217,11 +217,11 @@ def test_appimage_builder_stages_all_required_root_entries(tmp_path: Path) -> No
 
 def test_native_packagers_use_the_generated_icons() -> None:
     """Windows and PyInstaller use the platform-specific generated icon files."""
-    spec = Path("packaging/avialview.spec").read_text(encoding="utf-8")
-    installer = Path("packaging/windows/avialview.iss").read_text(encoding="utf-8")
+    spec = Path("packaging/avialsync.spec").read_text(encoding="utf-8")
+    installer = Path("packaging/windows/avialsync.iss").read_text(encoding="utf-8")
 
     assert "icon=str(application_icon)" in spec
-    assert "SetupIconFile=avialview.ico" in installer
+    assert "SetupIconFile=avialsync.ico" in installer
 
 
 def test_icon_generator_writes_all_platform_formats(tmp_path: Path) -> None:
@@ -241,10 +241,10 @@ def test_icon_generator_writes_all_platform_formats(tmp_path: Path) -> None:
     )
 
     expected = (
-        tmp_path / "src/avialview/resources/avialview.png",
-        tmp_path / "packaging/linux/avialview.png",
-        tmp_path / "packaging/windows/avialview.ico",
-        tmp_path / "packaging/macos/avialview.icns",
+        tmp_path / "src/avialsync/resources/avialsync.png",
+        tmp_path / "packaging/linux/avialsync.png",
+        tmp_path / "packaging/windows/avialsync.ico",
+        tmp_path / "packaging/macos/avialsync.icns",
     )
     for path in expected:
         assert path.is_file()

@@ -14,7 +14,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-ENGINE_ROOT = Path(__file__).resolve().parents[1] / "src" / "avialview" / "engine"
+ENGINE_ROOT = Path(__file__).resolve().parents[1] / "src" / "avialsync" / "engine"
 
 
 def _is_type_checking_guard(node: ast.stmt) -> bool:
@@ -28,17 +28,17 @@ def _is_type_checking_guard(node: ast.stmt) -> bool:
 
 
 def _ui_imports(tree: ast.Module) -> tuple[list[int], list[int]]:
-    """Return ``(module_scope_linenos, deferred_linenos)`` for `avialview.ui` imports."""
+    """Return ``(module_scope_linenos, deferred_linenos)`` for `avialsync.ui` imports."""
     module_scope: list[int] = []
     deferred: list[int] = []
 
     for node in tree.body:
-        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("avialview.ui"):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("avialsync.ui"):
             module_scope.append(node.lineno)
         elif _is_type_checking_guard(node):
             for sub in ast.walk(node):
                 if isinstance(sub, ast.ImportFrom) and (sub.module or "").startswith(
-                    "avialview.ui"
+                    "avialsync.ui"
                 ):
                     deferred.append(sub.lineno)
     return module_scope, deferred
@@ -78,6 +78,6 @@ def test_engine_does_not_reach_into_private_widget_state() -> None:
 
 
 def test_transport_publishes_bounds() -> None:
-    from avialview.ui.transport import Transport
+    from avialsync.ui.transport import Transport
 
     assert isinstance(Transport.bounds, property)

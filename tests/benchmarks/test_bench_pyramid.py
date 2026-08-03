@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
 
 # Raw dev-machine budgets (seconds) matching BLUEPRINT.md / HANDOUT.md ★ rows
 _PYRAMID_BUILD_BUDGET_S = 2.5  # ≤ 2.5 s (D-024)
@@ -107,9 +107,9 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
 
     app = QApplication.instance() or QApplication([])
 
-    from avialview.ui.plot_pane import PlotPane
-    from avialview.ui.readout_panel import ReadoutPanel
-    from avialview.ui.transport import Transport
+    from avialsync.ui.plot_pane import PlotPane
+    from avialsync.ui.readout_panel import ReadoutPanel
+    from avialsync.ui.transport import Transport
 
     N = 50_000  # 1 s of 50 kHz data — small enough to build instantly
     N_CAMS = 4
@@ -182,7 +182,7 @@ def test_bench_four_channel_window_refresh(benchmark, tmp_path: Path):
 
     app = QApplication.instance() or QApplication([])
 
-    from avialview.ui.plot_pane import PlotPane
+    from avialsync.ui.plot_pane import PlotPane
 
     sample_count = 50_000
     pane = PlotPane()

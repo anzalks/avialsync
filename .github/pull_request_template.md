@@ -8,10 +8,10 @@
      bug, say how you reproduced it first. -->
 
 ```
-conda run -n avialview ruff check .
-conda run -n avialview mypy src/avialview/core
-conda run -n avialview mypy src/avialview
-QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -q --ignore=tests/benchmarks
+conda run -n avialsync ruff check .
+conda run -n avialsync mypy src/avialsync/core
+conda run -n avialsync mypy src/avialsync
+QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -q --ignore=tests/benchmarks
 ```
 
 ## Checklist

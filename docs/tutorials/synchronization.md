@@ -8,7 +8,7 @@ The shared time bar is the reference for what you are comparing.
 ## Start simple
 
 If one recording is simply early or late, adjust its offset in the left panel while watching the
-event. This changes how AvialView views the recording; it never rewrites the original file.
+event. This changes how AvialSync views the recording; it never rewrites the original file.
 
 ## Use TTL or event evidence
 

@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from avialview.loaders.neo_loader import NeoLoader
+from avialsync.loaders.neo_loader import NeoLoader
 
 logging.basicConfig(level=logging.INFO)
 base_dir = Path("TENSS26_Anzal")

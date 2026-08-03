@@ -1,6 +1,6 @@
 """Capture the synchronization walkthrough used in the README.
 
-Run with ``conda run -n avialview python tools/generate_demo_screenshots.py``.
+Run with ``conda run -n avialsync python tools/generate_demo_screenshots.py``.
 Uses the checked-in sample session, so the images are reproducible from a
 clean clone and never depend on private field data (AGENTS.md rule 5).
 """
@@ -12,11 +12,11 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from avialview.engine.importer import ImportWorker
-from avialview.loaders.csv_loader import CSVLoader
-from avialview.loaders.video_standard import VideoStandardLoader
-from avialview.ui.main_window import MainWindow
-from avialview.ui.sync_wizard import SyncWizard
+from avialsync.engine.importer import ImportWorker
+from avialsync.loaders.csv_loader import CSVLoader
+from avialsync.loaders.video_standard import VideoStandardLoader
+from avialsync.ui.main_window import MainWindow
+from avialsync.ui.sync_wizard import SyncWizard
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"

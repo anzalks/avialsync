@@ -1,8 +1,8 @@
-# AvialView
+# AvialSync
 
 **The Advanced Video and Instrument Alignment Library.**
 
-AvialView is a desktop viewer for looking through an experiment in time.
+AvialSync is a desktop viewer for looking through an experiment in time.
 
 Use it when you have video from one or more cameras together with recordings such as sensors,
 electrodes, behavioural tracking, or other time-stamped measurements. It places them on one shared
@@ -17,7 +17,7 @@ coverage bar showing where each source has data.](docs/_static/screenshots/demo_
 
 *One camera and three channels of the bundled sample session on a single master timeline.
 Reproduce this from a clean clone with
-`conda run -n avialview python tools/generate_demo_screenshots.py`.*
+`conda run -n avialsync python tools/generate_demo_screenshots.py`.*
 
 ## Why use it?
 
@@ -30,15 +30,15 @@ Reproduce this from a clean clone with
 
 ## Install and open your first experiment
 
-The simplest route is the desktop artifact from the [GitHub Releases page](https://github.com/anzalks/avialview/releases):
-use `AvialView-Setup.exe` on Windows, open `AvialView.dmg` on macOS and drag **AvialView** to
-Applications, or mark `AvialView.AppImage` executable and open it on Linux. The AppImage is
-portable: no system-wide installation is required. Then open **AvialView** like any other desktop
+The simplest route is the desktop artifact from the [GitHub Releases page](https://github.com/anzalks/avialsync/releases):
+use `AvialSync-Setup.exe` on Windows, open `AvialSync.dmg` on macOS and drag **AvialSync** to
+Applications, or mark `AvialSync.AppImage` executable and open it on Linux. The AppImage is
+portable: no system-wide installation is required. Then open **AvialSync** like any other desktop
 application.
 
 These artifacts are not yet code-signed or notarized, so the operating system warns about an
-unidentified developer on first launch. On macOS, right-click **AvialView** and choose **Open**
-once (or run `xattr -dr com.apple.quarantine /Applications/AvialView.app`); on Windows, choose
+unidentified developer on first launch. On macOS, right-click **AvialSync** and choose **Open**
+once (or run `xattr -dr com.apple.quarantine /Applications/AvialSync.app`); on Windows, choose
 **More info → Run anyway** in the SmartScreen prompt.
 
 Two installers have a deliberate support boundary; use the PyPI install below if you fall outside
@@ -46,32 +46,32 @@ one:
 
 | Installer | Requires | Otherwise |
 |---|---|---|
-| `AvialView.dmg` | Apple silicon | Intel Macs: `pip install avialview` |
-| `AvialView.AppImage` | glibc 2.39 or newer (Ubuntu 24.04+, Fedora 40+) | Debian 12, Ubuntu 22.04: `pip install avialview` |
+| `AvialSync.dmg` | Apple silicon | Intel Macs: `pip install avialsync` |
+| `AvialSync.AppImage` | glibc 2.39 or newer (Ubuntu 24.04+, Fedora 40+) | Debian 12, Ubuntu 22.04: `pip install avialsync` |
 
 The AppImage also needs FUSE 2 to mount itself; without it, run
-`./AvialView.AppImage --appimage-extract-and-run`.
+`./AvialSync.AppImage --appimage-extract-and-run`.
 
 If you use Python, install it from PyPI with Python 3.11 or 3.12:
 
 ```bash
-python -m pip install avialview
-avialview
+python -m pip install avialsync
+avialsync
 ```
 
 ### Windows source checkout prerequisites
 
-The release installer bundles its media runtime. If you run AvialView from a Git checkout instead,
+The release installer bundles its media runtime. If you run AvialSync from a Git checkout instead,
 install Python 3.11 or 3.12, FFmpeg (for `ffprobe.exe`), and libmpv before starting the application.
 Create the project environment and install its dependencies with:
 
 ```powershell
-conda create -n avialview python=3.12 -y
-conda run -n avialview python -m pip install -e ".[dev]"
+conda create -n avialsync python=3.12 -y
+conda run -n avialsync python -m pip install -e ".[dev]"
 ```
 
 Install a standalone shared FFmpeg build (for example, `winget install --id Gyan.FFmpeg.Shared -e`).
-AvialView discovers the standard WinGet FFmpeg location even if `conda activate` changes `PATH`.
+AvialSync discovers the standard WinGet FFmpeg location even if `conda activate` changes `PATH`.
 Install a compatible Windows libmpv
 build and put its `libmpv-2.dll` in the conda environment's `Library\bin` directory, or otherwise
 ensure that DLL is on `PATH`. Do not use conda's FFmpeg package for this checkout: it can conflict
@@ -82,15 +82,15 @@ and validates them, so end users do not perform these steps.
 Run the application or its demo with:
 
 ```powershell
-conda run -n avialview avialview
-conda run -n avialview python tools/launch_demo.py
-conda run -n avialview avialview demo
+conda run -n avialsync avialsync
+conda run -n avialsync python tools/launch_demo.py
+conda run -n avialsync avialsync demo
 ```
 
-After `conda activate avialview`, the equivalent commands are `avialview` and
-`python C:\path\to\avialview\tools\launch_demo.py`. The `python` prefix is required for the demo
+After `conda activate avialsync`, the equivalent commands are `avialsync` and
+`python C:\path\to\avialsync\tools\launch_demo.py`. The `python` prefix is required for the demo
 script; running a `.py` file directly can use Windows' unrelated file association. The launcher
-delegates to `avialview demo`, so both launch paths have identical behavior.
+delegates to `avialsync demo`, so both launch paths have identical behavior.
 The demo creates three 30 fps CFR cameras, one VFR camera, a four-channel sensor trace, a dense
 ephys/TTL trace with gaps, and DLC-style tracking in your platform application-data folder. Camera 2
 has a known +1.234 s mapping and camera 3 a known 1000 ppm drift mapping. First-run generation is
@@ -118,7 +118,7 @@ The documentation also includes [supported formats](docs/formats.md), [troublesh
 Neighbouring open-source tools, described as their authors position them. Pick
 the one that matches your problem — they overlap less than the names suggest.
 
-| | **AvialView** | PlotJuggler | Rerun | Foxglove |
+| | **AvialSync** | PlotJuggler | Rerun | Foxglove |
 |---|---|---|---|---|
 | Primary use | Scrub multi-camera video against dense signals | Plot and analyse time series | Log and replay multimodal robot data | Inspect and visualise robotics data |
 | Video playback | libmpv, frame-exact when paused | Not a focus | Yes, alongside other modalities | Yes |
@@ -128,13 +128,13 @@ the one that matches your problem — they overlap less than the names suggest.
 | Licence | Apache-2.0 | MPL-2.0 | Apache-2.0 | Source-available + hosted |
 
 If you mainly plot signals, PlotJuggler is likely a better fit. If you are in a
-ROS ecosystem, Foxglove and Rerun are built for it. AvialView exists for the
+ROS ecosystem, Foxglove and Rerun are built for it. AvialSync exists for the
 narrower case where **the video and the signal have to agree on the same
 instant**, and the recordings came off independently-clocked hardware.
 
-## What AvialView does not do
+## What AvialSync does not do
 
-AvialView is not an acquisition system, a replacement for your analysis pipeline, or a tool that
+AvialSync is not an acquisition system, a replacement for your analysis pipeline, or a tool that
 silently changes scientific timestamps. It helps you inspect and align recordings; analysis remains
 in your existing tools or in lab-provided plugins.
 
@@ -150,8 +150,8 @@ sphinx-build -W --keep-going -b html docs docs/_build/html
 ## Development
 
 ```bash
-conda run -n avialview pip install -e ".[dev]"
-QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -x -q
+conda run -n avialsync pip install -e ".[dev]"
+QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q
 ```
 
 GitHub Actions is the sole publisher for release artifacts and PyPI distributions. Do not upload
@@ -166,11 +166,11 @@ AppImage; no package-upload token or repository variable is needed.
 Two things must exist before a tag can complete, and neither lives in this repository. Both fail
 late — after every installer has already been built — so confirm them before tagging:
 
-1. **PyPI trusted publishing** for the `avialview` project, naming this repository, the `Release`
+1. **PyPI trusted publishing** for the `avialsync` project, naming this repository, the `Release`
    workflow, and the `pypi` environment. If the `pypi` GitHub environment has required reviewers,
    the release waits for an approval rather than failing.
 2. **A tag reachable from `main`.** The workflow refuses to publish a side branch, and it also
-   requires the tag, `pyproject.toml`, and `src/avialview/__init__.py` to name one identical
+   requires the tag, `pyproject.toml`, and `src/avialsync/__init__.py` to name one identical
    version — which is what `tools/prepare_release.py` guarantees.
 
 Release artifacts are not yet code-signed or notarized. `packaging/windows/sign.ps1` and
@@ -182,8 +182,8 @@ To prepare a future tag release from a clean `main` checkout, use the guarded he
 editing versions or creating tags by hand:
 
 ```bash
-conda run -n avialview python tools/prepare_release.py 0.1.0b1 --dry-run
-conda run -n avialview python tools/prepare_release.py 0.1.0b1
+conda run -n avialsync python tools/prepare_release.py 0.1.0b1 --dry-run
+conda run -n avialsync python tools/prepare_release.py 0.1.0b1
 ```
 
 It validates the version, updates both package-version authorities, builds and checks wheel/sdist,

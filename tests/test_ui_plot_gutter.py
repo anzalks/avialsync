@@ -13,8 +13,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.pyramid import PyramidBuilder
-from avialview.ui.plot_pane import PlotPane
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.ui.plot_pane import PlotPane
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ def _gutter_html(pane: PlotPane) -> str:
 
 def test_the_gutter_separates_its_parts_with_a_line_break(pane_with_channel: PlotPane) -> None:
     """Name, unit, and range must occupy their own lines."""
-    from avialview.ui.plot_row import fit_channel_y, set_channel_unit
+    from avialsync.ui.plot_row import fit_channel_y, set_channel_unit
 
     channel = pane_with_channel.channels[0]
     set_channel_unit(channel, "mV")
@@ -51,7 +51,7 @@ def test_the_gutter_separates_its_parts_with_a_line_break(pane_with_channel: Plo
 
 
 def test_the_gutter_still_carries_every_part(pane_with_channel: PlotPane) -> None:
-    from avialview.ui.plot_row import fit_channel_y, set_channel_unit
+    from avialsync.ui.plot_row import fit_channel_y, set_channel_unit
 
     channel = pane_with_channel.channels[0]
     set_channel_unit(channel, "mV")
@@ -71,7 +71,7 @@ def test_a_channel_name_with_markup_characters_survives(pane_with_channel: PlotP
     name becomes a cache filename, and "<" is legal on POSIX but rejected by
     Windows, so building it from disk tested the filesystem, not the escaping.
     """
-    from avialview.ui.plot_row import _update_channel_gutter
+    from avialsync.ui.plot_row import _update_channel_gutter
 
     channel = pane_with_channel.channels[0]
     channel.name = "I<V & Q"

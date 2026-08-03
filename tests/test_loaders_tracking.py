@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from avialview.loaders.tracking_loader import TrackingLoader
+from avialsync.loaders.tracking_loader import TrackingLoader
 
 
 def test_loader():

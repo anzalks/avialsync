@@ -11,18 +11,18 @@ from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QThread, QUrl, Signa
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication, QMessageBox, QSplitter
 
-from avialview.core.session import (
+from avialsync.core.session import (
     SensorEntry,
     SessionState,
     SyncProvenance,
     VideoEntry,
 )
-from avialview.core.sync import SyncFit, SyncMatch, SyncProposal
-from avialview.loaders.csv_loader import CSVLoader
-from avialview.loaders.neo_loader import NeoLoader
-from avialview.loaders.tracking_loader import TrackingLoader
-from avialview.loaders.video_standard import VideoStandardLoader
-from avialview.ui.main_window import _MAX_VIDEO_PROBES, MainWindow
+from avialsync.core.sync import SyncFit, SyncMatch, SyncProposal
+from avialsync.loaders.csv_loader import CSVLoader
+from avialsync.loaders.neo_loader import NeoLoader
+from avialsync.loaders.tracking_loader import TrackingLoader
+from avialsync.loaders.video_standard import VideoStandardLoader
+from avialsync.ui.main_window import _MAX_VIDEO_PROBES, MainWindow
 
 
 @pytest.fixture
@@ -83,7 +83,7 @@ def test_annotate_with_pane_present_no_error(main_window: MainWindow) -> None:
     """
     from unittest.mock import MagicMock
 
-    from avialview.core.timeline import TimeMap
+    from avialsync.core.timeline import TimeMap
 
     fake_pane = MagicMock()
     fake_pane.time_map = TimeMap()  # real TimeMap — to_source() works, no .path
@@ -103,7 +103,7 @@ def test_accepted_sync_mapping_updates_video_and_session(main_window: MainWindow
     """A user-accepted proposal changes only the target TimeMap and is persisted."""
     from unittest.mock import MagicMock
 
-    from avialview.core.timeline import TimeMap
+    from avialsync.core.timeline import TimeMap
 
     pane = MagicMock()
     pane.time_map = TimeMap()
@@ -162,8 +162,8 @@ def test_programmatic_import_completion_needs_no_progress_dialog(
     main_window: MainWindow, tmp_path: Path
 ) -> None:
     """Demo/programmatic imports may finish without an interactive progress dialog."""
-    from avialview.core.inspection import SourceInspection
-    from avialview.core.pyramid import PyramidBuilder
+    from avialsync.core.inspection import SourceInspection
+    from avialsync.core.pyramid import PyramidBuilder
 
     cache_dir = tmp_path / "demo.avialcache"
     cache_dir.mkdir()
@@ -218,12 +218,12 @@ def test_drop_routing_uses_loader_capability(
     target: str,
 ) -> None:
     """Dropped files route by registered source type, not a suffix allow-list."""
-    from avialview.engine.drop_worker import DropScanWorker
+    from avialsync.engine.drop_worker import DropScanWorker
 
     path = tmp_path / f"recording{suffix}"
     path.touch()
     monkeypatch.setattr(
-        "avialview.core.registry.LoaderRegistry.find_best_loader",
+        "avialsync.core.registry.LoaderRegistry.find_best_loader",
         lambda _registry, _path: loader_class,
     )
     worker = DropScanWorker([path], main_window._registry)
@@ -239,7 +239,7 @@ def test_drop_directory_routes_each_supported_child(
     main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A generic directory falls back to capability-routing its direct children."""
-    from avialview.engine.drop_worker import DropScanWorker
+    from avialsync.engine.drop_worker import DropScanWorker
 
     video = tmp_path / "camera.anyvideo"
     sensor = tmp_path / "sensor.anysensor"
@@ -249,7 +249,7 @@ def test_drop_directory_routes_each_supported_child(
     def find_loader(_registry, path: Path):
         return VideoStandardLoader if path == video else CSVLoader if path == sensor else None
 
-    monkeypatch.setattr("avialview.core.registry.LoaderRegistry.find_best_loader", find_loader)
+    monkeypatch.setattr("avialsync.core.registry.LoaderRegistry.find_best_loader", find_loader)
     worker = DropScanWorker([tmp_path], main_window._registry)
     candidates = worker._collect_drop_candidates(tmp_path)
     assert len(candidates) == 2
@@ -277,7 +277,7 @@ def test_video_load_keeps_worker_alive_until_thread_finishes(
         def run(self) -> None:
             return
 
-    monkeypatch.setattr("avialview.engine.video_worker.VideoOpenWorker", _IdleWorker)
+    monkeypatch.setattr("avialsync.engine.video_worker.VideoOpenWorker", _IdleWorker)
 
     main_window._load_video(Path("camera.mp4"))
 
@@ -314,7 +314,7 @@ def test_video_probes_run_bounded_in_parallel(
             release.wait(timeout=2.0)
             self.cancelled.emit()
 
-    monkeypatch.setattr("avialview.engine.video_worker.VideoOpenWorker", _IdleWorker)
+    monkeypatch.setattr("avialsync.engine.video_worker.VideoOpenWorker", _IdleWorker)
     paths = [Path(f"camera_{index}.mp4") for index in range(5)]
     for path in paths:
         main_window._load_video(path)
@@ -439,7 +439,7 @@ def test_video_sidebar_summary_receives_probed_codec(
     """A successfully probed video must not fall back to UNKNOWN in the sidebar."""
     from unittest.mock import MagicMock
 
-    from avialview.loaders.video_standard import VideoStandardLoader
+    from avialsync.loaders.video_standard import VideoStandardLoader
 
     loader = VideoStandardLoader()
     loader._codec = "h264"
@@ -485,8 +485,8 @@ def test_real_drop_event_routes_sensor_file(
     main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot
 ) -> None:
     """Qt delivery of a drop event must route a supported sensor without closing the window."""
-    from avialview.engine.drop_worker import DropScanWorker
-    from avialview.loaders.csv_loader import CSVLoader
+    from avialsync.engine.drop_worker import DropScanWorker
+    from avialsync.loaders.csv_loader import CSVLoader
 
     sensor = tmp_path / "sensor.csv"
     sensor.write_text("time,value\n0,1\n", encoding="utf-8")
@@ -536,8 +536,8 @@ def test_drop_over_video_grid_forwards_to_main_router(
     main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot
 ) -> None:
     """A drop over the video grid reaches the same mixed-source router."""
-    from avialview.engine.drop_worker import DropScanWorker
-    from avialview.loaders.csv_loader import CSVLoader
+    from avialsync.engine.drop_worker import DropScanWorker
+    from avialsync.loaders.csv_loader import CSVLoader
 
     sensor = tmp_path / "sensor.csv"
     sensor.write_text("time,value\n0,1\n", encoding="utf-8")

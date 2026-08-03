@@ -1,8 +1,8 @@
-"""Generate the same complete demo dataset used by ``avialview demo``."""
+"""Generate the same complete demo dataset used by ``avialsync demo``."""
 
 from pathlib import Path
 
-from avialview.demo import DemoData, _has_header, _write_tracking, ensure_demo_data
+from avialsync.demo import DemoData, _has_header, _write_tracking, ensure_demo_data
 
 
 def _make_pose_csv(path: Path) -> None:

@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "avialsync-plugin-example"
+version = "0.1.0"
+description = "Example AvialSync v1 time-series plugin"
+requires-python = ">=3.11"
+dependencies = ["avialsync", "numpy"]
+
+[project.entry-points."avialsync.loaders"]
+toy_binary = "avialsync_plugin_example:ToyBinarySource"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/avialsync_plugin_example"]

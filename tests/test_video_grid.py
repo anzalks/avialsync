@@ -3,7 +3,7 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
 
-from avialview.ui import video_grid
+from avialsync.ui import video_grid
 
 
 def test_file_loaded_callback_is_connected_before_playback(monkeypatch, qapp) -> None:

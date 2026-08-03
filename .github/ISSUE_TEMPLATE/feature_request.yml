@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        AvialView is a visual inspection tool. Acquisition and built-in
+        AvialSync is a visual inspection tool. Acquisition and built-in
         scientific analysis are deliberately out of scope — those belong in
         plugins. See BLUEPRINT.md for the scope boundary.
 

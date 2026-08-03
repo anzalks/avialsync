@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def test_core_is_headless() -> None:
-    code = 'import sys; sys.modules["PySide6"] = None; import avialview.core'
+    code = 'import sys; sys.modules["PySide6"] = None; import avialsync.core'
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert result.returncode == 0, f"Core import failed without PySide6: {result.stderr}"
 
@@ -15,12 +15,12 @@ def test_core_is_headless() -> None:
 def test_every_core_module_imports_without_pyside6() -> None:
     """Architecture rule 2 applies per module, not only to the package __init__.
 
-    Importing just ``avialview.core`` misses any submodule the package does not
+    Importing just ``avialsync.core`` misses any submodule the package does not
     pull in — ``core/session.py`` imported QSettings that way for several phases.
     """
     modules = sorted(
-        f"avialview.core.{path.stem}"
-        for path in Path("src/avialview/core").glob("*.py")
+        f"avialsync.core.{path.stem}"
+        for path in Path("src/avialsync/core").glob("*.py")
         if path.stem != "__init__"
     )
     assert modules, "No core modules discovered — check the path."
@@ -40,7 +40,7 @@ def test_every_core_module_imports_without_pyside6() -> None:
 def test_no_core_module_imports_pyside6_statically() -> None:
     """Catch the violation even when a lazy import hides it at runtime."""
     offenders = []
-    for path in sorted(Path("src/avialview/core").glob("*.py")):
+    for path in sorted(Path("src/avialsync/core").glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -56,7 +56,7 @@ def test_no_core_module_imports_pyside6_statically() -> None:
 
 
 def _production_trees():
-    for path in Path("src/avialview").rglob("*.py"):
+    for path in Path("src/avialsync").rglob("*.py"):
         yield path, ast.parse(path.read_text(encoding="utf-8"))
 
 

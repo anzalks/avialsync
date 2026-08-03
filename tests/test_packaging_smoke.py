@@ -12,7 +12,7 @@ import pytest
 
 def _load_smoke_module() -> ModuleType:
     path = Path("packaging/smoke_test.py")
-    spec = importlib.util.spec_from_file_location("avialview_bundle_smoke", path)
+    spec = importlib.util.spec_from_file_location("avialsync_bundle_smoke", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -21,7 +21,7 @@ def _load_smoke_module() -> ModuleType:
 
 def test_bundle_executable_uses_platform_name(tmp_path: Path) -> None:
     smoke = _load_smoke_module()
-    windows_executable = tmp_path / "avialview.exe"
+    windows_executable = tmp_path / "avialsync.exe"
     windows_executable.touch()
 
     assert smoke.bundle_executable(tmp_path, "win32") == windows_executable
@@ -31,7 +31,7 @@ def test_bundle_smoke_is_headless_bounded_and_checked(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     smoke = _load_smoke_module()
-    executable = tmp_path / ("avialview.exe" if smoke.sys.platform == "win32" else "avialview")
+    executable = tmp_path / ("avialsync.exe" if smoke.sys.platform == "win32" else "avialsync")
     executable.touch()
     calls: list[tuple[list[str], dict[str, object]]] = []
 
@@ -53,7 +53,7 @@ def test_demo_bundle_smoke_uses_fresh_data_and_waits_for_readiness(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     smoke = _load_smoke_module()
-    executable = tmp_path / ("avialview.exe" if smoke.sys.platform == "win32" else "avialview")
+    executable = tmp_path / ("avialsync.exe" if smoke.sys.platform == "win32" else "avialsync")
     executable.touch()
     calls: list[tuple[list[str], dict[str, object]]] = []
 
@@ -66,17 +66,17 @@ def test_demo_bundle_smoke_uses_fresh_data_and_waits_for_readiness(
 
     command, kwargs = calls[0]
     assert command == [str(executable), "demo", "--smoke-test"]
-    demo_dir = Path(str(kwargs["env"]["AVIALVIEW_DEMO_DIR"]))
+    demo_dir = Path(str(kwargs["env"]["AVIALSYNC_DEMO_DIR"]))
     assert demo_dir.parent == tmp_path.parent
     # The application must give up before the harness kills it, so the failure
     # names what it was waiting for instead of only how long it took.
-    assert float(str(kwargs["env"]["AVIALVIEW_SMOKE_DEADLINE_S"])) < 120.0
+    assert float(str(kwargs["env"]["AVIALSYNC_SMOKE_DEADLINE_S"])) < 120.0
 
 
 def test_script_entrypoint_runs_bundle_smoke(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    executable = tmp_path / ("avialview.exe" if sys.platform == "win32" else "avialview")
+    executable = tmp_path / ("avialsync.exe" if sys.platform == "win32" else "avialsync")
     executable.touch()
     calls: list[list[str]] = []
 
@@ -89,7 +89,7 @@ def test_script_entrypoint_runs_bundle_smoke(
     runpy.run_path("packaging/smoke_test.py", run_name="__main__")
 
     assert calls == [[str(executable), "--smoke-test"]]
-    assert capsys.readouterr().out == "AvialView bundle smoke test passed (offscreen)\n"
+    assert capsys.readouterr().out == "AvialSync bundle smoke test passed (offscreen)\n"
 
 
 def test_bundle_smoke_can_require_a_real_platform_plugin(
@@ -101,7 +101,7 @@ def test_bundle_smoke_can_require_a_real_platform_plugin(
     still fail to open a window on a real display.
     """
     smoke = _load_smoke_module()
-    executable = tmp_path / ("avialview.exe" if smoke.sys.platform == "win32" else "avialview")
+    executable = tmp_path / ("avialsync.exe" if smoke.sys.platform == "win32" else "avialsync")
     executable.touch()
     calls: list[tuple[list[str], dict[str, object]]] = []
 
@@ -117,7 +117,7 @@ def test_bundle_smoke_can_require_a_real_platform_plugin(
 
 def test_release_workflow_smoke_tests_the_staged_bundle() -> None:
     """Freezing a bundle is release-tag work, and it must be gated on startup."""
-    command = "python packaging/smoke_test.py dist/avialview"
+    command = "python packaging/smoke_test.py dist/avialsync"
     release_command = f"{command} --demo --timeout 300"
 
     assert release_command in Path(".github/workflows/release.yml").read_text(encoding="utf-8")

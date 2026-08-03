@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from avialview.core.sync import (
+from avialsync.core.sync import (
     SyncEvidenceError,
     extract_ttl_edges,
     fit_exact_index_mapping,

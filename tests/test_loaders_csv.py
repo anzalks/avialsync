@@ -4,8 +4,8 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pytest
 
-from avialview.core.errors import NonMonotonicTimeError
-from avialview.loaders.csv_loader import CSVLoader
+from avialsync.core.errors import NonMonotonicTimeError
+from avialsync.loaders.csv_loader import CSVLoader
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "signals"
 

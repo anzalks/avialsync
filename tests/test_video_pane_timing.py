@@ -5,10 +5,10 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
-from avialview.core.source import VideoMetadata
-from avialview.core.timeline import TimeMap
-from avialview.ui.video_pane import PaintCanvas
-from avialview.ui.video_timing import (
+from avialsync.core.source import VideoMetadata
+from avialsync.core.timeline import TimeMap
+from avialsync.ui.video_pane import PaintCanvas
+from avialsync.ui.video_timing import (
     VideoTimingMixin,
     adjacent_frame_time,
     displayed_frame_rate,
@@ -182,7 +182,7 @@ class _FixedReader:
 
 
 def _one_track():
-    from avialview.ui.video_overlay import OverlayTrack
+    from avialsync.ui.video_overlay import OverlayTrack
 
     return OverlayTrack(
         label="eks",
@@ -219,7 +219,7 @@ def _draw_and_capture_text(canvas, track) -> list[str]:
 
 def test_overlay_names_each_tracked_point(qapp: QApplication) -> None:
     """A bare dot says something was tracked, not which body part it is."""
-    from avialview.ui.video_overlay import PaintCanvas
+    from avialsync.ui.video_overlay import PaintCanvas
 
     canvas = PaintCanvas()
 
@@ -230,7 +230,7 @@ def test_overlay_names_each_tracked_point(qapp: QApplication) -> None:
 
 
 def test_overlay_point_labels_can_be_hidden(qapp: QApplication) -> None:
-    from avialview.ui.video_overlay import PaintCanvas
+    from avialsync.ui.video_overlay import PaintCanvas
 
     canvas = PaintCanvas()
     canvas.set_point_labels_visible(False)
@@ -242,7 +242,7 @@ def test_overlay_point_labels_can_be_hidden(qapp: QApplication) -> None:
 
 def test_overlay_draws_each_label_twice_for_legibility(qapp: QApplication) -> None:
     """An outline pass sits under the coloured text so it survives pale footage."""
-    from avialview.ui.video_overlay import PaintCanvas
+    from avialsync.ui.video_overlay import PaintCanvas
 
     canvas = PaintCanvas()
 
@@ -256,7 +256,7 @@ def test_overlay_skips_labels_for_points_with_no_coordinate(qapp: QApplication) 
     """An untracked frame must not leave a floating name at the origin."""
     import numpy as np
 
-    from avialview.ui.video_overlay import OverlayTrack, PaintCanvas
+    from avialsync.ui.video_overlay import OverlayTrack, PaintCanvas
 
     track = OverlayTrack(
         label="eks",

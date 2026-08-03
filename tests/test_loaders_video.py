@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.loaders.video_standard import VideoStandardLoader
+from avialsync.loaders.video_standard import VideoStandardLoader
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "videos"
 
@@ -60,7 +60,7 @@ def test_video_standard_uses_presentation_order_frame_timestamps(monkeypatch) ->
         captured.extend(command)
         return _Result()
 
-    monkeypatch.setattr("avialview.loaders.video_standard.subprocess.run", fake_run)
+    monkeypatch.setattr("avialsync.loaders.video_standard.subprocess.run", fake_run)
     loader = VideoStandardLoader()
     loader._extract_frame_times(Path("presentation-order.mp4"))
 
@@ -123,8 +123,8 @@ def test_frame_timestamp_cache_avoids_reprobing_long_video(
             return _Result(metadata_json)
         return _Result("0.000000,\n0.033333,\n0.066667,\n")
 
-    monkeypatch.setattr("avialview.loaders.video_standard.require_ffprobe", lambda: Path("ffprobe"))
-    monkeypatch.setattr("avialview.loaders.video_standard.subprocess.run", fake_run)
+    monkeypatch.setattr("avialsync.loaders.video_standard.require_ffprobe", lambda: Path("ffprobe"))
+    monkeypatch.setattr("avialsync.loaders.video_standard.subprocess.run", fake_run)
 
     first = VideoStandardLoader()
     first.open(video, {})

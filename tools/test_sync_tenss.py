@@ -3,11 +3,11 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from avialview.engine.importer import ImportWorker
-from avialview.loaders.neo_loader import NeoLoader
-from avialview.loaders.video_standard import VideoStandardLoader
-from avialview.ui.main_window import MainWindow
-from avialview.ui.sync_wizard import SyncWizard
+from avialsync.engine.importer import ImportWorker
+from avialsync.loaders.neo_loader import NeoLoader
+from avialsync.loaders.video_standard import VideoStandardLoader
+from avialsync.ui.main_window import MainWindow
+from avialsync.ui.sync_wizard import SyncWizard
 
 
 def test_sync():

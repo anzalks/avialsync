@@ -7,10 +7,10 @@ from pathlib import Path
 
 # Every module that moves a worker onto a QThread.
 WORKER_OWNING_MODULES = (
-    Path("src/avialview/demo.py"),
-    Path("src/avialview/ui/job_manager.py"),
-    Path("src/avialview/ui/main_window.py"),
-    Path("src/avialview/ui/sync_wizard.py"),
+    Path("src/avialsync/demo.py"),
+    Path("src/avialsync/ui/job_manager.py"),
+    Path("src/avialsync/ui/main_window.py"),
+    Path("src/avialsync/ui/sync_wizard.py"),
 )
 WORKER_DELETE_LATER = re.compile(r"\.connect\(\s*(?:self\.)?_*worker\.deleteLater\s*\)")
 

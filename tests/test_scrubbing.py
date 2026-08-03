@@ -10,11 +10,11 @@ def player_with_mocks():
     """Return a Player wired to mock collaborators (no Qt event loop needed)."""
     from PySide6.QtCore import QObject
 
-    from avialview.core.timeline import MasterClock
-    from avialview.engine.player import Player
-    from avialview.ui.plot_pane import PlotPane
-    from avialview.ui.transport import Transport
-    from avialview.ui.video_grid import VideoGrid
+    from avialsync.core.timeline import MasterClock
+    from avialsync.engine.player import Player
+    from avialsync.ui.plot_pane import PlotPane
+    from avialsync.ui.transport import Transport
+    from avialsync.ui.video_grid import VideoGrid
 
     qapp_obj = QObject()  # keep Qt alive
 
@@ -150,7 +150,7 @@ def test_busy_video_seek_never_freezes_master_timeline(player_with_mocks, monkey
 
     monotonic_times = cycle(100.0 + step / 60.0 for step in range(1, 121))
     monkeypatch.setattr(
-        "avialview.engine.player.time.monotonic",
+        "avialsync.engine.player.time.monotonic",
         lambda: next(monotonic_times),
     )
 

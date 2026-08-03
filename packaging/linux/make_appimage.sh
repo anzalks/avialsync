@@ -9,23 +9,23 @@ output_appimage=${2:?"usage: make_appimage.sh <one-dir bundle> <output AppImage>
 
 appdir=$(mktemp -d)
 trap 'rm -rf "$appdir"' EXIT
-mkdir -p "$appdir/usr/avialview"
-cp -R "$bundle_dir/." "$appdir/usr/avialview/"
+mkdir -p "$appdir/usr/avialsync"
+cp -R "$bundle_dir/." "$appdir/usr/avialsync/"
 cat > "$appdir/AppRun" <<'EOF'
 #!/usr/bin/env sh
-exec "$(dirname "$0")/usr/avialview/avialview" "$@"
+exec "$(dirname "$0")/usr/avialsync/avialsync" "$@"
 EOF
 chmod +x "$appdir/AppRun"
-cat > "$appdir/avialview.desktop" <<'EOF'
+cat > "$appdir/avialsync.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
-Name=AvialView
-Exec=avialview
-Icon=avialview
+Name=AvialSync
+Exec=avialsync
+Icon=avialsync
 Categories=Science;Video;
 Terminal=false
 EOF
-install -m 644 "$script_dir/avialview.png" "$appdir/avialview.png"
-ln -s avialview.png "$appdir/.DirIcon"
-desktop-file-validate "$appdir/avialview.desktop"
+install -m 644 "$script_dir/avialsync.png" "$appdir/avialsync.png"
+ln -s avialsync.png "$appdir/.DirIcon"
+desktop-file-validate "$appdir/avialsync.desktop"
 "$APPIMAGETOOL" "$appdir" "$output_appimage"

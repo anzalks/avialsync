@@ -17,7 +17,7 @@ WINDOWS_LIBMPV_SHA256 = "FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D
 
 def test_cross_platform_quality_workflows_share_headless_media_contract() -> None:
     """CI and tag quality runs must exercise the same supported media boundary."""
-    video_pane_path = Path("src/avialview/ui/video_pane.py")
+    video_pane_path = Path("src/avialsync/ui/video_pane.py")
     video_pane = video_pane_path.read_text(encoding="utf-8")
 
     for workflow_path in WORKFLOW_PATHS:
@@ -109,7 +109,7 @@ def test_release_tag_must_agree_with_the_declared_version() -> None:
 
     assert "Require the tag to match the declared package version" in release_workflow
     assert 'project["project"]["version"]' in release_workflow
-    assert "src/avialview/__init__.py" in release_workflow
+    assert "src/avialsync/__init__.py" in release_workflow
 
 
 def test_prerelease_tags_are_not_published_as_stable_releases() -> None:
@@ -127,13 +127,13 @@ def test_prerelease_tags_are_not_published_as_stable_releases() -> None:
 def test_macos_disk_image_ships_a_launchable_application() -> None:
     """A one-directory tree is not a macOS app; Finder opens it in Terminal."""
     release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
-    spec = Path("packaging/avialview.spec").read_text(encoding="utf-8")
+    spec = Path("packaging/avialsync.spec").read_text(encoding="utf-8")
     make_dmg = Path("packaging/macos/make_dmg.sh").read_text(encoding="utf-8")
 
-    assert "name='AvialView.app'" in spec
+    assert "name='AvialSync.app'" in spec
     assert "bundle_identifier=" in spec
-    assert "make_dmg.sh dist/AvialView.app" in release_workflow
-    assert '*.app) cp -R "$bundle_dir" "$staging_dir/AvialView.app"' in make_dmg
+    assert "make_dmg.sh dist/AvialSync.app" in release_workflow
+    assert '*.app) cp -R "$bundle_dir" "$staging_dir/AvialSync.app"' in make_dmg
     assert "needs: verify_release_ref" in release_workflow
 
 
@@ -152,9 +152,9 @@ def test_signing_is_wired_but_optional() -> None:
         "runner.os == 'macOS' && env.MACOS_NOTARY_APPLE_ID != ''",
     ):
         assert guard in release_workflow, guard
-    assert "sign.ps1 -Path installer-output/AvialView-Setup.exe" in release_workflow
-    assert "sign_notarize.sh sign dist/AvialView.app" in release_workflow
-    assert "sign_notarize.sh notarize installer-output/AvialView.dmg" in release_workflow
+    assert "sign.ps1 -Path installer-output/AvialSync-Setup.exe" in release_workflow
+    assert "sign_notarize.sh sign dist/AvialSync.app" in release_workflow
+    assert "sign_notarize.sh notarize installer-output/AvialSync.dmg" in release_workflow
 
 
 def test_macos_is_signed_before_the_image_is_built_and_notarized_after() -> None:
@@ -165,8 +165,8 @@ def test_macos_is_signed_before_the_image_is_built_and_notarized_after() -> None
     """
     release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
 
-    sign = release_workflow.index("sign_notarize.sh sign dist/AvialView.app")
-    build = release_workflow.index("make_dmg.sh dist/AvialView.app")
+    sign = release_workflow.index("sign_notarize.sh sign dist/AvialSync.app")
+    build = release_workflow.index("make_dmg.sh dist/AvialSync.app")
     notarize = release_workflow.index("sign_notarize.sh notarize")
 
     assert sign < build < notarize

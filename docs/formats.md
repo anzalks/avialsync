@@ -1,12 +1,12 @@
 # Formats
 
-AvialView is intentionally open to lab-specific formats. It includes common video and tabular-data
+AvialSync is intentionally open to lab-specific formats. It includes common video and tabular-data
 support, while plugins can add other recordings without changing the application itself.
 
 ## Video
 
 Open standard video files supported by your installed mpv/ffmpeg stack, including common MP4, MOV,
-MKV, AVI, and WebM files. AvialView reads the video timing and uses actual frame timestamps where
+MKV, AVI, and WebM files. AvialSync reads the video timing and uses actual frame timestamps where
 available, which matters for variable-frame-rate recordings. Presentation timestamps override a
 misleading container CFR declaration. They are cached beside the video after the first probe, so
 subsequent opens do not scan every frame again.
@@ -19,5 +19,5 @@ files can be treated as frame-indexed when that is how the source was produced.
 
 ## Lab formats
 
-Ask your lab for its AvialView plugin, or see the [plugin guide](plugin-guide.md) to write one.
+Ask your lab for its AvialSync plugin, or see the [plugin guide](plugin-guide.md) to write one.
 Plugins describe how to recognise, read, and label a format; they do not need to change the core app.

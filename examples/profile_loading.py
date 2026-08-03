@@ -1,8 +1,8 @@
 import time
 from pathlib import Path
 
-from avialview.loaders.neo_loader import NeoLoader
-from avialview.loaders.video_standard import VideoStandardLoader
+from avialsync.loaders.neo_loader import NeoLoader
+from avialsync.loaders.video_standard import VideoStandardLoader
 
 
 def main():

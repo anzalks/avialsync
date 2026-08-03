@@ -1,6 +1,6 @@
 # Performance verification
 
-AvialView separates workload correctness from speed certification because the computer running a
+AvialSync separates workload correctness from speed certification because the computer running a
 test affects its result.
 
 The engineering marks are product requirements: 2.5 seconds to build the 180-million-sample
@@ -75,7 +75,7 @@ Run timing certification locally on the intended engineering machine before a pe
 release. The published marks are enforced exactly:
 
 ```shell
-QT_QPA_PLATFORM=offscreen conda run -n avialview pytest --benchmark-only
+QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest --benchmark-only
 ```
 
 Do not tune an individual threshold to make a slow machine pass. A changed product requirement

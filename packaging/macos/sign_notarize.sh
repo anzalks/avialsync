@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sign an AvialView .app, or notarize and staple a built disk image.
+# Sign an AvialSync .app, or notarize and staple a built disk image.
 #
 # Release CI runs this only when the signing secrets exist, so an unsigned
 # build stays possible for forks and for local work (BLUEPRINT.md Phase 5:
@@ -7,8 +7,8 @@
 # Every credential arrives through the environment; nothing is read from a
 # developer's login keychain, because CI has none.
 #
-#   sign_notarize.sh sign     dist/AvialView.app
-#   sign_notarize.sh notarize installer-output/AvialView.dmg
+#   sign_notarize.sh sign     dist/AvialSync.app
+#   sign_notarize.sh notarize installer-output/AvialSync.dmg
 #
 # Environment:
 #   MACOS_CERTIFICATE_P12       base64 of a Developer ID Application .p12
@@ -34,8 +34,8 @@ require_env() {
 sign_app() {
     require_env MACOS_CERTIFICATE_P12 MACOS_CERTIFICATE_PASSWORD MACOS_SIGNING_IDENTITY
     local keychain certificate
-    keychain="$RUNNER_TEMP/avialview-signing.keychain-db"
-    certificate="$RUNNER_TEMP/avialview-certificate.p12"
+    keychain="$RUNNER_TEMP/avialsync-signing.keychain-db"
+    certificate="$RUNNER_TEMP/avialsync-certificate.p12"
     # A throwaway keychain, removed on exit however this script ends: the
     # certificate must not outlive the job that imported it.
     trap 'security delete-keychain "$keychain" 2>/dev/null || true; rm -f "$certificate"' EXIT

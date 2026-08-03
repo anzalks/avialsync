@@ -13,14 +13,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.cache import CacheManager
-from avialview.core.channel_reader import MappedChannelReader
-from avialview.core.errors import CacheError
-from avialview.core.inspection import IntegrityFlags
-from avialview.core.pyramid import PyramidBuilder, PyramidReader
-from avialview.core.registry import LoaderRegistry
-from avialview.core.session import SessionState, SyncProvenance
-from avialview.core.timeline import TimeMap
+from avialsync.core.cache import CacheManager
+from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.errors import CacheError
+from avialsync.core.inspection import IntegrityFlags
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.core.registry import LoaderRegistry
+from avialsync.core.session import SessionState, SyncProvenance
+from avialsync.core.timeline import TimeMap
 
 # ── cache: error and recovery branches ────────────────────────────────
 
@@ -277,13 +277,13 @@ def test_underscore_prefixed_plugin_files_are_ignored(tmp_path: Path) -> None:
 def test_a_path_with_no_import_spec_is_reported(tmp_path: Path, monkeypatch, caplog) -> None:
     import logging
 
-    import avialview.core.registry as registry_module
+    import avialsync.core.registry as registry_module
 
     monkeypatch.setattr(
         registry_module.importlib.util, "spec_from_file_location", lambda *a, **k: None
     )
 
-    with caplog.at_level(logging.WARNING, logger="avialview.core.registry"):
+    with caplog.at_level(logging.WARNING, logger="avialsync.core.registry"):
         assert registry_module.LoaderRegistry._load_module(tmp_path / "toy.py") is None
 
     assert any("import spec" in record.getMessage() for record in caplog.records)

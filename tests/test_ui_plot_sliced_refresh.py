@@ -12,8 +12,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.pyramid import PyramidBuilder
-from avialview.ui.plot_pane import PlotPane
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.ui.plot_pane import PlotPane
 
 # Enough rows that the requery cannot finish inside one slice budget. A
 # smaller selection legitimately completes in the first callback, which is

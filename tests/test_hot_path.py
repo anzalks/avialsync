@@ -15,9 +15,9 @@ import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from avialview.engine import player as player_module
-from avialview.engine.player import _PRESENTATION_INTERVAL_S, Player
-from avialview.ui.transport import TimelineOverview
+from avialsync.engine import player as player_module
+from avialsync.engine.player import _PRESENTATION_INTERVAL_S, Player
+from avialsync.ui.transport import TimelineOverview
 
 
 @pytest.fixture

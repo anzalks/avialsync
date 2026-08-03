@@ -3,8 +3,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication
 
-from avialview.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec, SyncWorker
-from avialview.loaders.video_standard import VideoStandardLoader
+from avialsync.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec, SyncWorker
+from avialsync.loaders.video_standard import VideoStandardLoader
 
 app = QCoreApplication.instance() or QCoreApplication(sys.argv)
 

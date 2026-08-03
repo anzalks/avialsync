@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from avialview.core.source import VideoSource
-from avialview.engine.video_worker import VideoOpenWorker
+from avialsync.core.source import VideoSource
+from avialsync.engine.video_worker import VideoOpenWorker
 
 
 class _PreparedVideo(VideoSource):
@@ -47,7 +47,7 @@ def test_video_worker_prepares_before_emitting_media_path(monkeypatch) -> None:
         def find_best_loader(self, path: Path):
             return _PreparedVideo
 
-    monkeypatch.setattr("avialview.engine.video_worker.LoaderRegistry", _Registry)
+    monkeypatch.setattr("avialsync.engine.video_worker.LoaderRegistry", _Registry)
     worker = VideoOpenWorker(Path("camera.raw"))
     opened: list[tuple[str, object, str]] = []
     worker.opened.connect(lambda original, loader, media: opened.append((original, loader, media)))

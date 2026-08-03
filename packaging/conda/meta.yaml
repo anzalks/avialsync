@@ -1,9 +1,9 @@
-{% set name = "avialview" %}
+{% set name = "avialsync" %}
 {% set version = "0.1.0b4" %}
 
 # conda-forge recipe (BLUEPRINT.md Phase 5). Unlike the PyPI wheel, a conda
 # package can declare the native media runtime as real dependencies, so
-# `conda install avialview` needs no guided libmpv dialog: mpv and ffmpeg
+# `conda install avialsync` needs no guided libmpv dialog: mpv and ffmpeg
 # arrive as conda packages.
 #
 # `version` and the sha256 below are the two fields a version bump touches.
@@ -23,7 +23,7 @@ build:
   number: 0
   script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
   entry_points:
-    - avialview = avialview.__main__:main
+    - avialsync = avialsync.__main__:main
 
 requirements:
   host:
@@ -50,21 +50,21 @@ requirements:
 
 test:
   imports:
-    - avialview
-    - avialview.core
+    - avialsync
+    - avialsync.core
   commands:
-    - avialview --help
+    - avialsync --help
 
 about:
-  home: https://github.com/anzalks/avialview
+  home: https://github.com/anzalks/avialsync
   summary: >-
     GUI desktop app to scrub time-synchronized multi-camera video and dense
     time series.
   license: Apache-2.0
   license_family: Apache
   license_file: LICENSE
-  doc_url: https://avialview.readthedocs.io
-  dev_url: https://github.com/anzalks/avialview
+  doc_url: https://avialsync.readthedocs.io
+  dev_url: https://github.com/anzalks/avialsync
 
 extra:
   recipe-maintainers:

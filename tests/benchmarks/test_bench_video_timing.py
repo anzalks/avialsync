@@ -8,9 +8,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from avialview.core.timeline import TimeMap
-from avialview.engine.seeker import SeekGroup
-from avialview.ui.video_pane import VideoPane
+from avialsync.core.timeline import TimeMap
+from avialsync.engine.seeker import SeekGroup
+from avialsync.ui.video_pane import VideoPane
 
 
 class _FastPane:

@@ -1,4 +1,4 @@
-# AvialView Plot UX Refinement Plan
+# AvialSync Plot UX Refinement Plan
 
 Status: **approved target, not yet implemented**
 
@@ -7,7 +7,7 @@ Governing decisions: D-042 and D-044
 Primary modules: `ui/plot_pane.py`, `ui/plot_row.py`, `ui/plot_sweep.py`,
 `ui/transport.py`, `ui/main_window.py`, `ui/theme.py`
 
-This document is the implementation contract for refining AvialView's scientific plots and
+This document is the implementation contract for refining AvialSync's scientific plots and
 timeline controls. It deliberately separates the target presentation from the current working
 implementation. An agent must not describe any item here as shipped until code, tests, and
 `HANDOUT.md` have been updated together.

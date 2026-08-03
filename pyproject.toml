@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "avialview"
+name = "avialsync"
 version = "0.1.0b4"
 description = "GUI desktop app to scrub time-synchronized multi-camera video and dense time series."
 readme = "README.md"
@@ -44,22 +44,22 @@ docs = [
 ]
 
 [project.scripts]
-avialview = "avialview.__main__:main"
+avialsync = "avialsync.__main__:main"
 
-[project.entry-points."avialview.loaders"]
-csv = "avialview.loaders.csv_loader:CSVLoader"
-video = "avialview.loaders.video_standard:VideoStandardLoader"
-tracking = "avialview.loaders.tracking_loader:TrackingLoader"
-neo = "avialview.loaders.neo_loader:NeoLoader"
-aol_encoder = "avialview.loaders.aol_encoder_loader:AOLEncoderLoader"
-aol_eks = "avialview.loaders.aol_eks_loader:AOLEksLoader"
+[project.entry-points."avialsync.loaders"]
+csv = "avialsync.loaders.csv_loader:CSVLoader"
+video = "avialsync.loaders.video_standard:VideoStandardLoader"
+tracking = "avialsync.loaders.tracking_loader:TrackingLoader"
+neo = "avialsync.loaders.neo_loader:NeoLoader"
+aol_encoder = "avialsync.loaders.aol_encoder_loader:AOLEncoderLoader"
+aol_eks = "avialsync.loaders.aol_eks_loader:AOLEksLoader"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/avialview"]
-include = ["src/avialview/resources/avialview.png"]
+packages = ["src/avialsync"]
+include = ["src/avialsync/resources/avialsync.png"]
 
 [tool.coverage.run]
-source = ["avialview"]
+source = ["avialsync"]
 branch = true
 omit = ["*/__main__.py"]
 
@@ -97,22 +97,22 @@ pythonpath = ["."]
 
 
 [[tool.mypy.overrides]]
-module = "avialview.ui.plot_row"
+module = "avialsync.ui.plot_row"
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
-module = "avialview.ui.plot_sweep"
+module = "avialsync.ui.plot_sweep"
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
-module = "avialview.ui.plot_interactions"
+module = "avialsync.ui.plot_interactions"
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
-module = "avialview.ui.plot_overlays"
+module = "avialsync.ui.plot_overlays"
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 

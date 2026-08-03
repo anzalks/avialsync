@@ -1,4 +1,4 @@
-"""Tests for the installed ``avialview open`` command."""
+"""Tests for the installed ``avialsync open`` command."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from avialview.__main__ import _parse_args
+from avialsync.__main__ import _parse_args
 
 
 def test_open_accepts_a_session_file(tmp_path: Path) -> None:
-    """The documented `avialview open <session>` invocation is supported."""
+    """The documented `avialsync open <session>` invocation is supported."""
     session = tmp_path / "session.avv"
     session.write_text("{}", encoding="utf-8")
 
@@ -59,7 +59,7 @@ def test_open_routes_through_the_drag_and_drop_scan(tmp_path: Path, qtbot) -> No
     The drop scanner already recognises .avv files, folders holding them, and
     loose recordings, so routing through it keeps one implementation.
     """
-    from avialview.ui.main_window import MainWindow
+    from avialsync.ui.main_window import MainWindow
 
     scanned: list[list[Path]] = []
     window = MainWindow()
@@ -79,7 +79,7 @@ def test_open_session_dialog_loads_once(monkeypatch, qtbot) -> None:
     """
     from PySide6.QtWidgets import QFileDialog
 
-    from avialview.ui.main_window import MainWindow
+    from avialsync.ui.main_window import MainWindow
 
     window = MainWindow()
     qtbot.addWidget(window)
@@ -98,7 +98,7 @@ def test_open_session_dialog_cancels_cleanly(monkeypatch, qtbot) -> None:
     """Dismissing the dialog must not load anything."""
     from PySide6.QtWidgets import QFileDialog
 
-    from avialview.ui.main_window import MainWindow
+    from avialsync.ui.main_window import MainWindow
 
     window = MainWindow()
     qtbot.addWidget(window)

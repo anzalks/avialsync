@@ -1,4 +1,4 @@
-"""Tests for the installed ``avialview demo`` command."""
+"""Tests for the installed ``avialsync demo`` command."""
 
 from pathlib import Path
 from typing import Any
@@ -6,8 +6,8 @@ from typing import Any
 import numpy as np
 from PySide6.QtWidgets import QWidget
 
-from avialview import demo
-from avialview.__main__ import _parse_args
+from avialsync import demo
+from avialsync.__main__ import _parse_args
 
 
 def test_demo_command_is_accepted() -> None:
@@ -17,7 +17,7 @@ def test_demo_command_is_accepted() -> None:
 
 def test_demo_directory_can_be_isolated_for_release_smoke(monkeypatch, tmp_path: Path) -> None:
     """The staged bundle gate must generate fresh media outside user data."""
-    monkeypatch.setenv("AVIALVIEW_DEMO_DIR", str(tmp_path))
+    monkeypatch.setenv("AVIALSYNC_DEMO_DIR", str(tmp_path))
 
     assert demo.demo_data_dir() == tmp_path
 

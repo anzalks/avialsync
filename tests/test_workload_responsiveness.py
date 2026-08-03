@@ -17,9 +17,9 @@ import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from avialview.core.pyramid import PyramidBuilder
-from avialview.ui.main_window import MainWindow
-from avialview.ui.ui_heartbeat import UiHeartbeat
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.ui.main_window import MainWindow
+from avialsync.ui.ui_heartbeat import UiHeartbeat
 
 RATE_HZ = 1_000.0
 SAMPLES = 200_000  # 200 s at 1 kHz per channel
@@ -115,7 +115,7 @@ def test_repeated_resizes_do_not_block_the_ui(
 
 
 def test_hiding_channels_does_not_block(loaded_window: MainWindow, qapp: QApplication) -> None:
-    from avialview.core.channel_reader import ChannelKey
+    from avialsync.core.channel_reader import ChannelKey
 
     _cache, names = None, [channel.name for channel in loaded_window.plot_pane.channels]
 

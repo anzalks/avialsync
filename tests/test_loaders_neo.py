@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.loaders.neo_loader import SUPPORTED_EXTENSIONS, NeoLoader
+from avialsync.loaders.neo_loader import SUPPORTED_EXTENSIONS, NeoLoader
 
 # ---------------------------------------------------------------------------
 # can_open whitelist tests — no fixture needed
@@ -56,8 +56,8 @@ def test_supported_extensions_excludes_generic_formats():
 
 def test_registry_picks_csv_loader_for_csv(tmp_path: Path):
     """LoaderRegistry must prefer CSVLoader over NeoLoader for .csv files."""
-    from avialview.core.registry import LoaderRegistry
-    from avialview.loaders.csv_loader import CSVLoader
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.loaders.csv_loader import CSVLoader
 
     f = tmp_path / "data.csv"
     f.write_text("time,val\n0.0,1.0\n1.0,2.0\n")

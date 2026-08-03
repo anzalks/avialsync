@@ -2,7 +2,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from avialview.ui.main_window import MainWindow
+from avialsync.ui.main_window import MainWindow
 
 app = QApplication.instance() or QApplication(sys.argv)
 window = MainWindow()

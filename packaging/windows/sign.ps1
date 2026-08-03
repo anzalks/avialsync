@@ -1,10 +1,10 @@
-# Authenticode-sign a built AvialView artifact.
+# Authenticode-sign a built AvialSync artifact.
 #
 # Release CI runs this only when the signing secrets exist, so an unsigned
 # build stays possible for forks and for local work (BLUEPRINT.md Phase 5:
 # "signing/notarization steps stubbed behind secrets-present conditionals").
 #
-#   pwsh packaging/windows/sign.ps1 -Path installer-output/AvialView-Setup.exe
+#   pwsh packaging/windows/sign.ps1 -Path installer-output/AvialSync-Setup.exe
 #
 # Environment:
 #   WINDOWS_CERTIFICATE_PFX       base64 of a code-signing .pfx
@@ -37,7 +37,7 @@ if ($null -eq $signtool) {
     throw 'sign.ps1: signtool.exe not found; the Windows SDK is required.'
 }
 
-$certificate = Join-Path $env:RUNNER_TEMP 'avialview-certificate.pfx'
+$certificate = Join-Path $env:RUNNER_TEMP 'avialsync-certificate.pfx'
 try {
     [IO.File]::WriteAllBytes(
         $certificate,
@@ -47,7 +47,7 @@ try {
         /f $certificate `
         /p $env:WINDOWS_CERTIFICATE_PASSWORD `
         /fd SHA256 /tr $TimestampUrl /td SHA256 `
-        /d 'AvialView' `
+        /d 'AvialSync' `
         $Path
     if ($LASTEXITCODE -ne 0) { throw "sign.ps1: signtool failed ($LASTEXITCODE)" }
 

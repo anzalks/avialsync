@@ -254,7 +254,7 @@ traceback at launch is a release-blocking bug.
 ## 2026-07 · D-014 · Windows pip auto-fetch of libmpv
 First run without libmpv on Windows: offer one-click download of the pinned LGPL libmpv build
 (URL + SHA256 hardcoded per release) into the app data dir; loaded from there. Makes pip on
-Windows effectively zero-step. Optional `avialview[media]` binary companion wheel is post-1.0.
+Windows effectively zero-step. Optional `avialsync[media]` binary companion wheel is post-1.0.
 
 ## 2026-07 · D-015 · LGPL-configured libmpv ONLY in bundles
 libmpv is dual GPL/LGPL; bundling a GPL-configured build would poison D-003. Packaging must use
@@ -271,13 +271,13 @@ first commercial interest or when Mac-user friction reports appear.
 Dependency is `python-mpv` on PyPI; imported module is `mpv`. The unrelated PyPI package named
 `mpv` must never be installed. Pin in pyproject: python-mpv>=1.0.7.
 
-## 2026-07 · D-018 · Product name = AvialView (final)
-Brand/display: `AvialView`. Package/module/CLI/entry-point group/paths: `avialview`
+## 2026-07 · D-018 · Product name = AvialSync (final)
+Brand/display: `AvialSync`. Package/module/CLI/entry-point group/paths: `avialsync`
 (lowercase, single word). Session ext `.avv`; cache sidecar `<file>.avialcache/`; installers
-`AvialView-Setup.exe` / `AvialView.dmg` / `AvialView.AppImage`; env vars `AVIALVIEW_*`;
-third-party plugins `avialview-plugin-<name>`. Casing table is binding (AGENTS.md §Naming).
+`AvialSync-Setup.exe` / `AvialSync.dmg` / `AvialSync.AppImage`; env vars `AVIALSYNC_*`;
+third-party plugins `avialsync-plugin-<name>`. Casing table is binding (AGENTS.md §Naming).
 Agents must not introduce spelling variants or rename anything. ACTION FOR OWNER: register
-`avialview` on PyPI (stub 0.0.1) and the GitHub org/repo before Phase 0 work begins.
+`avialsync` on PyPI (stub 0.0.1) and the GitHub org/repo before Phase 0 work begins.
 
 ## 2026-07 · D-019 · Frame-indexed sources — is_frame_indexed() pre-freeze API addition
 `TimeSeriesSource` (core/source.py) gains a non-abstract `is_frame_indexed() → bool` method
@@ -364,7 +364,7 @@ No parallel hierarchy — source_properties panels are children of the existing 
 TimeDisplayMode enum: RELATIVE (default) | UTC | LOCAL_TOD.
 ui/time_format.py: format_time(t_seconds: float, mode: TimeDisplayMode, t_epoch: float) → str
   where t_epoch is the recording start epoch (0.0 if unknown → RELATIVE always from 0).
-Stored as a singleton in MainWindow, persisted in QSettings("AvialView","AvialView","time_mode").
+Stored as a singleton in MainWindow, persisted in QSettings("AvialSync","AvialSync","time_mode").
 MainWindow emits time_mode_changed(mode) signal. Transport, VideoPane OSD, ReadoutPanel, and
 all properties panels subscribe. format_time() is the ONLY place time is formatted — no inline
 HH:MM:SS formatting scattered through widgets.
@@ -426,7 +426,7 @@ headless and plugin configuration is JSON-serialisable host-provided data rather
 
 `VideoSource` retains `needs_conversion()` and `prepare()` (D-006), gains abstract
 `time_bounds()`, and is opened through the registry in a worker thread before mpv receives its
-prepared media path. Discovery supports Python entry points plus `~/.avialview/plugins/` drop-ins.
+prepared media path. Discovery supports Python entry points plus `~/.avialsync/plugins/` drop-ins.
 The removed methods must not be reintroduced without a versioned API decision.
 
 ## 2026-07 · D-022 · Interaction standard — visible surface, depth in menus, shortcuts as accelerators
@@ -592,7 +592,7 @@ from 3.11 s to 1.69 s on the development machine while retaining exact envelopes
 
 ## 2026-07 · D-026 · Synchronization is evidence-based, plugin-extensible, and user-accepted
 
-AvialView is a visual-inspection tool, not an acquisition system or a built-in scientific-analysis
+AvialSync is a visual-inspection tool, not an acquisition system or a built-in scientific-analysis
 suite. It must align independently-clocked cameras, sensors, electrodes, and tracking data using
 TTL/event evidence without changing the raw recordings.
 
@@ -721,13 +721,13 @@ explicit fidelity side of the application's speed-and-timing release criteria.
 ### Context
 
 PyInstaller sets `SPECPATH` to the directory containing a spec. Treating it as the repository root
-breaks source discovery. Converting an unset `AVIALVIEW_MEDIA_ROOT` directly to `Path` also maps it
+breaks source discovery. Converting an unset `AVIALSYNC_MEDIA_ROOT` directly to `Path` also maps it
 to the current working directory, allowing unrelated files to enter an artifact.
 
 ### Decision
 
 The spec derives the project root from `Path(SPECPATH).parent`. It stages media only when
-`AVIALVIEW_MEDIA_ROOT` is non-empty and is a directory; an invalid supplied path is a hard error.
+`AVIALSYNC_MEDIA_ROOT` is non-empty and is a directory; an invalid supplied path is a hard error.
 Pull-request CI builds a media-free PyInstaller artifact on every OS. The tag-only release workflow
 is responsible for providing and licence-verifying the explicit media inputs.
 
@@ -811,8 +811,8 @@ The pinned AppImageTool release uses the FUSE 2 ABI. GitHub's Ubuntu 24.04 image
 ABI through `libfuse2t64`, which must be installed in the Linux installer job before executing the
 tool. Do not install the obsolete `fuse` package; it is not needed for this headless build.
 
-The AppDir must also stage the reviewed `avialview.png` icon declared by `avialview.desktop`.
-`assets/icons/avialview-source.png` is the canonical artwork; `tools/generate_icons.py` produces
+The AppDir must also stage the reviewed `avialsync.png` icon declared by `avialsync.desktop`.
+`assets/icons/avialsync-source.png` is the canonical artwork; `tools/generate_icons.py` produces
 the Linux PNG, Windows ICO, macOS ICNS, and runtime PNG from it. AppImageTool treats a missing
 declared icon as an artifact-integrity error, so the packaging test asserts both the declaration
 and staged source asset. The AppDir also provides the required `.DirIcon` symlink and validates
@@ -844,7 +844,7 @@ by the pane configuration and timing tests.
 
 ### Context
 
-An end user must not configure Conda, `PATH`, FFmpeg, or libmpv after installing AvialView. Source
+An end user must not configure Conda, `PATH`, FFmpeg, or libmpv after installing AvialSync. Source
 checkouts still use locally supplied native tools, but a release bundle must include both playback
 and metadata-probing executables plus the dynamic libraries they require.
 
@@ -852,13 +852,13 @@ and metadata-probing executables plus the dynamic libraries they require.
 
 Release staging rejects a media directory that lacks `ffmpeg`, `ffprobe`, or libmpv. On Windows and
 macOS it copies the dynamic libraries from the dedicated media-package roots; Windows keeps the
-libmpv dependency DLLs together with `libmpv-2.dll`. At startup, `avialview.runtime` gives bundled
+libmpv dependency DLLs together with `libmpv-2.dll`. At startup, `avialsync.runtime` gives bundled
 media precedence and configures it before the lazy `mpv` import. Video inspection resolves an
 explicit `ffprobe` executable rather than relying on the process working directory.
 
 ### Consequences
 
-`AvialView-Setup.exe` is the supported plug-and-play route. A source checkout documents its two
+`AvialSync-Setup.exe` is the supported plug-and-play route. A source checkout documents its two
 unavoidable native prerequisites separately. Any future packaging change must retain the staging
 validation and a clean-environment installer smoke test.
 
@@ -1297,7 +1297,7 @@ a startup cost the application is paying.
 
 **Decision:** it is not, and no font handling changes. `theme._system_font()` captures
 `QApplication.font()` — the platform font, `.AppleSystemUIFont` on macOS — and monospace readouts
-use `QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)`. AvialView ships no font files,
+use `QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)`. AvialSync ships no font files,
 registers nothing with `QFontDatabase.addApplicationFont`, and names no family literal anywhere.
 `set_font_family()` only re-applies an already-resolved platform family so a widget keeps its role
 through application font scaling.

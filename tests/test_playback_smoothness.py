@@ -23,9 +23,9 @@ import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from avialview.core.timeline import MasterClock, TimeMap
-from avialview.engine.player import Player
-from avialview.ui import video_pane as video_pane_module
+from avialsync.core.timeline import MasterClock, TimeMap
+from avialsync.engine.player import Player
+from avialsync.ui import video_pane as video_pane_module
 
 FPS = 30.0
 INTERVAL = 1.0 / FPS
@@ -319,7 +319,7 @@ def test_the_plot_repaints_at_half_the_tick_rate(qapp: QApplication) -> None:
     60 times a second consumed 39-74% of the UI thread and starved video
     presentation, which is what made frames look choppy.
     """
-    from avialview.ui import plot_pane as plot_pane_module
+    from avialsync.ui import plot_pane as plot_pane_module
 
     pane = plot_pane_module.PlotPane()
     repaints: list[float] = []
@@ -341,7 +341,7 @@ def test_the_plot_repaints_at_half_the_tick_rate(qapp: QApplication) -> None:
 
 def test_a_seek_repaints_the_plot_immediately(qapp: QApplication) -> None:
     """Throttling is for playback; a discrete event must never show a stale cursor."""
-    from avialview.ui import plot_pane as plot_pane_module
+    from avialsync.ui import plot_pane as plot_pane_module
 
     pane = plot_pane_module.PlotPane()
     repaints: list[float] = []
@@ -385,7 +385,7 @@ def test_the_overlay_never_queries_mpv_while_painting(qapp: QApplication) -> Non
     decoder threads are contending for it (measured at 26-34 us typical,
     165 us at p99).  The size is mirrored by a property observer instead.
     """
-    from avialview.ui.video_overlay import PaintCanvas
+    from avialsync.ui.video_overlay import PaintCanvas
 
     class _ExplodingMpv:
         def __getattr__(self, name: str) -> object:
@@ -406,7 +406,7 @@ def test_the_overlay_never_queries_mpv_while_painting(qapp: QApplication) -> Non
 
 def test_an_empty_overlay_does_not_schedule_repaints(qapp: QApplication) -> None:
     """Most sessions have no tracking data; those panes must cost nothing."""
-    from avialview.ui.video_overlay import PaintCanvas
+    from avialsync.ui.video_overlay import PaintCanvas
 
     canvas = PaintCanvas()
     repaints = []
@@ -421,7 +421,7 @@ def test_an_empty_overlay_does_not_schedule_repaints(qapp: QApplication) -> None
 
 def test_an_overlay_with_tracks_still_repaints(qapp: QApplication) -> None:
     """The skip must be about having nothing to draw, not about being idle."""
-    from avialview.ui.video_overlay import OverlayTrack, PaintCanvas
+    from avialsync.ui.video_overlay import OverlayTrack, PaintCanvas
 
     canvas = PaintCanvas()
     canvas.set_tracks([OverlayTrack(label="eks", points={})])
@@ -436,7 +436,7 @@ def test_an_overlay_with_tracks_still_repaints(qapp: QApplication) -> None:
 
 def test_the_overlay_waits_for_a_real_video_size(qapp: QApplication) -> None:
     """Before libmpv reports a size there is nothing meaningful to scale to."""
-    from avialview.ui.video_overlay import PaintCanvas
+    from avialsync.ui.video_overlay import PaintCanvas
 
     canvas = PaintCanvas()
     pane = SimpleNamespace(video_size=None)

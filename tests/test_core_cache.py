@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from avialview.core.cache import CacheManager
-from avialview.core.errors import CacheError
+from avialsync.core.cache import CacheManager
+from avialsync.core.errors import CacheError
 
 
 def test_cache_manager_keys(tmp_path: Path):

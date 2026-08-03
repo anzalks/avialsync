@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from avialview.engine.drop_worker import DropScanWorker
-from avialview.loaders.aol_session_loader import build_manifest
+from avialsync.engine.drop_worker import DropScanWorker
+from avialsync.loaders.aol_session_loader import build_manifest
 
 
 def _write_2d_pose(path: Path, bodyparts: tuple[str, ...], rows: int = 3) -> None:
@@ -88,7 +88,7 @@ def test_manifest_never_loads_contributing_model_predictions(aol_session: Path) 
 
 
 def test_2d_candidates_target_their_own_camera_video(aol_session: Path) -> None:
-    from avialview.core.registry import LoaderRegistry
+    from avialsync.core.registry import LoaderRegistry
 
     worker = DropScanWorker([aol_session], LoaderRegistry())
     candidates = worker._collect_aol_candidates(aol_session)
@@ -113,7 +113,7 @@ def test_2d_candidates_target_their_own_camera_video(aol_session: Path) -> None:
 
 
 def test_3d_candidate_is_tagged_for_the_3d_view(aol_session: Path) -> None:
-    from avialview.core.registry import LoaderRegistry
+    from avialsync.core.registry import LoaderRegistry
 
     worker = DropScanWorker([aol_session], LoaderRegistry())
     candidates = worker._collect_aol_candidates(aol_session)
@@ -125,7 +125,7 @@ def test_3d_candidate_is_tagged_for_the_3d_view(aol_session: Path) -> None:
 
 def test_eks_without_camera_name_does_not_match_every_video(aol_session: Path) -> None:
     """'_eks.csv' has an empty leading token; it must not match by empty substring."""
-    from avialview.core.registry import LoaderRegistry
+    from avialsync.core.registry import LoaderRegistry
 
     manifest = build_manifest(aol_session)
     # Give the two cameras distinct start epochs.
@@ -156,8 +156,8 @@ def _finish_import(
     """
     import numpy as np
 
-    from avialview.core.inspection import SourceInspection
-    from avialview.core.pyramid import PyramidBuilder
+    from avialsync.core.inspection import SourceInspection
+    from avialsync.core.pyramid import PyramidBuilder
 
     cache_dir.mkdir(parents=True, exist_ok=True)
     times = np.array([0.0, 1.0], dtype=np.float64)
@@ -176,7 +176,7 @@ def _finish_import(
 
 def test_2d_pose_overlays_its_camera_and_is_not_plotted(tmp_path: Path, qtbot, monkeypatch) -> None:
     """2D pose reaches only its own camera's overlay, and creates no plot rows."""
-    from avialview.ui.main_window import MainWindow
+    from avialsync.ui.main_window import MainWindow
 
     monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
     window = MainWindow()
@@ -213,7 +213,7 @@ def test_2d_pose_overlays_its_camera_and_is_not_plotted(tmp_path: Path, qtbot, m
 
 
 def test_3d_pose_reaches_the_3d_view_and_is_not_plotted(tmp_path: Path, qtbot, monkeypatch) -> None:
-    from avialview.ui.main_window import MainWindow
+    from avialsync.ui.main_window import MainWindow
 
     monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
     window = MainWindow()
@@ -235,7 +235,7 @@ def test_3d_pose_reaches_the_3d_view_and_is_not_plotted(tmp_path: Path, qtbot, m
 
 def test_non_pose_sources_still_plot(tmp_path: Path, qtbot, monkeypatch) -> None:
     """Ordinary recorded signals keep their plot rows."""
-    from avialview.ui.main_window import MainWindow
+    from avialsync.ui.main_window import MainWindow
 
     monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
     window = MainWindow()
@@ -251,7 +251,7 @@ def test_non_pose_sources_still_plot(tmp_path: Path, qtbot, monkeypatch) -> None
 
 def test_overlay_tracks_get_distinct_colours_and_labels(tmp_path: Path, qtbot, monkeypatch) -> None:
     """Overlaid models must be distinguishable by label, not colour alone."""
-    from avialview.ui.main_window import MainWindow
+    from avialsync.ui.main_window import MainWindow
 
     monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
     window = MainWindow()

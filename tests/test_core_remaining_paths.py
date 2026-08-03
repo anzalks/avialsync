@@ -13,12 +13,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.cache import CacheManager
-from avialview.core.pyramid import PyramidBuilder, PyramidReader
-from avialview.core.registry import LoaderRegistry
-from avialview.core.session import SessionState, SyncProvenance
-from avialview.core.sync import fit_sync_events
-from avialview.core.timeline import TimeMap
+from avialsync.core.cache import CacheManager
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.core.registry import LoaderRegistry
+from avialsync.core.session import SessionState, SyncProvenance
+from avialsync.core.sync import fit_sync_events
+from avialsync.core.timeline import TimeMap
 
 
 def _provenance(master: list[float], source: list[float]) -> SyncProvenance:
@@ -143,7 +143,7 @@ class TestBrokenEntryPointPlugins:
     def test_a_failing_entry_point_is_logged_and_skipped(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
-        from avialview.core import registry as registry_module
+        from avialsync.core import registry as registry_module
 
         class _BrokenEntryPoint:
             name = "broken_third_party"
@@ -171,7 +171,7 @@ class TestCacheCommitFallback:
         Renaming a *directory* fails there even when its files are writable,
         which is normal under a synced Documents folder.
         """
-        from avialview.core import cache as cache_module
+        from avialsync.core import cache as cache_module
 
         source = tmp_path / "recording.csv"
         source.write_text("t,v\n0,1\n", encoding="utf-8")
@@ -197,8 +197,8 @@ class TestCacheCommitFallback:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         """A cache that cannot be committed must say why, not fail silently."""
-        from avialview.core import cache as cache_module
-        from avialview.core.errors import CacheError
+        from avialsync.core import cache as cache_module
+        from avialsync.core.errors import CacheError
 
         source = tmp_path / "recording.csv"
         source.write_text("t,v\n0,1\n", encoding="utf-8")
@@ -222,7 +222,7 @@ class TestSyncInternals:
 
     def test_an_exact_fit_without_a_mapping_is_still_a_time_map(self) -> None:
         """ExactSyncFit carries the mapping optionally, not always."""
-        from avialview.core.sync import ExactSyncFit
+        from avialsync.core.sync import ExactSyncFit
 
         mapping = ExactSyncFit(
             offset=1.0,
@@ -238,7 +238,7 @@ class TestSyncInternals:
 
     def test_no_pair_within_tolerance_yields_no_alignment(self) -> None:
         """Events with no counterpart at all must produce an empty match set."""
-        from avialview.core.sync import _match_pairs
+        from avialsync.core.sync import _match_pairs
 
         reference = np.array([0.0, 1.0, 2.0])
         target = np.array([100.0, 101.0, 102.0])
@@ -249,7 +249,7 @@ class TestSyncInternals:
 
     def test_equal_quality_candidates_at_different_offsets_are_ambiguous(self) -> None:
         """Two perfect alignments mean the evidence cannot choose; refuse."""
-        from avialview.core.sync import _is_ambiguous
+        from avialsync.core.sync import _is_ambiguous
 
         best = np.array([[0, 0], [1, 1], [2, 2]])
         rival = np.array([[0, 1], [1, 2], [2, 3]])
@@ -258,7 +258,7 @@ class TestSyncInternals:
 
     def test_a_shorter_rival_candidate_is_not_ambiguity(self) -> None:
         """Fewer matched events is a worse fit, not a tie."""
-        from avialview.core.sync import _is_ambiguous
+        from avialsync.core.sync import _is_ambiguous
 
         best = np.array([[0, 0], [1, 1], [2, 2]])
         shorter = np.array([[0, 1], [1, 2]])
@@ -296,7 +296,7 @@ class TestPyramidLevelHelpers:
 
     def test_level_one_is_the_data_itself(self) -> None:
         """The base level is not decimated; min and max are the sample."""
-        from avialview.core.pyramid import build_pyramid_level
+        from avialsync.core.pyramid import build_pyramid_level
 
         times = np.array([0.0, 1.0, 2.0])
         values = np.array([3.0, 4.0, 5.0])
@@ -312,7 +312,7 @@ class TestPyramidLevelHelpers:
 
         A stuck acquisition clock must not make every sample look like a gap.
         """
-        from avialview.core.pyramid import build_gap_mask
+        from avialsync.core.pyramid import build_gap_mask
 
         gaps = build_gap_mask(np.array([1.0, 1.0, 1.0, 1.0]))
 
@@ -321,7 +321,7 @@ class TestPyramidLevelHelpers:
 
     def test_a_single_sample_has_no_interval_so_no_gaps(self) -> None:
         """One sample yields no adjacent pair at all."""
-        from avialview.core.pyramid import build_gap_mask
+        from avialsync.core.pyramid import build_gap_mask
 
         assert not build_gap_mask(np.array([5.0])).any()
 
@@ -344,7 +344,7 @@ class TestAmbiguityLoopExhaustion:
     """Equal-length rivals that are not perfect fits are not ambiguity."""
 
     def test_a_rival_with_real_residual_is_not_a_tie(self) -> None:
-        from avialview.core.sync import _is_ambiguous
+        from avialsync.core.sync import _is_ambiguous
 
         best = np.array([[0, 0], [1, 1], [2, 2]])
         rival = np.array([[0, 1], [1, 2], [2, 3]])
@@ -363,7 +363,7 @@ def test_a_failed_backup_restore_still_falls_back_to_the_swap(
     putting the old one back fails too. Losing both would leave no cache at
     all; the file-level swap is what rescues it.
     """
-    from avialview.core import cache as cache_module
+    from avialsync.core import cache as cache_module
 
     source = tmp_path / "recording.csv"
     source.write_text("t,v\n0,1\n", encoding="utf-8")

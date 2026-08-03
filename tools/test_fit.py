@@ -2,9 +2,9 @@ from pathlib import Path
 
 import numpy as np
 
-from avialview.core.sync import fit_sync_events
-from avialview.loaders.neo_loader import NeoLoader
-from avialview.loaders.video_standard import VideoStandardLoader
+from avialsync.core.sync import fit_sync_events
+from avialsync.loaders.neo_loader import NeoLoader
+from avialsync.loaders.video_standard import VideoStandardLoader
 
 # Load Ephys
 ephys_path = Path("TENSS26_Anzal/2026-06-21_17-54-56").resolve()

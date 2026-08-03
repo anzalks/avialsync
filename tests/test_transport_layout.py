@@ -3,7 +3,7 @@
 import pytest
 from PySide6.QtCore import QPoint, Qt
 
-from avialview.ui.transport import Transport
+from avialsync.ui.transport import Transport
 
 
 def test_seek_row_orders_playhead_ab_end_time_and_rate_controls(qtbot) -> None:

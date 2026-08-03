@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from avialview.engine.sync_worker import SignalEvidenceSpec, SyncWorker
+from avialsync.engine.sync_worker import SignalEvidenceSpec, SyncWorker
 
 cache_dir = Path("TENSS26_Anzal/2026-06-21_17-54-56.avialcache")
 

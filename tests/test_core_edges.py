@@ -14,8 +14,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.pyramid import PyramidBuilder, PyramidReader
-from avialview.core.registry import LoaderRegistry
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.core.registry import LoaderRegistry
 
 
 @pytest.fixture
@@ -84,7 +84,7 @@ class TestPluginDiscovery:
     """A third-party plugin must never take the application down with it."""
 
     def test_a_missing_plugin_directory_is_not_an_error(self, tmp_path: Path) -> None:
-        """Users are told to create ~/.avialview/plugins; most never do."""
+        """Users are told to create ~/.avialsync/plugins; most never do."""
         registry = LoaderRegistry(plugin_dirs=[tmp_path / "absent"])
 
         assert registry.loaders

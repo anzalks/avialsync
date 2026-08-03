@@ -4,8 +4,8 @@ from pathlib import Path
 
 import numpy as np
 
-from avialview.core.source import ChannelInfo
-from avialview.engine.importer import ImportWorker
+from avialsync.core.source import ChannelInfo
+from avialsync.engine.importer import ImportWorker
 
 
 class _BulkLoader:
@@ -49,7 +49,7 @@ def test_import_worker_commits_cache_without_reopening_mmap(tmp_path: Path, monk
     def fail_if_opened(*_args, **_kwargs) -> None:
         raise AssertionError("The temporary cache must not be reopened before commit.")
 
-    monkeypatch.setattr("avialview.core.pyramid.PyramidReader", fail_if_opened)
+    monkeypatch.setattr("avialsync.core.pyramid.PyramidReader", fail_if_opened)
     worker = ImportWorker(source, {"time_col": "time", "time_unit": "s", "separator": ","})
     completed: list[tuple[object, ...]] = []
     errors: list[str] = []

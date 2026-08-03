@@ -8,9 +8,9 @@ import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from avialview.core.pyramid import PyramidBuilder
-from avialview.ui.main_window import MainWindow
-from avialview.ui.sidebar import SensorInfoWidget
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.ui.main_window import MainWindow
+from avialsync.ui.sidebar import SensorInfoWidget
 
 RATE_HZ = 100.0
 COUNT = 2_000

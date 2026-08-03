@@ -3,8 +3,8 @@
 import logging
 from pathlib import Path
 
-from avialview.core.registry import LoaderRegistry
-from avialview.core.source import TimeSeriesSource
+from avialsync.core.registry import LoaderRegistry
+from avialsync.core.source import TimeSeriesSource
 
 
 def test_registry_discovers_loose_time_series_plugin(tmp_path: Path) -> None:
@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 import numpy as np
-from avialview.core.source import ChannelInfo, TimeSeriesSource
+from avialsync.core.source import ChannelInfo, TimeSeriesSource
 
 class LooseToySource(TimeSeriesSource):
     @classmethod
@@ -46,7 +46,7 @@ from pathlib import Path
 from typing import Any
 from collections.abc import Iterator
 import numpy as np
-from avialview.core.source import ChannelInfo, TimeSeriesSource
+from avialsync.core.source import ChannelInfo, TimeSeriesSource
 
 
 class ToyLoader(TimeSeriesSource):
@@ -67,7 +67,7 @@ class ToyLoader(TimeSeriesSource):
 
 def test_bundled_examples_plugins_directory_is_scanned() -> None:
     """BLUEPRINT Phase 5 promises the bundled directory is a plugin location."""
-    from avialview.core.registry import LoaderRegistry
+    from avialsync.core.registry import LoaderRegistry
 
     dirs = LoaderRegistry._default_plugin_dirs()
 
@@ -76,7 +76,7 @@ def test_bundled_examples_plugins_directory_is_scanned() -> None:
 
 def test_frozen_bundle_resolves_plugins_from_meipass(monkeypatch, tmp_path: Path) -> None:
     """Without _MEIPASS no loose plugin can load from a PyInstaller build."""
-    import avialview.core.registry as registry_module
+    import avialsync.core.registry as registry_module
 
     monkeypatch.setattr(registry_module.sys, "_MEIPASS", str(tmp_path), raising=False)
 
@@ -87,7 +87,7 @@ def test_frozen_bundle_resolves_plugins_from_meipass(monkeypatch, tmp_path: Path
 
 def test_module_name_is_stable_across_processes(tmp_path: Path) -> None:
     """hash() is salted per process, so bundle names used to differ every launch."""
-    from avialview.core.registry import LoaderRegistry
+    from avialsync.core.registry import LoaderRegistry
 
     plugin = tmp_path / "toy.py"
     plugin.write_text(_PLUGIN_SOURCE, encoding="utf-8")
@@ -98,16 +98,16 @@ def test_module_name_is_stable_across_processes(tmp_path: Path) -> None:
     assert first is not None and second is not None
     assert first.__name__ == second.__name__
     # Derived from the path, so it is reproducible rather than run-dependent.
-    assert first.__name__.startswith("avialview_plugin_toy_")
+    assert first.__name__.startswith("avialsync_plugin_toy_")
 
 
 def test_a_broken_plugin_is_reported_not_silently_dropped(tmp_path: Path, caplog) -> None:
-    from avialview.core.registry import LoaderRegistry
+    from avialsync.core.registry import LoaderRegistry
 
     broken = tmp_path / "broken.py"
     broken.write_text("this is not valid python(", encoding="utf-8")
 
-    with caplog.at_level(logging.WARNING, logger="avialview.core.registry"):
+    with caplog.at_level(logging.WARNING, logger="avialsync.core.registry"):
         module = LoaderRegistry._load_module(broken)
 
     assert module is None
@@ -115,12 +115,12 @@ def test_a_broken_plugin_is_reported_not_silently_dropped(tmp_path: Path, caplog
 
 
 def test_a_plugin_exporting_nothing_is_reported(tmp_path: Path, caplog) -> None:
-    from avialview.core.registry import LoaderRegistry
+    from avialsync.core.registry import LoaderRegistry
 
     empty = tmp_path / "nothing.py"
     empty.write_text("VALUE = 1\n", encoding="utf-8")
 
-    with caplog.at_level(logging.WARNING, logger="avialview.core.registry"):
+    with caplog.at_level(logging.WARNING, logger="avialsync.core.registry"):
         LoaderRegistry(plugin_dirs=[tmp_path])
 
     assert any("nothing.py" in record.getMessage() for record in caplog.records)
@@ -128,7 +128,7 @@ def test_a_plugin_exporting_nothing_is_reported(tmp_path: Path, caplog) -> None:
 
 def test_builtins_are_registered_exactly_once(tmp_path: Path) -> None:
     """They are hardcoded *and* declared as entry points; that must not duplicate."""
-    from avialview.core.registry import LoaderRegistry
+    from avialsync.core.registry import LoaderRegistry
 
     loaders = LoaderRegistry(plugin_dirs=[tmp_path]).loaders()
 

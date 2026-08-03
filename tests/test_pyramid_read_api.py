@@ -14,9 +14,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.pyramid import RAW_CHUNK_SAMPLES, PyramidBuilder, PyramidReader
+from avialsync.core.pyramid import RAW_CHUNK_SAMPLES, PyramidBuilder, PyramidReader
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "avialview"
+SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "avialsync"
 
 
 @pytest.fixture

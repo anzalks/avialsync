@@ -6,7 +6,7 @@ existed for the pyramid, sync, 3D tracking, and video timing hot paths but not
 for the plot rows themselves, which is where the ★ cursor and frame budgets
 are actually spent.
 
-Run with ``conda run -n avialview pytest --benchmark-only``. The ★ marks are
+Run with ``conda run -n avialsync pytest --benchmark-only``. The ★ marks are
 enforced here without a multiplier; hosted CI does not certify speed
 (BLUEPRINT.md "Performance budgets"), so these are excluded from the CI run.
 """
@@ -18,8 +18,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.pyramid import PyramidBuilder
-from avialview.ui.plot_pane import PlotPane
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.ui.plot_pane import PlotPane
 
 # ★ Full populated cursor update per tick.
 _CURSOR_BUDGET_S = 0.002

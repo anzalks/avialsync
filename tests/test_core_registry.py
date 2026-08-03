@@ -1,8 +1,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from avialview.core.registry import LoaderRegistry
-from avialview.core.source import TimeSeriesSource, VideoSource
+from avialsync.core.registry import LoaderRegistry
+from avialsync.core.source import TimeSeriesSource, VideoSource
 
 
 class DummyTimeSeriesLoader(TimeSeriesSource):
@@ -66,7 +66,7 @@ def test_legacy_video_plugin_receives_default_metadata() -> None:
     assert metadata.duration == 1.0
 
 
-@patch("avialview.core.registry.entry_points")
+@patch("avialsync.core.registry.entry_points")
 def test_loader_discovery(mock_eps):
     # Mock entry points return
     ep1 = MagicMock()

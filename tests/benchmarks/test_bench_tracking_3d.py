@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.ui.tracking_3d_pane import Tracking3DPane
+from avialsync.ui.tracking_3d_pane import Tracking3DPane
 
 _CURSOR_BUDGET_S = 0.002
 

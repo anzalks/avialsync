@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 
-from avialview.ui.time_format import TimeDisplayMode, format_time
+from avialsync.ui.time_format import TimeDisplayMode, format_time
 
 
 class TestFormatTimeRelative:

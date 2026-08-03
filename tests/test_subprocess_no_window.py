@@ -18,9 +18,9 @@ from pathlib import Path
 
 import pytest
 
-from avialview.runtime import no_window_kwargs
+from avialsync.runtime import no_window_kwargs
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "avialview"
+SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "avialsync"
 
 #: Call sites that can never run on Windows because an enclosing
 #: ``sys.platform`` check excludes it. Each entry needs that guard to be real.
@@ -83,7 +83,7 @@ def test_every_media_subprocess_suppresses_the_console_window() -> None:
 
     assert not offenders, (
         "These subprocess calls will flash a console window on Windows. "
-        "Splat `**no_window_kwargs()` from avialview.runtime: " + ", ".join(offenders)
+        "Splat `**no_window_kwargs()` from avialsync.runtime: " + ", ".join(offenders)
     )
 
 
@@ -99,7 +99,7 @@ def test_no_window_kwargs_is_empty_off_windows() -> None:
 
 def test_no_window_kwargs_sets_create_no_window_on_windows(monkeypatch) -> None:
     """The Windows branch must supply the flag even when tests run elsewhere."""
-    import avialview.runtime as runtime
+    import avialsync.runtime as runtime
 
     monkeypatch.setattr(runtime.sys, "platform", "win32")
 

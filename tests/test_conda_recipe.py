@@ -64,6 +64,6 @@ def test_recipe_python_range_matches_the_package() -> None:
 
 def test_recipe_entry_point_matches_the_package() -> None:
     """The console script conda installs must be the one the package defines."""
-    script = _project_metadata()["scripts"]["avialview"]
+    script = _project_metadata()["scripts"]["avialsync"]
 
-    assert f"avialview = {script}" in _recipe_text()
+    assert f"avialsync = {script}" in _recipe_text()

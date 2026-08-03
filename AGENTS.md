@@ -1,4 +1,4 @@
-# AGENTS.md — AvialView agent instructions (canonical)
+# AGENTS.md — AvialSync agent instructions (canonical)
 
 This file is the single source of truth for ALL coding agents (Claude Code, Codex, Gemini/Antigravity,
 Cursor, Copilot, etc.). `CLAUDE.md` and `GEMINI.md` are thin pointers to this file — never duplicate
@@ -19,16 +19,16 @@ DECISIONS.md entry in the PR description instead of silently diverging.
 
 | Context | Exact form |
 |---|---|
-| Brand / UI / window title / docs prose / installer filenames | `AvialView` |
-| PyPI package, import module, CLI command, repo dir, entry-point group, paths | `avialview` (all lowercase, one word, no hyphen/underscore) |
-| Python identifiers derived from it | `avialview` (e.g. `from avialview.core import ...`) |
-| Env vars / constants | `AVIALVIEW_*` |
+| Brand / UI / window title / docs prose / installer filenames | `AvialSync` |
+| PyPI package, import module, CLI command, repo dir, entry-point group, paths | `avialsync` (all lowercase, one word, no hyphen/underscore) |
+| Python identifiers derived from it | `avialsync` (e.g. `from avialsync.core import ...`) |
+| Env vars / constants | `AVIALSYNC_*` |
 | Session file extension | `.avv` |
 | Sidecar cache dir | `<file>.avialcache/` |
-| Installer artifacts | `AvialView-Setup.exe`, `AvialView.dmg`, `AvialView.AppImage` |
-| Plugin packages (3rd party convention) | `avialview-plugin-<name>` on PyPI |
+| Installer artifacts | `AvialSync-Setup.exe`, `AvialSync.dmg`, `AvialSync.AppImage` |
+| Plugin packages (3rd party convention) | `avialsync-plugin-<name>` on PyPI |
 
-Use `AvialView` only for the displayed product name and `avialview` for technical identifiers.
+Use `AvialSync` only for the displayed product name and `avialsync` for technical identifiers.
 Do not invent alternative spellings. A rename is never "improved" by an agent (D-018).
 
 ## Tech stack — FIXED
@@ -98,24 +98,24 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
 
 ## How to run things
 
-ALL commands must be prefixed with `conda run -n avialview` when working inside the
-`avialview` conda environment. Never run project commands (pytest, ruff, mypy, pip,
-avialview) without this prefix — the system Python may differ from the env Python.
+ALL commands must be prefixed with `conda run -n avialsync` when working inside the
+`avialsync` conda environment. Never run project commands (pytest, ruff, mypy, pip,
+avialsync) without this prefix — the system Python may differ from the env Python.
 
 ```bash
-conda run -n avialview pip install -e .[dev]          # setup
-conda run -n avialview python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
-QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -x -q   # tests
-conda run -n avialview pytest --benchmark-only                   # perf budgets
-conda run -n avialview avialview                                # run the app
-conda run -n avialview avialview open tests/fixtures/sample_session/
+conda run -n avialsync pip install -e .[dev]          # setup
+conda run -n avialsync python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
+QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q   # tests
+conda run -n avialsync pytest --benchmark-only                   # perf budgets
+conda run -n avialsync avialsync                                # run the app
+conda run -n avialsync avialsync open tests/fixtures/sample_session/
 
 # Type checking — run BOTH; strict mode applies only to core/
-conda run -n avialview mypy src/avialview/core    # strict (enforced)
-conda run -n avialview mypy src/avialview          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
+conda run -n avialsync mypy src/avialsync/core    # strict (enforced)
+conda run -n avialsync mypy src/avialsync          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
 
 # Lint + format
-conda run -n avialview ruff check --fix . && conda run -n avialview ruff format .
+conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format .
 ```
 
 ## Task protocol for agents
@@ -147,7 +147,7 @@ conda run -n avialview ruff check --fix . && conda run -n avialview ruff format 
 
 ## Known traps (learned the hard way — do not rediscover)
 
-- `.gitignore` ignores `*.spec` files by default. If you create or modify `packaging/avialview.spec`, you must force-add it or it will be silently excluded from commits and break CI.
+- `.gitignore` ignores `*.spec` files by default. If you create or modify `packaging/avialsync.spec`, you must force-add it or it will be silently excluded from commits and break CI.
 - The GitHub Actions Windows runner does not have `ffmpeg` pre-installed (unlike Ubuntu/macOS). Any script that invokes `ffmpeg` (like `make_fixtures.py`) will fail with `FileNotFoundError` unless `choco install ffmpeg` is in the CI workflow. Chocolatey is used because it is preinstalled on that image; WinGet is a Windows *client* feature and is not available on the Server image. This is a build-time concern only — released installers bundle their own media runtime.
 - Runner images are pinned (`ubuntu-24.04`, `macos-15`, `windows-2022`), not `*-latest`. A floating label already broke the release once, when an image bump renamed `fuse` to `libfuse2t64`. `tests/test_ci_platform_config.py` fails if a floating label reappears.
 - Windows CI also needs an explicit, pinned libmpv DLL archive with SHA-256 verification and an
@@ -170,7 +170,7 @@ conda run -n avialview ruff check --fix . && conda run -n avialview ruff format 
   for months only because earlier tests left the shared `QApplication` measuring smaller; alone it
   failed everywhere. When a test fails only in CI, run it **alone** locally before assuming platform.
 - `mypy` results depend on the installed NumPy, not just on the code: NumPy 2.4.6 and 2.5.1 type
-  `np.concatenate` differently, so `mypy src/avialview/core` passed locally and failed in CI on
+  `np.concatenate` differently, so `mypy src/avialsync/core` passed locally and failed in CI on
   identical source. To reproduce CI exactly, build a venv pinned to the versions its log reports.
 - Windows ships no IANA time zone database, so `zoneinfo` finds nothing there. `tzdata` is declared
   as a Windows-only dependency; without it every timezone-aware CSV import fails on Windows only.
@@ -200,7 +200,7 @@ conda run -n avialview ruff check --fix . && conda run -n avialview ruff format 
 - On Windows/macOS render-API panes, free the libmpv render context while the `QOpenGLWidget` is current
   before terminating mpv. Reversing that order aborts the process during app exit.
 - PyInstaller evaluates `SPECPATH` as the spec directory, not the project root. Resolve the root
-  from it, and stage media only from a non-empty, validated `AVIALVIEW_MEDIA_ROOT`; an unset value
+  from it, and stage media only from a non-empty, validated `AVIALSYNC_MEDIA_ROOT`; an unset value
   must never accidentally package the current working directory.
 - Theme changes must not restyle sliders, splitters, scrollbars, plot interaction, or layout. A
   global QSS changes Qt's style engine and can alter those controls; use `QPalette` only for theme

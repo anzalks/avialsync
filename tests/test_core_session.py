@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.session import (
+from avialsync.core.session import (
     MarkerEntry,
     SensorEntry,
     SessionState,

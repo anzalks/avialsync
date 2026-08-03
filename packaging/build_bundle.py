@@ -1,4 +1,4 @@
-"""Build a one-directory AvialView bundle for the current platform."""
+"""Build a one-directory AvialSync bundle for the current platform."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def build_bundle(media_root: Path | None, dist_dir: Path) -> None:
     """Run PyInstaller with only staged, local media libraries included."""
     env = os.environ.copy()
     if media_root is not None:
-        env["AVIALVIEW_MEDIA_ROOT"] = str(media_root.resolve())
+        env["AVIALSYNC_MEDIA_ROOT"] = str(media_root.resolve())
     command = [
         sys.executable,
         "-m",
@@ -26,7 +26,7 @@ def build_bundle(media_root: Path | None, dist_dir: Path) -> None:
         str(dist_dir),
         "--workpath",
         str(ROOT / "build" / "pyinstaller"),
-        str(ROOT / "packaging" / "avialview.spec"),
+        str(ROOT / "packaging" / "avialsync.spec"),
     ]
     subprocess.run(command, cwd=ROOT, env=env, check=True)
 

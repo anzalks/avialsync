@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from avialview.ui.annotations import AnnotationStore, VideoFrame
+from avialsync.ui.annotations import AnnotationStore, VideoFrame
 
 # ── VideoFrame dataclass ──────────────────────────────────────────────
 
@@ -100,7 +100,7 @@ def test_export_csv_columns(tmp_path: Path) -> None:
 
 
 def test_frame_records_at_empty_grid(qapp) -> None:
-    from avialview.ui.video_grid import VideoGrid
+    from avialsync.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
     records = grid.frame_records_at(5.0)
@@ -108,7 +108,7 @@ def test_frame_records_at_empty_grid(qapp) -> None:
 
 
 def test_frame_records_at_single_pane(qapp) -> None:
-    from avialview.ui.video_grid import VideoGrid
+    from avialsync.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
 
@@ -127,7 +127,7 @@ def test_frame_records_at_single_pane(qapp) -> None:
 
 def test_shutdown_terminates_all_video_panes(qapp) -> None:
     """Pane-owned libmpv event threads must stop before Qt destroys the grid."""
-    from avialview.ui.video_grid import VideoGrid
+    from avialsync.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
     panes = [MagicMock(), MagicMock()]
@@ -145,7 +145,7 @@ def test_shutdown_terminates_all_video_panes(qapp) -> None:
 
 def test_video_pane_releases_render_context_before_terminating_mpv() -> None:
     """macOS render clients must die before the underlying libmpv handle."""
-    from avialview.ui.video_pane import _shutdown_mpv_client
+    from avialsync.ui.video_pane import _shutdown_mpv_client
 
     calls: list[str] = []
 
@@ -176,7 +176,7 @@ def test_video_pane_releases_render_context_before_terminating_mpv() -> None:
 
 
 def test_frame_records_at_offset_applied(qapp) -> None:
-    from avialview.ui.video_grid import VideoGrid
+    from avialsync.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
 
@@ -192,7 +192,7 @@ def test_frame_records_at_offset_applied(qapp) -> None:
 
 
 def test_frame_records_at_two_panes(qapp) -> None:
-    from avialview.ui.video_grid import VideoGrid
+    from avialsync.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
 
@@ -210,7 +210,7 @@ def test_frame_records_at_two_panes(qapp) -> None:
 
 def test_frame_records_use_real_vfr_timestamp_index(qapp) -> None:
     """Annotation frame numbers must never use t*fps arithmetic for VFR media."""
-    from avialview.ui.video_grid import VideoGrid
+    from avialsync.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
     pane = MagicMock()

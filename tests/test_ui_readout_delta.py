@@ -18,7 +18,7 @@ def app():
 
 @pytest.fixture
 def panel(app):
-    from avialview.ui.readout_panel import ReadoutPanel
+    from avialsync.ui.readout_panel import ReadoutPanel
 
     p = ReadoutPanel()
     p.show()

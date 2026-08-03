@@ -124,7 +124,7 @@ dmypy.json
 # Ruff / Linting
 .ruff_cache/
 
-# AvialView specific based on AGENTS.md
+# AvialSync specific based on AGENTS.md
 *.avv
 !tests/fixtures/*.avv
 *.avialcache/

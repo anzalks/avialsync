@@ -40,9 +40,9 @@ jobs:
       - name: Ruff Format Check
         run: ruff format --check .
       - name: Mypy Core
-        run: mypy src/avialview/core
+        run: mypy src/avialsync/core
       - name: Mypy All (standard mode; pre-existing errors suppressed in pyproject.toml)
-        run: mypy src/avialview
+        run: mypy src/avialsync
 
   test:
     name: Test ${{ matrix.os }} - Python ${{ matrix.python-version }}

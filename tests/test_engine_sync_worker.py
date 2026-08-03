@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.pyramid import PyramidBuilder
-from avialview.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec, SyncWorker
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec, SyncWorker
 
 
 def test_sync_worker_extracts_cached_ttl_and_fits_frame_events(tmp_path: Path) -> None:

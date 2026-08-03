@@ -1,6 +1,6 @@
-"""Prepare, validate, commit, tag, and push an AvialView PyPI release.
+"""Prepare, validate, commit, tag, and push an AvialSync PyPI release.
 
-Run from any directory with ``conda run -n avialview python tools/prepare_release.py 0.1.0b1``.
+Run from any directory with ``conda run -n avialsync python tools/prepare_release.py 0.1.0b1``.
 The GitHub tag workflow remains the only publisher; this helper never uploads a package itself.
 """
 
@@ -49,7 +49,7 @@ def run_command(command: Sequence[str], root: Path, *, capture: bool = False) ->
 
 
 def validate_version(version: str) -> None:
-    """Require the canonical public PEP 440 versions used by AvialView releases."""
+    """Require the canonical public PEP 440 versions used by AvialSync releases."""
     if not VERSION_PATTERN.fullmatch(version):
         raise ReleasePreparationError(
             f"{version!r} is not a canonical public PEP 440 version; use forms such as 0.1.0b1."
@@ -95,7 +95,7 @@ def ensure_preconditions(root: Path, version: str) -> None:
 
 def run_package_preflight(root: Path) -> None:
     """Build into a temporary directory and validate the exact publishable artifacts."""
-    with tempfile.TemporaryDirectory(prefix="avialview-release-") as output:
+    with tempfile.TemporaryDirectory(prefix="avialsync-release-") as output:
         run_command((sys.executable, "-m", "build", "--outdir", output), root)
         distributions = sorted(Path(output).glob("*"))
         if len(distributions) != 2:
@@ -114,7 +114,7 @@ def prepare_release(root: Path, version: str, *, dry_run: bool) -> None:
         return
 
     replace_declared_version(root / "pyproject.toml", PYPROJECT_VERSION_PATTERN, version)
-    replace_declared_version(root / "src/avialview/__init__.py", MODULE_VERSION_PATTERN, version)
+    replace_declared_version(root / "src/avialsync/__init__.py", MODULE_VERSION_PATTERN, version)
     # The conda recipe is a third version authority: left behind, it publishes
     # the previous release's source archive under the new version's name.
     replace_declared_version(root / "packaging/conda/meta.yaml", RECIPE_VERSION_PATTERN, version)
@@ -132,11 +132,11 @@ def prepare_release(root: Path, version: str, *, dry_run: bool) -> None:
     run_package_preflight(root)
     tag = f"v{version}"
     run_command(
-        ("git", "add", "pyproject.toml", "src/avialview/__init__.py", "packaging/conda/meta.yaml"),
+        ("git", "add", "pyproject.toml", "src/avialsync/__init__.py", "packaging/conda/meta.yaml"),
         root,
     )
     run_command(("git", "commit", "-m", f"chore(release): prepare {version}"), root)
-    run_command(("git", "tag", "-a", tag, "-m", f"AvialView {version}"), root)
+    run_command(("git", "tag", "-a", tag, "-m", f"AvialSync {version}"), root)
     run_command(("git", "push", "origin", "main", tag), root)
 
 

@@ -22,8 +22,8 @@ import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from avialview.core.pyramid import PyramidBuilder
-from avialview.ui.main_window import MainWindow
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.ui.main_window import MainWindow
 
 
 @pytest.fixture

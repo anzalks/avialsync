@@ -1,6 +1,6 @@
 # Architecture
 
-AvialView is organised around a single promise: every visible item is inspected at one shared
+AvialSync is organised around a single promise: every visible item is inspected at one shared
 experiment time. The implementation is separated so that expensive file work never interrupts the
 desktop interface, and so laboratories can add readers without changing the viewer itself.
 
@@ -45,7 +45,7 @@ The 3D pane and video grid sit in a native side-by-side splitter, whose size is 
 preference. Point names do not imply scientific topology, so the viewer never invents skeleton
 connections.
 
-For exact paused-frame verification, AvialView checks decoded raw video against a fixture's frame
+For exact paused-frame verification, AvialSync checks decoded raw video against a fixture's frame
 strip rather than trusting a returned seek command or a displayed image. Production uses libmpv's
 Qt OpenGL render API on Windows/macOS and native `wid` embedding on Linux; displayless continuous
 integration uses libmpv's null video output so it can verify decoding and timeline correctness

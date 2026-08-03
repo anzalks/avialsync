@@ -19,7 +19,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication
 
-from avialview.ui.transport import Transport
+from avialsync.ui.transport import Transport
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -35,7 +35,7 @@ def transport(qtbot):
 
 @pytest.fixture
 def main_window(qapp: QApplication):
-    from avialview.ui.main_window import MainWindow
+    from avialsync.ui.main_window import MainWindow
 
     win = MainWindow()
     win.show()
@@ -275,7 +275,7 @@ def test_entered_time_editor_returns_focus_to_playback_surface(
 
 def test_shortcuts_dialog_shows_registered_actions(main_window, qtbot) -> None:
     """ShortcutsDialog must show rows derived from live _all_actions, not a static table."""
-    from avialview.ui.shortcuts_dialog import ShortcutsDialog
+    from avialsync.ui.shortcuts_dialog import ShortcutsDialog
 
     groups: dict[str, list[QAction]] = {}
     for act in main_window._all_actions:
@@ -302,7 +302,7 @@ def test_shortcuts_dialog_includes_every_registered_action(main_window, qtbot) -
     """Every action in _all_actions with shortcuts must appear in the dialog."""
     from PySide6.QtWidgets import QTableWidget
 
-    from avialview.ui.shortcuts_dialog import ShortcutsDialog
+    from avialsync.ui.shortcuts_dialog import ShortcutsDialog
 
     groups: dict[str, list[QAction]] = {}
     for act in main_window._all_actions:

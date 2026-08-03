@@ -15,18 +15,18 @@ from typing import Any
 import numpy as np
 import pytest
 
-from avialview.core.errors import (
-    AvialViewError,
+from avialsync.core.errors import (
+    AvialSyncError,
     FileUnreadableError,
     LoaderContractError,
     MissingColumnError,
     SourceOpenError,
 )
-from avialview.engine.importer import ImportWorker
-from avialview.loaders.csv_loader import CSVLoader
-from avialview.loaders.video_standard import VideoStandardLoader
+from avialsync.engine.importer import ImportWorker
+from avialsync.loaders.csv_loader import CSVLoader
+from avialsync.loaders.video_standard import VideoStandardLoader
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "avialview"
+SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "avialsync"
 GUARDED = ("loaders", "engine")
 BARE = {"ValueError", "KeyError", "RuntimeError"}
 
@@ -60,7 +60,7 @@ def test_every_typed_error_shares_one_base() -> None:
         MissingColumnError,
         SourceOpenError,
     ):
-        assert issubclass(error, AvialViewError)
+        assert issubclass(error, AvialSyncError)
 
 
 # ── CSV ───────────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ def test_unreadable_csv_raises_file_unreadable(tmp_path: Path) -> None:
     source = tmp_path / "data.csv"
     source.write_bytes(b"\x00\x01\x02 not a csv \xff\xfe")
 
-    with pytest.raises(AvialViewError):
+    with pytest.raises(AvialSyncError):
         CSVLoader().open(source, {"time_col": "time", "separator": ","})
 
 
@@ -123,7 +123,7 @@ class _BadLoader:
         pass
 
     def channels(self):
-        from avialview.core.source import ChannelInfo
+        from avialsync.core.source import ChannelInfo
 
         return [
             ChannelInfo(name="a", unit="", dtype="f8", rate_hz=1.0),
@@ -152,4 +152,4 @@ def test_a_plugin_breaking_the_ingest_contract_is_named_as_such(tmp_path: Path) 
 
 def test_loader_contract_error_is_not_a_source_open_error() -> None:
     assert not issubclass(LoaderContractError, SourceOpenError)
-    assert issubclass(LoaderContractError, AvialViewError)
+    assert issubclass(LoaderContractError, AvialSyncError)

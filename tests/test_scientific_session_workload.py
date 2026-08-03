@@ -4,8 +4,8 @@ from pathlib import Path
 
 import numpy as np
 
-from avialview.core.pyramid import PyramidBuilder, PyramidReader
-from avialview.loaders.video_standard import VideoStandardLoader
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.loaders.video_standard import VideoStandardLoader
 
 
 def test_three_camera_four_stream_session_can_be_cached_and_queried(tmp_path: Path) -> None:

@@ -3,7 +3,7 @@
 import threading
 from types import SimpleNamespace
 
-from avialview.ui import video_pane
+from avialsync.ui import video_pane
 
 
 def test_windows_render_widget_has_video_pane_parent(monkeypatch, qapp) -> None:
@@ -75,7 +75,7 @@ def test_video_osd_queue_keeps_only_latest_frame() -> None:
 
 def _pane_without_libmpv(monkeypatch):
     """Construct a VideoPane as if the libmpv probe had failed."""
-    import avialview.ui.video_pane as video_pane_module
+    import avialsync.ui.video_pane as video_pane_module
 
     monkeypatch.setattr(video_pane_module, "probe_libmpv", lambda _pane: False)
     return video_pane_module.VideoPane()

@@ -1,6 +1,6 @@
-# Contributing to AvialView
+# Contributing to AvialSync
 
-Thanks for considering a contribution. AvialView is a scientific tool: the thing
+Thanks for considering a contribution. AvialSync is a scientific tool: the thing
 people trust it for is that what they see on screen is *when* it actually
 happened. That shapes most of the rules below.
 
@@ -22,16 +22,16 @@ differ from the environment Python, and that difference has caused real
 confusion.
 
 ```bash
-conda create -n avialview python=3.12
-conda run -n avialview pip install -e .[dev]
-conda run -n avialview python tools/make_fixtures.py   # needs ffmpeg in PATH
+conda create -n avialsync python=3.12
+conda run -n avialsync pip install -e .[dev]
+conda run -n avialsync python tools/make_fixtures.py   # needs ffmpeg in PATH
 ```
 
 Run the app:
 
 ```bash
-conda run -n avialview avialview
-conda run -n avialview avialview demo      # generates and opens a sample session
+conda run -n avialsync avialsync
+conda run -n avialsync avialsync demo      # generates and opens a sample session
 ```
 
 ## The gate
@@ -40,16 +40,16 @@ All four must pass before a pull request is ready. Run them after each
 increment, not only at the end.
 
 ```bash
-conda run -n avialview ruff check . && conda run -n avialview ruff format .
-conda run -n avialview mypy src/avialview/core     # strict, enforced
-conda run -n avialview mypy src/avialview          # standard
-QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -q --ignore=tests/benchmarks
+conda run -n avialsync ruff check . && conda run -n avialsync ruff format .
+conda run -n avialsync mypy src/avialsync/core     # strict, enforced
+conda run -n avialsync mypy src/avialsync          # standard
+QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -q --ignore=tests/benchmarks
 ```
 
 Coverage targets (TESTING.md §1) are checked with:
 
 ```bash
-QT_QPA_PLATFORM=offscreen conda run -n avialview pytest --cov=avialview --cov-report=term
+QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest --cov=avialsync --cov-report=term
 ```
 
 ## Rules that get a pull request rejected

@@ -17,11 +17,11 @@ import numpy as np
 import pytest
 from PySide6.QtCore import QThread, QTimer
 
-from avialview.core.session import SessionState, SyncProvenance, VideoEntry
-from avialview.engine.export_worker import AnnotationExportWorker
-from avialview.engine.session_worker import SessionLoadWorker, SessionSaveWorker
-from avialview.ui.annotations import AnnotationStore, VideoFrame
-from avialview.ui.main_window import MainWindow
+from avialsync.core.session import SessionState, SyncProvenance, VideoEntry
+from avialsync.engine.export_worker import AnnotationExportWorker
+from avialsync.engine.session_worker import SessionLoadWorker, SessionSaveWorker
+from avialsync.ui.annotations import AnnotationStore, VideoFrame
+from avialsync.ui.main_window import MainWindow
 
 
 @pytest.fixture

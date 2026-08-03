@@ -14,8 +14,8 @@ from PySide6.QtCore import QMimeData, QPointF, Qt, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication
 
-from avialview.loaders.csv_loader import CSVLoader
-from avialview.ui.main_window import MainWindow
+from avialsync.loaders.csv_loader import CSVLoader
+from avialsync.ui.main_window import MainWindow
 
 FIXTURE_SESSION = Path(__file__).parent / "fixtures" / "session_v1.avv"
 

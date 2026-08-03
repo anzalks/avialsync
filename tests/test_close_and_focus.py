@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from avialview.ui.main_window import MainWindow
+from avialsync.ui.main_window import MainWindow
 
 _VIDEO = "tests/fixtures/videos/camera_1.mp4"
 
@@ -221,7 +221,7 @@ def _pyramid_channels(tmp_path: Path, count: int) -> Path:
     """Build *count* cheap channels in one cache directory."""
     import numpy as np
 
-    from avialview.core.pyramid import PyramidBuilder
+    from avialsync.core.pyramid import PyramidBuilder
 
     cache = tmp_path / "many.avialcache"
     cache.mkdir(parents=True, exist_ok=True)
@@ -274,7 +274,7 @@ def test_every_row_lands_on_the_shared_window(qtbot, tmp_path) -> None:
     The pane is given a real size: pyqtgraph maps a link through view geometry,
     and an unsized offscreen viewport produces meaningless ranges.
     """
-    from avialview.ui.plot_pane import PlotPane
+    from avialsync.ui.plot_pane import PlotPane
 
     cache = _pyramid_channels(tmp_path, 8)
     pane = PlotPane()
@@ -300,7 +300,7 @@ def test_completion_does_not_ride_on_the_tail_of_a_slice(qtbot, tmp_path) -> Non
     `_finish_loading` costs ~19 ms. Running it directly from the last slice made
     one block out of two and was most of what kept the worst case near 90 ms.
     """
-    from avialview.ui.plot_pane import PlotPane
+    from avialsync.ui.plot_pane import PlotPane
 
     cache = _pyramid_channels(tmp_path, 8)
     pane = PlotPane()
@@ -326,7 +326,7 @@ def test_a_slice_stops_before_a_row_would_overrun_it(qtbot, tmp_path, monkeypatc
     Checking afterwards let a slice run to roughly twice its budget whenever a
     row started just under the deadline.
     """
-    from avialview.ui import plot_pane as plot_pane_module
+    from avialsync.ui import plot_pane as plot_pane_module
 
     cache = _pyramid_channels(tmp_path, 12)
     pane = plot_pane_module.PlotPane()

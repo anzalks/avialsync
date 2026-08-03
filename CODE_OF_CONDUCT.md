@@ -37,7 +37,7 @@ Examples of unacceptable behaviour:
 
 ## Scientific integrity
 
-AvialView is used to make measurements that end up in published work. Beyond the
+AvialSync is used to make measurements that end up in published work. Beyond the
 usual standards, this community expects that contributors:
 
 - do not overstate what has been verified — a passing build is not a timing
@@ -69,7 +69,7 @@ Instances of abusive, harassing, or otherwise unacceptable behaviour may be
 reported to the project maintainer, Anzal K S, at **anzal.ks@gmail.com**.
 
 If you would rather not send email, you can open a
-[private security advisory](https://github.com/anzalks/avialview/security/advisories/new)
+[private security advisory](https://github.com/anzalks/avialsync/security/advisories/new)
 on the repository instead — it is visible only to maintainers.
 
 All complaints will be reviewed and investigated promptly and fairly. All

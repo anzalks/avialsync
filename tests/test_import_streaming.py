@@ -16,9 +16,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-from avialview.core.pyramid import ChannelStage, PyramidBuilder, PyramidReader, count_nan
-from avialview.core.source import ChannelInfo
-from avialview.engine.importer import MAX_GAP_LOCATIONS, ImportWorker, _gap_locations
+from avialsync.core.pyramid import ChannelStage, PyramidBuilder, PyramidReader, count_nan
+from avialsync.core.source import ChannelInfo
+from avialsync.engine.importer import MAX_GAP_LOCATIONS, ImportWorker, _gap_locations
 
 CHUNK = 500
 CHUNKS = 8

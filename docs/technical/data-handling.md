@@ -6,7 +6,7 @@ The product contract is that text and plugin data are read once and converted in
 beside the source. A valid cache must be used on later viewing so a large source is not repeatedly
 parsed. The cache key includes source content information, including a content-hash tail, to avoid
 treating a changed file as unchanged. The cache directory is named `<file>.avialcache/`; deleting it
-is safe because AvialView can build it again from the source file.
+is safe because AvialSync can build it again from the source file.
 
 Importers process data in chunks. A time-series plugin yields time/value chunks in chronological order;
 the importer validates them, records import statistics, and builds the cache away from the interface

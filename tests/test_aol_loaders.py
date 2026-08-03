@@ -95,24 +95,24 @@ def tmp_aol_session(tmp_path: Path) -> Path:
 
 class TestAOLEncoderLoader:
     def test_can_open_encoder_log(self, tmp_encoder_log: Path) -> None:
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         assert AOLEncoderLoader.can_open(tmp_encoder_log) >= 0.9
 
     def test_can_open_rejects_csv(self, tmp_path: Path) -> None:
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         csv_file = tmp_path / "data.csv"
         csv_file.write_text("time,value\n1.0,2.0\n", encoding="utf-8")
         assert AOLEncoderLoader.can_open(csv_file) == 0.0
 
     def test_can_open_rejects_directory(self, tmp_path: Path) -> None:
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         assert AOLEncoderLoader.can_open(tmp_path) == 0.0
 
     def test_channels(self, tmp_encoder_log: Path) -> None:
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
         loader.open(tmp_encoder_log, {})
@@ -121,7 +121,7 @@ class TestAOLEncoderLoader:
         assert channels[0].name == "encoder_velocity"
 
     def test_read_chunks(self, tmp_encoder_log: Path) -> None:
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
         loader.open(tmp_encoder_log, {})
@@ -142,8 +142,8 @@ class TestAOLEncoderLoader:
 
     def test_read_chunks_invalid_channel(self, tmp_encoder_log: Path) -> None:
         """Unknown channels raise the typed core error, not a bare KeyError."""
-        from avialview.core.errors import MissingColumnError
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.core.errors import MissingColumnError
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
         loader.open(tmp_encoder_log, {})
@@ -152,8 +152,8 @@ class TestAOLEncoderLoader:
 
     def test_read_chunks_before_open(self) -> None:
         """Using the source before open() reports it, instead of raising AttributeError."""
-        from avialview.core.errors import SourceOpenError
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.core.errors import SourceOpenError
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
         with pytest.raises(SourceOpenError):
@@ -161,8 +161,8 @@ class TestAOLEncoderLoader:
 
     def test_open_validates_format(self, tmp_path: Path) -> None:
         """Malformed input raises the typed core error with actionable text."""
-        from avialview.core.errors import SourceOpenError
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.core.errors import SourceOpenError
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         bad = tmp_path / "bad_encoder.txt"
         bad.write_text("not an encoder log\n", encoding="utf-8")
@@ -182,7 +182,7 @@ class TestAOLEncoderLoader:
         D-052 -- ``anchor_date`` presence alone cannot mean "manual", since a
         normal auto session carries it too.
         """
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
         loader.open(tmp_encoder_log, {"anchor_date": "2026-05-08", "auto_resolved": True})
@@ -196,7 +196,7 @@ class TestAOLEncoderLoader:
         self, tmp_encoder_log: Path
     ) -> None:
         """The other real `_collect_aol_candidates` branch: no anchor_date at all."""
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
         loader.open(tmp_encoder_log, {"auto_resolved": True})
@@ -211,7 +211,7 @@ class TestAOLEncoderLoader:
         own first sample, so it lands near the same relative zero a manually
         opened video or CSV starts at (D-052).
         """
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         loader = AOLEncoderLoader()
         loader.open(tmp_encoder_log, {})
@@ -220,7 +220,7 @@ class TestAOLEncoderLoader:
 
     def test_encoder_crosses_midnight(self, tmp_path: Path) -> None:
         """A recording spanning 00:00 unwraps past 86400 instead of jumping back."""
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         content = "23:59:59:500 1 0.0 1.0\n00:00:00:500 2 0.0 2.0\n00:00:01:500 3 0.0 3.0\n"
         path = tmp_path / "encoder_log.txt"
@@ -241,8 +241,8 @@ class TestAOLEncoderLoader:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A duplicate timestamp straddling a chunk boundary keeps the last value."""
-        from avialview.loaders import aol_encoder_loader
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.loaders import aol_encoder_loader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         monkeypatch.setattr(aol_encoder_loader, "_CHUNK_SIZE", 2)
         content = (
@@ -271,9 +271,9 @@ class TestAOLEncoderLoader:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A backward jump straddling a chunk boundary still raises."""
-        from avialview.core.errors import NonMonotonicTimeError
-        from avialview.loaders import aol_encoder_loader
-        from avialview.loaders.aol_encoder_loader import AOLEncoderLoader
+        from avialsync.core.errors import NonMonotonicTimeError
+        from avialsync.loaders import aol_encoder_loader
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 
         monkeypatch.setattr(aol_encoder_loader, "_CHUNK_SIZE", 2)
         content = (
@@ -296,30 +296,30 @@ class TestAOLEncoderLoader:
 
 class TestAOLEksLoader:
     def test_can_open_eks_csv(self, tmp_eks_csv: Path) -> None:
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         assert AOLEksLoader.can_open(tmp_eks_csv) >= 0.9
 
     def test_can_open_rejects_plain_csv(self, tmp_path: Path) -> None:
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         csv_file = tmp_path / "plain.csv"
         csv_file.write_text("time,value\n1.0,2.0\n", encoding="utf-8")
         assert AOLEksLoader.can_open(csv_file) == 0.0
 
     def test_can_open_rejects_directory(self, tmp_path: Path) -> None:
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         assert AOLEksLoader.can_open(tmp_path) == 0.0
 
     def test_is_frame_indexed(self, tmp_eks_csv: Path) -> None:
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         loader = AOLEksLoader()
         assert loader.is_frame_indexed() is True
 
     def test_channels_xyz_only(self, tmp_eks_csv: Path) -> None:
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         loader = AOLEksLoader()
         loader.open(tmp_eks_csv, {"fps": 230.0})
@@ -335,7 +335,7 @@ class TestAOLEksLoader:
         assert "left_paw_error" not in names
 
     def test_read_chunks_with_fnum(self, tmp_eks_csv: Path) -> None:
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         loader = AOLEksLoader()
         loader.open(tmp_eks_csv, {"fps": 230.0})
@@ -352,7 +352,7 @@ class TestAOLEksLoader:
         np.testing.assert_allclose(t, np.arange(4) / 230.0, atol=1e-6)
 
     def test_read_chunks_without_fnum(self, tmp_eks_csv_no_fnum: Path) -> None:
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         loader = AOLEksLoader()
         loader.open(tmp_eks_csv_no_fnum, {"fps": 30.0})
@@ -369,15 +369,15 @@ class TestAOLEksLoader:
 
     def test_channels_report_camera_fps(self, tmp_eks_csv: Path) -> None:
         """EKS rows are one frame each, so rate_hz is the camera fps, not None."""
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         loader = AOLEksLoader()
         loader.open(tmp_eks_csv, {"fps": 230.0})
         assert all(ch.rate_hz == 230.0 for ch in loader.channels())
 
     def test_unknown_channel_raises_typed_error(self, tmp_eks_csv: Path) -> None:
-        from avialview.core.errors import MissingColumnError
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.core.errors import MissingColumnError
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         loader = AOLEksLoader()
         loader.open(tmp_eks_csv, {"fps": 230.0})
@@ -386,16 +386,16 @@ class TestAOLEksLoader:
 
     def test_read_before_open_raises_typed_error(self) -> None:
         """Reading before open() reports it instead of raising AttributeError."""
-        from avialview.core.errors import SourceOpenError
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.core.errors import SourceOpenError
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         loader = AOLEksLoader()
         with pytest.raises(SourceOpenError):
             list(loader.read_all_chunks())
 
     def test_missing_xyz_columns_raises_typed_error(self, tmp_path: Path) -> None:
-        from avialview.core.errors import SourceOpenError
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.core.errors import SourceOpenError
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         path = tmp_path / "_eks.csv"
         path.write_text("alpha,beta\n1.0,2.0\n", encoding="utf-8")
@@ -410,7 +410,7 @@ class TestAOLEksLoader:
         'left_ear'. Iterating a set here previously made the answer depend on
         PYTHONHASHSEED, which changed channel names, cache keys and session files.
         """
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         header = "model_left_ear_x,model_left_ear_y,model_left_ear_z"
         path = tmp_path / "_eks.csv"
@@ -430,8 +430,8 @@ class TestAOLEksLoader:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A duplicate frame number straddling a batch boundary keeps the last value."""
-        from avialview.loaders import aol_eks_loader
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.loaders import aol_eks_loader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         monkeypatch.setattr(aol_eks_loader, "_BATCH_SIZE", 2)
         header = "paw_x,paw_y,paw_z,fnum"
@@ -453,9 +453,9 @@ class TestAOLEksLoader:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A backward frame number straddling a batch boundary still raises."""
-        from avialview.core.errors import NonMonotonicTimeError
-        from avialview.loaders import aol_eks_loader
-        from avialview.loaders.aol_eks_loader import AOLEksLoader
+        from avialsync.core.errors import NonMonotonicTimeError
+        from avialsync.loaders import aol_eks_loader
+        from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
         monkeypatch.setattr(aol_eks_loader, "_BATCH_SIZE", 2)
         header = "paw_x,paw_y,paw_z,fnum"
@@ -474,22 +474,22 @@ class TestAOLEksLoader:
 
 class TestAOLSessionDetection:
     def test_is_aol_session(self, tmp_aol_session: Path) -> None:
-        from avialview.loaders.aol_session_loader import is_aol_session
+        from avialsync.loaders.aol_session_loader import is_aol_session
 
         assert is_aol_session(tmp_aol_session) is True
 
     def test_is_aol_session_rejects_plain_dir(self, tmp_path: Path) -> None:
-        from avialview.loaders.aol_session_loader import is_aol_session
+        from avialsync.loaders.aol_session_loader import is_aol_session
 
         assert is_aol_session(tmp_path) is False
 
     def test_is_aol_session_rejects_file(self, tmp_encoder_log: Path) -> None:
-        from avialview.loaders.aol_session_loader import is_aol_session
+        from avialsync.loaders.aol_session_loader import is_aol_session
 
         assert is_aol_session(tmp_encoder_log) is False
 
     def test_build_manifest(self, tmp_aol_session: Path) -> None:
-        from avialview.loaders.aol_session_loader import build_manifest
+        from avialsync.loaders.aol_session_loader import build_manifest
 
         manifest = build_manifest(tmp_aol_session)
 
@@ -518,7 +518,7 @@ class TestAOLSessionDetection:
 
     def test_build_manifest_uses_raw_videos(self, tmp_path: Path) -> None:
         """Root MP4s are the normal case."""
-        from avialview.loaders.aol_session_loader import build_manifest
+        from avialsync.loaders.aol_session_loader import build_manifest
 
         session = tmp_path / "session"
         session.mkdir()
@@ -532,7 +532,7 @@ class TestAOLSessionDetection:
 
     def test_build_manifest_falls_back_to_labeled_when_no_raw_footage(self, tmp_path: Path) -> None:
         """A session with only rendered videos must still open."""
-        from avialview.loaders.aol_session_loader import build_manifest
+        from avialsync.loaders.aol_session_loader import build_manifest
 
         session = tmp_path / "session"
         labeled = session / "labeled_videos"
@@ -546,7 +546,7 @@ class TestAOLSessionDetection:
         assert manifest.camera_labels == ["FaceCam"]
 
     def test_trial_config_parsing(self, tmp_aol_session: Path) -> None:
-        from avialview.loaders.aol_session_loader import build_manifest
+        from avialsync.loaders.aol_session_loader import build_manifest
 
         manifest = build_manifest(tmp_aol_session)
         assert manifest.trial_config.get("animal_id") == "test"

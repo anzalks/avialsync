@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from avialview.core.errors import SyncEvidenceError
-from avialview.core.sync import fit_exact_index_mapping
+from avialsync.core.errors import SyncEvidenceError
+from avialsync.core.sync import fit_exact_index_mapping
 
 
 def test_exact_index_mapping_preserves_raw_pairs_and_nonlinear_timestamps() -> None:

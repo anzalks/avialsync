@@ -18,9 +18,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import avialview.loaders.aol_eks_loader as eks_module
-from avialview.core.errors import NonMonotonicTimeError
-from avialview.loaders.aol_eks_loader import AOLEksLoader
+import avialsync.loaders.aol_eks_loader as eks_module
+from avialsync.core.errors import NonMonotonicTimeError
+from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
 HEADER = "nose_x,nose_y,nose_z,nose_error,tail_x,tail_y,tail_z,tail_error,fnum"
 
@@ -156,7 +156,7 @@ def test_read_all_chunks_defaults_to_every_channel(tmp_path: Path) -> None:
 
 
 def test_requesting_an_unknown_channel_names_the_real_ones(tmp_path: Path) -> None:
-    from avialview.core.errors import MissingColumnError
+    from avialsync.core.errors import MissingColumnError
 
     path = _write(tmp_path / "_eks.csv", [0, 1])
     loader = AOLEksLoader()

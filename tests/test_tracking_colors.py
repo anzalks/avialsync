@@ -5,7 +5,7 @@ import math
 
 import pytest
 
-from avialview.ui.tracking_colors import (
+from avialsync.ui.tracking_colors import (
     POINT_COLORS,
     PointColorRegistry,
     color_for_point,
@@ -16,7 +16,7 @@ from avialview.ui.tracking_colors import (
 @pytest.fixture(autouse=True)
 def _fresh_registry():
     """Isolate each test from the module-level registry both views share."""
-    from avialview.ui.tracking_colors import REGISTRY
+    from avialsync.ui.tracking_colors import REGISTRY
 
     REGISTRY.reset()
     yield

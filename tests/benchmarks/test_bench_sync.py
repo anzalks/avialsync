@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from avialview.core.sync import fit_sync_events
+from avialsync.core.sync import fit_sync_events
 
 _FIT_PREVIEW_BUDGET_S = 0.25
 

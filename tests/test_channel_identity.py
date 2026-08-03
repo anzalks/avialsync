@@ -14,10 +14,10 @@ import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from avialview.core.channel_reader import ChannelKey, MappedChannelReader, disambiguate
-from avialview.core.pyramid import PyramidBuilder, PyramidReader
-from avialview.engine.export import compute_region_stats, export_data_slice_csv
-from avialview.ui.main_window import MainWindow
+from avialsync.core.channel_reader import ChannelKey, MappedChannelReader, disambiguate
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.engine.export import compute_region_stats, export_data_slice_csv
+from avialsync.ui.main_window import MainWindow
 
 SHARED_NAME = "force_z"
 LEFT = "/tmp/left-rig.csv"
@@ -104,7 +104,7 @@ def test_removing_one_sources_channel_leaves_the_other_loaded(window: MainWindow
 
 def test_a_bare_name_matches_every_owner_and_says_so(window: MainWindow, caplog) -> None:
     """An unqualified name is ambiguous; that must be reported, not guessed."""
-    with caplog.at_level(logging.WARNING, logger="avialview.ui.plot_pane"):
+    with caplog.at_level(logging.WARNING, logger="avialsync.ui.plot_pane"):
         window.plot_pane.set_channel_visible(SHARED_NAME, False)
 
     assert all(not ch.visible for ch in window.plot_pane.channels)

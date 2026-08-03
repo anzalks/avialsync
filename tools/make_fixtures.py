@@ -1,4 +1,4 @@
-"""Synthetic ground-truth data generator for AvialView fixtures.
+"""Synthetic ground-truth data generator for AvialSync fixtures.
 
 This script creates video and time-series data with known properties for sync testing.
 All videos have a binary frame-index strip encoded in the top row.

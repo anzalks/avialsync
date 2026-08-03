@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from avialview.core.timeline import TimeMap
-from avialview.engine.seeker import SeekGroup
+from avialsync.core.timeline import TimeMap
+from avialsync.engine.seeker import SeekGroup
 
 
 @dataclass

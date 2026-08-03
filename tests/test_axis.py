@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from avialview.ui.plot_pane import PlotPane
-from avialview.ui.transport import Transport
+from avialsync.ui.plot_pane import PlotPane
+from avialsync.ui.transport import Transport
 
 
 def test_adjacent_slider_positions_produce_distinct_continuous_windows(qtbot) -> None:

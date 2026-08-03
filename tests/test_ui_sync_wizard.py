@@ -3,8 +3,8 @@
 import numpy as np
 from PySide6.QtWidgets import QDialogButtonBox
 
-from avialview.engine.sync_worker import EventEvidenceSpec
-from avialview.ui.sync_wizard import SyncWizard
+from avialsync.engine.sync_worker import EventEvidenceSpec
+from avialsync.ui.sync_wizard import SyncWizard
 
 
 def test_sync_wizard_requires_preview_before_acceptance(qtbot) -> None:

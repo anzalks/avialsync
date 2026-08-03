@@ -1,9 +1,9 @@
-# AvialView — Model Handout
+# AvialSync — Model Handout
 
 Desktop tool for scrubbing time-synchronized multi-camera video with dense time-series data on a single master timeline.  
 **Stack:** Python 3.11–3.12, PySide6, libmpv (python-mpv), pyqtgraph, polars, numpy
 **License:** Apache-2.0  
-**Env:** `conda run -n avialview <cmd>` — every command without exception
+**Env:** `conda run -n avialsync <cmd>` — every command without exception
 
 ---
 
@@ -11,12 +11,12 @@ Desktop tool for scrubbing time-synchronized multi-camera video with dense time-
 
 | Context | Form |
 |---|---|
-| Brand / UI / window title | `AvialView` |
-| Module / CLI / PyPI / import paths | `avialview` (lowercase, one word) |
+| Brand / UI / window title | `AvialSync` |
+| Module / CLI / PyPI / import paths | `avialsync` (lowercase, one word) |
 | Session files | `.avv` |
 | Cache sidecar dirs | `<file>.avialcache/` |
 
-Use `AvialView` for displayed text and `avialview` for technical identifiers. Do not invent variants.
+Use `AvialSync` for displayed text and `avialsync` for technical identifiers. Do not invent variants.
 
 ---
 
@@ -108,11 +108,11 @@ with explicit user acceptance and session provenance. Native plugin event provid
   in a headless job. Interactive Windows panes use libmpv's Qt OpenGL render API: the native `wid`
   path can decode while presenting only a gray child surface on affected Windows compositor/driver
   combinations.
-- **Portable media runtime and demo launch**: `avialview.runtime` configures bundled media or the
+- **Portable media runtime and demo launch**: `avialsync.runtime` configures bundled media or the
   active conda environment before the lazy libmpv import, and `VideoStandardLoader` resolves an
   explicit `ffprobe` path rather than trusting the current directory or activated-shell PATH; on
   Windows it also finds the standard WinGet FFmpeg package path. `tools/launch_demo.py` delegates to
-  the installed command so the two paths cannot drift. `avialview demo` generates the full three-CFR
+  the installed command so the two paths cannot drift. `avialsync demo` generates the full three-CFR
   plus one-VFR camera demo under the platform application-data folder and serially imports its sensor,
   dense ephys/TTL, and tracking tables through the normal asynchronous source paths.
   Generation runs in `DemoGenerationWorker`, with a modal progress/log dialog, FFmpeg diagnostic
@@ -232,7 +232,7 @@ with explicit user acceptance and session provenance. Native plugin event provid
   proves its commit is reachable from `main`; side-branch or detached tags cannot build or publish.
   The Ubuntu 24.04 AppImage build installs `libfuse2t64` because the pinned AppImageTool requires
   the `libfuse.so.2` ABI; never substitute the obsolete `fuse` package. The AppDir stages the
-  reviewed `avialview.png` icon named by its desktop entry; AppImageTool rejects an undeclared or
+  reviewed `avialsync.png` icon named by its desktop entry; AppImageTool rejects an undeclared or
   missing desktop icon. `assets/avial_view.png` is the canonical source; the generator transparently
   center-pads non-square artwork rather than stretching or cropping it. Regenerate
   Linux PNG, Windows ICO, macOS ICNS, and runtime PNG assets with `tools/generate_icons.py`.
@@ -298,7 +298,7 @@ with explicit user acceptance and session provenance. Native plugin event provid
   tracking, sensor, and third-party source types route to their matching import pipeline.
 
 ### mypy is clean — keep it that way (V-07)
-Both `mypy src/avialview/core` (strict) and `mypy src/avialview` report **0 errors**, with no
+Both `mypy src/avialsync/core` (strict) and `mypy src/avialsync` report **0 errors**, with no
 `ignore_errors` override anywhere. The only suppression in `pyproject.toml` is
 `ignore_missing_imports` for third-party packages that ship no stubs (mpv, pyqtgraph, neo,
 quantities, pyarrow) — that silences the *absence of stubs*, not errors in our own code.
@@ -598,7 +598,7 @@ The correct dependency is `python-mpv` on PyPI, imported as `import mpv`. The pa
 
 ### 12. ruff `line-length = 100` — IDE diagnostics at 79 chars are false positives
 `pyproject.toml` sets `line-length = 100`. Editor/Pylance red-underline at 79 chars is wrong.
-Only `conda run -n avialview ruff check .` is authoritative.
+Only `conda run -n avialsync ruff check .` is authoritative.
 
 ### 13. `_load_level()` is private — use the bounded read API (D-045)
 
@@ -816,32 +816,32 @@ Plain CSV for DLC/LightningPose retraining pipelines.
 
 ```bash
 # Install
-conda run -n avialview pip install -e .[dev]
+conda run -n avialsync pip install -e .[dev]
 
 # Run the app
-conda run -n avialview avialview
+conda run -n avialsync avialsync
 
 # Run with sample data
-conda run -n avialview avialview open tests/fixtures/sample_session/
+conda run -n avialsync avialsync open tests/fixtures/sample_session/
 
 # Generate test fixtures (needs ffmpeg in PATH)
-conda run -n avialview python tools/make_fixtures.py
+conda run -n avialsync python tools/make_fixtures.py
 
 # Tests (offscreen)
-QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -x -q
+QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q
 
 # Lint + format
-conda run -n avialview ruff check --fix . && conda run -n avialview ruff format .
+conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format .
 
 # Type check
-conda run -n avialview mypy src/avialview/core/
+conda run -n avialsync mypy src/avialsync/core/
 
 # Performance benchmarks
-QT_QPA_PLATFORM=offscreen conda run -n avialview pytest --benchmark-only
+QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest --benchmark-only
 
 # Release preflight, version commit, annotated tag, and push (tag workflow publishes)
-conda run -n avialview python tools/prepare_release.py 0.1.0b1 --dry-run
-conda run -n avialview python tools/prepare_release.py 0.1.0b1
+conda run -n avialsync python tools/prepare_release.py 0.1.0b1 --dry-run
+conda run -n avialsync python tools/prepare_release.py 0.1.0b1
 ```
 
 ---

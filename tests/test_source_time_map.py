@@ -12,10 +12,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialview.core.channel_reader import MappedChannelReader
-from avialview.core.pyramid import PyramidBuilder, PyramidReader
-from avialview.core.session import SensorEntry, SessionState
-from avialview.core.timeline import TimeMap
+from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.core.session import SensorEntry, SessionState
+from avialsync.core.timeline import TimeMap
 
 RATE_HZ = 100.0
 COUNT = 4_000

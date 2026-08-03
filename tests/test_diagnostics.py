@@ -3,7 +3,7 @@
 import sys
 from types import SimpleNamespace
 
-from avialview.ui import diagnostics
+from avialsync.ui import diagnostics
 
 
 def test_hwdec_probe_reports_failure_and_terminates_player(monkeypatch) -> None:

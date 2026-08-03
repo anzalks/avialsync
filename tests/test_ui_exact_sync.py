@@ -4,10 +4,10 @@ import numpy as np
 import pytest
 from PySide6.QtCore import QTimer
 
-from avialview.core.pyramid import PyramidBuilder
-from avialview.loaders.video_standard import VideoStandardLoader
-from avialview.ui.main_window import MainWindow
-from avialview.ui.sync_wizard import SyncWizard
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.loaders.video_standard import VideoStandardLoader
+from avialsync.ui.main_window import MainWindow
+from avialsync.ui.sync_wizard import SyncWizard
 
 
 def test_exact_sync_flow(qtbot, tmp_path: Path):

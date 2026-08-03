@@ -3,7 +3,7 @@
 import pytest
 from PySide6.QtWidgets import QStyle, QStyleOptionSlider
 
-from avialview.ui.transport import Transport
+from avialsync.ui.transport import Transport
 
 
 @pytest.fixture

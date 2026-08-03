@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtGui import QColor, QImage
 
-from avialview.core.pyramid import PyramidBuilder, PyramidReader
-from avialview.engine.export import compute_region_stats, export_data_slice_csv
-from avialview.engine.export_worker import (
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.engine.export import compute_region_stats, export_data_slice_csv
+from avialsync.engine.export_worker import (
     DataExportWorker,
     ReaderReference,
     RegionStatsWorker,
@@ -71,7 +71,7 @@ def test_video_clip_worker_runs_ffmpeg_jobs_off_the_ui_path(tmp_path: Path, monk
         calls.append((path, t0, t1, output))
         return path != "bad.mp4"
 
-    monkeypatch.setattr("avialview.engine.export_worker.trim_video_clip", record_clip)
+    monkeypatch.setattr("avialsync.engine.export_worker.trim_video_clip", record_clip)
     results: list[tuple[int, int]] = []
     worker = VideoClipWorker(
         [("good.mp4", 1.0, 2.0, tmp_path / "good.mp4"), ("bad.mp4", 1.0, 2.0, tmp_path / "bad.mp4")]

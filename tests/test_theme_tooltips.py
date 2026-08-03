@@ -6,9 +6,9 @@ import pytest
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication, QStyle, QStyleOptionSlider
 
-from avialview.ui import theme
-from avialview.ui.plot_pane import PlotPane
-from avialview.ui.transport import Transport
+from avialsync.ui import theme
+from avialsync.ui.plot_pane import PlotPane
+from avialsync.ui.transport import Transport
 
 
 def test_explicit_palettes_define_readable_tooltip_colours() -> None:
@@ -68,7 +68,7 @@ def test_toggle_applies_light_then_restores_system_palette(monkeypatch) -> None:
     theme.apply_theme(app, theme.THEME_LIGHT)
     assert values["theme/preference"] == theme.THEME_LIGHT
     assert app.palette().color(QPalette.ColorRole.Link) == native_accent
-    assert bool(app.property("avialview_theme_dark")) is False
+    assert bool(app.property("avialsync_theme_dark")) is False
 
     theme.apply_theme(app, theme.THEME_SYSTEM)
     assert app.palette().color(QPalette.ColorRole.Highlight) == native_accent
@@ -208,7 +208,7 @@ def test_font_preference_scales_from_and_restores_the_system_font(monkeypatch, q
 def test_demo_launcher_uses_the_application_theme() -> None:
     """The demo must use the same saved appearance as the production app."""
     launcher = Path("tools/launch_demo.py").read_text(encoding="utf-8")
-    application = Path("src/avialview/__main__.py").read_text(encoding="utf-8")
-    assert "from avialview.__main__ import main" in launcher
+    application = Path("src/avialsync/__main__.py").read_text(encoding="utf-8")
+    assert "from avialsync.__main__ import main" in launcher
     assert "load_saved_theme(app)" in application
     assert "ToolTipBase" not in launcher

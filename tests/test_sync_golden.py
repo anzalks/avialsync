@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QApplication
 from pytestqt.exceptions import TimeoutError as QtTimeoutError
 from util_framestrip import decode_frame_strip
 
-from avialview.ui.main_window import MainWindow
+from avialsync.ui.main_window import MainWindow
 
 DECODED_FRAME_TIMEOUT_MS = 10_000
 OBSERVER_SETTLE_TIMEOUT_MS = 5_000

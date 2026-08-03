@@ -12,20 +12,20 @@ read it only if a task's reason is unclear. `AGENTS.md` remains the canonical ru
 
 ## PART A — RULES (read these before every task, never skip)
 
-**A1. Every command is prefixed with `conda run -n avialview`.** No exceptions. The system Python is
+**A1. Every command is prefixed with `conda run -n avialsync`.** No exceptions. The system Python is
 not the project Python.
 
 **A2. The Gate.** After *every* task, run all four commands. All four must pass.
 
 ```bash
-conda run -n avialview ruff check . && conda run -n avialview ruff format .
-conda run -n avialview mypy src/avialview/core
-conda run -n avialview mypy src/avialview
-QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -q --ignore=tests/benchmarks
+conda run -n avialsync ruff check . && conda run -n avialsync ruff format .
+conda run -n avialsync mypy src/avialsync/core
+conda run -n avialsync mypy src/avialsync
+QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -q --ignore=tests/benchmarks
 ```
 
 After Phase 1 is finished, also run the benchmarks once per phase:
-`conda run -n avialview pytest tests/benchmarks -q`
+`conda run -n avialsync pytest tests/benchmarks -q`
 
 **A3. One task = one commit.** Conventional message, e.g. `fix(ui): keep drop-scan worker alive`.
 Never combine two task IDs into one commit. Never move on with a red Gate.
@@ -36,7 +36,7 @@ Never combine two task IDs into one commit. Never move on with a red Gate.
 - Do NOT delete, skip, `xfail`, or weaken any existing test to make something pass.
 - Do NOT write `except Exception: pass`.
 - Do NOT leave a `TODO` that acknowledges a crash — fix it or stop and report.
-- Do NOT rename anything. `AvialView` is the brand, `avialview` is the identifier. That is settled.
+- Do NOT rename anything. `AvialSync` is the brand, `avialsync` is the identifier. That is settled.
 - Do NOT refactor code the task does not name. Match the style of the file you are editing.
 
 **A5. Never touch these.**
@@ -116,7 +116,7 @@ Tick a box only after its Gate passed and its commit exists. Always resume at th
 The Gate is red today. Nothing later can be trusted until it is green. These five tasks are
 mechanical; make no other change.
 
-### 0.1 — `src/avialview/loaders/aol_eks_loader.py`, line ~105
+### 0.1 — `src/avialsync/loaders/aol_eks_loader.py`, line ~105
 `dict(zip(self._xyz_channels, raw_xyz))` → `dict(zip(self._xyz_channels, raw_xyz, strict=True))`.
 The two lists are appended in lockstep in the loop directly above, so `strict=True` is correct.
 Commit: `fix(loaders): make EKS column zip strict`
@@ -125,7 +125,7 @@ Commit: `fix(loaders): make EKS column zip strict`
 One comment is 116 characters. Wrap it to two lines of ≤ 100.
 Commit: `style(tests): wrap over-length comment`
 
-### 0.3 — `src/avialview/engine/drop_worker.py`, lines ~169 and ~180
+### 0.3 — `src/avialsync/engine/drop_worker.py`, lines ~169 and ~180
 Two `config = {...}` locals are inferred as `dict[str, float]`, then get a list and a str assigned.
 Annotate both explicitly:
 ```python
@@ -152,7 +152,7 @@ Commit: `test(bench): skip budget assertion when benchmarks are disabled`
 add `pytest_out.txt` to `.gitignore`.
 Commit: `chore: drop committed pytest output capture`
 
-> **STOP after 0.5.** Run the full Gate *and* `conda run -n avialview pytest -x -q` (benchmarks
+> **STOP after 0.5.** Run the full Gate *and* `conda run -n avialsync pytest -x -q` (benchmarks
 > enabled). Both must be green. Report, then continue.
 
 ---
@@ -191,7 +191,7 @@ before touching any source file. Commit the failing tests:
 `test(ui): cover background worker lifetime`
 
 ### 1.2 — Add `MainWindow._run_job`
-In `src/avialview/ui/main_window.py`, add `self._jobs: dict[QThread, QObject] = {}` in `__init__`
+In `src/avialsync/ui/main_window.py`, add `self._jobs: dict[QThread, QObject] = {}` in `__init__`
 next to the other `*_jobs` dicts (around line 78), and add this method near them:
 
 ```python
@@ -246,7 +246,7 @@ threaded save can never finish. At close time only, run the save inline:
 ```python
 # Close-time autosave is the one legitimate blocking write: it happens after
 # the final paint, it is bounded, and a worker thread cannot outlive the window.
-from avialview.engine.session_worker import SessionSaveWorker
+from avialsync.engine.session_worker import SessionSaveWorker
 
 SessionSaveWorker(self._build_session_state(), autosave_path).run()
 ```
@@ -254,7 +254,7 @@ Keep the periodic `_autosave_timer` path threaded — change only the close path
 Commit: `fix(ui): flush the autosave before the window closes`
 
 > **STOP after 1.5.** Gate + benchmarks. Then manually launch the app
-> (`conda run -n avialview avialview`) and confirm by hand: drop a video, drop a CSV, drop an AOL
+> (`conda run -n avialsync avialsync`) and confirm by hand: drop a video, drop a CSV, drop an AOL
 > session folder, save a session, reopen it. Report what worked and what did not.
 
 ---
@@ -334,7 +334,7 @@ Commit: `fix(loaders): make EKS bodypart resolution deterministic`
 Commit: `fix(loaders): raise typed errors from the AOL loaders`
 
 ### 2.6b — Fix the empty-substring camera match (V-04b)
-`src/avialview/engine/drop_worker.py::_collect_aol_candidates` derives an EKS camera name with
+`src/avialsync/engine/drop_worker.py::_collect_aol_candidates` derives an EKS camera name with
 `eks_file.name.split("_")[0]`. For the real file `_eks.csv` that is the **empty string**, and
 `"" in vid_name` matches every video, so the first video's start epoch is always chosen. It is
 correct today only because all cameras in the sample session share one epoch.
@@ -368,7 +368,7 @@ open P0. `_build_channel_by_channel` (line ~205) has the same defect via `list(l
 Phase 3 is the only phase that touches `core/`. Benchmarks must be unaffected or better.
 
 ### 3.1 — Incremental pyramid building
-File `src/avialview/core/pyramid.py`. Add to `PyramidBuilder`:
+File `src/avialsync/core/pyramid.py`. Add to `PyramidBuilder`:
 - `append(self, t: np.ndarray, v: np.ndarray) -> None` — appends to the level-1 arrays on disk and
   folds the chunk into the running 16× / 256× / 4096× min/max extrema.
 - `finalize(self) -> None` — flushes partial buckets and writes all level files atomically.
@@ -407,7 +407,7 @@ a licence check in the PR description (AGENTS §Tech stack).
 Also add a `tests/benchmarks/` entry recording p50/p95/p99 and peak memory for a 1 GB import.
 Commit: `test(engine): bound import memory growth`
 
-> **STOP after 3.5.** Gate + `conda run -n avialview pytest tests/benchmarks -q`. No benchmark may
+> **STOP after 3.5.** Gate + `conda run -n avialsync pytest tests/benchmarks -q`. No benchmark may
 > regress by more than 20 %. Report the pyramid-build number before and after.
 
 ---
@@ -419,7 +419,7 @@ There is currently no `creationflags` anywhere in the tree, so every ffprobe/ffm
 console window in a windowed Windows build. Loading four cameras flashes four consoles. This is the
 single most visible Windows hiccup.
 
-Add to `src/avialview/runtime.py` (it imports `os`, `shutil`, `sys` today — you must also add
+Add to `src/avialsync/runtime.py` (it imports `os`, `shutil`, `sys` today — you must also add
 `import subprocess`):
 ```python
 def subprocess_flags() -> int:
@@ -485,8 +485,8 @@ Do them one module per commit, easiest first:
 `loaders.csv_loader` → `loaders.neo_loader` → `ui.sidebar` → `ui.video_pane` → `ui.transport` →
 `ui.plot_pane`.
 
-For each: delete that module's block from `pyproject.toml`, run `conda run -n avialview mypy
-src/avialview`, and **fix the real errors in the module**. Never re-add the block. Never add
+For each: delete that module's block from `pyproject.toml`, run `conda run -n avialsync mypy
+src/avialsync`, and **fix the real errors in the module**. Never re-add the block. Never add
 `# type: ignore` except for a genuine mypy limitation (e.g. `**dict[str, object]` unpacking, a
 missing third-party stub) with a one-line comment naming it. If a module needs more than ~30 real
 fixes, commit what you have done, restore only that one block with a comment naming the remaining
@@ -494,13 +494,13 @@ error count, and record it in `HANDOUT.md` as known debt.
 Commit each: `fix(types): type-check <module>`
 
 ### 5.2 — Break the `engine` → `ui` dependency
-`engine/player.py` lines 13–16 import `avialview.ui.plot_pane`, `ui.transport`, `ui.video_grid`,
+`engine/player.py` lines 13–16 import `avialsync.ui.plot_pane`, `ui.transport`, `ui.video_grid`,
 `ui.video_pane` at module scope, so `engine` cannot be exercised headlessly. Move all four under
 `if TYPE_CHECKING:` — they are used only for annotations; the objects arrive as constructor
 arguments. Also replace `self.transport._bounds` (line ~94) with a public `Transport.bounds()`
 accessor you add to `ui/transport.py`.
-Extend `tests/test_headless_core.py` to assert that importing `avialview.engine.player` does not
-import `avialview.ui.plot_pane` at module scope.
+Extend `tests/test_headless_core.py` to assert that importing `avialsync.engine.player` does not
+import `avialsync.ui.plot_pane` at module scope.
 Commit: `refactor(engine): remove module-scope UI imports from Player`
 
 ### 5.3 — Split `ui/main_window.py` (4 commits)
@@ -523,7 +523,7 @@ Commit each: `refactor(ui): extract <name> controller from MainWindow`
 
 ### 5.4 — Fix `core/registry.py`
 Five defects, one commit each or one commit total, your choice — but all five:
-1. `_default_plugin_dirs()` returns only `~/.avialview/plugins`. Add the bundled `examples/plugins/`
+1. `_default_plugin_dirs()` returns only `~/.avialsync/plugins`. Add the bundled `examples/plugins/`
    directory promised by `BLUEPRINT.md` Phase 5.
 2. No `sys._MEIPASS` handling, so no loose plugin loads from a PyInstaller bundle. Mirror the
    existing pattern at `runtime.py` line ~30.

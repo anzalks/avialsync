@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from avialview.loaders.video_standard import VideoStandardLoader
+from avialsync.loaders.video_standard import VideoStandardLoader
 
 video_loader = VideoStandardLoader()
 video_loader.open(Path("TENSS26_Anzal/camera_top2026-06-21T17_54_59.avi").resolve(), {})

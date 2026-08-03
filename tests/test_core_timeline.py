@@ -5,7 +5,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from avialview.core.timeline import MasterClock, TimeMap
+from avialsync.core.timeline import MasterClock, TimeMap
 
 
 def test_master_clock_basic():

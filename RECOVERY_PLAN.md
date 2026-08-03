@@ -14,13 +14,13 @@
 ## 0. Standing rules for whoever executes this plan
 
 1. **One task = one commit.** Conventional message (`fix(ui): …`). Never combine two task IDs.
-2. **Every command is prefixed with `conda run -n avialview`.** No exceptions (AGENTS §How to run things).
+2. **Every command is prefixed with `conda run -n avialsync`.** No exceptions (AGENTS §How to run things).
 3. **After every task run the gate:**
    ```bash
-   conda run -n avialview ruff check . && conda run -n avialview ruff format .
-   conda run -n avialview mypy src/avialview/core
-   conda run -n avialview mypy src/avialview
-   QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -q --ignore=tests/benchmarks
+   conda run -n avialsync ruff check . && conda run -n avialsync ruff format .
+   conda run -n avialsync mypy src/avialsync/core
+   conda run -n avialsync mypy src/avialsync
+   QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -q --ignore=tests/benchmarks
    ```
    All four must pass before you move to the next task. If a task's own new test is the only
    failure, finish that task. If anything *else* broke, revert the task and re-do it.
@@ -53,12 +53,12 @@ broken, will bite at scale · **S2** = hygiene / gate / documentation debt.
 | V-05 | S1 | AGENTS §Arch 3 + BLUEPRINT P0-streaming | `AOLEksLoader.read_chunks(ch)` calls `read_all_chunks()`, i.e. one **full CSV re-scan per channel**. A 5-bodypart file has 15 channels → 15 passes. Only `read_all_chunks` is fast-pathed by the importer; anything else (region stats, export, a plugin host that calls the frozen v1 API) pays 15×. |
 | ~~V-06~~ | **FIXED** `3d6d914` | AGENTS §Coding standards ("raise typed exceptions from `core/errors.py`") | `aol_eks_loader.py:83`, `aol_encoder_loader.py:74,78`, `csv_loader.py:58,61`, `importer.py:56,154,161,164` raise bare `ValueError`/`KeyError`/`RuntimeError`. The UI has no way to turn these into actionable dialogs, so they surface as raw `str(e)` in a `QMessageBox`. |
 | V-07 | S2 | AGENTS §Coding standards ("Never silence a type/lint error") | `pyproject.toml:75–137` carries **14** `[[tool.mypy.overrides]]` blocks, 12 of them `ignore_errors = true`, covering `ui.transport`, `ui.sidebar`, `ui.plot_pane`, `ui.video_pane`, `ui.video_grid`, `ui.readout_panel`, `ui.relink_dialog`, `ui.diagnostics`, `engine.export`, `loaders.csv_loader`, `loaders.neo_loader`. That is most of the UI and two built-in loaders type-unchecked by policy. |
-| ~~V-08~~ | **FIXED** `cdfaa39` | AGENTS §DoD ("`pytest -x`, `ruff check .`, `mypy` all pass") | The gate is red right now: `ruff check .` → 2 errors (`aol_eks_loader.py` `zip()` without `strict=`, `tests/test_ui_main.py:231` E501). `mypy src/avialview` → 2 errors in `drop_worker.py:172,181` (`config` dict inferred as `dict[str, float]`, then assigned a list and a str). `pytest -x` on the full suite **crashes** because `tests/benchmarks/test_bench_pyramid.py:59` subscripts `benchmark.stats` which is `None` whenever benchmarks are disabled. |
+| ~~V-08~~ | **FIXED** `cdfaa39` | AGENTS §DoD ("`pytest -x`, `ruff check .`, `mypy` all pass") | The gate is red right now: `ruff check .` → 2 errors (`aol_eks_loader.py` `zip()` without `strict=`, `tests/test_ui_main.py:231` E501). `mypy src/avialsync` → 2 errors in `drop_worker.py:172,181` (`config` dict inferred as `dict[str, float]`, then assigned a list and a str). `pytest -x` on the full suite **crashes** because `tests/benchmarks/test_bench_pyramid.py:59` subscripts `benchmark.stats` which is `None` whenever benchmarks are disabled. |
 | V-09 | S1 | AGENTS §Coding standards ("No new module > ~500 lines") | `ui/main_window.py` is **2195 lines** and owns drop routing, session persistence, import orchestration, video load queueing, export, snapshots, region stats, sync wizard, menus and shortcuts. BLUEPRINT already lists this as P2-maintainability; the refactor grew it. `ui/transport.py` is 836. |
-| ~~V-10~~ | **FIXED** `02c6c5a` | AGENTS §Arch 5 + BLUEPRINT Phase 5 (plugin API v1) | `core/registry.py` — (a) `_default_plugin_dirs()` returns only `~/.avialview/plugins`; the bundled `examples/plugins/` directory promised by BLUEPRINT Phase 5 is never scanned; (b) no `sys._MEIPASS` handling, so **no loose plugin loads from a PyInstaller bundle**; (c) `_load_module` and the entry-point loop swallow failures and `return None`/`continue` — a broken third-party plugin vanishes with zero diagnostics; (d) module names are built from `abs(hash(path))`, which is salted per process, so bundle names are non-reproducible; (e) the six built-ins are hardcoded in `_discover()` *and* declared as entry points in `pyproject.toml:43`, so they are registered twice by two different mechanisms. |
+| ~~V-10~~ | **FIXED** `02c6c5a` | AGENTS §Arch 5 + BLUEPRINT Phase 5 (plugin API v1) | `core/registry.py` — (a) `_default_plugin_dirs()` returns only `~/.avialsync/plugins`; the bundled `examples/plugins/` directory promised by BLUEPRINT Phase 5 is never scanned; (b) no `sys._MEIPASS` handling, so **no loose plugin loads from a PyInstaller bundle**; (c) `_load_module` and the entry-point loop swallow failures and `return None`/`continue` — a broken third-party plugin vanishes with zero diagnostics; (d) module names are built from `abs(hash(path))`, which is salted per process, so bundle names are non-reproducible; (e) the six built-ins are hardcoded in `_discover()` *and* declared as entry points in `pyproject.toml:43`, so they are registered twice by two different mechanisms. |
 | ~~V-11~~ | **FIXED** `0d5c378` | AGENTS trap "NEVER `import mpv` at module top level (D-013)" — the guard is incomplete | `ui/video_pane.py:101` `if not probe_libmpv(self): return` aborts `__init__` **after** the layout exists but **before** `paint_canvas`, `overlay`, `lbl_name`, `lbl_osd`, `lbl_no_footage` are created. Every later call — `set_label`, `set_tracking_readers`, `set_has_footage`, `_update_osd` — then raises `AttributeError`. On a machine without libmpv the guided dialog is followed by a crash cascade, which is exactly what D-013 exists to prevent. |
 | V-12 | S1 | AGENTS §Task protocol 1 ("any PR that changes a module's public API … must update HANDOUT.md in the same commit") | Six new modules (`engine/drop_worker.py`, `engine/session_worker.py`, `engine/export_worker.py`, `loaders/aol_eks_loader.py`, `loaders/aol_encoder_loader.py`, `loaders/aol_session_loader.py`) appear **zero** times in `ARCHITECTURE.md` and **zero** times in `HANDOUT.md`. `DECISIONS.md` records no entry for the AOL format family or for the bulk `read_all_chunks` loader protocol. |
-| V-13 | S1 | ARCHITECTURE §1 layering | `engine/player.py:13–16` imports `avialview.ui.plot_pane`, `ui.transport`, `ui.video_grid`, `ui.video_pane` at module scope. The engine layer depends on the UI layer, so `engine` cannot be tested or reused headlessly. `player.py:94` also reads `self.transport._bounds`, a private attribute of another widget. |
+| V-13 | S1 | ARCHITECTURE §1 layering | `engine/player.py:13–16` imports `avialsync.ui.plot_pane`, `ui.transport`, `ui.video_grid`, `ui.video_pane` at module scope. The engine layer depends on the UI layer, so `engine` cannot be tested or reused headlessly. `player.py:94` also reads `self.transport._bounds`, a private attribute of another widget. |
 | ~~V-14~~ | **FIXED** `cdfaa39` | AGENTS §Task protocol 6 (cross-platform paranoia) | No `subprocess` call in the tree passes `creationflags=CREATE_NO_WINDOW` (grep: zero hits). `loaders/video_standard.py:71,179` (ffprobe), `engine/export.py:194` and `engine/proxy.py:70` (ffmpeg) therefore pop a console window on every probe/export in a windowed Windows build. Multi-camera load = one flashing console per camera. This is the single most visible "hiccup" on Windows. |
 | V-15 | S1 | `core/source.py` `read_chunks` contract ("Chunks, **including their boundaries**, must be globally chronological. Duplicate timestamps must keep the final value.") | `CSVLoader._read_batches` implements this correctly by carrying the last row across batches. Neither AOL loader does: `AOLEksLoader.read_all_chunks` and `AOLEncoderLoader.read_chunks` validate monotonicity and de-duplicate **within each batch only**. A backward jump or a duplicate timestamp that straddles a 50 000-row boundary is silently accepted. |
 | ~~V-16~~ | **FIXED** `dfb7e57` | BLUEPRINT P1-identity | Channel IDs remain globally unique strings (`plot_pane.load_channels`, `set_channel_visible`, `set_channel_unit`, readout, Parquet export all key on the bare name). The AOL work makes the collision routine rather than theoretical: `_collect_aol_candidates` enumerates `manifest.eks_files` — one per camera — and each produces channels named `nose_x`, `nose_y`, … . Loading two cameras' EKS files makes them overwrite and remote-control each other. |
@@ -67,7 +67,7 @@ broken, will bite at scale · **S2** = hygiene / gate / documentation debt.
 | V-19 | S2 | `ChannelInfo` contract | Both AOL loaders and `CSVLoader` report `rate_hz=None` ("irregular") even when the rate is known exactly (`config["fps"]` for EKS, 1 kHz-class wall clock for the encoder). Gap detection and any rate-dependent presentation fall back to the 10× median heuristic unnecessarily. |
 
 **Not violations — confirmed still healthy, do not "fix" these:**
-`core/` is PySide6-free (`mypy src/avialview/core` strict passes clean). No top-level `import mpv`.
+`core/` is PySide6-free (`mypy src/avialsync/core` strict passes clean). No top-level `import mpv`.
 No `shell=True`, no `QApplication.processEvents()`, no application-level QSS (`theme.py:226` clears it).
 `locale.setlocale(LC_NUMERIC, "C")` is correctly placed in `__main__.py:36`. `MasterClock` is driven from
 `time.monotonic()` deltas with drift hysteresis (`player.py:289`). Video probing is off-thread and
@@ -82,10 +82,10 @@ serialized against native pane creation. Plot rows query through `PyramidReader`
 
 | Task | File | Change | Proof |
 |---|---|---|---|
-| **W0-1** | `src/avialview/loaders/aol_eks_loader.py:105` | `dict(zip(self._xyz_channels, raw_xyz))` → add `strict=True`. The two lists are built in lockstep, so `strict=True` is correct and will now assert it. | `conda run -n avialview ruff check .` |
+| **W0-1** | `src/avialsync/loaders/aol_eks_loader.py:105` | `dict(zip(self._xyz_channels, raw_xyz))` → add `strict=True`. The two lists are built in lockstep, so `strict=True` is correct and will now assert it. | `conda run -n avialsync ruff check .` |
 | **W0-2** | `tests/test_ui_main.py:231` | Wrap the 116-char comment to ≤ 100 chars. | same |
-| **W0-3** | `src/avialview/engine/drop_worker.py:169–185` | Annotate both `config` locals as `dict[str, Any]` (import `Any` from `typing`). Do **not** add `# type: ignore`. | `conda run -n avialview mypy src/avialview` |
-| **W0-4** | `tests/benchmarks/test_bench_pyramid.py:59` (and every sibling benchmark that subscripts `benchmark.stats`) | Guard the budget assertion: `stats = benchmark.stats;` `if stats is None: pytest.skip("benchmarks disabled")`. Do **not** delete the assertion — the ★ mark stays enforced when benchmarks run. | `QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -x -q` completes |
+| **W0-3** | `src/avialsync/engine/drop_worker.py:169–185` | Annotate both `config` locals as `dict[str, Any]` (import `Any` from `typing`). Do **not** add `# type: ignore`. | `conda run -n avialsync mypy src/avialsync` |
+| **W0-4** | `tests/benchmarks/test_bench_pyramid.py:59` (and every sibling benchmark that subscripts `benchmark.stats`) | Guard the budget assertion: `stats = benchmark.stats;` `if stats is None: pytest.skip("benchmarks disabled")`. Do **not** delete the assertion — the ★ mark stays enforced when benchmarks run. | `QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q` completes |
 | **W0-5** | repo root | Delete the committed `pytest_out.txt` (a stale UTF-16 console capture of a failing run) and add it to `.gitignore`. | `git status` clean |
 
 **Wave 0 done when:** all four gate commands in §0.3 pass, plus `pytest -x -q` with benchmarks enabled.
@@ -98,7 +98,7 @@ serialized against native pane creation. Plot rows query through `PyramidReader`
 > reference. Fix it once, in one place, and route both call sites through it.
 
 **W1-1 — add an owned job registry to `MainWindow`.**
-File: `src/avialview/ui/main_window.py`.
+File: `src/avialsync/ui/main_window.py`.
 Add one helper next to the other job dicts:
 
 ```python
@@ -154,7 +154,7 @@ CSV, and an AOL session folder into a real window loads each one.
 ### Wave 2 — S0 accuracy: make the AOL plugins correct
 
 **W2-1 — `AOLEncoderLoader` must honour `anchor_date`.**
-File: `src/avialview/loaders/aol_encoder_loader.py`.
+File: `src/avialsync/loaders/aol_encoder_loader.py`.
 - In `open()`, resolve `config["anchor_date"]` (`"%Y-%m-%d"`) to a UTC epoch exactly the way
   `csv_loader._normalize_time`'s `time_of_day` branch does. Store it as `self._anchor_epoch`.
 - If `anchor_date` is absent, `self._anchor_epoch = 0.0` **and** set a `provisional` flag the UI can
@@ -203,7 +203,7 @@ duplicates, boundary backward-jump, and hash-seed determinism, and all pass.
 ### Wave 3 — S0 streaming: bounded-memory import
 
 **W3-1 — stream the pyramid builder.**
-File: `src/avialview/core/pyramid.py`. Add an incremental API alongside `build_and_save`:
+File: `src/avialsync/core/pyramid.py`. Add an incremental API alongside `build_and_save`:
 `PyramidBuilder.append(t: np.ndarray, v: np.ndarray)` and `PyramidBuilder.finalize()`, appending
 each chunk to the level-1 `.npy` on disk and folding it into the running 16×/256×/4096× extrema.
 `build_and_save` stays and becomes `append(t, v); finalize()` so no existing caller changes.
@@ -217,7 +217,7 @@ streaming variant that carries the previous chunk's last timestamp and the runni
 estimate. Assert equality with the batch version on the same three fixtures.
 
 **W3-3 — rewrite `importer._build_bulk_channels` to be bounded.**
-File: `src/avialview/engine/importer.py`. Per chunk: validate the shared-timestamp invariant exactly
+File: `src/avialsync/engine/importer.py`. Per chunk: validate the shared-timestamp invariant exactly
 as today, then immediately `append` to one `PyramidBuilder` per channel and **drop the chunk**.
 Accumulate only scalars (`total_rows`, `total_nan`, `gap_count`, `t0`, `t1`) and a **bounded**
 gap-location list (cap it, and `log()` the cap — never truncate silently). Emit progress from bytes
@@ -239,7 +239,7 @@ no existing pyramid or import test changed.
 ### Wave 4 — cross-OS fluidity
 
 **W4-1 — kill the Windows console flash (V-14).**
-New helper in `src/avialview/runtime.py`:
+New helper in `src/avialsync/runtime.py`:
 
 ```python
 def subprocess_flags() -> int:
@@ -284,18 +284,18 @@ wave is a specific cause it will catch.
 Order (easiest first): `ui.relink_dialog`, `ui.diagnostics`, `engine.export`, `ui.readout_panel`,
 `ui.video_grid`, `loaders.csv_loader`, `loaders.neo_loader`, `ui.sidebar`, `ui.video_pane`,
 `ui.transport`, `ui.plot_pane`. For each: remove its `[[tool.mypy.overrides]]` block from
-`pyproject.toml`, run `conda run -n avialview mypy src/avialview`, and **fix the reported errors in
+`pyproject.toml`, run `conda run -n avialsync mypy src/avialsync`, and **fix the reported errors in
 the module** — never re-add the suppression, never add `# type: ignore` except for a genuine mypy
 limitation with a one-line comment naming the limitation. If a module needs more than ~30 real
 fixes, stop, commit what is done, and note the remainder in `HANDOUT.md`.
 
 **W5-2 — break `engine` → `ui` imports (V-13).**
-File: `engine/player.py`. Replace the four module-scope `avialview.ui.*` imports with `TYPE_CHECKING`
+File: `engine/player.py`. Replace the four module-scope `avialsync.ui.*` imports with `TYPE_CHECKING`
 imports plus duck-typed parameters (the class already accepts these as constructor arguments — it
 only needs the names for annotations). Replace `self.transport._bounds` (`:94`) with a public
 `transport.bounds()` accessor added to `ui/transport.py`.
 Test `tests/test_headless_core.py`: extend the existing PySide6-free assertion to also assert
-`import avialview.engine.player` does not import `avialview.ui.plot_pane` at module scope.
+`import avialsync.engine.player` does not import `avialsync.ui.plot_pane` at module scope.
 
 **W5-3 — split `ui/main_window.py` (V-09).** Target: no module over ~500 lines. Extract along the
 seams that already exist, one commit each, moving code **verbatim** (no logic changes):
@@ -415,7 +415,7 @@ commit, full gate green after each.
 |---|---|---|
 | V-04a, V-04b, V-18 | merge `73c8dbc` | Already fixed by the branch being merged in: `_MidnightUnwrapper`, blank-token filtering, deterministic bodypart ordering. Verified, not assumed. |
 | V-05 | `3cf8068` | `read_chunks` projects only the requested column. |
-| V-07 | `3cf8068` | **All 11 `ignore_errors` overrides removed**; `mypy src/avialview` at 0 errors. The 59 real errors they hid are fixed, including two Qt-method shadows that made widgets unrepaintable. |
+| V-07 | `3cf8068` | **All 11 `ignore_errors` overrides removed**; `mypy src/avialsync` at 0 errors. The 59 real errors they hid are fixed, including two Qt-method shadows that made widgets unrepaintable. |
 | V-15 | `3cf8068` | Verified already correct and pinned by `tests/test_aol_chunk_boundaries.py`. |
 
 **Still open**
