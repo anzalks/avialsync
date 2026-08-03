@@ -686,6 +686,20 @@ and can carry a zero-size pane that has no handle affordance left to recover it.
 sibling's size hint already fills the splitter, which is how the plot area shipped fully collapsed.
 Always seed explicit `setSizes` as well.
 
+### 21a. `setSizes` is not a drag — `PaneProportions` only adopts on `splitterMoved` (D-061)
+
+A pane ratio is remembered when the user drags a handle, because `PaneProportions.track` listens on
+`splitterMoved`. `setSizes` moves panes without emitting it, so the ratio is *not* adopted, and the
+coalesced resize pass (`_pane_resize_timer`, 16 ms after a resize) puts the handle back where the
+remembered ratio says. Every programmatic `setSizes` in `MainWindow` is therefore paired with a
+`record`/`set_fractions` call — keep it that way when adding one.
+The same thing bites tests: a test that arranges panes with `setSizes` is racing that timer, and
+whether it wins depends on machine load, which is how
+`test_user_splitter_positions_are_honoured` passed locally and failed on CI. Move the handle with
+`splitter.moveSplitter(pos, index)` — what `QSplitterHandle` itself calls, signal included — pick
+the target from `splitter.getRange(index)` rather than as a fraction (font metrics decide how much
+travel a handle has), and run `_pane_proportions.reapply()` explicitly instead of racing it.
+
 ### 22. Presentation refresh is 20 Hz, not 60 Hz (D-047)
 
 `Player._update_timeline_views` refreshes readout labels and pose sampling at 20 Hz and skips them

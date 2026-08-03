@@ -141,26 +141,35 @@ def test_window_minimum_width_fits_a_laptop_display(window: MainWindow) -> None:
 def test_user_splitter_positions_are_honoured(window: MainWindow, qapp: QApplication) -> None:
     """Dragging a handle must actually move it, not snap back.
 
-    The request is derived from the panes' own minimums rather than picked as a
-    fraction. How tall a pane insists on being comes from font metrics, so a
-    fixed target is satisfiable on one machine and not another — asking for a
-    quarter/three-quarter split failed on Linux, then on a macOS runner, for
-    that reason and not because anything snapped back.
+    Two things made earlier versions of this test platform-dependent, neither
+    of them a defect in the window:
+
+    * The target was picked as a fraction of the splitter, or from the panes'
+      ``minimumSizeHint``. How much travel a handle has comes from font
+      metrics, so a fixed target is satisfiable on one machine and not another.
+      It is asked of the splitter itself here.
+    * The move was made with ``setSizes``, which is not a drag: it emits no
+      ``splitterMoved``, so :class:`PaneProportions` never adopts the new ratio
+      and the coalesced resize pass restores the old one. That pass runs 16 ms
+      after a resize, so whether it landed before the assertion depended on how
+      loaded the machine was — it passed locally and failed on a CI runner.
+      The move goes through ``moveSplitter`` (what the handle itself calls) and
+      the pass is run explicitly rather than raced.
     """
     splitter = window._v_splitter
-    # Plenty of room, so the request below is one the layout can actually meet.
+    # Plenty of room, so the move below is one the layout can actually make.
     window.resize(1400, 2000)
     qapp.processEvents()
-    minimums = [splitter.widget(index).minimumSizeHint().height() for index in range(2)]
-    total = sum(splitter.sizes())
-    assert total > sum(minimums), f"no slack to move the handle: {total}px for minimums {minimums}"
 
-    # Push the top pane to its floor. That is satisfiable by definition, so
-    # anything else means the splitter overrode the position rather than kept it.
-    splitter.setSizes([minimums[0], total - minimums[0]])
+    lowest, highest = splitter.getRange(1)
+    assert highest > lowest, f"handle has no legal travel: {lowest}px to {highest}px"
+    target = (lowest + highest) // 2
+
+    splitter.moveSplitter(target, 1)
+    window._pane_proportions.reapply()
     qapp.processEvents()
 
-    assert abs(splitter.sizes()[0] - minimums[0]) <= 2, "splitter position did not stick"
+    assert abs(splitter.sizes()[0] - target) <= 2, "splitter position did not stick"
 
 
 # ── 3D pane only takes space when it has data ─────────────────────────
