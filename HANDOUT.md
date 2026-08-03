@@ -252,18 +252,22 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - **Post-refactor repair leftovers (audit 2026-07-30; `RECOVERY_PLAN.md` / `RECOVERY_PROMPT.md`
   retired 2026-08-03).** 25 of that plan's 33 tasks shipped, verified against the code; its progress
   tracker was never ticked, which is why the two files read as unstarted. What is genuinely left:
-  - **UI heartbeat test — the real gap.** The plan's own "test that actually defends fluid on every
-    OS" was never written. `tests/test_workload_responsiveness.py` asserts the 30 ms per-tick
-    ceiling, but nothing asserts p95 ≤ 8 ms and nothing drives the full
-    open → play → scrub → resize → theme-switch sequence with real paint events.
-  - **Broken plugins are invisible.** `core/registry.py` logs an import failure and moves on. There
-    is no `plugin_errors` list and nothing surfaces it in `ui/diagnostics.py`, so a third-party
-    plugin that fails to import simply does not appear, with no user-facing explanation.
-  - `tests/benchmarks/test_bench_plot_pane.py` subscripts `benchmark.stats` without the
-    `stats is None` guard the other four benchmark files use; it crashes with benchmarks disabled.
-  - `pytest_out.txt` was deleted but never added to `.gitignore`.
-  - `ui/theme.py`'s `defaults read` subprocess omits `no_window_kwargs()`. macOS-only, so
-    `CREATE_NO_WINDOW` is a no-op there today — it matters only if that call generalises.
+  - Closed 2026-08-03: plugin load errors are collected and shown in Diagnostics; the
+    `benchmark.stats` guard, the `.gitignore` entry, and the `ui/theme.py` subprocess note all
+    landed; `tests/test_workload_responsiveness.py` gained per-callback distribution assertions.
+  - **Still open — the scripted heartbeat test.** No test drives the full
+    open → play → scrub → resize → theme-switch sequence with real paint events. Judged not worth
+    it: `ui/ui_heartbeat.py` already monitors every real session on real hardware, which a fixture
+    run cannot match, and the distribution assertions now cover the tail it would have caught. A
+    scripted-interaction test here would be the flakiest thing in the suite. Revisit only if a
+    stall is reported that the runtime heartbeat did not catch.
+  - **Still open — absolute UI budgets are unverified.** The tail assertions bound p95 and the
+    worst callback *relative to the median*, deliberately, so they survive a loaded CI runner. They
+    do not prove AGENTS' ≤8 ms target. Measured on a settled 32-channel window (macOS, offscreen):
+    ticks 0.01/0.02/2.6 ms p50/p95/max, visibility 9.2/20.1/21.5, scrub 29.2/32.8/49.0, resize
+    48.0/86.8/90.1. Scrub and resize exceed the 30 ms ceiling under an adversarial loop that
+    defeats `_PANE_RESIZE_COALESCE_MS`; whether that reflects real interaction is unmeasured and
+    needs the field checklist to settle.
   - Superseded, not skipped: the plan's `PyramidBuilder.append`/`finalize` never landed because the
     bounded-memory problem was solved at the importer layer instead (disk staging plus
     `materialize()`, pinned by `tests/test_import_streaming.py`). Do not re-open it.
