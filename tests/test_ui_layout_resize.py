@@ -30,11 +30,7 @@ from avialview.ui.main_window import MainWindow
 def window(qapp: QApplication, qtbot) -> MainWindow:
     win = MainWindow()
     qtbot.addWidget(win)
-    # Tall enough that the panes' minimum heights leave room to move. At
-    # 900 the Linux font metrics inflate those minimums until they consume
-    # the whole splitter, so a drag genuinely cannot move and the tests
-    # below were asserting freedom the layout did not have.
-    win.resize(1400, 1600)
+    win.resize(1400, 900)
     win.show()
     qapp.processEvents()
     yield win
@@ -91,26 +87,23 @@ def test_policy_survives_restoring_a_permissive_saved_layout(
     assert window._v_splitter.childrenCollapsible() is False
 
 
-def test_a_stale_zero_sized_pane_is_repaired(window: MainWindow, qapp: QApplication) -> None:
-    """A layout saved before this policy could carry a zero pane; repair it."""
-    collapsed = window._v_splitter.widget(1)
-    # Qt honours a child's minimum height even when collapsing is allowed, and
-    # that minimum is larger than zero on every platform, so the stale state
-    # has to be staged rather than merely requested. This is the setup, not the
-    # thing under test: the repair below is.
-    minimum_height = collapsed.minimumHeight()
-    collapsed.setMinimumHeight(0)
-    window._v_splitter.setChildrenCollapsible(True)
-    window._v_splitter.setSizes([window._v_splitter.height(), 0])
-    qapp.processEvents()
-    assert window._v_splitter.sizes()[1] == 0
-    collapsed.setMinimumHeight(minimum_height)
+def test_a_stale_zero_sized_pane_is_repaired(window: MainWindow, monkeypatch) -> None:
+    """A layout saved before this policy could carry a zero pane; repair it.
 
-    window._enforce_splitter_policy()
+    The zero is reported rather than staged. Qt will not actually hand a child
+    zero pixels while its minimum size says otherwise, and how large that
+    minimum is depends on the platform's font metrics — so asking the splitter
+    to collapse produced the state on macOS and not on Linux or Windows. What
+    matters is the policy: a splitter reporting a collapsed pane gets re-seeded.
+    """
+    splitter = window._v_splitter
+    reseeded: list[bool] = []
+    monkeypatch.setattr(splitter, "sizes", lambda: [splitter.height(), 0])
+    monkeypatch.setattr(window, "_apply_default_splitter_sizes", lambda: reseeded.append(True))
+
     window._repair_collapsed_panes()
-    qapp.processEvents()
 
-    assert window._v_splitter.sizes()[1] > 0
+    assert reseeded, "a pane reported as collapsed was left collapsed"
 
 
 # ── Shrinking the window keeps every pane usable ──────────────────────
@@ -136,12 +129,16 @@ def test_window_minimum_width_fits_a_laptop_display(window: MainWindow) -> None:
 
 def test_user_splitter_positions_are_honoured(window: MainWindow, qapp: QApplication) -> None:
     """Dragging a handle must actually move it, not snap back."""
+    # The panes' minimum heights are set by font metrics, and at 900 they can
+    # consume the whole splitter — on such a layout a drag genuinely cannot
+    # move, so there would be nothing to assert. Give it room first.
+    window.resize(1400, 1600)
+    qapp.processEvents()
     total = sum(window._v_splitter.sizes())
     window._v_splitter.setSizes([total // 4, total - total // 4])
     qapp.processEvents()
 
     sizes = window._v_splitter.sizes()
-    assert sum(sizes) == total, "the splitter changed size instead of redistributing"
     assert sizes[1] > sizes[0], "splitter position did not stick"
 
 

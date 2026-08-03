@@ -64,19 +64,20 @@ def test_the_gutter_still_carries_every_part(pane_with_channel: PlotPane) -> Non
     assert "…" in label, "the stable Y range belongs in the gutter"
 
 
-def test_a_channel_name_with_markup_characters_survives(qtbot, tmp_path: Path) -> None:
-    """An HTML label would otherwise eat part of a name like "I<V"."""
-    cache = tmp_path / "markup.avialcache"
-    cache.mkdir(parents=True, exist_ok=True)
-    times = np.linspace(0.0, 1.0, 50)
-    name = "I<V & Q"
-    PyramidBuilder(cache, name).build_and_save(times, np.sin(times))
-    pane = PlotPane()
-    qtbot.addWidget(pane)
-    pane.load_channels(cache, [name])
-    pane.wait_for_pending_rows()
+def test_a_channel_name_with_markup_characters_survives(pane_with_channel: PlotPane) -> None:
+    """An HTML label would otherwise eat part of a name like "I<V".
 
-    label = _gutter_html(pane)
+    The name is set on the built row rather than used to create one: a channel
+    name becomes a cache filename, and "<" is legal on POSIX but rejected by
+    Windows, so building it from disk tested the filesystem, not the escaping.
+    """
+    from avialview.ui.plot_row import _update_channel_gutter
 
-    assert html.escape(name) in label
+    channel = pane_with_channel.channels[0]
+    channel.name = "I<V & Q"
+
+    _update_channel_gutter(channel)
+    label = _gutter_html(pane_with_channel)
+
+    assert html.escape("I<V & Q") in label
     assert "<V" not in label, "an unescaped '<' opens a tag and swallows the rest"
