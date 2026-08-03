@@ -6,6 +6,7 @@ import os
 import sys
 import time
 from importlib.resources import files
+from pathlib import Path
 
 from avialview.runtime import configure_media_runtime
 
@@ -13,9 +14,31 @@ from avialview.runtime import configure_media_runtime
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the supported AvialView command-line arguments."""
     parser = argparse.ArgumentParser(prog="avialview")
-    parser.add_argument("command", nargs="?", choices=("demo",))
+    parser.add_argument(
+        "command",
+        nargs="?",
+        choices=("demo", "open"),
+        help="demo: generate and load the inspection demo. open: load PATH.",
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        type=Path,
+        help="Session file (.avv) or a folder of recordings, for 'open'.",
+    )
     parser.add_argument("--smoke-test", action="store_true", help=argparse.SUPPRESS)
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.command == "open":
+        if args.path is None:
+            parser.error("open needs a path: avialview open <session.avv|folder>")
+        if not args.path.exists():
+            # Refuse before Qt starts: a missing path is a typo, and reporting
+            # it in a dialog behind a window that has already opened is worse
+            # than reporting it on the terminal that issued the command.
+            parser.error(f"no such file or folder: {args.path}")
+    elif args.path is not None:
+        parser.error(f"'{args.command}' takes no path argument")
+    return args
 
 
 def main() -> None:
@@ -45,6 +68,9 @@ def main() -> None:
     demo_launch = DemoLaunch(win) if args.command == "demo" else None
     if demo_launch is not None:
         QTimer.singleShot(0, demo_launch.start)
+    elif args.command == "open":
+        # Deferred so the window is mapped before scanning reports progress.
+        QTimer.singleShot(0, lambda: win.open_path(args.path))
 
     if args.smoke_test and demo_launch is None:
         QTimer.singleShot(250, win.close)

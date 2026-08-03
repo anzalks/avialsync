@@ -786,8 +786,6 @@ class MainWindow(QMainWindow):
             return
         self._start_session_load(Path(path))
 
-        self._start_session_load(Path(path))
-
     def _start_session_load(self, path: Path) -> None:
         from avialview.engine.session_worker import SessionLoadWorker
 
@@ -1340,6 +1338,16 @@ class MainWindow(QMainWindow):
             return
 
         self._start_drop_scan(paths)
+
+    def open_path(self, path: Path) -> None:
+        """Open a session file or a folder of recordings.
+
+        Routes through the same scan a drag-and-drop performs, so
+        ``avialview open <path>`` and dropping that path on the window cannot
+        drift apart: the scanner already recognises ``.avv`` files, folders
+        containing them, and loose recordings.
+        """
+        self._start_drop_scan([path])
 
     def _start_drop_scan(self, paths: list[Path]) -> None:
         """Launch background scanning for dropped paths."""

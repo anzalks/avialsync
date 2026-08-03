@@ -1,0 +1,21 @@
+# Ruff is this project's linter and formatter (AGENTS.md "How to run things").
+# This file exists only so an editor-integrated flake8 agrees with it instead of
+# reporting a wall of E501 against its own 79-column default.
+[flake8]
+max-line-length = 100
+extend-ignore =
+    # Slice spacing and line breaks before binary operators are how the
+    # project's formatter writes code; flake8's defaults predate it.
+    E203,
+    W503,
+    # Ruff owns these, configured in pyproject.toml [tool.ruff.lint].
+    E501
+exclude =
+    .git,
+    __pycache__,
+    build,
+    dist,
+    graphify-out,
+    .mypy_cache,
+    .pytest_cache,
+    .ruff_cache
