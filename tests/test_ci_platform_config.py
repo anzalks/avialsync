@@ -135,3 +135,51 @@ def test_macos_disk_image_ships_a_launchable_application() -> None:
     assert "make_dmg.sh dist/AvialView.app" in release_workflow
     assert '*.app) cp -R "$bundle_dir" "$staging_dir/AvialView.app"' in make_dmg
     assert "needs: verify_release_ref" in release_workflow
+
+
+def test_signing_is_wired_but_optional() -> None:
+    """Signing must run when secrets exist and be skipped, not fail, when not.
+
+    BLUEPRINT.md Phase 5 asks for signing "stubbed behind secrets-present
+    conditionals": forks and an unconfigured repository must still produce a
+    release, unsigned.
+    """
+    release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
+
+    for guard in (
+        "runner.os == 'Windows' && env.WINDOWS_CERTIFICATE_PFX != ''",
+        "runner.os == 'macOS' && env.MACOS_CERTIFICATE_P12 != ''",
+        "runner.os == 'macOS' && env.MACOS_NOTARY_APPLE_ID != ''",
+    ):
+        assert guard in release_workflow, guard
+    assert "sign.ps1 -Path installer-output/AvialView-Setup.exe" in release_workflow
+    assert "sign_notarize.sh sign dist/AvialView.app" in release_workflow
+    assert "sign_notarize.sh notarize installer-output/AvialView.dmg" in release_workflow
+
+
+def test_macos_is_signed_before_the_image_is_built_and_notarized_after() -> None:
+    """Order is load-bearing: the image must carry the signed .app.
+
+    Notarization then has a Developer ID signature to accept, and stapling
+    applies to the artifact users download.
+    """
+    release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
+
+    sign = release_workflow.index("sign_notarize.sh sign dist/AvialView.app")
+    build = release_workflow.index("make_dmg.sh dist/AvialView.app")
+    notarize = release_workflow.index("sign_notarize.sh notarize")
+
+    assert sign < build < notarize
+
+
+def test_signing_scripts_refuse_to_run_without_credentials() -> None:
+    """A half-configured secret must stop the release, not ship unsigned."""
+    notarize = Path("packaging/macos/sign_notarize.sh").read_text(encoding="utf-8")
+    windows = Path("packaging/windows/sign.ps1").read_text(encoding="utf-8")
+
+    assert "refusing to continue" in notarize
+    assert "refusing to continue" in windows
+    # Signatures that are not timestamped expire with the certificate and make
+    # already-shipped installers start warning.
+    assert "--timestamp" in notarize
+    assert "/tr $TimestampUrl" in windows

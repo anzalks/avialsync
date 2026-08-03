@@ -1,0 +1,67 @@
+{% set name = "avialview" %}
+{% set version = "0.1.0b4" %}
+
+# conda-forge recipe (BLUEPRINT.md Phase 5). Unlike the PyPI wheel, a conda
+# package can declare the native media runtime as real dependencies, so
+# `conda install avialview` needs no guided libmpv dialog: mpv and ffmpeg
+# arrive as conda packages.
+#
+# `version` and the sha256 below are the two fields a version bump touches.
+# tests/test_conda_recipe.py fails if `version` drifts from pyproject.toml.
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  # Published sdist, not the git tree: the recipe must build what PyPI serves.
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: 0000000000000000000000000000000000000000000000000000000000000000
+
+build:
+  noarch: python
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  entry_points:
+    - avialview = avialview.__main__:main
+
+requirements:
+  host:
+    - python >=3.11,<3.13
+    - hatchling
+    - pip
+  run:
+    - python >=3.11,<3.13
+    - pyside6
+    - pyqtgraph
+    - python-mpv >=1.0.7
+    - numpy
+    - polars
+    - xxhash
+    - neo
+    # Supplied here rather than left to the user: these are the two native
+    # components the PyPI install cannot provide (D-013, D-014).
+    - mpv
+    - ffmpeg
+
+test:
+  imports:
+    - avialview
+    - avialview.core
+  commands:
+    - avialview --help
+
+about:
+  home: https://github.com/anzalks/avialview
+  summary: >-
+    GUI desktop app to scrub time-synchronized multi-camera video and dense
+    time series.
+  license: Apache-2.0
+  license_family: Apache
+  license_file: LICENSE
+  doc_url: https://avialview.readthedocs.io
+  dev_url: https://github.com/anzalks/avialview
+
+extra:
+  recipe-maintainers:
+    - anzalks

@@ -306,6 +306,26 @@ jobs:
           choco install --no-progress innosetup
           $env:AVIALVIEW_VERSION = "${{ github.ref_name }}".TrimStart("v")
           iscc packaging/windows/avialview.iss
+      - name: Sign the Windows installer
+        # Secrets are unavailable to forks and are not configured yet, so this
+        # is skipped rather than failed: an unsigned release still builds.
+        if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE_PFX != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_PFX: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: pwsh packaging/windows/sign.ps1 -Path installer-output/AvialView-Setup.exe
+
+      - name: Sign the macOS application bundle
+        # Before the smoke test and the disk image: the .app must be signed
+        # first so the image ships the signed copy, and notarization then has
+        # something with a Developer ID signature to accept.
+        if: runner.os == 'macOS' && env.MACOS_CERTIFICATE_P12 != ''
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: bash packaging/macos/sign_notarize.sh sign dist/AvialView.app
       - name: Smoke test the macOS application bundle
         if: runner.os == 'macOS'
         # The .app is what the disk image ships, so it is what must start.
@@ -315,6 +335,15 @@ jobs:
         run: |
           mkdir -p installer-output
           bash packaging/macos/make_dmg.sh dist/AvialView.app installer-output/AvialView.dmg
+      - name: Notarize and staple the macOS disk image
+        # Stapling is what lets a downloaded image open without a network
+        # round trip, so it must follow the image rather than the .app.
+        if: runner.os == 'macOS' && env.MACOS_NOTARY_APPLE_ID != ''
+        env:
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+        run: bash packaging/macos/sign_notarize.sh notarize installer-output/AvialView.dmg
       - name: Build Linux AppImage from the verified repository tool source
         if: runner.os == 'Linux'
         env:

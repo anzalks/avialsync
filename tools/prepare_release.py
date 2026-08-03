@@ -19,6 +19,7 @@ VERSION_PATTERN = re.compile(
 )
 PYPROJECT_VERSION_PATTERN = re.compile(r'^(version\s*=\s*")[^"]+("\s*)$', re.MULTILINE)
 MODULE_VERSION_PATTERN = re.compile(r'^(__version__\s*=\s*")[^"]+("\s*)$', re.MULTILINE)
+RECIPE_VERSION_PATTERN = re.compile(r'^({% set version = ")[^"]+("\s*%}\s*)$', re.MULTILINE)
 IGNORED_DIRTY_PATHS = frozenset({"graphify-out/graph.json"})
 
 
@@ -114,10 +115,26 @@ def prepare_release(root: Path, version: str, *, dry_run: bool) -> None:
 
     replace_declared_version(root / "pyproject.toml", PYPROJECT_VERSION_PATTERN, version)
     replace_declared_version(root / "src/avialview/__init__.py", MODULE_VERSION_PATTERN, version)
-    run_command((sys.executable, "-m", "pytest", "-q", "tests/test_packaging_metadata.py"), root)
+    # The conda recipe is a third version authority: left behind, it publishes
+    # the previous release's source archive under the new version's name.
+    replace_declared_version(root / "packaging/conda/meta.yaml", RECIPE_VERSION_PATTERN, version)
+    run_command(
+        (
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/test_packaging_metadata.py",
+            "tests/test_conda_recipe.py",
+        ),
+        root,
+    )
     run_package_preflight(root)
     tag = f"v{version}"
-    run_command(("git", "add", "pyproject.toml", "src/avialview/__init__.py"), root)
+    run_command(
+        ("git", "add", "pyproject.toml", "src/avialview/__init__.py", "packaging/conda/meta.yaml"),
+        root,
+    )
     run_command(("git", "commit", "-m", f"chore(release): prepare {version}"), root)
     run_command(("git", "tag", "-a", tag, "-m", f"AvialView {version}"), root)
     run_command(("git", "push", "origin", "main", tag), root)
