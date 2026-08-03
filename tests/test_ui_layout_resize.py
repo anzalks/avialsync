@@ -139,18 +139,28 @@ def test_window_minimum_width_fits_a_laptop_display(window: MainWindow) -> None:
 
 
 def test_user_splitter_positions_are_honoured(window: MainWindow, qapp: QApplication) -> None:
-    """Dragging a handle must actually move it, not snap back."""
-    # The panes' minimum heights are set by font metrics, and at 900 they can
-    # consume the whole splitter — on such a layout a drag genuinely cannot
-    # move, so there would be nothing to assert. Give it room first.
-    window.resize(1400, 1600)
+    """Dragging a handle must actually move it, not snap back.
+
+    The request is derived from the panes' own minimums rather than picked as a
+    fraction. How tall a pane insists on being comes from font metrics, so a
+    fixed target is satisfiable on one machine and not another — asking for a
+    quarter/three-quarter split failed on Linux, then on a macOS runner, for
+    that reason and not because anything snapped back.
+    """
+    splitter = window._v_splitter
+    # Plenty of room, so the request below is one the layout can actually meet.
+    window.resize(1400, 2000)
     qapp.processEvents()
-    total = sum(window._v_splitter.sizes())
-    window._v_splitter.setSizes([total // 4, total - total // 4])
+    minimums = [splitter.widget(index).minimumSizeHint().height() for index in range(2)]
+    total = sum(splitter.sizes())
+    assert total > sum(minimums), f"no slack to move the handle: {total}px for minimums {minimums}"
+
+    # Push the top pane to its floor. That is satisfiable by definition, so
+    # anything else means the splitter overrode the position rather than kept it.
+    splitter.setSizes([minimums[0], total - minimums[0]])
     qapp.processEvents()
 
-    sizes = window._v_splitter.sizes()
-    assert sizes[1] > sizes[0], "splitter position did not stick"
+    assert abs(splitter.sizes()[0] - minimums[0]) <= 2, "splitter position did not stick"
 
 
 # ── 3D pane only takes space when it has data ─────────────────────────
