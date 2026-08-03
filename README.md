@@ -59,6 +59,38 @@ python -m pip install avialsync
 avialsync
 ```
 
+### Native prerequisites for a pip install
+
+The installers above bundle everything. A pip install does not: two runtime components are native
+libraries rather than Python packages, so `pip` cannot supply them. **libmpv** plays video, and
+**FFmpeg** (`ffmpeg` and `ffprobe`) probes files and writes exports. The `python-mpv` dependency is
+only a binding — it loads a libmpv that already exists on the machine and ships no copy of its own.
+Without them AvialSync still opens and its time-series features work; video stays disabled and a
+`Missing libmpv` dialog names the step for your platform.
+
+| Platform | Command |
+|---|---|
+| macOS | `brew install ffmpeg mpv` |
+| Debian / Ubuntu | `sudo apt install ffmpeg libmpv2` (`libmpv1` on releases before that package) |
+| Fedora | `sudo dnf install ffmpeg mpv-libs` |
+| Arch | `sudo pacman -S ffmpeg mpv` |
+
+No Windows package manager ships `libmpv-2.dll`, so fetch it directly: download an
+`mpv-dev-x86_64-*` archive from the [mpv-player-windows libmpv
+files](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/), extract it, and point
+AvialSync at the folder that holds the DLL.
+
+```powershell
+winget install --id Gyan.FFmpeg.Shared -e
+setx AVIALSYNC_MEDIA_ROOT "C:\path\to\mpv-dev"
+```
+
+`AVIALSYNC_MEDIA_ROOT` must name the directory that directly contains `libmpv-2.dll`; AvialSync
+searches it before the conda environment and `PATH`, and it may hold `ffmpeg.exe` and `ffprobe.exe`
+alongside the DLL. Open a new terminal after `setx` so the variable is set, then run `avialsync`.
+
+Open **Help → Diagnostics** at any time to see whether libmpv and hardware decoding were found.
+
 ### Windows source checkout prerequisites
 
 The release installer bundles its media runtime. If you run AvialSync from a Git checkout instead,
@@ -200,4 +232,4 @@ exist because breaking them caused real bugs. Participation is governed by our
 
 Good places to start are format plugins (the `TimeSeriesSource` /`VideoSource`
 contracts are frozen — see [the plugin guide](docs/plugin-guide.md)), platform
-verification on real hardware, and the open items in `RECOVERY_PLAN.md`.
+verification on real hardware, and the open items under "Pending" in `HANDOUT.md`.

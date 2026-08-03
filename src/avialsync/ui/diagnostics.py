@@ -31,6 +31,25 @@ def _configure_macos_env() -> None:
         os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = f"{brew_lib}:{fallback}"
 
 
+def libmpv_install_guidance(platform: str) -> str:
+    """Return the install route for ``platform`` named in the missing-libmpv dialog (D-013).
+
+    Every branch must name a route the reader can actually take.  A pip user is in a plain
+    virtual environment: they have no conda prefix to drop a DLL into and did not want the
+    desktop installer, so naming only those two would leave them without a next step.
+    """
+    if platform == "darwin":
+        return "brew install mpv"
+    if platform == "win32":
+        return (
+            "Install AvialSync-Setup.exe for the bundled runtime.\n"
+            "For a pip or source install, download an mpv-dev archive from\n"
+            "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/\n"
+            "and set AVIALSYNC_MEDIA_ROOT to the extracted folder holding libmpv-2.dll."
+        )
+    return "sudo apt install libmpv2 OR sudo dnf install mpv-libs OR sudo pacman -S mpv"
+
+
 def probe_libmpv(parent=None) -> bool:
     """Probe for libmpv. Show a dialog if missing and return False."""
     global _LIBMPV_AVAILABLE
@@ -52,22 +71,12 @@ def probe_libmpv(parent=None) -> bool:
         msg.setWindowTitle("Missing libmpv")
         msg.setIcon(QMessageBox.Icon.Critical)
 
-        if sys.platform == "darwin":
-            install_cmd = "brew install mpv"
-        elif sys.platform == "win32":
-            install_cmd = (
-                "Install AvialSync-Setup.exe for the bundled runtime. For a source checkout, "
-                "place libmpv-2.dll in the conda environment's Library\\bin directory."
-            )
-        else:
-            install_cmd = "sudo apt install libmpv-dev OR sudo dnf install mpv-libs"
-
         text = (
             "AvialSync requires 'libmpv' for hardware-accelerated "
             "video playback, but it could not be found on your "
             "system.\n\n"
             "Please install it to enable video features:\n"
-            f"{install_cmd}"
+            f"{libmpv_install_guidance(sys.platform)}"
         )
         msg.setText(text)
         msg.exec()
