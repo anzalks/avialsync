@@ -336,6 +336,7 @@ class TimeSeriesSource(ABC):
         Same ordering, duplicate, NaN, and sentinel rules as read_chunks. Yielding channels
         the loader did not declare, or omitting declared ones, is a loader bug."""
 
+
 class SessionSource(ABC):
     """OPTIONAL, NOT PART OF v1 (D-068). One directory that *is* a recording.
 
@@ -353,7 +354,6 @@ class SessionSource(ABC):
         """Return SessionItem(path, loader, config) rows plus the settings that
         span them (anchor_epoch, camera_fps, skeleton). Session-wide settings are
         typed fields, never a synthetic item row. Runs off the UI thread."""
-
 
     # Timestamp handling contract: loader must resolve timezone (naive input → user chooses
     # in import wizard, default UTC with a visible warning), handle DST-ambiguous local
