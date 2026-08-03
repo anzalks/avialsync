@@ -170,8 +170,14 @@ def _aggregate_gap_mask(gap_mask: np.ndarray, factor: int) -> np.ndarray:
     else:
         coarse = np.empty(0, dtype=bool)
     if remainder:
-        coarse = np.concatenate((coarse, [bool(np.any(gap_mask[truncated:]))]))
-    return coarse
+        # The tail is built as a typed array rather than a bare list: the
+        # `np.concatenate` overload that takes a sequence of mixed types
+        # resolves to Any on some NumPy versions and to a typed ndarray on
+        # others, so this line's type depended on which NumPy happened to be
+        # installed — mypy passed locally and failed in CI on the same code.
+        tail = np.array([bool(np.any(gap_mask[truncated:]))], dtype=bool)
+        coarse = np.concatenate((coarse, tail))
+    return np.asarray(coarse, dtype=bool)
 
 
 class ChannelStage:
