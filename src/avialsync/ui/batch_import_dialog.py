@@ -18,20 +18,6 @@ from PySide6.QtWidgets import (
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.source import TimeSeriesSource, VideoSource
 
-# Semantic labels mapping to specific built-in loaders.
-# This allows multiple semantic concepts (like Camera TTL vs Generic CSV)
-# to point to the same underlying loader for easier categorization in the future.
-_CATEGORY_DEFAULTS = [
-    ("Electrophysiology Data", "NeoLoader"),
-    ("Video", "VideoStandardLoader"),
-    ("Tracking Data (2D/3D)", "TrackingLoader"),
-    ("Generic CSV Time Series", "CSVLoader"),
-    ("Camera TTLs / Events (CSV)", "CSVLoader"),
-    ("Frame Triggers (CSV)", "CSVLoader"),
-    ("AOL 3D Tracking", "AOLEksLoader"),
-    ("AOL Encoder Log", "AOLEncoderLoader"),
-]
-
 
 class BatchImportDialog(QDialog):
     """Presents dropped files to the user for type verification before loading."""
@@ -104,19 +90,13 @@ class BatchImportDialog(QDialog):
         available_loaders = self._registry.loaders()
 
         # Add predefined semantic mappings for built-in loaders
-        for label, class_name in _CATEGORY_DEFAULTS:
-            loader_cls = next(
-                (loader for loader in available_loaders if loader.__name__ == class_name),
-                None,
-            )
-            if loader_cls:
-                self._categories.append((label, loader_cls))
-
-        # Add any third-party plugins that aren't in the defaults
-        default_class_names = {name for _, name in _CATEGORY_DEFAULTS}
+        # Every format names itself, so a new one appears here by being
+        # installed. A third-party plugin is listed exactly like a built-in;
+        # this dialog knows no format by name.
         for loader in available_loaders:
-            if loader.__name__ not in default_class_names:
-                self._categories.append((f"{loader.__name__} (Plugin)", loader))
+            self._categories.append((loader.display_name(), loader))
+            for alias in loader.display_aliases():
+                self._categories.append((alias, loader))
 
     def get_selections(
         self,

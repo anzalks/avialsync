@@ -8,10 +8,22 @@ from collections.abc import Iterable
 from importlib.metadata import entry_points
 from pathlib import Path
 from types import ModuleType
+from typing import Protocol, TypeVar
 
-from avialsync.core.source import TimeSeriesSource, VideoSource
+from avialsync.core.source import SessionSource, TimeSeriesSource, VideoSource
 
 logger = logging.getLogger(__name__)
+
+
+class _Capability(Protocol):
+    """What every scored plugin has in common: it can rate a path."""
+
+    @classmethod
+    def can_open(cls, path: Path) -> float: ...
+
+
+#: Any capability-scored plugin class: a loader or a session scanner.
+_T = TypeVar("_T", bound=type[_Capability])
 
 
 class LoaderRegistry:
@@ -54,7 +66,7 @@ class LoaderRegistry:
         return dirs
 
     def _discover(self) -> None:
-        """Find all loaders in the avialsync.loaders entry point group."""
+        """Find loaders and session scanners in their entry point groups."""
         from avialsync.loaders.aol_eks_loader import AOLEksLoader
         from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
         from avialsync.loaders.csv_loader import CSVLoader
@@ -62,6 +74,9 @@ class LoaderRegistry:
         from avialsync.loaders.tracking_loader import TrackingLoader
         from avialsync.loaders.video_standard import VideoStandardLoader
 
+        # Fallback for a source checkout whose entry points are not installed.
+        # These are peers, not privileged: every one is also declared in
+        # pyproject and reachable the same way a third-party loader is.
         self._loaders = [
             AOLEncoderLoader,
             AOLEksLoader,
@@ -70,27 +85,35 @@ class LoaderRegistry:
             TrackingLoader,
             NeoLoader,
         ]
+        self._load_entry_points("avialsync.loaders", self._loaders)
 
-        # The built-ins above are also declared as entry points so that a
-        # third-party host can enumerate them; loading them again here is a
-        # no-op because `not in self._loaders` deduplicates by class identity.
-        eps = entry_points(group="avialsync.loaders")
-        for ep in eps:
+        from avialsync.loaders.aol_session_loader import AOLSessionSource
+
+        self._sessions: list[type[SessionSource]] = [AOLSessionSource]
+        self._load_entry_points("avialsync.sessions", self._sessions)
+
+        for plugin_dir in self._plugin_dirs:
+            self._discover_directory(plugin_dir)
+
+    def _load_entry_points(self, group: str, into: list) -> None:
+        """Add every class published under *group*, skipping ones that fail.
+
+        Deduplicates by class identity, so a built-in that is also declared as
+        an entry point is registered once.
+        """
+        for ep in entry_points(group=group):
             try:
                 plugin_cls = ep.load()
             except Exception as error:  # noqa: BLE001 - plugin boundary, as in _load_module
                 # A broken third-party plugin must be diagnosable. Silently
                 # continuing made it vanish with no way to tell why.
-                logger.warning("Loader entry point %r failed to load: %s", ep.name, error)
+                logger.warning("%s entry point %r failed to load: %s", group, ep.name, error)
                 self.plugin_errors.append(
                     (f"entry point {ep.name!r}", f"{type(error).__name__}: {error}")
                 )
                 continue
-            if plugin_cls not in self._loaders:
-                self._loaders.append(plugin_cls)
-
-        for plugin_dir in self._plugin_dirs:
-            self._discover_directory(plugin_dir)
+            if plugin_cls not in into:
+                into.append(plugin_cls)
 
     def _discover_directory(self, plugin_dir: Path) -> None:
         """Load source classes exported by loose ``*.py`` plugin modules."""
@@ -105,20 +128,33 @@ class LoaderRegistry:
                 continue
             exported = 0
             for candidate in vars(module).values():
+                if not isinstance(candidate, type):
+                    continue
                 if (
-                    isinstance(candidate, type)
-                    and candidate not in (TimeSeriesSource, VideoSource)
+                    candidate not in (TimeSeriesSource, VideoSource)
                     and issubclass(candidate, (TimeSeriesSource, VideoSource))
                     and candidate not in self._loaders
                 ):
                     self._loaders.append(candidate)
                     exported += 1
+                elif (
+                    candidate is not SessionSource
+                    and issubclass(candidate, SessionSource)
+                    and candidate not in self._sessions
+                ):
+                    self._sessions.append(candidate)
+                    exported += 1
             if exported == 0:
                 logger.warning(
-                    "Plugin %s exported no TimeSeriesSource or VideoSource subclass.", path.name
+                    "Plugin %s exported no TimeSeriesSource, VideoSource, or SessionSource "
+                    "subclass.",
+                    path.name,
                 )
                 self.plugin_errors.append(
-                    (path.name, "exported no TimeSeriesSource or VideoSource subclass")
+                    (
+                        path.name,
+                        "exported no TimeSeriesSource, VideoSource, or SessionSource subclass",
+                    )
                 )
 
     @staticmethod
@@ -157,19 +193,46 @@ class LoaderRegistry:
             return None, f"{type(error).__name__}: {error}"
         return module, None
 
-    def find_best_loader(self, path: Path) -> type[TimeSeriesSource | VideoSource] | None:
-        """Return the loader with the highest can_open() score > 0."""
-        best_score = 0.0
-        best_loader = None
+    def _best_by_capability(self, candidates: list[_T], path: Path, kind: str) -> _T | None:
+        """Return the candidate scoring highest above zero on *path*.
 
-        for loader in self._loaders:
-            score = loader.can_open(path)
+        ``can_open`` is third-party code running on every dropped path. One
+        plugin raising there must cost only that plugin, not the whole drop:
+        the alternative is a rig-specific plugin making the application unable
+        to open anything at all.
+        """
+        best_score = 0.0
+        best = None
+        for candidate in candidates:
+            try:
+                score = candidate.can_open(path)
+            except Exception as error:  # noqa: BLE001 - plugin boundary
+                logger.warning("%s %s.can_open failed: %s", kind, candidate.__name__, error)
+                self.plugin_errors.append(
+                    (candidate.__name__, f"can_open raised {type(error).__name__}: {error}")
+                )
+                continue
             if score > best_score:
                 best_score = score
-                best_loader = loader
+                best = candidate
+        return best
 
-        return best_loader
+    def find_best_loader(self, path: Path) -> type[TimeSeriesSource | VideoSource] | None:
+        """Return the loader with the highest can_open() score > 0."""
+        return self._best_by_capability(self._loaders, path, "loader")
+
+    def find_best_session(self, path: Path) -> type[SessionSource] | None:
+        """Return the session scanner claiming *path*, if any.
+
+        Asked before per-file resolution so a folder that *is* a recording is
+        laid out by whatever understands it, rather than swept for loose files.
+        """
+        return self._best_by_capability(self._sessions, path, "session")
 
     def loaders(self) -> list[type[TimeSeriesSource | VideoSource]]:
         """Return all discovered source loaders."""
         return list(self._loaders)
+
+    def sessions(self) -> list[type[SessionSource]]:
+        """Return all discovered session scanners."""
+        return list(self._sessions)

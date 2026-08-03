@@ -17,6 +17,7 @@ from avialsync.core.session import (
     SyncProvenance,
     VideoEntry,
 )
+from avialsync.core.source import SessionLayout
 from avialsync.core.sync import SyncFit, SyncMatch, SyncProposal
 from avialsync.loaders.csv_loader import CSVLoader
 from avialsync.loaders.neo_loader import NeoLoader
@@ -506,7 +507,7 @@ def test_real_drop_event_routes_sensor_file(
     def sync_start_drop_scan(paths):
         worker = DropScanWorker(paths, main_window._registry)
         candidates = worker._collect_drop_candidates(paths[0])
-        main_window._on_drop_scan_finished(candidates, False)
+        main_window._on_drop_scan_finished(candidates, SessionLayout())
 
     monkeypatch.setattr(main_window, "_start_drop_scan", sync_start_drop_scan)
 
@@ -557,7 +558,7 @@ def test_drop_over_video_grid_forwards_to_main_router(
     def sync_start_drop_scan(paths):
         worker = DropScanWorker(paths, main_window._registry)
         candidates = worker._collect_drop_candidates(paths[0])
-        main_window._on_drop_scan_finished(candidates, False)
+        main_window._on_drop_scan_finished(candidates, SessionLayout())
 
     monkeypatch.setattr(main_window, "_start_drop_scan", sync_start_drop_scan)
 

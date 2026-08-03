@@ -70,7 +70,7 @@ class PaintCanvas(QWidget):
     def set_readers(self, readers: list[Any]) -> None:
         """Draw a single unnamed track from loose ``*_x``/``*_y`` readers.
 
-        Retained for sources that are not routed through the AOL 2D pipeline.
+        Retained for sources that are not routed through the 2D pose pipeline.
         """
         self.readers = readers
         self.update()

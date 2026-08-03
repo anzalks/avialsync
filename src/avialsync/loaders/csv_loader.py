@@ -29,6 +29,15 @@ _UNIT_SECONDS = {"s": 1.0, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
 class CSVLoader(TimeSeriesSource):
     """Loads CSV files in chunks using polars."""
 
+    @classmethod
+    def display_name(cls) -> str:
+        return "Generic CSV Time Series"
+
+    @classmethod
+    def display_aliases(cls) -> list[str]:
+        """Purposes users pick this by, all of them still a CSV underneath."""
+        return ["Camera TTLs / Events (CSV)", "Frame Triggers (CSV)"]
+
     def __init__(self) -> None:
         self._path: Path | None = None
         self._config: dict[str, Any] = {}

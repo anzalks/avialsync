@@ -249,15 +249,12 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
 - Native synchronization plugin API (D-026).
-- **Session/folder plugin API — not implemented.** A plugin *can* claim a whole directory today:
-  `can_open` is offered directories, and a claim stops the drop scan recursing into the folder
-  (pinned by `tests/test_plugin_discovery.py`). But that yields exactly **one** source. Presenting a
-  folder as several sources with roles — videos, `pose3d`, `overlay2d`, an encoder trace, a shared
-  anchor epoch, camera fps, a skeleton — exists only for AOL, hardcoded in
-  `engine/drop_worker._collect_aol_candidates` behind a hardcoded `is_aol_session` import. Nothing
-  in `core/source.py` exposes it, so a second lab with a comparable folder layout cannot reach it
-  without editing `drop_worker`. Generalising that fan-out into a session ABC is the work; AOL is
-  then its first implementation rather than a special case.
+- Session/folder plugin API — **done 2026-08-03 (D-068)**. `SessionSource` in `core/source.py`,
+  published under the `avialsync.sessions` entry-point group and also discovered from drop-in plugin
+  directories. `engine/drop_worker.py` holds no format knowledge; AOL moved wholesale into
+  `loaders/aol_session_loader.AOLSessionSource` as its first implementation. Formats also name
+  themselves for the import dialog (`display_name`/`display_aliases`), so the UI has no format
+  table. Do not reintroduce a format name into `engine/` or `ui/`.
 - **Post-refactor repair leftovers (audit 2026-07-30; `RECOVERY_PLAN.md` / `RECOVERY_PROMPT.md`
   retired 2026-08-03).** 25 of that plan's 33 tasks shipped, verified against the code; its progress
   tracker was never ticked, which is why the two files read as unstarted. What is genuinely left:
@@ -409,6 +406,7 @@ contradicts the runtime.
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
 | `ui/diagnostics.py` | Startup probe (hw-decode, disk speed) — async daemon thread; per-OS missing-libmpv text | `run_startup_diagnostics()`, `libmpv_install_guidance()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
+| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068) | `SessionSource`, `SessionLayout`, `SessionItem`, `display_name()` |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
 | `ui/controllers/video_controller.py` | Bounded concurrent probes; serialized pane build (D-040) | `load_video()`, `create_video_pane()`, `MAX_VIDEO_PROBES` |

@@ -9,8 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from avialsync.engine.drop_worker import DropScanWorker
-from avialsync.loaders.aol_session_loader import build_manifest
+from avialsync.loaders.aol_session_loader import (
+    AOLSessionSource,
+    build_manifest,
+    resolve_eks_start_epoch,
+)
 
 
 def _write_2d_pose(path: Path, bodyparts: tuple[str, ...], rows: int = 3) -> None:
@@ -90,13 +93,10 @@ def test_manifest_never_loads_contributing_model_predictions(aol_session: Path) 
 def test_2d_candidates_target_their_own_camera_video(aol_session: Path) -> None:
     from avialsync.core.registry import LoaderRegistry
 
-    worker = DropScanWorker([aol_session], LoaderRegistry())
-    candidates = worker._collect_aol_candidates(aol_session)
+    layout = AOLSessionSource().scan(aol_session, LoaderRegistry())
 
     overlay = [
-        (path, config)
-        for path, _loader, config in candidates
-        if config and config.get("role") == "overlay2d"
+        (item.path, item.config) for item in layout.items if item.config.get("role") == "overlay2d"
     ]
     assert len(overlay) == 2  # one fused overlay per camera
     for path, config in overlay:
@@ -115,17 +115,15 @@ def test_2d_candidates_target_their_own_camera_video(aol_session: Path) -> None:
 def test_3d_candidate_is_tagged_for_the_3d_view(aol_session: Path) -> None:
     from avialsync.core.registry import LoaderRegistry
 
-    worker = DropScanWorker([aol_session], LoaderRegistry())
-    candidates = worker._collect_aol_candidates(aol_session)
+    layout = AOLSessionSource().scan(aol_session, LoaderRegistry())
 
-    pose3d = [c for _p, _l, c in candidates if c and c.get("role") == "pose3d"]
+    pose3d = [item.config for item in layout.items if item.config.get("role") == "pose3d"]
     assert len(pose3d) == 1
     assert pose3d[0]["start_epoch"] > 0.0  # 3D lives on master time
 
 
 def test_eks_without_camera_name_does_not_match_every_video(aol_session: Path) -> None:
     """'_eks.csv' has an empty leading token; it must not match by empty substring."""
-    from avialsync.core.registry import LoaderRegistry
 
     manifest = build_manifest(aol_session)
     # Give the two cameras distinct start epochs.
@@ -133,8 +131,7 @@ def test_eks_without_camera_name_does_not_match_every_video(aol_session: Path) -
     manifest.video_start_epochs[paths[0]] = 1000.0
     manifest.video_start_epochs[paths[1]] = 2000.0
 
-    worker = DropScanWorker([aol_session], LoaderRegistry())
-    resolved = worker._resolve_eks_start_epoch(
+    resolved = resolve_eks_start_epoch(
         aol_session / "pose-3d" / "default_sv" / "_eks.csv", manifest
     )
     # Falls back to the earliest camera start, deterministically.

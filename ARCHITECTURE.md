@@ -41,7 +41,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── video_standard.py         # ffprobe metadata + mmap-cached presentation timestamps
 │   │   ├── tracking_loader.py        # DeepLabCut CSV; multi-scorer, bodypart/coord flat-headers
 │   │   ├── neo_loader.py             # Neo electrophysiology; OpenEphys/NCS/NIX; BFS root detect
-│   │   ├── aol_session_loader.py     # AOL folder detection + manifest (videos, 2D/3D pose, encoder, timing)
+│   │   ├── aol_session_loader.py     # AOLSessionSource: first SessionSource implementation, not a special case (D-068)
 │   │   ├── aol_eks_loader.py         # AOL 3D EKS triangulation CSV; frame-indexed x/y/z triplets
 │   │   └── aol_encoder_loader.py     # AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045)
 │   ├── engine/                       # playback machinery (imports core + mpv, no widgets)
@@ -51,7 +51,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── export.py                 # snapshot, data slice (CSV/Parquet), video clip trim
 │   │   ├── proxy.py                  # ffmpeg short-GOP proxies + prepare() conversion flow (D-006)
 │   │   ├── sync_worker.py            # chunked event extraction and deterministic fitting (D-026)
-│   │   ├── drop_worker.py            # off-thread drop classification; AOL session fan-out + pose roles (D-046)
+│   │   ├── drop_worker.py            # off-thread drop classification; format-neutral, defers folders to SessionSource (D-068)
 │   │   ├── session_worker.py         # off-thread .avv save/load
 │   │   ├── export_worker.py          # off-thread region stats, data slice, clip, snapshot jobs
 │   │   └── video_worker.py           # off-thread video probe before native pane creation
@@ -322,6 +322,9 @@ class TimeSeriesSource(ABC):
         NaN/inf pass through; sentinel codes (e.g. -9999) mapped to NaN only via explicit
         loader config, never guessed."""
 
+    # A loader also names itself for the import dialog via display_name() and
+    # display_aliases(); both have defaults, so no existing plugin changes.
+
     # BULK INGEST (OPTIONAL, NOT PART OF v1): a loader whose format is parsed in one pass —
     # a CSV, a tracking table — may additionally offer read_all_chunks. The importer detects
     # it by name (`getattr(loader, "read_all_chunks", None)`) and, when present, uses it
@@ -332,6 +335,25 @@ class TimeSeriesSource(ABC):
         """Yield {channel_name: (t, v)} per chunk, every channel aligned on the same rows.
         Same ordering, duplicate, NaN, and sentinel rules as read_chunks. Yielding channels
         the loader did not declare, or omitting declared ones, is a loader bug."""
+
+class SessionSource(ABC):
+    """OPTIONAL, NOT PART OF v1 (D-068). One directory that *is* a recording.
+
+    Published under the `avialsync.sessions` entry-point group. Asked about a
+    dropped folder before any per-file resolution runs; whichever scanner claims
+    it decides what the folder contains. This is what lets one folder fan out
+    into many sources with roles, which a folder-claiming ordinary loader cannot
+    express. AOL is its first implementation, not a built-in special case.
+    """
+
+    @classmethod
+    def can_open(cls, path: Path) -> float: ...  # directories; must be cheap
+
+    def scan(self, path: Path, registry) -> SessionLayout:
+        """Return SessionItem(path, loader, config) rows plus the settings that
+        span them (anchor_epoch, camera_fps, skeleton). Session-wide settings are
+        typed fields, never a synthetic item row. Runs off the UI thread."""
+
 
     # Timestamp handling contract: loader must resolve timezone (naive input → user chooses
     # in import wizard, default UTC with a visible warning), handle DST-ambiguous local

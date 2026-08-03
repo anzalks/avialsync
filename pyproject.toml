@@ -54,6 +54,12 @@ neo = "avialsync.loaders.neo_loader:NeoLoader"
 aol_encoder = "avialsync.loaders.aol_encoder_loader:AOLEncoderLoader"
 aol_eks = "avialsync.loaders.aol_eks_loader:AOLEksLoader"
 
+# Session scanners lay out a whole recording folder (D-068). A lab adds support
+# for its own directory layout by publishing here; nothing in the application
+# names a format.
+[project.entry-points."avialsync.sessions"]
+aol = "avialsync.loaders.aol_session_loader:AOLSessionSource"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/avialsync"]
 include = ["src/avialsync/resources/avialsync.png"]

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QMessageBox
 
-from avialsync.core.source import TimeSeriesSource, VideoSource
+from avialsync.core.source import SessionLayout, TimeSeriesSource, VideoSource
 from avialsync.ui.time_format import TimeDisplayMode
 
 if TYPE_CHECKING:
@@ -80,35 +80,46 @@ def on_drop_scan_error(window: MainWindow, error_msg: str) -> None:
     QMessageBox.critical(window, "Import Error", f"Failed to scan dropped files:\n{error_msg}")
 
 
+def apply_session_layout(window: MainWindow, layout: object) -> None:
+    """Adopt the settings a session plugin reported for the folder it laid out.
+
+    Format-neutral: these are properties any session may declare, not one lab's
+    fields. A drop that no session plugin claimed carries an empty layout and
+    changes nothing, so an ordinary file drop never disturbs the current time
+    mode.
+
+    Typed ``object`` and checked, because it arrives over a Qt signal declared
+    ``Signal(list, object)`` — Qt cannot enforce the payload type, so anything
+    still connected from an older build would otherwise crash the drop handler
+    rather than be ignored.
+    """
+    if not isinstance(layout, SessionLayout):
+        return
+
+    window._session_camera_fps = layout.camera_fps
+    window._session_anchor_epoch = layout.anchor_epoch
+
+    if layout.anchor_epoch > 0.0:
+        # The session knows what absolute instant its timestamps are relative
+        # to, so times become readable wall clock rather than seconds-from-zero.
+        window.plot_pane.set_time_mode(TimeDisplayMode.UTC, layout.anchor_epoch)
+        window.transport.set_t_epoch(layout.anchor_epoch)
+
+    if layout.skeleton:
+        window.tracking_3d_pane.set_skeleton(layout.skeleton)
+
+
 def on_drop_scan_finished(
     window: MainWindow,
     candidates: list[tuple[Path, type | None, dict | None]],
-    is_aol_session: bool,
+    layout: object = None,
 ) -> None:
     window.transport.set_status("")
 
+    apply_session_layout(window, layout)
+
     if not candidates:
         return
-
-    # Check for the virtual AOL setup candidate. Compare Path objects: a
-    # string round-trip does not survive Windows path normalisation, which
-    # previously leaked this marker row into the import dialog and skipped
-    # the session's fps/anchor/skeleton setup entirely.
-    from avialsync.engine.drop_worker import AOL_SESSION_SETUP
-
-    setup_idx = next((i for i, c in enumerate(candidates) if c[0] == AOL_SESSION_SETUP), -1)
-    if setup_idx >= 0:
-        _, _, config = candidates.pop(setup_idx)
-        if config:
-            window._aol_camera_fps = config.get("camera_fps", 0.0)
-            window._aol_anchor_epoch = config.get("anchor_epoch", 0.0)
-            if window._aol_anchor_epoch > 0.0:
-                window.plot_pane.set_time_mode(TimeDisplayMode.UTC, window._aol_anchor_epoch)
-                window.transport.set_t_epoch(window._aol_anchor_epoch)
-
-            skeleton = config.get("skeleton")
-            if skeleton:
-                window.tracking_3d_pane.set_skeleton(skeleton)
 
     if len(candidates) == 1:
         # Bypass dialog for single files only

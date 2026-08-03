@@ -24,6 +24,10 @@ _FRAME_TIMES_NAME = "video_frame_times.npy"
 class VideoStandardLoader(VideoSource):
     """Loads standard videos utilizing ffprobe metadata."""
 
+    @classmethod
+    def display_name(cls) -> str:
+        return "Video"
+
     def __init__(self) -> None:
         self._path: Path | None = None
         self._config: dict[str, Any] = {}
@@ -116,7 +120,7 @@ class VideoStandardLoader(VideoSource):
             self._extract_frame_times(path)
             if self._frame_times is not None:
                 self._save_frame_times_cache(path, self._frame_times)
-        # Override FPS and scale timestamps if explicitly requested (e.g. by AOL session)
+        # Override FPS and scale timestamps if explicitly requested (e.g. by a session plugin)
         override_fps = self._config.get("fps")
         if override_fps is not None and override_fps > 0 and self._fps > 0:
             scale = self._fps / float(override_fps)

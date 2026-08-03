@@ -1811,3 +1811,43 @@ surface); leaving it undocumented (the status quo this entry closes).
 **Consequences:** §4 now shows the method with its contract and its "not part of v1" status. The
 two importer paths (`_build_bulk_channels`, `_build_channel_by_channel`) are a permanent pair, not
 a migration — neither is deprecated, and a change to one needs the same change proven in the other.
+
+## 2026-08 · D-068 · A recording folder is laid out by a plugin, never by the application
+
+**Context:** AGENTS rule 5 requires every data source to arrive through the plugin ABCs and forbids
+special-casing formats in application code. The AOL session folder violated that outright.
+`engine/drop_worker.py` imported `is_aol_session` by name, and 250 lines of that file knew one lab's
+directory layout: which files are cameras, which are 3D pose, which are per-camera 2D overlays, how
+their start epochs rebase onto the encoder's seconds-since-midnight axis. `ui/batch_import_dialog.py`
+listed AOL loaders in a hardcoded label table. A second lab with a comparable folder could not be
+supported without editing the drop path, which is the opposite of the extension story the project
+sells.
+
+The mechanism was worse than the coupling. Session-wide settings — camera fps, anchor epoch,
+skeleton — were smuggled to the UI as a fake `Path("virtual://aol_session_setup")` row inside the
+list of file candidates. Every consumer had to recognise and strip it, and the one that forgot leaked
+a non-existent file into the import dialog.
+
+**Decision:** `core/source.py` gains `SessionSource`, an **optional** contract outside frozen API v1:
+`can_open(dir) -> float` plus `scan(dir, registry) -> SessionLayout`. `SessionLayout` carries the
+items *and* the session-wide settings as typed fields, so the virtual-row hack is gone. Scanners are
+published under a separate `avialsync.sessions` entry-point group and are also discovered from
+drop-in plugin directories.
+
+`drop_worker` now asks the registry which plugin claims a dropped directory and knows no format at
+all; AOL's entire layout moved into `loaders/aol_session_loader.AOLSessionSource`, its first
+implementation rather than a special case. Formats also name themselves for the import dialog via
+`display_name`/`display_aliases`, so the UI holds no format table and a third-party loader is listed
+exactly like a built-in.
+
+**Alternatives rejected:** widening `TimeSeriesSource` to return multiple sources (breaks every
+existing plugin and conflates one file with one folder); keeping the fan-out in `drop_worker` behind
+a registry lookup (still leaves the application owning one lab's layout); a folder-claiming ordinary
+loader, which already works but yields exactly one source and cannot express roles.
+
+**Consequences:** a session plugin runs arbitrary third-party code on the scan thread, so a scanner
+that raises is reported into `plugin_errors` and the folder falls back to per-file scanning — a
+broken plugin must never make a folder unopenable. `find_best_session` is asked *before* per-file
+resolution, so a claimed directory is never swept for loose files. Verified against the real
+`09-35-24` session: identical 8 items, loaders, roles, and offsets to the hardcoded path, with the
+virtual row gone. Do not reintroduce format knowledge into `engine/` or `ui/`.

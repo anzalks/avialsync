@@ -218,3 +218,105 @@ def test_a_folder_claiming_plugin_wins_the_drop_scan(tmp_path: Path) -> None:
     path, loader_cls, _config = candidates[0]
     assert path == session
     assert loader_cls is not None and loader_cls.__name__ == "RigSessionSource"
+
+
+# ── Session plugins: a folder layout is pluggable, not built in ──────
+
+_SESSION_PLUGIN = """
+from pathlib import Path
+from typing import Any
+
+from avialsync.core.source import SessionItem, SessionLayout, SessionSource
+
+
+class RigSession(SessionSource):
+    @classmethod
+    def can_open(cls, path: Path) -> float:
+        return 1.0 if path.is_dir() and (path / "rig.marker").exists() else 0.0
+
+    def scan(self, path: Path, registry: Any) -> SessionLayout:
+        items = [
+            SessionItem(child, registry.find_best_loader(child), {"role": "trace"})
+            for child in sorted(path.glob("*.csv"))
+        ]
+        return SessionLayout(
+            items=items, anchor_epoch=1_700_000_000.0, camera_fps=60.0, skeleton=[("a", "b")]
+        )
+"""
+
+
+def _rig_layout(root: Path) -> tuple[Path, Path]:
+    plugin_dir = root / "plugins"
+    plugin_dir.mkdir()
+    (plugin_dir / "rig_session.py").write_text(_SESSION_PLUGIN, encoding="utf-8")
+
+    session = root / "rig_2026_08_03"
+    session.mkdir()
+    (session / "rig.marker").write_text("x", encoding="utf-8")
+    for name in ("a.csv", "b.csv"):
+        (session / name).write_text("time,value\n0,1\n", encoding="utf-8")
+    return plugin_dir, session
+
+
+def test_a_drop_in_session_plugin_is_discovered(tmp_path: Path) -> None:
+    """A lab adds its own folder layout by dropping in a file — no core change."""
+    from avialsync.core.registry import LoaderRegistry
+
+    plugin_dir, session = _rig_layout(tmp_path)
+    registry = LoaderRegistry(plugin_dirs=[plugin_dir])
+
+    assert registry.plugin_errors == []
+    assert [c.__name__ for c in registry.sessions() if c.__name__ == "RigSession"]
+    chosen = registry.find_best_session(session)
+    assert chosen is not None and chosen.__name__ == "RigSession"
+
+
+def test_a_third_party_session_fans_a_folder_out(tmp_path: Path) -> None:
+    """The fan-out AOL uses must be reachable by any plugin, which is the point."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.engine.drop_worker import DropScanWorker
+
+    plugin_dir, session = _rig_layout(tmp_path)
+    worker = DropScanWorker([session], LoaderRegistry(plugin_dirs=[plugin_dir]))
+
+    candidates = worker._collect_drop_candidates(session)
+
+    assert len(candidates) == 2, "one candidate per file the session declared"
+    assert {path.name for path, _loader, _config in candidates} == {"a.csv", "b.csv"}
+    assert all(config["role"] == "trace" for _p, _l, config in candidates)
+    # Session-wide settings travel beside the items, not as a fake file row.
+    assert worker._layout.anchor_epoch == 1_700_000_000.0
+    assert worker._layout.camera_fps == 60.0
+    assert all(path.exists() for path, _l, _c in candidates)
+
+
+def test_a_session_plugin_that_raises_leaves_the_folder_openable(tmp_path: Path) -> None:
+    """A broken session scanner must degrade to per-file scanning, not block the drop."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.engine.drop_worker import DropScanWorker
+
+    plugin_dir = tmp_path / "plugins"
+    plugin_dir.mkdir()
+    (plugin_dir / "bad_session.py").write_text(
+        "from pathlib import Path\n"
+        "from typing import Any\n"
+        "from avialsync.core.source import SessionLayout, SessionSource\n"
+        "\n"
+        "class BadSession(SessionSource):\n"
+        "    @classmethod\n"
+        "    def can_open(cls, path: Path) -> float:\n"
+        "        return 1.0 if path.is_dir() else 0.0\n"
+        "\n"
+        "    def scan(self, path: Path, registry: Any) -> SessionLayout:\n"
+        "        raise RuntimeError('scanner exploded')\n",
+        encoding="utf-8",
+    )
+    session = tmp_path / "folder"
+    session.mkdir()
+    (session / "a.csv").write_text("time,value\n0,1\n", encoding="utf-8")
+
+    registry = LoaderRegistry(plugin_dirs=[plugin_dir])
+    candidates = DropScanWorker([session], registry)._collect_drop_candidates(session)
+
+    assert [path.name for path, _l, _c in candidates] == ["a.csv"]
+    assert any("scan failed" in reason for _source, reason in registry.plugin_errors)

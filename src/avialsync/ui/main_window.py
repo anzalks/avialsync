@@ -144,12 +144,13 @@ class MainWindow(QMainWindow):
 
         # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
         self._video_fps: dict[str, float] = {}
-        # Camera rate and UTC anchor an AOL session declares in its setup candidate.
-        # Declared here rather than created on the first AOL drop: they are read
-        # outside the method that sets them, so a window that never saw an AOL
-        # session must still answer for them.
-        self._aol_camera_fps: float = 0.0
-        self._aol_anchor_epoch: float = 0.0
+        # Settings the last session plugin reported for a dropped folder, if
+        # any. Format-neutral: any SessionSource may declare them. Declared here
+        # rather than created on first use, because they are read outside the
+        # code that sets them and a window that never opened a session must
+        # still answer for them.
+        self._session_camera_fps: float = 0.0
+        self._session_anchor_epoch: float = 0.0
         # Keep QObject workers alive until their QThread has finished. Moving an
         # object to a thread does not transfer Python ownership.
         self._video_load_jobs: dict[QThread, object] = {}
@@ -524,7 +525,7 @@ class MainWindow(QMainWindow):
         """Forward to ReadoutPanel with accumulated units for known channels."""
         self.readout_panel.update_sources(readers, self._channel_units)
         # Plotted XYZ channels still feed the 3D view, but they are no longer its
-        # only feed: AOL pose sources register themselves without being plotted.
+        # only feed: pose sources register themselves without being plotted.
         self._plotted_readers = list(readers)
         self._refresh_pose_3d()
 
@@ -979,9 +980,11 @@ class MainWindow(QMainWindow):
         drop_controller.on_drop_scan_error(self, error_msg)
 
     def _on_drop_scan_finished(
-        self, candidates: list[tuple[Path, type | None, dict | None]], is_aol_session: bool
+        self,
+        candidates: list[tuple[Path, type | None, dict | None]],
+        layout: object = None,
     ) -> None:
-        drop_controller.on_drop_scan_finished(self, candidates, is_aol_session)
+        drop_controller.on_drop_scan_finished(self, candidates, layout)
 
     def _route_import_candidate(
         self,

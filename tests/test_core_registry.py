@@ -158,7 +158,7 @@ def test_a_plugin_exporting_no_source_is_reported(tmp_path: Path) -> None:
     registry = LoaderRegistry(plugin_dirs=[tmp_path])
 
     assert len(registry.plugin_errors) == 1
-    assert "no TimeSeriesSource or VideoSource" in registry.plugin_errors[0][1]
+    assert "no TimeSeriesSource, VideoSource, or SessionSource" in registry.plugin_errors[0][1]
 
 
 def test_a_broken_plugin_does_not_cost_the_built_ins(tmp_path: Path) -> None:
