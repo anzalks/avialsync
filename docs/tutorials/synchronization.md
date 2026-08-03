@@ -1,5 +1,10 @@
 # Tutorial: align recordings
 
+
+![The import wizard previewing a parsed timestamp column](../_static/screenshots/demo_step6_wizard_previewed.png)
+
+*The import wizard shows how a timestamp column parses before anything is cached.*
+
 ## Choose a reference
 
 Find an event visible in more than one recording: a flash, movement, pulse, or camera frame trigger.

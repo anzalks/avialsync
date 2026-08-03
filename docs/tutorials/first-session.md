@@ -5,11 +5,15 @@ recordings.
 
 ## 1. Load the camera
 
+![Load the camera](../_static/screenshots/demo_step2_video_loaded.png)
+
 Drag the video into the window. Its name appears in the left panel and its image appears in the video
 area. The readout over the video shows its time, timestamp-derived CFR/VFR rate, nominal rate, codec,
 and file size. Open **Video Properties** for resolution, duration, and the complete timing evidence.
 
 ## 2. Load the recording
+
+![Load the recording](../_static/screenshots/demo_step3_csv_loaded.png)
 
 Drag the sensor or tracking file into the same window. Follow the importer if it asks which column
 contains time or which units apply. The traces appear below the video.
