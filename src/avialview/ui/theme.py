@@ -15,6 +15,7 @@ import sys
 from PySide6.QtCore import QSettings, QTimer
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
+from shiboken6 import isValid
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
@@ -74,10 +75,23 @@ def _scaled_font(font: QFont, factor: float) -> QFont:
     return scaled
 
 
+def _live_widgets(app: QApplication) -> list[QWidget]:
+    """Return the widgets of *app* whose C++ objects still exist.
+
+    ``allWidgets`` hands back a snapshot, and setting a font on one widget can
+    run layout that flushes a pending deleteLater for another. Touching the
+    freed entry that leaves behind is a segfault, not an exception — it crashed
+    the Linux test run with SIGSEGV rather than a failure.
+    """
+    return [widget for widget in app.allWidgets() if isValid(widget)]
+
+
 def _capture_widget_base_fonts(app: QApplication) -> None:
     """Record live widget fonts before Qt propagates a new application font."""
     previous_factor = _font_scales.get(id(app), 1.0)
-    for widget in app.allWidgets():
+    for widget in _live_widgets(app):
+        if not isValid(widget):
+            continue
         base = widget.property(_BASE_FONT_PROPERTY)
         if not isinstance(base, QFont):
             base = _scaled_font(QFont(widget.font()), 1.0 / previous_factor)
@@ -86,7 +100,11 @@ def _capture_widget_base_fonts(app: QApplication) -> None:
 
 def _apply_font_to_existing_widgets(app: QApplication, factor: float) -> None:
     """Scale live widgets from their unscaled base fonts without changing their roles."""
-    for widget in app.allWidgets():
+    for widget in _live_widgets(app):
+        # Re-checked inside the loop as well as when the list was taken: each
+        # setFont below can be what frees the next entry.
+        if not isValid(widget):
+            continue
         base = widget.property(_BASE_FONT_PROPERTY)
         if not isinstance(base, QFont):
             # A widget created after the preference was applied inherits the app
