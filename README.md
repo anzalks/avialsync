@@ -12,6 +12,13 @@ It is designed for visual inspection and careful alignment. It does not acquire 
 does not perform scientific analysis for you. Your lab can add support for its own file types and
 workflows through plugins.
 
+![A camera recording and three signal channels on one shared timeline, with the Data Streams
+coverage bar showing where each source has data.](docs/_static/screenshots/demo_step3_csv_loaded.png)
+
+*One camera and three channels of the bundled sample session on a single master timeline.
+Reproduce this from a clean clone with
+`conda run -n avialview python tools/generate_demo_screenshots.py`.*
+
 ## Why use it?
 
 - View several camera recordings together.
