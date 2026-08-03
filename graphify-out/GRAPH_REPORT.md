@@ -56,15 +56,15 @@
 
 ## Surprising Connections (you probably didn't know these)
 - `plot_pane()` --calls--> `PlotPane`  [INFERRED]
-  tests/test_ui_plot_measure.py → src/avialview/ui/plot_pane.py
+  tests/test_ui_plot_measure.py → src/avialsync/ui/plot_pane.py
 - `panel()` --calls--> `ReadoutPanel`  [INFERRED]
-  tests/test_ui_readout_delta.py → src/avialview/ui/readout_panel.py
+  tests/test_ui_readout_delta.py → src/avialsync/ui/readout_panel.py
 - `test_frame_records_at_empty_grid()` --calls--> `VideoGrid`  [INFERRED]
-  tests/test_annotation_frames.py → src/avialview/ui/video_grid.py
+  tests/test_annotation_frames.py → src/avialsync/ui/video_grid.py
 - `ToyBinarySource` --uses--> `ChannelInfo`  [INFERRED]
-  examples/plugins/avialview-plugin-example/src/avialview_plugin_example/__init__.py → src/avialview/core/source.py
+  examples/plugins/avialsync-plugin-example/src/avialsync_plugin_example/__init__.py → src/avialsync/core/source.py
 - `ToyBinarySource` --uses--> `TimeSeriesSource`  [INFERRED]
-  examples/plugins/avialview-plugin-example/src/avialview_plugin_example/__init__.py → src/avialview/core/source.py
+  examples/plugins/avialsync-plugin-example/src/avialsync_plugin_example/__init__.py → src/avialsync/core/source.py
 
 ## Import Cycles
 - None detected.
@@ -73,7 +73,7 @@
 
 ### Community 0 - "Community 0"
 Cohesion: 0.00
-Nodes (1008): ABC, Edge, Enum, Any, ndarray, Path, A minimal external AvialView Plugin API v1 implementation., Read ``.toybin`` records encoded as little-endian ``(time, value)`` pairs. (+1000 more)
+Nodes (1008): ABC, Edge, Enum, Any, ndarray, Path, A minimal external AvialSync Plugin API v1 implementation., Read ``.toybin`` records encoded as little-endian ``(time, value)`` pairs. (+1000 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.03
@@ -97,15 +97,15 @@ Nodes (14): 1. Test layers, 2. Fixtures — `tools/make_fixtures.py` (ground tru
 
 ### Community 6 - "Community 6"
 Cohesion: 0.14
-Nodes (13): AvialView — Project Blueprint (v1), Non-negotiable design principles (every phase, every agent, every PR), P5.4 — Evidence-based synchronization (TTL/events), Performance budgets (CI-enforced where marked ★), Phase 0 — Foundation (Week 0–1), Phase 1 — Core engine, headless (Week 1–2), Phase 2 — Playback MVP (Week 2–4), Phase 3 — Multi-source + performance (Week 4–7) (+5 more)
+Nodes (13): AvialSync — Project Blueprint (v1), Non-negotiable design principles (every phase, every agent, every PR), P5.4 — Evidence-based synchronization (TTL/events), Performance budgets (CI-enforced where marked ★), Phase 0 — Foundation (Week 0–1), Phase 1 — Core engine, headless (Week 1–2), Phase 2 — Playback MVP (Week 2–4), Phase 3 — Multi-source + performance (Week 4–7) (+5 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.23
-Nodes (12): _deterministic_communities(), main(), Path, Build AvialView's committed, offline structural development graph.  This utility, Count source words for the report without processing non-source files., Write a no-dependency local inspector for the portable graph JSON., Remove Graphify's automatic Git stamp so repeated refreshes are identical., Group connected components without a stochastic community partitioner. (+4 more)
+Nodes (12): _deterministic_communities(), main(), Path, Build AvialSync's committed, offline structural development graph.  This utility, Count source words for the report without processing non-source files., Write a no-dependency local inspector for the portable graph JSON., Remove Graphify's automatic Git stamp so repeated refreshes are identical., Group connected components without a stochastic community partitioner. (+4 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.18
-Nodes (10): AGENTS.md — AvialView agent instructions (canonical), Architecture rules (violations = rejected PR), Coding standards, Definition of Done (every task), How to run things, Known traps (learned the hard way — do not rediscover), Naming & casing — BINDING (never invent variants), Task protocol for agents (+2 more)
+Nodes (10): AGENTS.md — AvialSync agent instructions (canonical), Architecture rules (violations = rejected PR), Coding standards, Definition of Done (every task), How to run things, Known traps (learned the hard way — do not rediscover), Naming & casing — BINDING (never invent variants), Task protocol for agents (+2 more)
 
 ### Community 9 - "Community 9"
 Cohesion: 0.18
@@ -129,7 +129,7 @@ Nodes (5): Data handling, Gaps and missing values, Sessions and provenance, Sour
 
 ### Community 14 - "Community 14"
 Cohesion: 0.40
-Nodes (5): build_bundle(), main(), Path, Build a one-directory AvialView bundle for the current platform., Run PyInstaller with only staged, local media libraries included.
+Nodes (5): build_bundle(), main(), Path, Build a one-directory AvialSync bundle for the current platform., Run PyInstaller with only staged, local media libraries included.
 
 ### Community 15 - "Community 15"
 Cohesion: 0.47

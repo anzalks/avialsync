@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--source",
         type=Path,
-        default=ROOT / "assets/avial_view.png",
+        default=ROOT / "assets/avial_sync.png",
         help="canonical PNG source (non-square artwork is transparently center-padded)",
     )
     parser.add_argument(
