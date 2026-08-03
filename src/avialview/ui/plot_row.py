@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,6 +19,14 @@ from avialview.core.timeline import TimeMap
 from avialview.ui.plot_sweep import SweepCurveItem
 
 CHANNEL_COLORS = [(72, 169, 232), (87, 194, 143), (218, 160, 84), (174, 132, 222)]
+
+# Every row's left axis is pinned to one width so the gutters line up down the
+# stack (PLOT_UX_PLAN.md "aligned channel gutters"); it is not derived from
+# content, or each row would sit at its own indent. It has to hold the rotated
+# label *and* the tick numbers beside it. The label is up to three stacked
+# lines — name, unit, Y range — and 70 px fitted only one, so the range ran
+# over the ticks.
+_GUTTER_WIDTH_PX = 104
 
 Y_FIT_ONCE = "fit_once"
 Y_AUTO = "auto"
@@ -122,14 +131,20 @@ def fit_channel_y(channel: ChannelPlot) -> None:
 
 
 def _update_channel_gutter(channel: ChannelPlot) -> None:
-    """Keep name, unit, and stable scale together in the fixed row gutter."""
-    lines = [channel.name]
+    """Keep name, unit, and stable scale together in the fixed row gutter.
+
+    Joined with ``<br/>`` rather than ``\\n``: pyqtgraph wraps an axis label in
+    a ``<span>`` and hands it to ``setHtml``, where a newline is whitespace.
+    The three parts therefore rendered as one long rotated line that ran over
+    the tick numbers instead of stacking above them.
+    """
+    lines = [html.escape(channel.name)]
     if channel.unit:
-        lines.append(channel.unit)
+        lines.append(html.escape(channel.unit))
     if channel.y_range is not None:
         low, high = channel.y_range
-        lines.append(f"{low:.3g}…{high:.3g}")
-    channel.plot_item.setLabel("left", "\n".join(lines))
+        lines.append(html.escape(f"{low:.3g}…{high:.3g}"))
+    channel.plot_item.setLabel("left", "<br/>".join(lines))
 
 
 def update_channel_coverage(
@@ -209,9 +224,11 @@ def create_channel_plot(
 
     plot_item = graphics_layout.addPlot(row=row, col=1)
     plot_item.setMinimumHeight(110)
-    plot_item.setLabel("left", channel_name)
+    # Escaped for the same reason the gutter is: this label is rendered as HTML,
+    # so a channel named "I<V" or "a & b" would lose part of its name.
+    plot_item.setLabel("left", html.escape(channel_name))
     plot_item.setLabel("bottom", "Master time", units="s")
-    plot_item.getAxis("left").setWidth(70)
+    plot_item.getAxis("left").setWidth(_GUTTER_WIDTH_PX)
     plot_item.showGrid(x=True, y=False, alpha=0.18)
     plot_item.setMouseEnabled(x=False, y=False)
     plot_item.enableAutoRange(axis="y", enable=False)

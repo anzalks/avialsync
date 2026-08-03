@@ -314,7 +314,11 @@ def _validated_times(times: np.ndarray, name: str) -> np.ndarray:
 def _initial_scale(reference: np.ndarray, target: np.ndarray) -> float:
     reference_dt = np.median(np.diff(reference))
     target_dt = np.median(np.diff(target))
-    if reference_dt <= 0 or target_dt <= 0:
+    # Unreachable through the public entry points: `_validated_times` requires
+    # strictly increasing timestamps, so every interval is positive and so is
+    # their median. Kept as a guard for any future caller that does not
+    # validate first, since the alternative is a division by zero.
+    if reference_dt <= 0 or target_dt <= 0:  # pragma: no cover
         raise SyncEvidenceError("Synchronization events need positive timestamp intervals.")
     return float(target_dt / reference_dt)
 

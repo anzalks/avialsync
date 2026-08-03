@@ -197,13 +197,14 @@ class SessionState:
         sessions.  Per-frame mappings use compact NumPy sidecars so saving does
         not first inflate them into millions of Python floats or JSON tokens.
         """
+        # `to_dict` validates every provenance entry's array lengths and raises
+        # on a mismatch, so it has already run for all of them by the time this
+        # loop starts; repeating the check here was unreachable.
         payload = self.to_dict()
         sidecar_dir = path.with_suffix(f"{path.suffix}.avialcache")
         for index, provenance in enumerate(self.sync_provenance):
             master = np.asarray(provenance.exact_master, dtype=np.float64)
             source = np.asarray(provenance.exact_source, dtype=np.float64)
-            if len(master) != len(source):
-                raise ValueError("Exact synchronization arrays have different lengths.")
             if len(master) <= _EXACT_MAPPING_INLINE_LIMIT:
                 continue
             sidecar_dir.mkdir(parents=True, exist_ok=True)
