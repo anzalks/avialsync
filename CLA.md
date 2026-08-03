@@ -5,14 +5,13 @@ contribution is accepted under. It is short on purpose.
 
 ## Why this exists
 
-AvialSync is dual-licensed: AGPL-3.0-or-later for everyone, plus a commercial
-licence the copyright holder can grant to organisations that cannot accept the
-AGPL's reciprocity (see [COMMERCIAL-LICENCE.md](COMMERCIAL-LICENCE.md)).
+AvialSync is released under the AGPL-3.0-or-later, and the copyright holder
+keeps the ability to license the work as a whole under other terms where the
+AGPL cannot be used (see the licensing page in the documentation).
 
-That only works if one party can license the whole work under both. If some of
-the code could be offered under the AGPL but not commercially, the commercial
-option quietly stops being possible — not just for that patch, but for every
-release containing it.
+That only works if one party can license all of it. If part of the code could be
+offered under the AGPL but not otherwise, that flexibility quietly disappears —
+not just for that patch, but for every release containing it.
 
 ## What you agree to
 
@@ -22,10 +21,10 @@ By opening a pull request you confirm that:
    your work, you have their permission. If it includes someone else's code, you
    say so in the pull request and identify its licence.
 
-2. **You grant the copyright holder** (Anzal K S) a perpetual, worldwide,
+2. **You grant the copyright holder** (Anzal K Shahul) a perpetual, worldwide,
    irrevocable, royalty-free licence to use, reproduce, modify, and distribute
    your contribution, and to sublicense it — **including under licences other
-   than the AGPL**, which is what makes the commercial option work.
+   than the AGPL**, which is what keeps the project licensable as a whole.
 
 3. **You keep your copyright.** This is a licence, not an assignment. Your
    contribution stays yours; you may use it elsewhere however you like.
@@ -36,7 +35,7 @@ By opening a pull request you confirm that:
 5. **It is provided as-is**, with no warranty beyond what the licence requires.
 
 Your contribution is published under the AGPL like the rest of the project. The
-grant above is what additionally allows it in a commercial licence.
+grant above is what keeps the project licensable as a whole.
 
 ## How to accept
 

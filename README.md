@@ -7,7 +7,6 @@
 [![CI](https://github.com/anzalks/avialsync/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/anzalks/avialsync/actions/workflows/ci.yml)
 [![Documentation](https://readthedocs.org/projects/avialsync/badge/?version=latest)](https://avialsync.readthedocs.io/en/latest/)
 [![Licence](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](https://github.com/anzalks/avialsync/blob/main/LICENSE)
-[![Commercial licence](https://img.shields.io/badge/commercial%20licence-available-success.svg)](https://github.com/anzalks/avialsync/blob/main/COMMERCIAL-LICENCE.md)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/anzalks/avialsync/releases)
 
 AvialSync is a desktop viewer for looking through an experiment in time.
@@ -174,7 +173,7 @@ the one that matches your problem — they overlap less than the names suggest.
 | Dense signals | 50 kHz × many channels via a decimation pyramid | Strong, its core purpose | Yes | Yes |
 | Per-source offset/drift | Yes, with evidence-based TTL alignment | Manual offsets | Timeline-based | Timeline-based |
 | Data model | Reads your files in place | Reads your files in place | You log into its own format | ROS/MCAP-oriented |
-| Licence | AGPL-3.0, plus a commercial option | MPL-2.0 | Apache-2.0 | Source-available + hosted |
+| Licence | AGPL-3.0 | MPL-2.0 | Apache-2.0 | Source-available + hosted |
 
 If you mainly plot signals, PlotJuggler is likely a better fit. If you are in a
 ROS ecosystem, Foxglove and Rerun are built for it. AvialSync exists for the
@@ -281,19 +280,17 @@ covers it.
 
 ## Licence
 
-AvialSync is dual-licensed.
+AvialSync is free software under the
+[GNU AGPL v3 or later](https://github.com/anzalks/avialsync/blob/main/LICENSE). Use it, study it,
+modify it, redistribute it. The one condition is reciprocity: if you convey a modified version —
+including letting others use it over a network — you publish your changes under the same licence.
 
-**[AGPL-3.0-or-later](https://github.com/anzalks/avialsync/blob/main/LICENSE)** for everyone. Use
-it, study it, modify it, redistribute it. The one condition is reciprocity: if you convey a
-modified version — including letting others use it over a network — you publish your changes under
-the same licence. Academic use, running it in your lab, publishing results, and writing plugins for
-your own rig all sit comfortably inside this and cost nothing.
+Running it in your lab, modifying it for your own use, publishing results, and writing plugins for
+your own rig all sit inside this and cost nothing. A plugin that uses only the documented
+`TimeSeriesSource`, `VideoSource` and `SessionSource` interfaces is your own work and you choose its
+licence, so a loader for a proprietary instrument format need not be published.
 
-**A [commercial licence](https://github.com/anzalks/avialsync/blob/main/COMMERCIAL-LICENCE.md)** for
-anyone who cannot accept that reciprocity — shipping it inside a closed-source product, offering it
-as a hosted service without publishing changes, or embedding it in instrumentation you sell. Ask:
-<anzal.ks@gmail.com>.
+Other arrangements are possible in situations the AGPL cannot accommodate; see
+[licensing](https://avialsync.readthedocs.io/en/latest/licensing.html) in the documentation.
 
-A plugin that only uses the documented `TimeSeriesSource`, `VideoSource` and `SessionSource`
-interfaces is your own work and you choose its licence — you are not required to publish a loader
-for your lab's proprietary format.
+Contributions are accepted under [CLA.md](https://github.com/anzalks/avialsync/blob/main/CLA.md).

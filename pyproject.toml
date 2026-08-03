@@ -9,6 +9,38 @@ description = "GUI desktop app to scrub time-synchronized multi-camera video and
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = { text = "AGPL-3.0-or-later" }
+authors = [{ name = "Anzal K Shahul", email = "anzal.ks@gmail.com" }]
+keywords = [
+    "neuroscience",
+    "electrophysiology",
+    "behaviour",
+    "video",
+    "synchronization",
+    "time-series",
+    "pose-estimation",
+    "multi-camera",
+]
+# Not decoration: the `Programming Language :: Python` entries are what the
+# supported-versions badge and PyPI's own filters read, and without any of these
+# the project appears in no category on PyPI at all.
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video :: Display",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+
 dependencies = [
     "PySide6",
     "pyqtgraph",
@@ -22,6 +54,13 @@ dependencies = [
     # unavailable on this system." Every other platform reads the system copy.
     "tzdata; sys_platform == 'win32'",
 ]
+
+[project.urls]
+Homepage = "https://github.com/anzalks/avialsync"
+Documentation = "https://avialsync.readthedocs.io/"
+Source = "https://github.com/anzalks/avialsync"
+Issues = "https://github.com/anzalks/avialsync/issues"
+Changelog = "https://github.com/anzalks/avialsync/releases"
 
 [project.optional-dependencies]
 dev = [

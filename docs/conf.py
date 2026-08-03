@@ -11,8 +11,8 @@ _REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPOSITORY_ROOT / "src"))
 
 project = "AvialSync"
-author = "Anzal K S"
-copyright = "2026, Anzal K S"
+author = "Anzal K Shahul"
+copyright = "2026, Anzal K Shahul"
 
 # Read from the installed package rather than repeating it here. A hardcoded
 # value said 0.0.1 through five releases, because nothing fails when it drifts.

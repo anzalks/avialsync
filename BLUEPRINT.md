@@ -2,7 +2,7 @@
 
 > Name: **AvialSync** (final). Casing rules are binding — see AGENTS.md §Naming.
 > Open-source, GUI-first tool to scrub time-synced multi-camera video + dense time series.
-> License: AGPL-3.0-or-later, dual-licensed with a commercial option (D-069). Stack: Python 3.11–3.12, PySide6, libmpv, pyqtgraph, numpy, polars.
+> License: AGPL-3.0-or-later (D-069). Stack: Python 3.11–3.12, PySide6, libmpv, pyqtgraph, numpy, polars.
 
 ---
 

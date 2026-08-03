@@ -1868,7 +1868,8 @@ that can negotiate instead.
 **Decision:** AvialSync is dual-licensed. The public licence is **AGPL-3.0-or-later**, chosen over
 GPL-3.0 because a hosted service is a realistic way to use this and the GPL would not require
 publishing changes in that case. A **commercial licence** is available separately from the
-copyright holder (`COMMERCIAL-LICENCE.md`). Contributions are accepted under a CLA (`CLA.md`) that
+copyright holder, documented at the foot of `docs/licensing.md` rather than advertised in the
+README. Contributions are accepted under a CLA (`CLA.md`) that
 grants the right to sublicense, which is the only thing that keeps the commercial option alive.
 
 Verified before committing to it: every dependency is copyleft-compatible — PySide6 is LGPL-3.0,

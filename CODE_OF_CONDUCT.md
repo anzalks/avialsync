@@ -66,7 +66,7 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behaviour may be
-reported to the project maintainer, Anzal K S, at **anzal.ks@gmail.com**.
+reported to the project maintainer, Anzal K Shahul, at **anzal.ks@gmail.com**.
 
 If you would rather not send email, you can open a
 [private security advisory](https://github.com/anzalks/avialsync/security/advisories/new)

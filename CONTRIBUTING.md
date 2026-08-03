@@ -107,10 +107,9 @@ added a trap, or fixed a listed bug, update `HANDOUT.md` in the same commit.
 
 ## Licensing your contribution
 
-AvialSync is dual-licensed: AGPL-3.0-or-later for everyone, plus a commercial
-licence for organisations that cannot accept the AGPL's reciprocity. That only
-remains possible while one party can license the whole work under both, so
-contributions are accepted under [CLA.md](CLA.md).
+AvialSync is released under the AGPL-3.0-or-later. Contributions are accepted
+under [CLA.md](CLA.md), which keeps the copyright in one place so the project
+can be licensed as a whole.
 
 You keep the copyright in your work. Add this to your first pull request:
 
