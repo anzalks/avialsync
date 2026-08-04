@@ -64,25 +64,64 @@ _WATCHDOG_INTERVAL_MS = 1000
 
 
 def drain_abandoned(timeout_ms: int = 2000) -> None:
-    """Wait for abandoned threads to finish. For tests and orderly interpreter exit.
+    """Wait for retained threads to finish. For tests and orderly interpreter exit.
 
     Production never needs this — the window has already closed — but leaving
     running QThreads alive at interpreter shutdown makes Qt abort, which turns a
     clean test run into a crash report.
     """
     for job in list(_ABANDONED):
-        job.thread.wait(timeout_ms)
-        if job.thread.isFinished():
+        try:
+            # Ask directly rather than waiting for the worker's `finished` to
+            # arrive. That signal reaches `thread.quit()` through a queued
+            # connection — the worker lives in the thread, the QThread object
+            # does not — so it is only delivered when this thread runs an event
+            # loop. `quit()` is thread-safe and needs no such favour, and
+            # pumping events here to compensate is exactly the hack the
+            # architecture forbids.
+            job.thread.quit()
+            job.thread.wait(timeout_ms)
+            finished = job.thread.isFinished()
+        except RuntimeError:
+            # The C++ thread was already deleted after finishing; the Python
+            # wrapper outliving it is not a leak worth reporting.
+            finished = True
+        if finished and job in _ABANDONED:
             _ABANDONED.remove(job)
 
 
-#: Threads abandoned at shutdown, kept alive deliberately.
+#: Every job whose thread has started and not yet finished.
 #:
 #: Qt aborts the process with "QThread: Destroyed while thread is still running"
-#: if a running QThread is garbage-collected, so dropping the reference to a
-#: wedged job would crash on the way out — the exact opposite of closing
-#: gracefully. These live until process exit; the OS reclaims them.
+#: if a running QThread is destroyed, and a QThread *parented to its manager* is
+#: destroyed together with it. That made the abort reachable from ordinary
+#: teardown: a window discarded without `closeEvent` — which is what a test
+#: harness does, and what any path that simply drops the manager does — took its
+#: running threads down with it and killed the process instead of closing.
+#:
+#: Threads are therefore created unparented and owned here for as long as they
+#: run, so no manager's lifetime can take a running thread with it. Entries are
+#: removed when the thread reports finished; anything still here at exit is a
+#: wedged job the OS reclaims.
 _ABANDONED: list[Job] = []
+
+
+def _drop_finished_threads() -> None:
+    """Release retained jobs whose threads have stopped.
+
+    Never call this from a thread's own ``finished`` emission. Dropping the last
+    reference there destroys the QThread while Qt is still emitting from it, and
+    the remaining slots on that signal — including the caller's completion
+    handler — simply never run. Pruning happens on the next `start()` and in
+    `drain_abandoned()`, both on the owning thread.
+    """
+    for job in list(_ABANDONED):
+        try:
+            finished = job.thread.isFinished()
+        except RuntimeError:
+            finished = True
+        if finished and job in _ABANDONED:
+            _ABANDONED.remove(job)
 
 
 class JobState(Enum):
@@ -140,10 +179,16 @@ class JobManager(QObject):
         ``configure`` runs after the standard wiring and before the thread
         starts, so callers can connect their own result signals.
         """
-        thread = QThread(self)
+        # Deliberately unparented: see `_ABANDONED`. A thread parented to this
+        # manager is destroyed with it, and destroying a running QThread aborts
+        # the process, so a manager discarded without `shutdown()` would crash
+        # rather than close.
+        _drop_finished_threads()
+        thread = QThread()
         worker.moveToThread(thread)
         job = Job(label=label, worker=worker, thread=thread)
         self._jobs[thread] = job
+        _ABANDONED.append(job)
 
         thread.started.connect(worker.run)
         thread.finished.connect(self._on_thread_finished)
@@ -228,16 +273,13 @@ class JobManager(QObject):
             job.thread.wait(remaining_ms)
 
         still_running = [job for job in self._jobs.values() if job.thread.isRunning()]
-        for job in still_running:
-            # Detach and retain rather than destroy. Qt aborts the process if a
-            # running QThread is garbage-collected, so dropping the reference
-            # would turn a graceful close into a crash. QThread.terminate() is
-            # not used: on a thread blocked in Python it deadlocks against the
-            # GIL, which is worse than the job it was meant to stop. Every real
-            # worker here is cooperative and will notice its cancel flag; a
-            # thread stuck in a blocked syscall exits when that syscall does.
-            job.thread.setParent(None)
-            _ABANDONED.append(job)
+        # Nothing to detach: threads are unparented and already retained in
+        # `_ABANDONED` for as long as they run, so a wedged job survives this
+        # manager either way. QThread.terminate() is still not used: on a thread
+        # blocked in Python it deadlocks against the GIL, which is worse than
+        # the job it was meant to stop. Every real worker here is cooperative
+        # and will notice its cancel flag; a thread stuck in a blocked syscall
+        # exits when that syscall does.
 
         abandoned = [job.label for job in still_running]
         if abandoned:
