@@ -224,6 +224,23 @@ def test_native_packagers_use_the_generated_icons() -> None:
     assert "SetupIconFile=avialsync.ico" in installer
 
 
+def test_windows_installer_does_not_require_administrator() -> None:
+    """A lab user without an administrator password must still be able to install.
+
+    Inno's default is ``PrivilegesRequired=admin``. Two things have to hold
+    together: the directive that stops the forced elevation, and ``{auto*}``
+    constants everywhere a path is written. A hardcoded ``{pf}``/``{commonpf}``
+    or ``{commonprograms}`` would send a non-elevated install at Program Files
+    and fail at the first file it wrote.
+    """
+    installer = Path("packaging/windows/avialsync.iss").read_text(encoding="utf-8")
+
+    assert "PrivilegesRequired=lowest" in installer
+    assert "PrivilegesRequiredOverridesAllowed=dialog" in installer
+    for machine_only in ("{pf}", "{pf32}", "{pf64}", "{commonpf}", "{commonprograms}"):
+        assert machine_only not in installer, f"{machine_only} breaks a per-user install"
+
+
 def test_icon_generator_writes_all_platform_formats(tmp_path: Path) -> None:
     """The checked-in source deterministically produces every packaged icon."""
     source = Path("assets/avial_sync.png")

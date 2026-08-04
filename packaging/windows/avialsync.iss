@@ -8,6 +8,15 @@ AppId={{D22B1886-CB89-4D3D-94F6-3D3C2CD8ABF0}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
+; Inno defaults to PrivilegesRequired=admin, which made every install elevate --
+; on a managed lab or institute machine the person running the experiment often
+; has no administrator password, and that is a hard stop rather than a warning.
+; "lowest" installs per-user with no elevation; the dialog override still offers
+; an all-users install to whoever can grant it. Every path below already uses an
+; {auto*} constant, which is what resolves per-user under this setting:
+; {autopf} becomes {localappdata}\Programs and the shortcuts become per-user.
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
