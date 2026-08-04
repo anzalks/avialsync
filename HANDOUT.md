@@ -249,6 +249,17 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
 - Native synchronization plugin API (D-026).
+- **Windows: intermittent native fault around libmpv client lifetime — open.** Seen twice on
+  `windows-2022`, both times passing on re-run: an access violation inside python-mpv's
+  `_enqueue_exceptions` (the wrapper around every callback it dispatches on its own event thread),
+  and separately a hang in `MPV.__init__` at `_event_thread.start()` while `test_close_and_focus`
+  built a pane. The headless property observers are now guarded like the render-API ones, which
+  removes one way a callback can touch a destroyed pane.
+  **Do not "fix" this by terminating the client from `VideoPane.destroyed`.** That was tried: it
+  passes everywhere else and makes Windows worse, because terminating a client and then
+  constructing the next one hangs the process in `Thread.start()` until the test timeout. The
+  client is still only terminated by `VideoPane.close()`, so a pane discarded without closing
+  leaks its client — deliberate, until someone can debug this on a real Windows machine.
 - Session/folder plugin API — **done 2026-08-03 (D-068)**. `SessionSource` in `core/source.py`,
   published under the `avialsync.sessions` entry-point group and also discovered from drop-in plugin
   directories. `engine/drop_worker.py` holds no format knowledge; AOL moved wholesale into

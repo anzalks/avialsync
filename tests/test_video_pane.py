@@ -181,39 +181,6 @@ def _pane_with_fake_mpv(monkeypatch) -> tuple[object, _FakePlayer]:
     return pane, fake_module.players[0]
 
 
-def test_a_pane_destroyed_without_close_still_terminates_mpv(qapp, monkeypatch) -> None:
-    """`close()` is the orderly route, but nothing guarantees it runs.
-
-    libmpv's event thread does not stop when the widget does. Left running it
-    keeps dispatching callbacks into a half-destroyed pane, which on Windows is
-    an access violation rather than a Python exception — an abrupt CI abort
-    inside `mpv.py` with no test-level symptom.
-    """
-    pane, player = _pane_with_fake_mpv(monkeypatch)
-
-    pane.deleteLater()
-    del pane
-    # `processEvents` alone never delivers DeferredDelete; Qt holds those until
-    # the posting event loop exits, so the deletion has to be asked for.
-    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    qapp.processEvents()
-
-    assert player.terminated == 1, "the client outlived the pane that owned it"
-
-
-def test_closing_then_destroying_terminates_once(qapp, monkeypatch) -> None:
-    """The orderly route and the safety net must not both fire."""
-    pane, player = _pane_with_fake_mpv(monkeypatch)
-
-    pane.close()
-    pane.deleteLater()
-    del pane
-    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    qapp.processEvents()
-
-    assert player.terminated == 1
-
-
 def test_an_observer_survives_a_destroyed_pane(qapp, monkeypatch) -> None:
     """A callback arriving after teardown must not escape into libmpv's thread.
 
