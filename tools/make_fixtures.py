@@ -193,9 +193,16 @@ def generate_video(
         return  # Skip writing the main json
     elif variant == "vfr":
         # Alternate 50 ms and 16.7 ms presentation intervals.  A 90 kHz filter
-        # and MP4 track timebase represent those intervals exactly; `-vsync vfr`
-        # preserves them instead of asking ffmpeg to manufacture a constant-rate
-        # output.  This makes the ground-truth VFR fixture portable across CI.
+        # and MP4 track timebase represent those intervals exactly; `-fps_mode
+        # vfr` preserves them instead of asking ffmpeg to manufacture a
+        # constant-rate output.  This makes the ground-truth VFR fixture
+        # portable across CI.
+        #
+        # `-fps_mode`, not the older `-vsync` spelling it replaced: ffmpeg 9.0
+        # removed `-vsync` outright, and Chocolatey shipping 9.0 turned a green
+        # Windows job red an hour later with no commit in between.  `-fps_mode`
+        # has existed since ffmpeg 5.0, so it satisfies every runner we use and
+        # matches what `demo.py` already passes.
         subprocess.run(
             [
                 "ffmpeg",
@@ -206,7 +213,7 @@ def generate_video(
                 "settb=expr=1/90000,setpts='N*3000+mod(N,2)*1500'",
                 "-c:v",
                 "libx264",
-                "-vsync",
+                "-fps_mode",
                 "vfr",
                 "-enc_time_base",
                 "1:90000",

@@ -155,6 +155,7 @@ conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format 
   ran twelve minutes and took the whole 15-minute job with it, which reads like a hung test suite
   rather than an infrastructure stall. The codecs the fixtures need are *depends*, not recommends.
 - Runner images are pinned (`ubuntu-24.04`, `macos-15`, `windows-2022`), not `*-latest`. A floating label already broke the release once, when an image bump renamed `fuse` to `libfuse2t64`. `tests/test_ci_platform_config.py` fails if a floating label reappears.
+- `choco install ffmpeg` on the Windows job is **not** pinned, unlike the runner images and the SHA-256-pinned libmpv archive beside it. Chocolatey moved 8.1.2 → 9.0.0 between two runs an hour apart and ffmpeg 9 removed `-vsync`, so both Windows jobs went red with no commit in between — re-running the last green run at the same SHA reproduced it. Before debugging a Windows-only CI failure, diff the `ffmpeg vX.Y.Z [Approved]` line in the choco step against the last green run. Use `-fps_mode`, never `-vsync`, in anything that shells out to ffmpeg.
 - Windows CI also needs an explicit, pinned libmpv DLL archive with SHA-256 verification and an
   `import mpv` probe. Do not assume a runner image provides a compatible DLL.
 - CI does **not** run benchmarks: both workflows pass `--ignore=tests/benchmarks`. Seeing
