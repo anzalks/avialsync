@@ -1092,3 +1092,22 @@ row would overrun (not after one already has); load each row's pyramid data insi
 region; and run completion in its own event-loop turn instead of on the tail of the last slice.
 Both deferrals must use the context-object overload `QTimer.singleShot(0, self, slot)` — otherwise
 Qt fires into a destroyed `PlotPane` and raises `Internal C++ object already deleted`.
+
+### 29. A built-in loader's dependencies can fail, and that must not be fatal
+`_discover()` used to import all six built-in loaders in one plain import block, while every other
+discovery path in `core/registry.py` carefully caught failures into `plugin_errors`. Since
+`LoaderRegistry()` is constructed in `MainWindow.__init__`, one unimportable dependency was a
+traceback before any window existed — a Windows user saw `import neo` raise
+`AttributeError: type object 'numpy.ndarray' has no attribute 'ptp'` and got no application at all.  
+**Fix:** `_BUILTIN_LOADERS` / `_BUILTIN_SESSIONS` name `(module, class)` pairs and
+`_load_builtins` imports each separately, appending failures to `plugin_errors` so
+**Help → Diagnostics** names them. A built-in gets no more privilege than a third-party plugin.
+Note the built-in list is only the fallback for a checkout without entry points — an installed
+entry point re-supplies the same class, so expect two `plugin_errors` rows for one broken loader.
+
+**The environment half of that bug is its own trap.** A conda env is not a virtualenv: it reads
+the per-user site-packages (`%APPDATA%\Python\Python312\site-packages`) *before* its own, so a
+stale `pip install --user` package shadows the env and pip never revisits it. `quantities` through
+0.16.2 reads the `np.ndarray.ptp` method NumPy 2 removed; `quantities>=0.16.3` is now a declared
+dependency, but a version floor cannot dislodge a shadowing install — `PYTHONNOUSERSITE=1` does.
+When a traceback's paths span two prefixes, trust the paths over the version numbers.

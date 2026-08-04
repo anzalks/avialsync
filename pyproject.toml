@@ -49,6 +49,13 @@ dependencies = [
     "polars",
     "xxhash",
     "neo",
+    # Not imported by us: a floor on neo's own dependency. Up to and including
+    # 0.16.2, `quantities` decorates a method with `@with_doc(np.ndarray.ptp)`,
+    # and NumPy 2 removed that method, so merely importing neo raises
+    # AttributeError. 0.16.3 switched to the `np.ptp` function. `quantities`
+    # itself declares only `numpy>=1.24`, so nothing else stops pip pairing a
+    # broken version with NumPy 2 — that pairing is a real user report.
+    "quantities>=0.16.3",
     # Windows ships no IANA time zone database, so `zoneinfo` finds nothing and
     # every timezone-aware CSV import fails there with "The selected timezone is
     # unavailable on this system." Every other platform reads the system copy.

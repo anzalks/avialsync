@@ -179,6 +179,17 @@ conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format 
   identical source. To reproduce CI exactly, build a venv pinned to the versions its log reports.
 - Windows ships no IANA time zone database, so `zoneinfo` finds nothing there. `tzdata` is declared
   as a Windows-only dependency; without it every timezone-aware CSV import fails on Windows only.
+- A conda env is not a virtualenv: it still reads the **per-user** site-packages
+  (`%APPDATA%\Python\Python312\site-packages` on Windows) and reads it *before* its own. A package
+  an earlier `pip install --user` left there silently wins over the env, and pip never revisits it.
+  A user hit this with a `quantities` predating NumPy 2 — `import neo` raised
+  `AttributeError: 'numpy.ndarray' has no attribute 'ptp'` in an env whose own copy was fine.
+  Version floors in pyproject cannot fix a shadowing install; `PYTHONNOUSERSITE=1` can. When a
+  traceback's paths span two prefixes, read the paths before believing the version numbers.
+- Never import a built-in loader unguarded at startup. `LoaderRegistry._load_builtins` imports each
+  one separately and records failures in `plugin_errors`, because a loader's third-party dependency
+  stack belongs to the user's machine, and the registry is built inside `MainWindow.__init__` —
+  one bad dependency used to be a traceback before any window existed rather than one lost format.
 - Hosted CI is headless on every OS: keep `QT_QPA_PLATFORM=offscreen` global and make
   `VideoPane` select `vo=null` there. Never force `qwindows` or native `wid` embedding merely to
   make a Windows job pass; interactive Windows and macOS use the Qt OpenGL render API, while Linux

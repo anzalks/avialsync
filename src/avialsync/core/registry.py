@@ -1,6 +1,7 @@
 """Plugin registry and discovery."""
 
 import hashlib
+import importlib
 import importlib.util
 import logging
 import sys
@@ -25,12 +26,33 @@ class _Capability(Protocol):
 #: Any capability-scored plugin class: a loader or a session scanner.
 _T = TypeVar("_T", bound=type[_Capability])
 
+#: The built-in loaders, as ``(module, class name)``, in discovery order.
+#: Named rather than imported at the top of ``_discover`` so each one can fail
+#: alone: a loader's third-party dependency is the user's environment, not ours,
+#: and ``neo`` importing a ``quantities`` too old for the installed NumPy is a
+#: real report. The registry is built in ``MainWindow.__init__``, so a plain
+#: import block turned that into a traceback before any window existed.
+_BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
+    ("avialsync.loaders.aol_encoder_loader", "AOLEncoderLoader"),
+    ("avialsync.loaders.aol_eks_loader", "AOLEksLoader"),
+    ("avialsync.loaders.csv_loader", "CSVLoader"),
+    ("avialsync.loaders.video_standard", "VideoStandardLoader"),
+    ("avialsync.loaders.tracking_loader", "TrackingLoader"),
+    ("avialsync.loaders.neo_loader", "NeoLoader"),
+)
+
+#: The built-in session scanners, in the same form and for the same reason.
+_BUILTIN_SESSIONS: tuple[tuple[str, str], ...] = (
+    ("avialsync.loaders.aol_session_loader", "AOLSessionSource"),
+)
+
 
 class LoaderRegistry:
     """Discovers and loads source plugins."""
 
     def __init__(self, plugin_dirs: Iterable[Path] | None = None) -> None:
         self._loaders: list[type[TimeSeriesSource | VideoSource]] = []
+        self._sessions: list[type[SessionSource]] = []
         #: Plugins that were found but could not be used, as ``(source, reason)``.
         #: A plugin that fails to import is otherwise indistinguishable from one
         #: that was never installed: the format simply does not appear, with
@@ -67,33 +89,32 @@ class LoaderRegistry:
 
     def _discover(self) -> None:
         """Find loaders and session scanners in their entry point groups."""
-        from avialsync.loaders.aol_eks_loader import AOLEksLoader
-        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
-        from avialsync.loaders.csv_loader import CSVLoader
-        from avialsync.loaders.neo_loader import NeoLoader
-        from avialsync.loaders.tracking_loader import TrackingLoader
-        from avialsync.loaders.video_standard import VideoStandardLoader
-
         # Fallback for a source checkout whose entry points are not installed.
         # These are peers, not privileged: every one is also declared in
         # pyproject and reachable the same way a third-party loader is.
-        self._loaders = [
-            AOLEncoderLoader,
-            AOLEksLoader,
-            CSVLoader,
-            VideoStandardLoader,
-            TrackingLoader,
-            NeoLoader,
-        ]
+        self._load_builtins(_BUILTIN_LOADERS, self._loaders)
         self._load_entry_points("avialsync.loaders", self._loaders)
 
-        from avialsync.loaders.aol_session_loader import AOLSessionSource
-
-        self._sessions: list[type[SessionSource]] = [AOLSessionSource]
+        self._load_builtins(_BUILTIN_SESSIONS, self._sessions)
         self._load_entry_points("avialsync.sessions", self._sessions)
 
         for plugin_dir in self._plugin_dirs:
             self._discover_directory(plugin_dir)
+
+    def _load_builtins(self, specs: tuple[tuple[str, str], ...], into: list) -> None:
+        """Add each built-in class in *specs*, reporting any that will not import.
+
+        A built-in gets the same treatment as a third-party plugin rather than a
+        privileged one. Losing one format because its dependency stack is broken
+        is a degraded application; losing startup is no application at all, and
+        the traceback names ``LoaderRegistry`` instead of the loader at fault.
+        """
+        for module_name, class_name in specs:
+            try:
+                into.append(getattr(importlib.import_module(module_name), class_name))
+            except Exception as error:  # noqa: BLE001 - a loader's dependencies are third-party
+                logger.warning("Built-in loader %s failed to load: %s", class_name, error)
+                self.plugin_errors.append((class_name, f"{type(error).__name__}: {error}"))
 
     def _load_entry_points(self, group: str, into: list) -> None:
         """Add every class published under *group*, skipping ones that fail.

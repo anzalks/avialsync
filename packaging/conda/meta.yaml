@@ -39,6 +39,9 @@ requirements:
     - polars
     - xxhash
     - neo
+    # A floor on neo's own dependency: through 0.16.2 `quantities` reads the
+    # `np.ndarray.ptp` method that NumPy 2 removed, so `import neo` raises.
+    - quantities >=0.16.3
     # Windows has no system IANA time zone database. Declared for every
     # platform because a noarch package cannot carry a platform selector, and
     # the package is small and harmless where the system already provides one.

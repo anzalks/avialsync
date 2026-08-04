@@ -69,14 +69,25 @@ def _windows_winget_media_dirs() -> tuple[Path, ...]:
     return tuple(candidates)
 
 
+def _holds_libmpv(directory: Path) -> bool:
+    """Report whether *directory* directly contains a libmpv library.
+
+    ``AVIALSYNC_MEDIA_ROOT`` is user-supplied, so this walks a directory nobody
+    validated. An unreadable one — a Windows folder the account cannot list, a
+    stale mount — must read as "no libmpv here" and let the guided dialog do its
+    job. Letting ``OSError`` out killed the process in ``configure_media_runtime``,
+    which ``__main__`` calls before Qt exists to show anything.
+    """
+    try:
+        return any(entry.name.lower().startswith("libmpv") for entry in directory.iterdir())
+    except OSError:
+        return False
+
+
 def configure_media_runtime() -> None:
     """Make bundled and conda media libraries discoverable before importing mpv."""
     global _DLL_DIRECTORIES, _DLL_DIRECTORY_PATHS
-    directories = tuple(
-        directory
-        for directory in media_search_dirs()
-        if any(candidate.name.lower().startswith("libmpv") for candidate in directory.iterdir())
-    )
+    directories = tuple(directory for directory in media_search_dirs() if _holds_libmpv(directory))
     if directories:
         existing_path = os.environ.get("PATH", "")
         prefixes = [

@@ -1,6 +1,9 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+import avialsync.core.registry as registry_module
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.source import TimeSeriesSource, VideoSource
 
@@ -169,3 +172,55 @@ def test_a_broken_plugin_does_not_cost_the_built_ins(tmp_path: Path) -> None:
 
     assert len(registry.loaders()) == 6
     assert registry.find_best_loader(Path("data.csv")) is not None
+
+
+def test_a_built_in_loader_that_will_not_import_is_reported_not_fatal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A built-in's dependency stack belongs to the user's machine, not to us.
+
+    ``NeoLoader`` imports ``neo``, which imports ``quantities``, which reads an
+    attribute NumPy 2 removed. On a Windows box whose per-user site-packages
+    shadowed the environment that raised ``AttributeError`` at import — and
+    because ``LoaderRegistry`` is built inside ``MainWindow.__init__``, the
+    application died before showing a window instead of losing one format.
+    """
+    monkeypatch.setattr(
+        registry_module,
+        "_BUILTIN_LOADERS",
+        (
+            ("avialsync.loaders.csv_loader", "CSVLoader"),
+            ("avialsync.loaders.no_such_loader", "MissingModuleLoader"),
+            ("avialsync.loaders.csv_loader", "NoSuchClass"),
+        ),
+    )
+
+    registry = LoaderRegistry(plugin_dirs=[tmp_path])
+
+    # The healthy built-in still loads, and the two broken ones are named.
+    assert registry.find_best_loader(Path("data.csv")) is not None
+    assert dict(registry.plugin_errors).keys() == {"MissingModuleLoader", "NoSuchClass"}
+    assert "ModuleNotFoundError" in dict(registry.plugin_errors)["MissingModuleLoader"]
+    assert "AttributeError" in dict(registry.plugin_errors)["NoSuchClass"]
+
+
+def test_a_broken_built_in_session_scanner_leaves_the_loaders_working(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Session scanning and per-file loading fail independently.
+
+    The built-in list is only the fallback for a checkout whose entry points are
+    not installed, so an installed ``avialsync.sessions`` entry point still
+    supplies the scanner here. What must hold either way is that the failure is
+    named rather than raised, and that it costs the loaders nothing.
+    """
+    monkeypatch.setattr(
+        registry_module,
+        "_BUILTIN_SESSIONS",
+        (("avialsync.loaders.no_such_session", "MissingSessionSource"),),
+    )
+
+    registry = LoaderRegistry(plugin_dirs=[tmp_path])
+
+    assert len(registry.loaders()) == 6
+    assert registry.plugin_errors[0][0] == "MissingSessionSource"
