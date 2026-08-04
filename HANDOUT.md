@@ -274,12 +274,23 @@ with explicit user acceptance and session provenance. Native plugin event provid
   probe for every test: `MainWindow` schedules it 500 ms after construction and it constructs and
   terminates a real client on a daemon thread, so *which* test was in flight when it fired was a
   race — which is why the fault kept landing on tests that have nothing to do with video.
-  `.github/workflows/windows-diagnostic.yml` has not yet answered anything, and not because runs
-  were superseded: both dispatched runs hit `timeout-minutes: 60` with an arm hung and no output.
-  Before dispatching it again, give each iteration its own timeout, make `$arms` an
-  `[ordered]` hashtable (a plain `@{}` runs them in arbitrary order), append to the report as each
-  arm finishes rather than after all of them, and record exit codes so `0xC0000005` is
-  distinguishable from an ordinary Python exception.
+  Latest occurrence: `e26dc14`, CI's `windows-2022` Python 3.12 job, process killed ~16 % into the
+  suite with no failure summary. The same commit's *release* quality job on the same OS and Python
+  passed, which is the intermittency in one pair of runs rather than across weeks. Its thread dump
+  is the sharpest lead so far: libmpv's event thread sat in `_event_generator` while another thread
+  was inside `_set_property` ← `__setattr__`. python-mpv routes **every** attribute assignment that
+  is not `handle` and does not start with `_` straight into libmpv, so a line as ordinary-looking as
+  `client.pause = True` is a cross-thread call into the core. Suspect that before `terminate()`.
+  Treat it as a lead, not a finding: two faults printed over each other, so no thread in that dump
+  is reliably identified as the faulting one.
+  There was a manual `windows-diagnostic.yml` workflow. **It is deleted — do not restore it as it
+  was.** It never answered anything: both dispatched runs hit `timeout-minutes: 60` with an arm
+  hung and no output at all, because a plain PowerShell `@{}` runs its arms in arbitrary order, no
+  iteration had its own timeout, and the report was written only after every arm finished. A
+  replacement has to bound each iteration, give each arm its own job, append results as they land,
+  record exit codes so `0xC0000005` is distinguishable from an ordinary Python exception, and use a
+  control arm that `os._exit(0)`s — see the corrected reading above for why the old one was not a
+  control. Sample sizes of 20 per arm prove nothing either way.
   **Do not "fix" this by terminating the client from `VideoPane.destroyed`.** That was tried: it
   passes everywhere else and makes Windows worse, because terminating a client and then
   constructing the next one hangs the process in `Thread.start()` until the test timeout. The
