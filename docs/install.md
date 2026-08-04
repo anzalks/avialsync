@@ -18,6 +18,21 @@ Download the artifact for your platform from the
 Each bundles libmpv and FFmpeg, so nothing else is required. The AppImage is portable and needs no
 system-wide installation. Then open **AvialSync** like any other desktop application.
 
+### None of them need administrator rights
+
+On a managed lab or institute machine you often cannot supply an administrator password. No
+installer requires one:
+
+- **Windows:** `AvialSync-Setup.exe` asks whether to install for you only or for all users, and
+  defaults to *for you only*. That choice installs under
+  `%LOCALAPPDATA%\Programs\AvialSync` with a Start Menu entry for your account and never prompts
+  for elevation. Choose *for all users* only if you have the password and want it shared.
+- **macOS:** dragging **AvialSync** to `~/Applications` instead of `/Applications` works the same
+  way.
+- **Linux:** the AppImage is already a plain file you run from anywhere you can write.
+
+The `pip` install below is also entirely per-user.
+
 ### First-launch security warnings
 
 The artifacts are not yet code-signed or notarized, so the operating system reports an unidentified
@@ -41,12 +56,19 @@ The AppImage also needs FUSE 2 to mount itself. Without it, run
 
 ## Install from PyPI
 
-AvialSync supports Python 3.11 and 3.12.
+AvialSync supports Python 3.11 and 3.12. Install it into an environment of its own — a conda env or
+a virtualenv — rather than into a shared system Python:
 
 ```bash
+conda create -n avialsync python=3.12 -y
+conda activate avialsync
 python -m pip install avialsync
 avialsync
 ```
+
+Use `python -m pip`, not a bare `pip`. A bare `pip` can be a different environment's copy that is
+still first on `PATH`, which installs the package somewhere the `python` you are about to run will
+not look.
 
 ### What pip cannot install
 
@@ -71,6 +93,45 @@ Install both once:
 | Arch | `sudo pacman -S ffmpeg mpv` |
 
 ### Windows
+
+Windows needs the same two native components, plus one Windows-only precaution about where `pip`
+puts things. None of the steps below need administrator rights.
+
+#### 1. Create the environment
+
+```powershell
+conda create -n avialsync python=3.12 -y
+conda activate avialsync
+python -m pip install avialsync
+```
+
+#### 2. Keep per-user packages out of the environment
+
+This step is not optional on Windows, and skipping it produces a crash that looks like a bug in
+AvialSync. A conda environment is not a virtualenv: it still reads your **per-user** site-packages
+directory, `%APPDATA%\Python\Python312\site-packages`, and it reads it *before* the environment's
+own packages. Anything an earlier `pip install --user` left there wins over what you just
+installed. The usual casualty is a `quantities` too old for the environment's NumPy, which makes
+`import neo` fail and takes AvialSync's ephys support with it — see
+[a startup error naming numpy or quantities](troubleshooting.md#a-startup-error-naming-numpy-or-quantities).
+
+Set this once, then open a new terminal:
+
+```powershell
+setx PYTHONNOUSERSITE 1
+```
+
+To confirm the environment is clean, check that nothing AvialSync imports resolves outside it:
+
+```powershell
+python -c "import neo, quantities, numpy; print(neo.__file__); print(quantities.__file__)"
+```
+
+Both paths must sit under `...\.conda\envs\avialsync\`. If either names `AppData\Roaming\Python`,
+the per-user directory is still shadowing the environment; `PYTHONNOUSERSITE` fixes the current
+environment, and deleting `%APPDATA%\Python\Python312` fixes it everywhere.
+
+#### 3. Supply libmpv and FFmpeg
 
 No Windows package manager ships `libmpv-2.dll`, so fetch it directly: download an
 `mpv-dev-x86_64-*` archive from the

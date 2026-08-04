@@ -1,5 +1,33 @@
 # Troubleshooting
 
+## A startup error naming numpy or quantities
+
+A traceback ending in `AttributeError: type object 'numpy.ndarray' has no attribute 'ptp'`, raised
+somewhere under `import neo`, means an outdated `quantities` is being imported alongside NumPy 2.
+`quantities` before 0.16.3 reads a method NumPy 2 removed. AvialSync now requires a version that
+does not, so a fresh install into a clean environment cannot hit this.
+
+It survives on Windows for one reason: a conda environment still reads your **per-user**
+site-packages, `%APPDATA%\Python\Python312\site-packages`, ahead of its own. An old copy left there
+by an earlier `pip install --user` shadows whatever the environment resolved, and `pip` never
+revisits it because it is not what pip was asked to install. Read the paths in your traceback — if
+`neo` and `quantities` load from `AppData\Roaming\Python` while AvialSync loads from `.conda\envs`,
+this is what happened.
+
+```powershell
+conda activate avialsync
+setx PYTHONNOUSERSITE 1
+python -m pip install --upgrade "quantities>=0.16.3" neo
+```
+
+Open a new terminal so `PYTHONNOUSERSITE` takes effect. Deleting `%APPDATA%\Python\Python312`
+removes the shadowing copy for every environment on the machine. The command that verifies the
+result is under [Windows installation](install.md#windows).
+
+A broken loader no longer stops AvialSync from starting: the format it handles disappears and
+**Help → Diagnostics** names the failure under *Plugins that failed to load*. An older release
+crashed outright instead.
+
 ## A “Missing libmpv” dialog appears at startup
 
 This is expected after `pip install avialsync` on a machine that has no libmpv. libmpv is a shared
