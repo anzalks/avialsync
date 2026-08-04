@@ -255,12 +255,31 @@ with explicit user acceptance and session provenance. Native plugin event provid
   and separately a hang in `MPV.__init__` at `_event_thread.start()` while `test_close_and_focus`
   built a pane. The headless property observers are now guarded like the render-API ones, which
   removes one way a callback can touch a destroyed pane.
-  Measured: ~1 in 20 client lifecycles faults, and the control arm — construct a client, never
-  terminate, just exit — faults at the same rate, so this is not about how the application calls
-  `terminate()`. Closing the window is harmless because `closeEvent` writes the autosave and
-  geometry *before* `video_grid.shutdown`. Removing a video mid-session used to be the one case
-  that could cost work; `VideoGrid.pane_detached` now writes the session before the client is torn
-  down, so a fault there loses nothing.
+  Measured: 1–2 in 20 client lifecycles faults. **The earlier reading of that measurement was
+  wrong and is corrected here.** It said the control arm — construct a client, never terminate,
+  just exit — faults at the same rate, therefore the fault is not about how we call `terminate()`.
+  That arm is not a control: `MPV.__del__` calls `terminate()` whenever the handle is still live,
+  so "never terminate" terminates too, at interpreter finalization. A real control has to
+  `os._exit(0)` before finalization runs. Nor can 20 samples separate 1/20 from 2/20 — the arms
+  were never statistically distinguishable. Treat the fault as unattributed.
+  Two things were done about the consequences rather than the cause. `VideoGrid.pane_detached`
+  writes the session before the client is torn down, so a fault while removing a video mid-session
+  loses nothing (closing the window was already safe: `closeEvent` writes the autosave and geometry
+  *before* `video_grid.shutdown`). And `VideoPane.close()` now unregisters every property observer
+  before terminating, then terminates on a bounded join (`_TERMINATE_TIMEOUT_S`, 5 s). python-mpv
+  joins its event thread with no timeout, and an observer left on `time-pos` — which every pane
+  registers — is the documented way to wedge that join (python-mpv #114). A leaked thread the
+  process was about to lose anyway beats a UI thread that never finishes closing.
+  Tests must not build clients by accident. `tests/conftest.py` neutralises the startup diagnostics
+  probe for every test: `MainWindow` schedules it 500 ms after construction and it constructs and
+  terminates a real client on a daemon thread, so *which* test was in flight when it fired was a
+  race — which is why the fault kept landing on tests that have nothing to do with video.
+  `.github/workflows/windows-diagnostic.yml` has not yet answered anything, and not because runs
+  were superseded: both dispatched runs hit `timeout-minutes: 60` with an arm hung and no output.
+  Before dispatching it again, give each iteration its own timeout, make `$arms` an
+  `[ordered]` hashtable (a plain `@{}` runs them in arbitrary order), append to the report as each
+  arm finishes rather than after all of them, and record exit codes so `0xC0000005` is
+  distinguishable from an ordinary Python exception.
   **Do not "fix" this by terminating the client from `VideoPane.destroyed`.** That was tried: it
   passes everywhere else and makes Windows worse, because terminating a client and then
   constructing the next one hangs the process in `Thread.start()` until the test timeout. The

@@ -4,6 +4,7 @@ import logging
 import sys
 import threading
 import time
+from collections.abc import Iterable
 from typing import Any
 
 import numpy as np
@@ -32,6 +33,11 @@ _OSD_MIN_INTERVAL_S = 1.0 / _OSD_MAX_HZ
 #: rounding error's worth of time.
 _OSD_DUE_EPSILON_S = 0.001
 
+#: How long a client gets to finish terminating before it is abandoned.
+#: Generous enough that a loaded CI runner never trips it, short enough that a
+#: wedged client cannot hold the UI thread for the length of a job timeout.
+_TERMINATE_TIMEOUT_S = 5.0
+
 
 def _release_mpv_render_context(widget: Any) -> None:
     """Free a libmpv OpenGL render context before its client is terminated.
@@ -55,7 +61,60 @@ def _release_mpv_render_context(widget: Any) -> None:
             logger.debug("Could not release the GL context", exc_info=True)
 
 
-def _shutdown_mpv_client(player: Any, gl_widget: Any | None = None) -> None:
+def _unobserve_mpv_properties(observers: Iterable[Any]) -> None:
+    """Drop a client's property observers before it is terminated.
+
+    python-mpv's ``terminate()`` joins its event thread, and an observer still
+    registered on ``time-pos`` can leave that thread inside ``mpv_wait_event``
+    so the join never returns (python-mpv #114). Every pane observes
+    ``time-pos``, so unregistering first is what keeps teardown finite; it also
+    closes the window in which a callback arrives at a half-torn-down pane.
+    """
+    for observer in observers:
+        # python-mpv hangs this on the decorated function. A stand-in client in
+        # a test need not provide it, and neither does an already-freed handle.
+        unregister = getattr(observer, "unobserve_mpv_properties", None)
+        if unregister is None:
+            continue
+        try:
+            unregister()
+        except Exception:
+            logger.debug("Could not unregister an mpv property observer", exc_info=True)
+
+
+def _terminate_mpv_client(player: Any) -> None:
+    """Terminate a client, giving up rather than blocking on a wedged one.
+
+    ``MPV.terminate()`` joins libmpv's event thread with no timeout, so a client
+    whose thread never leaves ``mpv_wait_event`` blocks its caller forever. That
+    caller is the Qt thread during shutdown or pane removal, and a process that
+    never finishes closing is worse than one that leaks a thread it was about to
+    lose to process exit anyway.
+    """
+    failure: list[BaseException] = []
+
+    def _terminate() -> None:
+        try:
+            player.terminate()
+        except Exception as error:
+            failure.append(error)
+
+    worker = threading.Thread(target=_terminate, name="MpvTerminate", daemon=True)
+    worker.start()
+    worker.join(_TERMINATE_TIMEOUT_S)
+
+    if worker.is_alive():
+        logger.warning(
+            "libmpv did not finish terminating within %.0fs; abandoning its event thread",
+            _TERMINATE_TIMEOUT_S,
+        )
+    elif failure:
+        logger.warning("Could not terminate the mpv client", exc_info=failure[0])
+
+
+def _shutdown_mpv_client(
+    player: Any, gl_widget: Any | None = None, observers: Iterable[Any] = ()
+) -> None:
     """Release a Qt OpenGL render client, then terminate its libmpv handle once."""
     if gl_widget is not None:
         try:
@@ -63,10 +122,8 @@ def _shutdown_mpv_client(player: Any, gl_widget: Any | None = None) -> None:
         except RuntimeError:
             # A failed GL cleanup must not leave libmpv's event thread alive.
             logger.warning("Could not release the mpv render context", exc_info=True)
-    try:
-        player.terminate()
-    except Exception:
-        logger.warning("Could not terminate the mpv client", exc_info=True)
+    _unobserve_mpv_properties(observers)
+    _terminate_mpv_client(player)
     if gl_widget is not None:
         gl_widget.mpv = None
 
@@ -100,6 +157,9 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._seek_target = 0.0
         self._seek_exact = True
         self.mpv = None
+        #: The property observers registered on this pane's client, kept so
+        #: teardown can unregister them before terminating it.
+        self._mpv_observers: list[Any] = []
         self._video_widget: QWidget | None = None
         self._media_loaded = False
         self._pending_seek: tuple[float, bool] | None = None
@@ -198,6 +258,10 @@ class VideoPane(VideoTimingMixin, QWidget):
                             self.parent_pane._observe_video_params(value)
                         except RuntimeError:
                             pass
+
+                    parent_pane._mpv_observers.extend(
+                        (time_observer, fps_observer, seeking_observer, video_params_observer)
+                    )
 
                 def initializeGL(self) -> None:
                     ctx = QOpenGLContext.currentContext()
@@ -331,6 +395,10 @@ class VideoPane(VideoTimingMixin, QWidget):
                     self._observe_video_params(value)
                 except RuntimeError:
                     pass
+
+            self._mpv_observers.extend(
+                (time_observer, fps_observer, seeking_observer, video_params_observer)
+            )
 
         # Set up PaintCanvas for tracking
         @self.mpv.event_callback("file-loaded")
@@ -623,6 +691,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         player = self.mpv
         if player:
             gl_widget = getattr(self, "gl_widget", None)
-            _shutdown_mpv_client(player, gl_widget)
+            observers, self._mpv_observers = self._mpv_observers, []
+            _shutdown_mpv_client(player, gl_widget, observers)
             self.mpv = None
         return bool(super().close())

@@ -2,6 +2,7 @@
 
 import sys
 import threading
+import time
 from types import SimpleNamespace
 
 from PySide6.QtCore import QEvent
@@ -131,13 +132,22 @@ class _FakePlayer:
     def __init__(self, **_options) -> None:
         self.terminated = 0
         self.observers: dict[str, object] = {}
+        #: Every teardown step in the order it actually happened.
+        self.teardown: list[str] = []
 
     def property_observer(self, name: str):
         def register(function):
             self.observers[name] = function
+            # python-mpv hangs the unregister hook on the decorated function
+            # itself; teardown finds it there and nowhere else.
+            function.unobserve_mpv_properties = lambda: self._unobserve(name)
             return function
 
         return register
+
+    def _unobserve(self, name: str) -> None:
+        del self.observers[name]
+        self.teardown.append(f"unobserve:{name}")
 
     def event_callback(self, name: str):
         def register(function):
@@ -148,6 +158,7 @@ class _FakePlayer:
 
     def terminate(self) -> None:
         self.terminated += 1
+        self.teardown.append("terminate")
 
 
 class _FakeMpvModule:
@@ -208,3 +219,53 @@ def test_an_observer_survives_a_destroyed_pane(qapp, monkeypatch) -> None:
             callback(object())  # an event callback takes the event alone
         else:
             callback(name, values[name])
+
+
+def test_close_unregisters_every_observer_before_terminating(qapp, monkeypatch) -> None:
+    """Ordering, not merely occurrence: an observer left on `time-pos` can wedge
+    python-mpv's `terminate()` inside its own event-thread join (python-mpv #114).
+    Unregistering afterwards would be indistinguishable here and useless there.
+    """
+    pane, player = _pane_with_fake_mpv(monkeypatch)
+    assert "time-pos" in player.observers, sorted(player.observers)
+
+    pane.close()
+
+    assert player.teardown[-1] == "terminate", player.teardown
+    unobserved = {step.removeprefix("unobserve:") for step in player.teardown[:-1]}
+    assert unobserved == {"time-pos", "estimated-vf-fps", "seeking", "video-out-params"}
+
+
+def test_close_gives_up_on_a_client_that_never_finishes_terminating(qapp, monkeypatch) -> None:
+    """A wedged client must not take the Qt thread down with it.
+
+    python-mpv joins its event thread with no timeout, so a client whose thread
+    never leaves `mpv_wait_event` blocks its caller forever. Closing has to
+    return regardless; the leaked thread dies with the process.
+    """
+    import avialsync.ui.video_pane as video_pane_module
+
+    monkeypatch.setattr(video_pane_module, "_TERMINATE_TIMEOUT_S", 0.05)
+    pane, player = _pane_with_fake_mpv(monkeypatch)
+
+    wedged = threading.Event()
+    released = threading.Event()
+
+    def never_returns() -> None:
+        wedged.set()
+        # Far longer than any bound the pane could reasonably apply, so a close
+        # that waits this out is measurably distinct from one that gives up.
+        released.wait(timeout=30)
+
+    player.terminate = never_returns
+
+    try:
+        started = time.monotonic()
+        pane.close()
+        elapsed = time.monotonic() - started
+
+        assert wedged.wait(timeout=5), "terminate() was never attempted"
+        assert elapsed < 5.0, f"close() waited {elapsed:.1f}s on a wedged client"
+        assert pane.mpv is None
+    finally:
+        released.set()
