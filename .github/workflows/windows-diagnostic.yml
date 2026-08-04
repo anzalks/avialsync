@@ -88,6 +88,10 @@ jobs:
             "no-terminate" = "import mpv; m = mpv.MPV(vo='null')"
             "two-clients"  = "import mpv; a = mpv.MPV(vo='null'); b = mpv.MPV(vo='null'); a.terminate(); b.terminate()"
             "no-eventthread" = "import mpv; m = mpv.MPV(vo='null', start_event_thread=False); m.terminate()"
+            # python-mpv's own terminate() docstring prescribes this ordering:
+            # let the core shut down and the event thread leave mpv_wait_event
+            # before the handle is destroyed under it.
+            "quit-then-terminate" = "import mpv; m = mpv.MPV(vo='null'); m.quit(); m.wait_for_shutdown(timeout=5); m.terminate()"
           }
           $report = @()
           foreach ($arm in $arms.GetEnumerator()) {
