@@ -3,7 +3,7 @@
 **The Advanced Video and Instrument Alignment Library.**
 
 [![PyPI](https://img.shields.io/pypi/v/avialsync.svg)](https://pypi.org/project/avialsync/)
-[![Python](https://img.shields.io/pypi/pyversions/avialsync.svg)](https://pypi.org/project/avialsync/)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://pypi.org/project/avialsync/)
 [![CI](https://github.com/anzalks/avialsync/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/anzalks/avialsync/actions/workflows/ci.yml)
 [![Documentation](https://readthedocs.org/projects/avialsync/badge/?version=latest)](https://avialsync.readthedocs.io/en/latest/)
 [![Licence](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](https://github.com/anzalks/avialsync/blob/main/LICENSE)
