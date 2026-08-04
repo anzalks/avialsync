@@ -116,3 +116,129 @@ def test_pane_without_libmpv_reports_no_media(qapp, monkeypatch) -> None:
 
     assert pane.mpv is None
     assert pane._video_widget is None
+
+
+import sys
+
+from PySide6.QtCore import QEvent  # noqa: E402
+from PySide6.QtWidgets import QApplication  # noqa: E402
+
+# ── libmpv's event thread must not outlive the pane (Windows fault) ──
+
+
+class _FakePlayer:
+    """Stands in for an mpv client so the check needs no libmpv."""
+
+    def __init__(self, **_options) -> None:
+        self.terminated = 0
+        self.observers: dict[str, object] = {}
+
+    def property_observer(self, name: str):
+        def register(function):
+            self.observers[name] = function
+            return function
+
+        return register
+
+    def event_callback(self, name: str):
+        def register(function):
+            self.observers[name] = function
+            return function
+
+        return register
+
+    def terminate(self) -> None:
+        self.terminated += 1
+
+
+class _FakeMpvModule:
+    """The subset of `import mpv` that constructing a pane touches."""
+
+    def __init__(self) -> None:
+        self.players: list[_FakePlayer] = []
+
+    def MPV(self, **options) -> _FakePlayer:  # noqa: N802 - mirrors python-mpv
+        player = _FakePlayer(**options)
+        self.players.append(player)
+        return player
+
+
+def _pane_with_fake_mpv(monkeypatch) -> tuple[object, _FakePlayer]:
+    """Build a pane through its real mpv path, with a stand-in client.
+
+    Goes through `VideoPane.__init__` rather than wiring teardown by hand, so
+    the production wiring is what is under test. A test that connects
+    `destroyed` itself passes even when the application never does.
+    """
+    import avialsync.ui.video_pane as video_pane_module
+
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    monkeypatch.setattr(video_pane_module, "probe_libmpv", lambda _pane: True)
+    fake_module = _FakeMpvModule()
+    monkeypatch.setitem(sys.modules, "mpv", fake_module)
+
+    pane = video_pane_module.VideoPane()
+    assert fake_module.players, "the pane never created a client"
+    return pane, fake_module.players[0]
+
+
+def test_a_pane_destroyed_without_close_still_terminates_mpv(qapp, monkeypatch) -> None:
+    """`close()` is the orderly route, but nothing guarantees it runs.
+
+    libmpv's event thread does not stop when the widget does. Left running it
+    keeps dispatching callbacks into a half-destroyed pane, which on Windows is
+    an access violation rather than a Python exception — an abrupt CI abort
+    inside `mpv.py` with no test-level symptom.
+    """
+    pane, player = _pane_with_fake_mpv(monkeypatch)
+
+    pane.deleteLater()
+    del pane
+    # `processEvents` alone never delivers DeferredDelete; Qt holds those until
+    # the posting event loop exits, so the deletion has to be asked for.
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    qapp.processEvents()
+
+    assert player.terminated == 1, "the client outlived the pane that owned it"
+
+
+def test_closing_then_destroying_terminates_once(qapp, monkeypatch) -> None:
+    """The orderly route and the safety net must not both fire."""
+    pane, player = _pane_with_fake_mpv(monkeypatch)
+
+    pane.close()
+    pane.deleteLater()
+    del pane
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    qapp.processEvents()
+
+    assert player.terminated == 1
+
+
+def test_an_observer_survives_a_destroyed_pane(qapp, monkeypatch) -> None:
+    """A callback arriving after teardown must not escape into libmpv's thread.
+
+    python-mpv runs these on its own event thread and only warns about an
+    exception; on Windows, touching the freed C++ half faults the process
+    instead.
+    """
+    pane, player = _pane_with_fake_mpv(monkeypatch)
+    observers = dict(player.observers)
+    assert "time-pos" in observers, sorted(observers)
+
+    pane.deleteLater()
+    del pane
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    qapp.processEvents()
+
+    values = {
+        "time-pos": 1.0,
+        "estimated-vf-fps": 30.0,
+        "seeking": True,
+        "video-out-params": {"dw": 4, "dh": 2},
+    }
+    for name, callback in observers.items():
+        if name == "file-loaded":
+            callback(object())  # an event callback takes the event alone
+        else:
+            callback(name, values[name])

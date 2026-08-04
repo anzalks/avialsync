@@ -55,6 +55,33 @@ def _release_mpv_render_context(widget: Any) -> None:
             logger.debug("Could not release the GL context", exc_info=True)
 
 
+class _MpvTeardown:
+    """Terminate one libmpv client exactly once, however the pane goes away.
+
+    ``VideoPane.close()`` is the orderly route, but nothing guarantees it runs:
+    a pane discarded by a test harness, or any code that simply drops its last
+    reference, is destroyed by Qt without it. libmpv's event thread does not
+    stop when the widget does, so it keeps dispatching callbacks into a
+    half-destroyed pane — which is an access violation on Windows rather than a
+    Python exception. Holding the player here, with no reference back to the
+    pane, lets ``destroyed`` finish the job when ``close()`` never came.
+    """
+
+    __slots__ = ("_player", "_done")
+
+    def __init__(self, player: Any) -> None:
+        self._player = player
+        self._done = False
+
+    def run(self, gl_widget: Any | None = None) -> None:
+        if self._done:
+            return
+        self._done = True
+        player, self._player = self._player, None
+        if player is not None:
+            _shutdown_mpv_client(player, gl_widget)
+
+
 def _shutdown_mpv_client(player: Any, gl_widget: Any | None = None) -> None:
     """Release a Qt OpenGL render client, then terminate its libmpv handle once."""
     if gl_widget is not None:
@@ -296,31 +323,58 @@ class VideoPane(VideoTimingMixin, QWidget):
                     input_vo_keyboard="no",
                 )
 
+            # Every one of these runs on libmpv's own event thread, which
+            # outlives this widget's C++ half. Touching a destroyed pane from
+            # there raises RuntimeError at best and faults at worst, so each
+            # observer is guarded exactly as the render-API ones above are. This
+            # is the path a headless run takes, which is where the fault showed.
             @self.mpv.property_observer("time-pos")
             def time_observer(_name: str, value: float) -> None:
                 if value is not None:
-                    self._observe_time(float(value))
+                    try:
+                        self._observe_time(float(value))
+                    except RuntimeError:
+                        pass
 
             @self.mpv.property_observer("estimated-vf-fps")
             def fps_observer(_name: str, value: float) -> None:
                 if value is not None:
-                    self._decoder_fps = float(value)
+                    try:
+                        self._decoder_fps = float(value)
+                    except RuntimeError:
+                        pass
 
             @self.mpv.property_observer("seeking")
             def seeking_observer(_name: str, value: bool) -> None:
                 if value is not None:
-                    self._observe_seeking(bool(value))
+                    try:
+                        self._observe_seeking(bool(value))
+                    except RuntimeError:
+                        pass
 
             @self.mpv.property_observer("video-out-params")
             def video_params_observer(_name: str, value: object) -> None:
-                self._observe_video_params(value)
+                try:
+                    self._observe_video_params(value)
+                except RuntimeError:
+                    pass
 
         # Set up PaintCanvas for tracking
         @self.mpv.event_callback("file-loaded")
         def file_loaded(_event: object) -> None:
-            self.file_loaded.emit()
+            try:
+                self.file_loaded.emit()
+            except RuntimeError:
+                pass
 
         self._build_overlay_chrome()
+
+        # Last resort if `close()` never runs. The lambda deliberately captures
+        # only the teardown helper, never `self`: a slot holding the pane would
+        # keep it alive and defeat the destruction it is waiting for.
+        self._mpv_teardown = _MpvTeardown(self.mpv)
+        teardown = self._mpv_teardown
+        self.destroyed.connect(lambda *_: teardown.run())
 
         self._osd_update.connect(self._flush_osd_update)
 
@@ -603,6 +657,12 @@ class VideoPane(VideoTimingMixin, QWidget):
         player = self.mpv
         if player:
             gl_widget = getattr(self, "gl_widget", None)
-            _shutdown_mpv_client(player, gl_widget)
+            # Through the same helper the destroyed-signal path uses, so a pane
+            # that is closed and then destroyed terminates its client once.
+            teardown = getattr(self, "_mpv_teardown", None)
+            if teardown is not None:
+                teardown.run(gl_widget)
+            else:
+                _shutdown_mpv_client(player, gl_widget)
             self.mpv = None
         return bool(super().close())
