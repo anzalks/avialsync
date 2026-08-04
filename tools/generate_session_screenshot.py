@@ -78,6 +78,10 @@ def quantize_to_shared_palette(frames: list[Image.Image], colors: int) -> list[I
     that is mostly static between frames is the difference between a loop that
     appears instantly and one that streams in. Dithering is off for the same
     reason: its noise defeats the run-length coding underneath GIF.
+
+    Median cut, not maximum coverage: this window is mostly neutral grey, and
+    maximum coverage picks representatives off the grey axis, which tints every
+    flat panel a different colour from the app it is a picture of.
     """
     width, height = frames[0].size
     stack = Image.new("RGB", (width, height * len(frames)))
@@ -293,8 +297,8 @@ def main() -> None:
     parser.add_argument(
         "--colors",
         type=int,
-        default=96,
-        help="shared palette size; lower is smaller and faster to load",
+        default=256,
+        help="shared palette size, 256 being the most GIF allows",
     )
     args = parser.parse_args()
 
