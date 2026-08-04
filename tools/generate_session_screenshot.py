@@ -20,6 +20,10 @@ motion a reader sees runs at the speed the recording was made at; at the 230 fps
 these cameras record, stepping frame by frame instead would advance the traces by
 a few milliseconds and look frozen. Raise ``--span`` above ``--duration`` to
 compress a longer stretch, at the cost of no longer showing real-time speed.
+
+The frame size and palette are chosen for how fast the loop appears, not for
+fidelity: this is the first thing on the README, so it has to be readable enough
+to show the layout and small enough to arrive before the reader scrolls past it.
 """
 
 from __future__ import annotations
@@ -29,6 +33,7 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
@@ -39,6 +44,13 @@ DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "_static" / "screenshots" / "session
 
 #: Longest we wait for one exact seek to reach every pane before capturing anyway.
 SEEK_TIMEOUT_SECONDS = 5.0
+
+#: Longest we wait for the loaded window to stop redrawing before recording.
+QUIET_TIMEOUT_SECONDS = 60.0
+#: Per-pixel channel-sum difference that counts as a real change, not render noise.
+QUIET_TOLERANCE = 24
+#: Fraction of changed pixels below which two grabs count as the same picture.
+QUIET_FRACTION = 0.001
 
 
 def _to_pillow(image: QImage) -> Image.Image:
@@ -181,6 +193,29 @@ def capture(
         )
         return _to_pillow(scaled)
 
+    def wait_until_quiet(timeout: float = QUIET_TIMEOUT_SECONDS) -> None:
+        """Hold at a fixed playhead until the window stops redrawing itself.
+
+        Source coverage starts as the import worker's estimate and is replaced by
+        the span the readers actually cover once every queued plot row exists,
+        which repaints the Data Streams lanes seconds after the video panes
+        already look finished. Recording through that moment bakes it into the
+        loop, where a one-off redraw reads as a blink. Comparing successive grabs
+        catches it without this script having to know which widget lags: nothing
+        moves on its own while playback is paused.
+        """
+        deadline = time.monotonic() + timeout
+        previous: np.ndarray | None = None
+        while time.monotonic() < deadline:
+            settle_for(0.5)
+            current = np.asarray(grab(), dtype=np.int16)
+            if previous is not None and not window._job_manager.is_busy():
+                changed = float((np.abs(current - previous).sum(axis=2) > QUIET_TOLERANCE).mean())
+                if changed < QUIET_FRACTION:
+                    return
+            previous = current
+        print(f"window still redrawing after {timeout:.0f} s; recording anyway")
+
     _load_session(window, session_dir)
 
     # Video probes, pane construction and imports are all asynchronous.
@@ -202,6 +237,7 @@ def capture(
     wait_for_seek()
     window.plot_pane.fit_all_y()
     settle_for(3.0)
+    wait_until_quiet()
 
     # Do NOT resize the window here to force a relayout: a resize tears down and
     # rebuilds the mpv render panes, and the capture comes back with three black
@@ -252,12 +288,12 @@ def main() -> None:
         default=1.0,
         help="seconds one loop of the GIF lasts",
     )
-    parser.add_argument("--gif-width", type=int, default=640, help="max GIF width")
-    parser.add_argument("--gif-height", type=int, default=480, help="max GIF height")
+    parser.add_argument("--gif-width", type=int, default=960, help="max GIF width")
+    parser.add_argument("--gif-height", type=int, default=720, help="max GIF height")
     parser.add_argument(
         "--colors",
         type=int,
-        default=128,
+        default=96,
         help="shared palette size; lower is smaller and faster to load",
     )
     args = parser.parse_args()
