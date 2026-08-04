@@ -38,11 +38,24 @@ _VIDEO = "tests/fixtures/videos/camera_1.mp4"
 
 @pytest.fixture
 def window(qtbot) -> MainWindow:
+    """A shown window that is always closed, even if the test does not close it.
+
+    `qtbot.addWidget` schedules deletion; it does not close. That distinction
+    matters here because this file builds real panes: a `VideoPane` terminates
+    its libmpv client in `close()` and nowhere else, so a window destroyed
+    without closing leaves an event thread delivering callbacks into freed
+    memory. On Windows that is a process fault rather than an exception, and it
+    lands in whatever test runs next.
+
+    Closing twice is harmless — `VideoGrid.shutdown` empties its pane list — so
+    the tests that close the window themselves are unaffected.
+    """
     win = MainWindow()
     qtbot.addWidget(win)
     win.show()
     qtbot.waitExposed(win)
-    return win
+    yield win
+    win.close()
 
 
 def _playhead_events(window: MainWindow) -> list[str]:
