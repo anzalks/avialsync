@@ -1,7 +1,11 @@
 """Video-pane construction tests."""
 
+import sys
 import threading
 from types import SimpleNamespace
+
+from PySide6.QtCore import QEvent
+from PySide6.QtWidgets import QApplication
 
 from avialsync.ui import video_pane
 
@@ -117,11 +121,6 @@ def test_pane_without_libmpv_reports_no_media(qapp, monkeypatch) -> None:
     assert pane.mpv is None
     assert pane._video_widget is None
 
-
-import sys
-
-from PySide6.QtCore import QEvent  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
 
 # ── libmpv's event thread must not outlive the pane (Windows fault) ──
 
