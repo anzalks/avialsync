@@ -261,6 +261,10 @@ class MainWindow(QMainWindow):
         self.sidebar.open_sensor_requested.connect(self._open_data)
         self.sidebar.video_offset_changed.connect(self._on_video_offset_changed)
         self.sidebar.video_remove_requested.connect(self._on_video_remove_requested)
+        # Persist before a removed pane's media client is torn down: that
+        # teardown can fault on Windows, and mid-session it would otherwise
+        # cost everything since the last autosave.
+        self.video_grid.pane_detached.connect(self._write_session_snapshot)
         self.sidebar.video_visibility_changed.connect(self.video_grid.set_pane_visible)
         self.sidebar.sensor_remove_requested.connect(self._on_sensor_remove_requested)
         self.sidebar.sensor_mapping_changed.connect(self._on_sensor_mapping_changed)
@@ -651,6 +655,9 @@ class MainWindow(QMainWindow):
 
     def _autosave_before_close(self) -> None:
         session_controller.autosave_before_close(self)
+
+    def _write_session_snapshot(self, _path: str = "") -> None:
+        session_controller.write_session_snapshot(self)
 
     # ── A/B loop stats ───────────────────────────────────────────────
 
@@ -1621,12 +1628,16 @@ class MainWindow(QMainWindow):
         )
 
     def _on_video_remove_requested(self, path: str) -> None:
-        self.video_grid.remove_pane(path)
+        # Everything this window knows about the source is dropped before the
+        # grid tears the pane down, because `remove_pane` writes the session on
+        # the way past and that snapshot must describe the session the user
+        # just asked for, not the one with this video still in it.
         self.sidebar.remove_video(path)
         self._video_frame_times.pop(path, None)
         self._sync_provenance = [
             entry for entry in self._sync_provenance if entry.target_id != path
         ]
+        self.video_grid.remove_pane(path)
 
     def _on_sensor_remove_requested(self, path: str) -> None:
         cache_dir = self._sensor_cache_dirs.pop(path, None)

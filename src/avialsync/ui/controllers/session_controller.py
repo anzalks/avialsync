@@ -359,19 +359,29 @@ def autosave(window: MainWindow) -> None:
     window._start_session_save(window._session_path, is_autosave=True)
 
 
-def autosave_before_close(window: MainWindow) -> None:
-    """Flush a final synchronous autosave before the window closes.
+def write_session_snapshot(window: MainWindow) -> None:
+    """Write the session synchronously, if one is open.
 
-    A threaded save started here could never finish: the window (and its
-    worker registry) is gone right after this returns. This is the one
-    legitimate blocking write in the app — it runs after the final paint
-    and is bounded by a single small JSON write, not a UI-thread budget.
+    Threading this is not an option at either call site: the window is about to
+    go away, or a media client is about to be torn down in a way that can kill
+    the process outright. Both are bounded by a single small JSON write, which
+    is why this is the one legitimate blocking write in the application.
     """
     if window._session_path is None:
         return
     from avialsync.engine.session_worker import SessionSaveWorker
 
     SessionSaveWorker(window._build_session_state(), window._session_path).run()
+
+
+def autosave_before_close(window: MainWindow) -> None:
+    """Flush a final synchronous autosave before the window closes.
+
+    A threaded save started here could never finish: the window (and its
+    worker registry) is gone right after this returns. It runs after the final
+    paint, so the write is not competing with a UI-thread budget.
+    """
+    write_session_snapshot(window)
 
 
 def rebuild_recent_menu(window: MainWindow) -> None:

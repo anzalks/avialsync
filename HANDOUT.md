@@ -255,6 +255,12 @@ with explicit user acceptance and session provenance. Native plugin event provid
   and separately a hang in `MPV.__init__` at `_event_thread.start()` while `test_close_and_focus`
   built a pane. The headless property observers are now guarded like the render-API ones, which
   removes one way a callback can touch a destroyed pane.
+  Measured: ~1 in 20 client lifecycles faults, and the control arm — construct a client, never
+  terminate, just exit — faults at the same rate, so this is not about how the application calls
+  `terminate()`. Closing the window is harmless because `closeEvent` writes the autosave and
+  geometry *before* `video_grid.shutdown`. Removing a video mid-session used to be the one case
+  that could cost work; `VideoGrid.pane_detached` now writes the session before the client is torn
+  down, so a fault there loses nothing.
   **Do not "fix" this by terminating the client from `VideoPane.destroyed`.** That was tried: it
   passes everywhere else and makes Windows worse, because terminating a client and then
   constructing the next one hangs the process in `Thread.start()` until the test timeout. The

@@ -26,6 +26,14 @@ class VideoGrid(QWidget):
     # path = the pane's video path; pos = QPoint (global screen position).
     pane_right_clicked = Signal(str, object)
     displayed_panes_changed = Signal()
+    #: A pane has left the grid's model but its media client is still alive.
+    #:
+    #: Tearing a libmpv client down can take the whole process with it on
+    #: Windows (HANDOUT.md "Pending"), and unlike the same teardown at close
+    #: this one happens mid-session, where a crash would cost everything since
+    #: the last autosave. Persisting here costs one small write and makes that
+    #: failure survivable.
+    pane_detached = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -159,6 +167,10 @@ class VideoGrid(QWidget):
             self._fullscreen_pane = None
 
         self._layout.removeWidget(pane)
+        # After the model no longer lists this pane, so a listener persists the
+        # session as it will be, and before `close()`, which is what terminates
+        # the client and can fault.
+        self.pane_detached.emit(path)
         pane.close()
         pane.deleteLater()
         if self._batch_depth == 0:
