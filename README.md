@@ -19,12 +19,14 @@ It is designed for visual inspection and careful alignment. It does not acquire 
 does not perform scientific analysis for you. Your lab can add support for its own file types and
 workflows through plugins.
 
-![Three synchronised camera views of a head-fixed mouse with 2D pose overlays, a 3D pose view, and
-the wheel encoder velocity trace, all on one master timeline.](https://raw.githubusercontent.com/anzalks/avialsync/main/docs/_static/screenshots/aol_session_overview.png)
+![A one-second loop of three synchronised camera views of a head-fixed mouse with 2D pose overlays,
+a 3D pose view, and the wheel encoder velocity trace advancing together on one master
+timeline.](https://raw.githubusercontent.com/anzalks/avialsync/main/docs/_static/screenshots/aol_session_overview.gif)
 
 *A real recording session: three cameras at 230 fps with per-camera 2D pose drawn over each view,
-triangulated 3D pose on the right, and wheel-encoder velocity below — every source on one master
-clock, at one instant. The whole folder was opened by dropping it on the window: a
+triangulated 3D pose on the right, and wheel-encoder velocity below — one second of it, at the
+speed it was recorded, every source moving on one master clock. The whole folder was opened by
+dropping it on the window: a
 [session plugin](https://github.com/anzalks/avialsync/blob/main/docs/plugin-guide.md#session-plugins) recognised the layout and placed each file,
 including the shared time base. Nothing in AvialSync knows this lab's format.*
 
