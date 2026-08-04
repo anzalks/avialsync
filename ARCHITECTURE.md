@@ -478,7 +478,7 @@ Startup sequence (all channels): diagnostics probe (libmpv present? hwdec? disk 
 missing libmpv → guided dialog (distro-specific one-liner / brew line / Windows mpv-dev archive
 plus `AVIALSYNC_MEDIA_ROOT`) → lazy `import mpv` only after probe passes. The app window
 ALWAYS opens; capability problems degrade to dialogs, never tracebacks. Those prerequisites are
-documented for pip users in README "Native prerequisites for a pip install" and `docs/quickstart.md`;
+documented for pip users in `docs/install.md` "What pip cannot install" and `docs/quickstart.md`;
 `ui/diagnostics.libmpv_install_guidance` holds the per-platform text the dialog shows.
 
 GitHub Actions is the only release authority: the tag workflow builds every installer and the PyPI

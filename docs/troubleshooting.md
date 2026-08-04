@@ -9,7 +9,7 @@ only for pip and source installs.
 
 AvialSync deliberately keeps running. Time series, tracking, annotations, and sessions all work;
 the video panes stay disabled until libmpv is present. Install it as described in
-[Quickstart](quickstart.md#if-you-installed-with-pip) — `brew install mpv`,
+[Installation](install.md#what-pip-cannot-install) — `brew install mpv`,
 `sudo apt install libmpv2`, `sudo dnf install mpv-libs`, or `sudo pacman -S mpv` — and restart.
 
 On Windows, download an `mpv-dev-x86_64-*` archive from the

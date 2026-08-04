@@ -21,6 +21,7 @@ layout.*
    :maxdepth: 2
    :caption: Guides
 
+   install
    quickstart
    user-guide/index
    tutorials/first-session

@@ -124,8 +124,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
   Release staging rejects a bundle without `ffmpeg`, `ffprobe`, and libmpv. A pip install gets
   neither libmpv nor FFmpeg — `python-mpv` is a ctypes binding that loads an existing library, so
   the D-013 dialog is the expected first-run experience there, not a bug. The per-OS routes live in
-  `diagnostics.libmpv_install_guidance()` and are documented in README "Native prerequisites for a
-  pip install", `docs/quickstart.md`, and `docs/troubleshooting.md`. D-014's Windows in-app
+  `diagnostics.libmpv_install_guidance()` and are documented in `docs/install.md` "What pip cannot
+  install", `docs/quickstart.md`, and `docs/troubleshooting.md`. D-014's Windows in-app
   auto-fetch was superseded and never built; do not reintroduce a downloader.
 - **Video pane shutdown**: `MainWindow.closeEvent()` calls `Player.stop()` and then
   `VideoGrid.shutdown()` before Qt destroys child widgets. This removes the precise 60 Hz timer and
