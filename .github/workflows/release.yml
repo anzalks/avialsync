@@ -119,7 +119,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install --no-progress ffmpeg
+          # Pinned like the libmpv archive below it. Chocolatey moved 8.1.2 -> 9.0.0
+          # mid-day and ffmpeg 9 removed `-vsync`, turning both Windows jobs
+          # red with no commit in between; unpinned here also meant the
+          # installer bundled whatever version release day happened to serve.
+          choco install --no-progress ffmpeg --version=9.0.0
           $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
           $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
           curl.exe --fail --location --silent --show-error --retry 5 --retry-all-errors --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
@@ -258,7 +262,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install --no-progress ffmpeg
+          # Pinned like the libmpv archive below it. Chocolatey moved 8.1.2 -> 9.0.0
+          # mid-day and ffmpeg 9 removed `-vsync`, turning both Windows jobs
+          # red with no commit in between; unpinned here also meant the
+          # installer bundled whatever version release day happened to serve.
+          choco install --no-progress ffmpeg --version=9.0.0
           $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
           $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
           curl.exe --fail --location --silent --show-error --retry 5 --retry-all-errors --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'

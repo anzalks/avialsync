@@ -13,6 +13,8 @@ TEST_COMMAND = (
     " --ignore=tests/benchmarks"
 )
 WINDOWS_LIBMPV_SHA256 = "FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6"
+#: Bump deliberately, never incidentally — this is what release installers bundle.
+WINDOWS_FFMPEG_VERSION = "9.0.0"
 
 
 def test_cross_platform_quality_workflows_share_headless_media_contract() -> None:
@@ -50,6 +52,29 @@ def test_release_bundle_uses_the_verified_windows_libmpv() -> None:
     assert "Join-Path $env:RUNNER_TEMP 'libmpv'" in release_workflow
     assert "C:\\ProgramData\\chocolatey\\lib\\ffmpeg" in release_workflow
     assert '--source "$env:RUNNER_TEMP\\libmpv"' in release_workflow
+
+
+def test_windows_ffmpeg_is_pinned_everywhere_it_is_installed() -> None:
+    """An unpinned ffmpeg is both a CI flake and an unreproducible installer.
+
+    Chocolatey moved 8.1.2 -> 9.0.0 between two runs an hour apart; ffmpeg 9
+    removed ``-vsync`` and both Windows jobs went red with no commit in
+    between. Re-running the last green run at the same SHA reproduced it.
+
+    Pinning matters more for release.yml than for ci.yml: ``fetch_media_libs.py``
+    stages whatever Chocolatey served into the bundle, so unpinned meant
+    ``AvialSync-Setup.exe`` shipped a version nobody had tested. The libmpv
+    archive beside it is SHA-256 pinned for exactly this reason.
+    """
+    for workflow_path in WORKFLOW_PATHS:
+        workflow = workflow_path.read_text(encoding="utf-8")
+        for line in workflow.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("choco install") or "ffmpeg" not in stripped:
+                continue
+            assert f"--version={WINDOWS_FFMPEG_VERSION}" in stripped, (
+                f"{workflow_path}: unpinned ffmpeg install: {stripped}"
+            )
 
 
 def test_release_appimage_tool_has_ubuntu_fuse_2_compatibility() -> None:
