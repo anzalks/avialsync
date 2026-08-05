@@ -152,9 +152,18 @@ class _FakePlayer:
     def event_callback(self, name: str):
         def register(function):
             self.observers[name] = function
+            # python-mpv gives an event callback a *different* hook from a
+            # property observer's `unobserve_mpv_properties`. Modelling that
+            # difference is the whole point: teardown that looks only for the
+            # observer hook leaves this one attached through terminate().
+            function.unregister_mpv_events = lambda: self._unregister_events(name)
             return function
 
         return register
+
+    def _unregister_events(self, name: str) -> None:
+        del self.observers[name]
+        self.teardown.append(f"unregister:{name}")
 
     def terminate(self) -> None:
         self.terminated += 1
@@ -221,19 +230,35 @@ def test_an_observer_survives_a_destroyed_pane(qapp, monkeypatch) -> None:
             callback(name, values[name])
 
 
-def test_close_unregisters_every_observer_before_terminating(qapp, monkeypatch) -> None:
+def test_close_detaches_every_callback_before_terminating(qapp, monkeypatch) -> None:
     """Ordering, not merely occurrence: an observer left on `time-pos` can wedge
     python-mpv's `terminate()` inside its own event-thread join (python-mpv #114).
     Unregistering afterwards would be indistinguishable here and useless there.
+
+    `file-loaded` is asserted alongside the property observers because it was the
+    one left behind: it is an *event callback*, so it carries a different
+    unregister hook, and teardown looked only for the observer one. libmpv then
+    delivered it on its own thread during `mpv_terminate_destroy` — where the
+    body emits a Qt signal into a pane being destroyed — and the process took an
+    access violation on Windows roughly one run in three.
     """
     pane, player = _pane_with_fake_mpv(monkeypatch)
     assert "time-pos" in player.observers, sorted(player.observers)
+    assert "file-loaded" in player.observers, sorted(player.observers)
 
     pane.close()
 
     assert player.teardown[-1] == "terminate", player.teardown
-    unobserved = {step.removeprefix("unobserve:") for step in player.teardown[:-1]}
-    assert unobserved == {"time-pos", "estimated-vf-fps", "seeking", "video-out-params"}
+    detached = {step.split(":", 1)[1] for step in player.teardown[:-1]}
+    assert detached == {
+        "time-pos",
+        "estimated-vf-fps",
+        "seeking",
+        "video-out-params",
+        "file-loaded",
+    }
+    # Nothing may still be attached when the handle is destroyed.
+    assert player.observers == {}, sorted(player.observers)
 
 
 def test_close_gives_up_on_a_client_that_never_finishes_terminating(qapp, monkeypatch) -> None:

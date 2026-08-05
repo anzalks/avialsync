@@ -61,25 +61,39 @@ def _release_mpv_render_context(widget: Any) -> None:
             logger.debug("Could not release the GL context", exc_info=True)
 
 
-def _unobserve_mpv_properties(observers: Iterable[Any]) -> None:
-    """Drop a client's property observers before it is terminated.
+#: The hooks python-mpv hangs on a decorated callback so it can be detached
+#: again. ``property_observer`` attaches the first, ``event_callback`` the
+#: second. Both must be tried: they are not interchangeable, and looking only
+#: for the observer hook silently skipped every event callback.
+_MPV_UNREGISTER_HOOKS = ("unobserve_mpv_properties", "unregister_mpv_events")
 
-    python-mpv's ``terminate()`` joins its event thread, and an observer still
-    registered on ``time-pos`` can leave that thread inside ``mpv_wait_event``
-    so the join never returns (python-mpv #114). Every pane observes
-    ``time-pos``, so unregistering first is what keeps teardown finite; it also
-    closes the window in which a callback arrives at a half-torn-down pane.
+
+def _detach_mpv_callbacks(callbacks: Iterable[Any]) -> None:
+    """Drop everything registered on a client before it is terminated.
+
+    ``terminate()`` nulls python-mpv's handle and *then* calls
+    ``mpv_terminate_destroy``, so anything still registered can be dispatched
+    against a half-destroyed client in that window. An observer left on
+    ``time-pos`` can also leave the event thread inside ``mpv_wait_event`` so
+    the join never returns (python-mpv #114). Detaching first is what keeps
+    teardown both finite and safe.
+
+    This looked only for the property-observer hook once, which meant a pane
+    terminated with its ``file-loaded`` event callback still attached — that
+    callback emits a Qt signal, and libmpv delivering it on its own thread
+    during ``mpv_terminate_destroy`` faulted the process on Windows.
     """
-    for observer in observers:
-        # python-mpv hangs this on the decorated function. A stand-in client in
-        # a test need not provide it, and neither does an already-freed handle.
-        unregister = getattr(observer, "unobserve_mpv_properties", None)
-        if unregister is None:
-            continue
-        try:
-            unregister()
-        except Exception:
-            logger.debug("Could not unregister an mpv property observer", exc_info=True)
+    for callback in callbacks:
+        # python-mpv hangs these on the decorated function. A stand-in client in
+        # a test need not provide one, and neither does an already-freed handle.
+        for hook_name in _MPV_UNREGISTER_HOOKS:
+            unregister = getattr(callback, hook_name, None)
+            if unregister is None:
+                continue
+            try:
+                unregister()
+            except Exception:
+                logger.debug("Could not detach an mpv callback via %s", hook_name, exc_info=True)
 
 
 def _terminate_mpv_client(player: Any) -> None:
@@ -113,7 +127,7 @@ def _terminate_mpv_client(player: Any) -> None:
 
 
 def _shutdown_mpv_client(
-    player: Any, gl_widget: Any | None = None, observers: Iterable[Any] = ()
+    player: Any, gl_widget: Any | None = None, callbacks: Iterable[Any] = ()
 ) -> None:
     """Release a Qt OpenGL render client, then terminate its libmpv handle once."""
     if gl_widget is not None:
@@ -122,7 +136,7 @@ def _shutdown_mpv_client(
         except RuntimeError:
             # A failed GL cleanup must not leave libmpv's event thread alive.
             logger.warning("Could not release the mpv render context", exc_info=True)
-    _unobserve_mpv_properties(observers)
+    _detach_mpv_callbacks(callbacks)
     _terminate_mpv_client(player)
     if gl_widget is not None:
         gl_widget.mpv = None
@@ -157,9 +171,11 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._seek_target = 0.0
         self._seek_exact = True
         self.mpv = None
-        #: The property observers registered on this pane's client, kept so
-        #: teardown can unregister them before terminating it.
-        self._mpv_observers: list[Any] = []
+        #: Everything registered on this pane's mpv client — property observers
+        #: *and* event callbacks — kept so teardown can detach them all before
+        #: terminating it. Event callbacks belong here too: holding only the
+        #: observers is what left `file-loaded` attached through terminate.
+        self._mpv_callbacks: list[Any] = []
         self._video_widget: QWidget | None = None
         self._media_loaded = False
         self._pending_seek: tuple[float, bool] | None = None
@@ -259,7 +275,7 @@ class VideoPane(VideoTimingMixin, QWidget):
                         except RuntimeError:
                             pass
 
-                    parent_pane._mpv_observers.extend(
+                    parent_pane._mpv_callbacks.extend(
                         (time_observer, fps_observer, seeking_observer, video_params_observer)
                     )
 
@@ -396,17 +412,21 @@ class VideoPane(VideoTimingMixin, QWidget):
                 except RuntimeError:
                     pass
 
-            self._mpv_observers.extend(
+            self._mpv_callbacks.extend(
                 (time_observer, fps_observer, seeking_observer, video_params_observer)
             )
 
         # Set up PaintCanvas for tracking
+        # Registered on both the render-API and headless paths, so it is
+        # collected here rather than inside either branch above.
         @self.mpv.event_callback("file-loaded")
         def file_loaded(_event: object) -> None:
             try:
                 self.file_loaded.emit()
             except RuntimeError:
                 pass
+
+        self._mpv_callbacks.append(file_loaded)
 
         self._build_overlay_chrome()
 
@@ -691,7 +711,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         player = self.mpv
         if player:
             gl_widget = getattr(self, "gl_widget", None)
-            observers, self._mpv_observers = self._mpv_observers, []
-            _shutdown_mpv_client(player, gl_widget, observers)
+            callbacks, self._mpv_callbacks = self._mpv_callbacks, []
+            _shutdown_mpv_client(player, gl_widget, callbacks)
             self.mpv = None
         return bool(super().close())

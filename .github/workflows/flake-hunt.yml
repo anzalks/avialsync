@@ -1,0 +1,90 @@
+# Manual only. Repeats one test many times on a single runner to turn "seems
+# fixed" into a number. An intermittent crash cannot be judged by a green run:
+# the mpv-teardown fault appeared in roughly one Windows job in three, so a
+# single pass was ~67% likely with the bug fully intact.
+#
+# Dispatch this on the fix branch and on a branch with the fix reverted, then
+# compare the two failure counts. Nothing here runs on push.
+name: Flake hunt (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "pytest node id to repeat"
+        default: "tests/test_close_and_focus.py"
+      repeats:
+        description: "how many times to run it"
+        default: "20"
+
+permissions:
+  contents: read
+
+jobs:
+  repeat:
+    name: Repeat on windows-2022 / Python 3.12
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      PYTHONUTF8: 1
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Same pinned media runtime as ci.yml: a flake hunt that installs
+      # different libraries measures a different system.
+      - name: Install System Dependencies (Windows)
+        shell: pwsh
+        run: |
+          choco install --no-progress ffmpeg --version=9.0.0
+          $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
+          $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
+          curl.exe --fail --location --silent --show-error --retry 5 --retry-all-errors --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
+          if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
+            throw 'Downloaded libmpv archive did not match its pinned SHA-256'
+          }
+          & "$env:ChocolateyInstall\tools\7z.exe" x $archive "-o$destination" -y | Out-Null
+          $libmpv = Get-ChildItem $destination -Filter 'libmpv-2.dll' -File -Recurse | Select-Object -First 1
+          if ($null -eq $libmpv) {
+            throw 'Pinned libmpv archive did not contain libmpv-2.dll'
+          }
+          $libmpv.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install Project Dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Verify libmpv is importable
+        run: python -c "import mpv; print('libmpv import succeeded')"
+
+      - name: Make Fixtures
+        run: python tools/make_fixtures.py --small
+
+      # Inputs arrive as environment variables, never interpolated into the
+      # script body: `${{ inputs.target }}` inline would let a dispatcher run
+      # arbitrary PowerShell on the runner.
+      - name: Repeat the target and count failures
+        shell: pwsh
+        env:
+          TARGET: ${{ inputs.target }}
+          REPEATS: ${{ inputs.repeats }}
+        run: |
+          $total = [int]$env:REPEATS
+          $failures = 0
+          for ($i = 1; $i -le $total; $i++) {
+            pytest $env:TARGET -q --timeout=60 --timeout-method=thread
+            if ($LASTEXITCODE -ne 0) {
+              $failures++
+              Write-Host "run $i of ${total}: FAILED (exit $LASTEXITCODE)"
+            } else {
+              Write-Host "run $i of ${total}: passed"
+            }
+          }
+          Write-Host "=== $failures failures out of $total runs ==="
+          # Report the count in the job summary so two dispatches can be
+          # compared without reading either log.
+          "**$failures / $total runs failed** (``$env:TARGET``)" |
+            Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          if ($failures -gt 0) { exit 1 }
