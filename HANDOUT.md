@@ -1111,3 +1111,60 @@ stale `pip install --user` package shadows the env and pip never revisits it. `q
 0.16.2 reads the `np.ndarray.ptp` method NumPy 2 removed; `quantities>=0.16.3` is now a declared
 dependency, but a version floor cannot dislodge a shadowing install — `PYTHONNOUSERSITE=1` does.
 When a traceback's paths span two prefixes, trust the paths over the version numbers.
+
+### 30. The Windows `0xC0000005` is inside faulthandler, not inside mpv
+Windows + Python 3.12 full-suite runs died with an access violation
+(`pytest` exit `-1073741819`) during tests that build and destroy `VideoPane`s. The native
+minidump settles what two Python-level readings got wrong:
+
+```
+python312!_Py_DumpASCII            <- faults here, reads [rsi+0x70] with rsi=3
+python312!_Py_DumpTracebackThreads
+python312!<faulthandler vectored handler>
+ntdll!RtlpCallVectoredHandlers
+ntdll!RtlDispatchException
+KERNELBASE!RaiseException          <- libmpv raises 0xe24c4a02
+libmpv_2!...                       <- on one of libmpv's OWN threads
+ucrtbase!thread_start
+```
+
+pytest enables faulthandler with `all_threads=True`, which on Windows installs a **vectored**
+exception handler — the OS runs it on first chance, for every SEH exception, on whatever thread
+raised it. CPython ignores only non-error codes and MSC C++ exceptions (`0xe06d7363`), so libmpv's
+`0xe24c4a02` is treated as fatal: faulthandler calls `_Py_DumpTracebackThreads`, which walks
+*every* Python thread's frame chain from a libmpv thread that holds no GIL and has no thread state,
+while the owning threads push and pop those frames. Reading a frame whose memory has been reused
+faults the process, charged to whichever test was running.
+
+**`0xe24c4a02` is benign, but it is not irrelevant — it is the trigger.** It is also why the
+evidence misleads:
+- faulthandler's own reentrancy guard means the real access violation prints a bare
+  `Windows fatal exception: access violation` header with **no thread dump at all**. Every stack
+  in the log belongs to a preceding benign `0xe24c4a02` dump. Reading one as the fault is how
+  `mpv.terminate()` and observer registration were each blamed in turn.
+- the Intel driver's `0xe06d7363` appears in a procdump log but never in faulthandler output,
+  because CPython ignores that code. That asymmetry confirms the mechanism.
+
+**Fix:** `tests/conftest.py` re-arms faulthandler with `all_threads=False` on Windows
+(`trylast=True`, so it lands after pytest's own plugin). Real faults on a Python thread are still
+reported; only the cross-thread walk that is unsafe from a foreign thread is dropped.
+
+**This is a test-harness fault, not an AvialSync or libmpv defect.** Plain Python leaves
+faulthandler disabled, so the shipped app never takes this path — which is why it appeared only
+under pytest.
+
+**Reproducing it**, if it ever returns: loop the **whole suite**, never one file.
+`tests/test_close_and_focus.py` alone crashed 0/20 while full-suite runs crashed roughly 2 in 6,
+so an A/B run against one file measures nothing in either direction — that is how a 20x A/B once
+"refuted" an unrelated fix. Unmonitored runs crash rarely (0/8 locally); run the suite under
+procdump, which intercepts every first-chance exception and widens the window:
+
+```
+procdump -accepteula -ma -e 1 -f C0000005 -n 1 -x <dumpdir> python -m pytest -q ...
+```
+
+Measured that way: 2/8 full-suite runs crashed before the fix, 0/8 after. Use `-e 1 -f C0000005`,
+never plain `-e` — faulthandler `abort()`s before the fault becomes an *unhandled* exception, so
+`-e` alone never fires, and the filter is what excludes the benign `0xe24c4a02`. Read the dump
+with `cdb -z <dump> -c '.ecxr; k'`; libmpv ships no PDB, so its frames resolve only to
+`libmpv_2+offset`, which is enough to place the fault.
