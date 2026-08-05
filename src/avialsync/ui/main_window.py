@@ -418,14 +418,23 @@ class MainWindow(QMainWindow):
 
     # ── Background job lifetime ──────────────────────────────────────
 
-    def _run_job(self, worker: _JobWorker, label: str = "Working") -> QThread:
+    def _run_job(
+        self,
+        worker: _JobWorker,
+        label: str = "Working",
+        configure: Callable[[QThread], None] | None = None,
+    ) -> QThread:
         """Own a worker/thread pair for the whole life of a background job.
 
         Delegates to :class:`JobManager`, which additionally names the job for
         the status bar, watches it for stalls, and can abandon it at shutdown so
         the window always closes.
+
+        Connect result signals in *configure*, never after this returns: the
+        thread is already running by then, and a worker that finishes first
+        emits into nothing (D-062, and the no-op drops this file's tests pin).
         """
-        return self._job_manager.start(label, worker)
+        return self._job_manager.start(label, worker, configure=configure)
 
     def _on_jobs_changed(self) -> None:
         """Mirror background-job state into the transport status area."""

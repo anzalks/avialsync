@@ -13,6 +13,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import QThread
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QMessageBox
 
@@ -51,23 +52,28 @@ def start_drop_scan(window: MainWindow, paths: list[Path]) -> None:
 
     window.transport.set_status("Scanning files…")
     worker = DropScanWorker(paths, window._registry)
-    thread = window._run_job(worker)
 
-    worker.finished.connect(window._on_drop_scan_finished)
-    worker.session_found.connect(window._on_drop_session_found)
-    worker.error.connect(window._on_drop_scan_error)
+    # Wired through `configure`, which runs before the thread starts. Connecting
+    # after `_run_job` returns is a race: the thread is already running, and a
+    # scan of one small file can finish before the main thread gets here, so
+    # `finished` is emitted with no receiver and the drop is silently a no-op —
+    # the exact defect tests/test_worker_lifetime.py exists to catch.
+    def _wire(thread: QThread) -> None:
+        worker.finished.connect(window._on_drop_scan_finished)
+        worker.session_found.connect(window._on_drop_session_found)
+        worker.error.connect(window._on_drop_scan_error)
 
-    worker.finished.connect(thread.quit)
-    worker.error.connect(thread.quit)
-    # No `worker.deleteLater` here: these signals are emitted in the
-    # worker thread, where the worker also lives, so the connection is
-    # direct and ~QObject runs inside that thread — severing connections
-    # while holding one of Qt's pooled signal/slot mutexes and then
-    # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-    # thread holding the GIL and waiting on a colliding mutex (D-062).
-    # The owning registry drops its reference on the UI thread instead.
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
 
-    thread.start()
+    window._run_job(worker, configure=_wire)
 
 
 def on_drop_session_found(window: MainWindow, path: str) -> None:

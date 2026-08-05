@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QSettings, QThread
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from avialsync.core.inspection import SourceInspection
@@ -167,7 +167,6 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
     from avialsync.engine.session_worker import SessionSaveWorker
 
     worker = SessionSaveWorker(state, path)
-    thread = window._run_job(worker)
 
     if not is_autosave:
         window.transport.set_status("Saving session…")
@@ -185,24 +184,30 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
         else:
             logger.exception("Autosave failed for %s: %s", path, msg)
 
-    worker.finished.connect(on_finished)
-    worker.error.connect(on_error)
+    # Wired before the thread starts. `_run_job` returns an already-running
+    # thread, so connecting afterwards races a fast save: losing `finished`
+    # skips the recent-files entry, and losing `thread.finished` leaves
+    # `_save_in_progress` latched, which blocks every later save for the rest
+    # of the session.
+    def _wire(thread: QThread) -> None:
+        worker.finished.connect(on_finished)
+        worker.error.connect(on_error)
 
-    worker.finished.connect(thread.quit)
-    worker.error.connect(thread.quit)
-    # No `worker.deleteLater` here: these signals are emitted in the
-    # worker thread, where the worker also lives, so the connection is
-    # direct and ~QObject runs inside that thread — severing connections
-    # while holding one of Qt's pooled signal/slot mutexes and then
-    # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-    # thread holding the GIL and waiting on a colliding mutex (D-062).
-    # The owning registry drops its reference on the UI thread instead.
-    # Un-latch even if the thread ends abnormally (e.g. worker deleted
-    # without emitting finished/error), so a stuck save cannot
-    # permanently block every later save.
-    thread.finished.connect(lambda: setattr(window, "_save_in_progress", False))
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
+        # Un-latch even if the thread ends abnormally (e.g. worker deleted
+        # without emitting finished/error), so a stuck save cannot
+        # permanently block every later save.
+        thread.finished.connect(lambda: setattr(window, "_save_in_progress", False))
 
-    thread.start()
+    window._run_job(worker, configure=_wire)
 
 
 def open_session(window: MainWindow) -> None:
@@ -223,7 +228,6 @@ def start_session_load(window: MainWindow, path: Path) -> None:
 
     window.transport.set_status("Loading session…")
     worker = SessionLoadWorker(path)
-    thread = window._run_job(worker)
 
     def on_finished(state: SessionState):
         window.transport.set_status("")
@@ -235,20 +239,25 @@ def start_session_load(window: MainWindow, path: Path) -> None:
         window.transport.set_status("")
         QMessageBox.critical(window, "Session Error", f"Could not load session:\n{msg}")
 
-    worker.finished.connect(on_finished)
-    worker.error.connect(on_error)
+    # Wired before the thread starts: `_run_job` returns an already-running
+    # thread, and a session that loads quickly can emit `finished` before a
+    # connection made afterwards exists — the window would keep "Loading
+    # session…" forever and never restore anything.
+    def _wire(thread: QThread) -> None:
+        worker.finished.connect(on_finished)
+        worker.error.connect(on_error)
 
-    worker.finished.connect(thread.quit)
-    worker.error.connect(thread.quit)
-    # No `worker.deleteLater` here: these signals are emitted in the
-    # worker thread, where the worker also lives, so the connection is
-    # direct and ~QObject runs inside that thread — severing connections
-    # while holding one of Qt's pooled signal/slot mutexes and then
-    # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-    # thread holding the GIL and waiting on a colliding mutex (D-062).
-    # The owning registry drops its reference on the UI thread instead.
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
 
-    thread.start()
+    window._run_job(worker, configure=_wire)
 
 
 def on_session_load_error(window: MainWindow, error: str) -> None:

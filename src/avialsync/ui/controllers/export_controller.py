@@ -104,7 +104,6 @@ def export_annotations(window: MainWindow) -> None:
     from avialsync.engine.export_worker import AnnotationExportWorker
 
     worker = AnnotationExportWorker(window.annotation_store.markers, Path(out_path))
-    thread = window._run_job(worker)
 
     def on_finished(path: Path, count: int):
         QMessageBox.information(
@@ -116,20 +115,24 @@ def export_annotations(window: MainWindow) -> None:
     def on_error(msg: str):
         QMessageBox.critical(window, "Export Failed", f"Could not export annotations:\n{msg}")
 
-    worker.finished.connect(on_finished)
-    worker.error.connect(on_error)
+    # Wired before the thread starts: `_run_job` returns an already-running
+    # thread, so a fast export can finish before a connection made afterwards
+    # exists, leaving the user with no completion dialog at all.
+    def _wire(thread: QThread) -> None:
+        worker.finished.connect(on_finished)
+        worker.error.connect(on_error)
 
-    worker.finished.connect(thread.quit)
-    worker.error.connect(thread.quit)
-    # No `worker.deleteLater` here: these signals are emitted in the
-    # worker thread, where the worker also lives, so the connection is
-    # direct and ~QObject runs inside that thread — severing connections
-    # while holding one of Qt's pooled signal/slot mutexes and then
-    # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-    # thread holding the GIL and waiting on a colliding mutex (D-062).
-    # The owning registry drops its reference on the UI thread instead.
+        worker.finished.connect(thread.quit)
+        worker.error.connect(thread.quit)
+        # No `worker.deleteLater` here: these signals are emitted in the
+        # worker thread, where the worker also lives, so the connection is
+        # direct and ~QObject runs inside that thread — severing connections
+        # while holding one of Qt's pooled signal/slot mutexes and then
+        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
+        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # The owning registry drops its reference on the UI thread instead.
 
-    thread.start()
+    window._run_job(worker, configure=_wire)
 
 
 def export_snapshot_for_pane(window: MainWindow, path: str) -> None:

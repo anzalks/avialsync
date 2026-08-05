@@ -1168,3 +1168,40 @@ never plain `-e` — faulthandler `abort()`s before the fault becomes an *unhand
 `-e` alone never fires, and the filter is what excludes the benign `0xe24c4a02`. Read the dump
 with `cdb -z <dump> -c '.ecxr; k'`; libmpv ships no PDB, so its frames resolve only to
 `libmpv_2+offset`, which is enough to place the fault.
+
+### 31. Connect a job's result signals in `configure`, never after `_run_job` returns
+`JobManager.start()` calls `thread.start()` before it returns, so `_run_job` hands back a thread
+whose worker is **already running**. This is therefore a race, not a wiring order:
+
+```python
+thread = window._run_job(worker)
+worker.finished.connect(on_finished)  # WRONG: worker may already have finished
+```
+
+A worker that completes first emits into nothing, and the connection then waits on a signal that
+will never fire again. Nothing raises — the work just silently does nothing. All four callers had
+this: a dropped file scanned and discarded (a no-op drop, the defect
+`tests/test_worker_lifetime.py` was written to pin, reintroduced by a different route), a session
+save that skipped its recent-files entry and left `_save_in_progress` latched so every later save
+was blocked, a load stuck on "Loading session…" forever, and an export with no completion dialog.
+
+**Correct form** — `configure` runs after the standard wiring and before the thread starts:
+
+```python
+def _wire(thread: QThread) -> None:
+    worker.finished.connect(on_finished)
+    worker.error.connect(on_error)
+
+
+window._run_job(worker, configure=_wire)
+```
+
+Do not call `thread.start()` yourself afterwards; `JobManager` already did, and `JobManager` also
+already connects `finished`/`error`/`cancelled` to `thread.quit`.
+
+**Why it hid for so long:** the window is narrow and closes faster on slow machines, so it is
+*more* likely on fast hardware and small inputs — one small CSV is scanned in less time than the
+main thread needs to reach the next line. It presented as an intermittent CI failure on
+ubuntu-24.04 / Python 3.12 only. Reproduced in WSL against that same image: 2 of 12 full-suite
+runs failed, 0 of 14 after the fix. Do not chase a job that "sometimes does nothing" through the
+worker — check where its signals are connected first.
