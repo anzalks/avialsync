@@ -8,6 +8,12 @@
 name: Flake hunt (manual)
 
 on:
+  # GitHub only offers workflow_dispatch for workflows already on the default
+  # branch, so until this merges the only way to run it is a push. Scoped to a
+  # throwaway prefix that ci.yml deliberately ignores, so pushing a measurement
+  # branch runs this job and not the full matrix.
+  push:
+    branches: ["flakehunt/**"]
   workflow_dispatch:
     inputs:
       target:
@@ -68,8 +74,10 @@ jobs:
       - name: Repeat the target and count failures
         shell: pwsh
         env:
-          TARGET: ${{ inputs.target }}
-          REPEATS: ${{ inputs.repeats }}
+          # A push event carries no inputs, so each falls back to the same
+          # default the dispatch form offers.
+          TARGET: ${{ inputs.target || 'tests/test_close_and_focus.py' }}
+          REPEATS: ${{ inputs.repeats || '20' }}
         run: |
           $total = [int]$env:REPEATS
           $failures = 0

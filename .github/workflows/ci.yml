@@ -8,7 +8,11 @@ on:
   push:
     # Every branch, not just main. Work sat on a feature branch for weeks with
     # no CI at all, so the first signal would have arrived at merge time.
-    branches: [ "**" ]
+    # `flakehunt/**` is the one exception: those are throwaway branches that
+    # exist to repeat a single test on one runner (flake-hunt.yml), sometimes
+    # with a fix deliberately reverted. A full matrix on them measures nothing
+    # and a red one means nothing.
+    branches-ignore: [ "flakehunt/**" ]
   pull_request:
     branches: [ "main" ]
 
