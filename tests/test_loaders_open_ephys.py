@@ -651,3 +651,67 @@ def test_displayed_rate_is_reported_on_the_master_timeline() -> None:
     assert scaled == pytest.approx(45.8, abs=0.1)
     # A constant-rate video is unaffected, mapping or not.
     assert displayed_frame_rate(source_times, 0.5, False, 30.0, 30.0, 1.526) == pytest.approx(30.0)
+
+
+# ── Naming is uniform across plugin contracts ───────────────────────────
+
+
+def test_a_rig_plugin_is_named_system_then_kind() -> None:
+    """One rig must read the same wherever it appears, beside the others.
+
+    "Rig Camera (sidecar-timed)" described the implementation: it sorted nowhere
+    near its own session's rows and named no folder the user recognised.
+    """
+    from avialsync.loaders.aol_eks_loader import AOLEksLoader
+    from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
+    from avialsync.loaders.aol_session_loader import AOLSessionSource
+    from avialsync.loaders.video_standard import VideoStandardLoader
+
+    assert AOLEncoderLoader.display_name() == "AOL Encoder Log"
+    assert AOLEksLoader.display_name() == "AOL 3D Tracking"
+    assert AOLSessionSource.display_name() == "AOL Session"
+
+    assert OpenEphysSessionSource.display_name() == "Open Ephys Session"
+    assert OpenEphysCameraLoader.display_name() == "Open Ephys Video"
+    # The kind word is the one the general-purpose loader already uses.
+    assert VideoStandardLoader.display_name() == "Video"
+
+
+def test_every_session_plugin_can_name_itself() -> None:
+    """`SessionSource` had no naming hook, so a session had no name to show."""
+    from avialsync.core.source import SessionSource, _Nameable
+
+    assert issubclass(SessionSource, _Nameable)
+    for session_cls in LoaderRegistry().sessions():
+        assert session_cls.display_name().strip()
+
+
+@pytest.mark.parametrize(
+    ("class_name", "expected"),
+    [
+        ("AOLSessionSource", "AOL Session"),
+        ("AOLEksLoader", "AOL Eks"),
+        ("OpenEphysCameraLoader", "Open Ephys Camera"),
+        ("CSVLoader", "CSV"),
+        ("NeoLoader", "Neo"),
+        ("Loader", "Loader"),
+    ],
+)
+def test_derived_names_break_acronyms_correctly(class_name: str, expected: str) -> None:
+    """The fallback names any plugin that does not override, so it must read well.
+
+    The old rule split only after a lower-case letter, so it never broke a run of
+    capitals: ``AOLSessionSource`` came back as "AOLSession" — the very case the
+    docstring used as its example.
+    """
+    from avialsync.core.source import default_display_name
+
+    assert default_display_name(type(class_name, (), {})) == expected
+
+
+def test_no_two_plugins_share_a_display_name() -> None:
+    """A duplicate name makes the review dialog's dropdown ambiguous to pick from."""
+    registry = LoaderRegistry()
+    labels = [cls.display_name() for cls in registry.loaders()]
+    labels += [alias for cls in registry.loaders() for alias in cls.display_aliases()]
+    assert len(labels) == len(set(labels)), f"duplicate format labels: {labels}"

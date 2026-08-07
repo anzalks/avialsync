@@ -91,7 +91,9 @@ class OpenEphysCameraLoader(VideoStandardLoader):
 
     @classmethod
     def display_name(cls) -> str:
-        return "Rig Camera (sidecar-timed)"
+        # "<System> <Kind>", with the same kind word the general video loader
+        # uses, so a camera sorts and reads beside its own session's other rows.
+        return "Open Ephys Video"
 
     def __init__(self) -> None:
         super().__init__()

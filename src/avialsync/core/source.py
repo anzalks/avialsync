@@ -1,5 +1,6 @@
 """Source plugin abstract base classes."""
 
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
@@ -45,25 +46,30 @@ class VideoMetadata:
     file_size_bytes: int = 0
 
 
+#: Where to break a class name into words: after a lower-case run, and before
+#: the last capital of a capital run that starts a new word.  The second case is
+#: what keeps an acronym together — ``AOLSession`` is "AOL Session", not "AOL
+#: Session" spelt "AOLSession" nor "A O L Session".
+_NAME_WORD_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+
+
 def default_display_name(cls: type) -> str:
     """Derive a readable format name from a class name.
 
-    ``AOLEksLoader`` becomes "AOL Eks", ``CSVLoader`` becomes "CSV". Only a
-    fallback: a format that cares how it is listed overrides ``display_name``.
+    ``AOLEksLoader`` becomes "AOL Eks", ``CSVLoader`` becomes "CSV",
+    ``OpenEphysCameraLoader`` becomes "Open Ephys Camera". Only a fallback: a
+    format that cares how it is listed overrides ``display_name``.
+
+    A plugin that does not override this is listed by whatever comes out, so the
+    acronym case is not cosmetic. The previous rule split only after a
+    lower-case letter, which never broke a capital run: ``AOLSession`` came back
+    as "AOLSession" — the very example this docstring claimed to handle.
     """
     name = cls.__name__
     for suffix in ("Loader", "Source"):
         if name.endswith(suffix) and name != suffix:
             name = name[: -len(suffix)]
-    words: list[str] = []
-    for char in name:
-        if char.isupper() and words and not words[-1][-1].isupper():
-            words.append(char)
-        elif words:
-            words[-1] += char
-        else:
-            words.append(char)
-    return " ".join(words) or cls.__name__
+    return _NAME_WORD_BOUNDARY.sub(" ", name) or cls.__name__
 
 
 class _Nameable:
@@ -73,6 +79,16 @@ class _Nameable:
     which meant adding a format meant editing the UI, and third-party plugins
     were listed by bare class name because they were not in the table. A format
     names itself instead.
+
+    **Convention, so a rig reads the same wherever it appears:** a plugin
+    belonging to one acquisition system is ``"<System> <Kind>"``, where *Kind* is
+    the word the general-purpose loader for that kind already uses — ``"AOL
+    Encoder Log"``, ``"Open Ephys Video"`` beside the plain ``"Video"``. A
+    general-purpose plugin names the data instead of a rig
+    (``"Electrophysiology Data"``). Do not invent a third shape: a name like
+    "Rig Camera (sidecar-timed)" describes the implementation, sorts nowhere
+    near its own session's other rows, and tells the user nothing about which
+    folder it came from.
     """
 
     @classmethod
@@ -129,7 +145,7 @@ class SessionLayout:
     skeleton: list[tuple[str, str]] | None = None
 
 
-class SessionSource(ABC):
+class SessionSource(_Nameable, ABC):
     """Optional plugin contract for a whole recording folder.
 
     Additive to API v1 and outside it: ``TimeSeriesSource`` and ``VideoSource``

@@ -77,7 +77,7 @@ class OpenEphysSessionSource(SessionSource):
 
     @classmethod
     def display_name(cls) -> str:
-        return "Open Ephys Recording"
+        return "Open Ephys Session"
 
     @classmethod
     def can_open(cls, path: Path) -> float:

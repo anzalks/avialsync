@@ -115,8 +115,10 @@ class DropScanWorker(QObject):
             layout = session_cls().scan(path, self._registry)
         except Exception as error:  # noqa: BLE001 - plugin boundary
             logger.exception("Session plugin %s failed on %s", session_cls.__name__, path)
+            # Named as the user knows it: Diagnostics is read by whoever
+            # installed the plugin, not by whoever wrote its class.
             self._registry.plugin_errors.append(
-                (session_cls.__name__, f"scan failed: {type(error).__name__}: {error}")
+                (session_cls.display_name(), f"scan failed: {type(error).__name__}: {error}")
             )
             return None
 
@@ -130,7 +132,7 @@ class DropScanWorker(QObject):
                 "%s also laid out %s; its items load, but the timeline keeps the first "
                 "session's settings (anchor_epoch=%.3f). Drop one session at a time to "
                 "read wall clock from this one.",
-                session_cls.__name__,
+                session_cls.display_name(),
                 path.name,
                 self._layout.anchor_epoch,
             )

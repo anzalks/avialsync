@@ -654,6 +654,14 @@ together used to leave whichever was scanned *last* owning them — arbitrary an
 now, with a log line; every session's items still load. Drop one session at a time to read wall
 clock from a specific one.
 
+### 0k. Plugin display names follow `<System> <Kind>`, and the fallback broke acronyms
+A rig's formats read as `AOL Encoder Log` / `Open Ephys Video`, reusing the general loader's word
+for that kind (`Video`), so one session's rows sort and read together. A name describing the
+implementation — "Rig Camera (sidecar-timed)" was shipped briefly — belongs to no session the user
+can name. `SessionSource` now inherits `_Nameable` like the other two contracts, so a session has a
+name at all. `default_display_name` split only after a lower-case letter, so it never broke a run of
+capitals: `AOLSessionSource` came back as "AOLSession", the very example its own docstring used.
+
 ### 1. No bare `QWidget { }` QSS selector — blacks out video panes
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  
 **Fix:** Use QPalette for all theme colours. Application-level QSS changes native control metrics and

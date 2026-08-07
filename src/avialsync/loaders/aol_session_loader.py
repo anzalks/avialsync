@@ -377,6 +377,10 @@ class AOLSessionSource(SessionSource):
     """
 
     @classmethod
+    def display_name(cls) -> str:
+        return "AOL Session"
+
+    @classmethod
     def can_open(cls, path: Path) -> float:
         return 1.0 if is_aol_session(path) else 0.0
 
