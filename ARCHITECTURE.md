@@ -8,7 +8,6 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │                                     #   entry point `avialsync`; entry-point group `avialsync.loaders`
 ├── README.md                         # user-facing: what/GIFs/install (installers first, pip second)
 ├── LICENSE                           # AGPL-3.0-or-later (D-069, supersedes D-003)
-├── CLA.md                            # contributions licensed for dual-licensing
 ├── .gitignore                        # incl. tests/fixtures/ (generated), dist/, *.avialcache/
 ├── .pre-commit-config.yaml           # ruff check+format, basic hygiene hooks
 │

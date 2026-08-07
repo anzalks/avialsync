@@ -1,8 +1,8 @@
 # Licensing
 
 AvialSync is free software under the **GNU Affero General Public License,
-version 3 or later**. The full text ships as `LICENSE` in the repository and
-inside every release.
+version 3 or later**, and under nothing else. The full text ships as `LICENSE`
+in the repository and inside every release.
 
 ## What you can do
 
@@ -33,42 +33,20 @@ line is worth agreeing in writing first.
 
 ## Contributing
 
-Contributions are accepted under the terms in `CLA.md`. You keep the copyright
-in your own work; the agreement keeps the copyright in the project as a whole in
-one place, so it can be licensed coherently. One line in your first pull request
-covers it.
+Contributions are accepted under the project's own licence,
+AGPL-3.0-or-later. There is no contributor agreement to sign — open a pull
+request and that is the whole process. You keep the copyright in your work.
 
 ## Bundled components
 
 Video decoding comes from [PyAV](https://pypi.org/project/av/), whose wheels
-carry their own FFmpeg. PyAV itself is BSD-3-Clause. The other Python
-dependencies are LGPL-3.0 (PySide6), MIT (pyqtgraph, polars), and BSD (numpy,
-neo, xxhash). Their own licences continue to apply to them.
+carry their own FFmpeg. PyAV itself is BSD-3-Clause, and the FFmpeg it bundles
+is GPL-configured — it includes `libx264` and `libx265`, both GPL-2.0-or-later,
+which is compatible with this project's AGPL-3.0-or-later distribution.
+
+The other Python dependencies are LGPL-3.0 (PySide6), MIT (pyqtgraph, polars),
+and BSD (numpy, neo, xxhash). Their own licences continue to apply to them.
 
 Release installers additionally bundle the FFmpeg **command-line** tools
-(`ffmpeg`, `ffprobe`) in LGPL-licensed builds, verified during packaging. Those
-are used for proxy generation, clip export, and the sample-session generator —
-not for playback.
-
-### A note on the FFmpeg inside the PyAV wheel
-
-The published PyAV wheels are built against a GPL-configured FFmpeg: they bundle
-`libx264` and `libx265`, both GPL-2.0-or-later. That is **compatible with this
-project's AGPL-3.0-or-later distribution**, which is what you get from PyPI and
-from the release installers, and it requires nothing of you as a user.
-
-It does constrain the project rather than the user: shipping GPL components
-forecloses the separately-negotiated arrangement described below, because those
-components cannot be relicensed by this project. If you are asking about that
-route, raise it in your enquiry — the answer may involve an FFmpeg build
-configured without those encoders.
-
-## Other arrangements
-
-A small number of situations cannot accommodate the AGPL's reciprocity at all —
-for example software that must ship inside a closed product, or an organisation
-whose policy forbids AGPL code outright. If that is genuinely your position,
-write to <anzal.ks@gmail.com> describing what you want to build and how you
-intend to distribute it, and it can be discussed case by case.
-
-This is rarely necessary. Ordinary research use is already covered above.
+(`ffmpeg`, `ffprobe`), used for proxy generation, clip export, and the
+sample-session generator — not for playback.

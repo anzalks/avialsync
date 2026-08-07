@@ -278,21 +278,20 @@ been quiet for a while.
 
 ---
 
-## 5. Licensing — do not skip
+## 5. Licensing — settled
 
-AGENTS.md's "no GPL/AGPL dependency" line predates D-069 and is stale: the project *is*
-AGPL-3.0-or-later. GPL dependencies are therefore licence-*compatible* with the open-source
-distribution. They are **not** compatible with D-069's commercial dual-licence, which is the
-reason the project relicensed at all.
+AGENTS.md's old "no GPL/AGPL dependency" line predated D-069 and was stale even before this
+migration: the project *is* AGPL-3.0-or-later.
 
 **Confirmed on this machine (2026-08-07):** `av` 18.0.0's bundled `.dylibs` include
 `libx264.165.dylib` and `libx265.216.dylib`, and `av.codec.Codec("libx264", "w")` resolves — so the
-shipped FFmpeg is GPL-configured in fact, not merely in principle. Shipping those forecloses commercial relicensing. D-015's
-LGPL-only preference therefore still governs: prefer an LGPL-configured build, and if one is not
-available off the shelf, that is a decision for the maintainer to take explicitly and record in
-D-075 — not something to settle silently inside a packaging commit.
+FFmpeg inside the wheel is GPL-configured in fact, not merely in principle.
 
----
+This was an open question for exactly one reason: D-069 kept a commercial dual-licence alive, and
+GPL components cannot be relicensed by this project. **D-076 dropped the commercial licence and the
+CLA**, so there is nothing left to foreclose. GPL-2.0-or-later is compatible with
+AGPL-3.0-or-later; the stock PyAV wheels are used as published, and the project takes on no
+wheel-building burden. `docs/licensing.md` states this plainly.
 
 ## 6. Rollback
 

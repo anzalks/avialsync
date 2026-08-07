@@ -2,7 +2,7 @@
 
 Desktop tool for scrubbing time-synchronized multi-camera video with dense time-series data on a single master timeline.  
 **Stack:** Python 3.11–3.12, PySide6, PyAV (`av`), pyqtgraph, polars, numpy
-**License:** AGPL-3.0-or-later, dual-licensed (D-069). Contributions require the CLA.  
+**License:** AGPL-3.0-or-later, single licence — no dual licence, no CLA (D-076).  
 **Env:** `conda run -n avialsync <cmd>` — every command without exception
 
 > **⚠ Migration in flight — read MIGRATION_PYAV.md before touching video code.**

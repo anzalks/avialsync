@@ -289,12 +289,12 @@ zero-step. Do not reintroduce an in-app downloader instead.
 libmpv is dual GPL/LGPL; bundling a GPL-configured build would poison D-003. Packaging must use
 LGPL builds (-Dgpl=false; e.g. shinchiro LGPL Windows builds) and CI release asserts the build
 flavor before bundling. Same for ffmpeg (LGPL configuration, no --enable-gpl).
-**Amended 2026-08 by D-075:** the libmpv half is void — nothing bundles libmpv any more. The FFmpeg
-half **still governs**, and now applies to the pip channel too, because PyAV's wheels carry FFmpeg
-into every install rather than only into installers. Upstream `av` wheels bundle libx264/libx265,
-i.e. a GPL configuration; per D-069 that is licence-compatible with AGPL distribution but forecloses
-the commercial dual-licence. Prefer an LGPL-configured build. Choosing otherwise is a maintainer
-decision recorded in D-075, not a packaging detail.
+**Amended 2026-08 by D-075, then retired by D-076.** The libmpv half is void — nothing bundles
+libmpv any more. The FFmpeg half is no longer a licence requirement either: with the commercial
+dual-licence dropped (D-076), a GPL-configured FFmpeg is simply compatible with
+AGPL-3.0-or-later, and the stock PyAV wheels are used as published. LGPL builds remain mildly
+preferable for redistribution simplicity, but preferring them is now taste rather than a rule, and
+no dependency needs escalating on this ground.
 
 ## 2026-07 · D-016 · Code signing: stubbed at v1.0, hooks ready
 v1.0 ships unsigned (SmartScreen "Run anyway" / macOS right-click-Open documented in README +
@@ -1898,7 +1898,12 @@ resolution, so a claimed directory is never swept for loose files. Verified agai
 `09-35-24` session: identical 8 items, loaders, roles, and offsets to the hardcoded path, with the
 virtual row gone. Do not reintroduce format knowledge into `engine/` or `ui/`.
 
-## 2026-08 · D-069 · AGPL-3.0-or-later with a commercial licence, superseding D-003
+## 2026-08 · D-069 · AGPL-3.0-or-later with a commercial licence — AMENDED by D-076
+**Amended 2026-08 by D-076: the commercial licence and the CLA are dropped.** The AGPL-3.0-or-later
+choice below stands and is the whole licence now. Everything the original text says about
+sublicensing, dual licensing, and why the CLA was not optional no longer applies. Original text
+follows.
+
 
 **Context:** D-003 chose Apache-2.0 to enable commercialization. It does the opposite of what the
 project now wants. Apache-2.0 lets anyone ship a closed derivative, host it as a service, or embed
@@ -2173,24 +2178,17 @@ FFmpeg *command line* into installers, and proxy generation, clip export, and th
 out to that. It no longer looks for a video library. It can be deleted once FFmpeg itself arrives
 through pip (MIGRATION_PYAV.md step 7).
 
-**Licensing — OPEN, and deliberately left so. A maintainer must decide this.**
+**Licensing — CLOSED by D-076.**
 
 Confirmed by inspection of the installed wheel (`av` 18.0.0, macOS arm64): its bundled `.dylibs`
 include `libx264.165.dylib` and `libx265.216.dylib`, and `av.codec.Codec("libx264", "w")` resolves,
 so the shipped FFmpeg is GPL-configured rather than merely capable of being built that way.
 
-That is **licence-compatible with the AGPL-3.0-or-later distribution** — which is what PyPI and the
-installers deliver, and it asks nothing of users. What it does is foreclose D-069's commercial
-dual-licence, which is the reason the project relicensed at all: x264 and x265 cannot be
-relicensed by this project. D-015's LGPL-only preference therefore still governs the choice of
-build, and adopting the stock wheel anyway is a decision to record here explicitly rather than
-settle inside a packaging commit.
-
-Options, none taken yet: (a) accept the GPL configuration and drop the dual-licence ambition;
-(b) build or source LGPL-configured PyAV wheels for all three platforms, which means owning a wheel
-build; (c) keep stock wheels for the AGPL channel and produce an LGPL-configured build only if and
-when a commercial arrangement is actually requested. `docs/licensing.md` states the current facts
-truthfully in the meantime.
+That was an open question only because D-069 kept a commercial licence alive, which GPL components
+would have foreclosed. **D-076 drops the commercial licence**, so there is nothing left to
+foreclose: GPL-2.0-or-later is compatible with AGPL-3.0-or-later, the stock wheels are used as
+published, and the project takes on no wheel-building burden. `docs/licensing.md` states this
+plainly.
 
 Note also that AGENTS.md's "no GPL/AGPL dependency" line predates D-069 and is stale; it is
 corrected in this change.
@@ -2199,3 +2197,44 @@ corrected in this change.
 (`libgl1`, `libxkbcommon`, xcb). Normal desktops have them; bare containers do not. That is Qt's
 floor, was equally true before this change, and no packaging decision removes it. `docs/install.md`
 states it plainly rather than omitting it.
+
+## 2026-08 · D-076 · AGPL-3.0-or-later, single licence; the CLA is dropped — amends D-069, D-015, closes D-075's open licensing question
+
+**Context:** D-069 made the project AGPL-3.0-or-later *and* kept a commercial licence available
+from the copyright holder, which required a CLA granting sublicensing rights on every contribution.
+That option was never exercised, and keeping it alive had running costs paid in three places: every
+contributor had to accept a CLA before their first patch, every dependency decision had to be
+checked against a licence nobody was using, and the PyAV migration ran straight into it — the stock
+`av` wheels bundle libx264/libx265, so adopting them at all was blocked behind a licensing question
+that existed only because of the commercial option (D-075).
+
+**Decision:** AvialSync is **AGPL-3.0-or-later and nothing else**. There is no commercial licence,
+no dual licensing, and no CLA. Contributions are accepted under the project's own licence, the way
+most open-source projects work.
+
+**Consequences, in the order they bite:**
+
+- `CLA.md` is deleted. Contributing needs no agreement and no acknowledgement line in a pull
+  request. `CONTRIBUTING.md`, `README.md`, `AGENTS.md`, and `ARCHITECTURE.md` drop every mention.
+- **This is a one-way door, and that is accepted deliberately.** Once outside contributions land
+  without a CLA, the project cannot relicense — including reinstating a commercial option — without
+  the agreement of every contributor. Copyright is no longer consolidated in one person. Anyone
+  reading this later and wanting to change the licence must find and ask every author.
+- **D-075's open licensing question is closed.** The GPL-configured FFmpeg inside the PyAV wheel
+  (libx264/libx265, confirmed by inspection) is licence-compatible with AGPL-3.0-or-later and there
+  is no longer anything for it to foreclose. Use the stock wheels; no LGPL-configured build is
+  needed, and no wheel-building burden is taken on.
+- **D-015's LGPL preference is retired as a licence matter.** LGPL builds are still fine to prefer
+  for redistribution simplicity, but a GPL-configured dependency no longer requires escalation. The
+  rule that survives is the plain one: name the licence of any new dependency in the PR and check it
+  is compatible with AGPL-3.0-or-later. PyQt stays banned, now purely because its commercial-or-GPL
+  terms are worse for downstream users than PySide6's LGPL.
+- Versions 0.1.0b1 through 0.1.0b5 remain Apache-2.0 permanently, exactly as D-069 recorded.
+  Relicensing is forward-only in both directions.
+- The plugin boundary is unchanged: a plugin written against the published `TimeSeriesSource`,
+  `VideoSource`, or `SessionSource` interfaces is a separate work whose author picks its licence.
+  Labs must be able to keep a loader for a proprietary instrument format closed.
+
+**Alternatives rejected:** keeping the CLA purely to preserve future licence flexibility — it
+carries real contributor friction for an option that has gone unused, and holding it "just in case"
+is how the licensing question ended up blocking a decoder migration.

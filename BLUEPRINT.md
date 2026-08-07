@@ -12,7 +12,7 @@
 2. **Never block the UI thread.** Decoding, file IO, cache building → worker threads. PyAV releases the GIL during decode, so panes genuinely decode in parallel. The UI thread only issues requests and paints.
 3. **Never draw more points than pixels.** All plotting goes through the decimation pyramid.
 4. **Modular loaders.** Every data source (video or time series) enters through a plugin interface. CSV and standard video are just the built-in plugins.
-5. **Prefer LGPL/permissive dependencies.** PySide6 (LGPL), PyAV (BSD), pyqtgraph (MIT), numpy/polars (BSD/MIT). The project is AGPL-3.0-or-later (D-069), so a GPL dependency is licence-*compatible* but forecloses the commercial dual-licence — escalate any GPL-configured binary to a DECISIONS.md entry rather than settling it in a packaging commit (D-015 as amended by D-075). New deps require a licence check in the PR.
+5. **Dependencies must be AGPL-compatible.** PySide6 (LGPL), PyAV (BSD, bundling a GPL-configured FFmpeg), pyqtgraph (MIT), numpy/polars (BSD/MIT). The project is AGPL-3.0-or-later and single-licensed (D-076), so GPL dependencies are fine; PyQt stays banned on user-freedom grounds, not licence-compatibility ones. New deps require a licence check in the PR.
 6. **Sync correctness > frame completeness** during playback; exact frames when paused/stepping.
 7. **Binary sidecar cache.** Text formats are parsed once → cached as mmap-able binary (`.avialcache/` sidecar dir: raw arrays + pyramid levels + metadata JSON).
 8. **Evidence-based alignment.** TTL/event alignment preserves raw timestamps and presents the

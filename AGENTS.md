@@ -9,9 +9,8 @@ content there. If tool-specific config is unavoidable, it still must say "rules 
 GUI desktop app for visual synchronization and inspection of multi-camera video (h264/h265, incl.
 12-bit greyscale) together with dense time series (up to 50 kHz, 16-bit, CSV or plugin formats) on
 one master timeline. Acquisition and built-in scientific analysis are out of scope: labs extend file
-formats, TTL/event semantics, and optional analysis through plugins. Open-source
-(AGPL-3.0-or-later, D-069). Copyright is held in one place so the work can be licensed
-coherently, which is why every contribution needs the CLA. Targets: Windows / macOS / Linux, mid-spec machines (8-core, 16 GB, SSD). Read
+formats, TTL/event semantics, and optional analysis through plugins. Open-source under
+**AGPL-3.0-or-later and nothing else** — no dual licence, no CLA (D-076). Targets: Windows / macOS / Linux, mid-spec machines (8-core, 16 GB, SSD). Read
 `BLUEPRINT.md` for phases, `ARCHITECTURE.md` for structure,
 `DECISIONS.md` for settled choices. Do not re-litigate settled decisions; propose changes as a
 DECISIONS.md entry in the PR description instead of silently diverging.
@@ -45,11 +44,11 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
   system GL/xcb libraries on Linux, which no packaging choice removes. Decoding is done (steps 1-5
   and the libmpv sweep); the FFmpeg *command line* is still external for proxy generation, clip
   export, and the demo — MIGRATION_PYAV.md step 7. Read that file before touching video code.
-- Dependency policy: the project is AGPL-3.0-or-later (D-069), so GPL dependencies are
-  licence-*compatible* but foreclose the commercial dual-licence — prefer LGPL, and escalate any
-  GPL-configured binary to a DECISIONS.md entry rather than deciding it in a packaging commit
-  (D-015 as amended). Adding any dependency requires: license named in PR description,
-  justification, and it must be pip-installable on all 3 OSes.
+- Dependency policy: the project is AGPL-3.0-or-later and single-licensed (D-076), so any
+  GPL-compatible dependency is fine — including the GPL-configured FFmpeg inside PyAV's wheels.
+  PyQt stays banned because its commercial-or-GPL terms are worse for downstream users than
+  PySide6's LGPL. Adding any dependency requires: licence named in PR description, justification,
+  compatibility with AGPL-3.0-or-later, and it must be pip-installable on all 3 OSes.
 
 ## Architecture rules (violations = rejected PR)
 

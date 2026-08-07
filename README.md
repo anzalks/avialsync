@@ -109,10 +109,6 @@ Good places to start are format plugins (the `TimeSeriesSource` / `VideoSource` 
 — see the [plugin guide](https://avialsync.readthedocs.io/en/latest/plugin-guide.html)), platform
 verification on real hardware, and the open items under "Pending" in `HANDOUT.md`.
 
-Contributions are accepted under [CLA.md](https://github.com/anzalks/avialsync/blob/main/CLA.md):
-you keep the copyright in your work and grant the right to ship it under both licences below. One
-line in your first pull request covers it.
-
 ## Licence
 
 AvialSync is free software under the
@@ -125,5 +121,5 @@ your own rig all sit inside this and cost nothing. A plugin that uses only the d
 `TimeSeriesSource`, `VideoSource` and `SessionSource` interfaces is your own work and you choose its
 licence, so a loader for a proprietary instrument format need not be published.
 
-Other arrangements are possible in situations the AGPL cannot accommodate; see
-[licensing](https://avialsync.readthedocs.io/en/latest/licensing.html) in the documentation.
+There is no dual licence and no contributor agreement — contributions are accepted under the same
+AGPL, and opening a pull request is the whole process.
