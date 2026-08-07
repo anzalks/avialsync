@@ -562,7 +562,12 @@ class NeoLoader(TimeSeriesSource):
             # increasing timestamps, and a loader may never emit otherwise.
             headroom = np.diff(rise) * 0.5
             widths[:-1] = np.minimum(widths[:-1], headroom)
-        return np.maximum(widths, np.spacing(np.abs(rise) + 1.0))
+        # ``np.asarray`` is a no-op on an array that already has this dtype; it
+        # is here because NumPy 2.4's stubs type ``np.maximum`` as returning
+        # ``Any`` while 2.5's do not, so without it this file's type-checks
+        # depend on which NumPy the checker happens to find (HANDOUT.md trap 26).
+        clamped = np.maximum(widths, np.spacing(np.abs(rise) + 1.0))
+        return np.asarray(clamped, dtype=np.float64)
 
     def _acquisition_tick(self) -> float:
         """Return one sample period of the fastest stream, as a minimum pulse width."""
