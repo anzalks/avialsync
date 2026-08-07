@@ -10,6 +10,11 @@ import numpy as np
 from avialsync.core.source import VideoMetadata
 from avialsync.core.timeline import TimeMap
 
+# Frame selection lives in core/ so the headless decoder resolves time through
+# the same call this readout names it with — one authority, never two (D-075).
+# Re-exported here because this is the import path the UI already knows.
+from avialsync.core.video_timing import adjacent_frame_time, frame_index_at
+
 
 def instantaneous_frame_rate(frame_times: np.ndarray | None, t: float, fallback: float) -> float:
     """Return the displayed frame's rate from its presentation interval."""
@@ -95,45 +100,6 @@ def format_video_osd(
         f"{rate_lines}\n"
         f"Codec: {codec} · Size: {human_file_size(metadata.file_size_bytes)}"
     )
-
-
-#: Slack on every comparison between a decoder timestamp and the frame table.
-#:
-#: The table comes from ``ffprobe``, which prints ``pts_time`` rounded to six
-#: decimals, while libmpv reports the unrounded value: frame 2 of 30 fps footage
-#: is ``0.066667`` in the table and ``0.06666666666666667`` from the decoder.  A
-#: frame's own timestamp can therefore land *below* its own table entry, which a
-#: strict search reads as the frame before it — so the readout named the wrong
-#: frame and a forward step returned the frame already on screen, i.e. did
-#: nothing.  One rounding quantum absorbs that.  It is thousands of times
-#: shorter than any real inter-frame interval (4.3 ms even at 230 fps), so it
-#: can never reach past a neighbouring frame.
-_PTS_EPSILON_S = 1e-6
-
-
-def frame_index_at(frame_times: np.ndarray, source_time: float) -> int:
-    """Return the presentation frame active at ``source_time``."""
-    index = int(np.searchsorted(frame_times, source_time + _PTS_EPSILON_S, side="right")) - 1
-    return max(0, min(index, len(frame_times) - 1))
-
-
-def adjacent_frame_time(
-    frame_times: np.ndarray,
-    source_time: float,
-    direction: int,
-) -> float:
-    """Return the adjacent real presentation timestamp.
-
-    Anchored on the frame *containing* ``source_time`` — the one the decoder is
-    showing — so a step always lands on a different frame.
-    """
-    if direction > 0:
-        index = int(np.searchsorted(frame_times, source_time + _PTS_EPSILON_S, side="right"))
-        index = min(index, len(frame_times) - 1)
-    else:
-        index = int(np.searchsorted(frame_times, source_time - _PTS_EPSILON_S, side="left")) - 1
-        index = max(index, 0)
-    return float(frame_times[index])
 
 
 class VideoTimingMixin:

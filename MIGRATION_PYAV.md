@@ -101,9 +101,9 @@ row that is not `done`, and read its "resume note" before doing anything.
 
 | # | Step | Status | Verify with |
 |---|---|---|---|
-| 1 | Benchmark into `tests/benchmarks/test_seek_backends.py` | todo | `pytest tests/benchmarks/test_seek_backends.py --benchmark-only` |
-| 2 | Frame-identity test into `tests/test_frame_identity.py` | todo | `pytest tests/test_frame_identity.py` |
-| 3 | `engine/pyav_reader.py` — headless exact-frame reader | todo | `pytest tests/test_pyav_reader.py` |
+| 1 | Benchmark into `tests/benchmarks/test_seek_backends.py` | done | `pytest tests/benchmarks/test_seek_backends.py --benchmark-only` |
+| 2 | Frame-identity test into `tests/test_frame_identity.py` | done | `pytest tests/test_frame_identity.py` |
+| 3 | `engine/pyav_reader.py` — headless exact-frame reader | done | `pytest tests/test_pyav_reader.py` |
 | 4 | `ui/video_pane.py` — render decoded frames, delete mpv paths | todo | `pytest tests/test_video_pane*.py` |
 | 5 | `engine/player.py` — delete drift correction | todo | `pytest tests/test_player*.py` |
 | 6 | `loaders/video_standard.py` — ffprobe → PyAV | todo | `pytest tests/test_video_standard.py` |
@@ -112,25 +112,52 @@ row that is not `done`, and read its "resume note" before doing anything.
 
 ### Step notes, traps, and resume conditions
 
-**1 — Benchmark.** Must run both backends when libmpv is present and skip cleanly when it is not.
-Guard the whole libmpv arm with `pytest.importorskip`. Note that CI ignores `tests/benchmarks`
-(AGENTS.md); this is certified locally only.
+**1 — Benchmark. DONE 2026-08-07.** Fixtures are three 1440×1080 GOP-250 files written by
+`tests/util_pyav_fixtures.py`; the PyAV arm drives the *product* reader, never a spike copy.
+Re-measured on this machine, 3-cam parallel fanout including RGB conversion:
 
-**2 — Frame identity.** Encode the frame index as flat black/white column blocks (16 bits across
-the width); large flat blocks survive H.264 intact, so no OCR is needed. Probe three positions per
-frame: exact pts, mid-interval, and just before the next frame. Must cover CFR *and* VFR.
-*Trap:* when writing fixtures with PyAV you must set **both** `stream.time_base` and
-`stream.codec_context.time_base`, or `mux()` rejects every packet with `EINVAL` (errno 22).
+| Interaction | Budget | Measured (mean) |
+|---|---|---|
+| Jump to a new time | 250 ms | **116.6 ms** |
+| Drag the slider | 50 ms | **3.3 ms** |
+| Re-scrub a covered span | 50 ms | **1.0 ms** |
 
-**3 — Reader.** Owns: pts table, `t → index` resolution, seek/decode, LRU frame window.
-Headless — no PySide6 import, so it is testable without Qt.
-*Trap:* the forward-decode-vs-reseek crossover must be measured in **frames against GOP size**,
-not in seconds. A fixed 2-second window at 230 fps walks ~460 frames forward where a re-seek costs
-~125, and that alone pushed the jump case from 106 ms to 293 ms — over budget.
-*Trap:* B-frame content demuxes in decode order; the pts table must be sorted into display order.
-*Open question, must be measured before step 4:* building the pts table costs one full demux pass.
-The fixture is 180 frames; real session files are ~13 800. Measure on `09-35-24` and, if it is slow,
-cache the table in the existing `.avialcache/` sidecar rather than rebuilding per open.
+Each case uses `benchmark.pedantic(setup=…)` so the round's *setup* — clearing the frame window,
+or pre-warming the covered span — is excluded from the timing. Without that, the jump case
+re-measures the cache instead of a seek and reads as 1 ms.
+*The libmpv arm is opt-in:* `AVIALSYNC_BENCH_LIBMPV=1`. It is off by default because it adds ~45 s
+to re-measure a backend being deleted, and every `wait_*` carries a timeout — an observation that
+never arrives would otherwise hang the run with no output. It also skips wherever libmpv is
+absent, which includes the `avialsync` conda env (§7). CI ignores `tests/benchmarks` (AGENTS.md);
+this is certified locally only.
+
+**2 — Frame identity. DONE 2026-08-07.** Reuses the existing `tests/util_framestrip.py` encoder
+(32 bits × 16 px blocks) rather than a second one. 180 frames × 3 probes × CFR and VFR = 1 080
+probes, all passing. The third probe sits at 99 % of the interval, which is where an
+`at-or-after` reader fails while still looking correct on the exact-pts probe;
+`test_a_first_frame_at_or_after_reader_would_fail_the_mid_interval_probes` asserts that the wrong
+rule really is wrong at all 179 mid-interval positions, so the fixture cannot quietly stop
+exercising the distinction.
+*Trap confirmed:* both `stream.time_base` and `stream.codec_context.time_base` are required.
+*Trap found:* `preset=ultrafast` is the one x264 preset that disables B-frames, which would make
+these fixtures unable to catch a pts table left in decode order. The writers use `veryfast`
+(2.5× faster than the default `medium`, B-frames kept) and
+`test_the_fixture_really_demuxes_out_of_order` fails if that ever regresses.
+
+**3 — Reader. DONE 2026-08-07.** `PyAVReader` owns the pts table, `t → index`, seek/decode, and an
+index-keyed LRU window (24 frames, held in native pix_fmt at ~2.3 MB rather than RGB at 4.6 MB).
+Frame selection itself moved to **`core/video_timing.py`** — `engine/` may not import `ui/`
+(ARCHITECTURE §1), and copying `frame_index_at` would have recreated exactly the two-authority
+split D-075 exists to remove. `ui/video_timing.py` re-exports it, so no caller moved.
+*Trap handled without a tuned constant:* the crossover compares `target - decoded` against
+`target - keyframe + 1`, both in **frames**. Ties go to the walk, which is the GOP boundary case —
+identical decode work, one pointless seek avoided. Nothing in this file may be expressed in seconds.
+*Trap handled:* the pts table is sorted into display order.
+*Open question — ANSWERED, no sidecar needed.* Building the table on the real 716 MB / 13 844-frame
+`09-35-24/FaceCam.mp4` costs **225 ms**, once at open, against a 3 s session-open budget; three
+cameras open in parallel. Caching it in `.avialcache/` would add an invalidation surface to save
+7 % of a budget. Do not add one without re-measuring. (That footage is also all-intra — mean GOP
+1.0 — so its cold mid-file jump is 8 ms, confirming §2's "six times faster" note.)
 
 **4 — VideoPane.** This deletes the per-OS split entirely: no `MpvRenderContext`, no `wid`
 embedding, no `vo=null` headless special case. All three platforms take one path — decode to

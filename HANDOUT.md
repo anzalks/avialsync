@@ -415,7 +415,7 @@ contradicts the runtime.
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
-| `engine/pyav_reader.py` | Headless exact-frame reader: pts table, seek, index-keyed LRU (D-075) | `PyAVReader.frame_at()`, `.frame_times()` |
+| `engine/pyav_reader.py` | Headless exact-frame reader: pts table, seek, index-keyed LRU (D-075). No Qt — safe on a worker thread | `PyAVReader.frame_at_time()`, `.frame_at_index()`, `.index_at_time()`, `.time_at_index()`, `.frame_times`, `to_rgb_array()` |
 | `engine/player.py` | precise 60 Hz tick; MasterClock ↔ panes ↔ UI. Owns the clock, so no drift correction (D-075) | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
 | `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
 | `engine/drop_worker.py` | Off-thread drop classification; AOL session fan-out, pose `role` tagging (D-046) | `DropScanWorker` — signals: `finished(candidates, is_aol)`, `session_found`, `error` |
@@ -432,7 +432,8 @@ contradicts the runtime.
 | `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `ui/main_window.py` | Widget construction, menu/shortcut table, controller wiring; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066) | `MainWindow` |
 | `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075) | `VideoPane`, `set_sync_correction()`, `video_size` |
-| `ui/video_timing.py` | Timestamp rate/readout/frame-index helpers and pane timing mixin | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
+| `core/video_timing.py` | **The** frame-selection authority — last frame with `pts <= t`. Headless so `engine/` can share it (D-075) | `frame_index_at()`, `adjacent_frame_time()`, `PTS_EPSILON_S` |
+| `ui/video_timing.py` | Timestamp rate/readout helpers and pane timing mixin; re-exports the two `core/video_timing.py` selectors | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
 | `ui/video_overlay.py` | Transparent current-frame tracking paint layer | `PaintCanvas` |
 | `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()` |
 | `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
