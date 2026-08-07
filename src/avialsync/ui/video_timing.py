@@ -27,10 +27,22 @@ def displayed_frame_rate(
     is_vfr: bool,
     nominal_fps: float,
     fallback: float,
+    rate_scale: float = 1.0,
 ) -> float:
-    """Use a stable nominal rate for CFR and timestamp evidence for VFR."""
+    """Use a stable nominal rate for CFR and timestamp evidence for VFR.
+
+    ``frame_times`` are presentation timestamps in *source* time, so the rate they
+    give is the rate the container advances at.  ``rate_scale`` — source seconds
+    per master second, from the pane's :class:`TimeMap` — converts that onto the
+    master timeline, which is the axis the printed VFR range is measured on and
+    the one every other source shares.  It is 1.0 for an ordinary video, so this
+    changes nothing without an accepted or declared per-frame mapping; with one,
+    a camera whose container claims 30 fps correctly reads as the 45.8 Hz it was
+    actually exposed at.
+    """
     if is_vfr:
-        return instantaneous_frame_rate(frame_times, t, fallback)
+        rate = instantaneous_frame_rate(frame_times, t, fallback)
+        return rate * rate_scale if rate_scale > 0 else rate
     return nominal_fps if nominal_fps > 0 else fallback
 
 
@@ -180,6 +192,7 @@ class VideoTimingMixin:
             self._is_vfr,
             self._nominal_fps,
             self._decoder_fps,
+            self.time_map.rate_scale_at(self.time_map.to_master(value)),
         )
         self._queue_osd_update(value, fps)
 

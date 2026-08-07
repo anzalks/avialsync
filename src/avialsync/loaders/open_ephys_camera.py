@@ -19,11 +19,13 @@ mpv seeks to, so every frame lands where it was actually exposed.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from avialsync.core.source import VideoMetadata
 from avialsync.loaders.video_standard import VideoStandardLoader
 
 logger = logging.getLogger(__name__)
@@ -165,3 +167,40 @@ class OpenEphysCameraLoader(VideoStandardLoader):
         if self._exact_master is None or self._exact_source is None:
             return None
         return self._exact_master, self._exact_source
+
+    def video_metadata(self) -> VideoMetadata:
+        """Report the timing the sidecar proves, keeping the container's claim visible.
+
+        ``VideoMetadata`` exists to hold exactly this disagreement: timestamp-derived
+        rates are authoritative, and ``nominal_fps`` stays beside them because a
+        container commonly declares a constant rate the media does not have.  Until
+        this override existed the rate fields were computed from the container's own
+        presentation timestamps — perfectly uniform, because it *is* CFR — so the
+        pane read "CFR 30.000 · measured 30.000" for footage that free-ran at
+        45.8 Hz and dropped a quarter of its frames.  The discrepancy that makes
+        the sidecar necessary was the one thing the readout could not show.
+
+        The rates here are on the master timeline, which is the axis the video is
+        actually played against and the one every other source shares.
+        """
+        base = super().video_metadata()
+        if self._exact_master is None or len(self._exact_master) < 2:
+            return base
+
+        intervals = np.diff(self._exact_master)
+        intervals = intervals[intervals > 1e-9]
+        if len(intervals) == 0:  # pragma: no cover - the mapping is strictly increasing
+            return base
+
+        median = float(np.median(intervals))
+        tolerance = max(2e-6, median * 5e-3)
+        rates = 1.0 / intervals
+        return replace(
+            base,
+            is_vfr=bool(np.any(np.abs(intervals - median) > tolerance)),
+            measured_fps=float(len(intervals) / float(np.sum(intervals))),
+            min_frame_rate=float(np.min(rates)),
+            max_frame_rate=float(np.max(rates)),
+            duration=float(self._exact_master[-1] - self._exact_master[0]),
+            frame_count=int(len(self._exact_master)),
+        )

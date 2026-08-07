@@ -515,3 +515,139 @@ def test_video_source_default_declares_no_exact_mapping() -> None:
     from avialsync.core.source import VideoSource
 
     assert VideoSource.exact_time_mapping(object()) is None  # type: ignore[arg-type]
+
+
+# ── Drag-and-drop robustness ────────────────────────────────────────────
+
+
+def _drop(paths: list[Path]) -> tuple[list, object]:
+    from avialsync.engine.drop_worker import DropScanWorker
+
+    worker = DropScanWorker(paths, LoaderRegistry())
+    collected: list = []
+    for path in paths:
+        collected.extend(worker._collect_drop_candidates(path))
+    return collected, worker._layout
+
+
+def test_drop_never_descends_into_a_sidecar_cache(tmp_path: Path) -> None:
+    """Re-dropping a folder you already imported must not offer its cache back.
+
+    A committed sidecar holds one ``.npy`` per channel and pyramid level — 482
+    files for a single 32-channel stream — and every one of them arrived in the
+    review dialog as an unrecognised candidate.
+    """
+    (tmp_path / "cam.mp4").write_bytes(b"x")
+    cache = tmp_path / "cam.mp4.avialcache"
+    cache.mkdir()
+    for index in range(40):
+        np.save(cache / f"ch{index}_t.npy", np.arange(3.0))
+    (cache / "import.json").write_text("{}", encoding="utf-8")
+    staging = tmp_path / ".tmp_avialcache_abc123"
+    staging.mkdir()
+    (staging / "leftover.npy").write_bytes(b"x")
+
+    candidates, _layout = _drop([tmp_path])
+
+    assert [path.name for path, _loader, _config in candidates] == ["cam.mp4"]
+
+
+def test_first_session_of_a_multi_session_drop_owns_the_timeline(tmp_path: Path) -> None:
+    """Two sessions dropped together load everything, but one anchor must win.
+
+    Whichever was scanned last used to own `anchor_epoch`, which is arbitrary and
+    silent. First-wins is at least deterministic and matches the order the user
+    dropped them in.
+    """
+    first, second = tmp_path / "a", tmp_path / "b"
+    write_recording(first)
+
+    later = default_spec()
+    later.record_dir_name = "2026-06-22_10-00-00"
+    later.software_epoch_ms = SOFTWARE_EPOCH_MS + 86_400_000
+    write_recording(second, later)
+
+    candidates, layout = _drop([first, second])
+
+    # Two streams and one TTL line each.
+    assert len(candidates) == 6, "every stream of both sessions still loads"
+    assert layout.anchor_epoch == pytest.approx(EXPECTED_ANCHOR, abs=1e-3)
+
+
+def test_an_empty_folder_yields_nothing_rather_than_failing(tmp_path: Path) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    candidates, layout = _drop([empty])
+    assert candidates == []
+    assert layout.anchor_epoch == 0.0
+
+
+def test_an_unrecognised_file_is_offered_unresolved_not_dropped(tmp_path: Path) -> None:
+    """The review dialog lets the user name a loader, so an unknown file is a row."""
+    (tmp_path / "thing.xyz").write_bytes(b"x")
+    candidates, _layout = _drop([tmp_path])
+    assert len(candidates) == 1
+    assert candidates[0][1] is None
+
+
+# ── The container/sidecar disagreement has to be visible ────────────────
+
+
+def test_camera_metadata_reports_the_rate_it_was_actually_exposed_at(tmp_path: Path) -> None:
+    """Rates come from the sidecar; the container's claim stays beside them.
+
+    Computed from container timestamps this reads "CFR 30.000 · measured 30.000",
+    because the container really is CFR — which hides the very discrepancy that
+    makes the sidecar necessary.
+    """
+    video = VIDEO_FIXTURES / "dropped_frames.mp4"
+    if not video.exists():
+        pytest.skip("Fixtures not generated")
+
+    plain = VideoStandardProbe(video)
+    exposures = np.cumsum(np.full(plain.frame_count, 0.02)) - 0.02
+    exposures[plain.frame_count // 2 :] += 0.04  # a dropped frame halfway through
+    sidecar = tmp_path / "cam.csv"
+    sidecar.write_text(
+        "\n".join(f"{i},{int(v * 1e9)}" for i, v in enumerate(exposures)), encoding="utf-8"
+    )
+
+    camera = OpenEphysCameraLoader()
+    camera.open(video, {"frame_timestamps": str(sidecar), "start_time": 5.0})
+    metadata = camera.video_metadata()
+
+    assert metadata.is_vfr is True
+    assert metadata.nominal_fps == pytest.approx(30.0), "the container's claim stays visible"
+    assert metadata.measured_fps == pytest.approx(50.0, rel=0.02), "sidecar says ~50 Hz"
+    assert metadata.max_frame_rate == pytest.approx(50.0, rel=0.02)
+    assert metadata.min_frame_rate < 20.0, "the dropped frame shows as a slow interval"
+    assert metadata.duration == pytest.approx(exposures[-1], abs=1e-6)
+    assert metadata.frame_count == plain.frame_count
+
+
+def test_camera_metadata_is_unchanged_without_a_sidecar() -> None:
+    video = VIDEO_FIXTURES / "dropped_frames.mp4"
+    if not video.exists():
+        pytest.skip("Fixtures not generated")
+
+    camera = OpenEphysCameraLoader()
+    camera.open(video, {})
+    assert camera.video_metadata().nominal_fps == pytest.approx(30.0)
+
+
+def test_displayed_rate_is_reported_on_the_master_timeline() -> None:
+    """The "now" figure is printed beside a master-axis range and must share its axis.
+
+    Presentation timestamps are source time, so a container claiming 30 fps reads
+    as 30 however fast the camera really ran. The mapping's slope converts it.
+    """
+    from avialsync.ui.video_timing import displayed_frame_rate
+
+    source_times = np.arange(10, dtype=np.float64) / 30.0
+
+    assert displayed_frame_rate(source_times, 0.5, True, 30.0, 30.0) == pytest.approx(30.0)
+    # Source runs at 30 fps but covers master time 1.526x faster: 45.8 Hz exposures.
+    scaled = displayed_frame_rate(source_times, 0.5, True, 30.0, 30.0, rate_scale=1.526)
+    assert scaled == pytest.approx(45.8, abs=0.1)
+    # A constant-rate video is unaffected, mapping or not.
+    assert displayed_frame_rate(source_times, 0.5, False, 30.0, 30.0, 1.526) == pytest.approx(30.0)

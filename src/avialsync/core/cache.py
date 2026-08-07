@@ -13,6 +13,21 @@ import xxhash
 
 from avialsync.core.errors import CacheError
 
+#: Suffix of a committed sidecar cache directory.  Named here because anything
+#: that *walks* a user's folders has to recognise one and step over it: a cache
+#: holds hundreds of ``.npy`` files, and a scanner that descends into one offers
+#: every single of them as an import candidate.
+CACHE_DIR_SUFFIX = ".avialcache"
+
+#: Prefix of an in-progress cache directory, before the atomic swap.  Dotted, so
+#: it is also caught by any filter that skips hidden entries.
+TEMP_CACHE_PREFIX = ".tmp_avialcache_"
+
+
+def is_cache_path(path: Path) -> bool:
+    """Return whether *path* is one of our own sidecar directories."""
+    return path.name.endswith(CACHE_DIR_SUFFIX) or path.name.startswith(TEMP_CACHE_PREFIX)
+
 
 class CacheManager:
     """Manages .avialcache sidecar directories with atomic writes and hardened keys."""
@@ -71,7 +86,7 @@ class CacheManager:
 
     def get_cache_dir(self, source_path: Path) -> Path:
         """Return the path to the sidecar cache directory."""
-        return source_path.with_name(source_path.name + ".avialcache")
+        return source_path.with_name(source_path.name + CACHE_DIR_SUFFIX)
 
     def is_cache_valid(self, source_path: Path) -> bool:
         """Check if the cache directory exists and the key matches."""
@@ -94,7 +109,7 @@ class CacheManager:
     def get_temp_cache_dir(self, source_path: Path) -> Path:
         """Get a temporary directory for writing cache. Ensure atomic swap later."""
         parent = source_path.parent
-        temp_dir = tempfile.mkdtemp(prefix=".tmp_avialcache_", dir=parent)
+        temp_dir = tempfile.mkdtemp(prefix=TEMP_CACHE_PREFIX, dir=parent)
         return Path(temp_dir)
 
     def commit_cache(self, source_path: Path, temp_dir: Path) -> None:

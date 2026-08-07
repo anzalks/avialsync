@@ -1986,6 +1986,14 @@ recording's own local/UTC evidence converts it. Matching the residual against a 
 synchronization proposal and needs user acceptance (D-030), so it belongs to the sync wizard and not
 to a folder scan — even when, as here, the TTL is unmistakably the camera's own exposure strobe.
 
+**Consequences (readout):** the rate fields in `VideoMetadata` must come from the mapping, not from
+the container's presentation timestamps. Computed from the container they read "CFR 30.000 fps ·
+measured 30.000" — true of the container, and the exact discrepancy the sidecar exists to correct.
+`OpenEphysCameraLoader.video_metadata()` reports master-axis rates with `nominal_fps` left as the
+container's claim, which is what that field is for. `displayed_frame_rate` takes the mapping's slope
+so the OSD's "now" figure shares an axis with the range printed beside it (1.0 without a mapping, so
+ordinary video is unaffected).
+
 **Consequences:** a video whose wall clock cannot be resolved is placed at the recording's first
 sample rather than at zero; the acquisition clock is not reset at record start, so zero would sit off
 the front of every stream for no visible reason. `frame_times()` keeps returning container

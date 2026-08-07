@@ -641,6 +641,19 @@ read-only via mmap, which is what makes that safe. One in-place write to a commi
 now corrupt every channel of the stream. `os.link` falls back to `shutil.copyfile` on FAT/exFAT and
 some network mounts.
 
+### 0i. A drop must step over our own sidecar caches
+A committed `.avialcache` holds one `.npy` per channel and pyramid level — 482 files for a single
+32-channel stream. `DropScanWorker` filtered children on `startswith(".")` only, and a cache
+directory is not dotted, so re-dropping a folder you had already imported descended into it and
+offered every array as an unrecognised candidate (44 rows for a 40-file cache in the matrix test).
+`core/cache.is_cache_path()` owns that recognition now; use it anywhere that walks user folders.
+
+### 0j. Only the first session of a multi-path drop owns the timeline
+`SessionLayout` carries one `anchor_epoch`/`camera_fps` per drop. Two session folders dropped
+together used to leave whichever was scanned *last* owning them — arbitrary and silent. First-wins
+now, with a log line; every session's items still load. Drop one session at a time to read wall
+clock from a specific one.
+
 ### 1. No bare `QWidget { }` QSS selector — blacks out video panes
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  
 **Fix:** Use QPalette for all theme colours. Application-level QSS changes native control metrics and
