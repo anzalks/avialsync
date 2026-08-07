@@ -45,6 +45,8 @@ class CSVLoader(TimeSeriesSource):
 
     @classmethod
     def can_open(cls, path: Path) -> float:
+        if path.is_dir():
+            return 0.0
         suffix = path.suffix.lower()
         if suffix in [".csv", ".txt", ".tsv"]:
             # Could peek at the file, but for now just check extension
@@ -56,6 +58,16 @@ class CSVLoader(TimeSeriesSource):
         return True
 
     def open(self, path: Path, config: dict[str, Any]) -> None:
+        if path.is_dir():
+            # Reachable by choosing this format by hand in the import dialog,
+            # where a recording's TTL *directory* sits beside an alias literally
+            # named "Camera TTLs / Events (CSV)". polars then raised
+            # IsADirectoryError, which arrived as "Failed to parse CSV" with a
+            # traceback on the console and nothing to act on.
+            raise FileUnreadableError(
+                f"{path.name} is a folder, not a CSV file. Choose a format that reads "
+                f"a recording directory, or pick a single file."
+            )
         self._path = path
         self._config = config
 

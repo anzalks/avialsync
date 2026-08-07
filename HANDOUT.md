@@ -676,6 +676,23 @@ string. `SessionItem.label` is a separate field; `drop_controller` keys it by pa
 `window._session_item_labels` and hands that to `BatchImportDialog`. The candidate tuple stays a
 3-tuple: several consumers and any third-party reader of `DropScanWorker.finished` unpack it by arity.
 
+### 0m. "Failed to import CSV" was hardcoded for every loader
+`on_import_error` named CSV whatever the format was, so an ephys directory read by the wrong loader
+reported a CSV problem and pointed at nothing the user had chosen. It now names the source and the
+format that actually failed, from `_import_worker.loader_class.display_name()`.
+
+`CSVLoader` also has to refuse a directory: `path.suffix` alone said yes (a directory can be named
+`events.csv`), and polars then raised `IsADirectoryError` — surfacing as a traceback plus an
+unactionable dialog. `can_open` returns 0.0 for any directory and `open` raises a typed error saying
+so. The dialog offers `Camera TTLs / Events (CSV)` right beside a recording's TTL *directory*, so
+this is a click away, not a hypothetical.
+
+### 0n. Combo index 0 is "Skip" — never leave a resolved row on it
+`BatchImportDialog` preselects by matching `SessionItem.kind` against a loader's own labels. A kind
+matching none of them left `default_index` at 0, which is "Skip / Do Not Load": the user saw the row
+listed, left it alone, and it silently did not import. It now falls back to the loader's primary
+name and logs. Silent non-import is the worst available failure — nothing reports it.
+
 ### 1. No bare `QWidget { }` QSS selector — blacks out video panes
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  
 **Fix:** Use QPalette for all theme colours. Application-level QSS changes native control metrics and

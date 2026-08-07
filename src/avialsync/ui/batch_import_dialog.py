@@ -1,5 +1,6 @@
 """Dialog for verifying and categorizing batch drag-and-drop imports."""
 
+import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -17,6 +18,8 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.source import TimeSeriesSource, VideoSource
+
+logger = logging.getLogger(__name__)
 
 
 class BatchImportDialog(QDialog):
@@ -87,14 +90,27 @@ class BatchImportDialog(QDialog):
             # the loader's primary name is the default, as before.
             wanted_kind = self._kinds.get(str(path), "")
             default_index = 0
+            fallback_index = 0
             for i, (label, loader_cls) in enumerate(self._categories, start=1):
                 combo.addItem(label, loader_cls)
                 if loader_cls != default_loader:
                     continue
+                if fallback_index == 0:
+                    fallback_index = i
                 if wanted_kind and label == wanted_kind:
                     default_index = i
-                elif not wanted_kind and default_index == 0:
-                    default_index = i
+            # Index 0 is "Skip". A declared kind that matches none of its own
+            # loader's labels must fall back to that loader, not silently drop
+            # the row: the user would have seen it listed and not imported.
+            if default_index == 0:
+                if wanted_kind:
+                    logger.warning(
+                        "%s declared kind %r, which %s does not offer; using its own name.",
+                        path.name,
+                        wanted_kind,
+                        default_loader.__name__ if default_loader else "no loader",
+                    )
+                default_index = fallback_index
 
             combo.setCurrentIndex(default_index)
             self._table.setCellWidget(row, 1, combo)

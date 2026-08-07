@@ -848,3 +848,57 @@ def test_dialog_preselects_the_declared_kind(session_dir: Path) -> None:
     for _path, loader_cls, _config in dialog.get_selections():
         assert loader_cls in (NeoLoader, VideoStandardLoader)
     dialog.deleteLater()
+
+
+# ── Failure has to be legible ───────────────────────────────────────────
+
+
+def test_csv_loader_refuses_a_directory_with_something_actionable(session_dir: Path) -> None:
+    """A recording's TTL *directory* sits beside an alias named "…Events (CSV)".
+
+    Choosing it by hand let polars raise IsADirectoryError, which surfaced as
+    "Failed to parse CSV" plus a console traceback and nothing to act on.
+    """
+    from avialsync.core.errors import FileUnreadableError
+    from avialsync.loaders.csv_loader import CSVLoader
+
+    ttl = next(session_dir.rglob("*/TTL"))
+    assert ttl.is_dir()
+    assert CSVLoader.can_open(ttl) == 0.0
+
+    with pytest.raises(FileUnreadableError) as excinfo:
+        CSVLoader().open(ttl, {})
+    assert "folder, not a CSV file" in str(excinfo.value)
+
+
+def test_csv_loader_declines_a_directory_named_like_a_csv(tmp_path: Path) -> None:
+    """`.suffix` alone said yes: a directory can be called anything."""
+    from avialsync.loaders.csv_loader import CSVLoader
+
+    directory = tmp_path / "events.csv"
+    directory.mkdir()
+    assert CSVLoader.can_open(directory) == 0.0
+
+
+def test_a_kind_matching_nothing_falls_back_rather_than_skipping(session_dir: Path) -> None:
+    """Index 0 of the combo is "Skip", so an unmatched kind used to drop the row.
+
+    The user would have seen it listed, left it alone, and had it silently not
+    import — the worst of the available failures, because nothing reports it.
+    """
+    from PySide6.QtWidgets import QApplication
+
+    from avialsync.ui.batch_import_dialog import BatchImportDialog
+
+    QApplication.instance() or QApplication([])
+    layout = _layout(session_dir)
+    candidates = [(item.path, item.loader, dict(item.config)) for item in layout.items]
+    bogus = {str(item.path): "No Such Kind" for item in layout.items}
+
+    dialog = BatchImportDialog(candidates, kinds=bogus)
+    selected = dialog.get_selections()
+
+    assert len(selected) == len(candidates), "every row must still resolve to a loader"
+    for _path, loader_cls, _config in selected:
+        assert loader_cls is not None
+    dialog.deleteLater()

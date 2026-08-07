@@ -402,8 +402,14 @@ def on_import_error(window: MainWindow, err_msg: str) -> None:
     if progress_dialog is not None:
         progress_dialog.close()
     window.transport.set_status("Data import failed", "error")
-    QMessageBox.critical(
-        window,
-        "Import Error",
-        f"Failed to import CSV:\n{err_msg}",
-    )
+
+    # Name the format that actually failed. This said "Failed to import CSV"
+    # whatever the loader was, so an ephys directory read by the wrong format
+    # reported a CSV problem and pointed at nothing the user had chosen.
+    worker = getattr(window, "_import_worker", None)
+    loader_cls = getattr(worker, "loader_class", None)
+    fmt = loader_cls.display_name() if loader_cls is not None else "data"
+    source = Path(worker.path).name if worker is not None else ""
+    heading = f"Failed to import {source} as {fmt}" if source else f"Failed to import {fmt}"
+
+    QMessageBox.critical(window, "Import Error", f"{heading}:\n{err_msg}")
