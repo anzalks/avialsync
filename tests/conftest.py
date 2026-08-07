@@ -16,23 +16,21 @@ def pytest_configure(config: pytest.Config) -> None:
     installs a *vectored* exception handler, which the OS runs on first chance
     for every SEH exception in the process, on whatever thread raised it.
 
-    libmpv raises ``0xe24c4a02`` on its own native threads routinely — several
-    times per ``mpv.MPV()`` construction. CPython only ignores non-error codes
-    and MSC C++ exceptions (``0xe06d7363``), so this one is treated as fatal:
-    faulthandler prints "Windows fatal exception: code 0xe24c4a02" and then
-    calls ``_Py_DumpTracebackThreads`` to walk *every* Python thread's frame
-    chain — from a libmpv thread that holds no GIL and has no thread state,
-    while the owning threads are pushing and popping those frames. Reading a
-    frame whose memory has already been reused faults the process with
+    libmpv used to raise ``0xe24c4a02`` on its own native threads routinely,
+    several times per ``mpv.MPV()`` construction. CPython only ignores
+    non-error codes and MSC C++ exceptions (``0xe06d7363``), so that one was
+    treated as fatal: faulthandler called ``_Py_DumpTracebackThreads`` to walk
+    *every* Python thread's frame chain — from a libmpv thread holding no GIL
+    and having no thread state, while the owning threads pushed and popped
+    those frames. Reading a reused frame faulted the process with
     ``0xC0000005``, charged to whichever test happened to be running.
 
-    That benign-looking exception is therefore not the crash, but it is the
-    trigger: the fault is inside the diagnostic, not inside anything AvialSync
-    or libmpv does with the video panes.
-
-    ``all_threads=False`` keeps faulthandler reporting real faults that happen
-    on a Python thread, and drops only the cross-thread walk that is unsafe
-    from a foreign thread. Every other platform keeps pytest's default.
+    **That trigger is gone with libmpv (D-075).** This is retained as cheap
+    insurance, not because anything is known to need it: PyAV's FFmpeg does not
+    raise SEH exceptions on foreign threads the way libmpv did. It costs only
+    the cross-thread walk in a Windows fault report, which is unsafe from a
+    foreign thread anyway. See HANDOUT.md trap 30 before removing it — the
+    failure it prevented took weeks to attribute.
     """
     if sys.platform != "win32":
         return

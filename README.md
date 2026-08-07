@@ -15,9 +15,11 @@ Use it when you have video from one or more cameras together with recordings suc
 electrodes, behavioural tracking, or other time-stamped measurements. It places them on one shared
 timeline so you can move to an event and inspect what each recording shows at that moment.
 
-It is built for visual inspection and careful alignment. It does not acquire recordings and it does
-not perform analysis for you. Your lab can add support for its own file types and workflows through
-plugins.
+It exists for the case where **the video and the signal have to agree on the same instant**, and the
+recordings came off independently-clocked hardware. It is built for visual inspection and careful
+alignment: it does not acquire recordings, it does not analyse them for you, and it never silently
+changes a scientific timestamp. Your lab can add support for its own file types and workflows
+through plugins.
 
 ![A one-second loop of three synchronised camera views of a head-fixed mouse with 2D pose overlays,
 a 3D pose view, and the wheel encoder velocity trace advancing together on one master
@@ -52,14 +54,16 @@ python -m pip install avialsync
 avialsync
 ```
 
-> **The pip caveat.** `pip` installs every Python dependency but cannot install the two native
-> components AvialSync needs for video: **libmpv** and **FFmpeg**. They are shared libraries and
-> programs, not Python packages — `python-mpv` is only a binding to a libmpv that must already exist
-> on the machine. Without them AvialSync still opens and every time-series feature works, but video
-> stays disabled and a `Missing libmpv` dialog appears. Install them once with `brew install ffmpeg
-> mpv`, `sudo apt install ffmpeg libmpv2`, `sudo dnf install ffmpeg mpv-libs`, or
-> `sudo pacman -S ffmpeg mpv`. Windows needs a manual libmpv download —
-> [full instructions](https://avialsync.readthedocs.io/en/latest/install.html#windows).
+That is the whole install. Video decoding ships inside the Python packages, so there is no library
+to install separately and nothing to configure.
+
+Two things worth knowing:
+
+- **On Linux**, Qt itself needs the usual desktop graphics libraries (`libgl1`, `libxkbcommon`, and
+  the xcb set). Every normal desktop already has them; bare containers and minimal server images do
+  not. No packaging choice removes this — it is Qt's floor, not AvialSync's.
+- **FFmpeg on your `PATH`** is still needed for three extras: proxy generation, clip export, and the
+  `avialsync demo` sample generator. Playback, scrubbing, and alignment do not use it.
 
 Apple silicon is required for the `.dmg`, and glibc 2.39+ for the AppImage; outside those, use pip.
 See [Installation](https://avialsync.readthedocs.io/en/latest/install.html) for details.
@@ -92,28 +96,6 @@ Full documentation is at **[avialsync.readthedocs.io](https://avialsync.readthed
 [plugin guide](https://avialsync.readthedocs.io/en/latest/plugin-guide.html), and a
 [technical reference](https://avialsync.readthedocs.io/en/latest/technical/index.html) covering
 architecture, data handling, performance, and the development and release process.
-
-## How it compares
-
-Neighbouring open-source tools, described as their authors position them. They overlap less than
-the names suggest.
-
-| | **AvialSync** | PlotJuggler | Rerun | Foxglove |
-|---|---|---|---|---|
-| Primary use | Scrub multi-camera video against dense signals | Plot and analyse time series | Log and replay multimodal robot data | Inspect and visualise robotics data |
-| Video playback | libmpv, frame-exact when paused | Not a focus | Yes, alongside other modalities | Yes |
-| Dense signals | 50 kHz × many channels via a decimation pyramid | Strong, its core purpose | Yes | Yes |
-| Per-source offset/drift | Yes, with evidence-based TTL alignment | Manual offsets | Timeline-based | Timeline-based |
-| Data model | Reads your files in place | Reads your files in place | You log into its own format | ROS/MCAP-oriented |
-| Licence | AGPL-3.0 | MPL-2.0 | Apache-2.0 | Source-available + hosted |
-
-If you mainly plot signals, PlotJuggler is likely a better fit. If you are in a ROS ecosystem,
-Foxglove and Rerun are built for it. AvialSync exists for the narrower case where **the video and
-the signal have to agree on the same instant**, and the recordings came off independently-clocked
-hardware.
-
-It is not an acquisition system, not a replacement for your analysis pipeline, and it never silently
-changes scientific timestamps.
 
 ## Contributing
 

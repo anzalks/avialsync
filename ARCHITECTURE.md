@@ -274,7 +274,7 @@ active palette and never infer or reset state from a palette change.
 ### Playback ownership and proof of exact frames
 
 `VideoPane` is the ownership boundary for its decoder. The pane holds a pts table for its file and
-resolves master time to a frame through `ui/video_timing.py::frame_index_at` — **the last frame
+resolves master time to a frame through `core/video_timing.py::frame_index_at` — **the last frame
 with `pts <= t`**, the frame whose presentation interval contains `t`. That single call both
 selects the frame and names it in the readout, so display and readout cannot disagree; the previous
 design had two authorities (libmpv chose the pixels, the ffprobe table chose the number) and needed

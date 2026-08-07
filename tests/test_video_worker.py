@@ -41,7 +41,7 @@ class _PreparedVideo(VideoSource):
 
 
 def test_video_worker_prepares_before_emitting_media_path(monkeypatch) -> None:
-    """Conversion sources emit their prepared mpv path, not the original input."""
+    """Conversion sources emit their prepared media path, not the original input."""
 
     class _Registry:
         def find_best_loader(self, path: Path):

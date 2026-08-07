@@ -10,7 +10,7 @@ is safe because AvialSync can build it again from the source file.
 
 Importers process data in chunks. A time-series plugin yields time/value chunks in chronological order;
 the importer validates them, records import statistics, and builds the cache away from the interface
-thread. Video loaders provide an mpv-playable media path and frame timing metadata when available.
+thread. Video loaders provide a playable media path and frame timing metadata when available.
 
 The 2026-07-29 hardening now gives CSV and tracking loaders a single bulk parser pass and gives
 ImportWorker a content/config-validated manifest cache fast path. The worker still retains complete

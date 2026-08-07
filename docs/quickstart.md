@@ -5,17 +5,18 @@ AvialSync helps you look at an experiment in time. It does not change your origi
 ## Before you start
 
 Have one or more video files, plus any sensor, tracking, or recording files you want to inspect.
-Standard videos that your local mpv/ffmpeg installation can open are supported. Your lab may also
-provide a plugin for its own recording format.
+Common video formats are supported — AvialSync decodes them itself, so nothing needs to be installed
+alongside it. Your lab may also provide a plugin for its own recording format.
 
 ## If you installed with pip
 
-`pip install avialsync` supplies every Python dependency, but not the two native components the
-program needs for video: **libmpv** and **FFmpeg**. AvialSync opens either way — without libmpv the
-video panes stay disabled and a `Missing libmpv` dialog names the step for your platform, while
-every time-series feature keeps working. See
-[what pip cannot install](install.md#what-pip-cannot-install) for the one-line fix on each platform,
-and **Help → Diagnostics** for what was found on this machine.
+`pip install avialsync` is the whole install: video decoding ships inside the Python packages, so
+there is no separate library to add. On Linux, Qt still needs the usual desktop graphics libraries —
+see [that note](install.md#one-note-about-linux). **Help → Diagnostics** shows what this machine
+reported.
+
+`ffmpeg` is worth having on your `PATH` for three extras that shell out to it: proxy generation,
+clip export, and the `avialsync demo` sample generator. Playback and alignment do not use it.
 
 Running from a Git checkout instead of an installer or PyPI? See
 [development setup](technical/development.md).
@@ -28,7 +29,7 @@ avialsync demo
 
 This creates and opens a complete synchronized example: three 30 fps CFR cameras, one VFR camera,
 sensor and dense ephys/TTL traces, and frame-indexed tracking. It works from the installer, a pip
-installation with its native prerequisites, or a source checkout. The first run shows generation
+installation, or a source checkout, and needs `ffmpeg` on your `PATH` to generate the sample media. The first run shows generation
 progress; later runs validate and reuse the application-data cache.
 
 ## Open files

@@ -28,25 +28,20 @@ A broken loader no longer stops AvialSync from starting: the format it handles d
 **Help → Diagnostics** names the failure under *Plugins that failed to load*. An older release
 crashed outright instead.
 
-## A “Missing libmpv” dialog appears at startup
+## Video does not play after `pip install`
 
-This is expected after `pip install avialsync` on a machine that has no libmpv. libmpv is a shared
-library rather than a Python package: the `python-mpv` dependency is only a binding and loads a
-libmpv that already exists on the system. The desktop installers bundle one, so the dialog appears
-only for pip and source installs.
+This should no longer happen. Video decoding ships inside the Python packages, so `pip install
+avialsync` brings its own decoder and there is nothing further to install — the `Missing libmpv`
+dialog that earlier versions showed is gone along with the library it asked for.
 
-AvialSync deliberately keeps running. Time series, tracking, annotations, and sessions all work;
-the video panes stay disabled until libmpv is present. Install it as described in
-[Installation](install.md#what-pip-cannot-install) — `brew install mpv`,
-`sudo apt install libmpv2`, `sudo dnf install mpv-libs`, or `sudo pacman -S mpv` — and restart.
+If video still does not appear, open **Help → Diagnostics**: it names the decoder in use. A failure
+there means the install itself is broken rather than incomplete, so reinstall with
+`python -m pip install --force-reinstall avialsync`.
 
-On Windows, download an `mpv-dev-x86_64-*` archive from the
-[mpv-player-windows libmpv files](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/)
-and set `AVIALSYNC_MEDIA_ROOT` to the folder that *directly* contains `libmpv-2.dll`; a parent
-folder is not searched. Set it with `setx`, then open a new terminal so the variable is present.
-The same missing-runtime rule applies to `ffmpeg` and `ffprobe`, which imports and exports need.
-
-**Help → Diagnostics** confirms what was found after a restart.
+`ffmpeg` and `ffprobe` are a separate matter and are still external programs. They are not used for
+playback, only for proxy generation, clip export, and the `avialsync demo` sample generator. If one
+of those reports a missing runtime, install FFmpeg (`brew install ffmpeg`, `sudo apt install
+ffmpeg`, `sudo dnf install ffmpeg`, or `sudo pacman -S ffmpeg`) and make sure it is on your `PATH`.
 
 ## A video says “No Footage”
 
@@ -54,12 +49,15 @@ This is usually correct: the selected master time is outside that camera’s rec
 in **Data Streams** and its offset in the left panel. It is safer than displaying the last frame from
 another time.
 
-## Video viewer remains grey on Windows
+## The video pane stays blank
 
-AvialSync uses libmpv's Qt OpenGL render path on Windows and macOS, and native `wid` embedding on Linux.
-If the viewer is grey, open **Help → Diagnostics** and confirm libmpv is available; then update your GPU driver
-and restart. The demo's test-pattern videos should be visible before you add your own files. In a headless
-environment, video output is intentionally disabled (`vo=null`), so use the time-series and metadata checks only.
+The pane draws decoded frames directly, and it does the same thing on Windows, macOS, and Linux —
+there is no per-platform render path left to go wrong, and no GPU driver involved in getting a frame
+on screen.
+
+A blank pane with a name in the corner usually means the file failed to open; the pane says so in
+place of the picture. Check that the file plays elsewhere and that its codec is one FFmpeg supports.
+The demo's test-pattern videos (`avialsync demo`) should be visible before you add your own files.
 
 ## Videos and traces do not line up
 

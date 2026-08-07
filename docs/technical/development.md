@@ -16,20 +16,18 @@ conda run -n avialsync pip install -e ".[dev]"
 QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q
 ```
 
-The `.[dev]` install supplies every Python dependency, but not libmpv or FFmpeg — the desktop
-installer bundles and validates those, and a checkout does not. Install them as described under
-[what pip cannot install](../install.md#what-pip-cannot-install).
+The `.[dev]` install supplies everything needed to run and test the application, decoding included.
+FFmpeg is a separate program and is still worth having on `PATH`: `tools/make_fixtures.py` uses it to
+encode the test videos, and proxy generation, clip export, and the demo shell out to it.
 
 ### Windows checkout
 
-Install Python 3.11 or 3.12, a standalone shared FFmpeg build, and a compatible libmpv build before
-starting the application. Put `libmpv-2.dll` in the conda environment's `Library\bin` directory, or
-otherwise make it available on `PATH`.
+Install Python 3.11 or 3.12 and a standalone shared FFmpeg build. There is no video library to
+place by hand any more: decoding comes with the Python packages.
 
 `winget install --id Gyan.FFmpeg.Shared -e` is a suitable FFmpeg route; AvialSync discovers the
 standard WinGet location even when `conda activate` changes `PATH`. Do not use conda's FFmpeg
-package for a checkout — it can conflict with the Qt DLLs. Windows uses libmpv's Qt OpenGL video
-renderer, so keep the GPU driver current.
+package for a checkout — it can conflict with the Qt DLLs.
 
 ```powershell
 conda run -n avialsync avialsync

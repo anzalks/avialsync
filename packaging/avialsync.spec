@@ -15,6 +15,8 @@ application_icon = project_root / "packaging" / {
     ".icns": "macos",
     ".png": "linux",
 }[icon_extension] / f"avialsync{icon_extension}"
+# FFmpeg executables only. The decoder is PyAV, whose wheel carries its own
+# FFmpeg, so nothing here stages a video library any more (D-075).
 media_root_value = os.environ.get("AVIALSYNC_MEDIA_ROOT")
 if media_root_value:
     media_root = Path(media_root_value)
@@ -24,7 +26,7 @@ if media_root_value:
 
 hidden_imports = []
 hidden_imports += collect_submodules('avialsync')
-hidden_imports += ['PySide6', 'pyqtgraph', 'mpv', 'polars', 'numpy']
+hidden_imports += ['PySide6', 'pyqtgraph', 'av', 'polars', 'numpy']
 
 a = Analysis(
     [str(project_root / 'src' / 'avialsync' / '__main__.py')],

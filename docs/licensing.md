@@ -40,10 +40,28 @@ covers it.
 
 ## Bundled components
 
-Release installers bundle libmpv and FFmpeg in LGPL-licensed builds, verified
-during packaging. The Python dependencies are LGPL-3.0 (PySide6), MIT
-(pyqtgraph, polars), BSD (numpy, neo, xxhash), and LGPLv2.1+ (python-mpv). Their
-own licences continue to apply to them.
+Video decoding comes from [PyAV](https://pypi.org/project/av/), whose wheels
+carry their own FFmpeg. PyAV itself is BSD-3-Clause. The other Python
+dependencies are LGPL-3.0 (PySide6), MIT (pyqtgraph, polars), and BSD (numpy,
+neo, xxhash). Their own licences continue to apply to them.
+
+Release installers additionally bundle the FFmpeg **command-line** tools
+(`ffmpeg`, `ffprobe`) in LGPL-licensed builds, verified during packaging. Those
+are used for proxy generation, clip export, and the sample-session generator —
+not for playback.
+
+### A note on the FFmpeg inside the PyAV wheel
+
+The published PyAV wheels are built against a GPL-configured FFmpeg: they bundle
+`libx264` and `libx265`, both GPL-2.0-or-later. That is **compatible with this
+project's AGPL-3.0-or-later distribution**, which is what you get from PyPI and
+from the release installers, and it requires nothing of you as a user.
+
+It does constrain the project rather than the user: shipping GPL components
+forecloses the separately-negotiated arrangement described below, because those
+components cannot be relicensed by this project. If you are asking about that
+route, raise it in your enquiry — the answer may involve an FFmpeg build
+configured without those encoders.
 
 ## Other arrangements
 

@@ -1,8 +1,14 @@
-"""Stage locally installed LGPL media libraries for a release bundle.
+"""Stage locally installed FFmpeg tools and libraries for a release bundle.
 
 Downloads are deliberately not performed here: release CI obtains media from its operating-system
 package manager, then this script stages only the discovered files. This keeps package provenance
 in the workflow and prevents an unreviewed URL from becoming a supply-chain dependency.
+
+Video decoding does not come through here. PyAV carries its own FFmpeg inside its wheel (D-075),
+so nothing staged by this script is needed to play a frame. What remains is the FFmpeg *command
+line* that proxy generation, clip export, and the demo shell out to. Replacing that with a
+pip-installable FFmpeg — at which point this script can be deleted outright — is
+MIGRATION_PYAV.md step 7.
 """
 
 from __future__ import annotations
@@ -15,8 +21,6 @@ from pathlib import Path
 
 MEDIA_EXECUTABLES = frozenset({"ffmpeg", "ffmpeg.exe", "ffprobe", "ffprobe.exe"})
 MEDIA_LIBRARY_PREFIXES = (
-    "libmpv",
-    "mpv-",
     "avcodec",
     "avdevice",
     "avfilter",
@@ -27,7 +31,7 @@ MEDIA_LIBRARY_PREFIXES = (
 )
 # Package managers install headers, static archives, pkg-config files, and icon
 # artwork beside the runtime libraries, and those match the name rules above
-# (``avcodec.h``, ``mpv-symbolic.svg``).  The spec declares every staged file as
+# (``avcodec.h``).  The spec declares every staged file as
 # a PyInstaller *binary*, so anything that is not loadable code must be rejected
 # here rather than shipped and post-processed as one.
 NON_RUNTIME_SUFFIXES = frozenset(
@@ -70,7 +74,7 @@ def _is_media_runtime_file(path: Path) -> bool:
 
 
 def discover_media_files(sources: list[Path]) -> list[Path]:
-    """Find mpv/ffmpeg runtime files in the supplied package-manager directories."""
+    """Find FFmpeg runtime files in the supplied package-manager directories."""
     found: dict[str, Path] = {}
     for source in sources:
         if not source.is_dir():
@@ -82,12 +86,17 @@ def discover_media_files(sources: list[Path]) -> list[Path]:
 
 
 def validate_media_files(files: list[Path]) -> None:
-    """Require the tools needed for video playback and metadata probing."""
+    """Require the FFmpeg tools the bundle shells out to.
+
+    No video library is required: a bundle decodes through PyAV, which brings
+    its own FFmpeg (D-075). Both executables are still required, because a
+    staging run that silently produced neither would ship an installer whose
+    proxy generation and clip export fail on the user's machine.
+    """
     names = {path.name.lower() for path in files}
     required = (
         ("ffmpeg.exe", "ffmpeg"),
         ("ffprobe.exe", "ffprobe"),
-        ("libmpv-2.dll", "libmpv.dll", "libmpv.dylib", "libmpv.so", "libmpv.so.2"),
     )
     missing = [
         alternatives[0]

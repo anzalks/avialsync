@@ -3,6 +3,13 @@
 The installed application must not depend on the caller's current directory.
 Release bundles place their media runtime beside the executable, while source
 checkouts may obtain it from the active conda environment or ``PATH``.
+
+This is now only about **FFmpeg executables** — proxy generation, clip export,
+and the demo. Video decoding does not come through here at all: PyAV carries its
+own FFmpeg inside its wheel (D-075), so there is no shared library to put on
+``PATH`` and no DLL directory to register before an import. Making FFmpeg
+pip-installable too, and retiring the search entirely, is MIGRATION_PYAV.md
+step 7.
 """
 
 from __future__ import annotations
@@ -13,9 +20,6 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import TypedDict
-
-_DLL_DIRECTORIES: list[object] = []
-_DLL_DIRECTORY_PATHS: set[Path] = set()
 
 
 class MediaRuntimeError(RuntimeError):
@@ -69,43 +73,13 @@ def _windows_winget_media_dirs() -> tuple[Path, ...]:
     return tuple(candidates)
 
 
-def _holds_libmpv(directory: Path) -> bool:
-    """Report whether *directory* directly contains a libmpv library.
-
-    ``AVIALSYNC_MEDIA_ROOT`` is user-supplied, so this walks a directory nobody
-    validated. An unreadable one — a Windows folder the account cannot list, a
-    stale mount — must read as "no libmpv here" and let the guided dialog do its
-    job. Letting ``OSError`` out killed the process in ``configure_media_runtime``,
-    which ``__main__`` calls before Qt exists to show anything.
-    """
-    try:
-        return any(entry.name.lower().startswith("libmpv") for entry in directory.iterdir())
-    except OSError:
-        return False
-
-
-def configure_media_runtime() -> None:
-    """Make bundled and conda media libraries discoverable before importing mpv."""
-    global _DLL_DIRECTORIES, _DLL_DIRECTORY_PATHS
-    directories = tuple(directory for directory in media_search_dirs() if _holds_libmpv(directory))
-    if directories:
-        existing_path = os.environ.get("PATH", "")
-        prefixes = [
-            str(directory) for directory in directories if str(directory) not in existing_path
-        ]
-        if prefixes:
-            os.environ["PATH"] = os.pathsep.join([*prefixes, existing_path])
-
-    if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
-        for directory in directories:
-            if directory not in _DLL_DIRECTORY_PATHS:
-                _DLL_DIRECTORIES.append(os.add_dll_directory(str(directory)))
-                _DLL_DIRECTORY_PATHS.add(directory)
-
-
 def find_media_executable(name: str) -> Path | None:
-    """Return the bundled or PATH-resolved executable named ``name``."""
-    configure_media_runtime()
+    """Return the bundled or PATH-resolved executable named ``name``.
+
+    Search order, most specific first: an explicitly configured or bundled
+    directory, then ``PATH``, then WinGet's package tree. A user-supplied
+    FFmpeg therefore still wins over anything shipped.
+    """
     names = (f"{name}.exe", name) if sys.platform == "win32" else (name,)
     for directory in media_search_dirs():
         for candidate_name in names:

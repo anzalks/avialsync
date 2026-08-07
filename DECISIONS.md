@@ -210,8 +210,10 @@ by explicit user config. We never invent data the logger didn't record.
 Outside a source's bounds: dimmed placeholder (video), empty axis (plot), "—" (readout). Never
 freeze the last frame. Timeline = union of source bounds with coverage shading.
 
-## 2026-07 · D-011 · macOS mpv path built first
+## 2026-07 · D-011 · macOS mpv path built first — SUPERSEDED by D-075
 Render-API embedding on macOS is the project's highest integration risk; Phase 2 starts there.
+**Superseded 2026-08: there is no render-API embedding.** Every platform decodes to a QImage and
+blits it, so video rendering carries no per-OS integration risk at all.
 
 ## 2026-07 · D-012 · Distribution channels & zero-step guarantee
 Release = ONE tag → CI builds ALL channels: (a) OS installers (Inno .exe, .dmg, AppImage) with
@@ -679,7 +681,12 @@ X11. Windows CI therefore overrides the global headless setting with the native 
 for its QWidget tests. Linux and macOS continue to use offscreen testing. This is a test-platform
 selection fix, not an application behavior change.
 
-## 2026-07 · D-031 · Libmpv commands stay on the Qt-owning thread
+## 2026-07 · D-031 · Libmpv commands stay on the Qt-owning thread — SUPERSEDED by D-075
+**Superseded 2026-08: there is no libmpv client to hold a thread affinity.** A pane hands its
+decode thread a wanted time and the thread answers with a frame; there is no property observer to
+get stuck. The general rule that survives is narrower: widgets are only touched on the UI thread,
+which Qt enforces anyway. Original text follows.
+
 
 ### Context
 
@@ -694,7 +701,13 @@ in libmpv; decode and property observation remain on libmpv's own threads. Settl
 require the observed `seeking=False` state and target `time-pos`, never a sleep. This preserves a
 responsive UI without cross-thread access to an embedded libmpv client.
 
-## 2026-07 · D-032 · Headless CI uses null video, decoded-frame evidence, and explicit mpv ownership
+## 2026-07 · D-032 · Headless CI uses null video, decoded-frame evidence, and explicit mpv ownership — AMENDED by D-075
+**Amended 2026-08.** The `vo=null` half is void: there is no headless special case, because the one
+rendering path is the same everywhere. The other two halves **still govern and are stronger now** —
+frame accuracy is proven by decoding a frame-index strip out of the pixels the pane painted, and a
+pane's decode thread is stopped explicitly rather than left to QWidget destruction. Original text
+follows.
+
 
 ### Context
 
@@ -854,7 +867,12 @@ declared icon as an artifact-integrity error, so the packaging test asserts both
 and staged source asset. The AppDir also provides the required `.DirIcon` symlink and validates
 its desktop file with `desktop-file-validate` before AppImageTool runs.
 
-## 2026-07 · D-038 · Windows video panes use libmpv's Qt OpenGL render API
+## 2026-07 · D-038 · Windows video panes use libmpv's Qt OpenGL render API — SUPERSEDED by D-075
+**Superseded 2026-08: neither render path exists.** The grey-surface failure this decision worked
+around was a property of libmpv's native `wid` child window; painting a decoded QImage has no such
+failure mode. The overlay-transparency requirement it also records still stands. Original text
+follows.
+
 
 ### Context
 
@@ -876,7 +894,12 @@ Any renderer change must verify visible decoded frames in an interactive window,
 timestamps or `screenshot-raw` evidence. The gray-surface failure and overlay opacity are covered
 by the pane configuration and timing tests.
 
-## 2026-07 · D-039 · Release bundles own the complete media runtime
+## 2026-07 · D-039 · Release bundles own the complete media runtime — AMENDED by D-075
+**Amended 2026-08: playback needs nothing bundled**, since PyAV carries FFmpeg into every channel.
+What bundles still own is the FFmpeg *command line* for proxy generation, clip export, and the demo;
+staging validates `ffmpeg` and `ffprobe` and no longer looks for a video library. Original text
+follows.
+
 
 ### Context
 
@@ -2142,15 +2165,35 @@ the alternative at the job we need.
 **Consequences:** D-013's probe-and-guide dialog and D-015's bundled-libmpv rule lose their
 subject; D-017's `python-mpv` pin is dropped. `import mpv` disappears from the codebase. The
 per-OS render split in `ui/video_pane.py` collapses to one path, and `engine/player.py`'s drift
-correction is deleted outright — the app becomes the clock rather than chasing one.
-`packaging/fetch_media_libs.py` and the CI libmpv steps go with them.
+correction is deleted outright — the app becomes the clock rather than chasing one. The CI libmpv
+fetch, its SHA-256 pin, and the `import mpv` probe go with them.
 
-**Licensing, unresolved and deliberately so:** upstream PyAV wheels bundle libx264/libx265, i.e. a
-GPL-configured FFmpeg. That is compatible with AGPL distribution but forecloses D-069's commercial
-dual-licence, which is the reason the project relicensed. D-015's LGPL-only preference therefore
-still governs the choice of build. Selecting a GPL-configured wheel is a maintainer decision to be
-recorded here explicitly, not settled inside a packaging commit. Note also that AGENTS.md's
-"no GPL/AGPL dependency" line predates D-069 and is stale; it is corrected in this change.
+`packaging/fetch_media_libs.py` **survives**, contrary to the original plan: it also stages the
+FFmpeg *command line* into installers, and proxy generation, clip export, and the demo still shell
+out to that. It no longer looks for a video library. It can be deleted once FFmpeg itself arrives
+through pip (MIGRATION_PYAV.md step 7).
+
+**Licensing — OPEN, and deliberately left so. A maintainer must decide this.**
+
+Confirmed by inspection of the installed wheel (`av` 18.0.0, macOS arm64): its bundled `.dylibs`
+include `libx264.165.dylib` and `libx265.216.dylib`, and `av.codec.Codec("libx264", "w")` resolves,
+so the shipped FFmpeg is GPL-configured rather than merely capable of being built that way.
+
+That is **licence-compatible with the AGPL-3.0-or-later distribution** — which is what PyPI and the
+installers deliver, and it asks nothing of users. What it does is foreclose D-069's commercial
+dual-licence, which is the reason the project relicensed at all: x264 and x265 cannot be
+relicensed by this project. D-015's LGPL-only preference therefore still governs the choice of
+build, and adopting the stock wheel anyway is a decision to record here explicitly rather than
+settle inside a packaging commit.
+
+Options, none taken yet: (a) accept the GPL configuration and drop the dual-licence ambition;
+(b) build or source LGPL-configured PyAV wheels for all three platforms, which means owning a wheel
+build; (c) keep stock wheels for the AGPL channel and produce an LGPL-configured build only if and
+when a commercial arrangement is actually requested. `docs/licensing.md` states the current facts
+truthfully in the meantime.
+
+Note also that AGENTS.md's "no GPL/AGPL dependency" line predates D-069 and is stale; it is
+corrected in this change.
 
 **One caveat survives and must stay documented:** on Linux, PySide6 needs system graphics libraries
 (`libgl1`, `libxkbcommon`, xcb). Normal desktops have them; bare containers do not. That is Qt's

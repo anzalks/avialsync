@@ -25,7 +25,7 @@ def test_media_staging_copies_only_runtime_media_files(tmp_path: Path) -> None:
     """The release bundle receives media runtimes, not arbitrary package-manager files."""
     source = tmp_path / "source"
     source.mkdir()
-    (source / "libmpv.dylib").write_bytes(b"mpv")
+    (source / "libavformat.dylib").write_bytes(b"runtime")
     (source / "ffmpeg").write_bytes(b"ffmpeg")
     (source / "ffprobe").write_bytes(b"ffprobe")
     (source / "unrelated.txt").write_text("ignore", encoding="utf-8")
@@ -33,7 +33,7 @@ def test_media_staging_copies_only_runtime_media_files(tmp_path: Path) -> None:
 
     staged = _media_stager().stage_media_files([source], destination)
 
-    assert [path.name for path in staged] == ["ffmpeg", "ffprobe", "libmpv.dylib"]
+    assert [path.name for path in staged] == ["ffmpeg", "ffprobe", "libavformat.dylib"]
     assert not (destination / "unrelated.txt").exists()
 
 
@@ -41,7 +41,7 @@ def test_media_staging_rejects_a_runtime_without_ffprobe(tmp_path: Path) -> None
     """A release cannot ship video playback without metadata probing."""
     source = tmp_path / "source"
     source.mkdir()
-    (source / "libmpv.dylib").write_bytes(b"mpv")
+    (source / "libavformat.dylib").write_bytes(b"runtime")
     (source / "ffmpeg").write_bytes(b"ffmpeg")
 
     with pytest.raises(RuntimeError, match="ffprobe"):
@@ -49,10 +49,10 @@ def test_media_staging_rejects_a_runtime_without_ffprobe(tmp_path: Path) -> None
 
 
 def test_windows_media_staging_keeps_dependency_dlls(monkeypatch, tmp_path: Path) -> None:
-    """A Windows libmpv bundle needs its adjacent dependency DLLs as well."""
+    """A Windows FFmpeg bundle needs its adjacent dependency DLLs as well."""
     source = tmp_path / "source"
     source.mkdir()
-    for name in ("libmpv-2.dll", "ffmpeg.exe", "ffprobe.exe", "dependency.dll"):
+    for name in ("avcodec-62.dll", "ffmpeg.exe", "ffprobe.exe", "dependency.dll"):
         (source / name).write_bytes(b"runtime")
     stager = _media_stager()
     monkeypatch.setattr(stager.sys, "platform", "win32")
@@ -63,7 +63,7 @@ def test_windows_media_staging_keeps_dependency_dlls(monkeypatch, tmp_path: Path
         "dependency.dll",
         "ffmpeg.exe",
         "ffprobe.exe",
-        "libmpv-2.dll",
+        "avcodec-62.dll",
     }
 
 
@@ -72,7 +72,6 @@ def test_linux_media_staging_keeps_versioned_shared_objects(monkeypatch, tmp_pat
     source = tmp_path / "source"
     source.mkdir()
     for name in (
-        "libmpv.so.2",
         "libavcodec.so.62",
         "libavutil.so.60.26.100",
         "ffmpeg",
@@ -81,7 +80,7 @@ def test_linux_media_staging_keeps_versioned_shared_objects(monkeypatch, tmp_pat
         (source / name).write_bytes(b"runtime")
     # libavcodec.3 is a man page: it matches the same name prefix as the
     # library and is installed beside it.
-    for name in ("avcodec.h", "libavcodec.a", "libmpv.pc", "mpv-symbolic.svg", "libavcodec.3"):
+    for name in ("avcodec.h", "libavcodec.a", "libavcodec.3"):
         (source / name).write_bytes(b"not runtime")
     stager = _media_stager()
     monkeypatch.setattr(stager.sys, "platform", "linux")
@@ -91,7 +90,6 @@ def test_linux_media_staging_keeps_versioned_shared_objects(monkeypatch, tmp_pat
     assert staged == {
         "ffmpeg",
         "ffprobe",
-        "libmpv.so.2",
         "libavcodec.so.62",
         "libavutil.so.60.26.100",
     }
@@ -103,7 +101,7 @@ def test_windows_media_staging_rejects_package_manager_metadata(
     """Chocolatey ships nuspec/html/txt beside the binaries; none of it is code."""
     source = tmp_path / "source"
     source.mkdir()
-    for name in ("libmpv-2.dll", "ffmpeg.exe", "ffprobe.exe", "dependency.dll"):
+    for name in ("avcodec-62.dll", "ffmpeg.exe", "ffprobe.exe", "dependency.dll"):
         (source / name).write_bytes(b"runtime")
     for name in ("ffmpeg.nuspec", "ffmpeg-all.html", "ffmpeg-release-essentials.7z.txt"):
         (source / name).write_bytes(b"not runtime")
@@ -112,7 +110,7 @@ def test_windows_media_staging_rejects_package_manager_metadata(
 
     staged = {path.name for path in stager.stage_media_files([source], tmp_path / "media")}
 
-    assert staged == {"libmpv-2.dll", "ffmpeg.exe", "ffprobe.exe", "dependency.dll"}
+    assert staged == {"avcodec-62.dll", "ffmpeg.exe", "ffprobe.exe", "dependency.dll"}
 
 
 def test_media_staging_links_aliases_instead_of_duplicating_them(
@@ -130,7 +128,7 @@ def test_media_staging_links_aliases_instead_of_duplicating_them(
     real.write_bytes(b"x" * 4096)
     (source / "libavcodec.62.dylib").symlink_to("libavcodec.62.28.102.dylib")
     (source / "libavcodec.dylib").symlink_to("libavcodec.62.28.102.dylib")
-    (source / "libmpv.dylib").write_bytes(b"mpv")
+    (source / "libavformat.dylib").write_bytes(b"runtime")
     (source / "ffmpeg").write_bytes(b"ffmpeg")
     (source / "ffprobe").write_bytes(b"ffprobe")
     destination = tmp_path / "media"
@@ -173,7 +171,7 @@ def test_linux_release_installs_desktop_entry_validator() -> None:
     """The AppImage desktop entry is validated before AppImageTool consumes it."""
     workflow = Path(".github/workflows/release.yml").read_text(encoding="utf-8")
 
-    assert "desktop-file-utils ffmpeg libmpv2 libfuse2t64" in workflow
+    assert "desktop-file-utils ffmpeg libfuse2t64" in workflow
 
 
 @pytest.mark.skipif(

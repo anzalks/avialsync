@@ -433,7 +433,7 @@ def test_camera_maps_frames_to_when_they_were_exposed(tmp_path: Path) -> None:
     assert master[-1] == pytest.approx(5.0 + exposures[-1])
     assert np.all(np.diff(master) > 0)
     assert np.all(np.diff(source) > 0)
-    # The container's own timeline is untouched: that is what mpv seeks through.
+    # The container's own timeline is untouched: that is what the decoder seeks through.
     assert source[0] == pytest.approx(0.0)
 
 

@@ -8,8 +8,6 @@ import time
 from importlib.resources import files
 from pathlib import Path
 
-from avialsync.runtime import configure_media_runtime
-
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the supported AvialSync command-line arguments."""
@@ -51,7 +49,6 @@ def main() -> None:
     from avialsync.ui.main_window import MainWindow
     from avialsync.ui.theme import load_saved_font_size, load_saved_theme
 
-    configure_media_runtime()
     app = QApplication(sys.argv)
     app_icon = QIcon(str(files("avialsync.resources").joinpath("avialsync.png")))
     app.setWindowIcon(app_icon)

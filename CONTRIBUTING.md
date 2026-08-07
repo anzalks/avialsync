@@ -82,8 +82,9 @@ right time. Do not touch its assertions.
 
 `HANDOUT.md` has a "Known Traps" section — around two dozen things that look
 reasonable and are wrong (a bare `QWidget {}` QSS selector blanks video panes;
-`setParent(None)` turns a widget into a popup window; `LC_NUMERIC` must be `C`
-before libmpv loads). Reading it will save you an afternoon.
+`setParent(None)` turns a widget into a popup window; a pts table built by
+walking packets is in decode order, not display order). Reading it will save you
+an afternoon.
 
 ## Commits and pull requests
 

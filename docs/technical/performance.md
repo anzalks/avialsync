@@ -14,7 +14,8 @@ pyramid, 5 milliseconds to query it, 2 milliseconds for a fully populated cursor
 The following paths already have the correct ownership model:
 
 - `MasterClock` advances from monotonic time and never waits for a video decoder.
-- libmpv owns decode work. Playback drops frames rather than allowing a stalled pane to stop time.
+- Decode work runs on a worker thread per pane. Playback drops frames rather than allowing a stalled
+  pane to stop time, and each pane keeps only the newest requested time.
 - Scrub requests and video render/OSD callbacks retain only the latest pending value.
 - Hidden video panes are paused and excluded from synchronization work.
 - Video opening, data import, synchronization fitting, proxy generation, and diagnostics have
@@ -54,7 +55,7 @@ measured work:
 | Cursor path | Plot/transport dispatch with an empty readout is fast. | Install 4/32/128 readers, include camera/overlay state, deliver queued paints, test collapsed panels, and measure maximum heartbeat delay. |
 | Four-channel window refresh | Four bounded pyramid queries and curve updates average under the current test's 30 ms threshold. | Enforce the Blueprint's 16 ms mark, render min/max envelopes, include gaps/annotations and actual paints, and scale visible rows. |
 | 3D cursor | Sampling 128 XYZ points is below 2 ms. | Paint cost, skeleton edges, multiple sources, hidden-pane behavior, and p99. |
-| Video mapping/callbacks | Exact-map command fan-out and a fake callback coalescer are cheap. | Actual libmpv seek settle, decoded-frame paint proof, VFR/long-GOP/proxy variants, callback delivery/OSD paint, and three/four simultaneous panes. |
+| Video scrub | Three-camera long-GOP jump, drag, and re-scrub are measured end to end against their budgets in `tests/benchmarks/test_seek_backends.py`. | Proxy variants, callback delivery/OSD paint, and four simultaneous panes. |
 | Sync fit | A deterministic 10,000-event affine fit averages below 250 ms. | Exact one-million-frame mapping memory/accept/save/load, cancellation, ambiguity/outlier fixtures, and p99. |
 
 Add a Qt heartbeat probe to every long-job integration test. While the job runs, post a lightweight

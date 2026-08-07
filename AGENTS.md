@@ -42,8 +42,9 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
   · pytest / pytest-qt / pytest-benchmark / hypothesis.
 - **`pip install avialsync` must need no OS-level install step on any platform.** A change that
   reintroduces one is rejected. The single documented exception is Qt's own floor: PySide6 needs
-  system GL/xcb libraries on Linux, which no packaging choice removes. Migration in progress on
-  branch `shift_from_libmpv_to_pyav` — see MIGRATION_PYAV.md before touching video code.
+  system GL/xcb libraries on Linux, which no packaging choice removes. Decoding is done (steps 1-5
+  and the libmpv sweep); the FFmpeg *command line* is still external for proxy generation, clip
+  export, and the demo — MIGRATION_PYAV.md step 7. Read that file before touching video code.
 - Dependency policy: the project is AGPL-3.0-or-later (D-069), so GPL dependencies are
   licence-*compatible* but foreclose the commercial dual-licence — prefer LGPL, and escalate any
   GPL-configured binary to a DECISIONS.md entry rather than deciding it in a packaging commit
@@ -65,7 +66,7 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
    `VideoSource`). Built-in CSV/video support are plugins too. Do not special-case formats in UI code.
 6. Playback: sync correctness beats frame completeness (drop frames, never drift). Paused/stepping:
    exact seeks only. **The frame shown for master time `t` is the one whose presentation interval
-   contains `t` — the last frame with `pts <= t`, per `ui/video_timing.py::frame_index_at`.** A
+   contains `t` — the last frame with `pts <= t`, per `core/video_timing.py::frame_index_at`.** A
    reader returning the first frame with `pts >= t` is wrong at every scrub position between two
    frames (measured 179/179; 33 ms of misattribution at 30 fps). Frame caches are keyed by integer
    frame index, never by float time. One authority selects *and* names the frame — never two
@@ -172,11 +173,11 @@ conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format 
   ran twelve minutes and took the whole 15-minute job with it, which reads like a hung test suite
   rather than an infrastructure stall. The codecs the fixtures need are *depends*, not recommends.
 - Runner images are pinned (`ubuntu-24.04`, `macos-15`, `windows-2022`), not `*-latest`. A floating label already broke the release once, when an image bump renamed `fuse` to `libfuse2t64`. `tests/test_ci_platform_config.py` fails if a floating label reappears.
-- `choco install ffmpeg` on the Windows job is **not** pinned, unlike the runner images and the SHA-256-pinned libmpv archive beside it. Chocolatey moved 8.1.2 → 9.0.0 between two runs an hour apart and ffmpeg 9 removed `-vsync`, so both Windows jobs went red with no commit in between — re-running the last green run at the same SHA reproduced it. Before debugging a Windows-only CI failure, diff the `ffmpeg vX.Y.Z [Approved]` line in the choco step against the last green run. Use `-fps_mode`, never `-vsync`, in anything that shells out to ffmpeg.
-- Windows CI needed an explicit, pinned libmpv DLL archive with SHA-256 verification and an
-  `import mpv` probe. **D-075 removes that step** — PyAV's wheel carries its own FFmpeg, so there is
-  no DLL to fetch or verify. If you are reading this in a workflow that still fetches one, the
-  migration is incomplete; see MIGRATION_PYAV.md step 8.
+- `choco install ffmpeg` on the Windows job used to be unpinned, unlike the runner images beside it. Chocolatey moved 8.1.2 → 9.0.0 between two runs an hour apart and ffmpeg 9 removed `-vsync`, so both Windows jobs went red with no commit in between — re-running the last green run at the same SHA reproduced it. Before debugging a Windows-only CI failure, diff the `ffmpeg vX.Y.Z [Approved]` line in the choco step against the last green run. Use `-fps_mode`, never `-vsync`, in anything that shells out to ffmpeg.
+- Windows CI once fetched a pinned libmpv DLL archive, verified its SHA-256, and probed
+  `import mpv`. All of it is gone: PyAV's wheel carries its own FFmpeg, so there is no library to
+  fetch or verify. `tests/test_ci_platform_config.py` fails if any of it comes back. The workflows
+  still install `ffmpeg` because it encodes the test fixtures.
 - PyAV fixture writing: you must set **both** `stream.time_base` and
   `stream.codec_context.time_base`. Setting only the former makes `mux()` reject every packet with
   a bare `ArgumentError: Invalid argument ... returned 22`, which reads like a corrupt file rather
@@ -224,26 +225,12 @@ conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format 
   make a Windows job pass; interactive Windows and macOS use the Qt OpenGL render API, while Linux
   retains native `wid` embedding.
 
-- mpv `wid` embedding must be set before mpv initializes video output on Linux. Windows and macOS
-  use the documented render-API path; free their render context while the `QOpenGLWidget` is current.
 - pyqtgraph `setDownsampling` is not enough at 180 M points — always go through our pyramid.
 - QTimer drift: drive MasterClock from `time.monotonic()` deltas, never by accumulating timer intervals.
 - polars `read_csv` infers types per-chunk; always pass explicit schema for the timestamp column.
 - ffprobe start times lie for some machine-vision containers; treat metadata start time as a default,
   never as truth — the user offset always wins.
 - 12-bit video: never assume hw decode; probe once at startup (`ui/diagnostics.py`) and surface it.
-- Windows/macOS mpv embedding: use the Qt OpenGL render API; native `wid` is retained for Linux.
-  Build and verify both the Windows and macOS render paths FIRST in Phase 2 (highest-risk integration).
-- Seek settle: "seek command returned" ≠ "frame painted". Detect settle via mpv property
-  observation (`seeking`=False + `time-pos` at target) for runtime coordination — never sleeps.
-  Golden frame tests must additionally decode `screenshot-raw video` and match the fixture frame;
-  retry only transient screenshot unavailability, never accept a stale rendered frame. Flaky golden
-  tests get ignored, which defeats their purpose; keep them rock solid.
-- Libmpv has an event thread that outlives a QWidget destructor. Shutdown ownership is explicit:
-  `MainWindow.closeEvent()` → `VideoGrid.shutdown()` → `VideoPane.close()` → `mpv.terminate()`.
-  Do not rely on garbage collection or Qt child destruction to join it.
-- On Windows/macOS render-API panes, free the libmpv render context while the `QOpenGLWidget` is current
-  before terminating mpv. Reversing that order aborts the process during app exit.
 - PyInstaller evaluates `SPECPATH` as the spec directory, not the project root. Resolve the root
   from it, and stage media only from a non-empty, validated `AVIALSYNC_MEDIA_ROOT`; an unset value
   must never accidentally package the current working directory.
@@ -252,17 +239,18 @@ conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format 
   colours and verify seek/plot state survives a theme switch.
 - Playback drift correction needs hysteresis: re-seek only after N consecutive off-target ticks,
   or late Qt timers cause re-seek/stutter cascades under UI load.
-- Frame stepping: always mpv's actual frame timestamps; never `t += 1/fps` (breaks on VFR and
+- Frame stepping: always the decoded presentation timestamps; never `t += 1/fps` (breaks on VFR and
   dropped-frame footage).
+- Video shutdown ownership is explicit: `MainWindow.closeEvent()` → `VideoGrid.shutdown()` →
+  `VideoPane.close()` → stop the pane's decode thread. Do not rely on garbage collection or Qt
+  child destruction to join it.
+- A pane's decode thread must never be handed work from the UI thread that blocks: requests
+  coalesce onto the newest wanted time, so a decoder slower than the 60 Hz tick skips rather than
+  building a backlog nobody will see.
+- `QImage` does not copy the array it wraps. A pane holds the decoded buffer for as long as the
+  image built from it lives; dropping it faults during a repaint instead of raising.
 - Pyramid must be NaN-aware (nanmin/nanmax) and gap-aware (gap_mask); never draw across gaps.
 - Cache key includes a content-hash tail (ARCHITECTURE §5b); (path,size,mtime) alone is a lie.
 - Timezone-naive timestamps: force an explicit user choice in the wizard; silent-UTC caused real
   1–2 h "corruption" reports in comparable tools.
-- ffmpeg/mpv/QProcess: argument lists only, never shell strings (unicode/space paths on Windows).
-- Locale bomb: Qt stomps LC_NUMERIC needed by libmpv → call
-  `locale.setlocale(locale.LC_NUMERIC, 'C')` AFTER importing Qt, BEFORE first mpv.MPV().
-  Symptom without it: float options/seeks silently misparsed in decimal-comma locales.
-- Dependency name: `python-mpv` (PyPI) → `import mpv`. The PyPI package literally named `mpv`
-  is a different project; never add it (D-017).
-- NEVER `import mpv` at module top level (D-013): lazy import behind the diagnostics probe so a
-  missing libmpv shows the guided dialog instead of a ctypes crash.
+- ffmpeg/QProcess: argument lists only, never shell strings (unicode/space paths on Windows).

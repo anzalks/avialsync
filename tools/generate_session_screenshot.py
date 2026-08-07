@@ -176,9 +176,9 @@ def capture(
     def wait_for_seek() -> None:
         """Return once every seeking pane has settled on the new frame.
 
-        "The seek command returned" is not "the frame is painted", so this waits
-        on mpv's own seeking property via the pane state the seeker tracks, then
-        drains a few more rounds for the render pass that puts it on screen.
+        "The request was queued" is not "the frame is painted", so this waits on
+        each pane's own seeking state, which clears in the same slot that swaps
+        in the decoded frame, then drains a few more rounds for the paint.
         """
         deadline = time.monotonic() + SEEK_TIMEOUT_SECONDS
         while time.monotonic() < deadline:
@@ -243,9 +243,9 @@ def capture(
     settle_for(3.0)
     wait_until_quiet()
 
-    # Do NOT resize the window here to force a relayout: a resize tears down and
-    # rebuilds the mpv render panes, and the capture comes back with three black
-    # video panes instead of frames.
+    # Do NOT resize the window here to force a relayout: a resize can land the
+    # capture between a layout change and the next paint, and the screenshot
+    # comes back with black video panes instead of frames.
 
     window.transport.set_status("Ready")
     settle()

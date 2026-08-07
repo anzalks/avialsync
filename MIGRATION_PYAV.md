@@ -70,7 +70,9 @@ Reproduce with `tests/benchmarks/test_seek_backends.py` (step 1 below).
 the last frame with `pts <= t`.**
 
 This is not a new rule. It is already the app's rule, implemented in
-`ui/video_timing.py::frame_index_at` as `searchsorted(frame_times, t + eps, "right") - 1`.
+`core/video_timing.py::frame_index_at` as `searchsorted(frame_times, t + eps, "right") - 1`.
+(It lived in `ui/video_timing.py` before step 3 moved it, so the headless decoder could share it
+without `engine/` importing `ui/`; the UI path re-exports it and no caller moved.)
 
 Any reader that returns *the first frame with `pts >= t`* is **wrong on every scrub position
 between two frames** — verified at 179 of 179 mid-interval probes, on both CFR and VFR footage.
@@ -108,7 +110,7 @@ row that is not `done`, and read its "resume note" before doing anything.
 | 5 | `engine/player.py` — delete drift correction | done | `pytest tests/test_playback_smoothness.py tests/test_scrubbing.py` |
 | 6 | `loaders/video_standard.py` — ffprobe → PyAV | todo | `pytest tests/test_video_standard.py` |
 | 7 | FFmpeg via pip for `proxy.py`, `export.py`, `demo.py` | todo | `avialsync demo` in a clean venv |
-| 8 | Packaging + docs + DECISIONS/ARCHITECTURE/HANDOUT sweep | todo | `pip install .` in a clean venv, no OS deps |
+| 8 | Packaging + docs + DECISIONS/ARCHITECTURE/HANDOUT sweep | mostly done — step 7 tail remains | `pip install .` in a clean venv, no OS deps |
 
 ### Step notes, traps, and resume conditions
 
@@ -235,25 +237,42 @@ a stale instruction is worse than a missing one: `AGENTS.md`, `DECISIONS.md` (D-
 markers on D-002/D-013/D-015/D-017), `ARCHITECTURE.md`, `HANDOUT.md`, `BLUEPRINT.md`, `PROMPTS.md`,
 `docs/install.md`.
 
-**Still to do, and deliberately deferred because their content depends on code that does not exist
-yet.** Verify each with `grep -rn 'libmpv\|python-mpv'` before declaring the migration complete:
+**The libmpv sweep is DONE (2026-08-07).** `grep -rniI "mpv" src/ packaging/ .github/ pyproject.toml`
+returns only prose explaining what changed and why. What was done, and the three places the plan
+above was wrong:
 
-| File | What changes |
+| File | Outcome |
 |---|---|
-| `pyproject.toml` | drop `python-mpv`, add `av` + the ffmpeg wheel |
-| `.github/workflows/ci.yml` | drop the libmpv DLL fetch + `import mpv` probe; drop `choco install ffmpeg` if the wheel covers fixtures |
-| `.github/workflows/release.yml` | drop `fetch_media_libs.py` staging and the LGPL flavour assertion for libmpv |
-| `packaging/fetch_media_libs.py` | delete |
-| `packaging/probe_dialog_test.py` | delete — no missing-libmpv case remains |
-| `packaging/avialsync.spec` | drop libmpv binaries. **`.gitignore` ignores `*.spec` — force-add it or the change is silently dropped and CI breaks** |
-| `src/avialsync/runtime.py` | `_holds_libmpv`, `configure_media_runtime`, `AVIALSYNC_MEDIA_ROOT`, the WinGet fallback |
-| `src/avialsync/ui/diagnostics.py` | delete `libmpv_install_guidance()` and its callers |
-| `README.md` | install section |
-| `docs/quickstart.md`, `docs/troubleshooting.md` | the "install libmpv" routes |
-| `docs/licensing.md` | libmpv LGPL attribution → PyAV/FFmpeg attribution (see §5) |
-| `docs/technical/architecture.md`, `docs/technical/performance.md`, `docs/technical/development.md` | mirror the root docs |
-| `CONTRIBUTING.md:86` | the `LC_NUMERIC`-before-libmpv note — check whether it still applies to PyAV |
-| `.github/ISSUE_TEMPLATE/bug_report.yml` | drops the libmpv version field |
+| `pyproject.toml` | `python-mpv` → `av>=12`; mypy override follows |
+| `.github/workflows/ci.yml` | libmpv apt/brew/DLL-fetch/SHA-pin/`import mpv` probe all gone; probes `import av` instead. `ffmpeg` stays — it encodes the fixtures |
+| `.github/workflows/release.yml` | same, ×2 (quality and bundling jobs); staging sources drop the mpv prefixes |
+| `packaging/fetch_media_libs.py` | **KEPT, not deleted** — see below |
+| `packaging/probe_dialog_test.py` | deleted (was a two-line `TODO` stub) |
+| `packaging/avialsync.spec` | hidden import `mpv` → `av`. Force-added past `.gitignore`'s `*.spec` |
+| `packaging/conda/meta.yaml` | `python-mpv` → `av`; `mpv` dropped from run deps, `ffmpeg` kept |
+| `src/avialsync/runtime.py` | `_holds_libmpv`, `configure_media_runtime`, and the DLL-directory globals deleted; FFmpeg discovery kept |
+| `src/avialsync/ui/diagnostics.py` | `probe_libmpv`, `libmpv_install_guidance`, and the macOS dyld shim deleted; `probe_hwdec` reports what FFmpeg was built against |
+| `README.md` | install section rewritten; the tool-comparison table removed |
+| `docs/` | quickstart, troubleshooting, formats, plugin-guide, licensing, and all three technical pages |
+| `AGENTS.md`, `HANDOUT.md`, `BLUEPRINT.md`, `ARCHITECTURE.md`, `DECISIONS.md` | obsolete traps deleted, replaced with the ones that now apply; D-011/D-031/D-032/D-038/D-039 marked superseded or amended |
+| `CONTRIBUTING.md`, `TESTING.md`, `.github/ISSUE_TEMPLATE/bug_report.yml` | swept |
+
+**Three corrections to the plan above, made because following it literally would have broken
+something:**
+
+1. **`packaging/fetch_media_libs.py` was kept.** It stages the FFmpeg *command line* into
+   installers, not just libmpv, and proxy/export/demo still shell out to that. Deleting it now
+   would ship installers with no FFmpeg. Its libmpv half is stripped; delete the file at step 7.
+2. **`AVIALSYNC_MEDIA_ROOT` and the WinGet fallback were kept** in `runtime.py`, for the same
+   reason: they locate *FFmpeg*, not a video library. Only the libmpv-specific discovery is gone.
+3. **`src/avialsync/__main__.py` keeps its `LC_NUMERIC` call.** The locale bomb was libmpv's option
+   parser and no longer applies; the call is retained as cheap process-wide hygiene with a comment
+   saying exactly that, rather than removed on the assumption nothing else parses floats.
+
+**Also worth knowing:** `tests/conftest.py` still re-arms faulthandler with `all_threads=False` on
+Windows. Its trigger — libmpv raising SEH exceptions on its own threads — is gone, so it is now
+insurance rather than a fix (HANDOUT.md trap 30). Removing it is safe to try once Windows CI has
+been quiet for a while.
 
 `graphify-out/` is generated output; regenerate rather than hand-edit.
 
@@ -266,8 +285,9 @@ AGPL-3.0-or-later. GPL dependencies are therefore licence-*compatible* with the 
 distribution. They are **not** compatible with D-069's commercial dual-licence, which is the
 reason the project relicensed at all.
 
-Upstream PyAV wheels bundle libx264 and libx265 — i.e. a GPL-configured FFmpeg (confirmed by
-inspecting `av-18.0.0`'s `.dylibs`). Shipping those forecloses commercial relicensing. D-015's
+**Confirmed on this machine (2026-08-07):** `av` 18.0.0's bundled `.dylibs` include
+`libx264.165.dylib` and `libx265.216.dylib`, and `av.codec.Codec("libx264", "w")` resolves — so the
+shipped FFmpeg is GPL-configured in fact, not merely in principle. Shipping those forecloses commercial relicensing. D-015's
 LGPL-only preference therefore still governs: prefer an LGPL-configured build, and if one is not
 available off the shelf, that is a decision for the maintainer to take explicitly and record in
 D-075 — not something to settle silently inside a packaging commit.
