@@ -100,12 +100,14 @@ tracking = "avialsync.loaders.tracking_loader:TrackingLoader"
 neo = "avialsync.loaders.neo_loader:NeoLoader"
 aol_encoder = "avialsync.loaders.aol_encoder_loader:AOLEncoderLoader"
 aol_eks = "avialsync.loaders.aol_eks_loader:AOLEksLoader"
+open_ephys_camera = "avialsync.loaders.open_ephys_camera:OpenEphysCameraLoader"
 
 # Session scanners lay out a whole recording folder (D-068). A lab adds support
 # for its own directory layout by publishing here; nothing in the application
 # names a format.
 [project.entry-points."avialsync.sessions"]
 aol = "avialsync.loaders.aol_session_loader:AOLSessionSource"
+open_ephys = "avialsync.loaders.open_ephys_session:OpenEphysSessionSource"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/avialsync"]

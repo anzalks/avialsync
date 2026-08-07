@@ -1,6 +1,8 @@
 """Asynchronous data source importer pipeline."""
 
 import json
+import logging
+import os
 import shutil
 import time
 import traceback
@@ -16,6 +18,8 @@ from avialsync.core.inspection import ImportReport, IntegrityFlags, SourceInspec
 from avialsync.core.pyramid import ChannelStage, PyramidBuilder, build_gap_mask, count_nan
 from avialsync.loaders.csv_loader import CSVLoader
 
+logger = logging.getLogger(__name__)
+
 _IMPORT_CACHE_VERSION = 4
 _IMPORT_MANIFEST = "import.json"
 _STAGING_DIR = "_stage"
@@ -24,6 +28,27 @@ _STAGING_DIR = "_stage"
 #: import report always stays exact.  A pathological recording can otherwise put
 #: millions of floats into the session file and the report dialog.
 MAX_GAP_LOCATIONS = 10_000
+
+
+def _share_file(source: Path, target: Path) -> None:
+    """Give *target* the same bytes as *source*, without a second copy if possible.
+
+    Every channel of one stream carries the same timestamps and the same gap mask,
+    and the sidecar names a copy of each after every channel.  For a 32-channel
+    30 kHz headstage that is 32 identical 191 MB timestamp arrays — six gigabytes
+    of the same numbers, and six gigabytes of write time before anything can be
+    plotted.  A hard link is the same file under a second name, so the reader,
+    which only ever mmaps these read-only, cannot tell the difference.
+
+    Filesystems that cannot link (FAT, exFAT, some network mounts) fall back to
+    copying, because a slower correct import beats a failed one.
+    """
+    try:
+        os.link(source, target)
+    except (OSError, NotImplementedError, AttributeError):
+        # Not an error worth surfacing: only the disk cost changes.
+        logger.debug("Cannot hard link %s; copying instead.", target.name, exc_info=True)
+        shutil.copyfile(source, target)
 
 
 def _gap_locations(times: np.ndarray, gap_mask: np.ndarray) -> list[float]:
@@ -226,8 +251,8 @@ class ImportWorker(QObject):
         total_nan = 0
         for index, channel in enumerate(channel_names):
             values = value_stages[channel].materialize(temp_dir / f"{channel}_v.npy")
-            shutil.copyfile(shared_t_path, temp_dir / f"{channel}_t.npy")
-            shutil.copyfile(gap_path, temp_dir / f"{channel}_gap.npy")
+            _share_file(shared_t_path, temp_dir / f"{channel}_t.npy")
+            _share_file(gap_path, temp_dir / f"{channel}_gap.npy")
             PyramidBuilder(temp_dir, channel).save_levels(
                 shared_t, values, gap_mask, include_base=False
             )

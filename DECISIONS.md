@@ -1892,3 +1892,102 @@ A plugin written against the published `TimeSeriesSource`, `VideoSource`, or `Se
 interfaces is a separate work and its author picks its licence. That boundary is deliberate: labs
 must be able to keep a loader for a proprietary instrument format closed, or the plugin system
 fails at its purpose.
+
+## 2026-08 · D-070 · Ephys samples are read through neo; wall-clock anchoring is not
+
+**Context:** An Open Ephys session drop produced no plotted ephys at all, and the video sat on a
+timeline 110 s longer than the footage. Fixing it invited writing a direct Open Ephys reader —
+numpy over `continuous.dat` is a short afternoon, and it sidesteps neo's dependency stack, which
+has bitten this project before (a `quantities` predating NumPy 2, see the shadowing trap in
+AGENTS.md).
+
+That is the wrong trade. The value of one ingest path is that every acquisition system downstream
+looks the same: one `ChannelInfo` shape, one chunk contract, one place a rate or a unit can be
+wrong. A second reader for the format we happen to have data for today is a second place for all of
+that to drift, and the next lab's Neuralynx or SpikeGLX folder gets nothing from it.
+
+**Decision:** every ephys sample AvialSync reads comes through `neo`. `NeoLoader` is the only
+time-series loader for acquisition formats, and a format-specific plugin may not read samples.
+
+What neo does **not** model is deliberately excluded from that rule and lives beside it in
+`loaders/open_ephys_format.py`:
+
+- which directory *is* a recording (`structure.oebin`), because neo accepts any level of the tree
+  and gives no way to enumerate recordings under a dropped folder;
+- what wall-clock instant the acquisition clock started at, which exists only in the first line of
+  `sync_messages.txt` — neo reports `t_start` on a free-running clock and knows nothing of epochs;
+- which timezone the rig was in, derived from the recording's own local-time directory name against
+  that UTC instant.
+
+**Alternatives rejected:** a direct binary reader (a second ingest path, and nothing reusable);
+teaching `NeoLoader` about `sync_messages.txt` (format knowledge in the generic loader, which is
+the thing D-068 exists to prevent).
+
+**Consequences:** neo's approximations are ours. It reconstructs sample times as
+`t_start + i / rate` rather than reading `timestamps.npy`, which on a real 30 kHz recording differs
+by 34 µs — one sample, constant, no drift. The session anchor is therefore also read through neo,
+so streams and their wall clock agree; taking the anchor from `timestamps.npy` instead would offset
+every stream from its own clock by that difference. If a recording ever needs true per-sample
+timestamps, fix it in neo or add a documented override — do not open the file behind neo's back.
+
+## 2026-08 · D-071 · One stream is one source; its channels share one stored clock
+
+**Context:** A 32-channel 30 kHz headstage imported as 32 separate sources. Every one wrote its own
+full-resolution `float64` timestamp array and its own gap mask, so a 13-minute recording whose raw
+data is 1.5 GB produced a ~14 GB sidecar — over 6 GB of it the same timestamps written 32 times, and
+6 GB of write time before anything could be plotted. Users read that as a hang, which is what it
+looks like.
+
+**Decision:** a session emits one `SessionItem` per acquisition stream, not per channel, and the
+loader offers `read_all_chunks` (D-067) only when it has proved every selected channel sits on one
+clock. `NeoLoader.read_all_chunks` is therefore an **instance attribute**, bound in `open()` and left
+`None` when the selection spans several rates — a class-level method would have been probed by
+`ImportWorker` and then silently interleaved two time bases.
+
+The importer stores that shared array once: `_finalize_bulk_channels` hard links each channel's
+`_t.npy` and `_gap.npy` to the single staged copy, falling back to a real copy on filesystems that
+cannot link. These files are written once and only ever mmapped read-only, so a shared inode is
+invisible to every reader.
+
+Each stream is pointed at its **own** directory rather than at the recording, because
+`CacheManager.get_cache_dir` names a sidecar after its source path alone. Streams sharing a path
+would take turns invalidating one another's cache, and each import would rebuild what the last one
+wrote. `NeoLoader` accepts `config["root"]` for this: the path is the source's cache identity, the
+root is what neo opens.
+
+**Consequences:** the same recording now costs ~7 GB instead of ~14 GB and imports in roughly half
+the time. The remaining half is `float64` values for 16-bit samples; extending D-023's conditional
+narrowing to the base `_v.npy` would halve it again, and needs its own decision and a cache-version
+bump. Do not "simplify" the hard link back to `shutil.copyfile`, and do not make anything write to a
+committed cache file in place — one in-place write would now corrupt every channel of the stream.
+
+## 2026-08 · D-072 · A container's nominal frame rate loses to the rig's timestamp sidecar
+
+**Context:** A machine-vision camera wrote 26 877 frames into an AVI declaring 30 fps CFR. It had
+actually free-run at 45.77 Hz and dropped 9 073 frames, so the real footage spans 785 s and the
+container claims 895 s. Playing it against ephys drifted apart by 110 s end to end, and no offset can
+take that out because the error accumulates. Correcting the rate to the measured 34.2 fps average is
+not enough either: with drops distributed through the recording, a single rate still leaves 51 ms RMS
+and 1.14 s at the worst frame.
+
+**Decision:** `VideoSource` gains an additive `exact_time_mapping()` returning per-frame
+`(master_time, source_time)`, defaulting to `None` so frozen v1 plugins are unaffected. A loader
+that knows when its frames were actually exposed returns that table, and `video_controller` installs
+it exactly as it installs an accepted `SyncProposal` — validated first for equal length, finiteness
+and strict monotonicity, because it arrives from a plugin and a non-monotonic table corrupts every
+seek made through it.
+
+An accepted or restored proposal outranks it. The user agreed to that mapping; silently replacing it
+with what a sidecar claims would undo an explicit decision.
+
+**Decision (placement):** the mapping fixes timing *within* a video. Where the video starts on the
+session clock stays **declared**, never fitted: the filename gives it to about a second, and the
+recording's own local/UTC evidence converts it. Matching the residual against a TTL line is a
+synchronization proposal and needs user acceptance (D-030), so it belongs to the sync wizard and not
+to a folder scan — even when, as here, the TTL is unmistakably the camera's own exposure strobe.
+
+**Consequences:** a video whose wall clock cannot be resolved is placed at the recording's first
+sample rather than at zero; the acquisition clock is not reset at record start, so zero would sit off
+the front of every stream for no visible reason. `frame_times()` keeps returning container
+presentation timestamps — it is source-time evidence used for frame stepping — and must not be
+repurposed to carry master time.

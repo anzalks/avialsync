@@ -147,6 +147,42 @@ def build_next_video_pane(window: MainWindow) -> None:
         window._create_video_pane(next_path, loader, media_path)
 
 
+def _declared_exact_mapping(loader: VideoSource, path: str) -> tuple[np.ndarray, np.ndarray] | None:
+    """Return per-frame timing the loader recorded, once it has been validated.
+
+    A source that knows when each of its frames was exposed — from a timestamp
+    sidecar or a trigger log — maps to master time piecewise, and no offset and
+    drift pair can express that once frames have been dropped.  The contract is
+    checked here rather than trusted: this arrives from a plugin, and a mapping
+    that is not strictly increasing would corrupt every seek made through it.
+    """
+    try:
+        mapping = loader.exact_time_mapping()
+    except Exception:  # noqa: BLE001 - plugin boundary
+        logger.warning("%s.exact_time_mapping failed", type(loader).__name__, exc_info=True)
+        return None
+    if mapping is None:
+        return None
+
+    master, source = (np.asarray(values, dtype=np.float64) for values in mapping)
+    if master.ndim != 1 or source.ndim != 1 or len(master) != len(source) or len(master) < 2:
+        logger.warning("%s: exact time mapping is not a pair of equal-length series.", path)
+        return None
+    if not (np.all(np.isfinite(master)) and np.all(np.isfinite(source))):
+        logger.warning("%s: exact time mapping contains non-finite times.", path)
+        return None
+    if np.any(np.diff(master) <= 0) or np.any(np.diff(source) <= 0):
+        logger.warning("%s: exact time mapping is not strictly increasing.", path)
+        return None
+    logger.info(
+        "%s: using %d declared frame times spanning %.3f s of master time.",
+        path,
+        len(master),
+        float(master[-1] - master[0]),
+    )
+    return master, source
+
+
 def create_video_pane(
     window: MainWindow, original_path: str, loader: object, media_path: str
 ) -> None:
@@ -154,11 +190,16 @@ def create_video_pane(
     offset = window._video_load_offsets.pop(original_path, 0.0)
     drift_ppm = window._video_load_drifts.pop(original_path, 0.0)
     exact_mapping = window._pending_exact_mappings.pop(original_path, None)
-    exact_master = exact_mapping[0] if exact_mapping is not None else None
-    exact_source = exact_mapping[1] if exact_mapping is not None else None
     if not isinstance(loader, VideoSource):
         window._on_video_open_error(original_path, "Selected loader is not a VideoSource.")
         return
+    if exact_mapping is None:
+        # A restored or accepted proposal outranks the loader's own evidence: the
+        # user agreed to that mapping, and silently replacing it with what the
+        # container's sidecar claims would undo an explicit decision.
+        exact_mapping = _declared_exact_mapping(loader, original_path)
+    exact_master = exact_mapping[0] if exact_mapping is not None else None
+    exact_source = exact_mapping[1] if exact_mapping is not None else None
     bounds = loader.time_bounds()
     window._set_video_coverage(
         original_path,

@@ -274,6 +274,24 @@ class VideoSource(_Nameable, ABC):
         """Nominal frames per second."""
         pass
 
+    def exact_time_mapping(self) -> tuple[np.ndarray, np.ndarray] | None:
+        """Return per-frame ``(master_time, source_time)`` evidence, or ``None``.
+
+        Additive default, so frozen v1 video plugins are unaffected.  Override it
+        when the acquisition system recorded when each frame was actually
+        exposed — a timestamp sidecar, a hardware trigger log — and the container
+        therefore cannot be trusted to say when its frames belong on the
+        timeline.  Dropped frames and variable rates make that a piecewise
+        relationship that no offset and drift pair can express, which is why this
+        returns a table rather than two numbers.
+
+        Both arrays must be the same length and strictly increasing.  The result
+        is treated the same as an accepted synchronization proposal, so returning
+        a guess here silently overrides what the user would otherwise be asked
+        to confirm; return ``None`` when the evidence is absent.
+        """
+        return None
+
     def video_metadata(self) -> VideoMetadata:
         """Return format-neutral inspection metadata.
 

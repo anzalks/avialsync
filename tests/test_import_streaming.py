@@ -265,3 +265,47 @@ def test_bulk_loader_missing_a_declared_channel_is_rejected(source_file: Path) -
     finished, errors = _run(ImportWorker(source_file, {}, _Partial))
     assert not finished
     assert errors and "every declared channel" in errors[0]
+
+
+def test_bulk_channels_share_one_stored_timestamp_array(source_file: Path) -> None:
+    """Every channel of a stream carries the same clock; storing it once is the point.
+
+    A 32-channel 30 kHz headstage names a copy of its 191 MB timestamp array after
+    every channel — six gigabytes of identical numbers, and six gigabytes of write
+    time before anything can be plotted.  Hard links make the copies one file.
+    """
+    finished, errors = _run(ImportWorker(source_file, {}, _BulkLoader))
+    assert not errors
+    cache_dir = Path(finished[0][1])
+
+    times_a = cache_dir / "a_t.npy"
+    times_b = cache_dir / "b_t.npy"
+    gaps_a = cache_dir / "a_gap.npy"
+    gaps_b = cache_dir / "b_gap.npy"
+
+    assert times_a.stat().st_ino == times_b.stat().st_ino
+    assert gaps_a.stat().st_ino == gaps_b.stat().st_ino
+    assert times_a.stat().st_nlink == 2
+
+    # Sharing an inode must not change what a reader sees.
+    assert np.array_equal(np.load(times_a), np.load(times_b))
+    assert np.array_equal(np.load(times_a), _signal()[0])
+
+
+def test_bulk_import_survives_a_filesystem_that_cannot_link(
+    source_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FAT, exFAT and some network mounts cannot hard link; copying is the fallback."""
+
+    def _no_links(source: str, target: str) -> None:
+        raise OSError("hard links unsupported")
+
+    monkeypatch.setattr("avialsync.engine.importer.os.link", _no_links)
+    finished, errors = _run(ImportWorker(source_file, {}, _BulkLoader))
+    assert not errors
+
+    cache_dir = Path(finished[0][1])
+    times_a = cache_dir / "a_t.npy"
+    times_b = cache_dir / "b_t.npy"
+    assert times_a.stat().st_ino != times_b.stat().st_ino
+    assert np.array_equal(np.load(times_a), np.load(times_b))

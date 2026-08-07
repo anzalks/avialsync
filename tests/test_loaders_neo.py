@@ -81,10 +81,14 @@ def test_neoloader_openephys(tmp_path: Path):
 
     loader = NeoLoader()
 
-    # 1. Test can_open logic
-    # The root folder should return 0.0 because it's too high up (prevents swallowing)
-    assert NeoLoader.can_open(fixture_path) == 0.0
-    # The experiment folder is within depth 1 of the dataset root, so it returns 1.0
+    # 1. Test can_open logic.
+    # This folder holds nothing but the dataset, at any depth, so it is claimed.
+    # It used to be refused for being more than one level above the dataset root,
+    # which is why dropping a record-node tree found no ephys at all. What that
+    # depth rule was really protecting against — a folder holding cameras beside
+    # the ephys — is now tested directly, in
+    # tests/test_loaders_open_ephys.py::test_neo_declines_a_folder_that_also_holds_cameras.
+    assert NeoLoader.can_open(fixture_path) == 1.0
     assert NeoLoader.can_open(fixture_path / "experiment1") == 1.0
 
     # 2. Test open and channel discovery

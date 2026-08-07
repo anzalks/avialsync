@@ -453,14 +453,17 @@ contradicts the runtime.
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
 | `ui/diagnostics.py` | Startup probe (hw-decode, disk speed) — async daemon thread; per-OS missing-libmpv text | `run_startup_diagnostics()`, `libmpv_install_guidance()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
-| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068) | `SessionSource`, `SessionLayout`, `SessionItem`, `display_name()` |
+| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068) | `SessionSource`, `SessionLayout`, `SessionItem`, `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
-| `ui/controllers/video_controller.py` | Bounded concurrent probes; serialized pane build (D-040) | `load_video()`, `create_video_pane()`, `MAX_VIDEO_PROBES` |
+| `ui/controllers/video_controller.py` | Bounded concurrent probes; serialized pane build (D-040); validates and installs loader-declared per-frame mappings (D-072) | `load_video()`, `create_video_pane()`, `_declared_exact_mapping()`, `MAX_VIDEO_PROBES` |
 | `ui/controllers/import_controller.py` | Time-series import queue; pose → overlay/3D routing (D-046) | `start_data_import()`, `on_import_finished()`, `register_tracking_source()` |
 | `loaders/csv_loader.py` | polars CSV ingest; epoch/time-of-day/datetime, euro-decimal, sentinel, BOM | `CSVLoader` |
 | `loaders/tracking_loader.py` | DeepLabCut CSV loader; multi-scorer; flat-headers per bodypart/coord | `TrackingLoader` |
-| `loaders/neo_loader.py` | Neo electrophysiology (OpenEphys/NCS/NIX); BFS dataset root detection; extension whitelist via `SUPPORTED_EXTENSIONS` | `NeoLoader` |
+| `loaders/neo_loader.py` | **The only ephys ingest path** (D-070). Per-stream selection via `config["stream_id"]`; `config["root"]` separates cache identity from what neo opens; `read_all_chunks` bound only when one clock spans the selection (D-071); TTL edges become a square wave, empty event channels are skipped | `NeoLoader`, `safe_channel_name()` |
+| `loaders/open_ephys_format.py` | What neo does not model: recording discovery (`structure.oebin`), the software-time epoch, and the rig UTC offset derived from the local session directory name (D-070) | `find_recordings()`, `anchor_epoch()`, `recording_utc_offset()`, `stream_folder_names()` |
+| `loaders/open_ephys_session.py` | Lays out a record-node tree plus the cameras beside it on one acquisition clock (D-068) | `OpenEphysSessionSource`, `parse_filename_time()` |
+| `loaders/open_ephys_camera.py` | Rig camera timed by its per-frame sidecar rather than the container's nominal rate (D-072) | `OpenEphysCameraLoader`, `read_frame_timestamps()` |
 
 ---
 
@@ -609,6 +612,34 @@ points over FaceCam. 2D carries no `start_epoch` (overlay uses mpv's media clock
 The session-level 3D file names no camera, so substring-matching its leading token bound it to
 whichever video came first. Blank tokens are ignored in `_resolve_eks_start_epoch`, which falls back
 to the earliest camera start with a log line.
+
+### 0e. A container's declared frame rate is a claim, not evidence (D-072)
+`camera_top….avi` on the reference Open Ephys session declares 30 fps CFR / 895.9 s. The camera
+actually free-ran at 45.77 Hz and dropped 9 073 of 35 950 exposures, so its 26 877 frames span
+785.5 s. Playing it against the ephys drifts 110 s end to end. Correcting the rate to the measured
+34.2 fps average still leaves 51 ms RMS and **1.14 s** at the worst frame, because the drops are
+spread through the recording. Only the per-frame sidecar fixes it — hence
+`VideoSource.exact_time_mapping()`. Do not "simplify" that to an fps override.
+
+### 0f. `*.xml` matches `settings.xml`, two levels above the samples (D-070)
+`NeoLoader._find_dataset_root` looked for weak glob signatures before the Open Ephys manifest, so a
+record-node tree resolved to the directory holding `settings.xml` rather than to the `recordingN`
+that holds the data. `find_recordings()` (manifest-based) now runs first; the glob BFS is the
+fallback for formats that have no manifest and stays capped at depth 2.
+
+### 0g. A sidecar cache is named after its source path *alone*
+`CacheManager.get_cache_dir` is `<path>.avialcache` — the loader and config affect only the
+invalidation key inside it, not the directory name. Two sources sharing a path therefore take turns
+invalidating each other, and each import silently rebuilds what the last one wrote. This is why every
+Open Ephys stream is pointed at its own `continuous/<stream>` directory and `NeoLoader` accepts
+`config["root"]` for what neo should actually open (D-071).
+
+### 0h. Cache files are shared inodes — never write to one in place (D-071)
+`_finalize_bulk_channels` hard links each channel's `_t.npy` and `_gap.npy` to one staged copy, so a
+32-channel stream stores its clock once instead of 32 times (~14 GB → ~7 GB). Everything reads these
+read-only via mmap, which is what makes that safe. One in-place write to a committed cache file would
+now corrupt every channel of the stream. `os.link` falls back to `shutil.copyfile` on FAT/exFAT and
+some network mounts.
 
 ### 1. No bare `QWidget { }` QSS selector — blacks out video panes
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  

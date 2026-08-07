@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import avialsync.core.registry as registry_module
-from avialsync.core.registry import LoaderRegistry
+from avialsync.core.registry import _BUILTIN_LOADERS, LoaderRegistry
 from avialsync.core.source import TimeSeriesSource, VideoSource
 
 
@@ -81,8 +81,10 @@ def test_loader_discovery(mock_eps):
     mock_eps.return_value = [ep1, ep2]
 
     registry = LoaderRegistry()
-    # Expect 6 built-in + 2 from entry points
-    assert len(registry._loaders) == 8
+    # Every built-in, plus the two mocked entry points. Counted from the built-in
+    # table rather than hardcoded: adding a format is routine, and a fixed number
+    # here fails for that alone while saying nothing about discovery.
+    assert len(registry._loaders) == len(_BUILTIN_LOADERS) + 2
     assert DummyTimeSeriesLoader in registry._loaders
     assert DummyVideoLoader in registry._loaders
 
@@ -170,7 +172,7 @@ def test_a_broken_plugin_does_not_cost_the_built_ins(tmp_path: Path) -> None:
 
     registry = LoaderRegistry(plugin_dirs=[tmp_path])
 
-    assert len(registry.loaders()) == 6
+    assert len(registry.loaders()) == len(_BUILTIN_LOADERS)
     assert registry.find_best_loader(Path("data.csv")) is not None
 
 
@@ -222,5 +224,5 @@ def test_a_broken_built_in_session_scanner_leaves_the_loaders_working(
 
     registry = LoaderRegistry(plugin_dirs=[tmp_path])
 
-    assert len(registry.loaders()) == 6
+    assert len(registry.loaders()) == len(_BUILTIN_LOADERS)
     assert registry.plugin_errors[0][0] == "MissingSessionSource"
