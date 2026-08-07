@@ -251,7 +251,11 @@ def create_video_pane(
     inspection = SourceInspection(
         path=original_path,
         loader_id=type(loader).__name__,
-        integrity_flags=IntegrityFlags(is_vfr=is_vfr, drift_nonzero=bool(drift_ppm)),
+        integrity_flags=IntegrityFlags(
+            is_vfr=is_vfr,
+            drift_nonzero=bool(drift_ppm),
+            frames_dropped=video_metadata.dropped_frames > 0,
+        ),
     )
     window._inspections[original_path] = inspection
     window.sidebar.set_video_inspection(original_path, inspection)

@@ -5,6 +5,7 @@ import logging
 import shutil
 import subprocess
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -26,13 +27,27 @@ _FRAME_TIMES_NAME = "video_frame_times.npy"
 _SIDECAR_NANOSECONDS = 1e9
 
 
-def read_frame_timestamps(sidecar: Path) -> np.ndarray | None:
-    """Return one timestamp in seconds per recorded frame, rebased to zero.
+@dataclass(frozen=True)
+class RecordedFrames:
+    """Per-frame exposure evidence read from a capture sidecar."""
 
-    The file is ``frame_number,timestamp`` with no header.  Only the timestamp
-    column is used; the frame counter is the camera's own free-running index and
-    its gaps are what prove frames were dropped, but the mapping is built from
-    the rows that exist rather than from the counter.
+    #: Exposure time of each stored frame, in seconds from the first.
+    times: np.ndarray
+
+    #: Exposures the camera counted but did not store.  Derived from the frame
+    #: counter, which is the only thing that proves they existed: the timestamps
+    #: alone cannot distinguish "a frame was dropped here" from "the camera ran
+    #: slower here", and on one real recording that was 9 073 frames — a quarter
+    #: of the take — invisible in every other field.
+    dropped: int = 0
+
+
+def read_frame_timestamps(sidecar: Path) -> RecordedFrames | None:
+    """Return per-frame exposure evidence from a ``frame_number,timestamp`` sidecar.
+
+    Both columns matter.  The timestamps place every stored frame on the
+    timeline; the counter says how many exposures never reached the file, which
+    no other field in the recording records.
 
     Returns ``None`` rather than raising for anything unreadable: a missing or
     malformed sidecar costs exact timing, which is a degraded import, while a
@@ -58,7 +73,14 @@ def read_frame_timestamps(sidecar: Path) -> np.ndarray | None:
         logger.warning("Frame timestamps in %s are not strictly increasing.", sidecar)
         return None
     rebased: np.ndarray = times - times[0]
-    return rebased
+
+    counter = np.asarray(raw[:, 0], dtype=np.float64)
+    steps = np.diff(counter)
+    # A step of one is consecutive; anything larger is that many lost exposures.
+    # Guarded against a counter that wraps or restarts, which would otherwise
+    # report a negative or absurd loss.
+    dropped = int(np.sum(steps[steps > 1] - 1)) if len(steps) and np.all(steps > 0) else 0
+    return RecordedFrames(times=rebased, dropped=dropped)
 
 
 class VideoStandardLoader(VideoSource):
@@ -91,6 +113,7 @@ class VideoStandardLoader(VideoSource):
         # video is at least as likely to be pose output as a timestamp log.
         self._exact_master: np.ndarray | None = None
         self._exact_source: np.ndarray | None = None
+        self._dropped_frames: int = 0
 
     @classmethod
     def can_open(cls, path: Path) -> float:
@@ -198,9 +221,11 @@ class VideoStandardLoader(VideoSource):
         if not sidecar_value:
             return
         sidecar = Path(sidecar_value)
-        recorded = read_frame_timestamps(sidecar)
-        if recorded is None:
+        evidence = read_frame_timestamps(sidecar)
+        if evidence is None:
             return
+        recorded = evidence.times
+        self._dropped_frames = evidence.dropped
         source = self._frame_times
         if source is None or len(source) < 2:
             logger.warning(
@@ -226,13 +251,15 @@ class VideoStandardLoader(VideoSource):
         self._exact_source = np.asarray(source[:paired], dtype=np.float64)
         self._exact_master = recorded[:paired] + float(config.get("start_time", 0.0))
         logger.info(
-            "%s timed from %s: %d frames over %.3f s (container claimed %.3f s at %.3f fps).",
+            "%s timed from %s: %d frames over %.3f s (container claimed %.3f s at %.3f fps); "
+            "%d exposure(s) dropped.",
             Path(str(self._path)).name,
             sidecar.name,
             paired,
             float(self._exact_master[-1] - self._exact_master[0]),
             self._duration,
             self._fps,
+            self._dropped_frames,
         )
 
     def exact_time_mapping(self) -> tuple[np.ndarray, np.ndarray] | None:
@@ -406,6 +433,7 @@ class VideoStandardLoader(VideoSource):
             duration=self._recorded_duration(),
             start_time=self._start_time,
             file_size_bytes=self._file_size,
+            dropped_frames=self._dropped_frames,
         )
 
     def time_bounds(self) -> tuple[float, float]:

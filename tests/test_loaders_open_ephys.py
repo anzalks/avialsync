@@ -363,8 +363,9 @@ def test_manifest_without_continuous_streams_yields_no_folders(recording: Path) 
 def test_read_frame_timestamps_returns_seconds_from_the_first_frame(tmp_path: Path) -> None:
     sidecar = tmp_path / "cam.csv"
     sidecar.write_text("63892,2041339938256\n63893,2041361788128\n63895,2041405488000\n")
-    times = read_frame_timestamps(sidecar)
-    assert times is not None
+    evidence = read_frame_timestamps(sidecar)
+    assert evidence is not None
+    times = evidence.times
     assert times[0] == 0.0
     assert times[1] == pytest.approx(0.02184987, abs=1e-8)
     assert len(times) == 3
@@ -902,3 +903,89 @@ def test_a_kind_matching_nothing_falls_back_rather_than_skipping(session_dir: Pa
     for _path, loader_cls, _config in selected:
         assert loader_cls is not None
     dialog.deleteLater()
+
+
+# ── Dropped exposures are missing data, but they are not gaps ───────────
+
+
+def test_dropped_exposures_are_counted_from_the_frame_counter(tmp_path: Path) -> None:
+    """The counter is the only proof they existed.
+
+    Timestamps alone cannot tell "a frame was dropped here" from "the camera ran
+    slower here", so discarding that column lost a quarter of one real take with
+    nothing anywhere to say so.
+    """
+    from avialsync.loaders.video_standard import read_frame_timestamps
+
+    sidecar = tmp_path / "cam.csv"
+    # Counter steps of 2 are one lost exposure each; three lost in total.
+    sidecar.write_text("10,0\n11,20000000\n13,60000000\n14,80000000\n17,140000000\n")
+
+    evidence = read_frame_timestamps(sidecar)
+    assert evidence is not None
+    assert len(evidence.times) == 5
+    assert evidence.dropped == 3
+
+
+def test_a_restarting_counter_reports_no_drops_rather_than_nonsense(tmp_path: Path) -> None:
+    from avialsync.loaders.video_standard import read_frame_timestamps
+
+    sidecar = tmp_path / "cam.csv"
+    sidecar.write_text("10,0\n11,20000000\n0,40000000\n1,60000000\n")
+    evidence = read_frame_timestamps(sidecar)
+    assert evidence is not None
+    assert evidence.dropped == 0
+
+
+def test_single_frame_drops_are_far_below_the_gap_threshold() -> None:
+    """Why dropped frames never appear as gap bars, and should not.
+
+    A gap means "no coverage here, do not draw across it". A dropped frame
+    leaves the timeline covered and every stored frame correctly placed; only
+    resolution is lost. One drop spans two sample intervals against a threshold
+    of ten, so `build_gap_mask` finds nothing — and marking thousands of them
+    would bury the trace rather than inform it.
+    """
+    from avialsync.core.pyramid import build_gap_mask
+
+    interval = 0.02185
+    times = np.arange(500, dtype=np.float64) * interval
+    times[250:] += interval  # one exposure dropped halfway through
+
+    assert build_gap_mask(times).sum() == 0
+    assert float(np.max(np.diff(times))) == pytest.approx(2 * interval)
+    assert 2 * interval < 10 * float(np.median(np.diff(times)))
+
+
+def test_dropped_frames_reach_the_readout_and_raise_a_flag(tmp_path: Path) -> None:
+    from avialsync.core.inspection import IntegrityFlags
+    from avialsync.ui.source_properties import _frame_count_text
+
+    video = VIDEO_FIXTURES / "dropped_frames.mp4"
+    if not video.exists():
+        pytest.skip("Fixtures not generated")
+
+    stored = VideoStandardProbe(video).frame_count
+    counter = np.arange(stored) * 2  # every other exposure lost
+    sidecar = tmp_path / "cam.csv"
+    sidecar.write_text(
+        "\n".join(f"{c},{int(i * 0.02 * 1e9)}" for i, c in enumerate(counter)), encoding="utf-8"
+    )
+
+    loader = VideoStandardLoader()
+    loader.open(video, {"frame_timestamps": str(sidecar), "start_time": 0.0})
+    metadata = loader.video_metadata()
+
+    assert metadata.dropped_frames == stored - 1
+    assert "dropped" in _frame_count_text(metadata)
+    assert IntegrityFlags(frames_dropped=metadata.dropped_frames > 0).any_flag
+
+
+def test_a_video_without_a_sidecar_reports_no_drops() -> None:
+    video = VIDEO_FIXTURES / "dropped_frames.mp4"
+    if not video.exists():
+        pytest.skip("Fixtures not generated")
+
+    loader = VideoStandardLoader()
+    loader.open(video, {})
+    assert loader.video_metadata().dropped_frames == 0

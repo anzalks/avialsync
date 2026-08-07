@@ -28,6 +28,25 @@ if TYPE_CHECKING:
     pass
 
 
+def _frame_count_text(metadata: VideoMetadata) -> str:
+    """Describe what the camera stored, and what it exposed but did not.
+
+    Dropped exposures are real missing data, and nothing else in the readout
+    shows them: the timeline stays correct because every stored frame is placed
+    where it was exposed, and they are far too short to register as gaps — a
+    one-frame drop is two sample intervals against a ten-interval threshold.
+    Losing a quarter of a recording should not be silent.
+    """
+    stored = metadata.frame_count
+    if stored is None:
+        return "—"
+    if metadata.dropped_frames <= 0:
+        return f"{stored} recorded"
+    exposed = stored + metadata.dropped_frames
+    share = 100.0 * metadata.dropped_frames / exposed
+    return f"{stored} recorded · {metadata.dropped_frames} dropped of {exposed} ({share:.1f}%)"
+
+
 def _row(label: str, value: str) -> tuple[str, str]:
     return label, value
 
@@ -141,6 +160,7 @@ class VideoPropertiesPanel(_PropertiesBase):
         else:
             measured = f"{metadata.measured_fps:.3f} fps"
         self._add_row("Timestamp rate", measured)
+        self._add_row("Frames", _frame_count_text(metadata))
         self._add_row("Decoder fps", "—")
         self._add_row("Decode mode", "—")
         fc = metadata.frame_count

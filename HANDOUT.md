@@ -693,6 +693,15 @@ matching none of them left `default_index` at 0, which is "Skip / Do Not Load": 
 listed, left it alone, and it silently did not import. It now falls back to the loader's primary
 name and logs. Silent non-import is the worst available failure — nothing reports it.
 
+### 0o. Dropped frames are invisible to the gap mask, by arithmetic (D-074)
+`build_gap_mask` flags intervals above 10x the median. One dropped exposure makes an interval of
+*two* medians — 43.7 ms against a 218.5 ms threshold on the reference camera, whose largest interval
+in 785 s is 43.71 ms. Video also never reaches that code at all: gaps are `ImportWorker`'s, and a
+`VideoSource` is not sampled data. Both are correct; the loss is reported as
+`VideoMetadata.dropped_frames` / `IntegrityFlags.frames_dropped` instead. The count comes from the
+sidecar's **frame counter** — timestamps cannot tell a drop from a slow-down, so never discard that
+column as redundant.
+
 ### 1. No bare `QWidget { }` QSS selector — blacks out video panes
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  
 **Fix:** Use QPalette for all theme colours. Application-level QSS changes native control metrics and

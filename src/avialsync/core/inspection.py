@@ -62,6 +62,9 @@ class IntegrityFlags:
     has_gaps: bool = False
     drift_nonzero: bool = False
     fps_provisional: bool = False
+    #: The camera's own frame counter skipped exposures it never stored.
+    #: Distinct from ``has_gaps``: alignment is intact, resolution is not.
+    frames_dropped: bool = False
 
     @property
     def any_flag(self) -> bool:
@@ -72,6 +75,7 @@ class IntegrityFlags:
                 self.has_gaps,
                 self.drift_nonzero,
                 self.fps_provisional,
+                self.frames_dropped,
             ]
         )
 
@@ -96,6 +100,7 @@ class IntegrityFlags:
             "has_gaps": self.has_gaps,
             "drift_nonzero": self.drift_nonzero,
             "fps_provisional": self.fps_provisional,
+            "frames_dropped": self.frames_dropped,
         }
 
     @classmethod
@@ -106,6 +111,7 @@ class IntegrityFlags:
             has_gaps=d.get("has_gaps", False),
             drift_nonzero=d.get("drift_nonzero", False),
             fps_provisional=d.get("fps_provisional", False),
+            frames_dropped=d.get("frames_dropped", False),
         )
 
 

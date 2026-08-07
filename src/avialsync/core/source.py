@@ -45,6 +45,15 @@ class VideoMetadata:
     start_time: float | None = None
     file_size_bytes: int = 0
 
+    #: Exposures the camera took but did not store, when it recorded a frame
+    #: counter to prove it. This is genuinely missing data, but it is *not* a
+    #: gap: every frame that was kept still lands at the instant it was exposed,
+    #: so nothing is misaligned and no stretch of the timeline is uncovered.
+    #: What is lost is temporal resolution, which no gap marker describes —
+    #: one-frame drops sit far below the pyramid's 10x-median gap threshold and
+    #: marking 9 073 of them would bury the trace rather than inform it.
+    dropped_frames: int = 0
+
 
 #: Where to break a class name into words: after a lower-case run, and before
 #: the last capital of a capital run that starts a new word.  The second case is

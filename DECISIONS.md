@@ -2034,3 +2034,36 @@ timeline. A session knows the rig's convention and opts in; the loader never goe
 
 Names must stay unique across every registered plugin, aliases included — the dialog is a picker,
 and two identical entries cannot be told apart. A test enforces it.
+
+## 2026-08 · D-074 · A dropped frame is missing data, but it is not a gap
+
+**Context:** One camera stored 26 877 frames of 35 950 exposures — a quarter of the take lost — and
+nothing in the application said so. The natural question is why those do not appear as gaps.
+
+Two independent reasons, both correct:
+
+- A `VideoSource` never reaches `build_gap_mask`. Gaps are computed by `ImportWorker`, which
+  handles time series; video goes through `video_controller` and is not sampled data.
+- Even routed through it, the answer would be zero. `build_gap_mask` flags an interval above ten
+  times the median. One dropped exposure makes an interval of *two* medians — 43.7 ms against a
+  218.5 ms threshold — and on this recording the counter never skips more than one at a time, so
+  the largest interval in 785 s is 43.71 ms. Nothing comes within a factor of five.
+
+**Decision:** that behaviour stays. A gap means "no coverage here, do not draw across it". A
+dropped frame leaves the timeline fully covered and every stored frame correctly placed by its
+exact mapping; what is lost is temporal *resolution*, not alignment or coverage. Marking 9 073 of
+them would bury the trace rather than inform it, and would misdescribe what happened.
+
+**Decision:** the loss is reported as its own integrity fact instead. `VideoMetadata.dropped_frames`
+carries the count, `IntegrityFlags.frames_dropped` raises the same warning affordance other
+anomalies use, and Source Properties reads
+``26877 recorded · 9073 dropped of 35950 (25.2%)``.
+
+The count comes from the sidecar's **frame counter**, not its timestamps. That column had been
+discarded as redundant, which is exactly wrong: timestamps alone cannot distinguish "a frame was
+dropped here" from "the camera ran slower here", and the counter is the only record that those
+exposures happened at all. A counter that restarts or runs backwards reports zero rather than a
+nonsense figure.
+
+**Consequences:** `read_frame_timestamps` returns `RecordedFrames`, not a bare array. Do not
+"simplify" it back — the second field is evidence that exists nowhere else in the recording.
