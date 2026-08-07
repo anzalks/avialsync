@@ -26,6 +26,7 @@
 | Metric | Budget |
 |---|---|
 | Scrub response (3 cams, exact seek, release-of-slider) | ≤ 250 ms |
+| Scrub response, drag (3 cams, cache-resident span) | ≤ 50 ms (D-075) |
 | Plot pan/zoom frame time ★ | ≤ 16 ms |
 | Full populated cursor update per tick ★ | ≤ 2 ms |
 | 3D pose sample (128 XYZ points) ★ | ≤ 2 ms |
@@ -38,6 +39,24 @@
 Benchmarks live in `tests/benchmarks/`, run locally via `pytest --benchmark-only`, where the raw
 ★ marks are enforced without a multiplier. GitHub Actions verifies the representative scientific
 session's correctness across platforms but does not use shared hosted machines to certify speed.
+
+### Measured scrub baseline (2026-08-07, D-075)
+
+macOS arm64, three 1440×1080 files, 3-cam parallel fanout, long-GOP (250) worst case. The lab's own
+all-intra footage is roughly six times faster than the figures below.
+
+| Interaction | libmpv | PyAV + frame cache | Budget |
+|---|---|---|---|
+| Jump to a new time | 330 ms | 106 ms | 250 ms |
+| Drag the slider | 338 ms | 8 ms | 50 ms |
+| Re-scrub a covered span | 333 ms | 7 ms | 50 ms |
+
+**libmpv missed the 250 ms scrub budget on every interaction.** It costs ~330 ms whether it jumps,
+drags, or revisits ground it just covered — that flatness is the exact-seek settle round-trip
+through the `seeking` property observer, not decode work, and it cannot improve on a re-scrub
+because mpv holds no memory of where it just was. This is what motivated D-075. Sustained decode
+measured 1679 fps aggregate across three concurrent panes against ~180 fps needed to feed them, so
+hardware decode is not required to hold these numbers.
 
 ### Full performance and accurate-streaming audit (2026-07-29; implementation closed 2026-07-30)
 

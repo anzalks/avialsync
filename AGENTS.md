@@ -36,10 +36,18 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
 
 ## Tech stack — FIXED
 
-- Python 3.11–3.12 · PySide6 (never PyQt5/PyQt6 — license) · libmpv via `python-mpv` (PyPI name; import `mpv`) for ALL video
-  playback (never QtMultimedia, never OpenCV for playback) · pyqtgraph for plots · numpy + polars
-  for data · hatchling build · pytest / pytest-qt / pytest-benchmark / hypothesis.
-- Dependency policy: no GPL/AGPL. Adding any dependency requires: license named in PR description,
+- Python 3.11–3.12 · PySide6 (never PyQt5/PyQt6 — license) · PyAV (`av` on PyPI, import `av`) for
+  ALL video decoding and probing (never QtMultimedia, never OpenCV, never libmpv — D-075)
+  · pyqtgraph for plots · numpy + polars for data · hatchling build
+  · pytest / pytest-qt / pytest-benchmark / hypothesis.
+- **`pip install avialsync` must need no OS-level install step on any platform.** A change that
+  reintroduces one is rejected. The single documented exception is Qt's own floor: PySide6 needs
+  system GL/xcb libraries on Linux, which no packaging choice removes. Migration in progress on
+  branch `shift_from_libmpv_to_pyav` — see MIGRATION_PYAV.md before touching video code.
+- Dependency policy: the project is AGPL-3.0-or-later (D-069), so GPL dependencies are
+  licence-*compatible* but foreclose the commercial dual-licence — prefer LGPL, and escalate any
+  GPL-configured binary to a DECISIONS.md entry rather than deciding it in a packaging commit
+  (D-015 as amended). Adding any dependency requires: license named in PR description,
   justification, and it must be pip-installable on all 3 OSes.
 
 ## Architecture rules (violations = rejected PR)
@@ -48,14 +56,20 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
    they subscribe to MasterClock. Time is float seconds, UTC epoch, with per-source
    `offset + drift_rate` mapping in TimeMap.
 2. `core/` is headless: importing anything from `core/` must not import PySide6. Enforced by a test.
-3. UI thread never blocks: no file IO, parsing, or decoding on it. Use worker threads / mpv's own
-   threads. Any function that can take > 30 ms gets a worker + progress signal.
+3. UI thread never blocks: no file IO, parsing, or decoding on it. Use worker threads — PyAV
+   releases the GIL during decode, so decode threads genuinely run in parallel. Any function that
+   can take > 30 ms gets a worker + progress signal.
 4. Plotting only via the decimation pyramid (`core/pyramid.py`). Never pass raw full-resolution
    arrays to pyqtgraph for datasets > 100 k samples.
 5. All data sources go through the plugin ABCs in `core/source.py` (`TimeSeriesSource`,
    `VideoSource`). Built-in CSV/video support are plugins too. Do not special-case formats in UI code.
 6. Playback: sync correctness beats frame completeness (drop frames, never drift). Paused/stepping:
-   exact seeks only (`seek --exact` semantics).
+   exact seeks only. **The frame shown for master time `t` is the one whose presentation interval
+   contains `t` — the last frame with `pts <= t`, per `ui/video_timing.py::frame_index_at`.** A
+   reader returning the first frame with `pts >= t` is wrong at every scrub position between two
+   frames (measured 179/179; 33 ms of misattribution at 30 fps). Frame caches are keyed by integer
+   frame index, never by float time. One authority selects *and* names the frame — never two
+   (D-075).
 7. Text data is parsed once → binary sidecar cache (`core/cache.py`), mmap-read afterwards.
 8. Synchronization is evidence-based. TTL/event alignment preserves raw source timestamps and records
    matched evidence, fitted offset/drift, residuals, and confidence. Never silently invent a match or
@@ -136,15 +150,16 @@ conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format 
 5. Fixtures, not real data: all tests use `tools/make_fixtures.py` outputs. Never assume the user's
    private field data is available; never hardcode paths outside the repo/tmp.
 6. Cross-platform paranoia: pathlib everywhere; no shell=True; guard OS-specific code
-   (`sys.platform`) and provide fallbacks; mpv embedding differs per OS — keep that logic isolated
-   in `ui/video_pane.py`.
+   (`sys.platform`) and provide fallbacks. Video rendering no longer differs per OS (D-075 removed
+   the mpv `wid`/render-context split) — if you find yourself adding a `sys.platform` branch to
+   `ui/video_pane.py`, that is a signal to stop and reconsider.
 7. When uncertain between two designs, choose the one that keeps `core/` simpler and put the
    complexity in the adapter/UI layer.
 8. Update `DECISIONS.md` when you make a choice future agents must not reverse.
 9. Consistency over preference: match existing naming/patterns in the module you touch, even if
    you'd choose differently. Multiple models rotate through this codebase; style entropy is a
    real failure mode. Do not "improve" working patterns without a DECISIONS.md entry.
-10. Library APIs (mpv, pyqtgraph, polars) may differ from your training data — verify against
+10. Library APIs (PyAV, pyqtgraph, polars) may differ from your training data — verify against
     the installed version's docs/signatures when behavior surprises you; don't force remembered APIs.
 11. Test and scratch script locations: NEVER create temporary test scripts, scratch files, or ad-hoc tests in the repository root or inside `src/`. All formal tests must be placed in `tests/` and appropriately named (e.g., `test_*.py`). If you need temporary scratch files, use the designated artifact scratch folder or `/tmp/`, and clean them up afterward.
 
@@ -158,8 +173,19 @@ conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format 
   rather than an infrastructure stall. The codecs the fixtures need are *depends*, not recommends.
 - Runner images are pinned (`ubuntu-24.04`, `macos-15`, `windows-2022`), not `*-latest`. A floating label already broke the release once, when an image bump renamed `fuse` to `libfuse2t64`. `tests/test_ci_platform_config.py` fails if a floating label reappears.
 - `choco install ffmpeg` on the Windows job is **not** pinned, unlike the runner images and the SHA-256-pinned libmpv archive beside it. Chocolatey moved 8.1.2 → 9.0.0 between two runs an hour apart and ffmpeg 9 removed `-vsync`, so both Windows jobs went red with no commit in between — re-running the last green run at the same SHA reproduced it. Before debugging a Windows-only CI failure, diff the `ffmpeg vX.Y.Z [Approved]` line in the choco step against the last green run. Use `-fps_mode`, never `-vsync`, in anything that shells out to ffmpeg.
-- Windows CI also needs an explicit, pinned libmpv DLL archive with SHA-256 verification and an
-  `import mpv` probe. Do not assume a runner image provides a compatible DLL.
+- Windows CI needed an explicit, pinned libmpv DLL archive with SHA-256 verification and an
+  `import mpv` probe. **D-075 removes that step** — PyAV's wheel carries its own FFmpeg, so there is
+  no DLL to fetch or verify. If you are reading this in a workflow that still fetches one, the
+  migration is incomplete; see MIGRATION_PYAV.md step 8.
+- PyAV fixture writing: you must set **both** `stream.time_base` and
+  `stream.codec_context.time_base`. Setting only the former makes `mux()` reject every packet with
+  a bare `ArgumentError: Invalid argument ... returned 22`, which reads like a corrupt file rather
+  than a missing attribute.
+- A PyAV reader's forward-decode-vs-reseek crossover must be measured in **frames against GOP
+  size**, never in seconds. A fixed 2-second window at 230 fps walks ~460 frames forward where a
+  re-seek costs ~125; that alone took the 3-cam jump case from 106 ms to 293 ms, over budget.
+- B-frame content demuxes in *decode* order. A pts table built by iterating packets must be sorted
+  into display order, or every frame lookup is quietly scrambled.
 - CI does **not** run benchmarks: both workflows pass `--ignore=tests/benchmarks`. Seeing
   `pytest-benchmark` in a CI log means `pip install -e ".[dev]"` installed it, not that it ran.
   Speed is certified locally with `pytest --benchmark-only` (BLUEPRINT.md "Performance budgets").

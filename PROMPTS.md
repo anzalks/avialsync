@@ -4,6 +4,13 @@ Model-agnostic: written for frontier coding agents (Claude Sonnet/Opus-class, GP
 Gemini 3-class). Paste the Universal Preamble + the phase prompt into a fresh session.
 Break each phase into the numbered tasks; run ONE task per agent session for clean context.
 
+> **Historical note (D-075).** The Phase 2–5 prompts below describe building the libmpv playback
+> path — the video pane, the drift-corrected follow loop, the startup probe and guided-install
+> dialog, the SHA-pinned Windows DLL step. That path is being replaced by PyAV on branch
+> `shift_from_libmpv_to_pyav`. These prompts are kept as the record of how the shipped system was
+> built; **do not use them to write new video code.** MIGRATION_PYAV.md is the current instruction
+> set for anything touching playback, seeking, or media packaging.
+
 ---
 
 ## Universal preamble (prepend to every session)
@@ -15,7 +22,9 @@ You are working on AvialSync. Before doing anything:
 3. State a short plan (files, tests, risks) and wait for nothing — proceed unless the plan
    conflicts with AGENTS.md, in which case stop and report the conflict.
 Hard rules recap: core/ never imports PySide6; UI thread never blocks; all plotting via the
-pyramid; libmpv only for video; no GPL deps; tests ship with code; never weaken failing tests.
+pyramid; PyAV only for video (D-075 — never libmpv/QtMultimedia/OpenCV); pip must need no OS-level
+install; prefer LGPL deps and escalate GPL binaries to DECISIONS.md; tests ship with code; never
+weaken failing tests.
 For CI, playback, or packaging work, distinguish hosted-runner correctness from local performance
 certification and release validation. Preserve exact-frame evidence; do not hide a platform or
 lifecycle failure with sleeps, skips, a native CI display override, or a weaker assertion.

@@ -1,9 +1,14 @@
 # AvialSync — Model Handout
 
 Desktop tool for scrubbing time-synchronized multi-camera video with dense time-series data on a single master timeline.  
-**Stack:** Python 3.11–3.12, PySide6, libmpv (python-mpv), pyqtgraph, polars, numpy
+**Stack:** Python 3.11–3.12, PySide6, PyAV (`av`), pyqtgraph, polars, numpy
 **License:** AGPL-3.0-or-later, dual-licensed (D-069). Contributions require the CLA.  
 **Env:** `conda run -n avialsync <cmd>` — every command without exception
+
+> **⚠ Migration in flight — read MIGRATION_PYAV.md before touching video code.**
+> Branch `shift_from_libmpv_to_pyav` is replacing libmpv with PyAV so that `pip install avialsync`
+> needs no OS-level install on any platform (D-075). That file carries the step-by-step status,
+> the traps, and what to do if you have arrived mid-way. Video code on `main` still uses libmpv.
 
 ---
 
@@ -25,7 +30,7 @@ Use `AvialSync` for displayed text and `avialsync` for technical identifiers. Do
 | Layer | Library | Notes |
 |---|---|---|
 | GUI | `PySide6` | NEVER PyQt5/PyQt6 — license |
-| Video | `python-mpv` → `import mpv` | Lazy import only (D-013). Never QtMultimedia or OpenCV for playback |
+| Video | `av` (PyAV) → `import av` | FFmpeg ships inside the wheel. Never QtMultimedia, OpenCV, or libmpv (D-075) |
 | Plots | `pyqtgraph` | All data via decimation pyramid — never raw arrays >100k samples |
 | Data | `polars` + `numpy` | polars for CSV; numpy for pyramid math |
 | Build | `hatchling` | `pip install -e .[dev]` |
@@ -127,6 +132,10 @@ with explicit user acceptance and session provenance. Native plugin event provid
   `diagnostics.libmpv_install_guidance()` and are documented in `docs/install.md` "What pip cannot
   install", `docs/quickstart.md`, and `docs/troubleshooting.md`. D-014's Windows in-app
   auto-fetch was superseded and never built; do not reintroduce a downloader.
+  **Reversed by D-075:** the pip channel now carries its own decoder, so there is no missing-library
+  first run, no guided dialog, and no "what pip cannot install" section. The prohibition on an
+  in-app downloader still stands — an application must not fetch its own binaries at runtime; that
+  is what the wheel is for.
 - **Video pane shutdown**: `MainWindow.closeEvent()` calls `Player.stop()` and then
   `VideoGrid.shutdown()` before Qt destroys child widgets. This removes the precise 60 Hz timer and
   closes every `VideoPane`, so python-mpv can join its event thread;
@@ -406,8 +415,9 @@ contradicts the runtime.
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
-| `engine/player.py` | precise 60 Hz tick; decoder-independent MasterClock ↔ mpv ↔ UI | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
-| `engine/seeker.py` | Parallel seek across all mpv panes | `SeekGroup` |
+| `engine/pyav_reader.py` | Headless exact-frame reader: pts table, seek, index-keyed LRU (D-075) | `PyAVReader.frame_at()`, `.frame_times()` |
+| `engine/player.py` | precise 60 Hz tick; MasterClock ↔ panes ↔ UI. Owns the clock, so no drift correction (D-075) | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
+| `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
 | `engine/drop_worker.py` | Off-thread drop classification; AOL session fan-out, pose `role` tagging (D-046) | `DropScanWorker` — signals: `finished(candidates, is_aol)`, `session_found`, `error` |
 | `engine/session_worker.py` | Off-thread `.avv` save/load | `SessionSaveWorker`, `SessionLoadWorker` |
 | `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `ReaderReference` |
@@ -421,7 +431,7 @@ contradicts the runtime.
 | `engine/session_worker.py` | Off-UI-thread session save/load and annotation export (D-046) | `SessionSaveWorker`, `SessionLoadWorker`, `AnnotationExportWorker` |
 | `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `ui/main_window.py` | Widget construction, menu/shortcut table, controller wiring; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066) | `MainWindow` |
-| `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane`, `set_sync_correction()`, `video_size` (mirrored from `video-out-params`; the paint path must read this, never mpv) |
+| `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075) | `VideoPane`, `set_sync_correction()`, `video_size` |
 | `ui/video_timing.py` | Timestamp rate/readout/frame-index helpers and pane timing mixin | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
 | `ui/video_overlay.py` | Transparent current-frame tracking paint layer | `PaintCanvas` |
 | `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()` |
@@ -451,7 +461,7 @@ contradicts the runtime.
 | `ui/annotations.py` | Annotation store + list panel | `AnnotationStore`, `AnnotationPanel` |
 | `ui/theme.py` | QPalette + system/dark/light appearance only | `apply_theme()`, `load_saved_theme()`, `current_preference()`, `THEME_SYSTEM/DARK/LIGHT` |
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
-| `ui/diagnostics.py` | Startup probe (hw-decode, disk speed) — async daemon thread; per-OS missing-libmpv text | `run_startup_diagnostics()`, `libmpv_install_guidance()` |
+| `ui/diagnostics.py` | Startup probe (decoder, disk speed) — async daemon thread. D-075 drops `libmpv_install_guidance()` | `run_startup_diagnostics()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
 | `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable` | `SessionSource`, `SessionLayout`, `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files | `build_session_state()`, `restore_session()`, `start_session_save()` |
@@ -561,6 +571,14 @@ _start_data_import(path)
 ---
 
 ## Known Traps
+
+> **Scope note (D-075).** Traps below that concern libmpv specifically — render-context teardown
+> ordering, `mpv.terminate()` join deadlocks, property-observer threading, the `wid`-vs-render-API
+> split, and the missing-libmpv first-run dialog — describe code being removed on branch
+> `shift_from_libmpv_to_pyav`. They remain here as the record of *why* the old design looked as it
+> did, and they still apply to `main` until the migration lands. Do not port them forward, and do
+> not treat them as constraints on the PyAV design; see MIGRATION_PYAV.md for the traps that
+> replace them.
 
 ### 0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)
 Two variants, one cause. A worker `deleteLater`-ed from a signal its own thread emits is destroyed

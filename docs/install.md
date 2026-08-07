@@ -1,8 +1,9 @@
 # Installation
 
-AvialSync installs in one of two ways. The desktop installer is self-contained. A `pip` install is
-smaller and scriptable, but it cannot supply two native components that video playback and export
-depend on — see [What pip cannot install](#what-pip-cannot-install).
+AvialSync installs in one of two ways, and both are self-contained. The desktop installer is a
+single download. A `pip` install is smaller and scriptable, and it now brings its own video
+decoder and FFmpeg, so there is nothing to install afterwards — on any platform. Linux users
+should read [one note about Linux](#one-note-about-linux).
 
 ## Desktop installers (recommended)
 
@@ -15,7 +16,7 @@ Download the artifact for your platform from the
 | macOS | `AvialSync.dmg` | Open it and drag **AvialSync** to Applications |
 | Linux | `AvialSync.AppImage` | `chmod +x AvialSync.AppImage`, then run it |
 
-Each bundles libmpv and FFmpeg, so nothing else is required. The AppImage is portable and needs no
+Each bundles its video decoder and FFmpeg, so nothing else is required. The AppImage is portable and needs no
 system-wide installation. Then open **AvialSync** like any other desktop application.
 
 ### None of them need administrator rights
@@ -70,32 +71,34 @@ Use `python -m pip`, not a bare `pip`. A bare `pip` can be a different environme
 still first on `PATH`, which installs the package somewhere the `python` you are about to run will
 not look.
 
-### What pip cannot install
+That is the whole installation. Video decoding and FFmpeg arrive inside the Python packages `pip`
+installs, so there is no second step and no system package manager involved. **Help → Diagnostics**
+reports what was found if you want to confirm.
 
-`pip install avialsync` supplies every Python dependency, but two runtime components are native
-libraries rather than Python packages, so `pip` cannot deliver them:
+### One note about Linux
 
-- **libmpv** plays video. The `python-mpv` dependency is only a binding — it loads a libmpv that
-  already exists on the machine and ships no copy of its own.
-- **FFmpeg** (`ffmpeg` and `ffprobe`) probes files and writes exports.
+Linux only, and it is not about video. AvialSync's user interface is built on Qt, which needs a few
+graphics libraries from the system — `libgl1`, `libxkbcommon`, and the usual X11/xcb set.
 
-AvialSync still opens without them, and its time-series, tracking, annotation, and session features
-all work. Video stays disabled and a `Missing libmpv` dialog names the step for your platform.
-**Help → Diagnostics** reports what was found.
+**Every ordinary Linux desktop already has these**, because anything with a graphical session does.
+You will only hit this on a minimal install: a bare Docker image, a headless server, or a stripped
+CI container. The symptom is a Qt error at launch mentioning `libGL.so.1` or an `xcb` plugin, not a
+video problem.
 
-Install both once:
+On Debian or Ubuntu:
 
-| Platform | Command |
-|---|---|
-| macOS | `brew install ffmpeg mpv` |
-| Debian / Ubuntu | `sudo apt install ffmpeg libmpv2` (`libmpv1` on releases before that package) |
-| Fedora | `sudo dnf install ffmpeg mpv-libs` |
-| Arch | `sudo pacman -S ffmpeg mpv` |
+```bash
+sudo apt install libgl1 libxkbcommon-x11-0
+```
+
+This is a requirement of Qt itself and applies to every Python GUI application built on it. No
+packaging choice on our side can remove it. Windows and macOS have no equivalent — there, `pip
+install avialsync` really is the only step.
 
 ### Windows
 
-Windows needs the same two native components, plus one Windows-only precaution about where `pip`
-puts things. None of the steps below need administrator rights.
+Windows needs nothing beyond `pip`, but there is one Windows-only precaution about where `pip` puts
+things. Neither step needs administrator rights.
 
 #### 1. Create the environment
 
@@ -131,22 +134,15 @@ Both paths must sit under `...\.conda\envs\avialsync\`. If either names `AppData
 the per-user directory is still shadowing the environment; `PYTHONNOUSERSITE` fixes the current
 environment, and deleting `%APPDATA%\Python\Python312` fixes it everywhere.
 
-#### 3. Supply libmpv and FFmpeg
-
-No Windows package manager ships `libmpv-2.dll`, so fetch it directly: download an
-`mpv-dev-x86_64-*` archive from the
-[mpv-player-windows libmpv files](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/),
-extract it, and point AvialSync at the folder that holds the DLL.
+#### 3. Run it
 
 ```powershell
-winget install --id Gyan.FFmpeg.Shared -e
-setx AVIALSYNC_MEDIA_ROOT "C:\path\to\mpv-dev"
+avialsync
 ```
 
-`AVIALSYNC_MEDIA_ROOT` must name the directory that *directly* contains `libmpv-2.dll`; a parent
-folder is not searched. AvialSync looks there before the conda environment and `PATH`, and the same
-folder may hold `ffmpeg.exe` and `ffprobe.exe`. Open a new terminal after `setx` so the variable is
-set, then run `avialsync`.
+There is no third install step. Earlier versions required a `libmpv-2.dll` downloaded by hand from
+SourceForge plus a separate FFmpeg and an `AVIALSYNC_MEDIA_ROOT` environment variable; none of that
+is needed any more, and you can delete `AVIALSYNC_MEDIA_ROOT` if you set it previously.
 
 ## Check the installation
 
@@ -155,8 +151,8 @@ avialsync demo
 ```
 
 This generates and opens a complete sample session, so you can confirm video, plots, and
-synchronization work before adding your own recordings. **Help → Diagnostics** shows whether libmpv
-and hardware decoding were found.
+synchronization work before adding your own recordings. **Help → Diagnostics** shows what the
+decoder reported.
 
 Running from a Git checkout instead? See
 [development setup](technical/development.md).

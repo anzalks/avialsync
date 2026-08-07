@@ -169,9 +169,13 @@ Context: need one representation across video, 50 kHz data, UI. Alternatives: in
 per-source relative time. float64 gives ~µs precision at epoch scale — sufficient (50 kHz = 20 µs
 sample spacing); simpler math everywhere. Consequence: never use float32 for time anywhere.
 
-## 2026-07 · D-002 · Video playback = libmpv only
+## 2026-07 · D-002 · Video playback = libmpv only — SUPERSEDED by D-075
 Alternatives rejected: QtMultimedia (inaccurate seeks), OpenCV (no proper playback pipeline),
 GStreamer (dependency pain on Windows/macOS). Consequence: bundle LGPL mpv in installers.
+**Superseded 2026-08 by D-075: playback is PyAV.** The rejections above still hold on their own
+terms — QtMultimedia and OpenCV are still not frame-exact — but libmpv measured slower than PyAV
+at scrubbing (330 ms vs 106 ms, and 338 ms vs 8 ms on a drag) while costing every pip user a
+manual OS install. See MIGRATION_PYAV.md.
 
 ## 2026-07 · D-003 · License Apache-2.0; no GPL deps — SUPERSEDED by D-069
 Enables commercialization and permissive reuse. PyQt (GPL) banned; PySide6 (LGPL) allowed.
@@ -249,7 +253,14 @@ administrator-maintained URL/checksum variables.
 **Consequences:** updating AppImageTool is a reviewable source change that updates both values in
 one commit. A tag release remains fully hands-off after PyPI Trusted Publishing is configured.
 
-## 2026-07 · D-013 · Lazy mpv import + startup probe (never crash on missing libmpv)
+## 2026-07 · D-013 · Lazy mpv import + startup probe — SUPERSEDED by D-075
+**Superseded 2026-08: there is no libmpv to probe for.** PyAV ships FFmpeg inside its own wheel, so
+the missing-library case this decision defends against cannot occur — pip either installed the
+decoder or the install itself failed. The probe, the guided per-OS dialog, and
+`ui/diagnostics.libmpv_install_guidance` are removed. What survives in spirit: a missing *runtime*
+component must never produce a ctypes traceback at launch, and any message about one must name a
+route a pip user can actually take. Original text follows.
+
 `import mpv` is FORBIDDEN at module top level anywhere. video_pane imports lazily after
 diagnostics probes for libmpv. Missing lib → app still opens, shows an OS-detected dialog with
 the exact install one-liner (apt/dnf/pacman/brew), or on Windows the mpv-dev archive plus
@@ -272,10 +283,16 @@ supports, now named by the D-013 dialog and documented in README and `docs/quick
 An optional `avialsync[media]` binary companion wheel remains the post-1.0 way to make Windows pip
 zero-step. Do not reintroduce an in-app downloader instead.
 
-## 2026-07 · D-015 · LGPL-configured libmpv ONLY in bundles
+## 2026-07 · D-015 · LGPL-configured libmpv ONLY in bundles — AMENDED by D-075
 libmpv is dual GPL/LGPL; bundling a GPL-configured build would poison D-003. Packaging must use
 LGPL builds (-Dgpl=false; e.g. shinchiro LGPL Windows builds) and CI release asserts the build
 flavor before bundling. Same for ffmpeg (LGPL configuration, no --enable-gpl).
+**Amended 2026-08 by D-075:** the libmpv half is void — nothing bundles libmpv any more. The FFmpeg
+half **still governs**, and now applies to the pip channel too, because PyAV's wheels carry FFmpeg
+into every install rather than only into installers. Upstream `av` wheels bundle libx264/libx265,
+i.e. a GPL configuration; per D-069 that is licence-compatible with AGPL distribution but forecloses
+the commercial dual-licence. Prefer an LGPL-configured build. Choosing otherwise is a maintainer
+decision recorded in D-075, not a packaging detail.
 
 ## 2026-07 · D-016 · Code signing: stubbed at v1.0, hooks ready
 v1.0 ships unsigned (SmartScreen "Run anyway" / macOS right-click-Open documented in README +
@@ -283,9 +300,12 @@ docs). Release workflow contains signing/notarization steps behind secrets-prese
 so enabling later = adding secrets, zero code change. Buy Apple $99/yr + Windows signing at
 first commercial interest or when Mac-user friction reports appear.
 
-## 2026-07 · D-017 · python-mpv naming
+## 2026-07 · D-017 · python-mpv naming — SUPERSEDED by D-075
 Dependency is `python-mpv` on PyPI; imported module is `mpv`. The unrelated PyPI package named
 `mpv` must never be installed. Pin in pyproject: python-mpv>=1.0.7.
+**Superseded 2026-08: the dependency is dropped entirely.** The same naming hazard now applies to
+its replacement and is worth carrying forward — the dependency is `av` on PyPI and the import is
+`av`. The separate PyPI package named `pyav` is a different distribution; do not mix them.
 
 ## 2026-07 · D-018 · Product name = AvialSync (final)
 Brand/display: `AvialSync`. Package/module/CLI/entry-point group/paths: `avialsync`
@@ -2067,3 +2087,72 @@ nonsense figure.
 
 **Consequences:** `read_frame_timestamps` returns `RecordedFrames`, not a bare array. Do not
 "simplify" it back — the second field is evidence that exists nowhere else in the recording.
+
+## 2026-08 · D-075 · Video playback = PyAV; FFmpeg ships via pip — supersedes D-002, D-013, D-015, D-017
+
+**Context:** D-002 chose libmpv for playback and D-011/D-013 built the consequences: a startup
+probe, a guided per-OS install dialog, and a lazy `import mpv`. The cost lands entirely on the pip
+channel, where the user must install libmpv *and* FFmpeg by hand — on Windows by downloading an
+`mpv-dev` archive off SourceForge and setting `AVIALSYNC_MEDIA_ROOT`, because no Windows package
+manager ships `libmpv-2.dll`. That is the project's worst install story and it gates the platform
+most labs actually run.
+
+**Decision:** replace libmpv with PyAV (`av` on PyPI, FFmpeg bundled inside the wheel) for playback
+and probing, and deliver the remaining `ffmpeg`/`ffprobe` executables through a pip-installed wheel
+rather than an OS package. `pip install avialsync` then requires no OS-level step on any platform.
+Execution plan, step status, and traps live in **MIGRATION_PYAV.md**.
+
+**Evidence** (macOS arm64, three 1440×1080 files, 3-cam fanout, long-GOP worst case, against the
+BLUEPRINT.md ≤ 250 ms scrub budget):
+
+| Interaction | libmpv | PyAV + frame cache |
+|---|---|---|
+| Jump to a new time | 330 ms — over budget | 106 ms |
+| Drag the slider | 338 ms — over budget | 8 ms |
+| Re-scrub a covered span | 333 ms — over budget | 7 ms |
+
+libmpv costs ~330 ms whether it jumps, drags, or revisits ground it just covered. The flatness is
+the finding: that is the exact-seek settle round-trip through the `seeking` property observer, not
+decode work, and it cannot improve on a re-scrub because mpv holds no memory of where it just was.
+Sustained decode measured 1679 fps aggregate across three concurrent panes against ~180 fps needed
+to feed them — PyAV releases the GIL, so hardware decode is not required to meet the budget.
+
+**This also removes a correctness hazard.** Today libmpv decides which frame to *display* while the
+ffprobe pts table decides which frame the readout *names*; `_frame_tolerance`,
+`_maybe_finish_seek`, and the `_PTS_EPSILON_S` note in `ui/video_timing.py` all exist to reconcile
+two authorities, and that note records a real shipped bug where the readout named the wrong frame
+and a forward step did nothing. After this change one call — `frame_index_at` — both selects and
+names the frame, so they cannot disagree. **Do not reintroduce a second authority.**
+
+**Binding invariant:** the frame shown for master time `t` is the frame whose presentation interval
+contains `t`, i.e. the last frame with `pts <= t`. A reader returning the *first frame with
+`pts >= t`* is wrong at every scrub position between two frames — measured at 179/179 mid-interval
+probes on CFR and VFR alike, a 33 ms misattribution at 30 fps. Caches are keyed by integer frame
+index, never by float time. `tests/test_frame_identity.py` enforces this with footage whose every
+frame encodes its own index in its pixels.
+
+**Alternatives rejected:** Qt Multimedia — already free in the PySide6 wheel, but `setPosition` is
+not frame-exact, which is the application's entire premise. python-vlc — same native-dependency
+problem as mpv with worse seek accuracy. OpenCV — pip-installable but unreliable on B-frame
+content; `napari-pyav` exists precisely because OpenCV's seeking glitched. Publishing our own
+libmpv wheels — viable, and the only option that changes no application code, but it leaves the
+project maintaining three-platform native build CI forever to keep a component that is slower than
+the alternative at the job we need.
+
+**Consequences:** D-013's probe-and-guide dialog and D-015's bundled-libmpv rule lose their
+subject; D-017's `python-mpv` pin is dropped. `import mpv` disappears from the codebase. The
+per-OS render split in `ui/video_pane.py` collapses to one path, and `engine/player.py`'s drift
+correction is deleted outright — the app becomes the clock rather than chasing one.
+`packaging/fetch_media_libs.py` and the CI libmpv steps go with them.
+
+**Licensing, unresolved and deliberately so:** upstream PyAV wheels bundle libx264/libx265, i.e. a
+GPL-configured FFmpeg. That is compatible with AGPL distribution but forecloses D-069's commercial
+dual-licence, which is the reason the project relicensed. D-015's LGPL-only preference therefore
+still governs the choice of build. Selecting a GPL-configured wheel is a maintainer decision to be
+recorded here explicitly, not settled inside a packaging commit. Note also that AGENTS.md's
+"no GPL/AGPL dependency" line predates D-069 and is stale; it is corrected in this change.
+
+**One caveat survives and must stay documented:** on Linux, PySide6 needs system graphics libraries
+(`libgl1`, `libxkbcommon`, xcb). Normal desktops have them; bare containers do not. That is Qt's
+floor, was equally true before this change, and no packaging decision removes it. `docs/install.md`
+states it plainly rather than omitting it.

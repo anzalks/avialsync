@@ -4,7 +4,7 @@
 
 ```
 avialsync/                          # repo root = GitHub repo `avialsync`
-├── pyproject.toml                    # hatchling; dep `python-mpv`; extras: [dev], [docs];
+├── pyproject.toml                    # hatchling; deps `av` (PyAV) + bundled ffmpeg; extras: [dev], [docs];
 │                                     #   entry point `avialsync`; entry-point group `avialsync.loaders`
 ├── README.md                         # user-facing: what/GIFs/install (installers first, pip second)
 ├── LICENSE                           # AGPL-3.0-or-later (D-069, supersedes D-003)
@@ -45,9 +45,10 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── aol_session_loader.py     # AOLSessionSource: first SessionSource implementation, not a special case (D-068)
 │   │   ├── aol_eks_loader.py         # AOL 3D EKS triangulation CSV; frame-indexed x/y/z triplets
 │   │   └── aol_encoder_loader.py     # AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045)
-│   ├── engine/                       # playback machinery (imports core + mpv, no widgets)
-│   │   ├── player.py                 # clock→mpv fanout, hysteresis drift correction
-│   │   ├── seeker.py                 # parallel exact/keyframe seeks, settle detection
+│   ├── engine/                       # playback machinery (imports core + av, no widgets)
+│   │   ├── pyav_reader.py            # headless exact-frame reader: pts table, seek, LRU cache (D-075)
+│   │   ├── player.py                 # clock→pane fanout; owns the clock, so no drift correction (D-075)
+│   │   ├── seeker.py                 # parallel exact seeks across panes
 │   │   ├── importer.py               # QThread worker: parse → cache → pyramid; progress + cancel signals
 │   │   ├── export.py                 # snapshot, data slice (CSV/Parquet), video clip trim
 │   │   ├── proxy.py                  # ffmpeg short-GOP proxies + prepare() conversion flow (D-006)
@@ -65,7 +66,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   │   ├── export_controller.py  # snapshot, data slice, video clip, annotations, A/B region stats
 │   │   │   ├── video_controller.py   # bounded concurrent ffprobe probes; serialized pane build (D-040)
 │   │   │   └── import_controller.py  # time-series import queue + pose routing to overlay/3D (D-046)
-│   │   ├── video_pane.py             # mpv embedding — ALL per-OS logic isolated here; lazy import (D-013)
+│   │   ├── video_pane.py             # decode→blit; ONE path on all OSes (D-075 removed the per-OS split)
 │   │   ├── video_timing.py           # timestamp rates, OSD text, frame lookup/step behavior
 │   │   ├── video_overlay.py          # transparent overlay; multi-source 2D pose tracks + legend (D-046)
 │   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen
@@ -89,7 +90,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── time_format.py            # TimeDisplayMode enum + format_time(t, mode, t_epoch) helper (D-020)
 │   │   ├── relink_dialog.py          # missing session files → browse/search (§5)
 │   │   ├── shortcuts_dialog.py       # keyboard shortcuts reference dialog (? key)
-│   │   ├── diagnostics.py            # startup probes: libmpv/hwdec/disk; guided per-OS install text (D-013)
+│   │   ├── diagnostics.py            # startup probes: decoder/disk (D-075 dropped the libmpv probe+guide)
 │   │   └── theme.py                  # native-aware system/dark/light appearance
 │   └── resources/                    # icons, .qss themes, sample-session manifest (packaged data)
 │
@@ -112,9 +113,9 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │
 ├── packaging/                        # everything release.yml/ci.yml call — nothing else lives here
 │   ├── avialsync.spec              # PyInstaller one-DIR spec (all OSes)
-│   ├── fetch_media_libs.py           # downloads pinned LGPL libmpv/ffmpeg, --verify-lgpl (D-015)
+│   ├── fetch_media_libs.py           # REMOVED by D-075 — wheels carry the media runtime
 │   ├── smoke_test.py                 # bounded bundle startup; staged releases load a fresh full demo
-│   ├── probe_dialog_test.py          # pip-without-libmpv guided-dialog assertion (D-013)
+│   ├── probe_dialog_test.py          # REMOVED by D-075 — there is no missing-libmpv case to assert
 │   ├── windows/
 │   │   ├── avialsync.iss           # Inno Setup → AvialSync-Setup.exe
 │   │   └── sign.ps1                  # stubbed signing (D-016)
@@ -252,11 +253,13 @@ encodings remain plugins.
 ## 3. Threading model
 
 - UI thread: Qt event loop only.
-- mpv: own internal threads per instance (3–4 instances).
+- Decode: one worker thread per pane (3–4 panes). PyAV releases the GIL inside libavcodec, so panes
+  decode genuinely in parallel — measured 1679 fps aggregate across three 1440×1080 streams
+  against the ~180 fps needed to feed them (D-075).
 - Import worker: QThread per import job (parse → cache → pyramid), progress via signals, cancellable.
-- Seeker: UI-thread fanout of non-blocking libmpv seek commands; libmpv performs decode and
-  property observation on its own threads. Render and OSD callbacks retain only the latest pending
-  UI update, so a slow paint cannot create an unbounded Qt event backlog.
+- Seeker: fans a target time out to every pane. Each pane resolves it to a frame index and serves
+  it from its cache or decodes it. Render and OSD callbacks retain only the latest pending UI
+  update, so a slow paint cannot create an unbounded Qt event backlog.
 - Proxy generation: QProcess (ffmpeg), non-blocking, progress parsed from stderr.
 
 ### Appearance boundary
@@ -270,15 +273,17 @@ active palette and never infer or reset state from a palette change.
 
 ### Playback ownership and proof of exact frames
 
-`VideoPane` is the ownership boundary for its libmpv client. Exact seek commands are issued from
-the Qt-owning thread and queue work in libmpv; decoder and observer work remain asynchronous. An
-observer consumes the value it was given rather than re-entering libmpv from its callback thread.
-At window close, ownership unwinds explicitly: `MainWindow.closeEvent()` calls
-`Player.stop()` before `VideoGrid.shutdown()`. This removes the precise master-tick timer, then
-closes every pane and lets `mpv.terminate()` join its event thread before Qt tears down widgets.
-On Windows and macOS the pane first frees its libmpv render context while the `QOpenGLWidget` is
-current; only then may it terminate libmpv. That ordering prevents the render widget from
-dereferencing a destroyed client during process exit.
+`VideoPane` is the ownership boundary for its decoder. The pane holds a pts table for its file and
+resolves master time to a frame through `ui/video_timing.py::frame_index_at` — **the last frame
+with `pts <= t`**, the frame whose presentation interval contains `t`. That single call both
+selects the frame and names it in the readout, so display and readout cannot disagree; the previous
+design had two authorities (libmpv chose the pixels, the ffprobe table chose the number) and needed
+`_frame_tolerance` and `_maybe_finish_seek` to reconcile them. Frame caches are keyed by integer
+frame index, never by float time. See D-075; `tests/test_frame_identity.py` enforces it.
+
+At window close, ownership unwinds explicitly: `MainWindow.closeEvent()` calls `Player.stop()`
+before `VideoGrid.shutdown()`. This removes the precise master-tick timer, then closes every pane
+and joins its decode thread before Qt tears down widgets.
 
 Runtime coordination uses observed `seeking=False` and target `time-pos`, without sleeps. That is
 not sufficient evidence for a scientific golden test: the test captures `screenshot-raw video`,
@@ -301,10 +306,11 @@ when timestamp evidence exists.
 
 ### CI video boundary
 
-Production uses native `wid` embedding on Linux and the libmpv Qt OpenGL render API on Windows and
-macOS. Hosted CI is deliberately displayless on all three platforms: global Qt `offscreen` selects
-libmpv `vo=null` in `VideoPane`. This exercises timeline, seek, decode, and exact-frame correctness
-without claiming to validate a desktop compositor. CI must not force `qwindows` or a `wid` merely to
+Rendering is one path on all three platforms — decode to an image and blit (D-075 removed the
+Linux `wid` / Windows-macOS render-context split, and with it the `vo=null` headless special case).
+Hosted CI is deliberately displayless: global Qt `offscreen`. Decode is independent of the display
+path, so CI exercises timeline, seek, decode, and exact-frame correctness on the same code the
+desktop runs, without claiming to validate a compositor. CI must not force `qwindows` merely to
 make a Windows runner behave like a desktop.
 
 ## 4. Plugin contract (frozen at Phase 5 as API v1)
@@ -368,13 +374,13 @@ class VideoSource(ABC):
     def can_open(cls, path: Path) -> float: ...
     def open(self, path: Path, config: dict) -> None: ...
 
-    # CONVERSION HOOK: for sources mpv can't play directly (TIFF/PNG image sequences,
+    # CONVERSION HOOK: for sources FFmpeg can't decode directly (TIFF/PNG image sequences,
     # Phantom .cine, Photron, GenICam dumps, split multi-part files). First-class, not a hack.
     def needs_conversion(self) -> bool: ...
     def prepare(self, progress_cb: Callable[[float], None]) -> Path:
-        """Produce an mpv-playable file (ffmpeg proxy etc.), cancellable, cached in sidecar."""
+        """Produce a decodable file (ffmpeg proxy etc.), cancellable, cached in sidecar."""
 
-    def media_path(self) -> Path: ...  # what mpv actually plays (proxy-aware)
+    def media_path(self) -> Path: ...  # what the decoder actually opens (proxy-aware)
     def start_time(self) -> float | None:
         ...  # metadata guess ONLY; may be None
         # (very common) → defaults to offset 0,
@@ -388,8 +394,9 @@ class VideoSource(ABC):
     def frame_times(self) -> "np.ndarray | None":
         """Per-frame timestamps if the container has them. REQUIRED for correct stepping on
         VFR footage and dropped-frame recordings; if None, constant-fps stepping is used and
-        the UI shows a 'nominal fps' badge. Frame stepping must always use mpv's actual
-        frame timestamps, never t += 1/fps arithmetic."""
+        the UI shows a 'nominal fps' badge. Frame stepping must always use the container's actual
+        frame timestamps, never t += 1/fps arithmetic. This table is also what selects the
+        displayed frame (D-075), so a wrong table is a wrong picture, not just a wrong label."""
 
     def fps(self) -> float:
         ...  # nominal; mixed fps across cameras is
@@ -423,9 +430,9 @@ timestamp-only, and independent of any lab acquisition system. The core will per
 analysis; plugins may offer lab-specific analysis separately. A source proposal includes its paired
 event evidence and fit quality so the user can inspect and explicitly accept it.
 
-Video acceptance is capability-based rather than suffix-based: files playable by the installed
-ffmpeg/mpv stack use the standard video path, while non-playable laboratory formats use a plugin's
-conversion hook. Format-specific parsing is deliberately a plugin responsibility.
+Video acceptance is capability-based rather than suffix-based: files the bundled FFmpeg can decode
+use the standard video path, while undecodable laboratory formats use a plugin's conversion hook.
+Format-specific parsing is deliberately a plugin responsibility.
 
 ## 5. Session file (.avv, JSON, schema_version field)
 
@@ -442,7 +449,7 @@ workspace.
 
 **Missing-file relink:** on load, any unresolved path opens a relink dialog (browse / search a
 chosen folder by filename+size); session loads with unresolved sources placeholdered, never fails
-wholesale. **Path hygiene:** all paths handed to ffmpeg/mpv/QProcess as argument lists (never
+wholesale. **Path hygiene:** all paths handed to ffmpeg/QProcess as argument lists (never
 shell strings); unicode + spaces on Windows are first-class test cases.
 
 ## 5b. Cache invalidation key (updates D-004)
@@ -466,20 +473,23 @@ sample to the exact master time, documented in the UI tooltip).
 
 One release tag → `.github/workflows/release.yml` builds and publishes ALL of:
 
-| Channel | Artifact | libmpv/ffmpeg | User steps |
+| Channel | Artifact | Media runtime | User steps |
 |---|---|---|---|
-| Windows installer | Inno Setup `AvialSync-Setup.exe` (one-DIR PyInstaller inside; never one-file — AV false positives) | bundled (LGPL, verified D-015) | install → run |
-| macOS | `AvialSync.dmg` (arm64 v1; Intel via pip) | bundled | drag → run (right-click-Open until signed, D-016) |
-| Linux | `AvialSync.AppImage` | bundled | download → run |
-| PyPI | wheel + sdist | NOT included; probe+guide (D-013) | `pip install avialsync` → install libmpv + ffmpeg once (README) → run |
+| Windows installer | Inno Setup `AvialSync-Setup.exe` (one-DIR PyInstaller inside; never one-file — AV false positives) | in the PyAV/ffmpeg wheels | install → run |
+| macOS | `AvialSync.dmg` (arm64 v1; Intel via pip) | in the wheels | drag → run (right-click-Open until signed, D-016) |
+| Linux | `AvialSync.AppImage` | in the wheels | download → run |
+| PyPI | wheel + sdist | in the wheels (D-075) | `pip install avialsync` → run |
 | conda-forge | recipe (Phase 5) | pulled as conda deps | `conda install avialsync` → run |
 
-Startup sequence (all channels): diagnostics probe (libmpv present? hwdec? disk speed?) →
-missing libmpv → guided dialog (distro-specific one-liner / brew line / Windows mpv-dev archive
-plus `AVIALSYNC_MEDIA_ROOT`) → lazy `import mpv` only after probe passes. The app window
-ALWAYS opens; capability problems degrade to dialogs, never tracebacks. Those prerequisites are
-documented for pip users in `docs/install.md` "What pip cannot install" and `docs/quickstart.md`;
-`ui/diagnostics.libmpv_install_guidance` holds the per-platform text the dialog shows.
+**Every channel now ships its own decoder** — PyAV carries FFmpeg inside its wheel, so pip is no
+longer the odd one out requiring a manual OS install. There is no libmpv probe, no guided install
+dialog, and no `AVIALSYNC_MEDIA_ROOT` step (D-075 supersedes D-013). The app window ALWAYS opens;
+capability problems degrade to dialogs, never tracebacks.
+
+One prerequisite genuinely survives, and `docs/install.md` states it rather than omitting it: on
+**Linux**, PySide6 needs system GL/xcb libraries (`libgl1`, `libxkbcommon`). Every normal Linux
+desktop has them; minimal containers do not. This is Qt's floor, is unrelated to media, and no
+packaging decision removes it. Windows and macOS have no equivalent.
 
 GitHub Actions is the only release authority: the tag workflow builds every installer and the PyPI
 wheel/sdist before either is published. The Linux AppImage tool URL and SHA256 are repository
