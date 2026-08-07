@@ -21,8 +21,16 @@ def _media_stager():
     return module
 
 
-def test_media_staging_copies_only_runtime_media_files(tmp_path: Path) -> None:
-    """The release bundle receives media runtimes, not arbitrary package-manager files."""
+def test_macos_media_staging_copies_only_runtime_media_files(monkeypatch, tmp_path: Path) -> None:
+    """The release bundle receives media runtimes, not arbitrary package-manager files.
+
+    The platform is pinned for the reason the alias test below records: a
+    ``.dylib`` is only a media file on darwin. This used to be staged by the
+    name-prefix rule instead, because ``libmpv`` was itself one of the prefixes
+    and so matched on every OS; with the FFmpeg libraries the prefixes are bare
+    (``avformat``, not ``libavformat``), so an unpinned host passes on macOS and
+    fails everywhere else.
+    """
     source = tmp_path / "source"
     source.mkdir()
     (source / "libavformat.dylib").write_bytes(b"runtime")
@@ -31,21 +39,27 @@ def test_media_staging_copies_only_runtime_media_files(tmp_path: Path) -> None:
     (source / "unrelated.txt").write_text("ignore", encoding="utf-8")
     destination = tmp_path / "media"
 
-    staged = _media_stager().stage_media_files([source], destination)
+    stager = _media_stager()
+    monkeypatch.setattr(stager.sys, "platform", "darwin")
+
+    staged = stager.stage_media_files([source], destination)
 
     assert [path.name for path in staged] == ["ffmpeg", "ffprobe", "libavformat.dylib"]
     assert not (destination / "unrelated.txt").exists()
 
 
-def test_media_staging_rejects_a_runtime_without_ffprobe(tmp_path: Path) -> None:
-    """A release cannot ship video playback without metadata probing."""
+def test_media_staging_rejects_a_runtime_without_ffprobe(monkeypatch, tmp_path: Path) -> None:
+    """A release cannot ship proxy generation and export without metadata probing."""
     source = tmp_path / "source"
     source.mkdir()
     (source / "libavformat.dylib").write_bytes(b"runtime")
     (source / "ffmpeg").write_bytes(b"ffmpeg")
 
+    stager = _media_stager()
+    monkeypatch.setattr(stager.sys, "platform", "darwin")
+
     with pytest.raises(RuntimeError, match="ffprobe"):
-        _media_stager().stage_media_files([source], tmp_path / "media")
+        stager.stage_media_files([source], tmp_path / "media")
 
 
 def test_windows_media_staging_keeps_dependency_dlls(monkeypatch, tmp_path: Path) -> None:
