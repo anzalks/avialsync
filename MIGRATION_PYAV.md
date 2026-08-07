@@ -108,7 +108,7 @@ row that is not `done`, and read its "resume note" before doing anything.
 | 3 | `engine/pyav_reader.py` — headless exact-frame reader | done | `pytest tests/test_pyav_reader.py` |
 | 4 | `ui/video_pane.py` — render decoded frames, delete mpv paths | done | `pytest tests/test_video_pane*.py` |
 | 5 | `engine/player.py` — delete drift correction | done | `pytest tests/test_playback_smoothness.py tests/test_scrubbing.py` |
-| 6 | `loaders/video_standard.py` — ffprobe → PyAV | todo | `pytest tests/test_video_standard.py` |
+| 6 | `loaders/video_standard.py` — ffprobe → PyAV | done | `pytest tests/test_video_standard.py` |
 | 7 | FFmpeg via pip for `proxy.py`, `export.py`, `demo.py` | todo | `avialsync demo` in a clean venv |
 | 8 | Packaging + docs + DECISIONS/ARCHITECTURE/HANDOUT sweep | mostly done — step 7 tail remains | `pip install .` in a clean venv, no OS deps |
 
@@ -218,9 +218,19 @@ because a raw snapshot could transiently return the pre-seek frame — and with 
 `skipif(win32)` whose stated reason no longer exists. **That skip removal is unverified on Windows
 CI.**
 
-**6 — Probing.** `require_ffprobe()` disappears from `video_standard.py`. Extended metadata
-(D-020) and the pts table both come from PyAV. Keep `VideoMetadata` shape unchanged so the
-Inspection Layer and Source Properties do not move.
+**6 — Probing. DONE 2026-08-07.** `require_ffprobe()` is gone from `video_standard.py`, and with
+it two subprocess launches per file. Metadata comes from an `av.open()` header read (`format.name`,
+container `duration`/`start_time` in FFmpeg's microsecond base, and codec/profile/pix_fmt/size from
+the stream); `VideoMetadata` is unchanged, so the Inspection Layer and Source Properties did not
+move. `stream.base_rate` is ffprobe's `r_frame_rate` — the container's *claim*, which the frame
+table still overrides for VFR (D-072).
+
+*The pts table is built by `PyAVReader`, deliberately, not by a second implementation in the
+loader.* The pane selects the displayed frame from the decoder's table and names it from the
+loader's, so two derivations of the same file would be two authorities on which frame is which —
+the exact split D-075 exists to remove. `test_the_loader_and_the_decoder_share_one_frame_table`
+asserts they are equal element for element. The sidecar cache is unchanged and still what keeps a
+repeat open cheap.
 
 **7 — FFmpeg via pip.** Three surviving CLI call sites: `engine/proxy.py`, `engine/export.py`,
 `demo.py`. Add a bundled-ffmpeg wheel to `dependencies` and make `find_media_executable` fall back

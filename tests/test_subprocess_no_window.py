@@ -88,8 +88,13 @@ def test_every_media_subprocess_suppresses_the_console_window() -> None:
 
 
 def test_at_least_one_call_site_is_actually_checked() -> None:
-    """Guard the guard: an empty scan would make the test above vacuous."""
-    assert len(_subprocess_calls()) >= 5
+    """Guard the guard: an empty scan would make the test above vacuous.
+
+    The floor tracks how many call sites actually exist and is expected to fall
+    as they go. Video probing and decoding stopped launching subprocesses with
+    D-075; proxy generation, clip export, and the demo generator are what remain.
+    """
+    assert len(_subprocess_calls()) >= 3
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="asserts the non-Windows branch")
