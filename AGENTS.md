@@ -28,8 +28,8 @@ DECISIONS.md entry in the PR description instead of silently diverging.
 | Sidecar cache dir | `<file>.avialcache/` |
 | Installer artifacts | `AvialSync-Setup.exe`, `AvialSync.dmg`, `AvialSync.AppImage` |
 | Plugin packages (3rd party convention) | `avialsync-plugin-<name>` on PyPI |
-| Plugin `display_name()` for one rig's format | `<System> <Kind>` — `AOL Encoder Log`, `Open Ephys Video`; *Kind* reuses the general loader's word for that kind |
-| Plugin `display_name()` for a general format | the data, not a rig — `Video`, `Electrophysiology Data` |
+| Plugin `display_name()` / `display_aliases()` | the **kind of data**, never the rig — `Video`, `IMU / Motion Data`, `TTL Events`. A camera is a camera whichever system recorded it |
+| Which rig an item came from | the session's `SessionItem.label`, not the type — the type column answers "what is this", not "who wrote it" |
 
 Use `AvialSync` only for the displayed product name and `avialsync` for technical identifiers.
 Do not invent alternative spellings. A rename is never "improved" by an agent (D-018).

@@ -118,6 +118,18 @@ class NeoLoader(TimeSeriesSource):
     def display_name(cls) -> str:
         return "Electrophysiology Data"
 
+    @classmethod
+    def display_aliases(cls) -> list[str]:
+        """Kinds of data an acquisition recording carries besides the ephys.
+
+        One recording's streams all come through this reader, so typing them by
+        the reader called an 18-channel IMU — Euler angles, acceleration,
+        gravity, temperature — "Electrophysiology Data" purely because neo is
+        what reads it. A session names the kind it means with ``SessionItem.kind``;
+        every one of these resolves back here.
+        """
+        return ["IMU / Motion Data", "TTL Events", "Auxiliary / Diagnostics"]
+
     def __init__(self) -> None:
         self._path: Path | None = None
         self._config: dict[str, Any] = {}

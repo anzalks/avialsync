@@ -35,7 +35,6 @@ from typing import Any
 
 from avialsync.core.source import SessionItem, SessionLayout, SessionSource
 from avialsync.loaders.neo_loader import NeoLoader
-from avialsync.loaders.open_ephys_camera import OpenEphysCameraLoader, find_timestamp_sidecar
 from avialsync.loaders.open_ephys_format import (
     anchor_epoch,
     find_recordings,
@@ -43,6 +42,7 @@ from avialsync.loaders.open_ephys_format import (
     recording_utc_offset,
     stream_folder_names,
 )
+from avialsync.loaders.video_standard import VideoStandardLoader
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +176,20 @@ class _Stream:
     channels: int = 0
     rate_hz: float = 0.0
 
+    def kind(self) -> str:
+        """Return the user's word for this stream, not the reader's.
+
+        Matched against the reader's own labels, so a stream that is not any of
+        the kinds it advertises falls back to the reader's primary name rather
+        than inventing an entry the dialog cannot offer.
+        """
+        short = self.name.rsplit(".", 1)[-1].lower()
+        if "imu" in short or "motion" in short:
+            return "IMU / Motion Data"
+        if "memory" in short or "usage" in short or "diagnost" in short:
+            return "Auxiliary / Diagnostics"
+        return ""
+
     def label(self, folder: str) -> str:
         """Return the dialog row for this stream: what it is, and what it costs.
 
@@ -273,6 +287,7 @@ def _stream_items(recording: Path) -> list[SessionItem]:
                 NeoLoader,
                 {"root": str(recording), "stream_id": stream.stream_id, "auto_resolved": True},
                 label=stream.label(folder),
+                kind=stream.kind(),
             )
         )
     return items
@@ -311,6 +326,7 @@ def _event_items(recording: Path) -> list[SessionItem]:
             NeoLoader,
             {"root": str(recording), "events": True, "auto_resolved": True},
             label=f"TTL events — {ttl_dirs[0].parent.name.rsplit('.', 1)[-1]}",
+            kind="TTL Events",
         )
     ]
 
@@ -349,7 +365,11 @@ def _camera_items(
             )
 
         config: dict[str, Any] = {"start_time": start_time, "auto_resolved": True}
-        sidecar = find_timestamp_sidecar(video)
+        # A rig convention, applied only because *this session* knows the file is
+        # a timestamp log. The video loader never goes looking: a same-stem CSV
+        # beside a video is at least as likely to be pose output.
+        candidate = video.with_suffix(".csv")
+        sidecar = candidate if candidate.is_file() else None
         if sidecar is not None:
             config["frame_timestamps"] = str(sidecar)
         else:
@@ -361,9 +381,10 @@ def _camera_items(
         items.append(
             SessionItem(
                 video,
-                OpenEphysCameraLoader,
+                VideoStandardLoader,
                 config,
                 label=f"{video.name} — camera",
+                kind="Video",
             )
         )
     return items

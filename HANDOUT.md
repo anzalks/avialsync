@@ -654,13 +654,20 @@ together used to leave whichever was scanned *last* owning them — arbitrary an
 now, with a log line; every session's items still load. Drop one session at a time to read wall
 clock from a specific one.
 
-### 0k. Plugin display names follow `<System> <Kind>`, and the fallback broke acronyms
-A rig's formats read as `AOL Encoder Log` / `Open Ephys Video`, reusing the general loader's word
-for that kind (`Video`), so one session's rows sort and read together. A name describing the
-implementation — "Rig Camera (sidecar-timed)" was shipped briefly — belongs to no session the user
-can name. `SessionSource` now inherits `_Nameable` like the other two contracts, so a session has a
-name at all. `default_display_name` split only after a lower-case letter, so it never broke a run of
-capitals: `AOLSessionSource` came back as "AOLSession", the very example its own docstring used.
+### 0k. A plugin's display name is the kind of data, never the rig
+`Video`, `IMU / Motion Data`, `TTL Events` — a camera is a camera whichever rig recorded it. Two
+earlier attempts were wrong: "Rig Camera (sidecar-timed)" named the implementation, and
+"Open Ephys Video" named the system for something that is simply a video. Which rig an item belongs
+to is the session's business and already sits in `SessionItem.label`.
+
+One reader serves several kinds — every stream of a recording goes through neo — so a reader offers
+each kind via `display_aliases()` and the session picks with `SessionItem.kind`. Without it an
+18-channel IMU was typed "Electrophysiology Data" purely because neo reads it. A declared kind must
+match a label its loader actually offers, or the dialog silently falls back; a test asserts that.
+
+Also fixed here: `SessionSource` now inherits `_Nameable` like the other two contracts, and
+`default_display_name` split only after a lower-case letter so it never broke a run of capitals —
+`AOLSessionSource` came back as "AOLSession", the very example its own docstring used.
 
 ### 0l. A `SessionItem` label is never part of `config`
 `config` is hashed into the sidecar cache key, so a display label living there would make rewording

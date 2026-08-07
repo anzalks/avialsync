@@ -20,6 +20,46 @@ logger = logging.getLogger(__name__)
 _VIDEO_FRAME_CACHE_VERSION = 1
 _FRAME_TIMES_NAME = "video_frame_times.npy"
 
+#: Divisor turning a sidecar's integer timestamps into seconds.  Machine-vision
+#: cameras stamp a free-running nanosecond counter, which is why only the
+#: *differences* between rows are used and the absolute value is discarded.
+_SIDECAR_NANOSECONDS = 1e9
+
+
+def read_frame_timestamps(sidecar: Path) -> np.ndarray | None:
+    """Return one timestamp in seconds per recorded frame, rebased to zero.
+
+    The file is ``frame_number,timestamp`` with no header.  Only the timestamp
+    column is used; the frame counter is the camera's own free-running index and
+    its gaps are what prove frames were dropped, but the mapping is built from
+    the rows that exist rather than from the counter.
+
+    Returns ``None`` rather than raising for anything unreadable: a missing or
+    malformed sidecar costs exact timing, which is a degraded import, while a
+    raised error would cost the video entirely.
+    """
+    try:
+        if sidecar.stat().st_size == 0:
+            logger.warning("Frame timestamp sidecar %s is empty.", sidecar)
+            return None
+        raw = np.loadtxt(sidecar, delimiter=",", dtype=np.float64, ndmin=2)
+    except (OSError, ValueError):
+        logger.warning("Cannot parse frame timestamp sidecar %s", sidecar, exc_info=True)
+        return None
+    if raw.size == 0 or raw.ndim != 2 or raw.shape[1] < 2:
+        logger.warning("Frame timestamp sidecar %s has no timestamp column.", sidecar)
+        return None
+
+    times: np.ndarray = np.asarray(raw[:, 1], dtype=np.float64) / _SIDECAR_NANOSECONDS
+    if len(times) < 2 or not np.all(np.isfinite(times)):
+        logger.warning("Frame timestamp sidecar %s holds no usable timestamps.", sidecar)
+        return None
+    if np.any(np.diff(times) <= 0):
+        logger.warning("Frame timestamps in %s are not strictly increasing.", sidecar)
+        return None
+    rebased: np.ndarray = times - times[0]
+    return rebased
+
 
 class VideoStandardLoader(VideoSource):
     """Loads standard videos utilizing ffprobe metadata."""
@@ -46,6 +86,11 @@ class VideoStandardLoader(VideoSource):
         self._profile: str = ""
         self._frame_count: int | None = None
         self._file_size: int = 0
+        # Per-frame timing supplied by the acquisition system, when it recorded
+        # any.  Config-driven and never auto-discovered: a same-stem CSV beside a
+        # video is at least as likely to be pose output as a timestamp log.
+        self._exact_master: np.ndarray | None = None
+        self._exact_source: np.ndarray | None = None
 
     @classmethod
     def can_open(cls, path: Path) -> float:
@@ -132,6 +177,69 @@ class VideoStandardLoader(VideoSource):
         if self._frame_count is None and self._frame_times is not None:
             self._frame_count = len(self._frame_times)
         self._frame_rate_statistics()
+        self._bind_recorded_frame_times(config)
+
+    def _bind_recorded_frame_times(self, config: dict[str, Any]) -> None:
+        """Adopt per-frame exposure times the acquisition system recorded, if given.
+
+        A container declares a constant nominal rate whether or not the camera
+        achieved it, so a capture that free-ran at 45.8 Hz and dropped frames
+        still arrives labelled 30 fps CFR — 785 s of footage stretched across
+        895 s of timeline, and no offset takes that back out because the error
+        accumulates.  Correcting the *rate* is not enough either: with drops
+        spread through the recording a single rate still leaves over a second of
+        error at the worst frame.  The result is a per-frame mapping instead.
+
+        Config keys:
+            ``frame_timestamps``: path to a ``frame_number,timestamp`` sidecar.
+            ``start_time``: master time of the first recorded frame (default 0).
+        """
+        sidecar_value = config.get("frame_timestamps")
+        if not sidecar_value:
+            return
+        sidecar = Path(sidecar_value)
+        recorded = read_frame_timestamps(sidecar)
+        if recorded is None:
+            return
+        source = self._frame_times
+        if source is None or len(source) < 2:
+            logger.warning(
+                "No container frame timestamps for %s; sidecar timing cannot be applied.",
+                self._path,
+            )
+            return
+
+        paired = min(len(source), len(recorded))
+        if len(source) != len(recorded):
+            # Pairing runs from frame zero, so a common prefix is correct for
+            # every frame it covers.  Worth saying out loud: a large mismatch
+            # usually means the sidecar belongs to a different take.
+            logger.warning(
+                "%s has %d frames but %s lists %d; timing the first %d.",
+                Path(str(self._path)).name,
+                len(source),
+                sidecar.name,
+                len(recorded),
+                paired,
+            )
+
+        self._exact_source = np.asarray(source[:paired], dtype=np.float64)
+        self._exact_master = recorded[:paired] + float(config.get("start_time", 0.0))
+        logger.info(
+            "%s timed from %s: %d frames over %.3f s (container claimed %.3f s at %.3f fps).",
+            Path(str(self._path)).name,
+            sidecar.name,
+            paired,
+            float(self._exact_master[-1] - self._exact_master[0]),
+            self._duration,
+            self._fps,
+        )
+
+    def exact_time_mapping(self) -> tuple[np.ndarray, np.ndarray] | None:
+        """Return per-frame ``(master_time, source_time)`` evidence, if recorded."""
+        if self._exact_master is None or self._exact_source is None:
+            return None
+        return self._exact_master, self._exact_source
 
     @staticmethod
     def _cache_manager() -> CacheManager:
@@ -246,9 +354,42 @@ class VideoStandardLoader(VideoSource):
         self._timing_stats = stats
         return stats
 
+    def _recorded_duration(self) -> float:
+        """Return the span the frames actually cover, in master-time seconds."""
+        if self._exact_master is None or len(self._exact_master) < 2:
+            return self._duration
+        return float(self._exact_master[-1] - self._exact_master[0])
+
+    def _recorded_rate_statistics(self) -> tuple[bool, float, float, float]:
+        """Return ``(is_vfr, measured, min, max)`` from whichever timing is authoritative."""
+        if self._exact_master is None or len(self._exact_master) < 2:
+            return self._frame_rate_statistics()
+        intervals = np.diff(self._exact_master)
+        intervals = intervals[intervals > 1e-9]
+        if len(intervals) == 0:  # pragma: no cover - the mapping is strictly increasing
+            return self._frame_rate_statistics()
+        median = float(np.median(intervals))
+        tolerance = max(2e-6, median * 5e-3)
+        rates = 1.0 / intervals
+        return (
+            bool(np.any(np.abs(intervals - median) > tolerance)),
+            float(len(intervals) / float(np.sum(intervals))),
+            float(np.min(rates)),
+            float(np.max(rates)),
+        )
+
     def video_metadata(self) -> VideoMetadata:
-        """Return timestamp-authoritative stream metadata for inspection and OSD."""
-        is_vfr, measured, min_rate, max_rate = self._frame_rate_statistics()
+        """Return timestamp-authoritative stream metadata for inspection and OSD.
+
+        When the acquisition system recorded when each frame was exposed, the
+        rate fields describe *that*, on the master timeline, and ``nominal_fps``
+        keeps the container's claim beside it — which is what that field is for.
+        Derived from the container's own presentation timestamps instead, a
+        sidecar-timed camera read "CFR 30.000 · measured 30.000", because the
+        container really is CFR: the readout could not show the very discrepancy
+        the sidecar exists to correct.
+        """
+        is_vfr, measured, min_rate, max_rate = self._recorded_rate_statistics()
         return VideoMetadata(
             container=self._container,
             codec=self._codec,
@@ -262,7 +403,7 @@ class VideoStandardLoader(VideoSource):
             max_frame_rate=max_rate,
             is_vfr=is_vfr,
             frame_count=self._frame_count,
-            duration=self._duration,
+            duration=self._recorded_duration(),
             start_time=self._start_time,
             file_size_bytes=self._file_size,
         )

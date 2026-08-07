@@ -18,8 +18,8 @@ from avialsync.core.registry import LoaderRegistry
 from avialsync.core.source import SessionLayout
 from avialsync.loaders import open_ephys_format as fmt
 from avialsync.loaders.neo_loader import NeoLoader, safe_channel_name
-from avialsync.loaders.open_ephys_camera import OpenEphysCameraLoader, read_frame_timestamps
 from avialsync.loaders.open_ephys_session import OpenEphysSessionSource, parse_filename_time
+from avialsync.loaders.video_standard import VideoStandardLoader, read_frame_timestamps
 from tests.open_ephys_fixture import (
     FIRST_SAMPLE_TIME,
     SOFTWARE_EPOCH_MS,
@@ -220,7 +220,7 @@ def test_layout_places_the_camera_by_its_filename(session_dir: Path) -> None:
 
     cameras = [item for item in _layout(session_dir).items if item.path.suffix == ".avi"]
     assert len(cameras) == 1
-    assert cameras[0].loader is OpenEphysCameraLoader
+    assert cameras[0].loader is VideoStandardLoader
     assert cameras[0].config["start_time"] == pytest.approx(expected, abs=1e-3)
     assert cameras[0].config["start_time"] == pytest.approx(FIRST_SAMPLE_TIME + 1.996, abs=1e-3)
 
@@ -386,11 +386,23 @@ def test_read_frame_timestamps_declines_unusable_sidecars(tmp_path: Path, conten
     assert read_frame_timestamps(sidecar) is None
 
 
-def test_camera_never_claims_a_file_on_its_own(tmp_path: Path) -> None:
-    """Session-routed only: a plain video with an unrelated CSV beside it is not this."""
-    video = tmp_path / "clip.mp4"
-    video.write_bytes(b"x")
-    assert OpenEphysCameraLoader.can_open(video) == 0.0
+def test_sidecar_timing_is_never_auto_discovered(tmp_path: Path) -> None:
+    """A same-stem CSV beside a video is at least as likely to be pose output.
+
+    The session applies the sidecar because it knows the rig's convention; the
+    video loader must not go looking, or a DLC export would be reinterpreted as
+    frame timestamps.
+    """
+    video = VIDEO_FIXTURES / "dropped_frames.mp4"
+    if not video.exists():
+        pytest.skip("Fixtures not generated")
+
+    decoy = tmp_path / "dropped_frames.csv"
+    decoy.write_text("scorer,x,y\n0,1,2\n", encoding="utf-8")
+
+    loader = VideoStandardLoader()
+    loader.open(video, {})
+    assert loader.exact_time_mapping() is None
 
 
 def test_camera_maps_frames_to_when_they_were_exposed(tmp_path: Path) -> None:
@@ -409,7 +421,7 @@ def test_camera_maps_frames_to_when_they_were_exposed(tmp_path: Path) -> None:
         "\n".join(f"{index},{int(value * 1e9)}" for index, value in enumerate(exposures))
     )
 
-    camera = OpenEphysCameraLoader()
+    camera = VideoStandardLoader()
     camera.open(video, {"frame_timestamps": str(sidecar), "start_time": 5.0})
     mapping = camera.exact_time_mapping()
     assert mapping is not None
@@ -429,7 +441,7 @@ def test_camera_falls_back_to_container_timing_without_a_sidecar(tmp_path: Path)
     if not video.exists():
         pytest.skip("Fixtures not generated")
 
-    camera = OpenEphysCameraLoader()
+    camera = VideoStandardLoader()
     camera.open(video, {"start_time": 5.0})
     assert camera.exact_time_mapping() is None
     assert camera.fps() > 0
@@ -612,7 +624,7 @@ def test_camera_metadata_reports_the_rate_it_was_actually_exposed_at(tmp_path: P
         "\n".join(f"{i},{int(v * 1e9)}" for i, v in enumerate(exposures)), encoding="utf-8"
     )
 
-    camera = OpenEphysCameraLoader()
+    camera = VideoStandardLoader()
     camera.open(video, {"frame_timestamps": str(sidecar), "start_time": 5.0})
     metadata = camera.video_metadata()
 
@@ -630,7 +642,7 @@ def test_camera_metadata_is_unchanged_without_a_sidecar() -> None:
     if not video.exists():
         pytest.skip("Fixtures not generated")
 
-    camera = OpenEphysCameraLoader()
+    camera = VideoStandardLoader()
     camera.open(video, {})
     assert camera.video_metadata().nominal_fps == pytest.approx(30.0)
 
@@ -665,15 +677,15 @@ def test_a_rig_plugin_is_named_system_then_kind() -> None:
     from avialsync.loaders.aol_eks_loader import AOLEksLoader
     from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
     from avialsync.loaders.aol_session_loader import AOLSessionSource
-    from avialsync.loaders.video_standard import VideoStandardLoader
 
     assert AOLEncoderLoader.display_name() == "AOL Encoder Log"
     assert AOLEksLoader.display_name() == "AOL 3D Tracking"
     assert AOLSessionSource.display_name() == "AOL Session"
 
     assert OpenEphysSessionSource.display_name() == "Open Ephys Session"
-    assert OpenEphysCameraLoader.display_name() == "Open Ephys Video"
-    # The kind word is the one the general-purpose loader already uses.
+    # A video is a video whichever rig recorded it: the type names the data,
+    # never the system. Which rig it came from is the session's business, and
+    # it is already in the row's own label.
     assert VideoStandardLoader.display_name() == "Video"
 
 
@@ -691,7 +703,7 @@ def test_every_session_plugin_can_name_itself() -> None:
     [
         ("AOLSessionSource", "AOL Session"),
         ("AOLEksLoader", "AOL Eks"),
-        ("OpenEphysCameraLoader", "Open Ephys Camera"),
+        ("OpenEphysSessionSource", "Open Ephys Session"),
         ("CSVLoader", "CSV"),
         ("NeoLoader", "Neo"),
         ("Loader", "Loader"),
@@ -771,3 +783,68 @@ def test_rates_read_the_way_an_experimenter_says_them() -> None:
     assert _format_rate(1000.0) == "1 kHz"
     assert _format_rate(100.0) == "100 Hz"
     assert _format_rate(2500.0) == "2.5 kHz"
+
+
+def test_a_type_names_the_data_never_the_rig(session_dir: Path) -> None:
+    """One reader serves many kinds, so the type must not be the reader's name.
+
+    Every stream of a recording comes through neo, which typed an 18-channel IMU
+    — Euler angles, acceleration, gravity, temperature — as "Electrophysiology
+    Data" purely because neo is what reads it. And a camera is a camera whichever
+    rig recorded it; "Open Ephys Video" named the system, not the data.
+    """
+    kinds = {item.label: item.kind for item in _layout(session_dir).items}
+
+    assert kinds["aux — 1 ch @ 100 Hz"] == ""
+    assert kinds["camera_top2026-06-21T17_54_59.avi — camera"] == "Video"
+    assert any(kind == "TTL Events" for kind in kinds.values())
+
+    # Every declared kind must be a label its own loader actually offers, or the
+    # dialog has nothing to select and silently falls back.
+    offered = set(NeoLoader.display_aliases()) | {NeoLoader.display_name()}
+    offered |= {VideoStandardLoader.display_name()}
+    for kind in kinds.values():
+        assert not kind or kind in offered, f"{kind!r} is not offered by any loader"
+
+
+def test_imu_and_diagnostic_streams_are_typed_by_what_they_are(tmp_path: Path) -> None:
+    from tests.open_ephys_fixture import RecordingSpec, StreamSpec
+
+    spec = RecordingSpec(
+        streams=[
+            StreamSpec(name="IMU_port_A", sample_rate=100.0, channels=["Eul-Y"], samples=100),
+            StreamSpec(name="memory_usage", sample_rate=100.0, channels=["MEM"], samples=100),
+            StreamSpec(name="acquisition_board", sample_rate=30000.0, channels=["CH1"], samples=99),
+        ],
+        ttl=None,
+    )
+    write_recording(tmp_path, spec)
+    kinds = {item.label.split(" —")[0]: item.kind for item in _layout(tmp_path).items}
+
+    assert kinds["IMU_port_A"] == "IMU / Motion Data"
+    assert kinds["memory_usage"] == "Auxiliary / Diagnostics"
+    assert kinds["acquisition_board"] == "", "ephys falls through to the reader's own name"
+
+
+def test_dialog_preselects_the_declared_kind(session_dir: Path) -> None:
+    from PySide6.QtWidgets import QApplication
+
+    from avialsync.ui.batch_import_dialog import BatchImportDialog
+
+    QApplication.instance() or QApplication([])
+    layout = _layout(session_dir)
+    dialog = BatchImportDialog(
+        [(item.path, item.loader, dict(item.config)) for item in layout.items],
+        labels={str(item.path): item.label for item in layout.items if item.label},
+        kinds={str(item.path): item.kind for item in layout.items if item.kind},
+    )
+    shown = {
+        dialog._table.item(row, 0).text(): dialog._combos[row].currentText()
+        for row in range(dialog._table.rowCount())
+    }
+    assert shown["camera_top2026-06-21T17_54_59.avi — camera"] == "Video"
+    assert [text for name, text in shown.items() if name.startswith("TTL")] == ["TTL Events"]
+    # Selecting a kind must not change which loader actually runs.
+    for _path, loader_cls, _config in dialog.get_selections():
+        assert loader_cls in (NeoLoader, VideoStandardLoader)
+    dialog.deleteLater()

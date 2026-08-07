@@ -39,7 +39,6 @@ _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.video_standard", "VideoStandardLoader"),
     ("avialsync.loaders.tracking_loader", "TrackingLoader"),
     ("avialsync.loaders.neo_loader", "NeoLoader"),
-    ("avialsync.loaders.open_ephys_camera", "OpenEphysCameraLoader"),
 )
 
 #: The built-in session scanners, in the same form and for the same reason.

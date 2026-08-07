@@ -27,6 +27,7 @@ class BatchImportDialog(QDialog):
         candidates: Sequence[tuple[Path, type[TimeSeriesSource | VideoSource] | None, dict | None]],
         parent: QWidget | None = None,
         labels: Mapping[str, str] | None = None,
+        kinds: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Review Import Candidates")
@@ -38,6 +39,12 @@ class BatchImportDialog(QDialog):
         #: say which row was the 32-channel 30 kHz one — the only row whose
         #: import costs minutes and gigabytes.
         self._labels: Mapping[str, str] = labels or {}
+
+        #: The kind of data a session declared for a path. One loader reads many
+        #: kinds — every stream of a recording goes through the same reader — so
+        #: without this an 18-channel IMU was typed "Electrophysiology Data"
+        #: purely because neo is what reads it.
+        self._kinds: Mapping[str, str] = kinds or {}
 
         # Group by detected type, then by the name actually shown, so a session's
         # rows sort the way they are read rather than by a path the user cannot see.
@@ -76,10 +83,17 @@ class BatchImportDialog(QDialog):
             # Populate dropdown
             combo.addItem("— Skip / Do Not Load —", None)
 
+            # A declared kind selects among the loader's own labels; without one
+            # the loader's primary name is the default, as before.
+            wanted_kind = self._kinds.get(str(path), "")
             default_index = 0
             for i, (label, loader_cls) in enumerate(self._categories, start=1):
                 combo.addItem(label, loader_cls)
-                if default_loader and loader_cls == default_loader and default_index == 0:
+                if loader_cls != default_loader:
+                    continue
+                if wanted_kind and label == wanted_kind:
+                    default_index = i
+                elif not wanted_kind and default_index == 0:
                     default_index = i
 
             combo.setCurrentIndex(default_index)

@@ -1999,3 +1999,38 @@ sample rather than at zero; the acquisition clock is not reset at record start, 
 the front of every stream for no visible reason. `frame_times()` keeps returning container
 presentation timestamps — it is source-time evidence used for frame stepping — and must not be
 repurposed to carry master time.
+
+## 2026-08 · D-073 · An import row is typed by its data, not by the plugin that reads it
+
+**Context:** The review dialog's type column showed `display_name()` of whichever loader resolved
+the row. Two consequences, both wrong in the same way — the column answered "who reads this" when
+the user was asking "what is this":
+
+- A camera routed through a session-specific loader read "Open Ephys Video". It is a video. Which
+  rig recorded it is already in the row's own label, and repeating it in the type made an identical
+  camera on two rigs look like two different kinds of file.
+- Every stream of an acquisition recording comes through one reader, so an 18-channel IMU — Euler
+  angles, acceleration, gravity, temperature — was typed "Electrophysiology Data" purely because
+  neo is what reads it. Nothing about that stream is electrophysiology.
+
+**Decision:** `display_name()` and `display_aliases()` name the **kind of data**, never a rig. A
+reader that serves several kinds advertises each one as an alias, and a session picks between them
+with `SessionItem.kind`; a declared kind must match a label its own loader offers, so the dialog
+always has an entry to select. Every alias still resolves to the same loader, so what actually runs
+is unchanged by the label the user sees.
+
+This supersedes the `<System> <Kind>` convention added days earlier in the same branch, which had
+codified AOL's habit rather than questioning it.
+
+**Decision (consolidation):** `OpenEphysCameraLoader` is deleted. Timing a video from a per-frame
+sidecar is not one rig's feature — machine-vision capture software commonly ships one — so it is a
+config-driven capability of `VideoStandardLoader` (`frame_timestamps`, `start_time`). There is one
+video loader again, named "Video".
+
+**Consequences:** the sidecar is applied **only** when a session passes it in config, never
+discovered from a same-stem file. A `<video stem>.csv` beside a video is at least as likely to be
+pose output, and reinterpreting a DLC export as frame timestamps would silently rewrite the
+timeline. A session knows the rig's convention and opts in; the loader never goes looking.
+
+Names must stay unique across every registered plugin, aliases included — the dialog is a picker,
+and two identical entries cannot be told apart. A test enforces it.

@@ -153,6 +153,8 @@ class MainWindow(QMainWindow):
         self._session_anchor_epoch: float = 0.0
         #: Per-item display labels the claiming session supplied, by path.
         self._session_item_labels: dict[str, str] = {}
+        #: Per-item data kinds the claiming session declared, by path.
+        self._session_item_kinds: dict[str, str] = {}
         # Keep QObject workers alive until their QThread has finished. Moving an
         # object to a thread does not transfer Python ownership.
         self._video_load_jobs: dict[QThread, object] = {}

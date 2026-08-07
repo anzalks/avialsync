@@ -57,7 +57,7 @@ def default_display_name(cls: type) -> str:
     """Derive a readable format name from a class name.
 
     ``AOLEksLoader`` becomes "AOL Eks", ``CSVLoader`` becomes "CSV",
-    ``OpenEphysCameraLoader`` becomes "Open Ephys Camera". Only a fallback: a
+    ``VideoStandardLoader`` becomes "Video Standard". Only a fallback: a
     format that cares how it is listed overrides ``display_name``.
 
     A plugin that does not override this is listed by whatever comes out, so the
@@ -80,15 +80,21 @@ class _Nameable:
     were listed by bare class name because they were not in the table. A format
     names itself instead.
 
-    **Convention, so a rig reads the same wherever it appears:** a plugin
-    belonging to one acquisition system is ``"<System> <Kind>"``, where *Kind* is
-    the word the general-purpose loader for that kind already uses — ``"AOL
-    Encoder Log"``, ``"Open Ephys Video"`` beside the plain ``"Video"``. A
-    general-purpose plugin names the data instead of a rig
-    (``"Electrophysiology Data"``). Do not invent a third shape: a name like
-    "Rig Camera (sidecar-timed)" describes the implementation, sorts nowhere
-    near its own session's other rows, and tells the user nothing about which
-    folder it came from.
+    **Convention: name the kind of data, never the rig.** ``"Video"``,
+    ``"IMU / Motion Data"``, ``"TTL Events"`` — a camera is a camera whichever
+    system recorded it, and an IMU stream is the same shape of data wherever it
+    came from. Which rig an item belongs to is the session's business and
+    already sits in its :attr:`SessionItem.label`; repeating it here produced
+    "Open Ephys Video" for something that is simply a video.
+
+    One reader commonly serves several kinds — every stream of an acquisition
+    recording goes through the same one — so a reader offers each kind it can be
+    meant as, via :meth:`display_aliases`, and a session picks between them with
+    :attr:`SessionItem.kind`. Without that an 18-channel IMU was typed
+    "Electrophysiology Data" purely because neo is what reads it.
+
+    Names must be unique across all registered plugins, aliases included: the
+    import dialog is a picker, and two identical entries cannot be told apart.
     """
 
     @classmethod
@@ -130,6 +136,15 @@ class SessionItem:
     #: cache key, so wording a label better would invalidate every cache built
     #: with the old one — several gigabytes rebuilt to reword a table cell.
     label: str = ""
+
+    #: What kind of data this is, in the user's terms — "Video", "IMU / Motion
+    #: Data", "TTL Events". One loader commonly reads several kinds: every
+    #: stream of an acquisition recording goes through the same reader, so an
+    #: 18-channel IMU was typed "Electrophysiology Data" purely because neo is
+    #: what reads it. The kind must match one of the loader's own
+    #: :meth:`~_Nameable.display_name` or :meth:`~_Nameable.display_aliases`
+    #: labels, since it selects among them; empty means the loader's own name.
+    kind: str = ""
 
 
 @dataclass(frozen=True)
