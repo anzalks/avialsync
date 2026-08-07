@@ -120,6 +120,17 @@ class SessionItem:
     loader: type["TimeSeriesSource | VideoSource"] | None = None
     config: dict[str, Any] = field(default_factory=dict)
 
+    #: What to call this item in the import dialog, when its filename is not
+    #: enough. A session already knows what each piece *is* — how many channels,
+    #: at what rate — while the dialog can only re-derive a name from the path,
+    #: and four streams of one recording all read as their directory names with
+    #: nothing to say which is the 30 kHz one. Empty means "use the filename".
+    #:
+    #: Deliberately not part of ``config``: config is hashed into the sidecar
+    #: cache key, so wording a label better would invalidate every cache built
+    #: with the old one — several gigabytes rebuilt to reword a table cell.
+    label: str = ""
+
 
 @dataclass(frozen=True)
 class SessionLayout:

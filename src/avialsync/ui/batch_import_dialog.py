@@ -1,6 +1,6 @@
 """Dialog for verifying and categorizing batch drag-and-drop imports."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -26,18 +26,27 @@ class BatchImportDialog(QDialog):
         self,
         candidates: Sequence[tuple[Path, type[TimeSeriesSource | VideoSource] | None, dict | None]],
         parent: QWidget | None = None,
+        labels: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Review Import Candidates")
         self.setMinimumSize(600, 400)
 
-        # Sort candidates: group by detected loader type, then alphabetically by filename
+        #: Row names a session supplied, by path. A recording's streams are all
+        #: read by the same loader and all live under directories named after
+        #: the acquisition board, so filename and type together still did not
+        #: say which row was the 32-channel 30 kHz one — the only row whose
+        #: import costs minutes and gigabytes.
+        self._labels: Mapping[str, str] = labels or {}
+
+        # Group by detected type, then by the name actually shown, so a session's
+        # rows sort the way they are read rather than by a path the user cannot see.
         def sort_key(
             item: tuple[Path, type[TimeSeriesSource | VideoSource] | None, dict | None],
         ) -> tuple[str, str]:
             path, loader_cls, _config = item
             type_name = loader_cls.__name__ if loader_cls else "zzz_none"
-            return (type_name, path.name.lower())
+            return (type_name, self._row_name(path).lower())
 
         self._candidates = sorted(candidates, key=sort_key)
         self._registry = LoaderRegistry()
@@ -58,7 +67,7 @@ class BatchImportDialog(QDialog):
         self._combos: list[QComboBox] = []
 
         for row, (path, default_loader, _config) in enumerate(self._candidates):
-            name_item = QTableWidgetItem(path.name)
+            name_item = QTableWidgetItem(self._row_name(path))
             name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             name_item.setToolTip(str(path))
             self._table.setItem(row, 0, name_item)
@@ -83,6 +92,10 @@ class BatchImportDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _row_name(self, path: Path) -> str:
+        """Return what to call *path*: the session's own label, else its filename."""
+        return self._labels.get(str(path)) or path.name
 
     def _build_category_map(self) -> None:
         """Map semantic labels to actual loader classes."""

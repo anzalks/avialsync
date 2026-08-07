@@ -29,6 +29,7 @@ from __future__ import annotations
 import datetime
 import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -166,14 +167,46 @@ def _first_sample_time(recording: Path) -> float | None:
     return min(starts) if starts else None
 
 
-def _neo_streams(recording: Path) -> list[tuple[str, str]]:
-    """Return ``(stream_id, stream_name)`` for every continuous stream neo sees.
+@dataclass(frozen=True)
+class _Stream:
+    """One continuous stream, as much as a folder scan needs to know about it."""
+
+    stream_id: str
+    name: str
+    channels: int = 0
+    rate_hz: float = 0.0
+
+    def label(self, folder: str) -> str:
+        """Return the dialog row for this stream: what it is, and what it costs.
+
+        The manifest's short stream name, not the decorated directory, and the
+        shape that decides whether importing it takes two seconds or four
+        minutes.  Four rows reading ``Acquisition_Board-124.<something>`` said
+        nothing about which one was the 32-channel 30 kHz stream.
+        """
+        short = self.name.rsplit("#", 1)[-1] or folder
+        short = short.rsplit(".", 1)[-1] or short
+        if self.channels and self.rate_hz:
+            return f"{short} — {self.channels} ch @ {_format_rate(self.rate_hz)}"
+        return short
+
+
+def _format_rate(rate_hz: float) -> str:
+    """Render a sampling rate the way an experimenter says it."""
+    if rate_hz >= 1000.0:
+        return f"{rate_hz / 1000.0:g} kHz"
+    return f"{rate_hz:g} Hz"
+
+
+def _neo_streams(recording: Path) -> list[_Stream]:
+    """Return every continuous stream neo sees, with its shape.
 
     The raw header is asked first because it names streams, whereas a signal only
     names itself.  A stream neo splits into several signals — one per unit, which
     is what an 18-channel IMU becomes — has no signal carrying the stream's name,
     so deriving it from the first signal produced ``Channels: (Eul-Y Eul-R
-    Eul-P)`` and matched no directory at all.
+    Eul-P)`` and matched no directory at all.  The signals are still read, for
+    the channel count and rate, which only they carry.
     """
     try:
         import neo
@@ -183,22 +216,36 @@ def _neo_streams(recording: Path) -> list[tuple[str, str]]:
         if header is None and hasattr(io, "parse_header"):
             io.parse_header()
             header = getattr(io, "header", None)
-        if header is not None and "signal_streams" in header:
-            return sorted(
-                (str(stream["id"]), str(stream["name"])) for stream in header["signal_streams"]
-            )
         block = io.read_block(lazy=True)
     except Exception:  # noqa: BLE001 - plugin boundary, as above
         logger.warning("Neo could not enumerate streams in %s.", recording, exc_info=True)
         return []
 
-    seen: dict[str, str] = {}
+    shapes: dict[str, tuple[int, float]] = {}
+    fallback_names: dict[str, str] = {}
     for segment in block.segments:
         for signal in segment.analogsignals:
             stream_id = str(signal.annotations.get("stream_id", ""))
-            if stream_id and stream_id not in seen:
-                seen[stream_id] = str(signal.name or "")
-    return sorted(seen.items())
+            if not stream_id:
+                continue
+            channels, rate = shapes.get(stream_id, (0, 0.0))
+            shapes[stream_id] = (
+                channels + int(signal.shape[1]),
+                rate or float(signal.sampling_rate.magnitude),
+            )
+            fallback_names.setdefault(stream_id, str(signal.name or ""))
+
+    names: dict[str, str] = fallback_names
+    if header is not None and "signal_streams" in header:
+        names = {str(stream["id"]): str(stream["name"]) for stream in header["signal_streams"]}
+
+    return sorted(
+        (
+            _Stream(stream_id, names.get(stream_id, ""), *shapes.get(stream_id, (0, 0.0)))
+            for stream_id in names
+        ),
+        key=lambda stream: stream.stream_id,
+    )
 
 
 def _stream_items(recording: Path) -> list[SessionItem]:
@@ -206,14 +253,14 @@ def _stream_items(recording: Path) -> list[SessionItem]:
     folders = stream_folder_names(recording)
     items: list[SessionItem] = []
 
-    for stream_id, stream_name in _neo_streams(recording):
-        folder = _match_folder(stream_name, folders)
+    for stream in _neo_streams(recording):
+        folder = _match_folder(stream.name, folders)
         if folder is None:
             logger.warning(
                 "Open Ephys stream %r (id %s) matches no directory the manifest declares; "
                 "skipping it rather than sharing another stream's cache.",
-                stream_name,
-                stream_id,
+                stream.name,
+                stream.stream_id,
             )
             continue
         directory = recording / "continuous" / folder
@@ -224,7 +271,8 @@ def _stream_items(recording: Path) -> list[SessionItem]:
             SessionItem(
                 directory,
                 NeoLoader,
-                {"root": str(recording), "stream_id": stream_id, "auto_resolved": True},
+                {"root": str(recording), "stream_id": stream.stream_id, "auto_resolved": True},
+                label=stream.label(folder),
             )
         )
     return items
@@ -262,6 +310,7 @@ def _event_items(recording: Path) -> list[SessionItem]:
             ttl_dirs[0],
             NeoLoader,
             {"root": str(recording), "events": True, "auto_resolved": True},
+            label=f"TTL events — {ttl_dirs[0].parent.name.rsplit('.', 1)[-1]}",
         )
     ]
 
@@ -309,5 +358,12 @@ def _camera_items(
                 "the timing evidence there is.",
                 video.name,
             )
-        items.append(SessionItem(video, OpenEphysCameraLoader, config))
+        items.append(
+            SessionItem(
+                video,
+                OpenEphysCameraLoader,
+                config,
+                label=f"{video.name} — camera",
+            )
+        )
     return items

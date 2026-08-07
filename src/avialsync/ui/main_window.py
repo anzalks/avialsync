@@ -151,6 +151,8 @@ class MainWindow(QMainWindow):
         # still answer for them.
         self._session_camera_fps: float = 0.0
         self._session_anchor_epoch: float = 0.0
+        #: Per-item display labels the claiming session supplied, by path.
+        self._session_item_labels: dict[str, str] = {}
         # Keep QObject workers alive until their QThread has finished. Moving an
         # object to a thread does not transfer Python ownership.
         self._video_load_jobs: dict[QThread, object] = {}

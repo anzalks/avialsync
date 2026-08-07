@@ -453,7 +453,7 @@ contradicts the runtime.
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
 | `ui/diagnostics.py` | Startup probe (hw-decode, disk speed) — async daemon thread; per-OS missing-libmpv text | `run_startup_diagnostics()`, `libmpv_install_guidance()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
-| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068) | `SessionSource`, `SessionLayout`, `SessionItem`, `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
+| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable` | `SessionSource`, `SessionLayout`, `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
 | `ui/controllers/video_controller.py` | Bounded concurrent probes; serialized pane build (D-040); validates and installs loader-declared per-frame mappings (D-072) | `load_video()`, `create_video_pane()`, `_declared_exact_mapping()`, `MAX_VIDEO_PROBES` |
@@ -661,6 +661,13 @@ implementation — "Rig Camera (sidecar-timed)" was shipped briefly — belongs 
 can name. `SessionSource` now inherits `_Nameable` like the other two contracts, so a session has a
 name at all. `default_display_name` split only after a lower-case letter, so it never broke a run of
 capitals: `AOLSessionSource` came back as "AOLSession", the very example its own docstring used.
+
+### 0l. A `SessionItem` label is never part of `config`
+`config` is hashed into the sidecar cache key, so a display label living there would make rewording
+a table cell invalidate every cache built with the old wording — gigabytes rebuilt to change a
+string. `SessionItem.label` is a separate field; `drop_controller` keys it by path into
+`window._session_item_labels` and hands that to `BatchImportDialog`. The candidate tuple stays a
+3-tuple: several consumers and any third-party reader of `DropScanWorker.finished` unpack it by arity.
 
 ### 1. No bare `QWidget { }` QSS selector — blacks out video panes
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  

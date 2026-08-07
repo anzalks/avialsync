@@ -715,3 +715,59 @@ def test_no_two_plugins_share_a_display_name() -> None:
     labels = [cls.display_name() for cls in registry.loaders()]
     labels += [alias for cls in registry.loaders() for alias in cls.display_aliases()]
     assert len(labels) == len(set(labels)), f"duplicate format labels: {labels}"
+
+
+# ── The dialog has to say which row costs minutes ───────────────────────
+
+
+def test_session_labels_name_each_stream_by_shape(session_dir: Path) -> None:
+    """Four streams read by one loader, under directories named for the board.
+
+    Filename and detected type together still did not say which row was the
+    32-channel 30 kHz one — the only row whose import costs minutes and
+    gigabytes. The session knows; the dialog could only re-derive a path.
+    """
+    labels = {item.label for item in _layout(session_dir).items}
+    assert "board — 2 ch @ 1 kHz" in labels
+    assert "aux — 1 ch @ 100 Hz" in labels
+    assert any(label.startswith("TTL events") for label in labels)
+    assert any(label.endswith("— camera") for label in labels)
+
+
+def test_a_label_is_not_part_of_the_cache_key(session_dir: Path) -> None:
+    """Rewording a table cell must never invalidate a multi-gigabyte sidecar."""
+    for item in _layout(session_dir).items:
+        assert "label" not in item.config
+
+
+def test_dialog_shows_session_labels_and_falls_back_to_filenames(session_dir: Path) -> None:
+    from avialsync.ui.batch_import_dialog import BatchImportDialog
+
+    pytest.importorskip("PySide6.QtWidgets")
+    from PySide6.QtWidgets import QApplication
+
+    QApplication.instance() or QApplication([])
+
+    layout = _layout(session_dir)
+    candidates = [(item.path, item.loader, dict(item.config)) for item in layout.items]
+    labels = {str(item.path): item.label for item in layout.items if item.label}
+    # A path the session said nothing about must still get a row name.
+    unlabelled = session_dir / "stray.csv"
+    unlabelled.write_text("time,v\n0,1\n", encoding="utf-8")
+    candidates.append((unlabelled, None, None))
+
+    dialog = BatchImportDialog(candidates, labels=labels)
+    shown = {dialog._table.item(row, 0).text() for row in range(dialog._table.rowCount())}
+
+    assert "board — 2 ch @ 1 kHz" in shown
+    assert "stray.csv" in shown, "an unlabelled candidate falls back to its filename"
+    dialog.deleteLater()
+
+
+def test_rates_read_the_way_an_experimenter_says_them() -> None:
+    from avialsync.loaders.open_ephys_session import _format_rate
+
+    assert _format_rate(30000.0) == "30 kHz"
+    assert _format_rate(1000.0) == "1 kHz"
+    assert _format_rate(100.0) == "100 Hz"
+    assert _format_rate(2500.0) == "2.5 kHz"
