@@ -15,15 +15,21 @@ from __future__ import annotations
 from collections import OrderedDict
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+import av
 import numpy as np
 
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.video_timing import frame_index_at
 
-if TYPE_CHECKING:
-    import av
+# Imported at module scope deliberately. The rule forbidding a top-level decoder
+# import (D-013) existed because a missing libmpv crashed with a ctypes traceback
+# at launch; PyAV carries its own FFmpeg inside its wheel, so that case cannot
+# occur — pip either installed the decoder or the install itself failed.
+# Deferring it would only move its 94 ms first-import onto whichever thread
+# reached it first: a decode thread on first open, or the diagnostics thread,
+# with the two able to contend on the import lock. Paying it once at startup is
+# both cheaper to reason about and deterministic.
 
 #: Frames kept per reader.  Held in the decoder's own pixel format rather than
 #: RGB — 2.3 MB per 1440x1080 frame instead of 4.6 MB — because converting on
@@ -55,8 +61,6 @@ class PyAVReader:
             SourceOpenError: The file cannot be opened or carries no video
                 stream with usable timestamps.
         """
-        import av
-
         self.path = Path(path)
         self._max_cached_frames = max(1, max_cached_frames)
         self._cache: OrderedDict[int, av.VideoFrame] = OrderedDict()
@@ -84,8 +88,7 @@ class PyAVReader:
         if time_base is None:
             self._container.close()
             raise SourceOpenError(
-                f"Video stream declares no time base, so its timestamps cannot be "
-                f"read: {self.path}"
+                f"Video stream declares no time base, so its timestamps cannot be read: {self.path}"
             )
 
         self._pts_ticks, self._keyframe_indices = self._build_pts_table()

@@ -1,6 +1,11 @@
 """Diagnostics module for AvialSync.
 
-Probes for libmpv, hardware decode capability, and disk read speed.
+Reports hardware decode capability and disk read speed.
+
+There is no decoder-availability probe any more, and there must not be one
+again: PyAV carries its own FFmpeg inside its wheel, so the missing-library case
+the old libmpv probe defended against cannot occur — pip either installed the
+decoder or the install itself failed (D-075 superseding D-013).
 """
 
 import os
@@ -11,106 +16,32 @@ import time
 
 from PySide6.QtWidgets import QMessageBox
 
-from avialsync.runtime import configure_media_runtime
-
-_LIBMPV_AVAILABLE: bool | None = None
 _STARTUP_DIAGNOSTICS: dict | None = None
 _STARTUP_DIAGNOSTICS_LOCK = threading.Lock()
 
 
-def _configure_macos_env() -> None:
-    """Configure dyld paths on macOS for Homebrew libmpv."""
-    if sys.platform != "darwin":
-        return
-
-    import platform
-
-    brew_lib = "/opt/homebrew/lib" if platform.machine() == "arm64" else "/usr/local/lib"
-    if os.path.exists(os.path.join(brew_lib, "libmpv.dylib")):
-        fallback = os.environ.get("DYLD_FALLBACK_LIBRARY_PATH", "")
-        os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = f"{brew_lib}:{fallback}"
-
-
-def libmpv_install_guidance(platform: str) -> str:
-    """Return the install route for ``platform`` named in the missing-libmpv dialog (D-013).
-
-    Every branch must name a route the reader can actually take.  A pip user is in a plain
-    virtual environment: they have no conda prefix to drop a DLL into and did not want the
-    desktop installer, so naming only those two would leave them without a next step.
-    """
-    if platform == "darwin":
-        return "brew install mpv"
-    if platform == "win32":
-        return (
-            "Install AvialSync-Setup.exe for the bundled runtime.\n"
-            "For a pip or source install, download an mpv-dev archive from\n"
-            "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/\n"
-            "and set AVIALSYNC_MEDIA_ROOT to the extracted folder holding libmpv-2.dll."
-        )
-    return "sudo apt install libmpv2 OR sudo dnf install mpv-libs OR sudo pacman -S mpv"
-
-
-def probe_libmpv(parent=None) -> bool:
-    """Probe for libmpv. Show a dialog if missing and return False."""
-    global _LIBMPV_AVAILABLE
-    if _LIBMPV_AVAILABLE is not None:
-        return _LIBMPV_AVAILABLE
-
-    configure_media_runtime()
-    _configure_macos_env()
-
-    try:
-        import mpv  # noqa: F401
-
-        _LIBMPV_AVAILABLE = True
-        return True
-    except OSError:
-        _LIBMPV_AVAILABLE = False
-
-        msg = QMessageBox(parent)
-        msg.setWindowTitle("Missing libmpv")
-        msg.setIcon(QMessageBox.Icon.Critical)
-
-        text = (
-            "AvialSync requires 'libmpv' for hardware-accelerated "
-            "video playback, but it could not be found on your "
-            "system.\n\n"
-            "Please install it to enable video features:\n"
-            f"{libmpv_install_guidance(sys.platform)}"
-        )
-        msg.setText(text)
-        msg.exec()
-        return False
-
-
 def probe_hwdec() -> dict:
-    """Probe hardware decode capabilities via mpv.
+    """Report which hardware decoders FFmpeg was built against.
 
-    Returns a dict with 'available' (bool) and 'decoders' (list).
+    Informational only.  Software decode measured 558 fps per camera at
+    1440x1080 against the ~180 fps needed to feed three panes, so **hardware
+    decode is not required to meet any budget** (D-075).  This is surfaced
+    because 12-bit footage is the case where it can still matter, and a user
+    should be able to see what their machine offers rather than guess.
+
+    Returns:
+        A dict with ``available`` (bool) and ``decoders`` (list of names).
     """
     result: dict = {"available": False, "decoders": []}
-
-    if not _LIBMPV_AVAILABLE:
-        return result
-
-    player = None
     try:
-        import mpv
+        from av.codec.hwaccel import hwdevices_available
 
-        player = mpv.MPV(vo="null", hwdec="auto")
-        hwdec = player.hwdec
-        result["available"] = hwdec not in (None, "no", "")
-        if result["available"]:
-            result["decoders"] = [str(hwdec)]
+        decoders = sorted(str(device) for device in hwdevices_available())
     except Exception as error:
         result["error"] = f"{type(error).__name__}: {error}"
-    finally:
-        if player is not None:
-            try:
-                player.terminate()
-            except Exception as error:
-                result["error"] = f"{type(error).__name__}: {error}"
-
+        return result
+    result["available"] = bool(decoders)
+    result["decoders"] = decoders
     return result
 
 
@@ -157,8 +88,7 @@ def probe_disk_speed(path: str | None = None) -> float:
 def run_startup_diagnostics(parent=None) -> dict:
     """Run startup diagnostics in a background thread.
 
-    Returns a dict that is populated asynchronously — the
-    ``libmpv`` key is filled immediately; ``hwdec`` and
+    Returns a dict that is populated asynchronously — ``hwdec`` and
     ``disk_speed_mbps`` arrive once the thread finishes.
     """
     global _STARTUP_DIAGNOSTICS
@@ -168,7 +98,6 @@ def run_startup_diagnostics(parent=None) -> dict:
             return _STARTUP_DIAGNOSTICS
 
         diag: dict = {
-            "libmpv": _LIBMPV_AVAILABLE or False,
             "hwdec": {},
             "disk_speed_mbps": 0.0,
         }
@@ -200,6 +129,16 @@ def run_startup_diagnostics(parent=None) -> dict:
     return diag
 
 
+def _pyav_version() -> str:
+    """Return the installed PyAV version, for a copyable bug report."""
+    try:
+        import av
+
+        return str(av.__version__)
+    except Exception:
+        return "unknown"
+
+
 def format_diagnostics(diag: dict) -> str:
     """Format diagnostics dict as a copyable text block."""
     lines = [
@@ -207,14 +146,14 @@ def format_diagnostics(diag: dict) -> str:
         "=" * 40,
         f"Platform: {sys.platform}",
         f"Python: {sys.version}",
-        f"libmpv: {'found' if diag.get('libmpv') else 'MISSING'}",
+        f"Decoder: PyAV {_pyav_version()}",
     ]
 
     hwdec = diag.get("hwdec", {})
     if hwdec.get("available"):
         lines.append(f"HW decode: {', '.join(hwdec['decoders'])}")
     else:
-        lines.append("HW decode: not available")
+        lines.append("HW decode: not available (not required)")
 
     speed = diag.get("disk_speed_mbps", 0)
     lines.append(f"Disk speed: {speed:.0f} MB/s")

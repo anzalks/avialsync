@@ -104,8 +104,8 @@ row that is not `done`, and read its "resume note" before doing anything.
 | 1 | Benchmark into `tests/benchmarks/test_seek_backends.py` | done | `pytest tests/benchmarks/test_seek_backends.py --benchmark-only` |
 | 2 | Frame-identity test into `tests/test_frame_identity.py` | done | `pytest tests/test_frame_identity.py` |
 | 3 | `engine/pyav_reader.py` — headless exact-frame reader | done | `pytest tests/test_pyav_reader.py` |
-| 4 | `ui/video_pane.py` — render decoded frames, delete mpv paths | todo | `pytest tests/test_video_pane*.py` |
-| 5 | `engine/player.py` — delete drift correction | todo | `pytest tests/test_player*.py` |
+| 4 | `ui/video_pane.py` — render decoded frames, delete mpv paths | done | `pytest tests/test_video_pane*.py` |
+| 5 | `engine/player.py` — delete drift correction | done | `pytest tests/test_playback_smoothness.py tests/test_scrubbing.py` |
 | 6 | `loaders/video_standard.py` — ffprobe → PyAV | todo | `pytest tests/test_video_standard.py` |
 | 7 | FFmpeg via pip for `proxy.py`, `export.py`, `demo.py` | todo | `avialsync demo` in a clean venv |
 | 8 | Packaging + docs + DECISIONS/ARCHITECTURE/HANDOUT sweep | todo | `pip install .` in a clean venv, no OS deps |
@@ -159,19 +159,62 @@ cameras open in parallel. Caching it in `.avialcache/` would add an invalidation
 7 % of a budget. Do not add one without re-measuring. (That footage is also all-intra — mean GOP
 1.0 — so its cold mid-file jump is 8 ms, confirming §2's "six times faster" note.)
 
-**4 — VideoPane.** This deletes the per-OS split entirely: no `MpvRenderContext`, no `wid`
-embedding, no `vo=null` headless special case. All three platforms take one path — decode to
-`QImage`, blit. Keep the pane as the ownership boundary. The shutdown ordering dance
-(`_release_mpv_render_context` before `terminate`) disappears with the render context.
-*Resume note:* if this step is half-done, the pane will import `mpv` lazily somewhere; grep for
-`import mpv` — the migration is complete only when that returns nothing outside of tests.
+**4 — VideoPane. DONE 2026-08-07.** Landed *together with step 5*: they cannot be separated,
+because the pane's new contract is exactly what makes the player's drift loop dead code. An
+intermediate commit would have left the app in a state where the pane decodes but the player still
+tries to steer it.
 
-**5 — Player.** Delete `_drift_counts`, `_drift_estimates`, `_smoothed_residual`, the speed-nudge
-grid, and the hysteresis cascade. They exist only to chase a clock the app does not own. Once the
-app decodes, it *is* the clock: on each tick, ask every pane for the frame containing master `t`.
-Sync becomes exact by construction rather than a tuned control loop. `_snap_to_frame_evidence` and
-`estimated-vf-fps` observation go with them.
-*Do not* delete the master clock itself or `TimeMap` — those are unrelated and still correct.
+The pane owns a `QThread` running a `DecodeWorker` around one `PyAVReader`. Requests coalesce on
+the newest wanted time, so a 60 Hz tick driving a decoder slower than one tick never queues a
+backlog — it skips. Frames are blitted as a `QImage` wrapping the decoded array; `VideoSurface`
+holds that array because `QImage` does not copy it, and dropping it would fault during a repaint
+rather than raise.
+*The per-OS split is gone*, as planned: no `MpvRenderContext`, no `wid`, no `vo=null` headless
+case. `tests/test_ci_platform_config.py` now parses `video_pane.py` and fails if a `sys.platform`
+read, an `mpv` import, or a `QOpenGLWidget` import reappears — checked against the AST rather than
+the text, so the rule can be described in a docstring without tripping the guard enforcing it.
+*`grep -rn "import mpv" src/` returns nothing.*
+*Also removed:* `probe_libmpv`, `libmpv_install_guidance`, and the macOS dyld shim in
+`ui/diagnostics.py` — all dead the moment the pane stopped needing a library to be present.
+`probe_hwdec` now reports what FFmpeg was built against, and is explicitly informational: software
+decode already meets every budget.
+*Trap found, not predicted:* `av` was left as a deferred import out of habit from D-013. That only
+moves its 94 ms first-import onto whichever thread reaches it first — a decode thread or the
+diagnostics thread, which can contend on the import lock. It is a module-scope import now; the
+D-013 reasoning does not survive a decoder that ships inside its own wheel.
+
+**5 — Player. DONE 2026-08-07.** `_drift_counts`, `_drift_estimates`, `_smoothed_residual`,
+`_set_correction`, the speed-nudge grid, and the hysteresis cascade are gone, along with
+`set_rate`/`set_sync_correction`/`set_mapping_rate_at`/`frame_interval_at_master` on the pane and
+`_maybe_finish_seek`/`_frame_tolerance`/`_observe_seeking` on the timing mixin. Playback is now a
+seek per tick: `_on_tick` asks every active pane for the frame containing master `t`.
+`tests/test_playback_smoothness.py` asserts the replacement properties — that lateness is *bounded
+and not growing* over twenty seconds, and that the player never asks a pane for a rate at all (the
+stand-in raises on `set_rate`, `sync_correction`, and friends, so reintroducing rate control fails
+loudly).
+*Also gone:* the mpv frame-step fallback in `Player.step_frame`. An opened pane always has its
+timestamp table, so `frame_step_master_target` is the only path; a missing target now means nothing
+is open, and stepping does nothing rather than inventing a `1/fps` boundary (D-007).
+
+**⚠ Deviation from this plan — `_snap_to_frame_evidence` was KEPT.** Step 5 listed it for deletion
+alongside the drift machinery. It does not belong there: it snaps the *master clock* onto an
+accepted per-frame trigger mapping (D-026 evidence-based sync), so an annotation records the instant
+a frame was exposed rather than wherever the scrubber stopped. It never touched libmpv, and deleting
+it would have changed annotation timestamps for no migration-related reason —
+`test_exact_scrub_snaps_master_clock_to_accepted_frame_trigger` was the signal. Removing it is a
+separate decision for the maintainer, not a side effect of swapping decoders.
+
+**⚠ A golden-sync expectation was corrected, and it is worth knowing why.**
+`tests/test_sync_golden.py::_fixture_frame_time(n)` returned `(n - 0.25)/30` while the test expected
+frame `n` back — but that instant lies inside frame `n-1`'s interval. That pair can only both be
+true against a reader returning the first frame with `pts >= t`, i.e. libmpv was rounding *up* and
+the golden test had been written around it. This is the 33 ms misattribution §3 describes, sitting
+inside the test suite that was supposed to catch it. The *probe* was corrected to `(n + 0.25)/30`,
+not the expectation, so the test now asserts what it always claimed to. Capture also moved from
+`screenshot-raw video` to the pane's own painted buffer, which removed the retry loop that existed
+because a raw snapshot could transiently return the pre-seek frame — and with it the
+`skipif(win32)` whose stated reason no longer exists. **That skip removal is unverified on Windows
+CI.**
 
 **6 — Probing.** `require_ffprobe()` disappears from `video_standard.py`. Extended metadata
 (D-020) and the pts table both come from PyAV. Keep `VideoMetadata` shape unchanged so the

@@ -1,51 +1,46 @@
 """Startup diagnostics lifecycle tests."""
 
-import sys
 from types import SimpleNamespace
 
 from avialsync.ui import diagnostics
 
 
-def test_install_guidance_names_a_route_on_every_platform() -> None:
-    """D-013 requires an actionable install step, not a description of the problem."""
-    assert "brew install mpv" in diagnostics.libmpv_install_guidance("darwin")
+def test_hwdec_probe_reports_what_ffmpeg_was_built_against() -> None:
+    """Informational only — software decode already meets every budget (D-075).
 
-    linux = diagnostics.libmpv_install_guidance("linux")
-    assert "apt install libmpv2" in linux
-    assert "dnf install mpv-libs" in linux
-    assert "pacman -S mpv" in linux
+    PyAV carries its own FFmpeg, so this can never fail for a missing library
+    the way the libmpv probe could; it reports a capability rather than gating
+    playback on one.
+    """
+    result = diagnostics.probe_hwdec()
 
-
-def test_windows_install_guidance_serves_a_pip_install() -> None:
-    """A pip user has no conda prefix and no installer, so those cannot be the only routes."""
-    guidance = diagnostics.libmpv_install_guidance("win32")
-
-    assert "AvialSync-Setup.exe" in guidance
-    assert "AVIALSYNC_MEDIA_ROOT" in guidance
-    assert "libmpv-2.dll" in guidance
+    assert isinstance(result["available"], bool)
+    assert isinstance(result["decoders"], list)
+    assert all(isinstance(name, str) for name in result["decoders"])
+    assert result["available"] == bool(result["decoders"])
 
 
-def test_hwdec_probe_reports_failure_and_terminates_player(monkeypatch) -> None:
-    """A failed capability query must remain observable and release libmpv."""
-    terminated: list[bool] = []
+def test_hwdec_probe_survives_a_decoder_that_cannot_be_queried(monkeypatch) -> None:
+    """A failed capability query must stay observable rather than raise."""
+    import av.codec.hwaccel
 
-    class _Player:
-        @property
-        def hwdec(self):
-            raise RuntimeError("probe failed")
+    def _boom():
+        raise RuntimeError("probe failed")
 
-        def terminate(self) -> None:
-            terminated.append(True)
-
-    fake_mpv = SimpleNamespace(MPV=lambda **_kwargs: _Player())
-    monkeypatch.setitem(sys.modules, "mpv", fake_mpv)
-    monkeypatch.setattr(diagnostics, "_LIBMPV_AVAILABLE", True)
+    monkeypatch.setattr(av.codec.hwaccel, "hwdevices_available", _boom)
 
     result = diagnostics.probe_hwdec()
 
     assert result["available"] is False
     assert "probe failed" in result["error"]
-    assert terminated == [True]
+
+
+def test_diagnostics_report_names_the_decoder_actually_in_use() -> None:
+    """A bug report has to say what decoded the video, not what is installed."""
+    text = diagnostics.format_diagnostics({"hwdec": {}, "disk_speed_mbps": 120.0})
+
+    assert "PyAV" in text
+    assert "libmpv" not in text
 
 
 def test_disk_probe_uses_unique_file_and_cleans_it(tmp_path) -> None:

@@ -298,15 +298,22 @@ def test_frame_step_uses_timestamp_target_without_fixed_delay(player_with_mocks)
     player.seek.assert_called_once_with(1.133, exact=True)
 
 
-def test_frame_step_without_index_waits_for_real_mpv_timestamp(player_with_mocks):
-    """A legacy plugin still uses mpv evidence, never nominal-fps arithmetic."""
+def test_frame_step_does_nothing_without_a_timestamp_table(player_with_mocks):
+    """A pane with no decoded timestamps has no next frame to name.
+
+    There is no fallback to a decoder's own frame-step command any more, and
+    there must not be one: an opened pane always has its presentation
+    timestamps, so a missing target means there is nothing open — and stepping
+    by ``1/fps`` instead would invent a frame boundary that VFR and
+    dropped-exposure footage do not have (D-007).
+    """
     player, _clock = player_with_mocks
     pane = MagicMock()
     pane.has_footage_at_master.return_value = True
     pane.frame_step_master_target.return_value = None
     player.video_grid.panes = [pane]
+    player.seek = MagicMock()
 
     player.step_frame(-1)
 
-    pane.frame_presented.connect.assert_called_once()
-    pane.frame_step.assert_called_once_with(forward=False)
+    player.seek.assert_not_called()

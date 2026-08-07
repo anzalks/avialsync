@@ -103,18 +103,23 @@ def format_video_osd(
 
 
 class VideoTimingMixin:
-    """Timestamp/readout behavior shared by every platform render path."""
+    """Timestamp and readout behaviour shared by the pane's decode paths.
+
+    What is *not* here any more is the settle machinery — ``_maybe_finish_seek``,
+    ``_frame_tolerance``, and the ``seeking`` observation that drove them.  Those
+    existed because libmpv decided which frame to display while the pts table
+    decided which frame the readout named, and the two had to be reconciled
+    within a tolerance.  The decoder now resolves time through the same
+    ``frame_index_at`` call the readout uses, so there is nothing left to
+    reconcile: one authority selects *and* names the frame (D-075).  Do not
+    reintroduce a second one.
+    """
 
     _frame_times: np.ndarray | None
     _metadata: VideoMetadata
     _is_vfr: bool
     _nominal_fps: float
     _decoder_fps: float
-    _seek_pending: bool
-    _seek_exact: bool
-    _seek_target: float
-    _mpv_seeking: bool
-    _mapping_rate_scale: float
     is_seeking: bool
     time_pos: float
     time_map: TimeMap
@@ -131,8 +136,9 @@ class VideoTimingMixin:
 
         Costs one binary search over the decoded presentation timestamps — a
         few microseconds, paid at most ``_OSD_MAX_HZ`` times per pane because
-        the only caller is the already-coalesced OSD paint.  Nothing here
-        touches libmpv, so it cannot contend with the decoder threads.
+        the only caller is the already-coalesced OSD paint.  It resolves the
+        frame with the same call the decoder used to select it, so the number
+        shown can never name a different frame from the one on screen.
         """
         frame_times = self._frame_times
         if frame_times is not None and len(frame_times):
@@ -147,49 +153,6 @@ class VideoTimingMixin:
         # The overlay's data readers expect master time (via MappedChannelReader)
         master_t = self.time_map.to_master(t)
         self.paint_canvas.update_time(master_t)
-
-    def _observe_time(self, value: float) -> None:
-        self.time_pos = value
-        self._maybe_finish_seek()
-        self.frame_presented.emit(value)
-        fps = displayed_frame_rate(
-            self._frame_times,
-            value,
-            self._is_vfr,
-            self._nominal_fps,
-            self._decoder_fps,
-            self.time_map.rate_scale_at(self.time_map.to_master(value)),
-        )
-        self._queue_osd_update(value, fps)
-
-    def _observe_seeking(self, value: bool) -> None:
-        self._mpv_seeking = value
-        self._maybe_finish_seek()
-
-    def _maybe_finish_seek(self) -> None:
-        if not self._seek_pending:
-            self.is_seeking = self._mpv_seeking
-            return
-        if self._mpv_seeking:
-            self.is_seeking = True
-            return
-        if self._seek_exact and abs(self.time_pos - self._seek_target) > self._frame_tolerance(
-            self._seek_target
-        ):
-            self.is_seeking = True
-            return
-        self._seek_pending = False
-        self.is_seeking = False
-
-    def _frame_tolerance(self, source_time: float) -> float:
-        if self._frame_times is None or len(self._frame_times) < 2:
-            return 0.05
-        index = frame_index_at(self._frame_times, source_time)
-        neighbour = min(index + 1, len(self._frame_times) - 1)
-        if neighbour == index:
-            neighbour = max(0, index - 1)
-        interval = abs(float(self._frame_times[neighbour] - self._frame_times[index]))
-        return max(0.001, interval * 0.5)
 
     def set_vfr(self, is_vfr: bool) -> None:
         """Mark the readout so its instantaneous rate is contextualized."""
@@ -237,25 +200,6 @@ class VideoTimingMixin:
             return self.time_map.to_master(target)
         return None
 
-    def set_mapping_rate_at(self, t_master: float) -> None:
-        """Apply the local accepted mapping slope without redundant mpv writes."""
-        scale = self.time_map.rate_scale_at(t_master)
-        if abs(scale - self._mapping_rate_scale) <= 1e-9:
-            return
-        self._mapping_rate_scale = scale
-        self._apply_rate()
-
-    def frame_interval_at_master(self, t_master: float) -> float:
-        """Return the displayed frame's duration in source-time seconds.
-
-        This is the quantum of :attr:`time_pos`: libmpv reports the timestamp
-        of the frame currently on screen, so a decoder that is *perfectly* in
-        sync still reads back as up to one whole interval behind the
-        continuous master clock.  Drift has to be judged against this, not
-        against a tighter tolerance the observable can never satisfy.
-        """
-        return self._frame_tolerance(self.time_map.to_source(t_master)) * 2.0
-
-    def _apply_rate(self) -> None:
-        """Apply the concrete pane's composed playback rate."""
-        raise NotImplementedError
+    def source_time_at_master(self, t_master: float) -> float:
+        """Return the source instant this pane should be showing for ``t_master``."""
+        return float(self.time_map.to_source(t_master))

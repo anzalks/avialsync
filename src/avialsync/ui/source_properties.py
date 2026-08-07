@@ -122,7 +122,7 @@ class VideoPropertiesPanel(_PropertiesBase):
     def __init__(self, loader: Any, parent: QWidget | None = None) -> None:
         super().__init__("Video Properties", parent)
         self._loader = loader
-        self._pane: Any = None  # VideoPane ref for live mpv properties
+        self._pane: Any = None  # VideoPane ref for live decode state
         self._populate()
 
     def _populate(self) -> None:
@@ -176,13 +176,18 @@ class VideoPropertiesPanel(_PropertiesBase):
         self._pane = pane
 
     def refresh_live(self) -> None:
-        """Read live mpv properties; call when the panel is expanded."""
-        if self._pane is None or self._pane.mpv is None:
+        """Read the pane's current decode state; call when the panel is expanded.
+
+        The rate reported is the *displayed* frame's own interval, taken from
+        the presentation timestamps, not a decoder's running estimate. It is
+        therefore a property of the footage rather than of how busy the machine
+        is, which is what someone reading a measurement tool wants to see.
+        """
+        pane = self._pane
+        if pane is None or not getattr(pane, "has_media", False):
             return
-        fps = getattr(self._pane.mpv, "estimated_vf_fps", None) or 0.0
-        self._update_row("Decoder fps", f"{fps:.3f}")
-        hw = str(getattr(self._pane.mpv, "hwdec_current", "") or "software")
-        self._update_row("Decode mode", hw)
+        self._update_row("Decoder fps", f"{pane.displayed_frame_rate_now():.3f}")
+        self._update_row("Decode mode", "software (PyAV)")
 
     def _toggle(self) -> None:
         super()._toggle()

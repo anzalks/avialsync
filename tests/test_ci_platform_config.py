@@ -1,5 +1,6 @@
 """Regression checks for the shared cross-platform CI and release contract."""
 
+import ast
 from pathlib import Path
 
 import yaml
@@ -39,9 +40,37 @@ def test_cross_platform_quality_workflows_share_headless_media_contract() -> Non
         assert "actions/checkout@v5" in workflow
         assert "actions/setup-python@v6" in workflow
 
-    assert "if is_offscreen:" in video_pane
-    assert 'vo="null"' in video_pane
-    assert 'sys.platform in ("darwin", "win32")' in video_pane
+    # The pane used to fork three ways — a Qt OpenGL render context on
+    # Windows/macOS, native `wid` embedding on Linux, and a `vo=null` headless
+    # case for CI — so "does it work on this OS" was a real question and CI's
+    # job was to answer it on all three. D-075 removed the fork: every platform
+    # decodes to a QImage and blits it, headless or not. The guard is now that
+    # the fork stays gone, because reintroducing one would quietly restore a
+    # class of bug CI can only catch after the fact (AGENTS.md rule 6).
+    # Checked against the parsed module rather than its text, so the rule can
+    # be *described* in a docstring without tripping the guard that enforces it.
+    tree = ast.parse(video_pane)
+    platform_reads = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+        and node.attr == "platform"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "sys"
+    ]
+    assert not platform_reads, (
+        "video_pane.py must not branch on the platform: rendering is one path "
+        f"on every OS since D-075 (line {platform_reads[0].lineno if platform_reads else 0})"
+    )
+
+    imported = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    } | {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+    assert "mpv" not in imported
+    assert not any(name.startswith("PySide6.QtOpenGL") for name in imported)
 
 
 def test_release_bundle_uses_the_verified_windows_libmpv() -> None:

@@ -1,16 +1,18 @@
 """Playback must not generate work proportional to the decoded frame rate.
 
-Two independent costs used to scale with ``panes x fps`` on the UI thread, which
-is what a six-camera high-frame-rate session cannot afford:
+Each pane relays out its OSD label and composites its tracking overlay once per
+*presented* frame, which without a cap scales with ``panes x fps`` on the UI
+thread — what a six-camera high-frame-rate session cannot afford.  That cap is
+bounded here.  These are behavioural budgets, not micro-benchmarks: they count
+calls, so they are deterministic on any machine.
 
-* the drift corrector judged libmpv's frame-quantised ``time_pos`` against a
-  sub-frame tolerance, so a perfectly healthy pane was declared out of sync
-  about half the time and had ``mpv.speed`` rewritten ~48 times a second; and
-* each pane relaid out its OSD label and composited its tracking overlay once
-  per *decoded* frame, unthrottled.
-
-Both are bounded here.  These are behavioural budgets, not micro-benchmarks:
-they count calls, so they are deterministic on any machine.
+The other cost that used to scale this way was drift correction, and it is gone
+rather than bounded (D-075).  It judged libmpv's frame-quantised ``time_pos``
+against a sub-frame tolerance, so a perfectly healthy pane was declared out of
+sync about half the time and had ``mpv.speed`` rewritten ~48 times a second.
+The app now decodes, so it does not have to infer where a player got to: it
+tells each pane which frame to show.  The first section below pins that — no
+correction, and no drift for a correction to chase.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from PySide6.QtWidgets import QApplication
 
 from avialsync.core.timeline import MasterClock, TimeMap
 from avialsync.engine.player import Player
+from avialsync.engine.seeker import SeekGroup
 from avialsync.ui import video_pane as video_pane_module
 
 FPS = 30.0
@@ -32,26 +35,49 @@ INTERVAL = 1.0 / FPS
 TICK = 1.0 / 60.0
 
 
-class StaircasePane:
-    """A pane that reports time like libmpv actually does.
+#: Names a pane must not be asked for during playback.  Every one of them is a
+#: way of telling a decoder to run at its own rate, which is the model D-075
+#: removed: the app decodes, so it says *which frame*, never *how fast*.
+_RATE_CONTROL_NAMES = (
+    "set_sync_correction",
+    "sync_correction",
+    "set_rate",
+    "set_mapping_rate_at",
+    "frame_interval_at_master",
+    "mpv",
+)
 
-    ``time_pos`` is the timestamp of the frame *currently on screen*, so it only
-    advances when a new frame is presented.  Sampled by a 60 Hz tick against a
-    continuous master clock, a decoder that is exactly in sync still reads back
-    as anywhere from zero to one whole frame interval behind.
+
+class DecodingPane:
+    """A pane that shows the frame containing whatever time it is handed.
+
+    It never advances on its own — that is the whole point.  A decoder with no
+    clock of its own cannot drift away from one, so the only thing worth
+    simulating is *latency*: how many ticks pass before the requested frame is
+    actually on screen.
     """
 
-    def __init__(self, *, intrinsic_rate: float = 1.0, start_offset: float = 0.0) -> None:
-        self.mpv = object()
-        self.is_seeking = False
+    def __init__(self, *, decode_ticks: int = 0, offset: float = 0.0) -> None:
         self.time_map = TimeMap()
-        self.sync_correction = 1.0
-        self.speed_writes = 0
-        self.seeks = 0
-        self._intrinsic_rate = intrinsic_rate
-        self._pinned = intrinsic_rate == 1.0 and start_offset == 0.0
-        self.decoder_t = start_offset
-        self.time_pos = start_offset
+        if offset:
+            self.time_map.set_mapping(offset=offset, drift_ppm=0.0)
+        self.has_media = True
+        self.is_seeking = False
+        self.time_pos = 0.0
+        self.displayed_frame: int | None = None
+        self.requests: list[float] = []
+        self._decode_ticks = decode_ticks
+        self._busy = 0
+        self._pending: float | None = None
+        self._in_flight: float | None = None
+
+    def __getattr__(self, name: str) -> object:
+        if name in _RATE_CONTROL_NAMES:
+            raise AssertionError(
+                f"the player asked a pane for {name!r}: playback must command a "
+                "frame, never a rate (D-075)"
+            )
+        raise AttributeError(name)
 
     # -- the surface Player uses --
     def has_footage_at_master(self, t_master: float) -> bool:
@@ -66,32 +92,43 @@ class StaircasePane:
     def pause(self) -> None:
         pass
 
-    def set_mapping_rate_at(self, t_master: float) -> None:
-        pass
+    def seek(self, source_t: float, exact: bool = True) -> None:
+        """Accept a frame request, coalescing onto the newest wanted time.
 
-    def frame_interval_at_master(self, t_master: float) -> float:
-        return INTERVAL
-
-    def set_sync_correction(self, correction: float) -> None:
-        if correction != self.sync_correction:
-            self.speed_writes += 1
-        self.sync_correction = correction
+        This mirrors ``DecodeWorker``: a request arriving mid-decode does not
+        restart the decode, it replaces whatever was queued behind it. Only the
+        newest pending time is ever decoded, so a backlog cannot build.
+        """
+        self.requests.append(source_t)
+        self._pending = source_t
+        if self._busy == 0:
+            self._start()
 
     # -- simulation --
-    def advance(self, dt: float, master_t: float) -> None:
-        if self._pinned:
-            self.decoder_t = master_t  # a decoder holding the clock exactly
+    def tick(self) -> None:
+        if self._busy > 0:
+            self._busy -= 1
+            if self._busy == 0:
+                self._present()
+                if self._pending is not None:
+                    self._start()
+
+    def _start(self) -> None:
+        self._in_flight, self._pending = self._pending, None
+        if self._decode_ticks <= 0:
+            self._present()
         else:
-            self.decoder_t += dt * self._intrinsic_rate * self.sync_correction
-        self.time_pos = np.floor(self.decoder_t / INTERVAL) * INTERVAL
+            self.is_seeking = True
+            self._busy = self._decode_ticks
 
-    def jump_to(self, source_t: float) -> None:
-        self.seeks += 1
-        self.decoder_t = source_t
-        self.time_pos = np.floor(source_t / INTERVAL) * INTERVAL
+    def _present(self) -> None:
+        assert self._in_flight is not None
+        self.displayed_frame = int(np.floor(self._in_flight / INTERVAL + 1e-9))
+        self.time_pos = self.displayed_frame * INTERVAL
+        self.is_seeking = False
 
 
-def _rigged_player(panes: list[StaircasePane]) -> tuple[Player, MasterClock]:
+def _rigged_player(panes: list[DecodingPane]) -> tuple[Player, MasterClock]:
     grid = MagicMock()
     grid.panes = panes
     grid.visible_panes.return_value = panes
@@ -106,113 +143,145 @@ def _rigged_player(panes: list[StaircasePane]) -> tuple[Player, MasterClock]:
     player.transport = MagicMock()
     player.tracking_3d_pane = None
     player._readout_panel = None
-    player.seeker = MagicMock()
-    player.seeker.is_settled.return_value = True
-    player.seeker.seek_pane = lambda pane, source_t, exact=True: pane.jump_to(source_t)
-    player._drift_counts = {}
-    player._drift_estimates = {}
+    # The real SeekGroup, so the fanout and its per-pane time mapping are what
+    # is under test rather than a mock's recollection of them.
+    player.seeker = SeekGroup(panes)
     player._playing_pane_ids = {id(p) for p in panes}
     player._displayed_pane_ids = {id(p) for p in panes}
     player._last_presentation_at = 0.0
     player._last_tick_monotonic = 0.0
     player._is_scrubbing = False
     player._pending_scrub_t = None
-    player._queued_frame_steps = 0
-    player._frame_step_reference = None
     player._ab_in = None
     player._ab_out = None
     return player, clock
 
 
-def _run(player: Player, clock: MasterClock, panes: list[StaircasePane], seconds: float) -> None:
-    """Drive the real tick for *seconds* of simulated playback."""
+def _run(
+    player: Player,
+    clock: MasterClock,
+    panes: list[DecodingPane],
+    seconds: float,
+) -> list[tuple[float, float]]:
+    """Drive the real tick for *seconds* of simulated playback.
+
+    Returns ``(master_t, lateness)`` for the first pane at every tick, so a test
+    can ask whether an error *grew* rather than only how big it ended up.
+    """
     clock.play()
     clock.advance(0.0)
+    samples: list[tuple[float, float]] = []
     real_monotonic = time.monotonic
     try:
         for step in range(1, int(seconds / TICK) + 1):
             now = step * TICK
             for pane in panes:
-                pane.advance(TICK, clock.state.t)
+                pane.tick()
             time.monotonic = lambda now=now: now  # type: ignore[assignment]
             player._on_tick()
+            samples.append((clock.state.t, abs(panes[0].time_pos - clock.state.t)))
     finally:
         time.monotonic = real_monotonic  # type: ignore[assignment]
+    return samples
 
 
-# ── Drift correction ──────────────────────────────────────────────────
+# ── Playback commands frames, never rates ─────────────────────────────
 
 
-def test_a_pane_holding_the_clock_is_never_corrected(qapp: QApplication) -> None:
-    """The core regression: frame quantisation is not drift.
+def test_every_playing_tick_asks_each_pane_for_the_frame_at_master_time(
+    qapp: QApplication,
+) -> None:
+    """The new playback model, stated as an assertion.
 
-    Judging the ``time_pos`` staircase against a half-frame tolerance used to
-    produce ~48 ``mpv.speed`` writes per second per pane for a decoder that was
-    keeping perfect time.  Every one of those takes libmpv's core lock away from
-    the decoder threads.
+    Under libmpv the player watched where each decoder had got to and nudged it.
+    Now it tells every pane which instant to show, every tick — so a pane cannot
+    be anywhere other than where the master clock says.
     """
-    pane = StaircasePane()
+    pane = DecodingPane()
     player, clock = _rigged_player([pane])
 
-    _run(player, clock, [pane], seconds=10.0)
+    _run(player, clock, [pane], seconds=2.0)
 
-    assert pane.speed_writes == 0
-    assert pane.seeks == 0
-
-
-def test_a_slow_decoder_is_still_corrected(qapp: QApplication) -> None:
-    """Widening the deadband must not make the corrector deaf to real drift."""
-    pane = StaircasePane(intrinsic_rate=0.97)
-    player, clock = _rigged_player([pane])
-
-    _run(player, clock, [pane], seconds=20.0)
-
-    assert pane.speed_writes > 0, "a decoder running 3% slow must be corrected"
-    assert pane.sync_correction > 1.0, "correction must speed the pane up, not slow it"
-    # Held to a couple of frames rather than allowed to run away.
-    assert abs(pane.decoder_t - clock.state.t) < INTERVAL * 4
+    assert len(pane.requests) == pytest.approx(2.0 / TICK, rel=0.05)
+    assert pane.displayed_frame == int(np.floor(clock.state.t / INTERVAL + 1e-9))
 
 
-def test_correcting_a_slow_decoder_does_not_thrash_libmpv(qapp: QApplication) -> None:
-    """Correction is smoothed and quantised, so it settles instead of rattling."""
-    pane = StaircasePane(intrinsic_rate=0.97)
-    player, clock = _rigged_player([pane])
+def test_a_slow_decoder_shows_an_older_frame_but_never_drifts(qapp: QApplication) -> None:
+    """Lateness must not accumulate.
 
-    _run(player, clock, [pane], seconds=20.0)
-
-    # The raw residual is quantised to a frame, so an unsmoothed proportional
-    # law flips between adjacent speed steps on almost every tick (measured at
-    # ~56/s).  A few per second is a controller tracking; dozens is thrash.
-    assert pane.speed_writes < 20.0 * 5
-
-
-def test_a_pane_that_starts_behind_is_seeked_once(qapp: QApplication) -> None:
-    """A delayed start is a position discontinuity, not something to nudge.
-
-    The drift estimate describes where the pane *was*; if it survives the
-    corrective seek the pane stays above threshold and is re-seeked in a loop.
+    A pane taking five ticks per frame is always a little behind, but it is
+    behind by the same bounded amount at twenty seconds as at five — because
+    each request carries an absolute time, not an increment. Under the old
+    speed-nudge model this was the case that needed a controller.
     """
-    pane = StaircasePane(start_offset=-2.0)
+    decode_ticks = 5
+    pane = DecodingPane(decode_ticks=decode_ticks)
     player, clock = _rigged_player([pane])
 
-    _run(player, clock, [pane], seconds=20.0)
+    samples = _run(player, clock, [pane], seconds=20.0)
 
-    assert pane.seeks == 1
-    assert abs(pane.decoder_t - clock.state.t) < INTERVAL
+    # Skip the first second: the pane genuinely has nothing on screen until its
+    # first decode lands, and that is a start-up transient, not drift.
+    steady = [lateness for t, lateness in samples if t > 1.0]
+    early = steady[: len(steady) // 4]
+    late = steady[-len(steady) // 4 :]
+
+    # Everything a healthy-but-slow pane can be behind by, and nothing more:
+    # the decode itself, the wait until the next decode replaces it, and the
+    # frame quantisation every decoder has — the shown frame's own timestamp is
+    # up to one interval below the continuous clock.
+    bound = (2 * decode_ticks + 1) * TICK + INTERVAL
+    assert max(early) < bound
+    assert max(late) < bound, "lateness accumulated, which is drift"
+    # The real assertion: bounded is not enough, it must not be *growing*.
+    assert max(late) <= max(early) + TICK, "lateness grew over twenty seconds"
 
 
-def test_one_struggling_pane_does_not_disturb_its_neighbours(qapp: QApplication) -> None:
-    """Per-pane drift state must stay per-pane in a multi-camera session."""
-    healthy = [StaircasePane() for _ in range(3)]
-    struggling = StaircasePane(intrinsic_rate=0.97)
+def test_a_pane_that_starts_behind_needs_no_correction(qapp: QApplication) -> None:
+    """A position discontinuity is not a thing to converge on any more.
+
+    The pane starts showing nothing at all; one tick later it is exactly where
+    the master clock is, because it was told rather than nudged.
+    """
+    pane = DecodingPane()
+    player, clock = _rigged_player([pane])
+    assert pane.displayed_frame is None
+
+    _run(player, clock, [pane], seconds=0.1)
+
+    assert pane.displayed_frame == int(np.floor(clock.state.t / INTERVAL + 1e-9))
+
+
+def test_each_pane_is_asked_for_its_own_source_time(qapp: QApplication) -> None:
+    """A per-camera offset must reach the decoder, not just the readout.
+
+    The direction is whatever ``TimeMap.to_source`` says; what matters here is
+    that the fanout applies it per pane rather than handing every camera the
+    same master instant.
+    """
+    aligned = DecodingPane()
+    shifted = DecodingPane(offset=1.25)
+    panes = [aligned, shifted]
+    player, clock = _rigged_player(panes)
+
+    _run(player, clock, panes, seconds=2.0)
+
+    expected = shifted.time_map.to_source(clock.state.t)
+    assert shifted.requests[-1] == pytest.approx(expected)
+    assert shifted.requests[-1] != pytest.approx(aligned.requests[-1])
+
+
+def test_one_slow_pane_does_not_disturb_its_neighbours(qapp: QApplication) -> None:
+    """A struggling camera must not hold up the cameras beside it."""
+    healthy = [DecodingPane() for _ in range(3)]
+    struggling = DecodingPane(decode_ticks=5)
     panes = [*healthy, struggling]
     player, clock = _rigged_player(panes)
 
-    _run(player, clock, panes, seconds=10.0)
+    _run(player, clock, panes, seconds=5.0)
 
-    assert all(p.speed_writes == 0 for p in healthy)
-    assert all(p.seeks == 0 for p in healthy)
-    assert struggling.speed_writes > 0
+    expected = int(np.floor(clock.state.t / INTERVAL + 1e-9))
+    assert all(p.displayed_frame == expected for p in healthy)
 
 
 # ── Per-frame UI work ─────────────────────────────────────────────────
@@ -375,24 +444,22 @@ def test_the_player_marks_discrete_events_immediate(qapp: QApplication) -> None:
     assert player.plot_pane.set_cursor.call_args_list[1].kwargs["immediate"] is False
 
 
-# ── Painting must never reach into libmpv ─────────────────────────────
+# ── Painting reads a mirrored size, never a decoder ───────────────────
 
 
-def test_the_overlay_never_queries_mpv_while_painting(qapp: QApplication) -> None:
+def test_the_overlay_scales_from_the_panes_mirrored_video_size(qapp: QApplication) -> None:
     """``paintEvent`` runs on the UI thread once per pane per frame.
 
-    Reading ``dwidth``/``dheight`` there takes libmpv's core lock while the
-    decoder threads are contending for it (measured at 26-34 us typical,
-    165 us at p99).  The size is mirrored by a property observer instead.
+    It must scale from the size the pane published at open, not by asking the
+    decoder — which under libmpv took its core lock while the decode threads
+    contended for it (26-34 us typical, 165 us at p99, once per pane per frame).
+    The pane stand-in here has *only* ``video_size``, so a paint path that
+    reaches for anything else fails rather than quietly costing that again.
     """
     from avialsync.ui.video_overlay import PaintCanvas
 
-    class _ExplodingMpv:
-        def __getattr__(self, name: str) -> object:
-            raise AssertionError(f"paintEvent must not read mpv.{name}")
-
     canvas = PaintCanvas()
-    pane = SimpleNamespace(mpv=_ExplodingMpv(), video_size=(640, 360))
+    pane = SimpleNamespace(video_size=(640, 360))
     canvas.setParent(None)
     canvas.parent = lambda: pane  # type: ignore[method-assign]
     canvas.resize(320, 240)
@@ -402,6 +469,35 @@ def test_the_overlay_never_queries_mpv_while_painting(qapp: QApplication) -> Non
     assert scale == pytest.approx(0.5)
     assert offset_x == pytest.approx(0.0)
     assert offset_y == pytest.approx(30.0)
+
+
+def test_the_overlay_and_the_video_surface_letterbox_identically(qapp: QApplication) -> None:
+    """Two widgets draw into one cell; a divergence puts markers off their mark.
+
+    The surface blits the frame and the canvas draws tracked points on top of
+    it. They compute their geometry separately, so this pins them to the same
+    answer rather than trusting that two copies of the formula stay equal.
+    """
+    from avialsync.ui.video_overlay import PaintCanvas
+    from avialsync.ui.video_pane import VideoSurface
+
+    surface = VideoSurface()
+    surface.resize(320, 240)
+    surface.set_frame(np.zeros((360, 640, 3), dtype=np.uint8))
+
+    canvas = PaintCanvas()
+    canvas.setParent(None)
+    canvas.parent = lambda: SimpleNamespace(video_size=(640, 360))  # type: ignore[method-assign]
+    canvas.resize(320, 240)
+
+    image = surface._image
+    assert image is not None
+    surface_scale = min(surface.width() / image.width(), surface.height() / image.height())
+    surface_offset_y = (surface.height() - image.height() * surface_scale) / 2.0
+
+    scale, _, offset_y = canvas._video_scale()
+    assert surface_scale == pytest.approx(scale)
+    assert surface_offset_y == pytest.approx(offset_y)
 
 
 def test_an_empty_overlay_does_not_schedule_repaints(qapp: QApplication) -> None:
@@ -435,7 +531,7 @@ def test_an_overlay_with_tracks_still_repaints(qapp: QApplication) -> None:
 
 
 def test_the_overlay_waits_for_a_real_video_size(qapp: QApplication) -> None:
-    """Before libmpv reports a size there is nothing meaningful to scale to."""
+    """Before a file is open there is nothing meaningful to scale to."""
     from avialsync.ui.video_overlay import PaintCanvas
 
     canvas = PaintCanvas()
@@ -443,20 +539,3 @@ def test_the_overlay_waits_for_a_real_video_size(qapp: QApplication) -> None:
     canvas.parent = lambda: pane  # type: ignore[method-assign]
 
     assert canvas._video_scale() is None
-
-
-def test_video_size_is_mirrored_from_mpv_video_out_params(qapp: QApplication) -> None:
-    """The observer feeds the overlay so the paint path stays lock-free."""
-    pane = SimpleNamespace(video_size=None)
-    observe = video_pane_module.VideoPane._observe_video_params
-
-    observe(pane, {"dw": 1920, "dh": 1080, "pixelformat": "yuv420p"})
-    assert pane.video_size == (1920, 1080)
-
-    # libmpv reports None between files; the last known good size is kept
-    # rather than blanking the overlay mid-transition.
-    observe(pane, None)
-    assert pane.video_size == (1920, 1080)
-
-    observe(pane, {"dw": 0, "dh": 0})
-    assert pane.video_size == (1920, 1080)

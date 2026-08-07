@@ -670,7 +670,7 @@ class MainWindow(QMainWindow):
         """Rescale the panes with the window instead of letting one absorb it all.
 
         Coalesced: a drag-resize delivers an event per pixel of travel, and
-        every reallocation costs a full workspace relayout (mpv surfaces, the
+        every reallocation costs a full workspace relayout (video surfaces, the
         pyqtgraph stack, the overview strip). Running one per frame keeps the
         panes visibly tracking the window edge without putting a relayout storm
         on the UI thread.
@@ -935,7 +935,7 @@ class MainWindow(QMainWindow):
         # running the autosave afterwards wrote a session with zero videos and
         # silently discarded the user's video list on every close (D-059).
         #
-        # libmpv teardown goes last, and every step is isolated. Each pane owns
+        # Decoder teardown goes last, and every step is isolated. Each pane owns
         # an event thread that outlives its widget, so a step that raises must
         # not skip the ones after it: that leaves those threads running and the
         # process never exits, which is the "window won't close" the user sees.

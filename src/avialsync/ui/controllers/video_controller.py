@@ -1,9 +1,15 @@
 """Video probing and pane construction.
 
-Files are probed concurrently — ffprobe metadata and presentation-timestamp
-extraction are independent per file — but panes are built one at a time in the
-order the user asked for them, because libmpv must accept commands on one pane
-before the next is constructed (D-040).
+Files are probed concurrently — metadata and presentation-timestamp extraction
+are independent per file — but panes are still built one at a time, in the order
+the user asked for them (D-040).
+
+The original reason for serialising was libmpv: a client had to accept commands
+on one pane before the next was constructed. That constraint is gone with D-075,
+since a pane is now an ordinary widget plus its own decode thread. The order is
+kept because it is also what makes panes appear in the order the user picked
+them, which is user-visible; lifting the serialisation is a separate change with
+its own DECISIONS entry, not a side effect of the decoder migration.
 """
 
 from __future__ import annotations
@@ -50,10 +56,10 @@ def start_next_video_load(window: MainWindow) -> None:
     Two different limits apply here (P3.5 P1 loading).  ffprobe metadata and
     presentation-timestamp extraction are independent per file and safe to
     overlap, so up to :data:`MAX_VIDEO_PROBES` run at once and a four-camera
-    session stops paying four serial probe latencies.  Constructing a native
-    render pane is *not* safe to overlap — libmpv must accept commands on one
-    pane before the next is built (D-040) — so that stays one at a time,
-    gated by ``_video_pane_initializing``.
+    session stops paying four serial probe latencies.  Pane construction stays
+    one at a time, gated by ``_video_pane_initializing``, so panes appear in the
+    order the user picked them (D-040; see the module docstring for why the
+    original libmpv reason no longer applies).
     """
     while len(window._video_load_jobs) < MAX_VIDEO_PROBES and window._pending_video_loads:
         window._start_one_video_probe()

@@ -1,52 +1,210 @@
-"""Video-pane construction tests."""
+"""Video-pane construction, decoding, and teardown tests.
 
-import sys
+Everything here used to be about libmpv: which of three render paths a platform
+took, and the ordering dance needed to stop an event thread that outlived the
+widget. D-075 deleted all of it. What replaced those tests are the properties
+that matter for a pane that decodes for itself — that it renders one way
+everywhere, that decoding never runs on the UI thread, that requests coalesce
+instead of queueing, and that the thread it owns is stopped by the pane that
+started it.
+"""
+
+from __future__ import annotations
+
 import threading
-import time
+from pathlib import Path
 from types import SimpleNamespace
 
-from PySide6.QtCore import QEvent
+import numpy as np
+import pytest
 from PySide6.QtWidgets import QApplication
 
 from avialsync.ui import video_pane
+from tests.util_framestrip import decode_frame_strip
+from tests.util_pyav_fixtures import cfr_times, write_video
+
+pytest.importorskip("av")
+
+FPS = 30.0
+FRAME_COUNT = 90
 
 
-def test_windows_render_widget_has_video_pane_parent(monkeypatch, qapp) -> None:
-    """The render API widget owns a native surface below its VideoPane."""
+@pytest.fixture(scope="module")
+def clip(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    path = tmp_path_factory.mktemp("pane") / "clip.mp4"
+    write_video(path, frame_times=cfr_times(FRAME_COUNT), gop_size=15)
+    return path
 
-    class FakeMpv:
-        def __init__(self, **_options: object) -> None:
-            self.seek_calls: list[tuple[float, dict[str, object]]] = []
 
-        def property_observer(self, _name: str):
-            return lambda callback: callback
+def _opened_pane(clip: Path, qtbot) -> video_pane.VideoPane:
+    pane = video_pane.VideoPane()
+    qtbot.addWidget(pane)
+    pane.open(str(clip))
+    qtbot.waitUntil(lambda: pane.has_media, timeout=5000)
+    return pane
 
-        def event_callback(self, _name: str):
-            return lambda callback: callback
 
-        def command_async(self, name: str, *args: object, **kwargs: object) -> None:
-            if name == "seek":
-                target = args[0]
-                self.seek_calls.append((target, args[1:]))
+# ── One rendering path, everywhere ────────────────────────────────────
 
-    monkeypatch.setattr(video_pane, "probe_libmpv", lambda _parent: True)
-    monkeypatch.setattr(video_pane.sys, "platform", "win32")
-    monkeypatch.setitem(__import__("sys").modules, "mpv", SimpleNamespace(MPV=FakeMpv))
-    monkeypatch.delenv("QT_QPA_PLATFORM", raising=False)
+
+def test_the_pane_renders_the_same_way_on_every_platform(qapp: QApplication) -> None:
+    """No render context, no ``wid`` embedding, no headless special case.
+
+    The three-way fork was the highest-risk integration surface in the project
+    and the reason video bugs were platform-specific. Constructing a pane must
+    now touch nothing platform-dependent at all.
+    """
+    pane = video_pane.VideoPane()
+    try:
+        assert pane.surface is not None
+        assert not hasattr(pane, "gl_widget")
+        assert not hasattr(pane, "video_container")
+        assert not hasattr(pane, "mpv")
+    finally:
+        pane.close()
+
+
+def test_a_pane_with_no_media_still_builds_its_chrome(qapp: QApplication) -> None:
+    """A pane is usable before anything is opened in it.
+
+    ``__init__`` used to abort early when libmpv was missing, leaving a pane
+    whose every later call raised AttributeError. There is no such early return
+    now, but the call sequence is still worth pinning.
+    """
+    pane = video_pane.VideoPane()
+    try:
+        assert pane.paint_canvas is not None
+        assert pane.overlay is not None
+        assert pane.lbl_osd is not None
+
+        pane.set_label("Camera 1")
+        pane.set_has_footage(False)
+        pane.set_has_footage(True)
+        pane.set_tracking_readers([])
+
+        assert pane.lbl_name.text() == "Camera 1"
+        assert pane.has_media is False
+    finally:
+        pane.close()
+
+
+# ── Decoding ──────────────────────────────────────────────────────────
+
+
+def test_opening_a_clip_publishes_its_timestamps_and_size(clip: Path, qtbot) -> None:
+    """The pane adopts the decoder's table; nothing is inferred from a rate."""
+    pane = _opened_pane(clip, qtbot)
+    try:
+        assert pane.video_size == (640, 360)
+        assert pane._frame_times is not None
+        assert len(pane._frame_times) == FRAME_COUNT
+    finally:
+        pane.close()
+
+
+def test_a_seek_paints_the_frame_containing_that_time(clip: Path, qtbot) -> None:
+    """End-to-end, through the real thread: the pixels must name the frame."""
+    pane = _opened_pane(clip, qtbot)
+    try:
+        for index in (0, 17, 61, 42, 5):
+            # A quarter of a frame past the boundary — inside frame `index`.
+            pane.seek((index + 0.25) / FPS)
+            qtbot.waitUntil(lambda: not pane.is_seeking, timeout=5000)
+            assert pane.surface._buffer is not None
+            assert decode_frame_strip(pane.surface._buffer) == index
+    finally:
+        pane.close()
+
+
+def test_the_pane_reports_the_frames_own_timestamp_not_the_request(clip: Path, qtbot) -> None:
+    """``time_pos`` is evidence about what is on screen, not an echo."""
+    pane = _opened_pane(clip, qtbot)
+    try:
+        pane.seek((20 + 0.25) / FPS)
+        qtbot.waitUntil(lambda: not pane.is_seeking, timeout=5000)
+        assert pane.time_pos == pytest.approx(20 / FPS, abs=1e-6)
+    finally:
+        pane.close()
+
+
+def test_decoding_never_runs_on_the_ui_thread(clip: Path, qtbot) -> None:
+    """AGENTS.md rule 3: no decoding on the thread that has to stay responsive."""
+    pane = _opened_pane(clip, qtbot)
+    decode_threads: list[int] = []
+    original = video_pane.DecodeWorker.decode_pending
+
+    def recording_decode(self: video_pane.DecodeWorker) -> None:
+        decode_threads.append(threading.get_ident())
+        original(self)
+
+    try:
+        video_pane.DecodeWorker.decode_pending = recording_decode  # type: ignore[method-assign]
+        pane.seek(1.0)
+        qtbot.waitUntil(lambda: not pane.is_seeking, timeout=5000)
+    finally:
+        video_pane.DecodeWorker.decode_pending = original  # type: ignore[method-assign]
+        pane.close()
+
+    assert decode_threads, "the decode slot never ran"
+    assert threading.get_ident() not in decode_threads
+
+
+def test_a_seek_before_the_file_opens_is_not_lost(clip: Path, qtbot) -> None:
+    """A session restores a scrub position before any decoder exists."""
+    pane = video_pane.VideoPane()
+    qtbot.addWidget(pane)
+    try:
+        pane.seek((33 + 0.25) / FPS)
+        pane.open(str(clip))
+        qtbot.waitUntil(lambda: pane.has_media and not pane.is_seeking, timeout=5000)
+        assert decode_frame_strip(pane.surface._buffer) == 33
+    finally:
+        pane.close()
+
+
+def test_a_pane_that_cannot_open_its_file_says_so(qapp: QApplication, qtbot, tmp_path) -> None:
+    """A bad file must leave a pane that explains itself, not a traceback."""
+    broken = tmp_path / "broken.mp4"
+    broken.write_bytes(b"not a container")
 
     pane = video_pane.VideoPane()
+    qtbot.addWidget(pane)
+    try:
+        with qtbot.waitSignal(pane.open_failed, timeout=5000):
+            pane.open(str(broken))
+        assert pane.has_media is False
+        assert "unavailable" in pane.lbl_no_footage.text().lower()
+    finally:
+        pane.close()
 
-    assert pane.gl_widget.parentWidget() is pane
-    pane.seek(2.5, exact=True)
-    assert pane.mpv.seek_calls == []
 
-    pane._on_file_loaded()
-    assert pane.mpv.seek_calls == [(2.5, ("absolute", "exact"))]
-    assert pane.is_seeking
+# ── Coalescing ────────────────────────────────────────────────────────
 
-    pane._observe_seeking(False)
-    pane._observe_time(2.5)
-    assert not pane.is_seeking
+
+def test_requests_coalesce_onto_the_newest_wanted_time() -> None:
+    """A 60 Hz tick must not queue a backlog of frames nobody will see.
+
+    Sync correctness beats frame completeness (AGENTS.md rule 6): a decoder
+    slower than the tick rate skips to the newest request rather than working
+    through every one in order and falling further behind.
+    """
+    worker = video_pane.DecodeWorker("unused.mp4")
+    decoded: list[float] = []
+    worker._reader = SimpleNamespace(  # type: ignore[assignment]
+        index_at_time=lambda t: decoded.append(t) or 0,
+        frame_at_index=lambda i: SimpleNamespace(),
+        time_at_index=lambda i: 0.0,
+    )
+
+    for step in range(50):
+        worker.request(step / 60.0)
+    worker.decode_pending()
+
+    assert decoded == [49 / 60.0]
+
+    # A second invocation with nothing outstanding must not redo the work.
+    worker.decode_pending()
+    assert decoded == [49 / 60.0]
 
 
 def test_video_osd_queue_keeps_only_latest_frame() -> None:
@@ -75,222 +233,81 @@ def test_video_osd_queue_keeps_only_latest_frame() -> None:
     assert signal.emissions == 1
 
 
-# ── libmpv missing: guided dialog, then a usable pane (V-11 / D-013) ──
+# ── Teardown ──────────────────────────────────────────────────────────
 
 
-def _pane_without_libmpv(monkeypatch):
-    """Construct a VideoPane as if the libmpv probe had failed."""
-    import avialsync.ui.video_pane as video_pane_module
+def test_close_stops_the_decode_thread(clip: Path, qtbot) -> None:
+    """Ownership is explicit, exactly as it was for libmpv's event thread.
 
-    monkeypatch.setattr(video_pane_module, "probe_libmpv", lambda _pane: False)
-    return video_pane_module.VideoPane()
-
-
-def test_pane_without_libmpv_still_builds_its_overlay(qapp, monkeypatch) -> None:
-    """__init__ used to abort before the labels existed."""
-    pane = _pane_without_libmpv(monkeypatch)
-
-    assert pane.paint_canvas is not None
-    assert pane.overlay is not None
-    assert pane.lbl_name is not None
-    assert pane.lbl_osd is not None
-    assert pane.lbl_no_footage is not None
-
-
-def test_pane_without_libmpv_says_why(qapp, monkeypatch) -> None:
-    pane = _pane_without_libmpv(monkeypatch)
-
-    assert pane.lbl_no_footage.isVisible() or pane.lbl_no_footage.text()
-    assert "libmpv" in pane.lbl_no_footage.text()
-
-
-def test_pane_without_libmpv_survives_the_normal_call_sequence(qapp, monkeypatch) -> None:
-    """Every one of these raised AttributeError after the guided dialog."""
-    pane = _pane_without_libmpv(monkeypatch)
-
-    pane.set_label("Camera 1")
-    pane.set_has_footage(False)
-    pane.set_has_footage(True)
-    pane.set_tracking_readers([])
-
-    assert pane.lbl_name.text() == "Camera 1"
-
-
-def test_pane_without_libmpv_reports_no_media(qapp, monkeypatch) -> None:
-    pane = _pane_without_libmpv(monkeypatch)
-
-    assert pane.mpv is None
-    assert pane._video_widget is None
-
-
-# ── libmpv's event thread must not outlive the pane (Windows fault) ──
-
-
-class _FakePlayer:
-    """Stands in for an mpv client so the check needs no libmpv."""
-
-    def __init__(self, **_options) -> None:
-        self.terminated = 0
-        self.observers: dict[str, object] = {}
-        #: Every teardown step in the order it actually happened.
-        self.teardown: list[str] = []
-
-    def property_observer(self, name: str):
-        def register(function):
-            self.observers[name] = function
-            # python-mpv hangs the unregister hook on the decorated function
-            # itself; teardown finds it there and nowhere else.
-            function.unobserve_mpv_properties = lambda: self._unobserve(name)
-            return function
-
-        return register
-
-    def _unobserve(self, name: str) -> None:
-        del self.observers[name]
-        self.teardown.append(f"unobserve:{name}")
-
-    def event_callback(self, name: str):
-        def register(function):
-            self.observers[name] = function
-            # python-mpv gives an event callback a *different* hook from a
-            # property observer's `unobserve_mpv_properties`. Modelling that
-            # difference is the whole point: teardown that looks only for the
-            # observer hook leaves this one attached through terminate().
-            function.unregister_mpv_events = lambda: self._unregister_events(name)
-            return function
-
-        return register
-
-    def _unregister_events(self, name: str) -> None:
-        del self.observers[name]
-        self.teardown.append(f"unregister:{name}")
-
-    def terminate(self) -> None:
-        self.terminated += 1
-        self.teardown.append("terminate")
-
-
-class _FakeMpvModule:
-    """The subset of `import mpv` that constructing a pane touches."""
-
-    def __init__(self) -> None:
-        self.players: list[_FakePlayer] = []
-
-    def MPV(self, **options) -> _FakePlayer:  # noqa: N802 - mirrors python-mpv
-        player = _FakePlayer(**options)
-        self.players.append(player)
-        return player
-
-
-def _pane_with_fake_mpv(monkeypatch) -> tuple[object, _FakePlayer]:
-    """Build a pane through its real mpv path, with a stand-in client.
-
-    Goes through `VideoPane.__init__` rather than wiring teardown by hand, so
-    the production wiring is what is under test. A test that connects
-    `destroyed` itself passes even when the application never does.
+    The pane that started the thread stops it; nothing is left to garbage
+    collection or Qt child destruction.
     """
-    import avialsync.ui.video_pane as video_pane_module
-
-    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    monkeypatch.setattr(video_pane_module, "probe_libmpv", lambda _pane: True)
-    fake_module = _FakeMpvModule()
-    monkeypatch.setitem(sys.modules, "mpv", fake_module)
-
-    pane = video_pane_module.VideoPane()
-    assert fake_module.players, "the pane never created a client"
-    return pane, fake_module.players[0]
-
-
-def test_an_observer_survives_a_destroyed_pane(qapp, monkeypatch) -> None:
-    """A callback arriving after teardown must not escape into libmpv's thread.
-
-    python-mpv runs these on its own event thread and only warns about an
-    exception; on Windows, touching the freed C++ half faults the process
-    instead.
-    """
-    pane, player = _pane_with_fake_mpv(monkeypatch)
-    observers = dict(player.observers)
-    assert "time-pos" in observers, sorted(observers)
-
-    pane.deleteLater()
-    del pane
-    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    qapp.processEvents()
-
-    values = {
-        "time-pos": 1.0,
-        "estimated-vf-fps": 30.0,
-        "seeking": True,
-        "video-out-params": {"dw": 4, "dh": 2},
-    }
-    for name, callback in observers.items():
-        if name == "file-loaded":
-            callback(object())  # an event callback takes the event alone
-        else:
-            callback(name, values[name])
-
-
-def test_close_detaches_every_callback_before_terminating(qapp, monkeypatch) -> None:
-    """Ordering, not merely occurrence: an observer left on `time-pos` can wedge
-    python-mpv's `terminate()` inside its own event-thread join (python-mpv #114).
-    Unregistering afterwards would be indistinguishable here and useless there.
-
-    `file-loaded` is asserted alongside the property observers because it was the
-    one left behind: it is an *event callback*, so it carries a different
-    unregister hook, and teardown looked only for the observer one. libmpv then
-    delivered it on its own thread during `mpv_terminate_destroy` — where the
-    body emits a Qt signal into a pane being destroyed — and the process took an
-    access violation on Windows roughly one run in three.
-    """
-    pane, player = _pane_with_fake_mpv(monkeypatch)
-    assert "time-pos" in player.observers, sorted(player.observers)
-    assert "file-loaded" in player.observers, sorted(player.observers)
+    pane = _opened_pane(clip, qtbot)
+    thread = pane._thread
+    assert thread is not None and thread.isRunning()
 
     pane.close()
 
-    assert player.teardown[-1] == "terminate", player.teardown
-    detached = {step.split(":", 1)[1] for step in player.teardown[:-1]}
-    assert detached == {
-        "time-pos",
-        "estimated-vf-fps",
-        "seeking",
-        "video-out-params",
-        "file-loaded",
-    }
-    # Nothing may still be attached when the handle is destroyed.
-    assert player.observers == {}, sorted(player.observers)
+    assert not thread.isRunning()
+    assert pane._worker is None
+    assert pane.has_media is False
 
 
-def test_close_gives_up_on_a_client_that_never_finishes_terminating(qapp, monkeypatch) -> None:
-    """A wedged client must not take the Qt thread down with it.
-
-    python-mpv joins its event thread with no timeout, so a client whose thread
-    never leaves `mpv_wait_event` blocks its caller forever. Closing has to
-    return regardless; the leaked thread dies with the process.
-    """
-    import avialsync.ui.video_pane as video_pane_module
-
-    monkeypatch.setattr(video_pane_module, "_TERMINATE_TIMEOUT_S", 0.05)
-    pane, player = _pane_with_fake_mpv(monkeypatch)
-
-    wedged = threading.Event()
-    released = threading.Event()
-
-    def never_returns() -> None:
-        wedged.set()
-        # Far longer than any bound the pane could reasonably apply, so a close
-        # that waits this out is measurably distinct from one that gives up.
-        released.wait(timeout=30)
-
-    player.terminate = never_returns
-
+def test_reopening_replaces_the_decoder_rather_than_leaking_it(clip: Path, qtbot) -> None:
+    """Relinking a source must not leave the previous file's thread running."""
+    pane = _opened_pane(clip, qtbot)
     try:
-        started = time.monotonic()
-        pane.close()
-        elapsed = time.monotonic() - started
+        first = pane._thread
+        pane.open(str(clip))
+        qtbot.waitUntil(lambda: pane.has_media, timeout=5000)
 
-        assert wedged.wait(timeout=5), "terminate() was never attempted"
-        assert elapsed < 5.0, f"close() waited {elapsed:.1f}s on a wedged client"
-        assert pane.mpv is None
+        assert first is not None and not first.isRunning()
+        assert pane._thread is not first
+        assert pane._thread is not None and pane._thread.isRunning()
     finally:
-        released.set()
+        pane.close()
+
+
+def test_closing_a_pane_that_never_opened_anything_is_safe(qapp: QApplication) -> None:
+    """Teardown runs on panes that failed or were never used."""
+    pane = video_pane.VideoPane()
+    pane.close()
+    assert pane._worker is None
+
+
+# ── Painting ──────────────────────────────────────────────────────────
+
+
+def test_the_surface_holds_the_buffer_its_image_borrows(qapp: QApplication) -> None:
+    """``QImage`` does not copy the array it wraps.
+
+    Dropping the array would leave the image pointing at freed memory, which
+    faults during a repaint rather than raising — so the reference is held
+    deliberately and this pins it.
+    """
+    surface = video_pane.VideoSurface()
+    rgb = np.zeros((360, 640, 3), dtype=np.uint8)
+    rgb[:] = 200
+    surface.set_frame(rgb)
+
+    assert surface._buffer is rgb
+    assert surface._image is not None
+    assert surface._image.width() == 640
+    assert surface._image.height() == 360
+
+
+def test_losing_footage_clears_the_frame_instead_of_freezing_it(clip: Path, qtbot) -> None:
+    """D-010: outside a source's bounds we show a placeholder, never a stale frame."""
+    pane = _opened_pane(clip, qtbot)
+    try:
+        pane.seek(1.0)
+        qtbot.waitUntil(lambda: not pane.is_seeking, timeout=5000)
+        assert pane.surface._buffer is not None
+
+        pane.set_has_footage(True)
+        pane.set_has_footage(False)
+
+        assert pane.surface._buffer is None
+        assert pane.lbl_no_footage.isVisible() or pane.lbl_no_footage.text()
+    finally:
+        pane.close()

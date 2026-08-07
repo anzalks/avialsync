@@ -126,7 +126,7 @@ def test_frame_records_at_single_pane(qapp) -> None:
 
 
 def test_shutdown_terminates_all_video_panes(qapp) -> None:
-    """Pane-owned libmpv event threads must stop before Qt destroys the grid."""
+    """Pane-owned decode threads must stop before Qt destroys the grid."""
     from avialsync.ui.video_grid import VideoGrid
 
     grid = VideoGrid()
@@ -141,38 +141,6 @@ def test_shutdown_terminates_all_video_panes(qapp) -> None:
         pane.deleteLater.assert_called_once_with()
     assert grid.panes == []
     assert grid.pane_paths() == []
-
-
-def test_video_pane_releases_render_context_before_terminating_mpv() -> None:
-    """macOS render clients must die before the underlying libmpv handle."""
-    from avialsync.ui.video_pane import _shutdown_mpv_client
-
-    calls: list[str] = []
-
-    class Context:
-        def free(self) -> None:
-            calls.append("free")
-
-    class GlWidget:
-        ctx = Context()
-        mpv = object()
-
-        def makeCurrent(self) -> None:
-            calls.append("make_current")
-
-        def doneCurrent(self) -> None:
-            calls.append("done_current")
-
-    class Player:
-        def terminate(self) -> None:
-            calls.append("terminate")
-
-    gl_widget = GlWidget()
-    _shutdown_mpv_client(Player(), gl_widget)
-
-    assert calls == ["make_current", "free", "done_current", "terminate"]
-    assert gl_widget.ctx is None
-    assert gl_widget.mpv is None
 
 
 def test_frame_records_at_offset_applied(qapp) -> None:

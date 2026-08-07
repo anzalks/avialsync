@@ -1,4 +1,4 @@
-"""Tests for libmpv seek command dispatch."""
+"""Tests for video-pane frame-request dispatch."""
 
 from __future__ import annotations
 
@@ -15,17 +15,17 @@ class _Pane:
     """Minimal VideoPane stand-in for SeekGroup tests."""
 
     time_map: TimeMap = field(default_factory=TimeMap)
-    mpv: object | None = field(default_factory=object)
+    has_media: bool = True
     is_seeking: bool = False
     calls: list[tuple[float, bool]] = field(default_factory=list)
 
     def seek(self, target_t: float, *, exact: bool) -> None:
-        """Record a queued libmpv seek command."""
+        """Record a queued frame request."""
         self.calls.append((target_t, exact))
 
 
 def test_seek_group_fans_out_commands_without_marking_panes_stuck() -> None:
-    """Seek completion remains owned by libmpv's seeking property observer."""
+    """Dispatching a request must not itself mark a pane as settled or stuck."""
     first = _Pane()
     second = _Pane()
     second.time_map.set_mapping(offset=1.25, drift_ppm=0.0)

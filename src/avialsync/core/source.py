@@ -272,7 +272,7 @@ class VideoSource(_Nameable, ABC):
     """Frozen v1 plugin contract for video sources.
 
     ``open`` and optional ``prepare`` run in a background worker.  The returned
-    media path is opened by mpv only after this work has completed successfully.
+    media path is opened by the decoder only after this work has completed successfully.
     """
 
     @classmethod
@@ -293,12 +293,12 @@ class VideoSource(_Nameable, ABC):
 
     @abstractmethod
     def prepare(self, progress_cb: Callable[[float], None]) -> Path:
-        """Produce an mpv-playable cached proxy and report progress in ``[0, 1]``."""
+        """Produce a playable cached proxy and report progress in ``[0, 1]``."""
         pass
 
     @abstractmethod
     def media_path(self) -> Path:
-        """Return what mpv actually plays (proxy-aware)."""
+        """Return what the decoder actually opens (proxy-aware)."""
         pass
 
     @abstractmethod
