@@ -702,6 +702,23 @@ in 785 s is 43.71 ms. Video also never reaches that code at all: gaps are `Impor
 sidecar's **frame counter** — timestamps cannot tell a drop from a slow-down, so never discard that
 column as redundant.
 
+### 0p. A shortcut only reaches the playhead if no focused widget claims it (D-059)
+Qt offers every key to the focus widget as a `ShortcutOverride` before running a window `QAction`,
+and editors accept that offer. `_reserve_playhead_key` ignores the override for Space/arrows/Home/
+End/comma/period so the action runs. Letters need a second rule: `J`/`K`/`L` shuttle playback but
+are also ordinary text, so `_reserve_letter_shortcut` reclaims them **only** from a field whose own
+validator rejects the character — a numeric spin box, or the timecode field. A field that accepts
+letters keeps them, or this would eat the first keystroke of an annotation label.
+
+That is why `transport._time_edit` carries a validator: without one it accepts anything, so the
+letters looked like legitimate typing. Its character class includes `UTC`, because `format_time`
+writes that suffix into the same field — a "no letters" validator would reject the app's own output.
+
+`tests/test_ui_shortcut_reach.py` generates the whole matrix (every focusable widget x every key),
+so a control or binding added later is covered without touching the file. It asserts a minimum
+number of widgets actually took focus: the first version skipped the test on the first widget that
+refused focus and passed while checking nothing.
+
 ### 1. No bare `QWidget { }` QSS selector — blacks out video panes
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  
 **Fix:** Use QPalette for all theme colours. Application-level QSS changes native control metrics and

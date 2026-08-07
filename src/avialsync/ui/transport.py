@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QObject, QRegularExpression, QSettings, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QFontDatabase,
@@ -12,6 +12,7 @@ from PySide6.QtGui import (
     QMouseEvent,
     QPainter,
     QPaintEvent,
+    QRegularExpressionValidator,
     QResizeEvent,
 )
 from PySide6.QtWidgets import (
@@ -607,6 +608,14 @@ class Transport(QWidget):
         # ── Timeline row: playhead controls, scrub bar, A/B, end time, rate ──
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self._time_edit = QLineEdit("00:00:00.000")
+        # Declare which characters a timecode can hold. The grammar is still
+        # checked by `_parse_time_input` on Enter; this only says what may be
+        # typed at all, which is what lets the window take back a letter
+        # shortcut the field would have discarded anyway (D-059). "UTC" is in
+        # the class because `format_time` writes that suffix into this field.
+        self._time_edit.setValidator(
+            QRegularExpressionValidator(QRegularExpression(r"[0-9:.+\- UTC]*"), self._time_edit)
+        )
         self._time_edit.setMinimumWidth(110)
         self._time_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
         set_font_family(self._time_edit, mono_font)

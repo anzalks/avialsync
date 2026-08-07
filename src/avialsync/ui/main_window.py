@@ -16,6 +16,7 @@ from PySide6.QtGui import (
     QImage,
     QKeyEvent,
     QResizeEvent,
+    QValidator,
 )
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
@@ -85,6 +86,49 @@ _PLAYHEAD_KEYS = frozenset(
         Qt.Key.Key_Period,
     }
 )
+
+
+def _validates_as_invalid(result: object) -> bool:
+    """Return whether a Qt validator refused the text outright.
+
+    ``QValidator.validate`` is typed as returning ``object`` by the PySide6
+    stubs; it is really the state, or a tuple beginning with it, depending on
+    the validator. Both shapes are read here rather than assumed, because
+    guessing wrong would silently make every letter look acceptable and quietly
+    undo the reservation this feeds.
+    """
+    state = result[0] if isinstance(result, tuple) and result else result
+    return state == QValidator.State.Invalid
+
+
+def _editor_rejects_text(widget: QWidget, text: str) -> bool:
+    """Return whether *widget* would refuse *text* as typed input.
+
+    A numeric field cannot hold a letter, so a letter arriving there is not
+    editing — it is a shortcut the field happens to be swallowing. Asking the
+    widget's own validator is what keeps this honest: a field that really does
+    accept letters (an annotation label) keeps them, and only a field that would
+    discard the character gives it up.
+    """
+    if len(text) != 1 or not text.isprintable():
+        return False
+    if isinstance(widget, QAbstractSpinBox):
+        line_edit = widget.lineEdit()
+        current = line_edit.text() if line_edit is not None else ""
+        position = line_edit.cursorPosition() if line_edit is not None else len(current)
+        candidate = current[:position] + text + current[position:]
+        return _validates_as_invalid(widget.validate(candidate, position + 1))
+    if isinstance(widget, QLineEdit):
+        validator = widget.validator()
+        if validator is None:
+            # No validator means the field accepts arbitrary text, so a letter
+            # typed into it is editing and belongs to the field.
+            return False
+        current = widget.text()
+        position = widget.cursorPosition()
+        candidate = current[:position] + text + current[position:]
+        return _validates_as_invalid(validator.validate(candidate, position + 1))
+    return False
 
 
 def _is_mid_edit(widget: QWidget) -> bool:
@@ -745,6 +789,12 @@ class MainWindow(QMainWindow):
             a.setProperty("av_category", category)
             self.addAction(a)
             self._all_actions.append(a)
+            # Remember single-character shortcuts, so a numeric field cannot
+            # silently swallow one (see `_reserve_letter_shortcut`).
+            for sequence in a.shortcuts():
+                text = sequence.toString()
+                if len(text) == 1 and text.isalpha():
+                    self._letter_shortcuts.add(text.lower())
             return a
 
         # ── Playback ──────────────────────────────────────────────────
@@ -932,7 +982,9 @@ class MainWindow(QMainWindow):
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Forward drops over child panes, and keep the playhead keys reserved."""
         event_type = event.type()
-        if event_type == QEvent.Type.ShortcutOverride and self._reserve_playhead_key(event):
+        if event_type == QEvent.Type.ShortcutOverride and (
+            self._reserve_playhead_key(event) or self._reserve_letter_shortcut(event)
+        ):
             # Ignoring a ShortcutOverride is what lets the window QAction run.
             event.ignore()
             return True
@@ -976,6 +1028,28 @@ class MainWindow(QMainWindow):
         if key != Qt.Key.Key_Space and _is_mid_edit(focus):
             return False
         return True
+
+    def _reserve_letter_shortcut(self, event: QEvent) -> bool:
+        """Return whether a letter shortcut outranks the editor holding focus.
+
+        The playhead keys above are reserved unconditionally because no editor
+        we own has a use for them. Letters are different: ``J``/``K``/``L``
+        shuttle playback, but they are also perfectly ordinary text. So they are
+        only taken back from a field that would have refused them anyway — a
+        numeric spin box, or a line edit whose validator rejects the character.
+        A field that accepts letters keeps typing them.
+        """
+        if not isinstance(event, QKeyEvent):
+            return False
+        text = event.text()
+        if text.lower() not in self._letter_shortcuts:
+            return False
+
+        app = QApplication.instance()
+        focus = app.focusWidget() if isinstance(app, QApplication) else None
+        if focus is None or focus.window() is not self:
+            return False
+        return _editor_rejects_text(focus, text)
 
     def dropEvent(self, event: QDropEvent) -> None:
         drop_controller.drop_event(self, event)
@@ -1026,6 +1100,9 @@ class MainWindow(QMainWindow):
 
         # Collects every QAction with a shortcut — read by _show_shortcuts().
         self._all_actions: list[QAction] = []
+        #: Lower-cased single-character shortcut keys, collected as actions are
+        #: registered so nothing has to restate the bindings.
+        self._letter_shortcuts: set[str] = set()
 
         def _reg(act: QAction, category: str) -> QAction:
             """Tag an action with its shortcuts-dialog category."""
