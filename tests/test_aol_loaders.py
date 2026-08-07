@@ -553,3 +553,49 @@ class TestAOLSessionDetection:
         hw = manifest.trial_config.get("hardware")
         assert isinstance(hw, dict)
         assert hw.get("camera_fps") == 230.0
+
+
+def test_aol_labels_name_each_item_by_where_it_goes(tmp_path: Path) -> None:
+    """A session emits four "_eks.csv" files that go to three different places.
+
+    One is 3D pose driving the 3D view, three are per-camera 2D overlays painted
+    onto video, and none of them becomes a plot row (D-046) — so filename and
+    detected type together left no way to tell them apart before importing.
+    """
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.loaders.aol_session_loader import AOLSessionSource
+
+    session = tmp_path / "09-35-24"
+    (session / "predictions" / "model").mkdir(parents=True)
+    (session / "pose-3d" / "default_sv").mkdir(parents=True)
+    for camera in ("FaceCam", "SideCam"):
+        (session / f"{camera}.mp4").write_bytes(b"x")
+        (session / f"{camera}-relative times.txt").write_text(
+            "1 0.000 21-06-2026;09:35:26.3120\n", encoding="utf-8"
+        )
+        (session / "predictions" / "model" / f"{camera}_eks.csv").write_text("x,y\n0,0\n")
+    (session / "pose-3d" / "default_sv" / "_eks.csv").write_text("a_x,a_y,a_z,fnum\n0,0,0,0\n")
+    (session / "encoder_log.txt").write_text("09:35:26:082 1 0.0 0.0\n", encoding="utf-8")
+
+    labels = {item.label for item in AOLSessionSource().scan(session, LoaderRegistry()).items}
+
+    assert "FaceCam.mp4 — camera" in labels
+    assert "_eks.csv — 3D pose" in labels
+    assert "FaceCam_eks.csv — 2D pose over FaceCam" in labels
+    assert "encoder_log.txt — rotary encoder" in labels
+
+
+def test_aol_labels_stay_out_of_the_loader_config(tmp_path: Path) -> None:
+    """`config` is hashed into the sidecar cache key; a display string must not be."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.loaders.aol_session_loader import AOLSessionSource
+
+    session = tmp_path / "09-35-24"
+    session.mkdir()
+    (session / "FaceCam.mp4").write_bytes(b"x")
+    (session / "FaceCam-relative times.txt").write_text(
+        "1 0.000 21-06-2026;09:35:26.3120\n", encoding="utf-8"
+    )
+
+    for item in AOLSessionSource().scan(session, LoaderRegistry()).items:
+        assert "label" not in item.config
