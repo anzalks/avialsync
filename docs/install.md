@@ -71,9 +71,13 @@ Use `python -m pip`, not a bare `pip`. A bare `pip` can be a different environme
 still first on `PATH`, which installs the package somewhere the `python` you are about to run will
 not look.
 
-That is the whole installation. Video decoding and FFmpeg arrive inside the Python packages `pip`
-installs, so there is no second step and no system package manager involved. **Help → Diagnostics**
-reports what was found if you want to confirm.
+That is the whole installation. Video decoding, proxy generation, and clip export all run inside the
+Python packages `pip` installs, so there is no second step and no system package manager involved.
+
+**Next:** run `avialsync demo`. It generates and opens a complete sample session — four cameras,
+sensor and ephys traces, tracking — so you can confirm the install works before pointing it at your
+own recordings. See [Check the installation](#check-the-installation) below. **Help → Diagnostics**
+reports what was found if you want to see it directly.
 
 ### One note about Linux
 
@@ -85,15 +89,26 @@ You will only hit this on a minimal install: a bare Docker image, a headless ser
 CI container. The symptom is a Qt error at launch mentioning `libGL.so.1` or an `xcb` plugin, not a
 video problem.
 
-On Debian or Ubuntu:
+What you need depends on whether you want a window:
 
 ```bash
-sudo apt install libgl1 libxkbcommon-x11-0
+# A normal graphical session (Debian/Ubuntu)
+sudo apt install libgl1 libxkbcommon-x11-0 libxcb-cursor0
+
+# Headless only — batch export or scripting under QT_QPA_PLATFORM=offscreen
+sudo apt install libegl1
 ```
 
-This is a requirement of Qt itself and applies to every Python GUI application built on it. No
-packaging choice on our side can remove it. Windows and macOS have no equivalent — there, `pip
-install avialsync` really is the only step.
+On Fedora: `sudo dnf install mesa-libGL libxkbcommon-x11 xcb-util-cursor`. On Arch:
+`sudo pacman -S libglvnd libxkbcommon-x11 xcb-util-cursor`.
+
+The headless list is the smaller one deliberately: it is what this project's own CI installs to run
+the entire test suite on a bare `ubuntu-24.04` image.
+
+This is a requirement of Qt itself and applies to every Python GUI application built on it. It
+cannot be bundled away — `libGL` is tied to your GPU driver, so a shipped copy would break
+acceleration or fail against a different driver stack, which is why AppImages exclude it too.
+Windows and macOS have no equivalent: there, `pip install avialsync` really is the only step.
 
 ### Windows
 
