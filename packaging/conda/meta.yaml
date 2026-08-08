@@ -1,5 +1,5 @@
 {% set name = "avialsync" %}
-{% set version = "0.1.0b8" %}
+{% set version = "0.1.0b9" %}
 
 # conda-forge recipe (BLUEPRINT.md Phase 5). No media runtime is declared here
 # at all: PyAV carries its own FFmpeg inside its wheel, and decoding, probing,
