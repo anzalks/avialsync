@@ -1,6 +1,6 @@
 # MIGRATION_PYAV.md — libmpv → PyAV, and a pip-only install
 
-**Status:** in progress · branch `shift_from_libmpv_to_pyav` · opened 2026-08-07
+**Status:** COMPLETE · branch `shift_from_libmpv_to_pyav` · opened and finished 2026-08-07
 **Authority:** D-075 in DECISIONS.md. This file is the *execution* record; D-075 is the decision.
 
 Read this file before touching video code on this branch. It exists so that an agent arriving
@@ -109,8 +109,8 @@ row that is not `done`, and read its "resume note" before doing anything.
 | 4 | `ui/video_pane.py` — render decoded frames, delete mpv paths | done | `pytest tests/test_video_pane*.py` |
 | 5 | `engine/player.py` — delete drift correction | done | `pytest tests/test_playback_smoothness.py tests/test_scrubbing.py` |
 | 6 | `loaders/video_standard.py` — ffprobe → PyAV | done | `pytest tests/test_video_standard.py` |
-| 7 | FFmpeg via pip for `proxy.py`, `export.py`, `demo.py` | todo | `avialsync demo` in a clean venv |
-| 8 | Packaging + docs + DECISIONS/ARCHITECTURE/HANDOUT sweep | mostly done — step 7 tail remains | `pip install .` in a clean venv, no OS deps |
+| 7 | FFmpeg via pip for `proxy.py`, `export.py`, `demo.py` | done | `avialsync demo` in a clean venv |
+| 8 | Packaging + docs + DECISIONS/ARCHITECTURE/HANDOUT sweep | done | `pip install .` in a clean venv, no OS deps |
 
 ### Step notes, traps, and resume conditions
 
@@ -232,15 +232,48 @@ the exact split D-075 exists to remove. `test_the_loader_and_the_decoder_share_o
 asserts they are equal element for element. The sidecar cache is unchanged and still what keeps a
 repeat open cheap.
 
-**7 — FFmpeg via pip.** Three surviving CLI call sites: `engine/proxy.py`, `engine/export.py`,
-`demo.py`. Add a bundled-ffmpeg wheel to `dependencies` and make `find_media_executable` fall back
-to it, keeping the existing search order so a user-supplied FFmpeg still wins.
-*Check before adopting any candidate wheel:* it must ship **both** `ffmpeg` and `ffprobe`, carry
-binaries **inside the wheel** (not download on first use — that reintroduces a runtime network
-dependency, and D-014 already rejected download-on-first-run), and cover all three platforms.
-`imageio-ffmpeg` ships ffmpeg only. `static-ffmpeg` downloads on first use. Verify the license
-configuration of whatever is chosen and record it in D-075 — see the licensing note below.
-*Trap (existing, still applies):* use `-fps_mode`, never `-vsync`.
+**7 — FFmpeg via pip. DONE 2026-08-07 — but NOT the way this plan said.**
+
+The plan was to add a bundled-FFmpeg wheel and have `find_media_executable` fall back to it. Every
+candidate was checked against the criteria above, and **none of them met it**:
+
+| Candidate | Verdict |
+|---|---|
+| `imageio-ffmpeg` | ships `ffmpeg` only, no `ffprobe` |
+| `static-ffmpeg`, `local-ffmpeg`, `portable-ffmpeg` | 0-byte `py3-none-any` wheels — they download on first use, which D-014 rejects |
+| `ffmpeg-binaries` | ships both, even ships PyInstaller hooks, but has no Linux **aarch64** wheel and *does* have a 0-byte `py3-none-any` fallback that ARM Linux would install with nothing in it |
+| `shaka-streamer-binaries` | ships both, but drags in 6.7 MB of Shaka Packager and is a binary drop maintained for someone else's project |
+
+So the three call sites were **ported to PyAV** instead, which is strictly better than any of them:
+no new dependency at all (PyAV is already required), every platform PyAV supports including ARM
+Linux, no third-party binary supply chain, and 50–90 MB not added to every install.
+
+- `engine/transcode.py` (new, headless) holds `remux_clip`, `encode_proxy`, and `encode_video`.
+- `engine/export.py::trim_video_clip` remuxes packets — still a **stream copy**, so an exported clip
+  holds the original pixels rather than a second generation of them, and the cut is keyframe-aligned
+  exactly as `ffmpeg -c copy` was.
+- `engine/proxy.py` re-encodes with `gop_size=1`. Cancellation is now cooperative and checked per
+  frame rather than by killing a child process.
+- `demo.py` draws its own test pattern and writes uneven timestamps directly for the VFR camera,
+  which is a *truer* VFR fixture than asking an encoder to drop frames and re-time the survivors.
+
+*The `-fps_mode`/`-vsync` trap dies here:* nothing in the application builds an FFmpeg command line
+any more, so there is no flag to get wrong.
+
+**Consequently deleted:** `packaging/fetch_media_libs.py`, all media staging from `release.yml`, the
+`AVIALSYNC_MEDIA_ROOT` handling in `packaging/avialsync.spec`, the `ffmpeg` run-dependency from the
+conda recipe, and `runtime.py`'s entire executable search (`media_search_dirs`,
+`find_media_executable`, `require_ffmpeg`, `require_ffprobe`, `MediaRuntimeError`, and the WinGet
+fallback). `runtime.py` is now just `no_window_kwargs`.
+
+**Proven, not assumed:** with `PATH` reduced to `/usr/bin:/bin` — no `ffmpeg`, no `ffprobe` — a
+clean-venv install decodes frame-exact, `ensure_demo_data()` generates all four cameras (the VFR one
+verified genuinely variable: 257 frames, intervals 0.033–0.067 s), and a PyInstaller bundle built
+with **no staged media** passes `smoke_test.py --demo`.
+
+**The one thing that still needs FFmpeg, deliberately:** `tools/make_fixtures.py`, which encodes the
+test videos. It is a build-time fixture generator, not part of the application, and CI installs
+`ffmpeg` for it alone. Nothing a *user* installs or runs depends on it.
 
 **8 — Sweep.** Done ahead of the code (2026-08-07), because these files instruct future agents and
 a stale instruction is worse than a missing one: `AGENTS.md`, `DECISIONS.md` (D-075 plus supersede

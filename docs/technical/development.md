@@ -16,18 +16,21 @@ conda run -n avialsync pip install -e ".[dev]"
 QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q
 ```
 
-The `.[dev]` install supplies everything needed to run and test the application, decoding included.
-FFmpeg is a separate program and is still worth having on `PATH`: `tools/make_fixtures.py` uses it to
-encode the test videos, and proxy generation, clip export, and the demo shell out to it.
+The `.[dev]` install supplies everything needed to run and test the application. Nothing the
+*application* does needs a media runtime on the machine.
+
+`tools/make_fixtures.py` is the one exception, and it is a build-time tool rather than part of the
+app: it shells out to `ffmpeg` to encode the test videos, so a checkout that wants to regenerate
+fixtures needs FFmpeg on `PATH`. CI installs it for that reason alone.
 
 ### Windows checkout
 
-Install Python 3.11 or 3.12 and a standalone shared FFmpeg build. There is no video library to
-place by hand any more: decoding comes with the Python packages.
+Install Python 3.11 or 3.12. There is nothing else to place by hand: the application's decoding,
+proxy generation, and clip export all come with the Python packages.
 
-`winget install --id Gyan.FFmpeg.Shared -e` is a suitable FFmpeg route; AvialSync discovers the
-standard WinGet location even when `conda activate` changes `PATH`. Do not use conda's FFmpeg
-package for a checkout — it can conflict with the Qt DLLs.
+To regenerate test fixtures you also need FFmpeg; `winget install --id Gyan.FFmpeg.Shared -e` is a
+suitable route. Do not use conda's FFmpeg package for a checkout — it can conflict with the Qt
+DLLs.
 
 ```powershell
 conda run -n avialsync avialsync

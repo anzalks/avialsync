@@ -54,16 +54,12 @@ python -m pip install avialsync
 avialsync
 ```
 
-That is the whole install. Video decoding ships inside the Python packages, so there is no library
-to install separately and nothing to configure.
+That is the whole install. Video decoding, proxy generation, and clip export all run inside the
+Python packages, so there is no media runtime to install separately and nothing to configure.
 
-Two things worth knowing:
-
-- **On Linux**, Qt itself needs the usual desktop graphics libraries (`libgl1`, `libxkbcommon`, and
-  the xcb set). Every normal desktop already has them; bare containers and minimal server images do
-  not. No packaging choice removes this — it is Qt's floor, not AvialSync's.
-- **FFmpeg on your `PATH`** is still needed for three extras: proxy generation, clip export, and the
-  `avialsync demo` sample generator. Playback, scrubbing, and alignment do not use it.
+One caveat, and it is Qt's rather than AvialSync's: **on Linux**, PySide6 needs the usual desktop
+graphics libraries (`libgl1`, `libxkbcommon`, and the xcb set). Every normal desktop already has
+them; bare containers and minimal server images do not. No packaging choice removes it.
 
 Apple silicon is required for the `.dmg`, and glibc 2.39+ for the AppImage; outside those, use pip.
 See [Installation](https://avialsync.readthedocs.io/en/latest/install.html) for details.

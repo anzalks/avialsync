@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +10,7 @@ import numpy as np
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QWidget
 
-from avialsync.runtime import no_window_kwargs
+from avialsync.engine.transcode import remux_clip
 
 
 def _raw_slice(reader: Any, t0: float, t1: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -198,30 +197,12 @@ def trim_video_clip(
     t1: float,
     output_path: Path,
 ) -> bool:
-    """Trim a video clip using ffmpeg stream copy (no re-encode)."""
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-ss",
-        f"{t0:.6f}",
-        "-to",
-        f"{t1:.6f}",
-        "-i",
-        str(video_path),
-        "-c",
-        "copy",
-        "-avoid_negative_ts",
-        "make_zero",
-        str(output_path),
-    ]
-    try:
-        subprocess.run(
-            cmd,
-            check=True,
-            capture_output=True,
-            timeout=120,
-            **no_window_kwargs(),
-        )
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
+    """Trim a video clip by copying packets — no re-encode.
+
+    The exported clip therefore holds the original pixels rather than a second
+    generation of them, which matters for a tool whose output people measure.
+    Done in-process with PyAV, so it needs no media runtime on the machine
+    (D-075); the cut is keyframe-aligned at the start exactly as a stream copy
+    has always been.
+    """
+    return remux_clip(video_path, output_path, t0, t1)

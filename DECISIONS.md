@@ -2173,10 +2173,18 @@ per-OS render split in `ui/video_pane.py` collapses to one path, and `engine/pla
 correction is deleted outright — the app becomes the clock rather than chasing one. The CI libmpv
 fetch, its SHA-256 pin, and the `import mpv` probe go with them.
 
-`packaging/fetch_media_libs.py` **survives**, contrary to the original plan: it also stages the
-FFmpeg *command line* into installers, and proxy generation, clip export, and the demo still shell
-out to that. It no longer looks for a video library. It can be deleted once FFmpeg itself arrives
-through pip (MIGRATION_PYAV.md step 7).
+`packaging/fetch_media_libs.py` is **deleted**, along with all media staging, the
+`AVIALSYNC_MEDIA_ROOT` handling in the PyInstaller spec, the conda recipe's `ffmpeg` dependency, and
+`runtime.py`'s whole executable search. Proxy generation, clip export, and the demo generator were
+ported to PyAV rather than given a bundled-FFmpeg wheel — **no candidate wheel met the stated
+criteria** (both binaries, inside the wheel, all three platforms): `imageio-ffmpeg` has no
+`ffprobe`; `static-ffmpeg`, `local-ffmpeg`, and `portable-ffmpeg` download on first use, which
+D-014 rejects; `ffmpeg-binaries` has no Linux aarch64 wheel and a 0-byte `any` fallback; and
+`shaka-streamer-binaries` drags in an unrelated packager. Porting needs no new dependency at all
+and covers every platform PyAV supports. See MIGRATION_PYAV.md step 7.
+
+`tools/make_fixtures.py` still shells out to `ffmpeg`, deliberately: it is a build-time fixture
+generator, not part of the application, and CI installs `ffmpeg` for it alone.
 
 **Licensing — CLOSED by D-076.**
 

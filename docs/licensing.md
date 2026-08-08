@@ -47,6 +47,6 @@ which is compatible with this project's AGPL-3.0-or-later distribution.
 The other Python dependencies are LGPL-3.0 (PySide6), MIT (pyqtgraph, polars),
 and BSD (numpy, neo, xxhash). Their own licences continue to apply to them.
 
-Release installers additionally bundle the FFmpeg **command-line** tools
-(`ffmpeg`, `ffprobe`), used for proxy generation, clip export, and the
-sample-session generator — not for playback.
+Release installers bundle nothing further: proxy generation, clip export, and
+the sample-session generator all run against the same in-process FFmpeg, so
+there are no separate media executables in an installer to attribute.

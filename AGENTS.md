@@ -41,9 +41,10 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
   · pytest / pytest-qt / pytest-benchmark / hypothesis.
 - **`pip install avialsync` must need no OS-level install step on any platform.** A change that
   reintroduces one is rejected. The single documented exception is Qt's own floor: PySide6 needs
-  system GL/xcb libraries on Linux, which no packaging choice removes. Decoding is done (steps 1-5
-  and the libmpv sweep); the FFmpeg *command line* is still external for proxy generation, clip
-  export, and the demo — MIGRATION_PYAV.md step 7. Read that file before touching video code.
+  system GL/xcb libraries on Linux, which no packaging choice removes. **The migration is
+  complete** (D-075): decoding, probing, proxy generation, clip export, and the demo generator all
+  run in-process against the FFmpeg inside PyAV's wheel. `tools/make_fixtures.py` still shells out
+  to `ffmpeg`, and that is deliberate — it is a build-time fixture generator, not part of the app.
 - Dependency policy: the project is AGPL-3.0-or-later and single-licensed (D-076), so any
   GPL-compatible dependency is fine — including the GPL-configured FFmpeg inside PyAV's wheels.
   PyQt stays banned because its commercial-or-GPL terms are worse for downstream users than

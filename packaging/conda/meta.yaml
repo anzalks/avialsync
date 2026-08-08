@@ -1,10 +1,10 @@
 {% set name = "avialsync" %}
 {% set version = "0.1.0b8" %}
 
-# conda-forge recipe (BLUEPRINT.md Phase 5). Video decoding needs nothing
-# declared here — PyAV carries its own FFmpeg inside its wheel (D-075). FFmpeg
-# is still listed for the command-line work that shells out to it: proxy
-# generation, clip export, and the demo.
+# conda-forge recipe (BLUEPRINT.md Phase 5). No media runtime is declared here
+# at all: PyAV carries its own FFmpeg inside its wheel, and decoding, probing,
+# proxy generation, clip export, and the demo all run in-process against it
+# (D-075, D-076). The recipe is now the same shape as the wheel.
 #
 # `version` and the sha256 below are the two fields a version bump touches.
 # tests/test_conda_recipe.py fails if `version` drifts from pyproject.toml.
@@ -46,10 +46,6 @@ requirements:
     # platform because a noarch package cannot carry a platform selector, and
     # the package is small and harmless where the system already provides one.
     - tzdata
-    # For the CLI work that still shells out to FFmpeg (proxy, export, demo).
-    # Retiring this in favour of a pip-installable FFmpeg is step 7 of
-    # MIGRATION_PYAV.md; decoding already needs nothing from it.
-    - ffmpeg
 
 test:
   imports:

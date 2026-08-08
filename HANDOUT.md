@@ -7,10 +7,10 @@ Desktop tool for scrubbing time-synchronized multi-camera video with dense time-
 
 > **⚠ Migration in flight — read MIGRATION_PYAV.md before touching video code.**
 > Branch `shift_from_libmpv_to_pyav` replaced libmpv with PyAV so that `pip install avialsync`
-> needs no OS-level install on any platform (D-075). **Decoding, playback, and the libmpv sweep are
-> done**; the FFmpeg *command line* is still external for proxy generation, clip export, and the
-> demo (step 7), and the packaging/docs tail is step 8. That file carries the step-by-step status,
-> the traps, and what to do if you have arrived mid-way.
+> needs no OS-level install on any platform (D-075). **All eight steps are done.** Decoding,
+> probing, proxy generation, clip export, and the demo generator run in-process against the FFmpeg
+> inside PyAV's wheel; nothing in the application shells out to a media runtime. That file carries
+> the step-by-step record and the traps worth keeping.
 
 ---
 

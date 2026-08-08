@@ -38,11 +38,6 @@ If video still does not appear, open **Help → Diagnostics**: it names the deco
 there means the install itself is broken rather than incomplete, so reinstall with
 `python -m pip install --force-reinstall avialsync`.
 
-`ffmpeg` and `ffprobe` are a separate matter and are still external programs. They are not used for
-playback, only for proxy generation, clip export, and the `avialsync demo` sample generator. If one
-of those reports a missing runtime, install FFmpeg (`brew install ffmpeg`, `sudo apt install
-ffmpeg`, `sudo dnf install ffmpeg`, or `sudo pacman -S ffmpeg`) and make sure it is on your `PATH`.
-
 ## A video says “No Footage”
 
 This is usually correct: the selected master time is outside that camera’s recording. Check its span

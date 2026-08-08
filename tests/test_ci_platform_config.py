@@ -83,17 +83,18 @@ def test_cross_platform_quality_workflows_share_headless_media_contract() -> Non
     assert not any(name.startswith("PySide6.QtOpenGL") for name in imported)
 
 
-def test_release_bundle_stages_ffmpeg_from_a_pinned_package_source() -> None:
-    """Installers must stage FFmpeg from the package manager, never a loose URL.
+def test_release_bundles_stage_no_media_runtime() -> None:
+    """Installers carry no separately-staged media runtime (D-075).
 
-    Only FFmpeg is staged now. It is still bundled because proxy generation,
-    clip export, and the demo shell out to the command line; decoding needs
-    nothing from it (D-075). Step 7 of MIGRATION_PYAV.md retires this too.
+    Every media binary now arrives inside PyAV's wheel and is collected by
+    PyInstaller's `av` hook, so the bundling job downloads nothing, verifies no
+    checksum, and copies no libraries. The staging script is deleted; asserting
+    its absence is what keeps a supply-chain step from returning quietly.
     """
     release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
 
-    assert "C:\\ProgramData\\chocolatey\\lib\\ffmpeg" in release_workflow
-    assert "fetch_media_libs.py" in release_workflow
+    assert "fetch_media_libs" not in release_workflow
+    assert "--media-root" not in release_workflow
     assert "sourceforge.net" not in release_workflow
 
 
@@ -104,10 +105,11 @@ def test_windows_ffmpeg_is_pinned_everywhere_it_is_installed() -> None:
     removed ``-vsync`` and both Windows jobs went red with no commit in
     between. Re-running the last green run at the same SHA reproduced it.
 
-    Pinning matters more for release.yml than for ci.yml: ``fetch_media_libs.py``
-    stages whatever Chocolatey served into the bundle, so unpinned meant
-    ``AvialSync-Setup.exe`` shipped a version nobody had tested. The libmpv
-    archive beside it is SHA-256 pinned for exactly this reason.
+    FFmpeg is now only a *build-time* dependency: it encodes the test fixtures
+    that ``tools/make_fixtures.py`` generates. Nothing is staged into a bundle
+    from it any more (D-075), so an unpinned version is a CI flake rather than
+    an unreproducible installer — still worth pinning, for a smaller reason
+    than before.
     """
     for workflow_path in WORKFLOW_PATHS:
         workflow = workflow_path.read_text(encoding="utf-8")

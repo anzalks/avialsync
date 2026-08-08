@@ -1,5 +1,4 @@
 # -*- mode: python ; coding: utf-8 -*-
-import os
 import re
 import sys
 from pathlib import Path
@@ -8,21 +7,12 @@ from PyInstaller.utils.hooks import collect_submodules
 
 # PyInstaller supplies SPECPATH as the directory containing this spec.
 project_root = Path(SPECPATH).parent
-media_binaries = []
 icon_extension = ".ico" if sys.platform == "win32" else ".icns" if sys.platform == "darwin" else ".png"
 application_icon = project_root / "packaging" / {
     ".ico": "windows",
     ".icns": "macos",
     ".png": "linux",
 }[icon_extension] / f"avialsync{icon_extension}"
-# FFmpeg executables only. The decoder is PyAV, whose wheel carries its own
-# FFmpeg, so nothing here stages a video library any more (D-075).
-media_root_value = os.environ.get("AVIALSYNC_MEDIA_ROOT")
-if media_root_value:
-    media_root = Path(media_root_value)
-    if not media_root.is_dir():
-        raise RuntimeError(f"AVIALSYNC_MEDIA_ROOT is not a directory: {media_root}")
-    media_binaries = [(str(path), ".") for path in media_root.iterdir() if path.is_file()]
 
 hidden_imports = []
 hidden_imports += collect_submodules('avialsync')
@@ -31,7 +21,7 @@ hidden_imports += ['PySide6', 'pyqtgraph', 'av', 'polars', 'numpy']
 a = Analysis(
     [str(project_root / 'src' / 'avialsync' / '__main__.py')],
     pathex=[str(project_root / 'src')],
-    binaries=media_binaries,
+    binaries=[],
     datas=[(str(project_root / "src" / "avialsync" / "resources" / "avialsync.png"), "avialsync/resources")],
     hiddenimports=hidden_imports,
     hookspath=[],

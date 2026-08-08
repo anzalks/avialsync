@@ -41,17 +41,21 @@ def test_recipe_runtime_covers_every_declared_dependency() -> None:
         assert f"- {name}" in run_section, f"{name} missing from the recipe's run section"
 
 
-def test_recipe_supplies_the_ffmpeg_command_line() -> None:
-    """Proxy generation, clip export, and the demo still shell out to FFmpeg.
+def test_recipe_declares_no_native_media_runtime() -> None:
+    """The conda package is now the same shape as the wheel (D-075).
 
-    Decoding does not: PyAV brings its own FFmpeg, which is why the recipe no
-    longer declares a video library at all (D-075). Once FFmpeg itself arrives
-    through pip (MIGRATION_PYAV.md step 7) this becomes unnecessary too.
+    Decoding, probing, proxy generation, clip export, and the demo all run
+    in-process against the FFmpeg inside PyAV's wheel, so there is no media
+    runtime for the recipe to declare. The recipe used to exist partly *because*
+    conda could supply one and pip could not; that asymmetry is gone.
     """
     run_section = _recipe_text().lower().split("run:", 1)[1].split("test:", 1)[0]
 
-    assert "- ffmpeg" in run_section
-    assert "- mpv" not in run_section, "the recipe must not declare a video library again"
+    assert "- av" in run_section
+    assert "- mpv" not in run_section
+    assert "- ffmpeg" not in run_section, (
+        "the recipe must not reintroduce a native media dependency"
+    )
 
 
 def test_recipe_python_range_matches_the_package() -> None:

@@ -235,42 +235,19 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e . "pyinstaller==6.21.0"
-      - name: Install media dependencies (Linux)
+      # No media dependency here any more: the bundle stages nothing and the
+      # demo it smoke-tests is generated in-process by PyAV (D-075). What Linux
+      # still needs is AppImage and Qt runtime: AppImageTool release 12 loads
+      # libfuse.so.2, which Ubuntu 24.04 provides as libfuse2t64 — do not
+      # install the obsolete fuse package — and libegl1 is Qt's Linux floor,
+      # since the bundle starts Qt in this job.
+      - name: Install bundling dependencies (Linux)
         if: runner.os == 'Linux'
-        # AppImageTool release 12 loads libfuse.so.2. Ubuntu 24.04 provides
-        # that ABI as libfuse2t64; do not install the obsolete fuse package.
-        # libegl1 is what the quality matrix treats as Qt's Linux floor, and the
-        # bundle now starts Qt in this job too.
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 desktop-file-utils ffmpeg libfuse2t64 libegl1
-      - name: Install media dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ffmpeg
-      - name: Install media dependencies (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          # Pinned deliberately. Chocolatey moved 8.1.2 -> 9.0.0
-          # mid-day and ffmpeg 9 removed `-vsync`, turning both Windows jobs
-          # red with no commit in between; unpinned here also meant the
-          # installer bundled whatever version release day happened to serve.
-          choco install --no-progress ffmpeg --version=9.0.0
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 desktop-file-utils libfuse2t64 libegl1
       - name: Verify the decoder is importable
         run: python -c "import av; print(f'PyAV {av.__version__} with bundled FFmpeg')"
-      - name: Stage FFmpeg (Linux)
-        if: runner.os == 'Linux'
-        run: python packaging/fetch_media_libs.py --source /usr/lib --source /usr/bin --destination packaging/media
-      - name: Stage FFmpeg (macOS)
-        if: runner.os == 'macOS'
-        run: python packaging/fetch_media_libs.py --source "$(brew --prefix ffmpeg)" --destination packaging/media
-      - name: Stage FFmpeg (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        # Both package layouts: `ffmpeg` has shipped the binaries directly and
-        # has also been a meta-package pointing at `ffmpeg-full`. A source that
-        # does not exist is skipped, so naming both survives either.
-        run: python packaging/fetch_media_libs.py --source 'C:\ProgramData\chocolatey\lib\ffmpeg' --source 'C:\ProgramData\chocolatey\lib\ffmpeg-full' --destination packaging/media
-      - run: python packaging/build_bundle.py --media-root packaging/media --dist-dir dist
-      - name: Smoke test staged-media bundle
+      - run: python packaging/build_bundle.py --dist-dir dist
+      - name: Smoke test the bundle
         run: python packaging/smoke_test.py dist/avialsync --demo --timeout 300
       - name: Prove the Linux bundle opens on a real display
         if: runner.os == 'Linux'

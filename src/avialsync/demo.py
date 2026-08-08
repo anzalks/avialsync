@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.runtime import no_window_kwargs, require_ffmpeg
+from avialsync.engine.transcode import TranscodeCancelled, encode_video
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -70,6 +70,60 @@ def demo_data_dir() -> Path:
     return root / "avialsync" / "demo"
 
 
+#: Presentation grid for generated demo media. 90 kHz is the MPEG convention
+#: and divides 30 fps exactly, so the demo's timestamps are not themselves a
+#: source of rounding error for anyone reading the sync tools against it.
+_DEMO_TIME_BASE = Fraction(1, 90_000)
+_DEMO_RATE = Fraction(30, 1)
+
+#: Length of each generated demo camera. A module constant rather than a default
+#: argument so a test can shorten it without patching a signature.
+DEMO_VIDEO_SECONDS = 10.0
+_DEMO_SIZE = (360, 640)  # height, width
+
+
+def _demo_frame(index: int, height: int, width: int) -> np.ndarray:
+    """Draw one recognisable test frame.
+
+    A moving bar over a static gradient, plus a block that steps once per
+    second. It replaces FFmpeg's ``testsrc`` pattern, which is no longer
+    reachable now that nothing shells out to the command line (D-075); what it
+    has to be is *visibly moving*, so that someone scrubbing the demo can see
+    at a glance that the cameras are in step.
+    """
+    rows = np.arange(height, dtype=np.int32)[:, None]
+    columns = np.arange(width, dtype=np.int32)[None, :]
+    frame = np.empty((height, width, 3), dtype=np.uint8)
+    frame[:, :, 0] = ((columns * 255) // max(1, width - 1)).astype(np.uint8)
+    frame[:, :, 1] = ((rows * 255) // max(1, height - 1)).astype(np.uint8)
+    frame[:, :, 2] = np.uint8(40)
+
+    bar = (index * 7) % max(1, width - 24)
+    frame[:, bar : bar + 24, :] = 255
+
+    second = index // 30
+    size = height // 6
+    top = 8
+    left = 8 + (second % 6) * (size + 4)
+    frame[top : top + size, left : min(width, left + size), :] = 255
+    return frame
+
+
+def _demo_frame_times(duration: float, vfr: bool) -> list[float]:
+    """Return presentation times for one generated camera.
+
+    The VFR camera drops every seventh exposure and leaves the survivors where
+    they were, which is what a real camera under a varying trigger does. The
+    old generator asked FFmpeg to ``select`` frames out and re-time the rest;
+    writing the timestamps directly is both simpler and a truer VFR fixture.
+    """
+    count = int(round(duration * float(_DEMO_RATE)))
+    times = [index / float(_DEMO_RATE) for index in range(count)]
+    if not vfr:
+        return times
+    return [seconds for index, seconds in enumerate(times) if index % 7 != 0]
+
+
 def _generate_video(
     video_path: Path,
     progress: ProgressCallback,
@@ -77,63 +131,49 @@ def _generate_video(
     progress_start: int,
     progress_end: int,
     *,
-    duration: float = 10.0,
+    duration: float = DEMO_VIDEO_SECONDS,
     vfr: bool = False,
 ) -> None:
-    """Generate one camera while translating FFmpeg progress into a percentage."""
+    """Generate one camera, reporting progress as a percentage.
+
+    Encoded in-process with PyAV, so `avialsync demo` works on a machine with
+    no media runtime installed — which is the whole point of D-075 and the last
+    place the application shelled out to FFmpeg.
+    """
     partial_path = video_path.with_name(f"{video_path.stem}.partial{video_path.suffix}")
     partial_path.unlink(missing_ok=True)
-    command = [
-        str(require_ffmpeg()),
-        "-y",
-        "-loglevel",
-        "error",
-        "-f",
-        "lavfi",
-        "-i",
-        f"testsrc=duration={duration}:size=640x360:rate=30",
-    ]
-    if vfr:
-        command.extend(["-vf", r"select=not(eq(mod(n\,7)\,0))", "-fps_mode", "vfr"])
-    command.extend(
-        [
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-progress",
-            "pipe:1",
-            "-nostats",
-            str(partial_path),
-        ]
-    )
-    process = subprocess.Popen(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        **no_window_kwargs(),
-    )
-    assert process.stdout is not None
-    for line in process.stdout:
-        if cancelled():
-            process.terminate()
-            process.wait()
-            partial_path.unlink(missing_ok=True)
-            raise RuntimeError("Demo preparation was cancelled.")
-        key, separator, value = line.strip().partition("=")
-        if separator and key in {"out_time_ms", "out_time_us"}:
-            try:
-                encoded_us = float(value)
-            except ValueError:
-                continue
-            fraction = min(1.0, encoded_us / (duration * 1_000_000))
-            current = progress_start + round(fraction * (progress_end - progress_start))
-            progress(current, f"Generating {video_path.name}…")
-    stderr = process.stderr.read() if process.stderr is not None else ""
-    if process.wait() != 0:
+
+    height, width = _DEMO_SIZE
+    times = _demo_frame_times(duration, vfr)
+    span = max(1e-9, times[-1] if times else duration)
+
+    def frames() -> Iterator[tuple[np.ndarray, float]]:
+        for index, seconds in enumerate(times):
+            yield _demo_frame(index, height, width), seconds
+
+    def report(elapsed: float) -> None:
+        fraction = min(1.0, elapsed / span)
+        current = progress_start + round(fraction * (progress_end - progress_start))
+        progress(current, f"Generating {video_path.name}…")
+
+    try:
+        encode_video(
+            partial_path,
+            frames(),
+            rate=_DEMO_RATE,
+            time_base=_DEMO_TIME_BASE,
+            progress=report,
+            should_cancel=cancelled,
+        )
+    except TranscodeCancelled:
         partial_path.unlink(missing_ok=True)
-        raise RuntimeError(f"FFmpeg could not generate {video_path.name}:\n{stderr[-2000:]}")
+        raise RuntimeError("Demo preparation was cancelled.") from None
+    except Exception as error:
+        partial_path.unlink(missing_ok=True)
+        raise RuntimeError(f"Could not generate {video_path.name}: {error}") from error
+
+    # Published only once complete, so a reader can never open a half-written
+    # demo camera and treat its truncated timeline as the real one.
     partial_path.replace(video_path)
 
 
@@ -321,11 +361,14 @@ def ensure_demo_data(
     """Create or reuse the complete deterministic inspection demo."""
     directory = demo_data_dir() if directory is None else directory
     directory.mkdir(parents=True, exist_ok=True)
+    # camera_3 runs marginally longer on purpose: a session whose sources all
+    # end on the same frame would never exercise the "outside this source's
+    # coverage" path that every real multi-camera recording hits.
     video_specs = (
-        (directory / "camera_1.mp4", 10.0, False),
-        (directory / "camera_2.mp4", 10.0, False),
-        (directory / "camera_3.mp4", 10.01, False),
-        (directory / "camera_vfr.mp4", 10.0, True),
+        (directory / "camera_1.mp4", DEMO_VIDEO_SECONDS, False),
+        (directory / "camera_2.mp4", DEMO_VIDEO_SECONDS, False),
+        (directory / "camera_3.mp4", DEMO_VIDEO_SECONDS + 0.01, False),
+        (directory / "camera_vfr.mp4", DEMO_VIDEO_SECONDS, True),
     )
     sensors = directory / "sensors.csv"
     ephys = directory / "ephys_gaps.csv"
@@ -471,7 +514,7 @@ class DemoGenerationWorker(QObject):
         try:
             thread = QThread.currentThread()
             data = ensure_demo_data(self.progress.emit, thread.isInterruptionRequested)
-        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+        except (OSError, RuntimeError) as error:
             self.failed.emit(str(error))
             return
         self.finished.emit(data)
