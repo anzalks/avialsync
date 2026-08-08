@@ -38,7 +38,6 @@ MANIFEST
 *.dmg
 *.exe
 installer-output/
-packaging/media/
 
 # Installer logs
 pip-log.txt
@@ -115,6 +114,11 @@ venv.bak/
 .idea/
 .vscode/
 *.code-workspace
+
+# Coding-agent tool config. Project rules live in AGENTS.md (CLAUDE.md and
+# GEMINI.md are thin pointers to it), so anything an agent writes here is that
+# developer's local setup rather than shared project configuration.
+.claude/
 
 # mypy
 .mypy_cache/

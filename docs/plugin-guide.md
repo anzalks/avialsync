@@ -122,7 +122,7 @@ same cache from the same file.
 
 Subclass `VideoSource` and implement every abstract method. `open()` runs in a
 background worker. If `needs_conversion()` is true, `prepare(progress_cb)` must
-create an mpv-playable cached file and return it; AvialSync opens only
+create a playable cached file and return it; AvialSync opens only
 `media_path()` after preparation succeeds. `time_bounds()` returns
 `(metadata_start, metadata_start + duration)` when a UTC start is available,
 otherwise `(0.0, duration)`. `start_time()` is only a metadata guess: the user

@@ -26,13 +26,13 @@ class VideoGrid(QWidget):
     # path = the pane's video path; pos = QPoint (global screen position).
     pane_right_clicked = Signal(str, object)
     displayed_panes_changed = Signal()
-    #: A pane has left the grid's model but its media client is still alive.
+    #: A pane has left the grid's model but its decoder is still being stopped.
     #:
-    #: Tearing a libmpv client down can take the whole process with it on
-    #: Windows (HANDOUT.md "Pending"), and unlike the same teardown at close
-    #: this one happens mid-session, where a crash would cost everything since
-    #: the last autosave. Persisting here costs one small write and makes that
-    #: failure survivable.
+    #: Tearing a libmpv client down could take the whole process with it on
+    #: Windows (HANDOUT.md "Pending"). Stopping a decode thread is a far tamer
+    #: operation, but this still happens mid-session, where losing the process
+    #: would cost everything since the last autosave. Persisting here costs one
+    #: small write and keeps that cheap insurance.
     pane_detached = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -179,9 +179,9 @@ class VideoGrid(QWidget):
             self.displayed_panes_changed.emit()
 
     def shutdown(self) -> None:
-        """Terminate all libmpv panes before their Qt parent is destroyed.
+        """Stop every pane's decoder before their Qt parent is destroyed.
 
-        Each pane is torn down independently. A pane owns a libmpv event thread
+        Each pane is torn down independently. A pane owns a decode thread
         that outlives its widget, so letting one failure abort the loop leaves
         every later pane's thread running and the process never exits — the
         window appears to refuse to close (D-059).
@@ -223,8 +223,6 @@ class VideoGrid(QWidget):
             pane.time_map.set_mapping(offset, drift_ppm)
             if exact_master is not None and exact_source is not None:
                 pane.time_map.set_exact_mapping(exact_master, exact_source)
-            # Reassign to trigger property setter and re-apply libmpv speed
-            pane.time_map = pane.time_map
         except ValueError:
             pass
 

@@ -377,6 +377,10 @@ class AOLSessionSource(SessionSource):
     """
 
     @classmethod
+    def display_name(cls) -> str:
+        return "AOL Session"
+
+    @classmethod
     def can_open(cls, path: Path) -> float:
         return 1.0 if is_aol_session(path) else 0.0
 
@@ -441,7 +445,7 @@ def _video_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) -> l
         config: dict[str, Any] = {"offset": -start_epoch}
         if manifest.camera_fps > 0:
             config["fps"] = manifest.camera_fps
-        items.append(SessionItem(video, loader_cls, config))
+        items.append(SessionItem(video, loader_cls, config, label=f"{video.name} — camera"))
     return items
 
 
@@ -464,6 +468,12 @@ def _eks_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionItem]:
                     "_is_frame_indexed": True,
                     "role": "pose3d",
                 },
+                # Named by where it goes, not by what reads it. A session emits
+                # one 3D file and one 2D file per camera, all ending "_eks.csv"
+                # and all detected as "Tracking Data (2D/3D)" — and none of them
+                # becomes a plot row (D-046), so the filename alone left no way
+                # to tell which drives the 3D view and which paint a video.
+                label=f"{eks_file.name} — 3D pose",
             )
         )
     return items
@@ -507,6 +517,7 @@ def _pose_2d_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) ->
                     "overlay_label": track.model,
                     "overlay_is_ensemble": track.is_ensemble,
                 },
+                label=f"{track.path.name} — 2D pose over {track.camera}",
             )
         )
     return items
@@ -521,7 +532,14 @@ def _encoder_items(manifest: AOLManifest) -> list[SessionItem]:
     config: dict[str, Any] = {"auto_resolved": True}
     if manifest.anchor_date:
         config["anchor_date"] = manifest.anchor_date
-    return [SessionItem(manifest.encoder_file, AOLEncoderLoader, config)]
+    return [
+        SessionItem(
+            manifest.encoder_file,
+            AOLEncoderLoader,
+            config,
+            label=f"{manifest.encoder_file.name} — rotary encoder",
+        )
+    ]
 
 
 def resolve_eks_start_epoch(eks_file: Path, manifest: AOLManifest) -> float:

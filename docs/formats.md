@@ -5,8 +5,8 @@ support, while plugins can add other recordings without changing the application
 
 ## Video
 
-Open standard video files supported by your installed mpv/ffmpeg stack, including common MP4, MOV,
-MKV, AVI, and WebM files. AvialSync reads the video timing and uses actual frame timestamps where
+Open standard video files, including common MP4, MOV, MKV, AVI, and WebM. AvialSync decodes them
+itself and needs nothing installed alongside it. AvialSync reads the video timing and uses actual frame timestamps where
 available, which matters for variable-frame-rate recordings. Presentation timestamps override a
 misleading container CFR declaration. They are cached beside the video after the first probe, so
 subsequent opens do not scan every frame again.

@@ -12,10 +12,17 @@ def test_spec_resolves_the_project_root_from_packaging_directory() -> None:
     assert "project_root / 'src' / 'avialsync' / '__main__.py'" in spec
 
 
-def test_spec_only_includes_explicitly_staged_media() -> None:
-    """An unset media path must not accidentally mean the working directory."""
+def test_spec_stages_no_media_of_its_own() -> None:
+    """The bundle carries no separately-staged media runtime (D-075).
+
+    PyInstaller collects PyAV's own shared libraries through the `av` hook, so
+    there is nothing left for the spec to stage. This used to read
+    `AVIALSYNC_MEDIA_ROOT`, and the hazard it guarded — an unset value quietly
+    meaning "the working directory" — is gone with the variable. Asserting the
+    absence keeps a staging path from creeping back in without a decision.
+    """
     spec = Path("packaging/avialsync.spec").read_text(encoding="utf-8")
 
-    assert 'media_root_value = os.environ.get("AVIALSYNC_MEDIA_ROOT")' in spec
-    assert "if media_root_value:" in spec
-    assert 'Path(os.environ.get("AVIALSYNC_MEDIA_ROOT", ""))' not in spec
+    assert "AVIALSYNC_MEDIA_ROOT" not in spec
+    assert "media_binaries" not in spec
+    assert "binaries=[]," in spec

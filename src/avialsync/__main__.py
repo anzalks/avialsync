@@ -8,8 +8,6 @@ import time
 from importlib.resources import files
 from pathlib import Path
 
-from avialsync.runtime import configure_media_runtime
-
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the supported AvialSync command-line arguments."""
@@ -51,12 +49,15 @@ def main() -> None:
     from avialsync.ui.main_window import MainWindow
     from avialsync.ui.theme import load_saved_font_size, load_saved_theme
 
-    configure_media_runtime()
     app = QApplication(sys.argv)
     app_icon = QIcon(str(files("avialsync.resources").joinpath("avialsync.png")))
     app.setWindowIcon(app_icon)
 
-    # Prevent Qt from stomping LC_NUMERIC (breaks libmpv float parsing)
+    # Qt sets LC_NUMERIC from the user's locale, so "1.5" parses as 1 in a
+    # decimal-comma locale. This existed for libmpv, whose option parser was
+    # locale-sensitive; PyAV's is not, so the decoder no longer needs it. It is
+    # kept because the change is process-wide and cheap to hold, not because
+    # anything still depends on it — see MIGRATION_PYAV.md step 8.
     locale.setlocale(locale.LC_NUMERIC, "C")
 
     load_saved_theme(app)

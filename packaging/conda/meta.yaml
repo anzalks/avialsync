@@ -1,10 +1,10 @@
 {% set name = "avialsync" %}
 {% set version = "0.1.0b8" %}
 
-# conda-forge recipe (BLUEPRINT.md Phase 5). Unlike the PyPI wheel, a conda
-# package can declare the native media runtime as real dependencies, so
-# `conda install avialsync` needs no guided libmpv dialog: mpv and ffmpeg
-# arrive as conda packages.
+# conda-forge recipe (BLUEPRINT.md Phase 5). No media runtime is declared here
+# at all: PyAV carries its own FFmpeg inside its wheel, and decoding, probing,
+# proxy generation, clip export, and the demo all run in-process against it
+# (D-075, D-076). The recipe is now the same shape as the wheel.
 #
 # `version` and the sha256 below are the two fields a version bump touches.
 # tests/test_conda_recipe.py fails if `version` drifts from pyproject.toml.
@@ -34,7 +34,7 @@ requirements:
     - python >=3.11,<3.13
     - pyside6
     - pyqtgraph
-    - python-mpv >=1.0.7
+    - av >=12
     - numpy
     - polars
     - xxhash
@@ -46,10 +46,6 @@ requirements:
     # platform because a noarch package cannot carry a platform selector, and
     # the package is small and harmless where the system already provides one.
     - tzdata
-    # Supplied here rather than left to the user: these are the two native
-    # components the PyPI install cannot provide (D-013, D-014).
-    - mpv
-    - ffmpeg
 
 test:
   imports:

@@ -104,6 +104,13 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
 
     window._session_camera_fps = layout.camera_fps
     window._session_anchor_epoch = layout.anchor_epoch
+    # A session knows what each item is; the dialog can only re-derive a name
+    # from the path. Keyed by path rather than carried in the candidate tuple,
+    # which several consumers and any third-party signal reader unpack by arity.
+    window._session_item_labels = {
+        str(item.path): item.label for item in layout.items if item.label
+    }
+    window._session_item_kinds = {str(item.path): item.kind for item in layout.items if item.kind}
 
     if layout.anchor_epoch > 0.0:
         # The session knows what absolute instant its timestamps are relative
@@ -170,7 +177,12 @@ def process_drop_candidates(
 
     from avialsync.ui.batch_import_dialog import BatchImportDialog
 
-    dialog = BatchImportDialog(candidates, window)
+    dialog = BatchImportDialog(
+        candidates,
+        window,
+        labels=window._session_item_labels,
+        kinds=window._session_item_kinds,
+    )
     if dialog.exec() == QDialog.DialogCode.Accepted:
         selections = dialog.get_selections()
         window.video_grid.begin_batch_add()

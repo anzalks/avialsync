@@ -29,7 +29,7 @@ Deterministic (seeded), regenerated in CI, gitignored. Produces:
 The non-negotiable invariant: *when the app says t, every pane shows t.*
 
 1. Load fixture session (3 videos with known offsets + 1 CSV).
-2. For 20 random master times t: exact-seek, wait settle, grab each mpv frame (screenshot-raw),
+2. For 20 random master times t: exact-seek, wait settle, read the pixels each pane painted,
    decode the binary frame-strip → frame index → frame_time; assert
    |frame_time − TimeMap(t)| ≤ 1/fps for every camera.
 3. Assert readout panel value == expected signal value at t (± interpolation tolerance).
@@ -153,7 +153,7 @@ tests but cannot replace time, signal, accessibility, and performance assertions
 | VFR footage | Frame step uses actual frame timestamps; nominal-fps badge shown |
 | Dropped frames (container 30fps, frames missing) | No cumulative drift; golden sync stays ≤1 frame using frame_times() |
 | No metadata start time | Source loads at offset 0; alignment workflow prompted; no crash |
-| Rotation metadata / anamorphic | Displayed correctly (mpv handles; test asserts orientation) |
+| Rotation metadata / anamorphic | Displayed correctly (test asserts orientation) |
 | Mixed fps cameras (25/29.97/30) | Per-camera stepping correct; master timeline unaffected |
 | Camera starts/ends mid-timeline | Dimmed "no footage" placeholder, never frozen last frame |
 | Image sequence folder (img_%06d.tif) | needs_conversion path: proxy generated with progress, then plays |
@@ -184,7 +184,7 @@ tests but cannot replace time, signal, accessibility, and performance assertions
 |---|---|
 | Session file paths moved | Relink dialog; partial load with placeholders |
 | Duplicate filenames from different dirs | Grid labels disambiguated with parent dir |
-| Unicode/space paths → ffmpeg/mpv | Arg-list invocation; test on Windows runner |
+| Unicode/space paths → ffmpeg | Arg-list invocation; test on Windows runner |
 | Stale cache after Excel edit / cross-drive copy | Content-hash tail invalidates; rebuild triggered |
 | Kill app mid-import | Atomic cache writes; relaunch clean |
 | 4 h video + 10 min data | Timeline = union; coverage spans shaded in overview |

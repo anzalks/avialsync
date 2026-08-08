@@ -1,5 +1,6 @@
 """Regression checks for the shared cross-platform CI and release contract."""
 
+import ast
 from pathlib import Path
 
 import yaml
@@ -12,7 +13,6 @@ TEST_COMMAND = (
     "pytest --maxfail=5 -q --durations=20 --timeout=60 --timeout-method=thread"
     " --ignore=tests/benchmarks"
 )
-WINDOWS_LIBMPV_SHA256 = "FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6"
 #: Bump deliberately, never incidentally — this is what release installers bundle.
 WINDOWS_FFMPEG_VERSION = "9.0.0"
 
@@ -31,27 +31,71 @@ def test_cross_platform_quality_workflows_share_headless_media_contract() -> Non
         assert "os: [ubuntu-24.04, macos-15, windows-2022]" in workflow
         assert "-latest" not in workflow
         assert 'python-version: ["3.11", "3.12"]' in workflow
-        assert "ffmpeg libmpv2 libegl1" in workflow
-        assert "brew install ffmpeg mpv" in workflow
-        assert WINDOWS_LIBMPV_SHA256 in workflow
-        assert "libmpv import succeeded" in workflow
+        # FFmpeg encodes the fixtures; libegl1 is Qt's Linux floor. No video
+        # library is installed on any platform any more — the decoder arrives
+        # with the wheel (D-075), and the probe below proves it did.
+        assert "ffmpeg libegl1" in workflow
+        assert "brew install ffmpeg" in workflow
+        assert "import av" in workflow
+        # Comments are stripped first so the change can be *explained* in the
+        # workflow without the explanation tripping the guard.
+        instructions = "\n".join(
+            line for line in workflow.splitlines() if not line.strip().startswith("#")
+        )
+        assert "mpv" not in instructions, (
+            "CI must not install, fetch, or import a video library again: PyAV "
+            "carries its own FFmpeg, so there is no DLL to pin (D-075)"
+        )
         assert TEST_COMMAND in workflow
         assert "actions/checkout@v5" in workflow
         assert "actions/setup-python@v6" in workflow
 
-    assert "if is_offscreen:" in video_pane
-    assert 'vo="null"' in video_pane
-    assert 'sys.platform in ("darwin", "win32")' in video_pane
+    # The pane used to fork three ways — a Qt OpenGL render context on
+    # Windows/macOS, native `wid` embedding on Linux, and a `vo=null` headless
+    # case for CI — so "does it work on this OS" was a real question and CI's
+    # job was to answer it on all three. D-075 removed the fork: every platform
+    # decodes to a QImage and blits it, headless or not. The guard is now that
+    # the fork stays gone, because reintroducing one would quietly restore a
+    # class of bug CI can only catch after the fact (AGENTS.md rule 6).
+    # Checked against the parsed module rather than its text, so the rule can
+    # be *described* in a docstring without tripping the guard that enforces it.
+    tree = ast.parse(video_pane)
+    platform_reads = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+        and node.attr == "platform"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "sys"
+    ]
+    assert not platform_reads, (
+        "video_pane.py must not branch on the platform: rendering is one path "
+        f"on every OS since D-075 (line {platform_reads[0].lineno if platform_reads else 0})"
+    )
+
+    imported = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    } | {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+    assert "mpv" not in imported
+    assert not any(name.startswith("PySide6.QtOpenGL") for name in imported)
 
 
-def test_release_bundle_uses_the_verified_windows_libmpv() -> None:
-    """Release installers must not switch to an unverified mpv source on Windows."""
+def test_release_bundles_stage_no_media_runtime() -> None:
+    """Installers carry no separately-staged media runtime (D-075).
+
+    Every media binary now arrives inside PyAV's wheel and is collected by
+    PyInstaller's `av` hook, so the bundling job downloads nothing, verifies no
+    checksum, and copies no libraries. The staging script is deleted; asserting
+    its absence is what keeps a supply-chain step from returning quietly.
+    """
     release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
 
-    assert "choco install --no-progress ffmpeg mpv" not in release_workflow
-    assert "Join-Path $env:RUNNER_TEMP 'libmpv'" in release_workflow
-    assert "C:\\ProgramData\\chocolatey\\lib\\ffmpeg" in release_workflow
-    assert '--source "$env:RUNNER_TEMP\\libmpv"' in release_workflow
+    assert "fetch_media_libs" not in release_workflow
+    assert "--media-root" not in release_workflow
+    assert "sourceforge.net" not in release_workflow
 
 
 def test_windows_ffmpeg_is_pinned_everywhere_it_is_installed() -> None:
@@ -61,10 +105,11 @@ def test_windows_ffmpeg_is_pinned_everywhere_it_is_installed() -> None:
     removed ``-vsync`` and both Windows jobs went red with no commit in
     between. Re-running the last green run at the same SHA reproduced it.
 
-    Pinning matters more for release.yml than for ci.yml: ``fetch_media_libs.py``
-    stages whatever Chocolatey served into the bundle, so unpinned meant
-    ``AvialSync-Setup.exe`` shipped a version nobody had tested. The libmpv
-    archive beside it is SHA-256 pinned for exactly this reason.
+    FFmpeg is now only a *build-time* dependency: it encodes the test fixtures
+    that ``tools/make_fixtures.py`` generates. Nothing is staged into a bundle
+    from it any more (D-075), so an unpinned version is a CI flake rather than
+    an unreproducible installer — still worth pinning, for a smaller reason
+    than before.
     """
     for workflow_path in WORKFLOW_PATHS:
         workflow = workflow_path.read_text(encoding="utf-8")

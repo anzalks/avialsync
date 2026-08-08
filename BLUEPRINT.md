@@ -2,17 +2,17 @@
 
 > Name: **AvialSync** (final). Casing rules are binding — see AGENTS.md §Naming.
 > Open-source, GUI-first tool to scrub time-synced multi-camera video + dense time series.
-> License: AGPL-3.0-or-later (D-069). Stack: Python 3.11–3.12, PySide6, libmpv, pyqtgraph, numpy, polars.
+> License: AGPL-3.0-or-later (D-069). Stack: Python 3.11–3.12, PySide6, PyAV, pyqtgraph, numpy, polars.
 
 ---
 
 ## Non-negotiable design principles (every phase, every agent, every PR)
 
 1. **One master clock.** All UI state derives from a single absolute time `t_master` (float seconds, UTC epoch). Sources map to it via `t_source = t_master + offset + drift_rate * (t_master - t_ref)`.
-2. **Never block the UI thread.** Decoding, file IO, cache building → workers/mpv. UI thread only issues commands and paints.
+2. **Never block the UI thread.** Decoding, file IO, cache building → worker threads. PyAV releases the GIL during decode, so panes genuinely decode in parallel. The UI thread only issues requests and paints.
 3. **Never draw more points than pixels.** All plotting goes through the decimation pyramid.
 4. **Modular loaders.** Every data source (video or time series) enters through a plugin interface. CSV and standard video are just the built-in plugins.
-5. **No GPL dependencies.** PySide6 (LGPL), mpv/ffmpeg LGPL builds, pyqtgraph (MIT), numpy/polars (BSD/MIT) only. New deps require a license check in the PR.
+5. **Dependencies must be AGPL-compatible.** PySide6 (LGPL), PyAV (BSD, bundling a GPL-configured FFmpeg), pyqtgraph (MIT), numpy/polars (BSD/MIT). The project is AGPL-3.0-or-later and single-licensed (D-076), so GPL dependencies are fine; PyQt stays banned on user-freedom grounds, not licence-compatibility ones. New deps require a licence check in the PR.
 6. **Sync correctness > frame completeness** during playback; exact frames when paused/stepping.
 7. **Binary sidecar cache.** Text formats are parsed once → cached as mmap-able binary (`.avialcache/` sidecar dir: raw arrays + pyramid levels + metadata JSON).
 8. **Evidence-based alignment.** TTL/event alignment preserves raw timestamps and presents the
@@ -26,6 +26,7 @@
 | Metric | Budget |
 |---|---|
 | Scrub response (3 cams, exact seek, release-of-slider) | ≤ 250 ms |
+| Scrub response, drag (3 cams, cache-resident span) | ≤ 50 ms (D-075) |
 | Plot pan/zoom frame time ★ | ≤ 16 ms |
 | Full populated cursor update per tick ★ | ≤ 2 ms |
 | 3D pose sample (128 XYZ points) ★ | ≤ 2 ms |
@@ -39,11 +40,33 @@ Benchmarks live in `tests/benchmarks/`, run locally via `pytest --benchmark-only
 ★ marks are enforced without a multiplier. GitHub Actions verifies the representative scientific
 session's correctness across platforms but does not use shared hosted machines to certify speed.
 
+### Measured scrub baseline (2026-08-07, D-075)
+
+macOS arm64, three 1440×1080 files, 3-cam parallel fanout, long-GOP (250) worst case. The lab's own
+all-intra footage is roughly six times faster than the figures below.
+
+The PyAV column is what `tests/benchmarks/test_seek_backends.py` measures against the shipped
+reader — re-run it to reproduce, and set `AVIALSYNC_BENCH_LIBMPV=1` on a machine with libmpv to
+re-measure the comparison arm.
+
+| Interaction | libmpv | PyAV + frame cache | Budget |
+|---|---|---|---|
+| Jump to a new time | 330 ms | 117 ms | 250 ms |
+| Drag the slider | 338 ms | 3 ms | 50 ms |
+| Re-scrub a covered span | 333 ms | 1 ms | 50 ms |
+
+**libmpv missed the 250 ms scrub budget on every interaction.** It costs ~330 ms whether it jumps,
+drags, or revisits ground it just covered — that flatness is the exact-seek settle round-trip
+through the `seeking` property observer, not decode work, and it cannot improve on a re-scrub
+because mpv holds no memory of where it just was. This is what motivated D-075. Sustained decode
+measured 1679 fps aggregate across three concurrent panes against ~180 fps needed to feed them, so
+hardware decode is not required to hold these numbers.
+
 ### Full performance and accurate-streaming audit (2026-07-29; implementation closed 2026-07-30)
 
 The architecture is sound at its main boundaries: the monotonic master clock does not wait for a
-decoder, libmpv owns decoding, video callbacks and scrub requests are coalesced, hidden video panes
-are removed from synchronization work, data/video/sync/proxy preparation has worker entry points,
+decoder, decoding runs on per-pane worker threads, frame requests and OSD updates are coalesced,
+hidden video panes are removed from synchronization work, data/video/sync/proxy preparation has worker entry points,
 and plots query bounded mmap-backed pyramid slices. Those protections must be retained.
 
 Every audited **implementation** gap below is now closed. What remains is **measurement**: the
@@ -82,8 +105,8 @@ Deliverables:
 - Repo layout (see ARCHITECTURE.md), `pyproject.toml` (hatchling), `pip install -e .[dev]` works.
 - Tooling: ruff (lint+format), mypy (strict on `core/`), pre-commit, pytest + pytest-qt + pytest-benchmark.
 - CI matrix (ubuntu/windows/macos): lint → type → warnings-as-errors docs → fixture-backed test →
-  build PyInstaller artifact. Hosted tests use one global offscreen Qt boundary; Windows also
-  provisions a pinned, SHA-verified libmpv DLL and proves `import mpv` before tests.
+  build PyInstaller artifact. Hosted tests use one global offscreen Qt boundary and prove the
+  decoder imports; no platform provisions a video library (D-075).
 - `avialsync` entry point opens an empty PySide6 main window.
 - **Synthetic data generator** `tools/make_fixtures.py`: ffmpeg test videos with burned-in frame counter + known start timestamps (8-bit and 12-bit variants, short & long GOP), numpy 50 kHz multi-channel signals with a known event (step at exact t) → this is the ground truth for all sync tests forever.
 
@@ -107,12 +130,12 @@ Exit criteria: 100 % branch coverage on timeline math; pyramid benchmark ★ pas
 **Goal:** one video + one CSV, shared slider, play/pause, cursor. The "it works!" demo.
 
 Deliverables:
-- mpv embedded in a Qt widget (`ui/video_pane.py`) — **build the Windows/macOS Qt OpenGL render-API paths FIRST (D-011, D-038), then native `wid` on Linux**; settle coordination via property observation, no sleeps. Exact-frame tests prove the decoded `screenshot-raw video` frame-strip result and retry only transient raw-capture unavailability.
+- Decode-and-blit video pane (`ui/video_pane.py`) — one path on every OS (D-075). Exact-frame tests decode a frame-index strip out of the pixels the pane painted.
 - `ui/plot_pane.py`: pyqtgraph plot fed by pyramid, fixed oscilloscope-style sweep window,
   vertical playhead cursor, bounded paint-clip-only updates between sweep boundaries, and
   coalesced resize/window refreshes.
 - Transport bar: play/pause (space), slider, time readout, speed 0.1–8×.
-- Playback loop: precise QTimer @ 60 Hz advances MasterClock without waiting for a decoder; mpv
+- Playback loop: precise QTimer @ 60 Hz advances MasterClock without waiting for a decoder; each pane
   follows via rate-matched play + drift correction (re-seek if |video_t − target| > 40 ms **for N
   consecutive ticks — hysteresis, see AGENTS traps**); slider drag = keyframe seeks, release =
   exact seek; frame stepping via actual frame timestamps (D-007). Cross-thread render/OSD callbacks
@@ -140,7 +163,7 @@ Deliverables:
   - Per-file metadata readouts (codec, resolution, sample rate, channels).
   - Per-source offset spinboxes (live preview) + optional drift rate; persisted in session.
 - Global Session Summary (Master timeline absolute times, duration).
-- Non-blocking seek fan-out from the Qt thread that owns each embedded pane; libmpv decoders perform
+- Non-blocking seek fan-out from the Qt thread that owns each pane; the decode threads perform
   the work concurrently. Never move pane commands to `QThreadPool`/asyncio; frame-drop tolerance
   applies during play.
 - Accepted exact frame-trigger mappings snap exact scrubs/pauses/steps to evidence timestamps and
@@ -216,9 +239,8 @@ Deliverables:
 - Loader capability negotiation (can_open(path) → score). Plugin configuration is a
   JSON-serialisable dictionary supplied by the host; plugins do not return Qt widgets (D-025).
 - Packaging per ARCHITECTURE §6 / D-012..D-017/D-039: PyPI wheel + sdist; PyInstaller **one-dir**
-  bundles with LGPL-verified complete mpv/ffmpeg runtimes (including `ffprobe` and dependency DLLs,
-  validated in CI); Inno Setup installer; arm64 .dmg; AppImage; source-checkout native-prerequisite
-  guidance rather than Windows pip auto-fetch of libmpv;
+  bundles with LGPL-verified FFmpeg command-line tools (`ffmpeg`, `ffprobe`, and dependency DLLs,
+  validated in CI — decoding needs none of them); Inno Setup installer; arm64 .dmg; AppImage;
   signing/notarization steps stubbed behind secrets-present conditionals; conda-forge recipe.
 - PyInstaller hardening: derive the source root from `SPECPATH`; stage media only from an explicit,
   validated `AVIALSYNC_MEDIA_ROOT`; fail on an invalid supplied directory and never stage the current
@@ -229,10 +251,11 @@ Deliverables:
 - `avialsync open <folder>` CLI; sample dataset auto-download command.
 - Docs site (Read the Docs/Sphinx): quickstart ≤ 5 min, plugin author guide, format notes (short-GOP advice), troubleshooting.
 
-Exit criteria: a stranger can `pip install avialsync` **on a machine WITHOUT mpv installed**
-(the app opens; the guided dialog and the documented per-OS prerequisites get them running) or
-download an installer, and open the sample dataset in < 5 minutes — zero manual dependency steps
-from an installer, one documented native install from pip; users can drop a `.py` plugin into their folder and it appears in the import dialog; installers verified to contain LGPL-flavor binaries.
+Exit criteria: a stranger can `pip install avialsync` **on a machine with no media libraries
+installed** and play video immediately (D-075), or download an installer, and open the sample
+dataset in < 5 minutes — zero manual dependency steps on either route, except Qt's own Linux
+graphics floor and an FFmpeg binary for proxy/export/demo (step 7 removes that too); users can drop
+a `.py` plugin into their folder and it appears in the import dialog.
 
 ### P5.4 — Evidence-based synchronization (TTL/events)
 

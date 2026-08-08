@@ -41,17 +41,21 @@ def test_recipe_runtime_covers_every_declared_dependency() -> None:
         assert f"- {name}" in run_section, f"{name} missing from the recipe's run section"
 
 
-def test_recipe_supplies_the_native_media_runtime() -> None:
-    """This is the reason to ship a conda package at all.
+def test_recipe_declares_no_native_media_runtime() -> None:
+    """The conda package is now the same shape as the wheel (D-075).
 
-    A PyPI install cannot provide libmpv or ffmpeg, so it falls back to the
-    guided dialog and documented per-OS prerequisites (D-013). A conda package
-    can declare them as real dependencies instead.
+    Decoding, probing, proxy generation, clip export, and the demo all run
+    in-process against the FFmpeg inside PyAV's wheel, so there is no media
+    runtime for the recipe to declare. The recipe used to exist partly *because*
+    conda could supply one and pip could not; that asymmetry is gone.
     """
     run_section = _recipe_text().lower().split("run:", 1)[1].split("test:", 1)[0]
 
-    assert "- mpv" in run_section
-    assert "- ffmpeg" in run_section
+    assert "- av" in run_section
+    assert "- mpv" not in run_section
+    assert "- ffmpeg" not in run_section, (
+        "the recipe must not reintroduce a native media dependency"
+    )
 
 
 def test_recipe_python_range_matches_the_package() -> None:

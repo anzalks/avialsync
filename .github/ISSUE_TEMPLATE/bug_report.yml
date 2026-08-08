@@ -44,8 +44,8 @@ body:
       label: Diagnostics
       description: >
         Help → Diagnostics → "Copy diagnostics", pasted here. This carries your
-        Python and Qt versions, libmpv availability, hardware-decode support,
-        and disk speed — it answers most of the follow-up questions at once.
+        Python, Qt, and decoder versions, hardware-decode support, and disk
+        speed — it answers most of the follow-up questions at once.
       render: text
 
   - type: textarea

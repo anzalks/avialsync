@@ -117,26 +117,31 @@ def test_osd_frame_number_is_withheld_when_no_rate_is_known() -> None:
     assert "Frame: —" in format_video_osd(12.5, 0.0, VideoMetadata(), None)
 
 
-def test_exact_seek_settles_only_after_state_and_target_evidence() -> None:
+def test_the_readout_names_the_frame_the_decoder_selected() -> None:
+    """One authority selects *and* names the frame — never two (D-075).
+
+    This replaces a test of the old settle handshake, where libmpv chose the
+    displayed frame and the pts table chose the name, so the two had to be
+    reconciled inside a tolerance and could disagree. Both sides now resolve
+    time through ``frame_index_at``, so the property worth asserting is that
+    they agree at every probe rather than that they converge eventually.
+    """
+    from avialsync.core.video_timing import frame_index_at
+
     class _Harness(VideoTimingMixin):
-        def _apply_rate(self) -> None:
-            pass
+        pass
 
+    frame_times = np.array([0.0, 1 / 30, 2 / 30, 3 / 30])
     timing = _Harness()
-    timing._frame_times = np.array([0.0, 1 / 30, 2 / 30])
-    timing._seek_pending = True
-    timing._seek_exact = True
-    timing._seek_target = 1 / 30
-    timing._mpv_seeking = True
-    timing.is_seeking = True
-    timing.time_pos = 0.0
+    timing._frame_times = frame_times
+    timing._nominal_fps = 30.0
+    timing._decoder_fps = 30.0
 
-    timing._observe_seeking(False)
-    assert timing.is_seeking is True
-
-    timing.time_pos = 1 / 30
-    timing._maybe_finish_seek()
-    assert timing.is_seeking is False
+    for probe in (0.0, 0.01, 1 / 30, 0.05, 2 / 30 - 1e-9, 2 / 30, 0.099):
+        selected = frame_index_at(frame_times, probe)
+        named, total = timing._source_frame(probe)
+        assert named == selected, f"readout named {named} for a decoder showing {selected}"
+        assert total == len(frame_times)
 
 
 def test_frame_step_and_annotation_use_real_exact_mapping_timestamps() -> None:

@@ -169,9 +169,13 @@ Context: need one representation across video, 50 kHz data, UI. Alternatives: in
 per-source relative time. float64 gives ~µs precision at epoch scale — sufficient (50 kHz = 20 µs
 sample spacing); simpler math everywhere. Consequence: never use float32 for time anywhere.
 
-## 2026-07 · D-002 · Video playback = libmpv only
+## 2026-07 · D-002 · Video playback = libmpv only — SUPERSEDED by D-075
 Alternatives rejected: QtMultimedia (inaccurate seeks), OpenCV (no proper playback pipeline),
 GStreamer (dependency pain on Windows/macOS). Consequence: bundle LGPL mpv in installers.
+**Superseded 2026-08 by D-075: playback is PyAV.** The rejections above still hold on their own
+terms — QtMultimedia and OpenCV are still not frame-exact — but libmpv measured slower than PyAV
+at scrubbing (330 ms vs 106 ms, and 338 ms vs 8 ms on a drag) while costing every pip user a
+manual OS install. See MIGRATION_PYAV.md.
 
 ## 2026-07 · D-003 · License Apache-2.0; no GPL deps — SUPERSEDED by D-069
 Enables commercialization and permissive reuse. PyQt (GPL) banned; PySide6 (LGPL) allowed.
@@ -206,8 +210,10 @@ by explicit user config. We never invent data the logger didn't record.
 Outside a source's bounds: dimmed placeholder (video), empty axis (plot), "—" (readout). Never
 freeze the last frame. Timeline = union of source bounds with coverage shading.
 
-## 2026-07 · D-011 · macOS mpv path built first
+## 2026-07 · D-011 · macOS mpv path built first — SUPERSEDED by D-075
 Render-API embedding on macOS is the project's highest integration risk; Phase 2 starts there.
+**Superseded 2026-08: there is no render-API embedding.** Every platform decodes to a QImage and
+blits it, so video rendering carries no per-OS integration risk at all.
 
 ## 2026-07 · D-012 · Distribution channels & zero-step guarantee
 Release = ONE tag → CI builds ALL channels: (a) OS installers (Inno .exe, .dmg, AppImage) with
@@ -249,7 +255,14 @@ administrator-maintained URL/checksum variables.
 **Consequences:** updating AppImageTool is a reviewable source change that updates both values in
 one commit. A tag release remains fully hands-off after PyPI Trusted Publishing is configured.
 
-## 2026-07 · D-013 · Lazy mpv import + startup probe (never crash on missing libmpv)
+## 2026-07 · D-013 · Lazy mpv import + startup probe — SUPERSEDED by D-075
+**Superseded 2026-08: there is no libmpv to probe for.** PyAV ships FFmpeg inside its own wheel, so
+the missing-library case this decision defends against cannot occur — pip either installed the
+decoder or the install itself failed. The probe, the guided per-OS dialog, and
+`ui/diagnostics.libmpv_install_guidance` are removed. What survives in spirit: a missing *runtime*
+component must never produce a ctypes traceback at launch, and any message about one must name a
+route a pip user can actually take. Original text follows.
+
 `import mpv` is FORBIDDEN at module top level anywhere. video_pane imports lazily after
 diagnostics probes for libmpv. Missing lib → app still opens, shows an OS-detected dialog with
 the exact install one-liner (apt/dnf/pacman/brew), or on Windows the mpv-dev archive plus
@@ -272,10 +285,16 @@ supports, now named by the D-013 dialog and documented in README and `docs/quick
 An optional `avialsync[media]` binary companion wheel remains the post-1.0 way to make Windows pip
 zero-step. Do not reintroduce an in-app downloader instead.
 
-## 2026-07 · D-015 · LGPL-configured libmpv ONLY in bundles
+## 2026-07 · D-015 · LGPL-configured libmpv ONLY in bundles — AMENDED by D-075
 libmpv is dual GPL/LGPL; bundling a GPL-configured build would poison D-003. Packaging must use
 LGPL builds (-Dgpl=false; e.g. shinchiro LGPL Windows builds) and CI release asserts the build
 flavor before bundling. Same for ffmpeg (LGPL configuration, no --enable-gpl).
+**Amended 2026-08 by D-075, then retired by D-076.** The libmpv half is void — nothing bundles
+libmpv any more. The FFmpeg half is no longer a licence requirement either: with the commercial
+dual-licence dropped (D-076), a GPL-configured FFmpeg is simply compatible with
+AGPL-3.0-or-later, and the stock PyAV wheels are used as published. LGPL builds remain mildly
+preferable for redistribution simplicity, but preferring them is now taste rather than a rule, and
+no dependency needs escalating on this ground.
 
 ## 2026-07 · D-016 · Code signing: stubbed at v1.0, hooks ready
 v1.0 ships unsigned (SmartScreen "Run anyway" / macOS right-click-Open documented in README +
@@ -283,9 +302,12 @@ docs). Release workflow contains signing/notarization steps behind secrets-prese
 so enabling later = adding secrets, zero code change. Buy Apple $99/yr + Windows signing at
 first commercial interest or when Mac-user friction reports appear.
 
-## 2026-07 · D-017 · python-mpv naming
+## 2026-07 · D-017 · python-mpv naming — SUPERSEDED by D-075
 Dependency is `python-mpv` on PyPI; imported module is `mpv`. The unrelated PyPI package named
 `mpv` must never be installed. Pin in pyproject: python-mpv>=1.0.7.
+**Superseded 2026-08: the dependency is dropped entirely.** The same naming hazard now applies to
+its replacement and is worth carrying forward — the dependency is `av` on PyPI and the import is
+`av`. The separate PyPI package named `pyav` is a different distribution; do not mix them.
 
 ## 2026-07 · D-018 · Product name = AvialSync (final)
 Brand/display: `AvialSync`. Package/module/CLI/entry-point group/paths: `avialsync`
@@ -659,7 +681,12 @@ X11. Windows CI therefore overrides the global headless setting with the native 
 for its QWidget tests. Linux and macOS continue to use offscreen testing. This is a test-platform
 selection fix, not an application behavior change.
 
-## 2026-07 · D-031 · Libmpv commands stay on the Qt-owning thread
+## 2026-07 · D-031 · Libmpv commands stay on the Qt-owning thread — SUPERSEDED by D-075
+**Superseded 2026-08: there is no libmpv client to hold a thread affinity.** A pane hands its
+decode thread a wanted time and the thread answers with a frame; there is no property observer to
+get stuck. The general rule that survives is narrower: widgets are only touched on the UI thread,
+which Qt enforces anyway. Original text follows.
+
 
 ### Context
 
@@ -674,7 +701,13 @@ in libmpv; decode and property observation remain on libmpv's own threads. Settl
 require the observed `seeking=False` state and target `time-pos`, never a sleep. This preserves a
 responsive UI without cross-thread access to an embedded libmpv client.
 
-## 2026-07 · D-032 · Headless CI uses null video, decoded-frame evidence, and explicit mpv ownership
+## 2026-07 · D-032 · Headless CI uses null video, decoded-frame evidence, and explicit mpv ownership — AMENDED by D-075
+**Amended 2026-08.** The `vo=null` half is void: there is no headless special case, because the one
+rendering path is the same everywhere. The other two halves **still govern and are stronger now** —
+frame accuracy is proven by decoding a frame-index strip out of the pixels the pane painted, and a
+pane's decode thread is stopped explicitly rather than left to QWidget destruction. Original text
+follows.
+
 
 ### Context
 
@@ -834,7 +867,12 @@ declared icon as an artifact-integrity error, so the packaging test asserts both
 and staged source asset. The AppDir also provides the required `.DirIcon` symlink and validates
 its desktop file with `desktop-file-validate` before AppImageTool runs.
 
-## 2026-07 · D-038 · Windows video panes use libmpv's Qt OpenGL render API
+## 2026-07 · D-038 · Windows video panes use libmpv's Qt OpenGL render API — SUPERSEDED by D-075
+**Superseded 2026-08: neither render path exists.** The grey-surface failure this decision worked
+around was a property of libmpv's native `wid` child window; painting a decoded QImage has no such
+failure mode. The overlay-transparency requirement it also records still stands. Original text
+follows.
+
 
 ### Context
 
@@ -856,7 +894,12 @@ Any renderer change must verify visible decoded frames in an interactive window,
 timestamps or `screenshot-raw` evidence. The gray-surface failure and overlay opacity are covered
 by the pane configuration and timing tests.
 
-## 2026-07 · D-039 · Release bundles own the complete media runtime
+## 2026-07 · D-039 · Release bundles own the complete media runtime — AMENDED by D-075
+**Amended 2026-08: playback needs nothing bundled**, since PyAV carries FFmpeg into every channel.
+What bundles still own is the FFmpeg *command line* for proxy generation, clip export, and the demo;
+staging validates `ffmpeg` and `ffprobe` and no longer looks for a video library. Original text
+follows.
+
 
 ### Context
 
@@ -1855,7 +1898,12 @@ resolution, so a claimed directory is never swept for loose files. Verified agai
 `09-35-24` session: identical 8 items, loaders, roles, and offsets to the hardcoded path, with the
 virtual row gone. Do not reintroduce format knowledge into `engine/` or `ui/`.
 
-## 2026-08 · D-069 · AGPL-3.0-or-later with a commercial licence, superseding D-003
+## 2026-08 · D-069 · AGPL-3.0-or-later with a commercial licence — AMENDED by D-076
+**Amended 2026-08 by D-076: the commercial licence and the CLA are dropped.** The AGPL-3.0-or-later
+choice below stands and is the whole licence now. Everything the original text says about
+sublicensing, dual licensing, and why the CLA was not optional no longer applies. Original text
+follows.
+
 
 **Context:** D-003 chose Apache-2.0 to enable commercialization. It does the opposite of what the
 project now wants. Apache-2.0 lets anyone ship a closed derivative, host it as a service, or embed
@@ -1892,3 +1940,309 @@ A plugin written against the published `TimeSeriesSource`, `VideoSource`, or `Se
 interfaces is a separate work and its author picks its licence. That boundary is deliberate: labs
 must be able to keep a loader for a proprietary instrument format closed, or the plugin system
 fails at its purpose.
+
+## 2026-08 · D-070 · Ephys samples are read through neo; wall-clock anchoring is not
+
+**Context:** An Open Ephys session drop produced no plotted ephys at all, and the video sat on a
+timeline 110 s longer than the footage. Fixing it invited writing a direct Open Ephys reader —
+numpy over `continuous.dat` is a short afternoon, and it sidesteps neo's dependency stack, which
+has bitten this project before (a `quantities` predating NumPy 2, see the shadowing trap in
+AGENTS.md).
+
+That is the wrong trade. The value of one ingest path is that every acquisition system downstream
+looks the same: one `ChannelInfo` shape, one chunk contract, one place a rate or a unit can be
+wrong. A second reader for the format we happen to have data for today is a second place for all of
+that to drift, and the next lab's Neuralynx or SpikeGLX folder gets nothing from it.
+
+**Decision:** every ephys sample AvialSync reads comes through `neo`. `NeoLoader` is the only
+time-series loader for acquisition formats, and a format-specific plugin may not read samples.
+
+What neo does **not** model is deliberately excluded from that rule and lives beside it in
+`loaders/open_ephys_format.py`:
+
+- which directory *is* a recording (`structure.oebin`), because neo accepts any level of the tree
+  and gives no way to enumerate recordings under a dropped folder;
+- what wall-clock instant the acquisition clock started at, which exists only in the first line of
+  `sync_messages.txt` — neo reports `t_start` on a free-running clock and knows nothing of epochs;
+- which timezone the rig was in, derived from the recording's own local-time directory name against
+  that UTC instant.
+
+**Alternatives rejected:** a direct binary reader (a second ingest path, and nothing reusable);
+teaching `NeoLoader` about `sync_messages.txt` (format knowledge in the generic loader, which is
+the thing D-068 exists to prevent).
+
+**Consequences:** neo's approximations are ours. It reconstructs sample times as
+`t_start + i / rate` rather than reading `timestamps.npy`, which on a real 30 kHz recording differs
+by 34 µs — one sample, constant, no drift. The session anchor is therefore also read through neo,
+so streams and their wall clock agree; taking the anchor from `timestamps.npy` instead would offset
+every stream from its own clock by that difference. If a recording ever needs true per-sample
+timestamps, fix it in neo or add a documented override — do not open the file behind neo's back.
+
+## 2026-08 · D-071 · One stream is one source; its channels share one stored clock
+
+**Context:** A 32-channel 30 kHz headstage imported as 32 separate sources. Every one wrote its own
+full-resolution `float64` timestamp array and its own gap mask, so a 13-minute recording whose raw
+data is 1.5 GB produced a ~14 GB sidecar — over 6 GB of it the same timestamps written 32 times, and
+6 GB of write time before anything could be plotted. Users read that as a hang, which is what it
+looks like.
+
+**Decision:** a session emits one `SessionItem` per acquisition stream, not per channel, and the
+loader offers `read_all_chunks` (D-067) only when it has proved every selected channel sits on one
+clock. `NeoLoader.read_all_chunks` is therefore an **instance attribute**, bound in `open()` and left
+`None` when the selection spans several rates — a class-level method would have been probed by
+`ImportWorker` and then silently interleaved two time bases.
+
+The importer stores that shared array once: `_finalize_bulk_channels` hard links each channel's
+`_t.npy` and `_gap.npy` to the single staged copy, falling back to a real copy on filesystems that
+cannot link. These files are written once and only ever mmapped read-only, so a shared inode is
+invisible to every reader.
+
+Each stream is pointed at its **own** directory rather than at the recording, because
+`CacheManager.get_cache_dir` names a sidecar after its source path alone. Streams sharing a path
+would take turns invalidating one another's cache, and each import would rebuild what the last one
+wrote. `NeoLoader` accepts `config["root"]` for this: the path is the source's cache identity, the
+root is what neo opens.
+
+**Consequences:** the same recording now costs ~7 GB instead of ~14 GB and imports in roughly half
+the time. The remaining half is `float64` values for 16-bit samples; extending D-023's conditional
+narrowing to the base `_v.npy` would halve it again, and needs its own decision and a cache-version
+bump. Do not "simplify" the hard link back to `shutil.copyfile`, and do not make anything write to a
+committed cache file in place — one in-place write would now corrupt every channel of the stream.
+
+## 2026-08 · D-072 · A container's nominal frame rate loses to the rig's timestamp sidecar
+
+**Context:** A machine-vision camera wrote 26 877 frames into an AVI declaring 30 fps CFR. It had
+actually free-run at 45.77 Hz and dropped 9 073 frames, so the real footage spans 785 s and the
+container claims 895 s. Playing it against ephys drifted apart by 110 s end to end, and no offset can
+take that out because the error accumulates. Correcting the rate to the measured 34.2 fps average is
+not enough either: with drops distributed through the recording, a single rate still leaves 51 ms RMS
+and 1.14 s at the worst frame.
+
+**Decision:** `VideoSource` gains an additive `exact_time_mapping()` returning per-frame
+`(master_time, source_time)`, defaulting to `None` so frozen v1 plugins are unaffected. A loader
+that knows when its frames were actually exposed returns that table, and `video_controller` installs
+it exactly as it installs an accepted `SyncProposal` — validated first for equal length, finiteness
+and strict monotonicity, because it arrives from a plugin and a non-monotonic table corrupts every
+seek made through it.
+
+An accepted or restored proposal outranks it. The user agreed to that mapping; silently replacing it
+with what a sidecar claims would undo an explicit decision.
+
+**Decision (placement):** the mapping fixes timing *within* a video. Where the video starts on the
+session clock stays **declared**, never fitted: the filename gives it to about a second, and the
+recording's own local/UTC evidence converts it. Matching the residual against a TTL line is a
+synchronization proposal and needs user acceptance (D-030), so it belongs to the sync wizard and not
+to a folder scan — even when, as here, the TTL is unmistakably the camera's own exposure strobe.
+
+**Consequences (readout):** the rate fields in `VideoMetadata` must come from the mapping, not from
+the container's presentation timestamps. Computed from the container they read "CFR 30.000 fps ·
+measured 30.000" — true of the container, and the exact discrepancy the sidecar exists to correct.
+`OpenEphysCameraLoader.video_metadata()` reports master-axis rates with `nominal_fps` left as the
+container's claim, which is what that field is for. `displayed_frame_rate` takes the mapping's slope
+so the OSD's "now" figure shares an axis with the range printed beside it (1.0 without a mapping, so
+ordinary video is unaffected).
+
+**Consequences:** a video whose wall clock cannot be resolved is placed at the recording's first
+sample rather than at zero; the acquisition clock is not reset at record start, so zero would sit off
+the front of every stream for no visible reason. `frame_times()` keeps returning container
+presentation timestamps — it is source-time evidence used for frame stepping — and must not be
+repurposed to carry master time.
+
+## 2026-08 · D-073 · An import row is typed by its data, not by the plugin that reads it
+
+**Context:** The review dialog's type column showed `display_name()` of whichever loader resolved
+the row. Two consequences, both wrong in the same way — the column answered "who reads this" when
+the user was asking "what is this":
+
+- A camera routed through a session-specific loader read "Open Ephys Video". It is a video. Which
+  rig recorded it is already in the row's own label, and repeating it in the type made an identical
+  camera on two rigs look like two different kinds of file.
+- Every stream of an acquisition recording comes through one reader, so an 18-channel IMU — Euler
+  angles, acceleration, gravity, temperature — was typed "Electrophysiology Data" purely because
+  neo is what reads it. Nothing about that stream is electrophysiology.
+
+**Decision:** `display_name()` and `display_aliases()` name the **kind of data**, never a rig. A
+reader that serves several kinds advertises each one as an alias, and a session picks between them
+with `SessionItem.kind`; a declared kind must match a label its own loader offers, so the dialog
+always has an entry to select. Every alias still resolves to the same loader, so what actually runs
+is unchanged by the label the user sees.
+
+This supersedes the `<System> <Kind>` convention added days earlier in the same branch, which had
+codified AOL's habit rather than questioning it.
+
+**Decision (consolidation):** `OpenEphysCameraLoader` is deleted. Timing a video from a per-frame
+sidecar is not one rig's feature — machine-vision capture software commonly ships one — so it is a
+config-driven capability of `VideoStandardLoader` (`frame_timestamps`, `start_time`). There is one
+video loader again, named "Video".
+
+**Consequences:** the sidecar is applied **only** when a session passes it in config, never
+discovered from a same-stem file. A `<video stem>.csv` beside a video is at least as likely to be
+pose output, and reinterpreting a DLC export as frame timestamps would silently rewrite the
+timeline. A session knows the rig's convention and opts in; the loader never goes looking.
+
+Names must stay unique across every registered plugin, aliases included — the dialog is a picker,
+and two identical entries cannot be told apart. A test enforces it.
+
+## 2026-08 · D-074 · A dropped frame is missing data, but it is not a gap
+
+**Context:** One camera stored 26 877 frames of 35 950 exposures — a quarter of the take lost — and
+nothing in the application said so. The natural question is why those do not appear as gaps.
+
+Two independent reasons, both correct:
+
+- A `VideoSource` never reaches `build_gap_mask`. Gaps are computed by `ImportWorker`, which
+  handles time series; video goes through `video_controller` and is not sampled data.
+- Even routed through it, the answer would be zero. `build_gap_mask` flags an interval above ten
+  times the median. One dropped exposure makes an interval of *two* medians — 43.7 ms against a
+  218.5 ms threshold — and on this recording the counter never skips more than one at a time, so
+  the largest interval in 785 s is 43.71 ms. Nothing comes within a factor of five.
+
+**Decision:** that behaviour stays. A gap means "no coverage here, do not draw across it". A
+dropped frame leaves the timeline fully covered and every stored frame correctly placed by its
+exact mapping; what is lost is temporal *resolution*, not alignment or coverage. Marking 9 073 of
+them would bury the trace rather than inform it, and would misdescribe what happened.
+
+**Decision:** the loss is reported as its own integrity fact instead. `VideoMetadata.dropped_frames`
+carries the count, `IntegrityFlags.frames_dropped` raises the same warning affordance other
+anomalies use, and Source Properties reads
+``26877 recorded · 9073 dropped of 35950 (25.2%)``.
+
+The count comes from the sidecar's **frame counter**, not its timestamps. That column had been
+discarded as redundant, which is exactly wrong: timestamps alone cannot distinguish "a frame was
+dropped here" from "the camera ran slower here", and the counter is the only record that those
+exposures happened at all. A counter that restarts or runs backwards reports zero rather than a
+nonsense figure.
+
+**Consequences:** `read_frame_timestamps` returns `RecordedFrames`, not a bare array. Do not
+"simplify" it back — the second field is evidence that exists nowhere else in the recording.
+
+## 2026-08 · D-075 · Video playback = PyAV; FFmpeg ships via pip — supersedes D-002, D-013, D-015, D-017
+
+**Context:** D-002 chose libmpv for playback and D-011/D-013 built the consequences: a startup
+probe, a guided per-OS install dialog, and a lazy `import mpv`. The cost lands entirely on the pip
+channel, where the user must install libmpv *and* FFmpeg by hand — on Windows by downloading an
+`mpv-dev` archive off SourceForge and setting `AVIALSYNC_MEDIA_ROOT`, because no Windows package
+manager ships `libmpv-2.dll`. That is the project's worst install story and it gates the platform
+most labs actually run.
+
+**Decision:** replace libmpv with PyAV (`av` on PyPI, FFmpeg bundled inside the wheel) for playback
+and probing, and deliver the remaining `ffmpeg`/`ffprobe` executables through a pip-installed wheel
+rather than an OS package. `pip install avialsync` then requires no OS-level step on any platform.
+Execution plan, step status, and traps live in **MIGRATION_PYAV.md**.
+
+**Evidence** (macOS arm64, three 1440×1080 files, 3-cam fanout, long-GOP worst case, against the
+BLUEPRINT.md ≤ 250 ms scrub budget):
+
+| Interaction | libmpv | PyAV + frame cache |
+|---|---|---|
+| Jump to a new time | 330 ms — over budget | 106 ms |
+| Drag the slider | 338 ms — over budget | 8 ms |
+| Re-scrub a covered span | 333 ms — over budget | 7 ms |
+
+libmpv costs ~330 ms whether it jumps, drags, or revisits ground it just covered. The flatness is
+the finding: that is the exact-seek settle round-trip through the `seeking` property observer, not
+decode work, and it cannot improve on a re-scrub because mpv holds no memory of where it just was.
+Sustained decode measured 1679 fps aggregate across three concurrent panes against ~180 fps needed
+to feed them — PyAV releases the GIL, so hardware decode is not required to meet the budget.
+
+**This also removes a correctness hazard.** Today libmpv decides which frame to *display* while the
+ffprobe pts table decides which frame the readout *names*; `_frame_tolerance`,
+`_maybe_finish_seek`, and the `_PTS_EPSILON_S` note in `ui/video_timing.py` all exist to reconcile
+two authorities, and that note records a real shipped bug where the readout named the wrong frame
+and a forward step did nothing. After this change one call — `frame_index_at` — both selects and
+names the frame, so they cannot disagree. **Do not reintroduce a second authority.**
+
+**Binding invariant:** the frame shown for master time `t` is the frame whose presentation interval
+contains `t`, i.e. the last frame with `pts <= t`. A reader returning the *first frame with
+`pts >= t`* is wrong at every scrub position between two frames — measured at 179/179 mid-interval
+probes on CFR and VFR alike, a 33 ms misattribution at 30 fps. Caches are keyed by integer frame
+index, never by float time. `tests/test_frame_identity.py` enforces this with footage whose every
+frame encodes its own index in its pixels.
+
+**Alternatives rejected:** Qt Multimedia — already free in the PySide6 wheel, but `setPosition` is
+not frame-exact, which is the application's entire premise. python-vlc — same native-dependency
+problem as mpv with worse seek accuracy. OpenCV — pip-installable but unreliable on B-frame
+content; `napari-pyav` exists precisely because OpenCV's seeking glitched. Publishing our own
+libmpv wheels — viable, and the only option that changes no application code, but it leaves the
+project maintaining three-platform native build CI forever to keep a component that is slower than
+the alternative at the job we need.
+
+**Consequences:** D-013's probe-and-guide dialog and D-015's bundled-libmpv rule lose their
+subject; D-017's `python-mpv` pin is dropped. `import mpv` disappears from the codebase. The
+per-OS render split in `ui/video_pane.py` collapses to one path, and `engine/player.py`'s drift
+correction is deleted outright — the app becomes the clock rather than chasing one. The CI libmpv
+fetch, its SHA-256 pin, and the `import mpv` probe go with them.
+
+`packaging/fetch_media_libs.py` is **deleted**, along with all media staging, the
+`AVIALSYNC_MEDIA_ROOT` handling in the PyInstaller spec, the conda recipe's `ffmpeg` dependency, and
+`runtime.py`'s whole executable search. Proxy generation, clip export, and the demo generator were
+ported to PyAV rather than given a bundled-FFmpeg wheel — **no candidate wheel met the stated
+criteria** (both binaries, inside the wheel, all three platforms): `imageio-ffmpeg` has no
+`ffprobe`; `static-ffmpeg`, `local-ffmpeg`, and `portable-ffmpeg` download on first use, which
+D-014 rejects; `ffmpeg-binaries` has no Linux aarch64 wheel and a 0-byte `any` fallback; and
+`shaka-streamer-binaries` drags in an unrelated packager. Porting needs no new dependency at all
+and covers every platform PyAV supports. See MIGRATION_PYAV.md step 7.
+
+`tools/make_fixtures.py` still shells out to `ffmpeg`, deliberately: it is a build-time fixture
+generator, not part of the application, and CI installs `ffmpeg` for it alone.
+
+**Licensing — CLOSED by D-076.**
+
+Confirmed by inspection of the installed wheel (`av` 18.0.0, macOS arm64): its bundled `.dylibs`
+include `libx264.165.dylib` and `libx265.216.dylib`, and `av.codec.Codec("libx264", "w")` resolves,
+so the shipped FFmpeg is GPL-configured rather than merely capable of being built that way.
+
+That was an open question only because D-069 kept a commercial licence alive, which GPL components
+would have foreclosed. **D-076 drops the commercial licence**, so there is nothing left to
+foreclose: GPL-2.0-or-later is compatible with AGPL-3.0-or-later, the stock wheels are used as
+published, and the project takes on no wheel-building burden. `docs/licensing.md` states this
+plainly.
+
+Note also that AGENTS.md's "no GPL/AGPL dependency" line predates D-069 and is stale; it is
+corrected in this change.
+
+**One caveat survives and must stay documented:** on Linux, PySide6 needs system graphics libraries
+(`libgl1`, `libxkbcommon`, xcb). Normal desktops have them; bare containers do not. That is Qt's
+floor, was equally true before this change, and no packaging decision removes it. `docs/install.md`
+states it plainly rather than omitting it.
+
+## 2026-08 · D-076 · AGPL-3.0-or-later, single licence; the CLA is dropped — amends D-069, D-015, closes D-075's open licensing question
+
+**Context:** D-069 made the project AGPL-3.0-or-later *and* kept a commercial licence available
+from the copyright holder, which required a CLA granting sublicensing rights on every contribution.
+That option was never exercised, and keeping it alive had running costs paid in three places: every
+contributor had to accept a CLA before their first patch, every dependency decision had to be
+checked against a licence nobody was using, and the PyAV migration ran straight into it — the stock
+`av` wheels bundle libx264/libx265, so adopting them at all was blocked behind a licensing question
+that existed only because of the commercial option (D-075).
+
+**Decision:** AvialSync is **AGPL-3.0-or-later and nothing else**. There is no commercial licence,
+no dual licensing, and no CLA. Contributions are accepted under the project's own licence, the way
+most open-source projects work.
+
+**Consequences, in the order they bite:**
+
+- `CLA.md` is deleted. Contributing needs no agreement and no acknowledgement line in a pull
+  request. `CONTRIBUTING.md`, `README.md`, `AGENTS.md`, and `ARCHITECTURE.md` drop every mention.
+- **This is a one-way door, and that is accepted deliberately.** Once outside contributions land
+  without a CLA, the project cannot relicense — including reinstating a commercial option — without
+  the agreement of every contributor. Copyright is no longer consolidated in one person. Anyone
+  reading this later and wanting to change the licence must find and ask every author.
+- **D-075's open licensing question is closed.** The GPL-configured FFmpeg inside the PyAV wheel
+  (libx264/libx265, confirmed by inspection) is licence-compatible with AGPL-3.0-or-later and there
+  is no longer anything for it to foreclose. Use the stock wheels; no LGPL-configured build is
+  needed, and no wheel-building burden is taken on.
+- **D-015's LGPL preference is retired as a licence matter.** LGPL builds are still fine to prefer
+  for redistribution simplicity, but a GPL-configured dependency no longer requires escalation. The
+  rule that survives is the plain one: name the licence of any new dependency in the PR and check it
+  is compatible with AGPL-3.0-or-later. PyQt stays banned, now purely because its commercial-or-GPL
+  terms are worse for downstream users than PySide6's LGPL.
+- Versions 0.1.0b1 through 0.1.0b5 remain Apache-2.0 permanently, exactly as D-069 recorded.
+  Relicensing is forward-only in both directions.
+- The plugin boundary is unchanged: a plugin written against the published `TimeSeriesSource`,
+  `VideoSource`, or `SessionSource` interfaces is a separate work whose author picks its licence.
+  Labs must be able to keep a loader for a proprietary instrument format closed.
+
+**Alternatives rejected:** keeping the CLA purely to preserve future licence flexibility — it
+carries real contributor friction for an option that has gone unused, and holding it "just in case"
+is how the licensing question ended up blocking a decoder migration.

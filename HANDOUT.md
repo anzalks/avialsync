@@ -1,9 +1,16 @@
 # AvialSync — Model Handout
 
 Desktop tool for scrubbing time-synchronized multi-camera video with dense time-series data on a single master timeline.  
-**Stack:** Python 3.11–3.12, PySide6, libmpv (python-mpv), pyqtgraph, polars, numpy
-**License:** AGPL-3.0-or-later, dual-licensed (D-069). Contributions require the CLA.  
+**Stack:** Python 3.11–3.12, PySide6, PyAV (`av`), pyqtgraph, polars, numpy
+**License:** AGPL-3.0-or-later, single licence — no dual licence, no CLA (D-076).  
 **Env:** `conda run -n avialsync <cmd>` — every command without exception
+
+> **⚠ Migration in flight — read MIGRATION_PYAV.md before touching video code.**
+> Branch `shift_from_libmpv_to_pyav` replaced libmpv with PyAV so that `pip install avialsync`
+> needs no OS-level install on any platform (D-075). **All eight steps are done.** Decoding,
+> probing, proxy generation, clip export, and the demo generator run in-process against the FFmpeg
+> inside PyAV's wheel; nothing in the application shells out to a media runtime. That file carries
+> the step-by-step record and the traps worth keeping.
 
 ---
 
@@ -25,7 +32,7 @@ Use `AvialSync` for displayed text and `avialsync` for technical identifiers. Do
 | Layer | Library | Notes |
 |---|---|---|
 | GUI | `PySide6` | NEVER PyQt5/PyQt6 — license |
-| Video | `python-mpv` → `import mpv` | Lazy import only (D-013). Never QtMultimedia or OpenCV for playback |
+| Video | `av` (PyAV) → `import av` | FFmpeg ships inside the wheel. Never QtMultimedia, OpenCV, or libmpv (D-075) |
 | Plots | `pyqtgraph` | All data via decimation pyramid — never raw arrays >100k samples |
 | Data | `polars` + `numpy` | polars for CSV; numpy for pyramid math |
 | Build | `hatchling` | `pip install -e .[dev]` |
@@ -74,9 +81,9 @@ with explicit user acceptance and session provenance. Native plugin event provid
 ### Done (Phase 4 UX / loader fixes)
 - **Live scrubbing coalescing**: During slider drag `Player.seek(exact=False)` coalesces in-flight keyframe seeks — if a seek is already dispatched, the newest target is held in `_pending_scrub_t` and flushed in `_on_tick` as soon as `SeekGroup.is_settled()`. Plot cursor and readout panel update every drag event. Exact seek fires on release as before.
 - **No decoder-global freeze**: `MasterClock` advances on every active playback tick even if one
-  libmpv pane remains in `seeking`. That pane drops frames and rejoins independently; it cannot stop
-  plots, transport, readout, 3D, or healthy videos. Render and OSD callbacks retain only the newest
-  pending UI update instead of building an unbounded event queue.
+  pane is still decoding. That pane shows an older frame for a tick and rejoins independently; it
+  cannot stop plots, transport, readout, 3D, or healthy videos. Frame requests and OSD updates
+  retain only the newest pending value instead of building an unbounded queue.
 - **Persistent visibility**: unchecked videos and plot rows stay hidden through resize,
   grid/fullscreen relayout, and sweep refresh. Hidden videos stay loaded but are paused and excluded
   from seek/drift work; hidden plot rows are excluded from pyramid and overlay refreshes.
@@ -88,28 +95,19 @@ with explicit user acceptance and session provenance. Native plugin event provid
   off-thread once and stores them in the content-hash-validated video sidecar. Reopens mmap the
   index. Timestamp intervals—not a container CFR declaration—decide CFR/VFR. The video pane shows
   nominal CFR, measured/VFR range and current rate, codec, and file size below its time readout.
-- **Cross-platform exact seek dispatch**: `SeekGroup` queues libmpv commands from the Qt-owning
-  thread. libmpv itself remains asynchronous; this avoids macOS property observers getting stuck
-  in a seeking state when commands are issued from a Qt worker thread. Observer callbacks use
-  their delivered values rather than querying libmpv recursively, avoiding Windows callback-thread
-  crashes. Golden tests require delivered `seeking=False`/`time-pos` evidence at the target, retry
-  one delayed exact command if the observer has not delivered it, then decode `screenshot-raw video`
-  until it provides the expected raw frame—the only definitive frame-accuracy evidence. An
-  unavailable or stale pre-seek raw snapshot is rejected, never accepted; retry uses the Qt event
-  loop at a bounded interval. Fixture seeks use a timestamp within the known decoded-frame interval,
-  never an ambiguous presentation-time boundary that another libmpv backend may resolve to the
-  adjacent frame. Every pane sets libmpv
-  `hr-seek-framedrop=no`, so a paused exact seek decodes to its target instead of allowing the
-  decoder to discard target-adjacent frames. Raw-frame golden tests run on Linux/macOS headless CI;
-  Windows skips them because libmpv cannot safely provide raw captures under Qt's `offscreen` platform.
-  Interactive Windows rendering is separately verified through the Qt OpenGL renderer.
-- **Headless Windows video CI**: GitHub-hosted Windows runners use the global Qt `offscreen`
-  platform, so `VideoPane` selects libmpv's `vo=null` test path. Do not force native `wid` embedding
-  in a headless job. Interactive Windows panes use libmpv's Qt OpenGL render API: the native `wid`
-  path can decode while presenting only a gray child surface on affected Windows compositor/driver
-  combinations.
-- **Portable media runtime and demo launch**: `avialsync.runtime` configures bundled media or the
-  active conda environment before the lazy libmpv import, and `VideoStandardLoader` resolves an
+- **Exact seek dispatch (D-075)**: `SeekGroup` hands each pane a source time; the pane's decode
+  thread resolves it to a frame index and decodes. Every seek is exact — there is no keyframe mode
+  to trade accuracy for speed, because the frame containing `t` costs a few milliseconds when it is
+  near where the decoder already is. Golden tests decode the frame-index strip out of the pixels the
+  pane actually painted, which is the only definitive frame-accuracy evidence; there is no retry
+  loop, because the buffer is replaced in the same slot that clears `is_seeking`. Fixture seeks use
+  a timestamp *inside* the known decoded-frame interval — a quarter-frame past its start — never a
+  boundary, where an off-by-one reader would look correct.
+- **One rendering path everywhere**: headless or not, Windows, macOS, and Linux all decode to a
+  `QImage` and blit it. `tests/test_ci_platform_config.py` parses `video_pane.py` and fails if a
+  `sys.platform` read, an `mpv` import, or a `QOpenGLWidget` import reappears.
+- **Portable media runtime and demo launch**: `avialsync.runtime` locates bundled or
+  environment-provided **FFmpeg executables** (decoding needs none), and `VideoStandardLoader` resolves an
   explicit `ffprobe` path rather than trusting the current directory or activated-shell PATH; on
   Windows it also finds the standard WinGet FFmpeg package path. `tools/launch_demo.py` delegates to
   the installed command so the two paths cannot drift. `avialsync demo` generates the full three-CFR
@@ -121,18 +119,15 @@ with explicit user acceptance and session provenance. Native plugin event provid
   generation can deadlock after the child process fills its stderr pipe. The dialog update endpoint
   is an explicit Qt `@Slot(int, str)`, and final loading is queued on the UI event loop: never
   connect a worker to a plain widget-mutating Python callback.
-  Release staging rejects a bundle without `ffmpeg`, `ffprobe`, and libmpv. A pip install gets
-  neither libmpv nor FFmpeg — `python-mpv` is a ctypes binding that loads an existing library, so
-  the D-013 dialog is the expected first-run experience there, not a bug. The per-OS routes live in
-  `diagnostics.libmpv_install_guidance()` and are documented in `docs/install.md` "What pip cannot
-  install", `docs/quickstart.md`, and `docs/troubleshooting.md`. D-014's Windows in-app
-  auto-fetch was superseded and never built; do not reintroduce a downloader.
+  Release staging rejects a bundle without `ffmpeg` and `ffprobe`; no video library is staged or
+  required (D-075). A pip install carries its own decoder, so there is no missing-library first run
+  and no guided dialog. FFmpeg remains external for proxy generation, clip export, and the demo
+  generator — MIGRATION_PYAV.md step 7. The prohibition on an in-app downloader still stands (D-014):
+  an application must not fetch its own binaries at runtime; that is what the wheel is for.
 - **Video pane shutdown**: `MainWindow.closeEvent()` calls `Player.stop()` and then
   `VideoGrid.shutdown()` before Qt destroys child widgets. This removes the precise 60 Hz timer and
-  closes every `VideoPane`, so python-mpv can join its event thread;
-  never rely on QWidget destruction or Python garbage collection to stop libmpv. On Windows/macOS, free the
-  libmpv OpenGL render context while its `QOpenGLWidget` is current **before** `mpv.terminate()`;
-  reversing that order aborts the process during app exit.
+  closes every `VideoPane`, which stops its decode thread and closes its reader on the thread that
+  opened it. Never rely on QWidget destruction or Python garbage collection to stop a decode thread.
 - **Frame-indexed sources (D-019)**: `TimeSeriesSource.is_frame_indexed()` added (default False). `TrackingLoader` overrides to True. Import fps resolution: 1 video → pre-filled confirm; multiple videos → dropdown; no video → manual entry + auto-rebind when first video is added.
 - **NeoLoader.can_open tightening**: `SUPPORTED_EXTENSIONS` whitelist added; `can_open` returns 0.0 immediately for any file not in the whitelist. Never claims `.csv` or acts as a fallback for unknown files.
 
@@ -234,8 +229,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
   starts only after every installer passes, and the GitHub Release is created last. The AppImage
   tool URL and checksum are pinned in the reviewed workflow, not set as repository variables.
   The PR and tag quality matrices share the same 3-OS × 2-Python headless test command, fixture
-  determinism check, explicit ffmpeg/libmpv dependencies, and 60-second per-test watchdog. Windows
-  quality and Windows bundling both use the same checksum-verified libmpv archive; only the
+  determinism check, an explicit ffmpeg dependency for fixture encoding, and a 60-second per-test
+  watchdog. No video library is installed on any platform any more; only the
   platform-native package-manager commands remain intentionally different. A tag workflow first
   proves its commit is reachable from `main`; side-branch or detached tags cannot build or publish.
   The Ubuntu 24.04 AppImage build installs `libfuse2t64` because the pinned AppImageTool requires
@@ -249,53 +244,20 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
 - Native synchronization plugin API (D-026).
-- **Windows: intermittent native fault around libmpv client lifetime — open.** Seen twice on
-  `windows-2022`, both times passing on re-run: an access violation inside python-mpv's
-  `_enqueue_exceptions` (the wrapper around every callback it dispatches on its own event thread),
-  and separately a hang in `MPV.__init__` at `_event_thread.start()` while `test_close_and_focus`
-  built a pane. The headless property observers are now guarded like the render-API ones, which
-  removes one way a callback can touch a destroyed pane.
-  Measured: 1–2 in 20 client lifecycles faults. **The earlier reading of that measurement was
-  wrong and is corrected here.** It said the control arm — construct a client, never terminate,
-  just exit — faults at the same rate, therefore the fault is not about how we call `terminate()`.
-  That arm is not a control: `MPV.__del__` calls `terminate()` whenever the handle is still live,
-  so "never terminate" terminates too, at interpreter finalization. A real control has to
-  `os._exit(0)` before finalization runs. Nor can 20 samples separate 1/20 from 2/20 — the arms
-  were never statistically distinguishable. Treat the fault as unattributed.
-  Two things were done about the consequences rather than the cause. `VideoGrid.pane_detached`
-  writes the session before the client is torn down, so a fault while removing a video mid-session
-  loses nothing (closing the window was already safe: `closeEvent` writes the autosave and geometry
-  *before* `video_grid.shutdown`). And `VideoPane.close()` now unregisters every property observer
-  before terminating, then terminates on a bounded join (`_TERMINATE_TIMEOUT_S`, 5 s). python-mpv
-  joins its event thread with no timeout, and an observer left on `time-pos` — which every pane
-  registers — is the documented way to wedge that join (python-mpv #114). A leaked thread the
-  process was about to lose anyway beats a UI thread that never finishes closing.
-  Tests must not build clients by accident. `tests/conftest.py` neutralises the startup diagnostics
-  probe for every test: `MainWindow` schedules it 500 ms after construction and it constructs and
-  terminates a real client on a daemon thread, so *which* test was in flight when it fired was a
-  race — which is why the fault kept landing on tests that have nothing to do with video.
-  Latest occurrence: `e26dc14`, CI's `windows-2022` Python 3.12 job, process killed ~16 % into the
-  suite with no failure summary. The same commit's *release* quality job on the same OS and Python
-  passed, which is the intermittency in one pair of runs rather than across weeks. Its thread dump
-  is the sharpest lead so far: libmpv's event thread sat in `_event_generator` while another thread
-  was inside `_set_property` ← `__setattr__`. python-mpv routes **every** attribute assignment that
-  is not `handle` and does not start with `_` straight into libmpv, so a line as ordinary-looking as
-  `client.pause = True` is a cross-thread call into the core. Suspect that before `terminate()`.
-  Treat it as a lead, not a finding: two faults printed over each other, so no thread in that dump
-  is reliably identified as the faulting one.
-  There was a manual `windows-diagnostic.yml` workflow. **It is deleted — do not restore it as it
-  was.** It never answered anything: both dispatched runs hit `timeout-minutes: 60` with an arm
-  hung and no output at all, because a plain PowerShell `@{}` runs its arms in arbitrary order, no
-  iteration had its own timeout, and the report was written only after every arm finished. A
-  replacement has to bound each iteration, give each arm its own job, append results as they land,
-  record exit codes so `0xC0000005` is distinguishable from an ordinary Python exception, and use a
-  control arm that `os._exit(0)`s — see the corrected reading above for why the old one was not a
-  control. Sample sizes of 20 per arm prove nothing either way.
-  **Do not "fix" this by terminating the client from `VideoPane.destroyed`.** That was tried: it
-  passes everywhere else and makes Windows worse, because terminating a client and then
-  constructing the next one hangs the process in `Thread.start()` until the test timeout. The
-  client is still only terminated by `VideoPane.close()`, so a pane discarded without closing
-  leaks its client — deliberate, until someone can debug this on a real Windows machine.
+- **Windows: intermittent native fault around libmpv client lifetime — CLOSED by removal (D-075).**
+  Two faults were chased for weeks on `windows-2022`: an access violation inside python-mpv's
+  `_enqueue_exceptions`, and a hang in `MPV.__init__` at `_event_thread.start()`. Neither was ever
+  attributed — the best lead was that python-mpv routes *every* public attribute assignment into
+  libmpv, so `client.pause = True` is a cross-thread call into the core, and libmpv's event thread
+  sat in `_event_generator` while another thread was inside `_set_property`.
+  There is no libmpv, no ctypes binding, and no foreign event thread any more. A pane owns an
+  ordinary `QThread` that it starts and stops itself. The class of fault is gone rather than fixed,
+  which is worth stating plainly: nobody found the bug.
+  What survives from the investigation, because it is good practice independent of the cause:
+  `VideoGrid.pane_detached` still writes the session before a pane is torn down, `closeEvent` still
+  writes the autosave and geometry before `video_grid.shutdown`, and `tests/conftest.py` still
+  neutralises the startup diagnostics probe so background work cannot land on an unrelated test.
+  A manual `windows-diagnostic.yml` workflow existed and was deleted; do not restore it.
 - Session/folder plugin API — **done 2026-08-03 (D-068)**. `SessionSource` in `core/source.py`,
   published under the `avialsync.sessions` entry-point group and also discovered from drop-in plugin
   directories. `engine/drop_worker.py` holds no format knowledge; AOL moved wholesale into
@@ -326,16 +288,15 @@ with explicit user acceptance and session provenance. Native plugin event provid
     `materialize()`, pinned by `tests/test_import_streaming.py`). Do not re-open it.
 
 ### Cross-platform pressure audit (D-040)
-- Interactive rendering is intentionally platform-specific at one isolated boundary:
-  Windows/macOS use libmpv's Qt OpenGL render API; Linux uses native `wid`; headless tests use
-  `vo=null` on all three OSes. Timeline, seek, decoder, shutdown, and packaging contracts are
-  exercised by the 3-OS × 2-Python workflow. A Windows-only local run cannot certify native
-  compositing on physical macOS/Linux desktops, so release installers still require their native
-  smoke tests.
-- Burst video opens are serialized through native pane readiness, not merely through ffprobe
-  completion. `VideoPane.file_loaded` is connected before playback, early seeks are retained until
-  libmpv accepts commands, and the next Windows/macOS OpenGL pane is not constructed before the
-  current pane is ready. The native Windows demo probe verifies four ready videos, 12 data channels,
+- Rendering is no longer platform-specific at all (D-075): every OS decodes to a `QImage` and
+  blits it, headless or not, so CI exercises the same path a desktop does. Timeline, seek, decoder,
+  shutdown, and packaging contracts are exercised by the 3-OS × 2-Python workflow. Release
+  installers still require their native smoke tests, because packaging and window creation remain
+  platform work even though rendering does not.
+- Burst video opens are serialized through pane readiness, not merely through probe completion.
+  A seek arriving before the decoder has opened its file is retained and replayed once it has
+  (`VideoPane._pending_seek`), and the next pane is not constructed before the current one is ready
+  — now to keep panes in the order the user picked them rather than because a decoder demands it. The native Windows demo probe verifies four ready videos, 12 data channels,
   empty queues, and a responsive event loop.
 - Every CI PyInstaller bundle must pass bounded headless startup before upload. Each staged-media
   release bundle additionally generates the demo in a fresh isolated directory and must load four
@@ -343,8 +304,9 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - Pyramid sidecar writes use a bounded three-worker pool. The unchanged 180 M-sample engineering
   benchmark dropped from 3.25 s to 2.07 s on the audited Windows machine; write failures propagate
   instead of reporting a successful import, and all-NaN blocks no longer emit misleading warnings.
-- Hardware-decode probe errors are retained in diagnostics, every created mpv probe is terminated,
-  and disk probes use unique temporary files so concurrent app instances cannot collide.
+- Hardware-decode probe errors are retained in diagnostics — the probe now only reports what
+  FFmpeg was built against and constructs nothing — and disk probes use unique temporary files so
+  concurrent app instances cannot collide.
 - Production-code guards reject `QApplication.processEvents()`, `shell=True`, and
   `except Exception: pass`. Expected transient media failures are logged rather than silently
   becoming a blank pane.
@@ -383,7 +345,7 @@ with explicit user acceptance and session provenance. Native plugin event provid
 ### mypy is clean — keep it that way (V-07)
 Both `mypy src/avialsync/core` (strict) and `mypy src/avialsync` report **0 errors**, with no
 `ignore_errors` override anywhere. The only suppression in `pyproject.toml` is
-`ignore_missing_imports` for third-party packages that ship no stubs (mpv, pyqtgraph, neo,
+`ignore_missing_imports` for third-party packages that ship no stubs (av, pyqtgraph, neo,
 quantities, pyarrow) — that silences the *absence of stubs*, not errors in our own code.
 
 Do not add an `ignore_errors` block to make a change land. Removing the previous 11 uncovered two
@@ -406,8 +368,9 @@ contradicts the runtime.
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
-| `engine/player.py` | precise 60 Hz tick; decoder-independent MasterClock ↔ mpv ↔ UI | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
-| `engine/seeker.py` | Parallel seek across all mpv panes | `SeekGroup` |
+| `engine/pyav_reader.py` | Headless exact-frame reader: pts table, seek, index-keyed LRU (D-075). No Qt — safe on a worker thread | `PyAVReader.frame_at_time()`, `.frame_at_index()`, `.index_at_time()`, `.time_at_index()`, `.frame_times`, `to_rgb_array()` |
+| `engine/player.py` | precise 60 Hz tick; MasterClock ↔ panes ↔ UI. Owns the clock, so no drift correction (D-075) | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
+| `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
 | `engine/drop_worker.py` | Off-thread drop classification; AOL session fan-out, pose `role` tagging (D-046) | `DropScanWorker` — signals: `finished(candidates, is_aol)`, `session_found`, `error` |
 | `engine/session_worker.py` | Off-thread `.avv` save/load | `SessionSaveWorker`, `SessionLoadWorker` |
 | `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `ReaderReference` |
@@ -421,8 +384,9 @@ contradicts the runtime.
 | `engine/session_worker.py` | Off-UI-thread session save/load and annotation export (D-046) | `SessionSaveWorker`, `SessionLoadWorker`, `AnnotationExportWorker` |
 | `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `ui/main_window.py` | Widget construction, menu/shortcut table, controller wiring; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066) | `MainWindow` |
-| `ui/video_pane.py` | Single mpv-embedded `QOpenGLWidget` | `VideoPane`, `set_sync_correction()`, `video_size` (mirrored from `video-out-params`; the paint path must read this, never mpv) |
-| `ui/video_timing.py` | Timestamp rate/readout/frame-index helpers and pane timing mixin | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
+| `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075) | `VideoPane`, `set_sync_correction()`, `video_size` |
+| `core/video_timing.py` | **The** frame-selection authority — last frame with `pts <= t`. Headless so `engine/` can share it (D-075) | `frame_index_at()`, `adjacent_frame_time()`, `PTS_EPSILON_S` |
+| `ui/video_timing.py` | Timestamp rate/readout helpers and pane timing mixin; re-exports the two `core/video_timing.py` selectors | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
 | `ui/video_overlay.py` | Transparent current-frame tracking paint layer | `PaintCanvas` |
 | `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()` |
 | `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
@@ -451,16 +415,19 @@ contradicts the runtime.
 | `ui/annotations.py` | Annotation store + list panel | `AnnotationStore`, `AnnotationPanel` |
 | `ui/theme.py` | QPalette + system/dark/light appearance only | `apply_theme()`, `load_saved_theme()`, `current_preference()`, `THEME_SYSTEM/DARK/LIGHT` |
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
-| `ui/diagnostics.py` | Startup probe (hw-decode, disk speed) — async daemon thread; per-OS missing-libmpv text | `run_startup_diagnostics()`, `libmpv_install_guidance()` |
+| `ui/diagnostics.py` | Startup probe (hardware-decode support, disk speed) — async daemon thread | `run_startup_diagnostics()`, `probe_hwdec()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
-| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068) | `SessionSource`, `SessionLayout`, `SessionItem`, `display_name()` |
+| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable` | `SessionSource`, `SessionLayout`, `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
-| `ui/controllers/video_controller.py` | Bounded concurrent probes; serialized pane build (D-040) | `load_video()`, `create_video_pane()`, `MAX_VIDEO_PROBES` |
+| `ui/controllers/video_controller.py` | Bounded concurrent probes; serialized pane build (D-040); validates and installs loader-declared per-frame mappings (D-072) | `load_video()`, `create_video_pane()`, `_declared_exact_mapping()`, `MAX_VIDEO_PROBES` |
 | `ui/controllers/import_controller.py` | Time-series import queue; pose → overlay/3D routing (D-046) | `start_data_import()`, `on_import_finished()`, `register_tracking_source()` |
 | `loaders/csv_loader.py` | polars CSV ingest; epoch/time-of-day/datetime, euro-decimal, sentinel, BOM | `CSVLoader` |
 | `loaders/tracking_loader.py` | DeepLabCut CSV loader; multi-scorer; flat-headers per bodypart/coord | `TrackingLoader` |
-| `loaders/neo_loader.py` | Neo electrophysiology (OpenEphys/NCS/NIX); BFS dataset root detection; extension whitelist via `SUPPORTED_EXTENSIONS` | `NeoLoader` |
+| `loaders/neo_loader.py` | **The only ephys ingest path** (D-070). Per-stream selection via `config["stream_id"]`; `config["root"]` separates cache identity from what neo opens; `read_all_chunks` bound only when one clock spans the selection (D-071); TTL edges become a square wave, empty event channels are skipped | `NeoLoader`, `safe_channel_name()` |
+| `loaders/open_ephys_format.py` | What neo does not model: recording discovery (`structure.oebin`), the software-time epoch, and the rig UTC offset derived from the local session directory name (D-070) | `find_recordings()`, `anchor_epoch()`, `recording_utc_offset()`, `stream_folder_names()` |
+| `loaders/open_ephys_session.py` | Lays out a record-node tree plus the cameras beside it on one acquisition clock (D-068) | `OpenEphysSessionSource`, `parse_filename_time()` |
+| `loaders/open_ephys_camera.py` | Rig camera timed by its per-frame sidecar rather than the container's nominal rate (D-072) | `OpenEphysCameraLoader`, `read_frame_timestamps()` |
 
 ---
 
@@ -559,6 +526,12 @@ _start_data_import(path)
 
 ## Known Traps
 
+> **Scope note (D-075).** The libmpv-specific traps that used to live here — render-context
+> teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the
+> `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
+> with the code they described. Do not reintroduce them as constraints on the PyAV design. The
+> traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
+
 ### 0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)
 Two variants, one cause. A worker `deleteLater`-ed from a signal its own thread emits is destroyed
 *inside* that thread, and `~QObject` then severs its connections while holding one of Qt's 131
@@ -603,12 +576,118 @@ One session emits 27 3D channels and ~81 2D channels *per camera* (12 pose files
 the reference session). Import candidates carry `role="overlay2d"`/`"pose3d"`; `_on_import_finished`
 routes those to the overlay / 3D view instead of `plot_pane.load_channels`. 2D goes to the pane for
 its own video path only — every camera and model emits `head_bar_x`, so broadcasting paints SideCam
-points over FaceCam. 2D carries no `start_epoch` (overlay uses mpv's media clock); 3D does (master time).
+points over FaceCam. 2D carries no `start_epoch` (overlay uses the source's own media clock); 3D does (master time).
 
 ### 0d. `"_eks.csv".split("_")[0]` is `""` — and `"" in name` matches everything
 The session-level 3D file names no camera, so substring-matching its leading token bound it to
 whichever video came first. Blank tokens are ignored in `_resolve_eks_start_epoch`, which falls back
 to the earliest camera start with a log line.
+
+### 0e. A container's declared frame rate is a claim, not evidence (D-072)
+`camera_top….avi` on the reference Open Ephys session declares 30 fps CFR / 895.9 s. The camera
+actually free-ran at 45.77 Hz and dropped 9 073 of 35 950 exposures, so its 26 877 frames span
+785.5 s. Playing it against the ephys drifts 110 s end to end. Correcting the rate to the measured
+34.2 fps average still leaves 51 ms RMS and **1.14 s** at the worst frame, because the drops are
+spread through the recording. Only the per-frame sidecar fixes it — hence
+`VideoSource.exact_time_mapping()`. Do not "simplify" that to an fps override.
+
+### 0f. `*.xml` matches `settings.xml`, two levels above the samples (D-070)
+`NeoLoader._find_dataset_root` looked for weak glob signatures before the Open Ephys manifest, so a
+record-node tree resolved to the directory holding `settings.xml` rather than to the `recordingN`
+that holds the data. `find_recordings()` (manifest-based) now runs first; the glob BFS is the
+fallback for formats that have no manifest and stays capped at depth 2.
+
+### 0g. A sidecar cache is named after its source path *alone*
+`CacheManager.get_cache_dir` is `<path>.avialcache` — the loader and config affect only the
+invalidation key inside it, not the directory name. Two sources sharing a path therefore take turns
+invalidating each other, and each import silently rebuilds what the last one wrote. This is why every
+Open Ephys stream is pointed at its own `continuous/<stream>` directory and `NeoLoader` accepts
+`config["root"]` for what neo should actually open (D-071).
+
+### 0h. Cache files are shared inodes — never write to one in place (D-071)
+`_finalize_bulk_channels` hard links each channel's `_t.npy` and `_gap.npy` to one staged copy, so a
+32-channel stream stores its clock once instead of 32 times (~14 GB → ~7 GB). Everything reads these
+read-only via mmap, which is what makes that safe. One in-place write to a committed cache file would
+now corrupt every channel of the stream. `os.link` falls back to `shutil.copyfile` on FAT/exFAT and
+some network mounts.
+
+### 0i. A drop must step over our own sidecar caches
+A committed `.avialcache` holds one `.npy` per channel and pyramid level — 482 files for a single
+32-channel stream. `DropScanWorker` filtered children on `startswith(".")` only, and a cache
+directory is not dotted, so re-dropping a folder you had already imported descended into it and
+offered every array as an unrecognised candidate (44 rows for a 40-file cache in the matrix test).
+`core/cache.is_cache_path()` owns that recognition now; use it anywhere that walks user folders.
+
+### 0j. Only the first session of a multi-path drop owns the timeline
+`SessionLayout` carries one `anchor_epoch`/`camera_fps` per drop. Two session folders dropped
+together used to leave whichever was scanned *last* owning them — arbitrary and silent. First-wins
+now, with a log line; every session's items still load. Drop one session at a time to read wall
+clock from a specific one.
+
+### 0k. A plugin's display name is the kind of data, never the rig
+`Video`, `IMU / Motion Data`, `TTL Events` — a camera is a camera whichever rig recorded it. Two
+earlier attempts were wrong: "Rig Camera (sidecar-timed)" named the implementation, and
+"Open Ephys Video" named the system for something that is simply a video. Which rig an item belongs
+to is the session's business and already sits in `SessionItem.label`.
+
+One reader serves several kinds — every stream of a recording goes through neo — so a reader offers
+each kind via `display_aliases()` and the session picks with `SessionItem.kind`. Without it an
+18-channel IMU was typed "Electrophysiology Data" purely because neo reads it. A declared kind must
+match a label its loader actually offers, or the dialog silently falls back; a test asserts that.
+
+Also fixed here: `SessionSource` now inherits `_Nameable` like the other two contracts, and
+`default_display_name` split only after a lower-case letter so it never broke a run of capitals —
+`AOLSessionSource` came back as "AOLSession", the very example its own docstring used.
+
+### 0l. A `SessionItem` label is never part of `config`
+`config` is hashed into the sidecar cache key, so a display label living there would make rewording
+a table cell invalidate every cache built with the old wording — gigabytes rebuilt to change a
+string. `SessionItem.label` is a separate field; `drop_controller` keys it by path into
+`window._session_item_labels` and hands that to `BatchImportDialog`. The candidate tuple stays a
+3-tuple: several consumers and any third-party reader of `DropScanWorker.finished` unpack it by arity.
+
+### 0m. "Failed to import CSV" was hardcoded for every loader
+`on_import_error` named CSV whatever the format was, so an ephys directory read by the wrong loader
+reported a CSV problem and pointed at nothing the user had chosen. It now names the source and the
+format that actually failed, from `_import_worker.loader_class.display_name()`.
+
+`CSVLoader` also has to refuse a directory: `path.suffix` alone said yes (a directory can be named
+`events.csv`), and polars then raised `IsADirectoryError` — surfacing as a traceback plus an
+unactionable dialog. `can_open` returns 0.0 for any directory and `open` raises a typed error saying
+so. The dialog offers `Camera TTLs / Events (CSV)` right beside a recording's TTL *directory*, so
+this is a click away, not a hypothetical.
+
+### 0n. Combo index 0 is "Skip" — never leave a resolved row on it
+`BatchImportDialog` preselects by matching `SessionItem.kind` against a loader's own labels. A kind
+matching none of them left `default_index` at 0, which is "Skip / Do Not Load": the user saw the row
+listed, left it alone, and it silently did not import. It now falls back to the loader's primary
+name and logs. Silent non-import is the worst available failure — nothing reports it.
+
+### 0o. Dropped frames are invisible to the gap mask, by arithmetic (D-074)
+`build_gap_mask` flags intervals above 10x the median. One dropped exposure makes an interval of
+*two* medians — 43.7 ms against a 218.5 ms threshold on the reference camera, whose largest interval
+in 785 s is 43.71 ms. Video also never reaches that code at all: gaps are `ImportWorker`'s, and a
+`VideoSource` is not sampled data. Both are correct; the loss is reported as
+`VideoMetadata.dropped_frames` / `IntegrityFlags.frames_dropped` instead. The count comes from the
+sidecar's **frame counter** — timestamps cannot tell a drop from a slow-down, so never discard that
+column as redundant.
+
+### 0p. A shortcut only reaches the playhead if no focused widget claims it (D-059)
+Qt offers every key to the focus widget as a `ShortcutOverride` before running a window `QAction`,
+and editors accept that offer. `_reserve_playhead_key` ignores the override for Space/arrows/Home/
+End/comma/period so the action runs. Letters need a second rule: `J`/`K`/`L` shuttle playback but
+are also ordinary text, so `_reserve_letter_shortcut` reclaims them **only** from a field whose own
+validator rejects the character — a numeric spin box, or the timecode field. A field that accepts
+letters keeps them, or this would eat the first keystroke of an annotation label.
+
+That is why `transport._time_edit` carries a validator: without one it accepts anything, so the
+letters looked like legitimate typing. Its character class includes `UTC`, because `format_time`
+writes that suffix into the same field — a "no letters" validator would reject the app's own output.
+
+`tests/test_ui_shortcut_reach.py` generates the whole matrix (every focusable widget x every key),
+so a control or binding added later is covered without touching the file. It asserts a minimum
+number of widgets actually took focus: the first version skipped the test on the first widget that
+refused focus and passed while checking nothing.
 
 ### 1. No bare `QWidget { }` QSS selector — blacks out video panes
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  
@@ -623,17 +702,21 @@ Detaches the widget from its parent, promoting it to a standalone window with it
 A second `setLayout()` call on a QWidget that has a layout is silently ignored.  
 **Fix:** Build the layout once in `__init__`, never reassign. Use a child container widget if a different structure is needed.
 
-### 4. LC_NUMERIC must be 'C' after Qt import, before mpv
-Qt stomps LC_NUMERIC on import. libmpv uses it to parse float seeks and options. In decimal-comma locales, `1.5` becomes `1`.  
-**Fix:** `locale.setlocale(locale.LC_NUMERIC, 'C')` in the entry point, after Qt imports, before the first `mpv.MPV()`.
+### 4. A pts table built by walking packets is in *decode* order
+Long-GOP H.264 with B-frames demuxes out of presentation order, so a table built by appending
+`packet.pts` is scrambled and every later lookup is quietly wrong.
+**Fix:** `PyAVReader._build_pts_table` sorts into display order. `tests/test_pyav_reader.py`
+asserts the fixture really does demux out of order, so the guard cannot stop guarding.
 
-### 5. Never import mpv at module top level (D-013)
-Top-level `import mpv` causes a ctypes crash before any UI renders when libmpv is missing.  
-**Fix:** Lazy import inside a function/method only, after startup diagnostics confirm libmpv is present.
+### 5. The forward-decode-vs-reseek crossover is measured in frames, never seconds
+A fixed 2-second window at 230 fps walks ~460 frames forward where a re-seek costs ~125; that alone
+took the 3-cam jump case from 106 ms to 293 ms, over budget.
+**Fix:** `PyAVReader._can_reach_by_decoding` compares `target - decoded` against
+`target - keyframe + 1`, both in frames. Nothing in that file may be expressed in seconds.
 
 ### 6. Video pane needs `WA_StyledBackground = False`
 Without it, ancestor QSS may bleed through and paint over the OpenGL surface even when no bare `QWidget` selector exists.  
-**Fix:** `VideoPane` and `MpvGLWidget` both call `setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)` in `__init__`. Do not remove these.
+**Fix:** `VideoPane` calls `setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)` in `__init__`, and `VideoSurface` sets `WA_OpaquePaintEvent`. Do not remove these.
 
 ### 7. Drive MasterClock from `time.monotonic()` — never accumulate timer intervals
 QTimer fires late under UI load. Accumulating the interval leads to drift.  
@@ -646,19 +729,14 @@ outside the deadband (`_DRIFT_HYSTERESIS_TICKS`), then resets the counter. This 
 soft speed nudge as well as the hard re-seek — it used to guard only the re-seek. A seeking pane
 is skipped while healthy panes continue, and no decoder may freeze `MasterClock`.
 
-### 8b. `time_pos` is a staircase — never judge drift against a sub-frame tolerance
-libmpv reports the timestamp of the frame *on screen*, so it only advances when a frame is
-presented. Sampled by the 60 Hz tick against a continuous master clock, a decoder that is keeping
-perfect time still reads back as 0–1 whole frame intervals behind. Comparing that against a
-half-frame tolerance declared healthy panes out of sync about half the time and rewrote
-`mpv.speed` ~48×/s/pane; each write takes libmpv's core lock away from the decoder threads.  
-**Fix:** `Player._on_tick` centres the expectation with
-`residual = (time_pos - source_t) + interval/2`, uses `frame_interval_at_master()` (not the old
-`sync_tolerance_at_master()`), smooths the residual per pane (`_DRIFT_SMOOTHING`) because the raw
-value is frame-quantised, and quantises the commanded speed (`_CORRECTION_STEP`) so writes are
-rare. A corrective seek must also drop that pane's `_drift_estimates` entry — the estimate
-describes where the pane *was*, and keeping it re-seeks the pane in a loop. Covered by
-`tests/test_playback_smoothness.py`.
+### 8b. Playback commands a frame, never a rate — do not reintroduce drift correction
+The old design inferred where libmpv had got to and nudged `mpv.speed` toward the master clock,
+which needed a smoothed residual, a hysteresis counter, and a quantised speed grid to stop it
+oscillating against its own frame-quantised observable.
+**Fix:** none of it exists. Every tick asks each pane for the frame containing master `t`; a slow
+pane shows an older frame for a tick and rejoins. `tests/test_playback_smoothness.py` uses a pane
+stand-in that *raises* if the player asks it for `set_rate`, `sync_correction`, or friends, so
+reintroducing rate control fails loudly rather than silently returning.
 
 ### 8c. Per-frame UI work must not scale with the decoded frame rate
 `_observe_time` fires once per presented frame per pane. It used to relayout the OSD label and
@@ -681,12 +759,14 @@ text changes). **Do not add decorative shading to plot rows** — no gradients, 
 tint layers (D-054). The envelope fill between `curve` and `envelope_upper` is data, not
 decoration, and stays.
 
-### 8d. `paintEvent` must never read an mpv property
-`PaintCanvas._video_scale` used to read `mpv.dwidth`/`dheight`, taking libmpv's core lock on the UI
-thread inside a paint while the decoders contend for it (measured 26–34 µs typical, 165 µs p99, per
-pane per frame).  
-**Fix:** a `video-out-params` property observer mirrors the size into `VideoPane.video_size`; the
-overlay reads that. Do not reintroduce a property read on the paint path.
+### 8d. `paintEvent` must never query a decoder
+`PaintCanvas._video_scale` used to read `mpv.dwidth`/`dheight`, taking the decoder's core lock on
+the UI thread inside a paint while the decode threads contended for it (26–34 µs typical, 165 µs
+p99, per pane per frame).  
+**Fix:** the pane publishes `video_size` once when the file opens and the overlay reads that. The
+video surface and the overlay letterbox with the same formula, and
+`tests/test_playback_smoothness.py` pins them to the same answer — a divergence would draw tracked
+points off the thing they mark.
 
 ### 9. polars `read_csv` type inference flips per-chunk
 Without an explicit schema, the timestamp column type can change between chunks.  
@@ -694,8 +774,10 @@ Without an explicit schema, the timestamp column type can change between chunks.
 timestamp dtype from the accepted wizard configuration and test a file whose later batch would
 otherwise infer a different type.
 
-### 10. `python-mpv` (PyPI) ≠ `mpv` (PyPI)
-The correct dependency is `python-mpv` on PyPI, imported as `import mpv`. The package named `mpv` on PyPI is a different unrelated project (D-017).
+### 10. `QImage` does not copy the array it wraps
+`QImage(rgb.data, w, h, stride, Format_RGB888)` borrows the buffer. If the array is collected, the
+image points at freed memory and the process faults during a repaint rather than raising.  
+**Fix:** `VideoSurface` holds `_buffer` alongside `_image` and replaces both together.
 
 ### 12. ruff `line-length = 100` — IDE diagnostics at 79 chars are false positives
 `pyproject.toml` sets `line-length = 100`. Editor/Pylance red-underline at 79 chars is wrong.
@@ -742,17 +824,15 @@ Never bind Ctrl+V or Ctrl+D to any application action. This is a permanent trap.
 ### 19. VideoPane right-click: eventFilter, NOT CustomContextMenu policy (D-022)
 
 Setting `setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)` on `VideoPane` does **not**
-work because libmpv's rendering surface (`MpvGLWidget` / the native `video_container`) intercepts
-raw mouse events at the OS level before Qt's event loop sees them. The `ContextMenu` event (type
-int 82) is generated by the OS and lands on the mpv widget, which never propagates it up via the
-standard Qt mechanism.
+work: the child surface that draws the video receives the raw mouse events, and the `ContextMenu`
+event (type int 82) lands there rather than propagating up through the standard Qt mechanism.
 
-**Fix:** `VideoPane.__init__` calls `self._video_widget.installEventFilter(self)`. The `eventFilter`
+**Fix:** `VideoPane.__init__` calls `self.surface.installEventFilter(self)`. The `eventFilter`
 checks `int(event.type()) == 82` (ContextMenu) and emits `right_clicked(event.globalPos())`, then
 returns `True` to consume the event. `VideoGrid.add_pane` connects `pane.right_clicked` to
 `self.pane_right_clicked.emit(_p, pos)`. `MainWindow` connects `video_grid.pane_right_clicked` to
 `_on_pane_right_clicked`, which builds the QMenu. Never remove the eventFilter or switch to
-`CustomContextMenu` — the menu will silently never appear on macOS/Windows with mpv embedded.
+`CustomContextMenu` — the menu will silently never appear.
 
 ### 11. Annotation label edits via `markers` property are silently discarded
 `AnnotationStore.markers` returns `list(self._markers)` — a copy. Edits to the copy are lost.  
@@ -828,12 +908,13 @@ splat; changing it back to a plain dict reintroduces 4 mypy errors.
 
 ### 25. `VideoPane.__init__` must build its chrome on every path (V-11, D-013)
 
-The libmpv probe used to `return` before `paint_canvas`/`overlay`/`lbl_name`/
+A missing-library probe used to `return` before `paint_canvas`/`overlay`/`lbl_name`/
 `lbl_osd`/`lbl_no_footage` existed, so every later `set_label`,
 `set_has_footage`, or `set_tracking_readers` raised AttributeError — a crash
-cascade right after the guided-install dialog. `_build_overlay_chrome()` is
-called on both the success and the probe-failure path. Keep the success-path
-call where it is: the QGridLayout stacks by insertion order, so video must be
+cascade right after the guided-install dialog. There is no probe and no early
+return any more, but `_build_overlay_chrome()` must still run unconditionally:
+a pane is fully usable before anything is opened in it. Keep the call where it
+is: the QGridLayout stacks by insertion order, so video must be
 added before the canvas and overlay.
 
 ### 26. AOL sessions load raw video + one fused EKS track per camera
@@ -1056,11 +1137,11 @@ fit is returned exact, with `vmin == vmax` and no envelope. Keep one column per 
 fewer is the defect, not an optimisation (D-058).
 
 ### 8g. Shutdown steps are isolated and ordered; never let one raise skip the rest
-Each `VideoPane` owns a libmpv event thread that outlives its widget, so a step that raises before
+Each `VideoPane` owns a decode thread that outlives its widget, so a step that raises before
 `video_grid.shutdown()` leaves those threads running and the process never exits — the window
 appears to refuse to close.  
 **Fix:** every `closeEvent` step goes through `MainWindow._close_step` (log and continue);
-`VideoGrid.shutdown()` isolates each pane; `_release_mpv_render_context` guards `makeCurrent`.
+`VideoGrid.shutdown()` isolates each pane, and each pane's thread is stopped on a bounded wait.
 **Order is load-bearing:** `_build_session_state()` reads `video_grid.panes`, so the autosave and
 geometry save run *before* `video_grid.shutdown()` clears them. Running it after wrote a session
 with zero videos (D-059).
@@ -1112,62 +1193,45 @@ stale `pip install --user` package shadows the env and pip never revisits it. `q
 dependency, but a version floor cannot dislodge a shadowing install — `PYTHONNOUSERSITE=1` does.
 When a traceback's paths span two prefixes, trust the paths over the version numbers.
 
-### 30. The Windows `0xC0000005` is inside faulthandler, not inside mpv
-Windows + Python 3.12 full-suite runs died with an access violation
-(`pytest` exit `-1073741819`) during tests that build and destroy `VideoPane`s. The native
-minidump settles what two Python-level readings got wrong:
+### 30. The Windows `0xC0000005` was inside faulthandler — trigger removed with libmpv
+Windows + Python 3.12 full-suite runs died with an access violation (`pytest` exit
+`-1073741819`) during tests that build and destroy `VideoPane`s. The native minidump settled it:
 
 ```
 python312!_Py_DumpASCII            <- faults here, reads [rsi+0x70] with rsi=3
 python312!_Py_DumpTracebackThreads
 python312!<faulthandler vectored handler>
-ntdll!RtlpCallVectoredHandlers
 ntdll!RtlDispatchException
 KERNELBASE!RaiseException          <- libmpv raises 0xe24c4a02
 libmpv_2!...                       <- on one of libmpv's OWN threads
-ucrtbase!thread_start
 ```
 
 pytest enables faulthandler with `all_threads=True`, which on Windows installs a **vectored**
 exception handler — the OS runs it on first chance, for every SEH exception, on whatever thread
-raised it. CPython ignores only non-error codes and MSC C++ exceptions (`0xe06d7363`), so libmpv's
-`0xe24c4a02` is treated as fatal: faulthandler calls `_Py_DumpTracebackThreads`, which walks
-*every* Python thread's frame chain from a libmpv thread that holds no GIL and has no thread state,
-while the owning threads push and pop those frames. Reading a frame whose memory has been reused
-faults the process, charged to whichever test was running.
+raised it. libmpv raised `0xe24c4a02` routinely on its own threads; CPython does not ignore that
+code, so faulthandler walked *every* Python thread's frame chain from a thread holding no GIL and
+having no thread state, while the owning threads pushed and popped those frames.
 
-**`0xe24c4a02` is benign, but it is not irrelevant — it is the trigger.** It is also why the
-evidence misleads:
-- faulthandler's own reentrancy guard means the real access violation prints a bare
-  `Windows fatal exception: access violation` header with **no thread dump at all**. Every stack
-  in the log belongs to a preceding benign `0xe24c4a02` dump. Reading one as the fault is how
-  `mpv.terminate()` and observer registration were each blamed in turn.
-- the Intel driver's `0xe06d7363` appears in a procdump log but never in faulthandler output,
-  because CPython ignores that code. That asymmetry confirms the mechanism.
+**The trigger is gone (D-075):** no libmpv, so no foreign thread raising SEH exceptions during
+pane construction. `tests/conftest.py` still re-arms faulthandler with `all_threads=False` on
+Windows, retained as cheap insurance rather than because anything is known to need it — PyAV's
+FFmpeg does not raise on Python threads the way libmpv did. If Windows CI stays quiet, that guard
+is a candidate for removal; check the git history here before deleting it, because the failure it
+prevented was extremely hard to attribute.
 
-**Fix:** `tests/conftest.py` re-arms faulthandler with `all_threads=False` on Windows
-(`trylast=True`, so it lands after pytest's own plugin). Real faults on a Python thread are still
-reported; only the cross-thread walk that is unsafe from a foreign thread is dropped.
-
-**This is a test-harness fault, not an AvialSync or libmpv defect.** Plain Python leaves
-faulthandler disabled, so the shipped app never takes this path — which is why it appeared only
-under pytest.
-
-**Reproducing it**, if it ever returns: loop the **whole suite**, never one file.
-`tests/test_close_and_focus.py` alone crashed 0/20 while full-suite runs crashed roughly 2 in 6,
-so an A/B run against one file measures nothing in either direction — that is how a 20x A/B once
-"refuted" an unrelated fix. Unmonitored runs crash rarely (0/8 locally); run the suite under
-procdump, which intercepts every first-chance exception and widens the window:
+**The lesson that outlives the cause:** faulthandler's reentrancy guard means the real access
+violation prints a bare `Windows fatal exception: access violation` header with **no thread dump**.
+Every stack in such a log belongs to a *preceding* benign exception's dump. Reading one as the
+fault is how `mpv.terminate()` and observer registration were each blamed in turn. If a
+Windows-only native fault ever returns, loop the **whole suite** rather than one file (one file
+crashed 0/20 where full-suite runs crashed ~2 in 6), and run under procdump:
 
 ```
 procdump -accepteula -ma -e 1 -f C0000005 -n 1 -x <dumpdir> python -m pytest -q ...
 ```
 
-Measured that way: 2/8 full-suite runs crashed before the fix, 0/8 after. Use `-e 1 -f C0000005`,
-never plain `-e` — faulthandler `abort()`s before the fault becomes an *unhandled* exception, so
-`-e` alone never fires, and the filter is what excludes the benign `0xe24c4a02`. Read the dump
-with `cdb -z <dump> -c '.ecxr; k'`; libmpv ships no PDB, so its frames resolve only to
-`libmpv_2+offset`, which is enough to place the fault.
+Use `-e 1 -f C0000005`, never plain `-e`: faulthandler `abort()`s before the fault becomes an
+*unhandled* exception, so `-e` alone never fires. Read the dump with `cdb -z <dump> -c '.ecxr; k'`.
 
 ### 31. Connect a job's result signals in `configure`, never after `_run_job` returns
 `JobManager.start()` calls `thread.start()` before it returns, so `_run_job` hands back a thread

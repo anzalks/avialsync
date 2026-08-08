@@ -4,10 +4,12 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pytest
 from PySide6.QtWidgets import QWidget
 
 from avialsync import demo
 from avialsync.__main__ import _parse_args
+from avialsync.loaders.video_standard import VideoStandardLoader
 
 
 def test_demo_command_is_accepted() -> None:
@@ -23,30 +25,15 @@ def test_demo_directory_can_be_isolated_for_release_smoke(monkeypatch, tmp_path:
 
 
 def test_demo_generation_builds_four_cameras_and_all_tables(monkeypatch, tmp_path: Path) -> None:
-    """The installed demo retains the full inspection fixture contract."""
-    calls: list[list[str]] = []
+    """The installed demo retains the full inspection fixture contract.
 
-    class FakeProcess:
-        stdout = ["out_time_us=10000000\n", "progress=end\n"]
-        stderr = None
-
-        def __init__(self, target: Path) -> None:
-            self.target = target
-
-        def wait(self) -> int:
-            self.target.write_bytes(b"video" * 300)
-            return 0
-
-        def terminate(self) -> None:
-            return
-
-    def fake_popen(command: list[str], **_kwargs: object) -> FakeProcess:
-        calls.append(command)
-        return FakeProcess(Path(command[-1]))
-
+    Generation is real now rather than a faked subprocess: nothing shells out to
+    FFmpeg any more (D-075), so the cameras are encoded in-process and the test
+    can check the media it produced instead of the arguments it would have
+    passed. The clips are shortened to keep this a unit test.
+    """
     monkeypatch.setattr(demo, "demo_data_dir", lambda: tmp_path)
-    monkeypatch.setattr(demo, "require_ffmpeg", lambda: Path("bundled-ffmpeg"))
-    monkeypatch.setattr(demo.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(demo, "DEMO_VIDEO_SECONDS", 1.0)
 
     data = demo.ensure_demo_data()
 
@@ -56,13 +43,35 @@ def test_demo_generation_builds_four_cameras_and_all_tables(monkeypatch, tmp_pat
         "camera_3.mp4",
         "camera_vfr.mp4",
     ]
-    assert len(calls) == 4
-    assert all(call[0] == "bundled-ffmpeg" for call in calls)
-    assert ["-loglevel", "error"] == calls[0][2:4]
-    assert "-fps_mode" in calls[3]
+    assert all(path.stat().st_size > 0 for path in data.videos)
     assert np.loadtxt(data.sensors, delimiter=",", skiprows=1).shape == (10_000, 5)
     assert np.loadtxt(data.ephys, delimiter=",", skiprows=1).shape == (98_500, 3)
     assert data.tracking.read_text(encoding="utf-8").startswith("scorer,DLC")
+
+
+def test_the_demos_vfr_camera_is_genuinely_variable_rate(monkeypatch, tmp_path: Path) -> None:
+    """The VFR camera is the demo's only fixture for uneven exposure timing.
+
+    It is produced by writing uneven presentation timestamps directly, rather
+    than by asking an encoder to drop frames and trusting it to re-time the
+    survivors — so this asserts the intervals, which is the property that makes
+    it useful at all.
+    """
+    monkeypatch.setattr(demo, "demo_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(demo, "DEMO_VIDEO_SECONDS", 1.0)
+
+    data = demo.ensure_demo_data()
+
+    loader = VideoStandardLoader()
+    loader.open(data.videos[-1], {})
+    intervals = np.diff(loader.frame_times())
+
+    assert loader.is_vfr() is True
+    assert np.max(intervals) > np.min(intervals) * 1.5
+
+    steady = VideoStandardLoader()
+    steady.open(data.videos[0], {})
+    assert steady.is_vfr() is False
 
 
 def test_demo_reuses_complete_existing_dataset(monkeypatch, tmp_path: Path) -> None:
@@ -74,7 +83,9 @@ def test_demo_reuses_complete_existing_dataset(monkeypatch, tmp_path: Path) -> N
     demo._write_tracking(tmp_path / "pose.csv")
     messages: list[str] = []
     monkeypatch.setattr(demo, "demo_data_dir", lambda: tmp_path)
-    monkeypatch.setattr(demo, "require_ffmpeg", lambda: (_ for _ in ()).throw(AssertionError()))
+    monkeypatch.setattr(
+        demo, "_generate_video", lambda *a, **k: pytest.fail("regenerated an existing camera")
+    )
 
     data = demo.ensure_demo_data(lambda _value, message: messages.append(message))
 

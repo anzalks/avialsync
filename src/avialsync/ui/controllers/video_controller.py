@@ -1,9 +1,15 @@
 """Video probing and pane construction.
 
-Files are probed concurrently — ffprobe metadata and presentation-timestamp
-extraction are independent per file — but panes are built one at a time in the
-order the user asked for them, because libmpv must accept commands on one pane
-before the next is constructed (D-040).
+Files are probed concurrently — metadata and presentation-timestamp extraction
+are independent per file — but panes are still built one at a time, in the order
+the user asked for them (D-040).
+
+The original reason for serialising was libmpv: a client had to accept commands
+on one pane before the next was constructed. That constraint is gone with D-075,
+since a pane is now an ordinary widget plus its own decode thread. The order is
+kept because it is also what makes panes appear in the order the user picked
+them, which is user-visible; lifting the serialisation is a separate change with
+its own DECISIONS entry, not a side effect of the decoder migration.
 """
 
 from __future__ import annotations
@@ -25,9 +31,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Concurrent ffprobe metadata/timestamp probes.  Bounded because each one
-#: spawns a subprocess and reads from the same disk; unbounded fan-out on a
-#: 32-camera session would thrash rather than parallelise.
+#: Concurrent metadata/timestamp probes.  Bounded because each one demuxes a
+#: whole file off the same disk; unbounded fan-out on a 32-camera session would
+#: thrash rather than parallelise.  They no longer spawn subprocesses (D-075),
+#: but they are still IO-bound, which is what this limit is about.
 MAX_VIDEO_PROBES = 3
 
 
@@ -47,13 +54,13 @@ def load_video(
 def start_next_video_load(window: MainWindow) -> None:
     """Start probes up to the concurrency bound; pane creation stays serialized.
 
-    Two different limits apply here (P3.5 P1 loading).  ffprobe metadata and
+    Two different limits apply here (P3.5 P1 loading).  Metadata and
     presentation-timestamp extraction are independent per file and safe to
     overlap, so up to :data:`MAX_VIDEO_PROBES` run at once and a four-camera
-    session stops paying four serial probe latencies.  Constructing a native
-    render pane is *not* safe to overlap — libmpv must accept commands on one
-    pane before the next is built (D-040) — so that stays one at a time,
-    gated by ``_video_pane_initializing``.
+    session stops paying four serial probe latencies.  Pane construction stays
+    one at a time, gated by ``_video_pane_initializing``, so panes appear in the
+    order the user picked them (D-040; see the module docstring for why the
+    original libmpv reason no longer applies).
     """
     while len(window._video_load_jobs) < MAX_VIDEO_PROBES and window._pending_video_loads:
         window._start_one_video_probe()
@@ -147,6 +154,42 @@ def build_next_video_pane(window: MainWindow) -> None:
         window._create_video_pane(next_path, loader, media_path)
 
 
+def _declared_exact_mapping(loader: VideoSource, path: str) -> tuple[np.ndarray, np.ndarray] | None:
+    """Return per-frame timing the loader recorded, once it has been validated.
+
+    A source that knows when each of its frames was exposed — from a timestamp
+    sidecar or a trigger log — maps to master time piecewise, and no offset and
+    drift pair can express that once frames have been dropped.  The contract is
+    checked here rather than trusted: this arrives from a plugin, and a mapping
+    that is not strictly increasing would corrupt every seek made through it.
+    """
+    try:
+        mapping = loader.exact_time_mapping()
+    except Exception:  # noqa: BLE001 - plugin boundary
+        logger.warning("%s.exact_time_mapping failed", type(loader).__name__, exc_info=True)
+        return None
+    if mapping is None:
+        return None
+
+    master, source = (np.asarray(values, dtype=np.float64) for values in mapping)
+    if master.ndim != 1 or source.ndim != 1 or len(master) != len(source) or len(master) < 2:
+        logger.warning("%s: exact time mapping is not a pair of equal-length series.", path)
+        return None
+    if not (np.all(np.isfinite(master)) and np.all(np.isfinite(source))):
+        logger.warning("%s: exact time mapping contains non-finite times.", path)
+        return None
+    if np.any(np.diff(master) <= 0) or np.any(np.diff(source) <= 0):
+        logger.warning("%s: exact time mapping is not strictly increasing.", path)
+        return None
+    logger.info(
+        "%s: using %d declared frame times spanning %.3f s of master time.",
+        path,
+        len(master),
+        float(master[-1] - master[0]),
+    )
+    return master, source
+
+
 def create_video_pane(
     window: MainWindow, original_path: str, loader: object, media_path: str
 ) -> None:
@@ -154,11 +197,16 @@ def create_video_pane(
     offset = window._video_load_offsets.pop(original_path, 0.0)
     drift_ppm = window._video_load_drifts.pop(original_path, 0.0)
     exact_mapping = window._pending_exact_mappings.pop(original_path, None)
-    exact_master = exact_mapping[0] if exact_mapping is not None else None
-    exact_source = exact_mapping[1] if exact_mapping is not None else None
     if not isinstance(loader, VideoSource):
         window._on_video_open_error(original_path, "Selected loader is not a VideoSource.")
         return
+    if exact_mapping is None:
+        # A restored or accepted proposal outranks the loader's own evidence: the
+        # user agreed to that mapping, and silently replacing it with what the
+        # container's sidecar claims would undo an explicit decision.
+        exact_mapping = _declared_exact_mapping(loader, original_path)
+    exact_master = exact_mapping[0] if exact_mapping is not None else None
+    exact_source = exact_mapping[1] if exact_mapping is not None else None
     bounds = loader.time_bounds()
     window._set_video_coverage(
         original_path,
@@ -210,7 +258,11 @@ def create_video_pane(
     inspection = SourceInspection(
         path=original_path,
         loader_id=type(loader).__name__,
-        integrity_flags=IntegrityFlags(is_vfr=is_vfr, drift_nonzero=bool(drift_ppm)),
+        integrity_flags=IntegrityFlags(
+            is_vfr=is_vfr,
+            drift_nonzero=bool(drift_ppm),
+            frames_dropped=video_metadata.dropped_frames > 0,
+        ),
     )
     window._inspections[original_path] = inspection
     window.sidebar.set_video_inspection(original_path, inspection)

@@ -1,5 +1,6 @@
 """Source plugin abstract base classes."""
 
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
@@ -44,26 +45,40 @@ class VideoMetadata:
     start_time: float | None = None
     file_size_bytes: int = 0
 
+    #: Exposures the camera took but did not store, when it recorded a frame
+    #: counter to prove it. This is genuinely missing data, but it is *not* a
+    #: gap: every frame that was kept still lands at the instant it was exposed,
+    #: so nothing is misaligned and no stretch of the timeline is uncovered.
+    #: What is lost is temporal resolution, which no gap marker describes —
+    #: one-frame drops sit far below the pyramid's 10x-median gap threshold and
+    #: marking 9 073 of them would bury the trace rather than inform it.
+    dropped_frames: int = 0
+
+
+#: Where to break a class name into words: after a lower-case run, and before
+#: the last capital of a capital run that starts a new word.  The second case is
+#: what keeps an acronym together — ``AOLSession`` is "AOL Session", not "AOL
+#: Session" spelt "AOLSession" nor "A O L Session".
+_NAME_WORD_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+
 
 def default_display_name(cls: type) -> str:
     """Derive a readable format name from a class name.
 
-    ``AOLEksLoader`` becomes "AOL Eks", ``CSVLoader`` becomes "CSV". Only a
-    fallback: a format that cares how it is listed overrides ``display_name``.
+    ``AOLEksLoader`` becomes "AOL Eks", ``CSVLoader`` becomes "CSV",
+    ``VideoStandardLoader`` becomes "Video Standard". Only a fallback: a
+    format that cares how it is listed overrides ``display_name``.
+
+    A plugin that does not override this is listed by whatever comes out, so the
+    acronym case is not cosmetic. The previous rule split only after a
+    lower-case letter, which never broke a capital run: ``AOLSession`` came back
+    as "AOLSession" — the very example this docstring claimed to handle.
     """
     name = cls.__name__
     for suffix in ("Loader", "Source"):
         if name.endswith(suffix) and name != suffix:
             name = name[: -len(suffix)]
-    words: list[str] = []
-    for char in name:
-        if char.isupper() and words and not words[-1][-1].isupper():
-            words.append(char)
-        elif words:
-            words[-1] += char
-        else:
-            words.append(char)
-    return " ".join(words) or cls.__name__
+    return _NAME_WORD_BOUNDARY.sub(" ", name) or cls.__name__
 
 
 class _Nameable:
@@ -73,6 +88,22 @@ class _Nameable:
     which meant adding a format meant editing the UI, and third-party plugins
     were listed by bare class name because they were not in the table. A format
     names itself instead.
+
+    **Convention: name the kind of data, never the rig.** ``"Video"``,
+    ``"IMU / Motion Data"``, ``"TTL Events"`` — a camera is a camera whichever
+    system recorded it, and an IMU stream is the same shape of data wherever it
+    came from. Which rig an item belongs to is the session's business and
+    already sits in its :attr:`SessionItem.label`; repeating it here produced
+    "Open Ephys Video" for something that is simply a video.
+
+    One reader commonly serves several kinds — every stream of an acquisition
+    recording goes through the same one — so a reader offers each kind it can be
+    meant as, via :meth:`display_aliases`, and a session picks between them with
+    :attr:`SessionItem.kind`. Without that an 18-channel IMU was typed
+    "Electrophysiology Data" purely because neo is what reads it.
+
+    Names must be unique across all registered plugins, aliases included: the
+    import dialog is a picker, and two identical entries cannot be told apart.
     """
 
     @classmethod
@@ -104,6 +135,26 @@ class SessionItem:
     loader: type["TimeSeriesSource | VideoSource"] | None = None
     config: dict[str, Any] = field(default_factory=dict)
 
+    #: What to call this item in the import dialog, when its filename is not
+    #: enough. A session already knows what each piece *is* — how many channels,
+    #: at what rate — while the dialog can only re-derive a name from the path,
+    #: and four streams of one recording all read as their directory names with
+    #: nothing to say which is the 30 kHz one. Empty means "use the filename".
+    #:
+    #: Deliberately not part of ``config``: config is hashed into the sidecar
+    #: cache key, so wording a label better would invalidate every cache built
+    #: with the old one — several gigabytes rebuilt to reword a table cell.
+    label: str = ""
+
+    #: What kind of data this is, in the user's terms — "Video", "IMU / Motion
+    #: Data", "TTL Events". One loader commonly reads several kinds: every
+    #: stream of an acquisition recording goes through the same reader, so an
+    #: 18-channel IMU was typed "Electrophysiology Data" purely because neo is
+    #: what reads it. The kind must match one of the loader's own
+    #: :meth:`~_Nameable.display_name` or :meth:`~_Nameable.display_aliases`
+    #: labels, since it selects among them; empty means the loader's own name.
+    kind: str = ""
+
 
 @dataclass(frozen=True)
 class SessionLayout:
@@ -129,7 +180,7 @@ class SessionLayout:
     skeleton: list[tuple[str, str]] | None = None
 
 
-class SessionSource(ABC):
+class SessionSource(_Nameable, ABC):
     """Optional plugin contract for a whole recording folder.
 
     Additive to API v1 and outside it: ``TimeSeriesSource`` and ``VideoSource``
@@ -221,7 +272,7 @@ class VideoSource(_Nameable, ABC):
     """Frozen v1 plugin contract for video sources.
 
     ``open`` and optional ``prepare`` run in a background worker.  The returned
-    media path is opened by mpv only after this work has completed successfully.
+    media path is opened by the decoder only after this work has completed successfully.
     """
 
     @classmethod
@@ -242,12 +293,12 @@ class VideoSource(_Nameable, ABC):
 
     @abstractmethod
     def prepare(self, progress_cb: Callable[[float], None]) -> Path:
-        """Produce an mpv-playable cached proxy and report progress in ``[0, 1]``."""
+        """Produce a playable cached proxy and report progress in ``[0, 1]``."""
         pass
 
     @abstractmethod
     def media_path(self) -> Path:
-        """Return what mpv actually plays (proxy-aware)."""
+        """Return what the decoder actually opens (proxy-aware)."""
         pass
 
     @abstractmethod
@@ -273,6 +324,24 @@ class VideoSource(_Nameable, ABC):
     def fps(self) -> float:
         """Nominal frames per second."""
         pass
+
+    def exact_time_mapping(self) -> tuple[np.ndarray, np.ndarray] | None:
+        """Return per-frame ``(master_time, source_time)`` evidence, or ``None``.
+
+        Additive default, so frozen v1 video plugins are unaffected.  Override it
+        when the acquisition system recorded when each frame was actually
+        exposed — a timestamp sidecar, a hardware trigger log — and the container
+        therefore cannot be trusted to say when its frames belong on the
+        timeline.  Dropped frames and variable rates make that a piecewise
+        relationship that no offset and drift pair can express, which is why this
+        returns a table rather than two numbers.
+
+        Both arrays must be the same length and strictly increasing.  The result
+        is treated the same as an accepted synchronization proposal, so returning
+        a guess here silently overrides what the user would otherwise be asked
+        to confirm; return ``None`` when the evidence is absent.
+        """
+        return None
 
     def video_metadata(self) -> VideoMetadata:
         """Return format-neutral inspection metadata.

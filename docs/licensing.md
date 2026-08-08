@@ -1,8 +1,8 @@
 # Licensing
 
 AvialSync is free software under the **GNU Affero General Public License,
-version 3 or later**. The full text ships as `LICENSE` in the repository and
-inside every release.
+version 3 or later**, and under nothing else. The full text ships as `LICENSE`
+in the repository and inside every release.
 
 ## What you can do
 
@@ -33,24 +33,20 @@ line is worth agreeing in writing first.
 
 ## Contributing
 
-Contributions are accepted under the terms in `CLA.md`. You keep the copyright
-in your own work; the agreement keeps the copyright in the project as a whole in
-one place, so it can be licensed coherently. One line in your first pull request
-covers it.
+Contributions are accepted under the project's own licence,
+AGPL-3.0-or-later. There is no contributor agreement to sign — open a pull
+request and that is the whole process. You keep the copyright in your work.
 
 ## Bundled components
 
-Release installers bundle libmpv and FFmpeg in LGPL-licensed builds, verified
-during packaging. The Python dependencies are LGPL-3.0 (PySide6), MIT
-(pyqtgraph, polars), BSD (numpy, neo, xxhash), and LGPLv2.1+ (python-mpv). Their
-own licences continue to apply to them.
+Video decoding comes from [PyAV](https://pypi.org/project/av/), whose wheels
+carry their own FFmpeg. PyAV itself is BSD-3-Clause, and the FFmpeg it bundles
+is GPL-configured — it includes `libx264` and `libx265`, both GPL-2.0-or-later,
+which is compatible with this project's AGPL-3.0-or-later distribution.
 
-## Other arrangements
+The other Python dependencies are LGPL-3.0 (PySide6), MIT (pyqtgraph, polars),
+and BSD (numpy, neo, xxhash). Their own licences continue to apply to them.
 
-A small number of situations cannot accommodate the AGPL's reciprocity at all —
-for example software that must ship inside a closed product, or an organisation
-whose policy forbids AGPL code outright. If that is genuinely your position,
-write to <anzal.ks@gmail.com> describing what you want to build and how you
-intend to distribute it, and it can be discussed case by case.
-
-This is rarely necessary. Ordinary research use is already covered above.
+Release installers bundle nothing further: proxy generation, clip export, and
+the sample-session generator all run against the same in-process FFmpeg, so
+there are no separate media executables in an installer to attribute.

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from avialsync.core.cache import is_cache_path
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.source import SessionLayout, TimeSeriesSource
 
@@ -86,8 +87,14 @@ class DropScanWorker(QObject):
             if session_files:
                 return self._collect_drop_candidates(session_files[0])
             for child in path.iterdir():
-                if not child.name.startswith("."):
-                    candidates.extend(self._collect_drop_candidates(child))
+                if child.name.startswith(".") or is_cache_path(child):
+                    # Our own sidecar. It holds one ``.npy`` per channel and
+                    # pyramid level — 482 files for a single 32-channel stream —
+                    # and none of them is an importable source. Descending into
+                    # one turned "drop the folder you imported last week" into a
+                    # dialog of several hundred unrecognised rows.
+                    continue
+                candidates.extend(self._collect_drop_candidates(child))
         else:
             candidates.append((path, None, None))
 
@@ -108,10 +115,27 @@ class DropScanWorker(QObject):
             layout = session_cls().scan(path, self._registry)
         except Exception as error:  # noqa: BLE001 - plugin boundary
             logger.exception("Session plugin %s failed on %s", session_cls.__name__, path)
+            # Named as the user knows it: Diagnostics is read by whoever
+            # installed the plugin, not by whoever wrote its class.
             self._registry.plugin_errors.append(
-                (session_cls.__name__, f"scan failed: {type(error).__name__}: {error}")
+                (session_cls.display_name(), f"scan failed: {type(error).__name__}: {error}")
             )
             return None
 
-        self._layout = layout
+        # Session-wide settings — the wall-clock anchor above all — describe one
+        # recording, and the drop reports exactly one set of them. The first
+        # session to claim keeps them: dropping two folders at once used to leave
+        # whichever happened to be scanned last owning the timeline's anchor,
+        # which is arbitrary, and silent. Their *items* all still load.
+        if self._layout.items or self._layout.anchor_epoch:
+            logger.info(
+                "%s also laid out %s; its items load, but the timeline keeps the first "
+                "session's settings (anchor_epoch=%.3f). Drop one session at a time to "
+                "read wall clock from this one.",
+                session_cls.display_name(),
+                path.name,
+                self._layout.anchor_epoch,
+            )
+        else:
+            self._layout = layout
         return [(item.path, item.loader, dict(item.config)) for item in layout.items]

@@ -48,25 +48,45 @@ def test_video_standard_vfr():
     assert np.unique(np.round(intervals, 4)).size >= 2
 
 
-def test_video_standard_uses_presentation_order_frame_timestamps(monkeypatch) -> None:
-    """B-frame packet order must not decide VFR detection or frame stepping."""
+def test_video_standard_uses_presentation_order_frame_timestamps(tmp_path: Path) -> None:
+    """B-frame packet order must not decide VFR detection or frame stepping.
 
-    class _Result:
-        stdout = "0.000000,\n0.050000,\n0.066667,\n"
+    Against a real long-GOP fixture rather than a mocked ``ffprobe`` stdout:
+    the loader now builds its table with the same ``PyAVReader`` the pane
+    decodes through, so what is worth asserting is that a file which genuinely
+    demuxes out of order still yields a sorted table.
+    """
+    from tests.util_pyav_fixtures import cfr_times, write_video
 
-    captured: list[str] = []
+    video = tmp_path / "presentation-order.mp4"
+    written = write_video(video, frame_times=cfr_times(90), gop_size=30)
 
-    def fake_run(command, **_kwargs):
-        captured.extend(command)
-        return _Result()
-
-    monkeypatch.setattr("avialsync.loaders.video_standard.subprocess.run", fake_run)
     loader = VideoStandardLoader()
-    loader._extract_frame_times(Path("presentation-order.mp4"))
+    loader._extract_frame_times(video)
 
-    assert "packet=pts_time" in captured
-    assert loader.frame_times() is not None
-    np.testing.assert_allclose(loader.frame_times(), [0.0, 0.05, 0.066667])
+    times = loader.frame_times()
+    assert times is not None
+    assert np.all(np.diff(times) > 0), "table left in decode order"
+    np.testing.assert_allclose(times, written, atol=1e-6)
+
+
+def test_the_loader_and_the_decoder_share_one_frame_table(tmp_path: Path) -> None:
+    """Two tables over one file would be two authorities on which frame is which.
+
+    The pane selects the displayed frame from the decoder's table and names it
+    from the loader's. D-075 requires those to be one thing; this pins that they
+    are, byte for byte, rather than merely close.
+    """
+    from avialsync.engine.pyav_reader import PyAVReader
+    from tests.util_pyav_fixtures import cfr_times, write_video
+
+    video = tmp_path / "shared.mp4"
+    write_video(video, frame_times=cfr_times(60), gop_size=15)
+
+    loader = VideoStandardLoader()
+    loader._extract_frame_times(video)
+    with PyAVReader(video) as reader:
+        np.testing.assert_array_equal(loader.frame_times(), reader.frame_times)
 
 
 def test_video_standard_detects_variable_frame_intervals() -> None:
@@ -103,38 +123,34 @@ def test_timestamp_evidence_overrides_misleading_nominal_cfr_rate() -> None:
 def test_frame_timestamp_cache_avoids_reprobing_long_video(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A second open mmaps the validated frame index instead of rerunning ffprobe."""
+    """A second open mmaps the validated frame index instead of rebuilding it.
+
+    Building the table costs a full demux pass — 225 ms on a 716 MB session
+    file — so the sidecar is what keeps a repeat open cheap.
+    """
+    from tests.util_pyav_fixtures import cfr_times, write_video
+
     video = tmp_path / "long.mp4"
-    video.write_bytes(b"fake-video-payload")
-    metadata_json = (
-        '{"format":{"duration":"1.0","size":"18"},'
-        '"streams":[{"codec_type":"video","codec_name":"h264",'
-        '"r_frame_rate":"30/1","width":640,"height":480}]}'
-    )
-    commands: list[list[str]] = []
+    write_video(video, frame_times=cfr_times(90), gop_size=30)
 
-    class _Result:
-        def __init__(self, stdout: str) -> None:
-            self.stdout = stdout
+    builds: list[Path] = []
+    original = VideoStandardLoader._extract_frame_times
 
-    def fake_run(command: list[str], **_kwargs: object) -> _Result:
-        commands.append(command)
-        if "-show_streams" in command:
-            return _Result(metadata_json)
-        return _Result("0.000000,\n0.033333,\n0.066667,\n")
+    def counting_extract(self: VideoStandardLoader, path: Path) -> None:
+        builds.append(path)
+        original(self, path)
 
-    monkeypatch.setattr("avialsync.loaders.video_standard.require_ffprobe", lambda: Path("ffprobe"))
-    monkeypatch.setattr("avialsync.loaders.video_standard.subprocess.run", fake_run)
+    monkeypatch.setattr(VideoStandardLoader, "_extract_frame_times", counting_extract)
 
     first = VideoStandardLoader()
     first.open(video, {})
     second = VideoStandardLoader()
     second.open(video, {})
 
-    frame_probes = [command for command in commands if "packet=pts_time" in command]
-    assert len(frame_probes) == 1
-    assert isinstance(second.frame_times(), np.memmap)
-    np.testing.assert_allclose(second.frame_times(), [0.0, 0.033333, 0.066667])
+    assert len(builds) == 1, "the second open rebuilt the table instead of reading the sidecar"
+    np.testing.assert_array_equal(first.frame_times(), second.frame_times())
+    assert isinstance(second.frame_times(), np.memmap), "the cache must be mmap-read, not re-parsed"
+    np.testing.assert_allclose(second.frame_times(), cfr_times(90), atol=1e-6)
 
 
 def test_video_standard_no_metadata():

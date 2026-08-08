@@ -44,6 +44,7 @@ _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
 #: The built-in session scanners, in the same form and for the same reason.
 _BUILTIN_SESSIONS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.aol_session_loader", "AOLSessionSource"),
+    ("avialsync.loaders.open_ephys_session", "OpenEphysSessionSource"),
 )
 
 

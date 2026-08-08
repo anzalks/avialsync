@@ -34,7 +34,8 @@ recording on disk.
 5. At a selected master time, the player asks every source for the corresponding source time.
    A video pane seeks to that video time and a plot queries only the appropriate display level.
 
-Video playback is provided by libmpv. Dense traces use precomputed decimation pyramids instead of
+Video is decoded in-process with PyAV, one worker thread per pane, and the decoded frame is blitted
+by the pane itself — the same path on every platform. Dense traces use precomputed decimation pyramids instead of
 passing full recordings to a plotting widget. This keeps navigating a long recording responsive
 without reducing the precision used for readouts and exports.
 
@@ -45,13 +46,12 @@ The 3D pane and video grid sit in a native side-by-side splitter, whose size is 
 preference. Point names do not imply scientific topology, so the viewer never invents skeleton
 connections.
 
-For exact paused-frame verification, AvialSync checks decoded raw video against a fixture's frame
-strip rather than trusting a returned seek command or a displayed image. Production uses libmpv's
-Qt OpenGL render API on Windows/macOS and native `wid` embedding on Linux; displayless continuous
-integration uses libmpv's null video output so it can verify decoding and timeline correctness
-without pretending to certify desktop rendering.
-Video clients are closed explicitly while the main window is still alive, allowing libmpv's event
-thread to stop cleanly.
+For exact paused-frame verification, AvialSync reads the pixels the pane actually painted and
+decodes a frame-index strip out of them, rather than trusting a returned seek command or a reported
+timestamp. There is one rendering path on every platform and it is the same one in continuous
+integration, so a headless run exercises what a desktop run does.
+A pane's decode thread is stopped explicitly while the main window is still alive, rather than being
+left to garbage collection or Qt child destruction.
 
 ## Synchronization design
 

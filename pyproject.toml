@@ -44,7 +44,9 @@ classifiers = [
 dependencies = [
     "PySide6",
     "pyqtgraph",
-    "python-mpv>=1.0.7",
+    # Video decoding and probing. PyAV wheels bundle their own FFmpeg, which is
+    # what makes `pip install avialsync` need no OS-level install step (D-075).
+    "av>=12",
     "numpy",
     "polars",
     "xxhash",
@@ -106,6 +108,7 @@ aol_eks = "avialsync.loaders.aol_eks_loader:AOLEksLoader"
 # names a format.
 [project.entry-points."avialsync.sessions"]
 aol = "avialsync.loaders.aol_session_loader:AOLSessionSource"
+open_ephys = "avialsync.loaders.open_ephys_session:OpenEphysSessionSource"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/avialsync"]
@@ -153,5 +156,5 @@ pythonpath = ["."]
 # the one legitimate suppression (AGENTS §Coding standards): it silences the
 # *absence of stubs*, not errors in our own code.
 [[tool.mypy.overrides]]
-module = ["mpv.*", "pyqtgraph.*", "neo.*", "quantities.*", "pyarrow.*", "polars.*", "xxhash.*"]
+module = ["av.*", "pyqtgraph.*", "neo.*", "quantities.*", "pyarrow.*", "polars.*", "xxhash.*"]
 ignore_missing_imports = true

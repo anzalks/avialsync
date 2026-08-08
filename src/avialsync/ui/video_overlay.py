@@ -93,10 +93,10 @@ class PaintCanvas(QWidget):
     def _video_scale(self) -> tuple[float, float, float] | None:
         """Return ``(scale, offset_x, offset_y)`` mapping video pixels to widget.
 
-        The size comes from the pane's mirrored copy of libmpv's
-        ``video-out-params``, never from libmpv itself.  Reading ``dwidth``
-        here would take libmpv's core lock inside ``paintEvent``, on the UI
-        thread, while the decoder threads are contending for it — measured at
+        The size comes from the pane, which publishes it once when the file is
+        opened, never from a decoder queried during the paint.  Under libmpv
+        reading ``dwidth`` here took its core lock inside ``paintEvent``, on the
+        UI thread, while the decode threads contended for it — measured at
         26-34 us typical and 165 us at p99, paid once per pane per frame.
         """
         size = getattr(self.parent(), "video_size", None)

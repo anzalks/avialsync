@@ -349,7 +349,7 @@ class VideoInfoWidget(QFrame):
             panel_layout.addWidget(self._props_panel)
 
     def set_pane(self, pane: object) -> None:
-        """Attach the VideoPane for live mpv property reads."""
+        """Attach the VideoPane so its live decode state can be shown."""
         self._props_panel.set_pane(pane)
 
     def set_inspection(self, inspection: SourceInspection) -> None:
@@ -511,7 +511,7 @@ class SidebarPane(QWidget):
             w.set_loader(loader)
 
     def set_video_pane(self, path: str, pane: object) -> None:
-        """Forward VideoPane reference to VideoInfoWidget for live mpv reads."""
+        """Forward VideoPane reference to VideoInfoWidget for live decode state."""
         w = self._video_widgets.get(path)
         if w:
             w.set_pane(pane)

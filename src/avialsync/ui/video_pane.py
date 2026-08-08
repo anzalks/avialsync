@@ -1,22 +1,32 @@
-"""Video rendering pane using libmpv."""
+"""Video rendering pane: decode with PyAV, blit with Qt.
+
+One path on every platform (D-075).  There is no render context, no ``wid``
+embedding, and no headless special case, because nothing here talks to a media
+player any more — the pane owns a decoder, asks it for the frame at a given
+master time, and paints the result.
+
+That inversion is the point of the migration.  Under libmpv the pane asked a
+player where it had got to and tried to keep it near the master clock; now the
+application decodes, so it *is* the clock, and sync is exact by construction
+rather than by a tuned control loop.
+"""
 
 import logging
-import sys
 import threading
 import time
-from collections.abc import Iterable
-from typing import Any
+from dataclasses import replace
 
 import numpy as np
-from PySide6.QtCore import Qt, QTimer, Signal, Slot
-from PySide6.QtGui import QFontDatabase
+from PySide6.QtCore import QMetaObject, QObject, QRectF, Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtGui import QFontDatabase, QImage, QPainter, QPaintEvent
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from avialsync.core.errors import SourceOpenError
 from avialsync.core.source import VideoMetadata
-from avialsync.ui.diagnostics import probe_libmpv
+from avialsync.engine.pyav_reader import PyAVReader, to_rgb_array
 from avialsync.ui.theme import set_font_family
 from avialsync.ui.video_overlay import PaintCanvas
-from avialsync.ui.video_timing import VideoTimingMixin, format_video_osd
+from avialsync.ui.video_timing import VideoTimingMixin, displayed_frame_rate, format_video_osd
 
 logger = logging.getLogger(__name__)
 
@@ -33,121 +43,148 @@ _OSD_MIN_INTERVAL_S = 1.0 / _OSD_MAX_HZ
 #: rounding error's worth of time.
 _OSD_DUE_EPSILON_S = 0.001
 
-#: How long a client gets to finish terminating before it is abandoned.
-#: Generous enough that a loaded CI runner never trips it, short enough that a
-#: wedged client cannot hold the UI thread for the length of a job timeout.
-_TERMINATE_TIMEOUT_S = 5.0
+#: How long a decode thread gets to finish its current frame at teardown.
+#: A worst-case cold jump is ~120 ms, so this is generous; it exists only so a
+#: wedged decoder cannot hold the UI thread for the length of a job timeout.
+_DECODER_STOP_TIMEOUT_MS = 3000
 
 
-def _release_mpv_render_context(widget: Any) -> None:
-    """Free a libmpv OpenGL render context before its client is terminated.
+class DecodeWorker(QObject):
+    """Owns one :class:`PyAVReader` on a decode thread.
 
-    ``makeCurrent`` is inside the guarded region on purpose: it fails on a
-    widget whose surface was never created or is already gone, and an escaping
-    exception here used to abort the whole shutdown loop and strand the
-    remaining panes' libmpv event threads (D-059).
+    Requests coalesce: only the newest requested time is ever decoded.  The UI
+    thread posts a time and an invocation; whichever invocation runs first takes
+    the latest time and the rest find nothing to do.  That is what lets a 60 Hz
+    tick drive a decoder that takes longer than a tick without ever queueing a
+    backlog of frames nobody will see — sync correctness beats frame
+    completeness (AGENTS.md rule 6).
     """
-    context = getattr(widget, "ctx", None)
-    if context is None:
-        return
-    try:
-        widget.makeCurrent()
-        context.free()
-    finally:
-        widget.ctx = None
+
+    opened = Signal(object, int, int, str)  # frame_times, width, height, codec
+    failed = Signal(str)
+    frame_ready = Signal(int, float, object)  # frame index, pts seconds, RGB array
+
+    def __init__(self, path: str) -> None:
+        super().__init__()
+        self._path = path
+        self._reader: PyAVReader | None = None
+        self._lock = threading.Lock()
+        self._pending: float | None = None
+
+    @Slot()
+    def open(self) -> None:
+        """Open the file and publish its timestamp table."""
         try:
-            widget.doneCurrent()
-        except Exception:
-            logger.debug("Could not release the GL context", exc_info=True)
-
-
-#: The hooks python-mpv hangs on a decorated callback so it can be detached
-#: again. ``property_observer`` attaches the first, ``event_callback`` the
-#: second. Both must be tried: they are not interchangeable, and looking only
-#: for the observer hook silently skipped every event callback.
-_MPV_UNREGISTER_HOOKS = ("unobserve_mpv_properties", "unregister_mpv_events")
-
-
-def _detach_mpv_callbacks(callbacks: Iterable[Any]) -> None:
-    """Drop everything registered on a client before it is terminated.
-
-    ``terminate()`` nulls python-mpv's handle and *then* calls
-    ``mpv_terminate_destroy``, so anything still registered can be dispatched
-    against a half-destroyed client in that window. An observer left on
-    ``time-pos`` can also leave the event thread inside ``mpv_wait_event`` so
-    the join never returns (python-mpv #114). Detaching first is what keeps
-    teardown both finite and safe.
-
-    This looked only for the property-observer hook once, which meant a pane
-    terminated with its ``file-loaded`` event callback still attached — that
-    callback emits a Qt signal, and libmpv delivering it on its own thread
-    during ``mpv_terminate_destroy`` faulted the process on Windows.
-    """
-    for callback in callbacks:
-        # python-mpv hangs these on the decorated function. A stand-in client in
-        # a test need not provide one, and neither does an already-freed handle.
-        for hook_name in _MPV_UNREGISTER_HOOKS:
-            unregister = getattr(callback, hook_name, None)
-            if unregister is None:
-                continue
-            try:
-                unregister()
-            except Exception:
-                logger.debug("Could not detach an mpv callback via %s", hook_name, exc_info=True)
-
-
-def _terminate_mpv_client(player: Any) -> None:
-    """Terminate a client, giving up rather than blocking on a wedged one.
-
-    ``MPV.terminate()`` joins libmpv's event thread with no timeout, so a client
-    whose thread never leaves ``mpv_wait_event`` blocks its caller forever. That
-    caller is the Qt thread during shutdown or pane removal, and a process that
-    never finishes closing is worse than one that leaks a thread it was about to
-    lose to process exit anyway.
-    """
-    failure: list[BaseException] = []
-
-    def _terminate() -> None:
-        try:
-            player.terminate()
-        except Exception as error:
-            failure.append(error)
-
-    worker = threading.Thread(target=_terminate, name="MpvTerminate", daemon=True)
-    worker.start()
-    worker.join(_TERMINATE_TIMEOUT_S)
-
-    if worker.is_alive():
-        logger.warning(
-            "libmpv did not finish terminating within %.0fs; abandoning its event thread",
-            _TERMINATE_TIMEOUT_S,
+            reader = PyAVReader(self._path)
+        except SourceOpenError as error:
+            self.failed.emit(str(error))
+            return
+        except Exception as error:  # pragma: no cover - defensive
+            self.failed.emit(f"Could not open {self._path}: {error}")
+            return
+        self._reader = reader
+        stream = reader.stream
+        self.opened.emit(
+            reader.frame_times,
+            int(stream.codec_context.width),
+            int(stream.codec_context.height),
+            str(stream.codec_context.name or ""),
         )
-    elif failure:
-        logger.warning("Could not terminate the mpv client", exc_info=failure[0])
 
+    def request(self, source_time: float) -> None:
+        """Record the newest wanted time. Safe to call from the UI thread."""
+        with self._lock:
+            self._pending = source_time
 
-def _shutdown_mpv_client(
-    player: Any, gl_widget: Any | None = None, callbacks: Iterable[Any] = ()
-) -> None:
-    """Release a Qt OpenGL render client, then terminate its libmpv handle once."""
-    if gl_widget is not None:
+    @Slot()
+    def decode_pending(self) -> None:
+        """Decode the newest requested time, if one is still outstanding."""
+        with self._lock:
+            source_time = self._pending
+            self._pending = None
+        if source_time is None or self._reader is None:
+            return
         try:
-            _release_mpv_render_context(gl_widget)
-        except RuntimeError:
-            # A failed GL cleanup must not leave libmpv's event thread alive.
-            logger.warning("Could not release the mpv render context", exc_info=True)
-    _detach_mpv_callbacks(callbacks)
-    _terminate_mpv_client(player)
-    if gl_widget is not None:
-        gl_widget.mpv = None
+            index = self._reader.index_at_time(source_time)
+            frame = self._reader.frame_at_index(index)
+            rgb = to_rgb_array(frame)
+        except Exception as error:
+            # A decode failure is one lost frame, not a lost session: the next
+            # request re-seeks from scratch. Swallowing it here keeps a damaged
+            # region of a file from taking the pane down with it.
+            logger.warning("Could not decode %s at %.6fs", self._path, source_time, exc_info=error)
+            return
+        self.frame_ready.emit(index, self._reader.time_at_index(index), rgb)
+
+    @Slot()
+    def shutdown(self) -> None:
+        """Close the reader on its own thread, where it was opened."""
+        with self._lock:
+            self._pending = None
+        if self._reader is not None:
+            self._reader.close()
+            self._reader = None
+
+
+class VideoSurface(QWidget):
+    """Paints the decoded frame, letterboxed.
+
+    The geometry here must match :meth:`PaintCanvas._video_scale` exactly — the
+    tracking overlay maps video pixels to widget pixels with the same formula,
+    and any divergence would draw markers off the thing they mark.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
+        self._image: QImage | None = None
+        #: The array the QImage borrows. QImage does not copy the buffer, so
+        #: dropping this would leave it pointing at freed memory.
+        self._buffer: np.ndarray | None = None
+
+    def set_frame(self, rgb: np.ndarray) -> None:
+        """Show a decoded ``(H, W, 3)`` uint8 RGB frame."""
+        height, width, _ = rgb.shape
+        self._buffer = rgb
+        self._image = QImage(rgb.data, width, height, rgb.strides[0], QImage.Format.Format_RGB888)
+        self.update()
+
+    def clear(self) -> None:
+        """Drop the displayed frame."""
+        self._image = None
+        self._buffer = None
+        self.update()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        """Blit the frame centred, preserving aspect ratio."""
+        del event
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), Qt.GlobalColor.black)
+        image = self._image
+        if image is None or image.isNull():
+            return
+        scale = min(self.width() / image.width(), self.height() / image.height())
+        width = image.width() * scale
+        height = image.height() * scale
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        painter.drawImage(
+            QRectF(
+                (self.width() - width) / 2.0,
+                (self.height() - height) / 2.0,
+                width,
+                height,
+            ),
+            image,
+        )
 
 
 class VideoPane(VideoTimingMixin, QWidget):
-    """
-    Video rendering pane.
+    """Video rendering pane.
 
-    Uses libmpv's Qt OpenGL render API on Windows/macOS and native
-    window embedding (wid) on Linux.
+    Decodes with PyAV on a per-pane worker thread and blits the result.  The
+    same path runs on Windows, macOS, and Linux, headless or not; if you find
+    yourself adding a ``sys.platform`` branch here, that is a signal to stop and
+    reconsider (AGENTS.md rule 6).
     """
 
     double_clicked = Signal(object)
@@ -155,6 +192,7 @@ class VideoPane(VideoTimingMixin, QWidget):
     _osd_update = Signal()
     frame_presented = Signal(float)  # delivered source timestamp
     file_loaded = Signal()
+    open_failed = Signal(str)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -166,33 +204,20 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._decoder_fps = 0.0
         self._metadata = VideoMetadata()
         self.is_seeking = False
-        self._mpv_seeking = False
-        self._seek_pending = False
-        self._seek_target = 0.0
-        self._seek_exact = True
-        self.mpv = None
-        #: Everything registered on this pane's mpv client — property observers
-        #: *and* event callbacks — kept so teardown can detach them all before
-        #: terminating it. Event callbacks belong here too: holding only the
-        #: observers is what left `file-loaded` attached through terminate.
-        self._mpv_callbacks: list[Any] = []
-        self._video_widget: QWidget | None = None
         self._media_loaded = False
-        self._pending_seek: tuple[float, bool] | None = None
+        self._pending_seek: float | None = None
         self._target_pause = True
-        self._current_rate = 1.0
-        self._mapping_rate_scale = 1.0
-        self._sync_correction = 1.0
         self._osd_lock = threading.Lock()
         self._pending_osd: tuple[float, float] = (0.0, 0.0)
         self._osd_event_pending = False
         self._osd_flush_timer: QTimer | None = None
         self._last_osd_flush = 0.0
-        #: Displayed video dimensions, mirrored from libmpv by a property
-        #: observer.  The overlay repaints once per presented frame; reading
-        #: ``dwidth``/``dheight`` there would take libmpv's core lock from
-        #: inside ``paintEvent`` while the decoder threads hold it.
+        #: Decoded video dimensions, published once at open.  The overlay reads
+        #: this to map track coordinates onto the widget.
         self.video_size: tuple[int, int] | None = None
+
+        self._thread: QThread | None = None
+        self._worker: DecodeWorker | None = None
 
         from avialsync.core.timeline import TimeMap
 
@@ -205,236 +230,117 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._grid.setContentsMargins(0, 0, 0, 0)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
 
-        if not probe_libmpv(self):
-            # Build the chrome anyway: a half-constructed pane turns every later
-            # set_label/set_has_footage/_update_osd call into an AttributeError.
-            self._build_overlay_chrome()
-            self._show_playback_unavailable()
-            return
-
-        import os
-
-        import mpv
-
-        is_offscreen = os.environ.get("QT_QPA_PLATFORM") == "offscreen"
-
-        if sys.platform in ("darwin", "win32") and not is_offscreen:
-            from PySide6.QtGui import QOpenGLContext
-            from PySide6.QtOpenGLWidgets import QOpenGLWidget
-
-            class MpvGLWidget(QOpenGLWidget):
-                def __init__(self, parent_pane: "VideoPane"):
-                    # A Windows QOpenGLWidget must be parented before its native
-                    # surface/context is created.  Relying on QGridLayout to
-                    # reparent it later can leave libmpv with no render target.
-                    super().__init__(parent_pane)
-                    self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-                    self.parent_pane = parent_pane
-                    self.ctx = None
-                    self._render_update_lock = threading.Lock()
-                    self._render_update_pending = False
-                    # Use vo="libmpv" so it renders via the API instead of a standalone window
-                    self.mpv = mpv.MPV(
-                        hwdec="auto-safe",
-                        hr_seek_framedrop=False,
-                        keep_open="yes",
-                        vo="libmpv",
-                        audio="no",
-                        input_default_bindings="no",
-                        input_vo_keyboard="no",
-                    )
-
-                    @self.mpv.property_observer("time-pos")
-                    def time_observer(_name: str, value: float) -> None:
-                        if value is not None:
-                            try:
-                                self.parent_pane._observe_time(float(value))
-                            except RuntimeError:
-                                pass
-
-                    @self.mpv.property_observer("estimated-vf-fps")
-                    def fps_observer(_name: str, value: float) -> None:
-                        if value is not None:
-                            try:
-                                self.parent_pane._decoder_fps = float(value)
-                            except RuntimeError:
-                                pass
-
-                    @self.mpv.property_observer("seeking")
-                    def seeking_observer(_name: str, value: bool) -> None:
-                        if value is not None:
-                            try:
-                                self.parent_pane._observe_seeking(bool(value))
-                            except RuntimeError:
-                                pass
-
-                    @self.mpv.property_observer("video-out-params")
-                    def video_params_observer(_name: str, value: object) -> None:
-                        try:
-                            self.parent_pane._observe_video_params(value)
-                        except RuntimeError:
-                            pass
-
-                    parent_pane._mpv_callbacks.extend(
-                        (time_observer, fps_observer, seeking_observer, video_params_observer)
-                    )
-
-                def initializeGL(self) -> None:
-                    ctx = QOpenGLContext.currentContext()
-
-                    def get_proc_address(_ctx, name: bytes) -> int:
-                        addr = ctx.getProcAddress(name)
-                        return int(addr) if addr else 0
-
-                    # Wrap using the EXACT ctypes function signature defined in python-mpv
-                    wrapped_get_proc_address = mpv.MpvGlGetProcAddressFn(get_proc_address)
-
-                    self.ctx = mpv.MpvRenderContext(
-                        self.mpv,
-                        "opengl",
-                        opengl_init_params={"get_proc_address": wrapped_get_proc_address},
-                    )
-
-                    def on_mpv_update():
-                        from PySide6.QtCore import QMetaObject, Qt
-
-                        with self._render_update_lock:
-                            if self._render_update_pending:
-                                return
-                            self._render_update_pending = True
-                        try:
-                            QMetaObject.invokeMethod(
-                                self,
-                                "_consume_mpv_update",
-                                Qt.ConnectionType.QueuedConnection,
-                            )
-                        except RuntimeError:
-                            with self._render_update_lock:
-                                self._render_update_pending = False
-
-                    if self.ctx is not None:
-                        self.ctx.update_cb = on_mpv_update
-
-                    # If open() was called before we had a context, play it now
-                    if hasattr(self.parent_pane, "_pending_play"):
-                        self.mpv.play(self.parent_pane._pending_play)
-                        self.mpv.pause = getattr(self.parent_pane, "_target_pause", True)
-                        delattr(self.parent_pane, "_pending_play")
-
-                @Slot()
-                def _consume_mpv_update(self) -> None:
-                    with self._render_update_lock:
-                        self._render_update_pending = False
-                    self.update()
-
-                def paintGL(self) -> None:
-                    if self.ctx:
-                        fbo = self.defaultFramebufferObject()
-                        w, h = self.width(), self.height()
-                        ratio = self.devicePixelRatio()
-                        self.ctx.render(
-                            flip_y=True,
-                            opengl_fbo={"w": int(w * ratio), "h": int(h * ratio), "fbo": fbo},
-                        )
-
-            self.gl_widget = MpvGLWidget(self)
-            self.gl_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
-            self._video_widget = self.gl_widget
-            self._grid.addWidget(self.gl_widget, 0, 0)
-            self.mpv = self.gl_widget.mpv
-
-        else:
-            self.video_container = QWidget()
-            self._video_widget = self.video_container
-            self.video_container.setAttribute(Qt.WidgetAttribute.WA_DontCreateNativeAncestors)
-            self.video_container.setAttribute(Qt.WidgetAttribute.WA_NativeWindow)
-            self.video_container.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            self._grid.addWidget(self.video_container, 0, 0)
-
-            if is_offscreen:
-                self.mpv = mpv.MPV(
-                    vo="null",
-                    hwdec="auto-safe",
-                    hr_seek_framedrop=False,
-                    keep_open="yes",
-                    audio="no",
-                    input_default_bindings="no",
-                    input_vo_keyboard="no",
-                )
-            else:
-                wid = int(self.video_container.winId())
-                if sys.platform == "win32":
-                    # libmpv's Win32 embedding API expects an unsigned 32-bit HWND.
-                    wid &= 0xFFFFFFFF
-                self.mpv = mpv.MPV(
-                    wid=wid,
-                    hwdec="auto-safe",
-                    hr_seek_framedrop=False,
-                    keep_open="yes",
-                    audio="no",
-                    input_default_bindings="no",
-                    input_vo_keyboard="no",
-                )
-
-            # Every one of these runs on libmpv's own event thread, which
-            # outlives this widget's C++ half. Touching a destroyed pane from
-            # there raises RuntimeError at best and faults at worst, so each
-            # observer is guarded exactly as the render-API ones above are. This
-            # is the path a headless run takes, which is where the fault showed.
-            @self.mpv.property_observer("time-pos")
-            def time_observer(_name: str, value: float) -> None:
-                if value is not None:
-                    try:
-                        self._observe_time(float(value))
-                    except RuntimeError:
-                        pass
-
-            @self.mpv.property_observer("estimated-vf-fps")
-            def fps_observer(_name: str, value: float) -> None:
-                if value is not None:
-                    try:
-                        self._decoder_fps = float(value)
-                    except RuntimeError:
-                        pass
-
-            @self.mpv.property_observer("seeking")
-            def seeking_observer(_name: str, value: bool) -> None:
-                if value is not None:
-                    try:
-                        self._observe_seeking(bool(value))
-                    except RuntimeError:
-                        pass
-
-            @self.mpv.property_observer("video-out-params")
-            def video_params_observer(_name: str, value: object) -> None:
-                try:
-                    self._observe_video_params(value)
-                except RuntimeError:
-                    pass
-
-            self._mpv_callbacks.extend(
-                (time_observer, fps_observer, seeking_observer, video_params_observer)
-            )
-
-        # Set up PaintCanvas for tracking
-        # Registered on both the render-API and headless paths, so it is
-        # collected here rather than inside either branch above.
-        @self.mpv.event_callback("file-loaded")
-        def file_loaded(_event: object) -> None:
-            try:
-                self.file_loaded.emit()
-            except RuntimeError:
-                pass
-
-        self._mpv_callbacks.append(file_loaded)
+        self.surface = VideoSurface(self)
+        self.surface.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._grid.addWidget(self.surface, 0, 0)
 
         self._build_overlay_chrome()
-
         self._osd_update.connect(self._flush_osd_update)
+        self.surface.installEventFilter(self)
 
-        if self._video_widget:
-            self.file_loaded.connect(self._on_file_loaded)
-            self._video_widget.installEventFilter(self)
+    # ── media ────────────────────────────────────────────────────────
+
+    @property
+    def has_media(self) -> bool:
+        """Whether this pane holds an opened decoder."""
+        return self._worker is not None and self._media_loaded
+
+    def open(self, path: str) -> None:
+        """Open a video file on this pane's decode thread."""
+        self._shutdown_decoder()
+        self._media_loaded = False
+
+        worker = DecodeWorker(path)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        # The worker must be held for the thread's whole life: a QObject moved
+        # to a QThread with no owning Python reference is collected out from
+        # under it (HANDOUT.md trap 0a).
+        self._worker = worker
+        self._thread = thread
+
+        worker.opened.connect(self._on_opened)
+        worker.failed.connect(self._on_open_failed)
+        worker.frame_ready.connect(self._on_frame_ready)
+        thread.started.connect(worker.open)
+        thread.start()
+
+    @Slot(object, int, int, str)
+    def _on_opened(self, frame_times: np.ndarray, width: int, height: int, codec: str) -> None:
+        """Adopt the decoder's timestamp table and show the first wanted frame."""
+        self._frame_times = frame_times
+        self.video_size = (width, height)
+        if not self._metadata.codec or self._metadata.codec == "unknown":
+            self._metadata = replace(self._metadata, codec=codec, width=width, height=height)
+        self._media_loaded = True
+
+        pending = self._pending_seek
+        self._pending_seek = None
+        self.seek(pending if pending is not None else self.time_pos)
+        self.file_loaded.emit()
+
+    @Slot(str)
+    def _on_open_failed(self, reason: str) -> None:
+        """Leave a pane that says why it is empty rather than one that lies."""
+        logger.warning("Video pane could not open its source: %s", reason)
+        self.lbl_no_footage.setText(f"Video unavailable\n{reason}")
+        self.lbl_no_footage.setVisible(True)
+        self.open_failed.emit(reason)
+
+    @Slot(int, float, object)
+    def _on_frame_ready(self, index: int, pts: float, rgb: np.ndarray) -> None:
+        """Show a decoded frame and report the timestamp it actually carries."""
+        del index
+        self.surface.set_frame(rgb)
+        self.is_seeking = False
+        self.time_pos = pts
+        self.frame_presented.emit(pts)
+        self._queue_osd_update(pts, self._displayed_rate(pts))
+
+    def displayed_frame_rate_now(self) -> float:
+        """Return the frame rate of the frame currently on screen."""
+        return self._displayed_rate(self.time_pos)
+
+    def _displayed_rate(self, source_time: float) -> float:
+        return displayed_frame_rate(
+            self._frame_times,
+            source_time,
+            self._is_vfr,
+            self._nominal_fps,
+            self._decoder_fps,
+            self.time_map.rate_scale_at(self.time_map.to_master(source_time)),
+        )
+
+    def seek(self, t: float, exact: bool = True) -> None:
+        """Show the frame whose presentation interval contains source time ``t``.
+
+        ``exact`` is accepted and ignored.  Under libmpv a non-exact seek bought
+        speed by landing on a keyframe; here the frame containing ``t`` costs a
+        few milliseconds when it is anywhere near where the decoder already is,
+        so there is nothing to trade away, and an inexact scrub position is
+        exactly the misattribution D-075 exists to remove.
+        """
+        del exact
+        if not self._media_loaded or self._worker is None:
+            self._pending_seek = float(t)
+            return
+        self.is_seeking = True
+        self._worker.request(float(t))
+        QMetaObject.invokeMethod(self._worker, "decode_pending", Qt.ConnectionType.QueuedConnection)
+
+    def play(self) -> None:
+        """Note that the transport is running.
+
+        The pane does not run a clock of its own: the player asks for the frame
+        at each tick.  This exists so pane state still reflects the transport.
+        """
+        self._target_pause = False
+
+    def pause(self) -> None:
+        """Note that the transport is paused."""
+        self._target_pause = True
+
+    # ── geometry and chrome ──────────────────────────────────────────
 
     def set_source_bounds(self, bounds: tuple[float, float]) -> None:
         """Set the source-time interval that contains decodable media."""
@@ -457,15 +363,6 @@ class VideoPane(VideoTimingMixin, QWidget):
     def set_overlay_tracks(self, tracks: list) -> None:
         """Draw named 2D prediction sources (ensemble + models) over this pane."""
         self.paint_canvas.set_tracks(tracks)
-
-    def _observe_video_params(self, params: object) -> None:
-        """Mirror libmpv's displayed video size so painting never queries mpv."""
-        if not isinstance(params, dict):
-            return
-        width = params.get("dw")
-        height = params.get("dh")
-        if width and height:
-            self.video_size = (int(width), int(height))
 
     def _queue_osd_update(self, t: float, fps: float) -> None:
         """Queue at most one UI-thread OSD/overlay update, retaining the newest frame."""
@@ -517,7 +414,7 @@ class VideoPane(VideoTimingMixin, QWidget):
             timer.start(max(1, int(delay_s * 1000.0)))
 
     def eventFilter(self, obj, event):
-        if obj == self._video_widget:
+        if obj is self.surface:
             try:
                 # Compare integer values to avoid PySide6 EnumType.__call__ exceptions
                 ev_type = int(event.type())
@@ -542,47 +439,10 @@ class VideoPane(VideoTimingMixin, QWidget):
             return
         self._master_has_footage = has_footage
         self.lbl_no_footage.setVisible(not has_footage)
-
-    def open(self, path: str) -> None:
-        """Open a video file."""
-        if self.mpv:
-            self._media_loaded = False
-            if hasattr(self, "gl_widget") and self.gl_widget.ctx is None:
-                self._pending_play = path
-            else:
-                self.mpv.play(path)
-                self.mpv.pause = True
-
-    def play(self) -> None:
-        """Unpause the video."""
-        self._target_pause = False
-        if self.mpv:
-            self.mpv.pause = False
-
-    def pause(self) -> None:
-        """Pause the video."""
-        self._target_pause = True
-        if self.mpv:
-            self.mpv.pause = True
-
-    def set_rate(self, rate: float) -> None:
-        """Set playback rate."""
-        self._current_rate = rate
-        self._apply_rate()
-
-    def set_sync_correction(self, correction: float) -> None:
-        """Apply Player's bounded drift correction to the effective mpv rate."""
-        self._sync_correction = correction
-        self._apply_rate()
-
-    @property
-    def sync_correction(self) -> float:
-        """Return the currently applied drift-correction multiplier."""
-        return self._sync_correction
-
-    def _apply_rate(self) -> None:
-        if self.mpv:
-            self.mpv.speed = self._current_rate * self._mapping_rate_scale * self._sync_correction
+        if not has_footage:
+            # D-010: outside a source's bounds we show a dimmed placeholder,
+            # never the last decoded frame frozen in place.
+            self.surface.clear()
 
     @property
     def time_map(self):
@@ -591,19 +451,10 @@ class VideoPane(VideoTimingMixin, QWidget):
     @time_map.setter
     def time_map(self, new_map):
         self._time_map = new_map
-        self._mapping_rate_scale = new_map.rate_scale
-        self._apply_rate()
 
     @Slot()
     def _build_overlay_chrome(self) -> None:
-        """Create the paint canvas, name/OSD labels, and placeholder overlay.
-
-        Called on every construction path, including the one where libmpv is
-        missing.  ``__init__`` used to abort before this ran, leaving a pane
-        whose ``set_label``/``set_has_footage``/``_update_osd`` calls all raised
-        AttributeError — a crash cascade immediately after the guided-install
-        dialog, which is exactly what D-013 exists to prevent.
-        """
+        """Create the paint canvas, name/OSD labels, and placeholder overlay."""
         self.paint_canvas = PaintCanvas(self)
         self._grid.addWidget(self.paint_canvas, 0, 0)
 
@@ -641,59 +492,37 @@ class VideoPane(VideoTimingMixin, QWidget):
 
         self._grid.addWidget(self.overlay, 0, 0)
 
-    def _show_playback_unavailable(self) -> None:
-        """Leave a usable, self-explanatory pane when libmpv is absent (D-013)."""
-        self.lbl_no_footage.setText(
-            "Video playback unavailable\n(libmpv was not found on this system)"
-        )
-        self.lbl_no_footage.setVisible(True)
-        self.lbl_osd.setVisible(False)
+    # ── teardown ─────────────────────────────────────────────────────
 
-    def _on_file_loaded(self) -> None:
-        """Dispatch a seek only after libmpv confirms that commands are accepted."""
-        self._media_loaded = True
-        pending = self._pending_seek
-        self._pending_seek = None
-        if pending is not None:
-            target, exact = pending
-            self.seek(target, exact=exact)
+    def _shutdown_decoder(self) -> None:
+        """Stop the decode thread and close its reader.
 
-    def seek(self, t: float, exact: bool = True) -> None:
-        """Seek to a specific time. Exact seek or keyframe."""
-        if not self.mpv:
-            return
-        if not self._media_loaded:
-            self._pending_seek = (t, exact)
-            return
-        precision = "exact" if exact else "keyframes"
-        try:
-            self._seek_target = float(t)
-            self._seek_exact = exact
-            self._seek_pending = True
-            self._mpv_seeking = True
-            self.is_seeking = True
-            self.mpv.command_async("seek", t, "absolute", precision)
-        except Exception:
-            # mpv may raise SystemError -12 if we seek before it has finished loading the file
-            self._seek_pending = False
-            self._mpv_seeking = False
-            self.is_seeking = False
-            logger.warning("Video seek failed at %.6f seconds", t, exc_info=True)
-
-    def frame_step(self, forward: bool = True) -> None:
-        """Step one frame forward or backward."""
-        if not self.mpv or not self._media_loaded:
-            return
-        try:
-            if forward:
-                self.mpv.command_async("frame-step")
+        Ownership is explicit, as it was for libmpv's event thread: the pane
+        that started the thread stops it, rather than leaving it to garbage
+        collection or Qt child destruction.
+        """
+        worker, self._worker = self._worker, None
+        thread, self._thread = self._thread, None
+        if worker is not None:
+            # Blocking so the reader is closed on the thread that opened it,
+            # before that thread goes away. Guarded on isRunning(): a blocking
+            # invoke into a thread with no live event loop never returns, and
+            # the worker's own slots never wait on the UI thread, so there is
+            # no path back into a deadlock from here.
+            if thread is not None and thread.isRunning():
+                QMetaObject.invokeMethod(
+                    worker, "shutdown", Qt.ConnectionType.BlockingQueuedConnection
+                )
             else:
-                self.mpv.command_async("frame-back-step")
-        except Exception:
-            logger.warning("Frame step failed", exc_info=True)
+                worker.shutdown()
+        if thread is not None:
+            thread.quit()
+            if not thread.wait(_DECODER_STOP_TIMEOUT_MS):
+                logger.warning("Decode thread did not stop within %d ms", _DECODER_STOP_TIMEOUT_MS)
+        self._media_loaded = False
 
     def close(self) -> bool:
-        """Terminate mpv before closing the widget.
+        """Stop decoding before closing the widget.
 
         Returns whatever ``QWidget.close`` returns: this overrides a Qt method,
         and callers (and Qt itself) may act on the result.
@@ -708,10 +537,5 @@ class VideoPane(VideoTimingMixin, QWidget):
                 logger.debug("OSD flush timer was already destroyed", exc_info=True)
             self._osd_flush_timer = None
 
-        player = self.mpv
-        if player:
-            gl_widget = getattr(self, "gl_widget", None)
-            callbacks, self._mpv_callbacks = self._mpv_callbacks, []
-            _shutdown_mpv_client(player, gl_widget, callbacks)
-            self.mpv = None
+        self._shutdown_decoder()
         return bool(super().close())

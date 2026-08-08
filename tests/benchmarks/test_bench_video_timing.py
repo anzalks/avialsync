@@ -15,7 +15,7 @@ from avialsync.ui.video_pane import VideoPane
 
 class _FastPane:
     def __init__(self, mapping: TimeMap) -> None:
-        self.mpv = object()
+        self.has_media = True
         self.time_map = mapping
         self.targets: list[tuple[float, bool]] = []
 

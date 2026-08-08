@@ -70,40 +70,30 @@ jobs:
       # recommends, and the Make Fixtures step below proves they arrived.
       - name: Install System Dependencies (Ubuntu)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 ffmpeg libmpv2 libegl1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 ffmpeg libegl1
         
       - name: Install System Dependencies (macOS)
         if: runner.os == 'macOS'
-        run: brew install ffmpeg mpv
+        run: brew install ffmpeg
         
       - name: Install System Dependencies (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # Pinned like the libmpv archive below it. Chocolatey moved 8.1.2 -> 9.0.0
-          # mid-day and ffmpeg 9 removed `-vsync`, turning both Windows jobs
-          # red with no commit in between; unpinned here also meant the
-          # installer bundled whatever version release day happened to serve.
+          # Pinned deliberately. Chocolatey moved 8.1.2 -> 9.0.0 mid-day and
+          # ffmpeg 9 removed `-vsync`, turning both Windows jobs red with no
+          # commit in between; unpinned here also meant the installer bundled
+          # whatever version release day happened to serve.
+          # Only ffmpeg is installed: it encodes the fixtures. Decoding needs
+          # nothing from the system since D-075, so the pinned libmpv archive
+          # that used to be fetched and SHA-256 verified here is gone.
           choco install --no-progress ffmpeg --version=9.0.0
-          $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
-          $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
-          curl.exe --fail --location --silent --show-error --retry 5 --retry-all-errors --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
-          if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
-            throw 'Downloaded libmpv archive did not match its pinned SHA-256'
-          }
-          & "$env:ChocolateyInstall\tools\7z.exe" x $archive "-o$destination" -y | Out-Null
-          $libmpv = Get-ChildItem $destination -Filter 'libmpv-2.dll' -File -Recurse | Select-Object -First 1
-          if ($null -eq $libmpv) {
-            throw 'Pinned libmpv archive did not contain libmpv-2.dll'
-          }
-          $libmpv.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install Project Dependencies
         run: pip install -e ".[dev]"
 
-      - name: Verify libmpv is importable (Windows)
-        if: runner.os == 'Windows'
-        run: python -c "import mpv; print('libmpv import succeeded')"
+      - name: Verify the decoder is importable
+        run: python -c "import av; print(f'PyAV {av.__version__} with bundled FFmpeg')"
         
       - name: Make Fixtures
         run: python tools/make_fixtures.py --small

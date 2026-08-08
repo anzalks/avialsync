@@ -111,35 +111,22 @@ jobs:
       # cost more than the entire job budget.
       - name: Install media dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 ffmpeg libmpv2 libegl1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 ffmpeg libegl1
       - name: Install media dependencies (macOS)
         if: runner.os == 'macOS'
-        run: brew install ffmpeg mpv
+        run: brew install ffmpeg
       - name: Install media dependencies (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # Pinned like the libmpv archive below it. Chocolatey moved 8.1.2 -> 9.0.0
+          # Pinned deliberately. Chocolatey moved 8.1.2 -> 9.0.0
           # mid-day and ffmpeg 9 removed `-vsync`, turning both Windows jobs
           # red with no commit in between; unpinned here also meant the
           # installer bundled whatever version release day happened to serve.
           choco install --no-progress ffmpeg --version=9.0.0
-          $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
-          $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
-          curl.exe --fail --location --silent --show-error --retry 5 --retry-all-errors --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
-          if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
-            throw 'Downloaded libmpv archive did not match its pinned SHA-256'
-          }
-          & "$env:ChocolateyInstall\tools\7z.exe" x $archive "-o$destination" -y | Out-Null
-          $libmpv = Get-ChildItem $destination -Filter 'libmpv-2.dll' -File -Recurse | Select-Object -First 1
-          if ($null -eq $libmpv) {
-            throw 'Pinned libmpv archive did not contain libmpv-2.dll'
-          }
-          $libmpv.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - run: pip install -e ".[dev]"
-      - name: Verify libmpv is importable (Windows)
-        if: runner.os == 'Windows'
-        run: python -c "import mpv; print('libmpv import succeeded')"
+      - name: Verify the decoder is importable
+        run: python -c "import av; print(f'PyAV {av.__version__} with bundled FFmpeg')"
       - name: Lint and type check
         if: runner.os == 'Linux' && matrix.python-version == '3.12'
         run: |
@@ -248,55 +235,19 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e . "pyinstaller==6.21.0"
-      - name: Install media dependencies (Linux)
+      # No media dependency here any more: the bundle stages nothing and the
+      # demo it smoke-tests is generated in-process by PyAV (D-075). What Linux
+      # still needs is AppImage and Qt runtime: AppImageTool release 12 loads
+      # libfuse.so.2, which Ubuntu 24.04 provides as libfuse2t64 — do not
+      # install the obsolete fuse package — and libegl1 is Qt's Linux floor,
+      # since the bundle starts Qt in this job.
+      - name: Install bundling dependencies (Linux)
         if: runner.os == 'Linux'
-        # AppImageTool release 12 loads libfuse.so.2. Ubuntu 24.04 provides
-        # that ABI as libfuse2t64; do not install the obsolete fuse package.
-        # libegl1 is what the quality matrix treats as Qt's Linux floor, and the
-        # bundle now starts Qt in this job too.
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 desktop-file-utils ffmpeg libmpv2 libfuse2t64 libegl1
-      - name: Install media dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ffmpeg mpv
-      - name: Install media dependencies (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          # Pinned like the libmpv archive below it. Chocolatey moved 8.1.2 -> 9.0.0
-          # mid-day and ffmpeg 9 removed `-vsync`, turning both Windows jobs
-          # red with no commit in between; unpinned here also meant the
-          # installer bundled whatever version release day happened to serve.
-          choco install --no-progress ffmpeg --version=9.0.0
-          $archive = Join-Path $env:RUNNER_TEMP 'mpv-dev-x86_64-20260607-git-71ebd08.7z'
-          $destination = Join-Path $env:RUNNER_TEMP 'libmpv'
-          curl.exe --fail --location --silent --show-error --retry 5 --retry-all-errors --output $archive 'https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260607-git-71ebd08.7z/download'
-          if ((Get-FileHash -Algorithm SHA256 $archive).Hash -ne 'FAA0BE46643CD889A1D816696F60B9962D7BB70E9D9D6E619DA368D0B22211D6') {
-            throw 'Downloaded libmpv archive did not match its pinned SHA-256'
-          }
-          & "$env:ChocolateyInstall\tools\7z.exe" x $archive "-o$destination" -y | Out-Null
-          $libmpv = Get-ChildItem $destination -Filter 'libmpv-2.dll' -File -Recurse | Select-Object -First 1
-          if ($null -eq $libmpv) {
-            throw 'Pinned libmpv archive did not contain libmpv-2.dll'
-          }
-          $libmpv.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Verify libmpv is importable (Windows)
-        if: runner.os == 'Windows'
-        run: python -c "import mpv; print('libmpv import succeeded')"
-      - name: Stage media libraries (Linux)
-        if: runner.os == 'Linux'
-        run: python packaging/fetch_media_libs.py --source /usr/lib --source /usr/bin --destination packaging/media
-      - name: Stage media libraries (macOS)
-        if: runner.os == 'macOS'
-        run: python packaging/fetch_media_libs.py --source "$(brew --prefix mpv)" --source "$(brew --prefix ffmpeg)" --destination packaging/media
-      - name: Stage media libraries (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        # Both package layouts: `ffmpeg` has shipped the binaries directly and
-        # has also been a meta-package pointing at `ffmpeg-full`. A source that
-        # does not exist is skipped, so naming both survives either.
-        run: python packaging/fetch_media_libs.py --source "$env:RUNNER_TEMP\libmpv" --source 'C:\ProgramData\chocolatey\lib\ffmpeg' --source 'C:\ProgramData\chocolatey\lib\ffmpeg-full' --destination packaging/media
-      - run: python packaging/build_bundle.py --media-root packaging/media --dist-dir dist
-      - name: Smoke test staged-media bundle
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 desktop-file-utils libfuse2t64 libegl1
+      - name: Verify the decoder is importable
+        run: python -c "import av; print(f'PyAV {av.__version__} with bundled FFmpeg')"
+      - run: python packaging/build_bundle.py --dist-dir dist
+      - name: Smoke test the bundle
         run: python packaging/smoke_test.py dist/avialsync --demo --timeout 300
       - name: Prove the Linux bundle opens on a real display
         if: runner.os == 'Linux'
