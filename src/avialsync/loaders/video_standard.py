@@ -152,7 +152,7 @@ class VideoStandardLoader(VideoSource):
         This used to shell out to ``ffprobe`` and parse its JSON.  PyAV reads
         the same fields from the same FFmpeg libraries in-process, so the media
         runtime no longer has to exist on the machine (D-075) and a four-camera
-        session stops paying four subprocess launches.
+        session stops paying four process launches.
 
         Nothing here decodes: opening a container reads headers only.
         """

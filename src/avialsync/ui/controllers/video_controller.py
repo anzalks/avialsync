@@ -31,9 +31,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Concurrent ffprobe metadata/timestamp probes.  Bounded because each one
-#: spawns a subprocess and reads from the same disk; unbounded fan-out on a
-#: 32-camera session would thrash rather than parallelise.
+#: Concurrent metadata/timestamp probes.  Bounded because each one demuxes a
+#: whole file off the same disk; unbounded fan-out on a 32-camera session would
+#: thrash rather than parallelise.  They no longer spawn subprocesses (D-075),
+#: but they are still IO-bound, which is what this limit is about.
 MAX_VIDEO_PROBES = 3
 
 
@@ -53,7 +54,7 @@ def load_video(
 def start_next_video_load(window: MainWindow) -> None:
     """Start probes up to the concurrency bound; pane creation stays serialized.
 
-    Two different limits apply here (P3.5 P1 loading).  ffprobe metadata and
+    Two different limits apply here (P3.5 P1 loading).  Metadata and
     presentation-timestamp extraction are independent per file and safe to
     overlap, so up to :data:`MAX_VIDEO_PROBES` run at once and a four-camera
     session stops paying four serial probe latencies.  Pane construction stays
