@@ -21,6 +21,7 @@ from PySide6.QtWidgets import QApplication
 from avialsync.engine.importer import ImportWorker
 from avialsync.loaders.csv_loader import CSVLoader
 from avialsync.loaders.video_standard import VideoStandardLoader
+from avialsync.ui.import_wizard import ImportWizard
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.sync_wizard import SyncWizard
 from avialsync.ui.transport import TimelineEvidence
@@ -108,6 +109,37 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
         [transport._ab_in_btn, transport._ab_out_btn],
         numbered=True,
     )
+
+    # --- The import wizard, field by field -----------------------------
+    wizard = ImportWizard(SESSION / "signal_base.csv")
+    wizard.show()
+    settle(app)
+    capture(
+        wizard,
+        out_dir / "guide_import_structure.png",
+        [wizard._has_headers_cb, wizard._sep_combo, wizard._time_col_combo],
+        numbered=True,
+    )
+    capture(
+        wizard,
+        out_dir / "guide_import_time_format.png",
+        [wizard._fmt_combo, wizard._unit_combo],
+        numbered=True,
+    )
+    capture(
+        wizard,
+        out_dir / "guide_import_timezone.png",
+        [wizard._tz_combo, wizard._anchor_chk],
+        numbered=True,
+    )
+    capture(
+        wizard,
+        out_dir / "guide_import_sentinels.png",
+        [wizard._sentinel_combo, wizard._euro_chk],
+        numbered=True,
+    )
+    wizard.close()
+    settle(app)
 
     # --- The synchronization wizard, field by field --------------------
     SyncWizard.exec = lambda self: self.show()  # type: ignore[method-assign]

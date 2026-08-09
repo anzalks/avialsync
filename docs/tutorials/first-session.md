@@ -15,22 +15,38 @@ and file size. Open **Video Properties** for resolution, duration, and the compl
 
 ![Load the recording](../_static/screenshots/demo_step3_csv_loaded.png)
 
-Drag the sensor or tracking file into the same window. Follow the importer if it asks which column
-contains time or which units apply. The traces appear below the video.
+Drag the sensor or tracking file into the same window. The import wizard opens for delimited text,
+showing the first rows as it will read them. Getting the time column, its format, and its unit right
+here is what keeps everything after this honest — [Import sensor and recording
+data](importing-data.md) walks every field.
+
+The traces appear below the video.
 
 ## 3. Find an event
 
-Drag the shared time bar until you see a meaningful event. Watch the video, traces, and values in the
-left panel together. Use plot zoom when you need a smaller time range.
-Drag the **Window** slider below the traces to choose that range. All traces keep the same fixed
-window: they sweep from left to right together and restart at the left edge together.
+Drag the shared time bar until you see a meaningful event. Watch the video, traces, and values in
+the left panel together — they are all showing the same instant.
+
+For a closer look, set **Window limit** and drag the slider below the traces. Every trace keeps the
+same window: they sweep left to right together and restart together, because comparing them is the
+point.
 
 ## 4. Mark it
 
-Select **Flag Frame** to create an annotation at the current time. The annotation table records it,
-and you can later export the list for analysis or notes.
+Select **Flag Frame**, or press `M`, to create an annotation at the current time. It records more
+than the time: for every camera loaded, it stores that camera's exact frame index. That is what
+makes the exported list usable as a corrections file for retraining a pose model — see [Flag frames
+and export](annotating-and-exporting.md).
 
 ## 5. Save an observation
 
-Use **Snapshot** to save the visible video and plots, or use the A/B controls to select a time range
-for export. Your source files remain unchanged.
+Use **Snapshot** (`Ctrl+E`) to save the visible video and plots, or mark a range with `[` and `]`
+and export a trimmed clip or a slice of the data.
+
+Your source files are never modified. Offsets, mappings, and annotations live in the session file
+beside them.
+
+## Next
+
+If your recordings do not line up, [align recordings](synchronization.md) covers offsets, drift, and
+fitting an alignment from TTL or frame-trigger evidence.

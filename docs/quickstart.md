@@ -5,8 +5,9 @@ AvialSync helps you look at an experiment in time. It does not change your origi
 ## Before you start
 
 Have one or more video files, plus any sensor, tracking, or recording files you want to inspect.
-Common video formats are supported — AvialSync decodes them itself, so nothing needs to be installed
-alongside it. Your lab may also provide a plugin for its own recording format.
+AvialSync decodes video itself, so nothing needs to be installed alongside it and it opens whatever
+its bundled FFmpeg supports — see [Formats](formats.md). Your lab may also provide a plugin for its
+own recording format.
 
 ## After installing
 
@@ -53,9 +54,19 @@ old frame.
 
 ## Align recordings
 
-Begin with the visible event that is easiest to recognize. You can adjust a camera offset in the
-left panel. For recordings with TTL pulses or frame triggers, use the synchronization wizard to
-preview a proposed alignment before accepting it. Acceptance is always explicit, and your original
-timestamps remain unchanged.
+Begin with the visible event that is easiest to recognize, and adjust that camera's offset in the
+left panel. For recordings with TTL pulses or frame triggers, the synchronization wizard fits the
+mapping from that evidence and shows you the proposed match count and residual error before you
+accept it. Acceptance is always explicit, and your original timestamps are never changed.
 
-Continue with the [first-session tutorial](tutorials/first-session.md) for a complete example.
+[Tutorial: align recordings](tutorials/synchronization.md) covers every field in that wizard.
+
+## Where to go next
+
+| If you want to | Read |
+|---|---|
+| Work through a complete example | [Inspect a first session](tutorials/first-session.md) |
+| Import a table correctly the first time | [Import sensor and recording data](tutorials/importing-data.md) |
+| Align cameras to TTL or frame triggers | [Align recordings](tutorials/synchronization.md) |
+| Mark frames and get data out | [Flag frames and export](tutorials/annotating-and-exporting.md) |
+| Know every control in the window | [User Guide](user-guide/index.md) |

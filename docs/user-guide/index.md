@@ -16,6 +16,15 @@
 - **Shared time bar** moves every view together.
 - **Left panel** lists files, visibility controls, offsets, properties, values, and annotations.
 
+## Where the detail lives
+
+- Importing tables — separator, time format and unit, timezone, sentinels:
+  [Tutorial: import sensor and recording data](../tutorials/importing-data.md)
+- Aligning recordings: [Tutorial: align recordings](../tutorials/synchronization.md)
+- Flagging frames and exporting: [Tutorial: flag frames and export](../tutorials/annotating-and-exporting.md)
+- Sessions, proxies, the 3D view, plot navigation, shortcuts:
+  [Sessions, proxies, and the 3D view](sessions-and-media.md)
+
 ## Aligning recordings
 
 Three routes, in the order to try them — all covered field by field, with annotated screenshots, in
