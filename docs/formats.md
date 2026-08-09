@@ -21,10 +21,17 @@ tables, arrays, and audio are left to the loaders that understand them.
 
 Raw formats such as `.bin` are the exception, and unavoidably so: they carry no header describing
 resolution, pixel format, or rate, so nothing can infer how to read them. Those belong in a
-[plugin](plugin-guide.md), which can declare the parameters and convert on import. AvialSync reads the video timing and uses actual frame timestamps where
-available, which matters for variable-frame-rate recordings. Presentation timestamps override a
-misleading container CFR declaration. They are cached beside the video after the first probe, so
-subsequent opens do not scan every frame again.
+[plugin](plugin-guide.md), which can declare the parameters and convert on import.
+
+### Timing comes from the frames, not the container
+
+AvialSync reads every frame's own presentation timestamp rather than trusting the rate a container
+declares. That matters more often than it sounds: a camera running at a varying exposure trigger
+routinely writes a file claiming a constant 30 fps, and its own timestamps prove otherwise.
+
+Those timestamps decide whether a recording is treated as CFR or VFR, where a frame step lands, and
+which frame is named at any moment. They are cached beside the video after the first read, so
+opening it again does not walk the file a second time.
 
 ## Sensor and tracking data
 

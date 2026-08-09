@@ -62,9 +62,33 @@ quality.
 
 ## A file does not open
 
-Check its **Properties** or import report for the detected format and error. For a lab-specific file,
-install the matching plugin. For a video, make sure the installed AvialSync release or local media
-software can open the codec.
+Check its **Properties** or import report for the detected format and error. For a lab-specific
+file, install the matching plugin.
+
+For a video, AvialSync accepts anything its bundled decoder can genuinely open — it reads the header
+rather than trusting the file name, so an unusual extension is not itself a reason for rejection.
+Two cases it will decline on purpose:
+
+- **A still image.** A PNG or TIFF is technically decodable as a one-frame video, and treating one
+  as a camera would be wrong more often than useful.
+- **A raw format such as `.bin`.** It carries no header saying resolution, pixel format, or rate, so
+  nothing can infer how to read it. That needs a [plugin](plugin-guide.md) to declare those.
+
+## The import wizard read my timestamps wrong
+
+Everything downstream — alignment, frame numbers, exports — inherits this, so it is worth
+correcting rather than working around.
+
+The usual cause is the **Numeric unit**: a column of plain numbers is ambiguous between seconds,
+milliseconds, microseconds, and nanoseconds, and choosing the wrong one scales the whole recording.
+Check the preview's first and last times against the duration you actually recorded.
+
+The second cause is **Timezone**. AvialSync makes you choose rather than defaulting, because a
+naive timestamp silently treated as UTC is how comparable tools produced 1–2 hour "corruption"
+reports. Re-import with the right zone; the cached parse is keyed on the file's content, so
+changing the setting rebuilds it.
+
+See [Import sensor and recording data](tutorials/importing-data.md).
 
 ## The plots look slow or too dense
 

@@ -41406,11 +41406,19 @@
       "_origin": "ast"
     },
     {
+      "id": "docs_formats_timing_comes_from_the_frames_not_the_container",
+      "label": "Timing comes from the frames, not the container",
+      "file_type": "document",
+      "source_file": "docs/formats.md",
+      "source_location": "L26",
+      "_origin": "ast"
+    },
+    {
       "id": "docs_formats_sensor_and_tracking_data",
       "label": "Sensor and tracking data",
       "file_type": "document",
       "source_file": "docs/formats.md",
-      "source_location": "L29",
+      "source_location": "L36",
       "_origin": "ast"
     },
     {
@@ -41418,7 +41426,7 @@
       "label": "Lab formats",
       "file_type": "document",
       "source_file": "docs/formats.md",
-      "source_location": "L35",
+      "source_location": "L42",
       "_origin": "ast"
     },
     {
@@ -41674,7 +41682,7 @@
       "label": "After installing",
       "file_type": "document",
       "source_file": "docs/quickstart.md",
-      "source_location": "L11",
+      "source_location": "L12",
       "_origin": "ast"
     },
     {
@@ -41682,7 +41690,7 @@
       "label": "Try it without your own data",
       "file_type": "document",
       "source_file": "docs/quickstart.md",
-      "source_location": "L21",
+      "source_location": "L22",
       "_origin": "ast"
     },
     {
@@ -41690,7 +41698,7 @@
       "label": "Open files",
       "file_type": "document",
       "source_file": "docs/quickstart.md",
-      "source_location": "L32",
+      "source_location": "L33",
       "_origin": "ast"
     },
     {
@@ -41698,7 +41706,7 @@
       "label": "Inspect one moment",
       "file_type": "document",
       "source_file": "docs/quickstart.md",
-      "source_location": "L42",
+      "source_location": "L43",
       "_origin": "ast"
     },
     {
@@ -41706,7 +41714,15 @@
       "label": "Align recordings",
       "file_type": "document",
       "source_file": "docs/quickstart.md",
-      "source_location": "L54",
+      "source_location": "L55",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_quickstart_where_to_go_next",
+      "label": "Where to go next",
+      "file_type": "document",
+      "source_file": "docs/quickstart.md",
+      "source_location": "L64",
       "_origin": "ast"
     },
     {
@@ -42030,11 +42046,19 @@
       "_origin": "ast"
     },
     {
+      "id": "docs_troubleshooting_the_import_wizard_read_my_timestamps_wrong",
+      "label": "The import wizard read my timestamps wrong",
+      "file_type": "document",
+      "source_file": "docs/troubleshooting.md",
+      "source_location": "L77",
+      "_origin": "ast"
+    },
+    {
       "id": "docs_troubleshooting_the_plots_look_slow_or_too_dense",
       "label": "The plots look slow or too dense",
       "file_type": "document",
       "source_file": "docs/troubleshooting.md",
-      "source_location": "L69",
+      "source_location": "L93",
       "_origin": "ast"
     },
     {
@@ -42130,7 +42154,7 @@
       "label": "3. Find an event",
       "file_type": "document",
       "source_file": "docs/tutorials/first-session.md",
-      "source_location": "L21",
+      "source_location": "L25",
       "_origin": "ast"
     },
     {
@@ -42138,7 +42162,7 @@
       "label": "4. Mark it",
       "file_type": "document",
       "source_file": "docs/tutorials/first-session.md",
-      "source_location": "L28",
+      "source_location": "L34",
       "_origin": "ast"
     },
     {
@@ -42146,7 +42170,15 @@
       "label": "5. Save an observation",
       "file_type": "document",
       "source_file": "docs/tutorials/first-session.md",
-      "source_location": "L33",
+      "source_location": "L41",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_first_session_next",
+      "label": "Next",
+      "file_type": "document",
+      "source_file": "docs/tutorials/first-session.md",
+      "source_location": "L49",
       "_origin": "ast"
     },
     {
@@ -133026,12 +133058,22 @@
       "_origin": "ast"
     },
     {
+      "source": "docs_formats_video",
+      "target": "docs_formats_timing_comes_from_the_frames_not_the_container",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/formats.md",
+      "source_location": "L26",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "docs_formats_formats",
       "target": "docs_formats_sensor_and_tracking_data",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/formats.md",
-      "source_location": "L29",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133041,7 +133083,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/formats.md",
-      "source_location": "L35",
+      "source_location": "L42",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133336,12 +133378,22 @@
       "_origin": "ast"
     },
     {
+      "source": "docs_quickstart",
+      "target": "docs_formats",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/quickstart.md",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "docs_quickstart_quickstart",
       "target": "docs_quickstart_after_installing",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/quickstart.md",
-      "source_location": "L11",
+      "source_location": "L12",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133351,7 +133403,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "docs/quickstart.md",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133361,7 +133413,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "docs/quickstart.md",
-      "source_location": "L19",
+      "source_location": "L20",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133371,7 +133423,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/quickstart.md",
-      "source_location": "L21",
+      "source_location": "L22",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133381,7 +133433,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/quickstart.md",
-      "source_location": "L32",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133391,7 +133443,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/quickstart.md",
-      "source_location": "L42",
+      "source_location": "L43",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133401,7 +133453,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/quickstart.md",
-      "source_location": "L54",
+      "source_location": "L55",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_quickstart",
+      "target": "docs_tutorials_synchronization",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/quickstart.md",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_quickstart_quickstart",
+      "target": "docs_quickstart_where_to_go_next",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/quickstart.md",
+      "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133411,7 +133483,37 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "docs/quickstart.md",
-      "source_location": "L61",
+      "source_location": "L68",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_quickstart",
+      "target": "docs_tutorials_importing_data",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/quickstart.md",
+      "source_location": "L69",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_quickstart",
+      "target": "docs_tutorials_annotating_and_exporting",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/quickstart.md",
+      "source_location": "L71",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_quickstart",
+      "target": "docs_user_guide_index",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/quickstart.md",
+      "source_location": "L72",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133796,12 +133898,42 @@
       "_origin": "ast"
     },
     {
+      "source": "docs_troubleshooting",
+      "target": "docs_plugin_guide",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/troubleshooting.md",
+      "source_location": "L75",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_troubleshooting_troubleshooting",
+      "target": "docs_troubleshooting_the_import_wizard_read_my_timestamps_wrong",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/troubleshooting.md",
+      "source_location": "L77",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_troubleshooting",
+      "target": "docs_tutorials_importing_data",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/troubleshooting.md",
+      "source_location": "L91",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "docs_troubleshooting_troubleshooting",
       "target": "docs_troubleshooting_the_plots_look_slow_or_too_dense",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/troubleshooting.md",
-      "source_location": "L69",
+      "source_location": "L93",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133901,7 +134033,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/tutorials/first-session.md",
-      "source_location": "L21",
+      "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133911,7 +134043,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/tutorials/first-session.md",
-      "source_location": "L28",
+      "source_location": "L34",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133921,7 +134053,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/tutorials/first-session.md",
-      "source_location": "L33",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_first_session_tutorial_inspect_a_first_session",
+      "target": "docs_tutorials_first_session_next",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/first-session.md",
+      "source_location": "L49",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_first_session",
+      "target": "docs_tutorials_synchronization",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/first-session.md",
+      "source_location": "L51",
       "weight": 1.0,
       "_origin": "ast"
     },
