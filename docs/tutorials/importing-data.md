@@ -11,7 +11,7 @@ so you can see the parse before anything is cached.
 
 ![Headers, separator, and time column in the import wizard](../_static/screenshots/guide_import_structure.png)
 
-1. **File has headers** — tick when the first row is column names rather than data. The preview
+1. **File has headers** — tick when the first row is column names, not data. The preview
    updates immediately, which is the quickest way to check you got it right.
 2. **Separator** — comma, semicolon, tab, space, or pipe. A guess is made from the file and shown
    selected; change it if the preview columns look wrong.
@@ -46,9 +46,9 @@ not look like the duration you recorded, the unit is wrong.
 ![Sentinel value and European decimals](../_static/screenshots/guide_import_sentinels.png)
 
 1. **Sentinel → NaN** — the value your logger writes to mean "no reading": `-9999`, `NaN`, `NA`,
-   `#N/A`, or one you type. It becomes NaN, which plots as a break in the trace rather than a real
-   measurement. Nothing is converted unless you ask: AvialSync never invents data the logger did
-   not record, and never silently turns a real `-9999` into a gap.
+   `#N/A`, or one you type. It becomes NaN, which plots as a break in the trace instead of a real
+   measurement. Nothing is converted unless you ask: AvialSync will not invent data the
+   logger did not record, and will not silently turn a real `-9999` into a gap.
 2. **European decimals** — tick when the file writes `1,5` for one-and-a-half. This also changes
    how the separator is read, so check the preview after toggling it.
 

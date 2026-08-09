@@ -42318,8 +42318,8 @@
       "_origin": "ast"
     },
     {
-      "id": "docs_tutorials_synchronization_preview_then_accept_never_the_other_way_round",
-      "label": "Preview, then accept — never the other way round",
+      "id": "docs_tutorials_synchronization_preview_first_then_accept",
+      "label": "Preview first, then accept",
       "file_type": "document",
       "source_file": "docs/tutorials/synchronization.md",
       "source_location": "L86",
@@ -134249,7 +134249,7 @@
     },
     {
       "source": "docs_tutorials_synchronization_2_evidence_based_alignment_from_ttl_or_frame_triggers",
-      "target": "docs_tutorials_synchronization_preview_then_accept_never_the_other_way_round",
+      "target": "docs_tutorials_synchronization_preview_first_then_accept",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/tutorials/synchronization.md",

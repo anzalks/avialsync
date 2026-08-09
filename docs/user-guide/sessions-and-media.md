@@ -13,8 +13,8 @@ which means a session is small and safe to share with a colleague — provided t
 same files.
 
 The session is also written automatically: periodically while you work, before the window closes,
-and before a video pane is torn down. That last one is deliberate rather than incidental — losing a
-session mid-experiment because a source was removed would cost everything since the last save.
+and before a video pane is torn down. That last one is deliberate: losing a session
+mid-experiment because a source was removed would cost everything since the last save.
 
 ### When files have moved
 
@@ -36,8 +36,8 @@ which are already every-frame-keyframe and where a proxy would only cost disk. T
 high-speed footage is usually already all-intra.
 
 The proxy is written beside the source with a `_proxy` suffix, generation runs in the background
-with progress, and it can be cancelled — a cancelled proxy removes its partial file rather than
-leaving something that looks finished.
+with progress, and it can be cancelled — a cancelled proxy deletes its partial file, so
+nothing is left behind that looks finished.
 
 ## The 3D tracking view
 
@@ -55,7 +55,7 @@ point names do not imply anatomy, and inventing links would be inventing data.
 
 ## Plot navigation
 
-Plots are a fixed oscilloscope-style window rather than a scrolling strip. The trace fills left to
+Plots are a fixed oscilloscope-style window, not a scrolling strip. The trace fills left to
 right and restarts at the left edge when the window completes.
 
 - **Window limit** sets the span, in `ms`, `s`, `min`, or `h`. Pick the unit first: a smaller unit
@@ -66,8 +66,8 @@ right and restarts at the left edge when the window completes.
 - The small **×** beside a plot hides that row, which also unchecks it in the left panel.
 
 Everything drawn goes through a decimation pyramid, so a 180-million-sample channel draws one
-column per pixel rather than attempting every point. Gaps in the data are drawn as breaks, and NaN
-is skipped rather than plotted as zero.
+column per pixel instead of attempting every point. Gaps in the data are drawn as breaks, and NaN
+is skipped, never plotted as zero.
 
 ## Appearance
 
@@ -80,7 +80,7 @@ disturb what you are looking at.
 ## Keyboard shortcuts
 
 **Help → Keyboard Shortcuts** lists every registered shortcut, grouped by category, read from the
-actions themselves — so it is accurate for the version you are running rather than a list in a
+actions themselves — so it is accurate for the version you are running, unlike a list in a
 document that drifts.
 
 The ones worth knowing without looking:

@@ -12,7 +12,7 @@ the shared timeline. The original stays byte-for-byte as the acquisition system 
 Find an event visible in more than one recording: a flash, a movement, a pulse, a camera frame
 trigger. That shared event is what you will judge alignment against.
 
-Load your files first — see [the first-session tutorial](first-session.md).
+Load your files first; [the first-session tutorial](first-session.md) covers that.
 
 ## 1. A fixed offset, when one recording is simply early or late
 
@@ -28,7 +28,7 @@ Every source carries its own **Offset** and **Drift** in the left panel.
 
 Scrub to your shared event, adjust **Offset** until the views agree, then check a second event near
 the *end* of the recording. If the two events need different offsets, the clocks are drifting and
-you want **Drift** as well — or better, the evidence-based route below, which measures both.
+you want **Drift** as well, or better still the evidence-based route below, which measures both.
 
 ## 2. Evidence-based alignment from TTL or frame triggers
 
@@ -83,7 +83,7 @@ directly instead of fitting.
 2. **Manual drift**, in parts per million.
 3. **Use manual mapping** applies them as a proposal, which you still accept explicitly.
 
-### Preview, then accept — never the other way round
+### Preview first, then accept
 
 ![The preview and accept buttons](../_static/screenshots/guide_sync_preview_accept.png)
 
@@ -91,8 +91,8 @@ directly instead of fitting.
    line reports how many events matched, the fitted offset and drift, and the residual timing error.
    **Read that before accepting.** A fit from three matched events out of nine hundred is telling
    you the threshold or the strategy is wrong.
-2. **Accept mapping** applies it. Until you press this, nothing has changed — a proposal is never
-   applied silently, and never becomes your data.
+2. **Accept mapping** applies it. Until you press this, nothing has changed. A proposal is never
+   applied silently, and it never becomes your data on its own.
 
 Accepted mappings are saved with the session, so a colleague can see what was applied and on what
 evidence.
@@ -109,5 +109,5 @@ Alignment that looks right at the event you used to align it proves very little.
   trigger timestamps, and every video seeks from the same master trigger while keeping its own
   original presentation timestamps.
 
-If a camera has no coverage at the selected time it shows **No Footage** rather than a stale frame —
-that is correct behaviour, not a fault.
+If a camera has no coverage at the selected time it shows **No Footage** instead of a stale frame.
+That is correct behaviour, not a fault.

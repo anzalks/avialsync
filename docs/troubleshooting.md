@@ -35,7 +35,7 @@ avialsync` brings its own decoder and there is nothing further to install — th
 dialog that earlier versions showed is gone along with the library it asked for.
 
 If video still does not appear, open **Help → Diagnostics**: it names the decoder in use. A failure
-there means the install itself is broken rather than incomplete, so reinstall with
+there means the install is broken, not merely incomplete, so reinstall with
 `python -m pip install --force-reinstall avialsync`.
 
 ## A video says “No Footage”
@@ -77,7 +77,7 @@ Two cases it will decline on purpose:
 ## The import wizard read my timestamps wrong
 
 Everything downstream — alignment, frame numbers, exports — inherits this, so it is worth
-correcting rather than working around.
+correcting properly instead of working around.
 
 The usual cause is the **Numeric unit**: a column of plain numbers is ambiguous between seconds,
 milliseconds, microseconds, and nanoseconds, and choosing the wrong one scales the whole recording.
