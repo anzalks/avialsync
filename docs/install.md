@@ -32,6 +32,16 @@ installer requires one:
   way.
 - **Linux:** the AppImage is already a plain file you run from anywhere you can write.
 
+  One exception worth knowing, because it is the only place this claim can
+  break: an AppImage mounts itself using FUSE 2, and distributions that ship
+  only FUSE 3 need `libfuse2` installed — which *does* need admin. You do not
+  have to install it. Run the image with `--appimage-extract-and-run` instead,
+  which unpacks to a temporary directory and needs no privileges at all:
+
+  ```bash
+  ./AvialSync.AppImage --appimage-extract-and-run
+  ```
+
 The `pip` install below is also entirely per-user.
 
 ### First-launch security warnings

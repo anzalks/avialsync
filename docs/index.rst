@@ -26,6 +26,7 @@ layout.*
    user-guide/index
    tutorials/first-session
    tutorials/synchronization
+   tutorials/annotating-and-exporting
    formats
    troubleshooting
 
