@@ -17,6 +17,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QApplication
 
 from avialsync.ui import video_pane
@@ -266,6 +267,29 @@ def test_reopening_replaces_the_decoder_rather_than_leaking_it(clip: Path, qtbot
         assert pane._thread is not None and pane._thread.isRunning()
     finally:
         pane.close()
+
+
+def test_qt_closing_the_pane_also_stops_the_decode_thread(clip: Path, qtbot) -> None:
+    """Qt closes widgets without calling ``close()`` — the thread must still stop.
+
+    ``close()`` only runs when something calls it. An application quitting, or a
+    parent being destroyed, delivers ``closeEvent`` instead, and a ``QThread``
+    still running when its C++ object is destroyed makes Qt *abort* the process:
+    "QThread: Destroyed while thread is still running". That is a crash on exit
+    rather than a leak, and it is what the screenshot tool hit.
+
+    Explicit shutdown through ``VideoGrid.shutdown()`` is still the intended
+    path; this is the backstop, not permission to rely on destruction.
+    """
+    pane = _opened_pane(clip, qtbot)
+    thread = pane._thread
+    assert thread is not None and thread.isRunning()
+
+    # Qt's own close path, not the convenience method.
+    pane.closeEvent(QCloseEvent())
+
+    assert not thread.isRunning()
+    assert pane._worker is None
 
 
 def test_closing_a_pane_that_never_opened_anything_is_safe(qapp: QApplication) -> None:

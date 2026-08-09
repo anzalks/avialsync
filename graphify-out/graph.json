@@ -482,7 +482,7 @@
       "ecosystem": "python",
       "source_file": "pyproject.toml",
       "source_location": "L1",
-      "version": "0.1.0b8",
+      "version": "0.1.0b9",
       "_origin": "ast"
     },
     {
@@ -11254,7 +11254,7 @@
       "_origin": "ast"
     },
     {
-      "id": "qcloseevent",
+      "id": "src_avialsync_ui_main_window_py_qcloseevent",
       "label": "QCloseEvent",
       "file_type": "code",
       "source_file": "",
@@ -19518,11 +19518,35 @@
       "_origin": "ast"
     },
     {
+      "id": "src_avialsync_ui_video_pane_videopane_stop_everything",
+      "label": "._stop_everything()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L524",
+      "_origin": "ast"
+    },
+    {
       "id": "src_avialsync_ui_video_pane_videopane_close",
       "label": ".close()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L524",
+      "source_location": "L537",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_video_pane_videopane_closeevent",
+      "label": ".closeEvent()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L546",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_video_pane_py_qcloseevent",
+      "label": "QCloseEvent",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
       "_origin": "ast"
     },
     {
@@ -19751,10 +19775,26 @@
     },
     {
       "id": "src_avialsync_ui_video_pane_rationale_525",
-      "label": "Stop decoding before closing the widget.          Returns whatever ``QWidget.clo",
+      "label": "Stop the deferred paint and the decode thread, in that order.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
       "source_location": "L525",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_video_pane_rationale_538",
+      "label": "Stop decoding before closing the widget.          Returns whatever ``QWidget.clo",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L538",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_video_pane_rationale_547",
+      "label": "Stop the decode thread when Qt closes the pane by any other route.          ``cl",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L547",
       "_origin": "ast"
     },
     {
@@ -35666,7 +35706,7 @@
       "label": "clip()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L33",
+      "source_location": "L34",
       "_origin": "ast"
     },
     {
@@ -35690,7 +35730,7 @@
       "label": "_opened_pane()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L39",
+      "source_location": "L40",
       "_origin": "ast"
     },
     {
@@ -35698,7 +35738,7 @@
       "label": "test_the_pane_renders_the_same_way_on_every_platform()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L50",
+      "source_location": "L51",
       "_origin": "ast"
     },
     {
@@ -35714,7 +35754,7 @@
       "label": "test_a_pane_with_no_media_still_builds_its_chrome()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L67",
+      "source_location": "L68",
       "_origin": "ast"
     },
     {
@@ -35722,7 +35762,7 @@
       "label": "test_opening_a_clip_publishes_its_timestamps_and_size()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L94",
+      "source_location": "L95",
       "_origin": "ast"
     },
     {
@@ -35730,7 +35770,7 @@
       "label": "test_a_seek_paints_the_frame_containing_that_time()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L105",
+      "source_location": "L106",
       "_origin": "ast"
     },
     {
@@ -35738,7 +35778,7 @@
       "label": "test_the_pane_reports_the_frames_own_timestamp_not_the_request()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L119",
+      "source_location": "L120",
       "_origin": "ast"
     },
     {
@@ -35746,7 +35786,7 @@
       "label": "test_decoding_never_runs_on_the_ui_thread()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L130",
+      "source_location": "L131",
       "_origin": "ast"
     },
     {
@@ -35754,7 +35794,7 @@
       "label": "test_a_seek_before_the_file_opens_is_not_lost()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L152",
+      "source_location": "L153",
       "_origin": "ast"
     },
     {
@@ -35762,7 +35802,7 @@
       "label": "test_a_pane_that_cannot_open_its_file_says_so()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L165",
+      "source_location": "L166",
       "_origin": "ast"
     },
     {
@@ -35770,7 +35810,7 @@
       "label": "test_requests_coalesce_onto_the_newest_wanted_time()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L184",
+      "source_location": "L185",
       "_origin": "ast"
     },
     {
@@ -35778,7 +35818,7 @@
       "label": "test_video_osd_queue_keeps_only_latest_frame()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L210",
+      "source_location": "L211",
       "_origin": "ast"
     },
     {
@@ -35786,7 +35826,7 @@
       "label": "test_close_stops_the_decode_thread()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L239",
+      "source_location": "L240",
       "_origin": "ast"
     },
     {
@@ -35794,7 +35834,15 @@
       "label": "test_reopening_replaces_the_decoder_rather_than_leaking_it()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L256",
+      "source_location": "L257",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_video_pane_test_qt_closing_the_pane_also_stops_the_decode_thread",
+      "label": "test_qt_closing_the_pane_also_stops_the_decode_thread()",
+      "file_type": "code",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L272",
       "_origin": "ast"
     },
     {
@@ -35802,7 +35850,7 @@
       "label": "test_closing_a_pane_that_never_opened_anything_is_safe()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L271",
+      "source_location": "L295",
       "_origin": "ast"
     },
     {
@@ -35810,7 +35858,7 @@
       "label": "test_the_surface_holds_the_buffer_its_image_borrows()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L281",
+      "source_location": "L305",
       "_origin": "ast"
     },
     {
@@ -35818,7 +35866,7 @@
       "label": "test_losing_footage_clears_the_frame_instead_of_freezing_it()",
       "file_type": "code",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L299",
+      "source_location": "L323",
       "_origin": "ast"
     },
     {
@@ -35830,123 +35878,131 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_51",
+      "id": "tests_test_video_pane_rationale_52",
       "label": "No render context, no ``wid`` embedding, no headless special case.      The thre",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L51",
+      "source_location": "L52",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_68",
+      "id": "tests_test_video_pane_rationale_69",
       "label": "A pane is usable before anything is opened in it.      ``__init__`` used to abor",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L68",
+      "source_location": "L69",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_95",
+      "id": "tests_test_video_pane_rationale_96",
       "label": "The pane adopts the decoder's table; nothing is inferred from a rate.",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L95",
+      "source_location": "L96",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_106",
+      "id": "tests_test_video_pane_rationale_107",
       "label": "End-to-end, through the real thread: the pixels must name the frame.",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L106",
+      "source_location": "L107",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_120",
+      "id": "tests_test_video_pane_rationale_121",
       "label": "``time_pos`` is evidence about what is on screen, not an echo.",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L120",
+      "source_location": "L121",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_131",
+      "id": "tests_test_video_pane_rationale_132",
       "label": "AGENTS.md rule 3: no decoding on the thread that has to stay responsive.",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L131",
+      "source_location": "L132",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_153",
+      "id": "tests_test_video_pane_rationale_154",
       "label": "A session restores a scrub position before any decoder exists.",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L153",
+      "source_location": "L154",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_166",
+      "id": "tests_test_video_pane_rationale_167",
       "label": "A bad file must leave a pane that explains itself, not a traceback.",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L166",
+      "source_location": "L167",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_185",
+      "id": "tests_test_video_pane_rationale_186",
       "label": "A 60 Hz tick must not queue a backlog of frames nobody will see.      Sync corre",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L185",
+      "source_location": "L186",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_211",
+      "id": "tests_test_video_pane_rationale_212",
       "label": "A delayed UI thread must not accumulate one OSD event per decoded frame.",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L211",
+      "source_location": "L212",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_240",
+      "id": "tests_test_video_pane_rationale_241",
       "label": "Ownership is explicit, exactly as it was for libmpv's event thread.      The pan",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L240",
+      "source_location": "L241",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_257",
+      "id": "tests_test_video_pane_rationale_258",
       "label": "Relinking a source must not leave the previous file's thread running.",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L257",
+      "source_location": "L258",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_272",
+      "id": "tests_test_video_pane_rationale_273",
+      "label": "Qt closes widgets without calling ``close()`` — the thread must still stop.",
+      "file_type": "rationale",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L273",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_video_pane_rationale_296",
       "label": "Teardown runs on panes that failed or were never used.",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L272",
+      "source_location": "L296",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_282",
+      "id": "tests_test_video_pane_rationale_306",
       "label": "``QImage`` does not copy the array it wraps.      Dropping the array would leave",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L282",
+      "source_location": "L306",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_video_pane_rationale_300",
+      "id": "tests_test_video_pane_rationale_324",
       "label": "D-010: outside a source's bounds we show a placeholder, never a stale frame.",
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L300",
+      "source_location": "L324",
       "_origin": "ast"
     },
     {
@@ -37174,11 +37230,27 @@
       "_origin": "ast"
     },
     {
+      "id": "tools_generate_demo_screenshots_pin_appearance",
+      "label": "_pin_appearance()",
+      "file_type": "code",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L36",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_demo_screenshots_py_qapplication",
+      "label": "QApplication",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
       "id": "tools_generate_demo_screenshots_generate_screenshots",
       "label": "generate_screenshots()",
       "file_type": "code",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L25",
+      "source_location": "L49",
       "_origin": "ast"
     },
     {
@@ -37194,7 +37266,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L121",
+      "source_location": "L154",
       "_origin": "ast"
     },
     {
@@ -37203,6 +37275,14 @@
       "file_type": "rationale",
       "source_file": "tools/generate_demo_screenshots.py",
       "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_demo_screenshots_rationale_37",
+      "label": "Force the documented appearance without touching saved preferences.      ``apply",
+      "file_type": "rationale",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L37",
       "_origin": "ast"
     },
     {
@@ -68075,7 +68155,7 @@
     },
     {
       "source": "src_avialsync_ui_main_window_mainwindow_closeevent",
-      "target": "qcloseevent",
+      "target": "src_avialsync_ui_main_window_py_qcloseevent",
       "relation": "references",
       "context": "parameter_type",
       "confidence": "EXTRACTED",
@@ -85990,11 +86070,42 @@
     },
     {
       "source": "src_avialsync_ui_video_pane_videopane",
-      "target": "src_avialsync_ui_video_pane_videopane_close",
+      "target": "src_avialsync_ui_video_pane_videopane_stop_everything",
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
       "source_location": "L524",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_video_pane_videopane",
+      "target": "src_avialsync_ui_video_pane_videopane_close",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L537",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_video_pane_videopane",
+      "target": "src_avialsync_ui_video_pane_videopane_closeevent",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L546",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_video_pane_videopane_closeevent",
+      "target": "src_avialsync_ui_video_pane_py_qcloseevent",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L546",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -86186,13 +86297,35 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_videopane_close",
+      "source": "src_avialsync_ui_video_pane_videopane_stop_everything",
       "target": "src_avialsync_ui_video_pane_videopane_shutdown_decoder",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L540",
+      "source_location": "L535",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_video_pane_videopane_close",
+      "target": "src_avialsync_ui_video_pane_videopane_stop_everything",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L543",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_video_pane_videopane_closeevent",
+      "target": "src_avialsync_ui_video_pane_videopane_stop_everything",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L560",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -86478,11 +86611,31 @@
     },
     {
       "source": "src_avialsync_ui_video_pane_rationale_525",
-      "target": "src_avialsync_ui_video_pane_videopane_close",
+      "target": "src_avialsync_ui_video_pane_videopane_stop_everything",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
       "source_location": "L525",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_video_pane_rationale_538",
+      "target": "src_avialsync_ui_video_pane_videopane_close",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L538",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_video_pane_rationale_547",
+      "target": "src_avialsync_ui_video_pane_videopane_closeevent",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L547",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -121898,7 +122051,7 @@
     },
     {
       "source": "tests_test_video_pane",
-      "target": "pyside6_qtwidgets",
+      "target": "pyside6_qtgui",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -121909,18 +122062,18 @@
     },
     {
       "source": "tests_test_video_pane",
-      "target": "src_avialsync_ui_init",
+      "target": "pyside6_qtwidgets",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L22",
+      "source_location": "L21",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_video_pane",
-      "target": "tests_util_framestrip",
+      "target": "src_avialsync_ui_init",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -121931,7 +122084,7 @@
     },
     {
       "source": "tests_test_video_pane",
-      "target": "tests_util_pyav_fixtures",
+      "target": "tests_util_framestrip",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -121942,11 +122095,22 @@
     },
     {
       "source": "tests_test_video_pane",
+      "target": "tests_util_pyav_fixtures",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_video_pane",
       "target": "tests_test_video_pane_clip",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L33",
+      "source_location": "L34",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -121957,7 +122121,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L33",
+      "source_location": "L34",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -121968,7 +122132,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L33",
+      "source_location": "L34",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -121978,7 +122142,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L39",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -121989,7 +122153,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L39",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122000,7 +122164,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L39",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122010,7 +122174,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L50",
+      "source_location": "L51",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122021,7 +122185,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L50",
+      "source_location": "L51",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122031,7 +122195,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L67",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122042,7 +122206,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L67",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122052,7 +122216,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L94",
+      "source_location": "L95",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122063,7 +122227,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L94",
+      "source_location": "L95",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122073,7 +122237,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L105",
+      "source_location": "L106",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122084,7 +122248,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L105",
+      "source_location": "L106",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122094,7 +122258,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L119",
+      "source_location": "L120",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122105,7 +122269,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L119",
+      "source_location": "L120",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122115,7 +122279,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L130",
+      "source_location": "L131",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122126,7 +122290,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L130",
+      "source_location": "L131",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122136,7 +122300,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L152",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122147,7 +122311,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L152",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122157,7 +122321,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L165",
+      "source_location": "L166",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122168,7 +122332,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L165",
+      "source_location": "L166",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122178,7 +122342,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L184",
+      "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122188,7 +122352,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L210",
+      "source_location": "L211",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122198,7 +122362,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L239",
+      "source_location": "L240",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122209,7 +122373,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L239",
+      "source_location": "L240",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122219,7 +122383,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L256",
+      "source_location": "L257",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122230,7 +122394,28 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L256",
+      "source_location": "L257",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_video_pane",
+      "target": "tests_test_video_pane_test_qt_closing_the_pane_also_stops_the_decode_thread",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L272",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_video_pane_test_qt_closing_the_pane_also_stops_the_decode_thread",
+      "target": "tests_test_video_pane_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L272",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122240,7 +122425,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L271",
+      "source_location": "L295",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122251,7 +122436,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L271",
+      "source_location": "L295",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122261,7 +122446,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L281",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122272,7 +122457,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L281",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122282,7 +122467,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L299",
+      "source_location": "L323",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122293,7 +122478,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L299",
+      "source_location": "L323",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122304,7 +122489,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L40",
+      "source_location": "L41",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122315,7 +122500,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L57",
+      "source_location": "L58",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122326,7 +122511,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L74",
+      "source_location": "L75",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122337,7 +122522,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L96",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122348,7 +122533,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L107",
+      "source_location": "L108",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122359,7 +122544,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L121",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122370,7 +122555,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L132",
+      "source_location": "L133",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122381,7 +122566,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L154",
+      "source_location": "L155",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122392,7 +122577,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L170",
+      "source_location": "L171",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122403,7 +122588,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L245",
+      "source_location": "L246",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122414,7 +122599,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L258",
+      "source_location": "L259",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_video_pane_test_qt_closing_the_pane_also_stops_the_decode_thread",
+      "target": "tests_test_video_pane_opened_pane",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L284",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122425,7 +122621,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L273",
+      "source_location": "L297",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122436,7 +122632,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L301",
+      "source_location": "L325",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122451,152 +122647,162 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_51",
+      "source": "tests_test_video_pane_rationale_52",
       "target": "tests_test_video_pane_test_the_pane_renders_the_same_way_on_every_platform",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L51",
+      "source_location": "L52",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_68",
+      "source": "tests_test_video_pane_rationale_69",
       "target": "tests_test_video_pane_test_a_pane_with_no_media_still_builds_its_chrome",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L68",
+      "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_95",
+      "source": "tests_test_video_pane_rationale_96",
       "target": "tests_test_video_pane_test_opening_a_clip_publishes_its_timestamps_and_size",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L95",
+      "source_location": "L96",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_106",
+      "source": "tests_test_video_pane_rationale_107",
       "target": "tests_test_video_pane_test_a_seek_paints_the_frame_containing_that_time",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L106",
+      "source_location": "L107",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_120",
+      "source": "tests_test_video_pane_rationale_121",
       "target": "tests_test_video_pane_test_the_pane_reports_the_frames_own_timestamp_not_the_request",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L120",
+      "source_location": "L121",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_131",
+      "source": "tests_test_video_pane_rationale_132",
       "target": "tests_test_video_pane_test_decoding_never_runs_on_the_ui_thread",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L131",
+      "source_location": "L132",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_153",
+      "source": "tests_test_video_pane_rationale_154",
       "target": "tests_test_video_pane_test_a_seek_before_the_file_opens_is_not_lost",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L153",
+      "source_location": "L154",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_166",
+      "source": "tests_test_video_pane_rationale_167",
       "target": "tests_test_video_pane_test_a_pane_that_cannot_open_its_file_says_so",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L166",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_185",
+      "source": "tests_test_video_pane_rationale_186",
       "target": "tests_test_video_pane_test_requests_coalesce_onto_the_newest_wanted_time",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L185",
+      "source_location": "L186",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_211",
+      "source": "tests_test_video_pane_rationale_212",
       "target": "tests_test_video_pane_test_video_osd_queue_keeps_only_latest_frame",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L211",
+      "source_location": "L212",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_240",
+      "source": "tests_test_video_pane_rationale_241",
       "target": "tests_test_video_pane_test_close_stops_the_decode_thread",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L240",
+      "source_location": "L241",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_257",
+      "source": "tests_test_video_pane_rationale_258",
       "target": "tests_test_video_pane_test_reopening_replaces_the_decoder_rather_than_leaking_it",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L257",
+      "source_location": "L258",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_272",
+      "source": "tests_test_video_pane_rationale_273",
+      "target": "tests_test_video_pane_test_qt_closing_the_pane_also_stops_the_decode_thread",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L273",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_video_pane_rationale_296",
       "target": "tests_test_video_pane_test_closing_a_pane_that_never_opened_anything_is_safe",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L272",
+      "source_location": "L296",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_282",
+      "source": "tests_test_video_pane_rationale_306",
       "target": "tests_test_video_pane_test_the_surface_holds_the_buffer_its_image_borrows",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L282",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_video_pane_rationale_300",
+      "source": "tests_test_video_pane_rationale_324",
       "target": "tests_test_video_pane_test_losing_footage_clears_the_frame_instead_of_freezing_it",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L300",
+      "source_location": "L324",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125414,7 +125620,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L8",
+      "source_location": "L18",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125425,7 +125631,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L9",
+      "source_location": "L19",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125436,7 +125642,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L10",
+      "source_location": "L20",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125447,7 +125653,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L11",
+      "source_location": "L21",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125458,7 +125664,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L13",
+      "source_location": "L23",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125469,7 +125675,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L15",
+      "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125480,7 +125686,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L16",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125491,7 +125697,18 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L17",
+      "source_location": "L27",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_demo_screenshots",
+      "target": "src_avialsync_ui_init",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L28",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125502,7 +125719,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L18",
+      "source_location": "L29",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125513,7 +125730,28 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L19",
+      "source_location": "L30",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_demo_screenshots",
+      "target": "tools_generate_demo_screenshots_pin_appearance",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L36",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_demo_screenshots_pin_appearance",
+      "target": "tools_generate_demo_screenshots_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125523,7 +125761,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L25",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125534,7 +125772,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L25",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125544,7 +125782,29 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L121",
+      "source_location": "L154",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_demo_screenshots_generate_screenshots",
+      "target": "tools_generate_demo_screenshots_py_qapplication",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L50",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_demo_screenshots_generate_screenshots",
+      "target": "tools_generate_demo_screenshots_pin_appearance",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L52",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125555,7 +125815,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L129",
+      "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -125566,6 +125826,16 @@
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
       "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_demo_screenshots_rationale_37",
+      "target": "tools_generate_demo_screenshots_pin_appearance",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -135697,7 +135967,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L23",
+      "source_location": "L24",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -135708,7 +135978,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L24",
+      "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -135719,7 +135989,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L24",
+      "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -136786,7 +137056,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L114",
+      "source_location": "L115",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -136797,7 +137067,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L160",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -154549,7 +154819,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L35",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -154561,7 +154831,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L35",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -154573,7 +154843,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L193",
+      "source_location": "L194",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -154585,7 +154855,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_video_pane.py",
-      "source_location": "L221",
+      "source_location": "L222",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -154969,7 +155239,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L29",
+      "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -154981,7 +155251,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L58",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -154993,7 +155263,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L69",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -155005,7 +155275,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L69",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -155017,7 +155287,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L74",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -155029,7 +155299,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L86",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },

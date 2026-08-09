@@ -3,6 +3,16 @@
 Run with ``conda run -n avialsync python tools/generate_demo_screenshots.py``.
 Uses the checked-in sample session, so the images are reproducible from a
 clean clone and never depend on private field data (AGENTS.md rule 5).
+
+**Do not set QT_QPA_PLATFORM=offscreen for this.** The offscreen plugin has no
+native menu bar, so Qt draws one inside the window and every captured image
+gains a File/View/Help strip that a real macOS user never sees. These run on a
+real display.
+
+The appearance is pinned to Dark below for the same reason the session is
+checked in: an unpinned theme follows whichever preference the developer last
+saved, so the same command produced light-mode images on one machine and
+dark-mode on another, and the docs ended up with a mix.
 """
 
 import argparse
@@ -15,6 +25,7 @@ from PySide6.QtWidgets import QApplication
 from avialsync.engine.importer import ImportWorker
 from avialsync.loaders.csv_loader import CSVLoader
 from avialsync.loaders.video_standard import VideoStandardLoader
+from avialsync.ui import theme
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.sync_wizard import SyncWizard
 
@@ -22,9 +33,23 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"
 
 
+def _pin_appearance(app: QApplication) -> None:
+    """Force the documented appearance without touching saved preferences.
+
+    ``apply_theme`` persists, which would silently rewrite the preference of
+    whoever runs this. The private ``_apply`` is used deliberately for its
+    ``persist=False``: a screenshot run must not be a settings change. The font
+    is left alone for the same reason — ``apply_font_size`` also persists, and
+    its default factor is 1.0, so pinning it would buy nothing and cost the
+    developer their preference.
+    """
+    theme._apply(app, theme.THEME_DARK, persist=False)
+
+
 def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     app = QApplication.instance() or QApplication(sys.argv)
     out_dir.mkdir(parents=True, exist_ok=True)
+    _pin_appearance(app)
 
     window = MainWindow()
     window.resize(1024, 768)
@@ -116,6 +141,14 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     for _ in range(10):
         app.processEvents()
     save_shot("demo_step7_mapping_applied.png")
+
+    # Close explicitly rather than letting the interpreter drop the window.
+    # Each VideoPane owns a decode thread, and Qt aborts the process if one is
+    # still running when its QThread is destroyed (AGENTS.md: shutdown
+    # ownership is explicit, never left to garbage collection).
+    window.close()
+    for _ in range(10):
+        app.processEvents()
 
 
 def main() -> None:
