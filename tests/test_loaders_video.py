@@ -176,3 +176,83 @@ def test_video_standard_dropped_frames():
     frame_times = loader.frame_times()
     assert frame_times is not None
     assert len(frame_times) > 0
+
+
+# ── Format acceptance: extension fast path, then a real probe ─────────
+
+
+def test_known_container_extensions_are_claimed_without_opening_the_file(tmp_path: Path) -> None:
+    """The common case must not pay a file open during loader selection."""
+    for suffix in (".mp4", ".mov", ".mkv", ".avi", ".webm", ".mpg", ".mts", ".wmv", ".mxf"):
+        # Deliberately not real media: a claim on these must come from the
+        # extension alone, so an unreadable file still scores.
+        candidate = tmp_path / f"clip{suffix}"
+        candidate.write_bytes(b"not really video")
+        assert VideoStandardLoader.can_open(candidate) == 0.9, suffix
+
+
+def test_a_real_video_with_an_unknown_extension_is_still_accepted(tmp_path: Path) -> None:
+    """A rig that names its recordings something nobody listed must still load.
+
+    This is the point of probing: the decoder handles far more containers than
+    any extension list will keep up with, so what decides is whether the file
+    actually holds video.
+    """
+    from tests.util_pyav_fixtures import cfr_times, write_video
+
+    # Written as mp4 then renamed: PyAV cannot infer an output format from an
+    # unknown suffix, and the point here is a real MP4 that a rig happens to
+    # name something else — which is exactly what the probe has to see through.
+    written = tmp_path / "written.mp4"
+    write_video(written, frame_times=cfr_times(30), gop_size=15)
+    recording = tmp_path / "recording.rig"
+    written.rename(recording)
+
+    assert VideoStandardLoader.can_open(recording) == 0.5
+
+    loader = VideoStandardLoader()
+    loader.open(recording, {})
+    assert loader.video_metadata().frame_count == 30
+
+
+def test_a_still_image_is_not_claimed_as_video(tmp_path: Path) -> None:
+    """FFmpeg opens a PNG as a one-frame video stream.
+
+    Unguarded, the probe would claim every screenshot in a session folder as a
+    camera. Still-image extensions are therefore refused before the probe runs.
+    """
+    from PySide6.QtGui import QImage
+
+    for suffix in (".png", ".jpg", ".tif", ".bmp"):
+        image_path = tmp_path / f"frame{suffix}"
+        QImage(8, 8, QImage.Format.Format_RGB888).save(str(image_path))
+        assert VideoStandardLoader.can_open(image_path) == 0.0, suffix
+
+
+def test_other_loaders_formats_are_never_probed(tmp_path: Path) -> None:
+    """Handing every dropped table to FFmpeg's detector is both slow and risky."""
+    for suffix in (".csv", ".json", ".npy", ".wav", ".avv"):
+        candidate = tmp_path / f"data{suffix}"
+        candidate.write_bytes(b"0,1,2\n")
+        assert VideoStandardLoader.can_open(candidate) == 0.0, suffix
+
+
+def test_a_probed_match_never_outranks_a_format_specific_loader() -> None:
+    """FFmpeg's detection is permissive; the score has to respect that.
+
+    A probed video scores below CSVLoader's 0.8 so that a misdetected table can
+    never be opened as a camera, whatever FFmpeg makes of its bytes.
+    """
+    from avialsync.loaders.csv_loader import CSVLoader
+
+    probed_score = 0.5
+    assert probed_score < CSVLoader.can_open(Path("anything.csv"))
+
+
+def test_an_unreadable_file_is_declined_rather_than_raising(tmp_path: Path) -> None:
+    """`can_open` runs on every dropped path; raising there costs the whole drop."""
+    junk = tmp_path / "mystery.unknown"
+    junk.write_bytes(b"\x00\x01\x02 not a container")
+
+    assert VideoStandardLoader.can_open(junk) == 0.0
+    assert VideoStandardLoader.can_open(tmp_path / "absent.unknown") == 0.0
