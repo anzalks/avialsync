@@ -24,7 +24,9 @@ layout.*
    install
    quickstart
    user-guide/index
+   user-guide/sessions-and-media
    tutorials/first-session
+   tutorials/importing-data
    tutorials/synchronization
    tutorials/annotating-and-exporting
    formats

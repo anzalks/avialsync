@@ -482,7 +482,7 @@
       "ecosystem": "python",
       "source_file": "pyproject.toml",
       "source_location": "L1",
-      "version": "0.1.0b9",
+      "version": "0.1.0b10",
       "_origin": "ast"
     },
     {
@@ -37418,7 +37418,7 @@
       "label": "_load_session()",
       "file_type": "code",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "_origin": "ast"
     },
     {
@@ -37434,7 +37434,7 @@
       "label": "generate()",
       "file_type": "code",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L54",
+      "source_location": "L55",
       "_origin": "ast"
     },
     {
@@ -37450,7 +37450,7 @@
       "label": "_capture_all()",
       "file_type": "code",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L79",
+      "source_location": "L80",
       "_origin": "ast"
     },
     {
@@ -37458,7 +37458,7 @@
       "label": "_video_info_widget()",
       "file_type": "code",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L154",
+      "source_location": "L186",
       "_origin": "ast"
     },
     {
@@ -37470,35 +37470,35 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_guide_screenshots_rationale_37",
+      "id": "tools_generate_guide_screenshots_rationale_38",
       "label": "Open the sample video and signal through the ordinary code paths.",
       "file_type": "rationale",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L37",
+      "source_location": "L38",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_guide_screenshots_rationale_55",
+      "id": "tools_generate_guide_screenshots_rationale_56",
       "label": "Write every annotated guide screenshot.",
       "file_type": "rationale",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L55",
+      "source_location": "L56",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_guide_screenshots_rationale_80",
+      "id": "tools_generate_guide_screenshots_rationale_81",
       "label": "Write each annotated capture in turn.",
       "file_type": "rationale",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L80",
+      "source_location": "L81",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_guide_screenshots_rationale_155",
+      "id": "tools_generate_guide_screenshots_rationale_187",
       "label": "Return the sidebar's per-video widget, whatever its concrete class.",
       "file_type": "rationale",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L155",
+      "source_location": "L187",
       "_origin": "ast"
     },
     {
@@ -42150,6 +42150,70 @@
       "_origin": "ast"
     },
     {
+      "id": "docs_tutorials_importing_data",
+      "label": "importing-data.md",
+      "file_type": "document",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_importing_data_tutorial_import_sensor_and_recording_data",
+      "label": "Tutorial: import sensor and recording data",
+      "file_type": "document",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_importing_data_structure_how_to_split_the_file",
+      "label": "Structure: how to split the file",
+      "file_type": "document",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L10",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_importing_data_time_what_the_numbers_mean",
+      "label": "Time: what the numbers mean",
+      "file_type": "document",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L20",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_importing_data_timezone_state_it_never_assume_it",
+      "label": "Timezone: state it, never assume it",
+      "file_type": "document",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L34",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_importing_data_missing_values_and_decimal_commas",
+      "label": "Missing values and decimal commas",
+      "file_type": "document",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L44",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_importing_data_what_happens_after_you_accept",
+      "label": "What happens after you accept",
+      "file_type": "document",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L55",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_importing_data_importing_several_files_at_once",
+      "label": "Importing several files at once",
+      "file_type": "document",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L65",
+      "_origin": "ast"
+    },
+    {
       "id": "docs_tutorials_synchronization",
       "label": "synchronization.md",
       "file_type": "document",
@@ -42262,11 +42326,19 @@
       "_origin": "ast"
     },
     {
+      "id": "docs_user_guide_index_where_the_detail_lives",
+      "label": "Where the detail lives",
+      "file_type": "document",
+      "source_file": "docs/user-guide/index.md",
+      "source_location": "L19",
+      "_origin": "ast"
+    },
+    {
       "id": "docs_user_guide_index_aligning_recordings",
       "label": "Aligning recordings",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L19",
+      "source_location": "L28",
       "_origin": "ast"
     },
     {
@@ -42274,7 +42346,7 @@
       "label": "Flagging and exporting",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L33",
+      "source_location": "L42",
       "_origin": "ast"
     },
     {
@@ -42282,7 +42354,7 @@
       "label": "Useful controls",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L46",
+      "source_location": "L55",
       "_origin": "ast"
     },
     {
@@ -42290,7 +42362,7 @@
       "label": "3D tracking controls",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L66",
+      "source_location": "L75",
       "_origin": "ast"
     },
     {
@@ -42298,7 +42370,79 @@
       "label": "Appearance and font size",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L76",
+      "source_location": "L85",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_user_guide_sessions_and_media",
+      "label": "sessions-and-media.md",
+      "file_type": "document",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_user_guide_sessions_and_media_sessions_proxies_and_the_3d_view",
+      "label": "Sessions, proxies, and the 3D view",
+      "file_type": "document",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_user_guide_sessions_and_media_sessions",
+      "label": "Sessions",
+      "file_type": "document",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L5",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_user_guide_sessions_and_media_when_files_have_moved",
+      "label": "When files have moved",
+      "file_type": "document",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L19",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_user_guide_sessions_and_media_proxies",
+      "label": "Proxies",
+      "file_type": "document",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L25",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_user_guide_sessions_and_media_the_3d_tracking_view",
+      "label": "The 3D tracking view",
+      "file_type": "document",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L42",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_user_guide_sessions_and_media_plot_navigation",
+      "label": "Plot navigation",
+      "file_type": "document",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L56",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_user_guide_sessions_and_media_appearance",
+      "label": "Appearance",
+      "file_type": "document",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L72",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_user_guide_sessions_and_media_keyboard_shortcuts",
+      "label": "Keyboard shortcuts",
+      "file_type": "document",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L80",
       "_origin": "ast"
     },
     {
@@ -126609,7 +126753,7 @@
     },
     {
       "source": "tools_generate_guide_screenshots",
-      "target": "src_avialsync_ui_main_window",
+      "target": "src_avialsync_ui_import_wizard",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -126620,7 +126764,7 @@
     },
     {
       "source": "tools_generate_guide_screenshots",
-      "target": "src_avialsync_ui_sync_wizard",
+      "target": "src_avialsync_ui_main_window",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -126631,7 +126775,7 @@
     },
     {
       "source": "tools_generate_guide_screenshots",
-      "target": "src_avialsync_ui_transport",
+      "target": "src_avialsync_ui_sync_wizard",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -126642,12 +126786,23 @@
     },
     {
       "source": "tools_generate_guide_screenshots",
+      "target": "src_avialsync_ui_transport",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L27",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots",
       "target": "screenshot_kit",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L29",
+      "source_location": "L30",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126657,7 +126812,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126668,7 +126823,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126679,7 +126834,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126689,7 +126844,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L54",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126700,7 +126855,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L54",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126710,7 +126865,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L79",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126721,7 +126876,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L79",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126732,7 +126887,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L79",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126743,7 +126898,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L79",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126753,7 +126908,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L154",
+      "source_location": "L186",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126764,7 +126919,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L154",
+      "source_location": "L186",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126775,7 +126930,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L56",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126786,7 +126941,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L60",
+      "source_location": "L61",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126797,7 +126952,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L64",
+      "source_location": "L65",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126808,7 +126963,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L69",
+      "source_location": "L70",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126819,7 +126974,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L81",
+      "source_location": "L82",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126834,42 +126989,42 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_guide_screenshots_rationale_37",
+      "source": "tools_generate_guide_screenshots_rationale_38",
       "target": "tools_generate_guide_screenshots_load_session",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L37",
+      "source_location": "L38",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_guide_screenshots_rationale_55",
+      "source": "tools_generate_guide_screenshots_rationale_56",
       "target": "tools_generate_guide_screenshots_generate",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L55",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_guide_screenshots_rationale_80",
+      "source": "tools_generate_guide_screenshots_rationale_81",
       "target": "tools_generate_guide_screenshots_capture_all",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L80",
+      "source_location": "L81",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_guide_screenshots_rationale_155",
+      "source": "tools_generate_guide_screenshots_rationale_187",
       "target": "tools_generate_guide_screenshots_video_info_widget",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L155",
+      "source_location": "L187",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133771,6 +133926,86 @@
       "_origin": "ast"
     },
     {
+      "source": "docs_tutorials_importing_data",
+      "target": "docs_tutorials_importing_data_tutorial_import_sensor_and_recording_data",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_importing_data_tutorial_import_sensor_and_recording_data",
+      "target": "docs_tutorials_importing_data_structure_how_to_split_the_file",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_importing_data_tutorial_import_sensor_and_recording_data",
+      "target": "docs_tutorials_importing_data_time_what_the_numbers_mean",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_importing_data_tutorial_import_sensor_and_recording_data",
+      "target": "docs_tutorials_importing_data_timezone_state_it_never_assume_it",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_importing_data_tutorial_import_sensor_and_recording_data",
+      "target": "docs_tutorials_importing_data_missing_values_and_decimal_commas",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L44",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_importing_data_tutorial_import_sensor_and_recording_data",
+      "target": "docs_tutorials_importing_data_what_happens_after_you_accept",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L55",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_importing_data_tutorial_import_sensor_and_recording_data",
+      "target": "docs_tutorials_importing_data_importing_several_files_at_once",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L65",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_importing_data",
+      "target": "docs_plugin_guide",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/importing-data.md",
+      "source_location": "L71",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "docs_tutorials_synchronization",
       "target": "docs_tutorials_synchronization_tutorial_align_recordings",
       "relation": "contains",
@@ -133902,7 +134137,7 @@
     },
     {
       "source": "docs_user_guide_index_user_guide",
-      "target": "docs_user_guide_index_aligning_recordings",
+      "target": "docs_user_guide_index_where_the_detail_lives",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
@@ -133912,7 +134147,7 @@
     },
     {
       "source": "docs_user_guide_index",
-      "target": "docs_tutorials_synchronization",
+      "target": "docs_tutorials_importing_data",
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
@@ -133921,12 +134156,12 @@
       "_origin": "ast"
     },
     {
-      "source": "docs_user_guide_index_user_guide",
-      "target": "docs_user_guide_index_flagging_and_exporting",
-      "relation": "contains",
+      "source": "docs_user_guide_index",
+      "target": "docs_tutorials_synchronization",
+      "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L33",
+      "source_location": "L23",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133936,7 +134171,37 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L35",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_index",
+      "target": "docs_user_guide_sessions_and_media",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/index.md",
+      "source_location": "L26",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_index_user_guide",
+      "target": "docs_user_guide_index_aligning_recordings",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/index.md",
+      "source_location": "L28",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_index_user_guide",
+      "target": "docs_user_guide_index_flagging_and_exporting",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/index.md",
+      "source_location": "L42",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133946,7 +134211,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L46",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133956,7 +134221,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L66",
+      "source_location": "L75",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133966,7 +134231,87 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L76",
+      "source_location": "L85",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_sessions_and_media",
+      "target": "docs_user_guide_sessions_and_media_sessions_proxies_and_the_3d_view",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_sessions_and_media_sessions_proxies_and_the_3d_view",
+      "target": "docs_user_guide_sessions_and_media_sessions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_sessions_and_media_sessions",
+      "target": "docs_user_guide_sessions_and_media_when_files_have_moved",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L19",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_sessions_and_media_sessions_proxies_and_the_3d_view",
+      "target": "docs_user_guide_sessions_and_media_proxies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_sessions_and_media_sessions_proxies_and_the_3d_view",
+      "target": "docs_user_guide_sessions_and_media_the_3d_tracking_view",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L42",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_sessions_and_media_sessions_proxies_and_the_3d_view",
+      "target": "docs_user_guide_sessions_and_media_plot_navigation",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L56",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_sessions_and_media_sessions_proxies_and_the_3d_view",
+      "target": "docs_user_guide_sessions_and_media_appearance",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L72",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_sessions_and_media_sessions_proxies_and_the_3d_view",
+      "target": "docs_user_guide_sessions_and_media_keyboard_shortcuts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/sessions-and-media.md",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137524,7 +137869,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L29",
+      "source_location": "L30",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137535,7 +137880,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L29",
+      "source_location": "L30",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137546,7 +137891,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L29",
+      "source_location": "L30",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138657,7 +139002,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L42",
+      "source_location": "L43",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138668,7 +139013,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L57",
+      "source_location": "L58",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138679,7 +139024,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L63",
+      "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138690,7 +139035,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L85",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138701,7 +139046,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L115",
+      "source_location": "L116",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -156946,7 +157291,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L39",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -156958,7 +157303,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L46",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -156970,7 +157315,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L46",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -156982,7 +157327,19 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L95",
+      "source_location": "L96",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_capture_all",
+      "target": "src_avialsync_ui_import_wizard_importwizard",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -156994,7 +157351,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L116",
+      "source_location": "L148",
       "weight": 1.0,
       "_origin": "ast"
     },
