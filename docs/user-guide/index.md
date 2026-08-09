@@ -16,6 +16,33 @@
 - **Shared time bar** moves every view together.
 - **Left panel** lists files, visibility controls, offsets, properties, values, and annotations.
 
+## Aligning recordings
+
+Three routes, in the order to try them — all covered field by field, with annotated screenshots, in
+[Tutorial: align recordings](../tutorials/synchronization.md):
+
+- **Offset** (left panel, per source) shifts a recording along the shared timeline in seconds.
+- **Drift** (left panel, per source) corrects a clock running fast or slow, in ppm. Reach for it
+  when recordings agree at the start and separate by the end — a fixed offset cannot express that.
+- **Synchronize…** fits the mapping from TTL pulses or frame triggers. Choose reference and target
+  evidence, set the **TTL high threshold** (or tick **Use all samples as events** when the reference
+  is already a list of event times), pick **Affine Fit** for two independent clocks or **Exact
+  Index** when the reference triggered each exposure, then **Preview alignment** and read the match
+  count and residual before **Accept mapping**. Nothing is applied until you accept it.
+
+## Flagging and exporting
+
+Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-exporting.md).
+
+- **Flag Frame** (`M`) records the current time *and*, for every loaded camera, that camera's exact
+  frame index and presentation timestamp — which is what makes the export usable as a pose-model
+  corrections list.
+- Clicking a plot directly adds a marker at that moment without moving the playhead first.
+- The **Annotations** tab lists what you flagged; double-click a label to name it.
+- **File → Export Annotations (CSV)** writes one row per (marker, camera).
+- **File → Export Snapshot / Trimmed Video Clip / Data Slice** cover images, media, and signals.
+  Clips are copied rather than re-encoded, so they keep the original pixels.
+
 ## Useful controls
 
 - **Flag Frame** creates an annotation at the current time.

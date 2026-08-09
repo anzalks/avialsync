@@ -41,13 +41,7 @@ knows this lab's format.*
 
 ## Install
 
-**Desktop installer (recommended).** Download from the
-[Releases page](https://github.com/anzalks/avialsync/releases): `AvialSync-Setup.exe` on Windows,
-`AvialSync.dmg` on macOS, or `AvialSync.AppImage` on Linux. Everything needed is bundled. The
-artifacts are not yet code-signed, so the first launch needs
-[one extra click](https://avialsync.readthedocs.io/en/latest/install.html#first-launch-security-warnings).
-
-**PyPI**, on Python 3.11 or 3.12:
+**With `pip`**, on Python 3.11 or 3.12:
 
 ```bash
 python -m pip install avialsync
@@ -56,6 +50,13 @@ avialsync
 
 That is the whole install. Video decoding, proxy generation, and clip export all run inside the
 Python packages, so there is no media runtime to install separately and nothing to configure.
+
+**Or download a desktop installer** from the
+[Releases page](https://github.com/anzalks/avialsync/releases) — `AvialSync-Setup.exe`,
+`AvialSync.dmg`, or `AvialSync.AppImage` — if you would rather not manage a Python environment.
+They bundle everything, install without an administrator password, and are not yet code-signed, so
+the first launch needs
+[one extra click](https://avialsync.readthedocs.io/en/latest/install.html#first-launch-security-warnings).
 
 One caveat, and it is Qt's rather than AvialSync's: **on Linux**, PySide6 needs the usual desktop
 graphics libraries (`libgl1`, `libxkbcommon`, and the xcb set). Every normal desktop already has
@@ -70,8 +71,9 @@ See [Installation](https://avialsync.readthedocs.io/en/latest/install.html) for 
 avialsync demo
 ```
 
-That generates and opens a complete sample session — four cameras, sensor and ephys traces, tracking
-— so you can try everything before touching your own data. With your own recordings:
+That generates and opens a complete sample session — four cameras, sensor and ephys traces, and
+tracking — so you can confirm the install and try everything before touching your own data. With
+your own recordings:
 
 1. Drag video and data files onto the window, or use **Open Videos** and **Open Sensor/Ephys Data**.
 2. Video appears at the top, traces below it.

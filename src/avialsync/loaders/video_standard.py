@@ -24,6 +24,123 @@ _FRAME_TIMES_NAME = "video_frame_times.npy"
 _SIDECAR_NANOSECONDS = 1e9
 
 
+#: Containers claimed on sight, without opening the file.  Every one of these
+#: is a format the bundled FFmpeg opens routinely; the list is a fast path, not
+#: the limit of what loads — see :meth:`VideoStandardLoader.can_open`.
+_VIDEO_SUFFIXES = frozenset(
+    {
+        ".mp4",
+        ".m4v",
+        ".mov",
+        ".mkv",
+        ".webm",
+        ".avi",
+        ".mpg",
+        ".mpeg",
+        ".m2v",
+        ".ts",
+        ".mts",
+        ".m2ts",
+        ".wmv",
+        ".asf",
+        ".flv",
+        ".ogv",
+        ".3gp",
+        ".3g2",
+        ".dv",
+        ".mxf",
+        ".vob",
+        ".y4m",
+        ".nut",
+    }
+)
+
+#: Extensions never probed, whatever FFmpeg would make of them.
+#:
+#: Two reasons, both load-bearing.  **Still images**: FFmpeg opens a PNG as a
+#: one-frame video stream, so an unguarded probe would claim every screenshot
+#: in a session folder as a camera.  **Other loaders' formats**: handing every
+#: dropped CSV to FFmpeg's format detector costs a file open per drop and risks
+#: a misdetection on data that already has a loader that understands it.
+_NOT_VIDEO_SUFFIXES = frozenset(
+    {
+        # Still images.
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".bmp",
+        ".tif",
+        ".tiff",
+        ".webp",
+        ".svg",
+        ".ico",
+        # Tables, arrays, and archives owned by the data loaders.
+        ".csv",
+        ".tsv",
+        ".txt",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".xml",
+        ".md",
+        ".npy",
+        ".npz",
+        ".h5",
+        ".hdf5",
+        ".mat",
+        ".parquet",
+        ".pkl",
+        ".zip",
+        ".gz",
+        # Audio: openable, but it has no video stream to find.
+        ".wav",
+        ".mp3",
+        ".flac",
+        ".aac",
+        ".m4a",
+        ".ogg",
+        ".opus",
+        # Ours, and the operating system's.
+        ".avv",
+        ".log",
+        ".ini",
+        ".cfg",
+        ".ds_store",
+    }
+)
+
+
+def _holds_video_stream(path: Path) -> bool:
+    """Return whether *path* opens as a container carrying real video.
+
+    Header read only — nothing is decoded.  ``can_open`` runs on every dropped
+    path for every registered loader, so this must be cheap, silent, and
+    incapable of raising: a probe that threw would cost the drop, and a probe
+    that logged would fill the console with FFmpeg's opinion of every CSV.
+
+    Requires non-zero dimensions as well as a video stream.  A stream that
+    declares no size is not something the panes can display, and accepting it
+    would trade a clean rejection here for a failure after the pane exists.
+    """
+    import av
+
+    previous_level = av.logging.get_level()
+    try:
+        av.logging.set_level(av.logging.PANIC)
+        with av.open(str(path)) as container:
+            for stream in container.streams.video:
+                codec_context = stream.codec_context
+                if codec_context and codec_context.width and codec_context.height:
+                    return True
+            return False
+    except Exception:
+        # Anything unopenable is simply not ours to claim.
+        return False
+    finally:
+        av.logging.set_level(previous_level)
+
+
 @dataclass(frozen=True)
 class RecordedFrames:
     """Per-frame exposure evidence read from a capture sidecar."""
@@ -114,11 +231,27 @@ class VideoStandardLoader(VideoSource):
 
     @classmethod
     def can_open(cls, path: Path) -> float:
+        """Score this file as standard video.
+
+        Two gates, deliberately in this order.  A known container extension is
+        claimed outright without touching the file, which keeps the common case
+        free.  Anything else is *probed*: the decoder opens it and looks for a
+        real video stream, so a recording FFmpeg can genuinely play is accepted
+        even when nobody thought to list its extension.  Probing became worth
+        doing when it stopped meaning "launch ffprobe" and started meaning "read
+        a header in-process" (D-075).
+
+        A probed match scores below the extension-claiming loaders on purpose.
+        FFmpeg's format detection is deliberately permissive, and a loader that
+        outranked :class:`CSVLoader` on a misdetected table would be worse than
+        one that never probed at all.
+        """
         suffix = path.suffix.lower()
-        if suffix in [".mp4", ".mov", ".mkv", ".avi", ".webm"]:
-            # Could open the container here to verify, but the extension is faster
+        if suffix in _VIDEO_SUFFIXES:
             return 0.9
-        return 0.0
+        if suffix in _NOT_VIDEO_SUFFIXES:
+            return 0.0
+        return 0.5 if _holds_video_stream(path) else 0.0
 
     def open(self, path: Path, config: dict[str, Any]) -> None:
         self._path = path

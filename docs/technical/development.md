@@ -55,7 +55,14 @@ The documentation screenshots come from the same session:
 
 ```bash
 conda run -n avialsync python tools/generate_demo_screenshots.py
+conda run -n avialsync python tools/generate_guide_screenshots.py
 ```
+
+The second writes the annotated guide images, where a red box marks the control each step refers to.
+Both share `tools/screenshot_kit.py`, which pins the appearance so the images do not follow whoever
+last changed their theme preference. **Do not run either under `QT_QPA_PLATFORM=offscreen`:** the
+offscreen plugin has no native menu bar, so Qt draws one inside the window and every capture gains a
+File/View/Help strip a real macOS user never sees.
 
 ## Building the documentation
 

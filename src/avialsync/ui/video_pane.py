@@ -18,7 +18,7 @@ from dataclasses import replace
 
 import numpy as np
 from PySide6.QtCore import QMetaObject, QObject, QRectF, Qt, QThread, QTimer, Signal, Slot
-from PySide6.QtGui import QFontDatabase, QImage, QPainter, QPaintEvent
+from PySide6.QtGui import QCloseEvent, QFontDatabase, QImage, QPainter, QPaintEvent
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from avialsync.core.errors import SourceOpenError
@@ -521,12 +521,8 @@ class VideoPane(VideoTimingMixin, QWidget):
                 logger.warning("Decode thread did not stop within %d ms", _DECODER_STOP_TIMEOUT_MS)
         self._media_loaded = False
 
-    def close(self) -> bool:
-        """Stop decoding before closing the widget.
-
-        Returns whatever ``QWidget.close`` returns: this overrides a Qt method,
-        and callers (and Qt itself) may act on the result.
-        """
+    def _stop_everything(self) -> None:
+        """Stop the deferred paint and the decode thread, in that order."""
         # Stop the deferred OSD paint before the widgets it touches go away:
         # a timer that fires during teardown paints into a half-destroyed pane.
         timer = self._osd_flush_timer
@@ -536,6 +532,30 @@ class VideoPane(VideoTimingMixin, QWidget):
             except RuntimeError:
                 logger.debug("OSD flush timer was already destroyed", exc_info=True)
             self._osd_flush_timer = None
-
         self._shutdown_decoder()
+
+    def close(self) -> bool:
+        """Stop decoding before closing the widget.
+
+        Returns whatever ``QWidget.close`` returns: this overrides a Qt method,
+        and callers (and Qt itself) may act on the result.
+        """
+        self._stop_everything()
         return bool(super().close())
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Stop the decode thread when Qt closes the pane by any other route.
+
+        ``close()`` above only runs when something calls it; Qt closing a
+        widget — an application quitting, a parent being destroyed — delivers
+        this instead. Without it a ``QThread`` outlives its owner and Qt
+        *aborts* the process with "QThread: Destroyed while thread is still
+        running", which is a crash on exit rather than a leak.
+
+        Explicit shutdown through ``VideoGrid.shutdown()`` remains the intended
+        path and stays the documented one (AGENTS.md): this is the backstop for
+        code that drops a window without closing it, not permission to rely on
+        destruction.
+        """
+        self._stop_everything()
+        super().closeEvent(event)

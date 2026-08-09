@@ -8,7 +8,7 @@ Have one or more video files, plus any sensor, tracking, or recording files you 
 Common video formats are supported — AvialSync decodes them itself, so nothing needs to be installed
 alongside it. Your lab may also provide a plugin for its own recording format.
 
-## If you installed with pip
+## After installing
 
 `pip install avialsync` is the whole install: video decoding, proxy generation, and clip export all
 run inside the Python packages, so there is no separate media runtime to add. On Linux, Qt still
