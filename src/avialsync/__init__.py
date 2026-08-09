@@ -1,3 +1,3 @@
 """AvialSync root module."""
 
-__version__ = "0.1.0b10"
+__version__ = "0.1.1"
