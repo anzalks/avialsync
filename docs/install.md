@@ -1,71 +1,18 @@
 # Installation
 
-AvialSync installs in one of two ways, and both are self-contained. The desktop installer is a
-single download. A `pip` install is smaller and scriptable, and it now brings its own video
-decoder and FFmpeg, so there is nothing to install afterwards — on any platform. Linux users
-should read [one note about Linux](#one-note-about-linux).
+AvialSync installs in one of two ways, and both are self-contained.
 
-## Desktop installers (recommended)
+**`pip install avialsync` is the recommended route.** It brings its own video decoder, so there is
+nothing to install afterwards on any platform, and it starts without the security prompt the
+installers currently show — those are not yet code-signed, so opening one costs an extra click that
+`pip` does not.
 
-Download the artifact for your platform from the
-[GitHub Releases page](https://github.com/anzalks/avialsync/releases):
+Choose a desktop installer instead if you would rather not manage a Python environment. It is a
+single download, needs no Python of your own, and installs without an administrator password.
 
-| Platform | File | Install |
-|---|---|---|
-| Windows | `AvialSync-Setup.exe` | Run the installer |
-| macOS | `AvialSync.dmg` | Open it and drag **AvialSync** to Applications |
-| Linux | `AvialSync.AppImage` | `chmod +x AvialSync.AppImage`, then run it |
+Linux users should read [one note about Linux](#one-note-about-linux) either way.
 
-Each bundles its video decoder and FFmpeg, so nothing else is required. The AppImage is portable and needs no
-system-wide installation. Then open **AvialSync** like any other desktop application.
-
-### None of them need administrator rights
-
-On a managed lab or institute machine you often cannot supply an administrator password. No
-installer requires one:
-
-- **Windows:** `AvialSync-Setup.exe` asks whether to install for you only or for all users, and
-  defaults to *for you only*. That choice installs under
-  `%LOCALAPPDATA%\Programs\AvialSync` with a Start Menu entry for your account and never prompts
-  for elevation. Choose *for all users* only if you have the password and want it shared.
-- **macOS:** dragging **AvialSync** to `~/Applications` instead of `/Applications` works the same
-  way.
-- **Linux:** the AppImage is already a plain file you run from anywhere you can write.
-
-  One exception worth knowing, because it is the only place this claim can
-  break: an AppImage mounts itself using FUSE 2, and distributions that ship
-  only FUSE 3 need `libfuse2` installed — which *does* need admin. You do not
-  have to install it. Run the image with `--appimage-extract-and-run` instead,
-  which unpacks to a temporary directory and needs no privileges at all:
-
-  ```bash
-  ./AvialSync.AppImage --appimage-extract-and-run
-  ```
-
-The `pip` install below is also entirely per-user.
-
-### First-launch security warnings
-
-The artifacts are not yet code-signed or notarized, so the operating system reports an unidentified
-developer the first time you open one.
-
-- **macOS:** right-click **AvialSync** and choose **Open** once, or run
-  `xattr -dr com.apple.quarantine /Applications/AvialSync.app`.
-- **Windows:** choose **More info → Run anyway** in the SmartScreen prompt.
-
-### Support boundaries
-
-Two installers have a deliberate boundary. Use the pip install below if you fall outside one:
-
-| Installer | Requires | Otherwise |
-|---|---|---|
-| `AvialSync.dmg` | Apple silicon | Intel Macs: `pip install avialsync` |
-| `AvialSync.AppImage` | glibc 2.39 or newer (Ubuntu 24.04+, Fedora 40+) | Debian 12, Ubuntu 22.04: `pip install avialsync` |
-
-The AppImage also needs FUSE 2 to mount itself. Without it, run
-`./AvialSync.AppImage --appimage-extract-and-run`.
-
-## Install from PyPI
+## Install with pip (recommended)
 
 AvialSync supports Python 3.11 and 3.12. Install it into an environment of its own — a conda env or
 a virtualenv — rather than into a shared system Python:
@@ -168,6 +115,70 @@ avialsync
 There is no third install step. Earlier versions required a `libmpv-2.dll` downloaded by hand from
 SourceForge plus a separate FFmpeg and an `AVIALSYNC_MEDIA_ROOT` environment variable; none of that
 is needed any more, and you can delete `AVIALSYNC_MEDIA_ROOT` if you set it previously.
+
+## Desktop installers
+
+An alternative to `pip` for anyone who would rather not manage a Python environment. Download the
+artifact for your platform from the
+[GitHub Releases page](https://github.com/anzalks/avialsync/releases):
+
+| Platform | File | Install |
+|---|---|---|
+| Windows | `AvialSync-Setup.exe` | Run the installer |
+| macOS | `AvialSync.dmg` | Open it and drag **AvialSync** to Applications |
+| Linux | `AvialSync.AppImage` | `chmod +x AvialSync.AppImage`, then run it |
+
+Each bundles everything it needs, including the video decoder. The AppImage is portable and needs no
+system-wide installation. Then open **AvialSync** like any other desktop application.
+
+These require no Python of your own, which is the reason to prefer them. They are not yet
+code-signed, so the first launch needs one extra click — see below.
+
+### None of them need administrator rights
+
+On a managed lab or institute machine you often cannot supply an administrator password. No
+installer requires one:
+
+- **Windows:** `AvialSync-Setup.exe` asks whether to install for you only or for all users, and
+  defaults to *for you only*. That choice installs under
+  `%LOCALAPPDATA%\Programs\AvialSync` with a Start Menu entry for your account and never prompts
+  for elevation. Choose *for all users* only if you have the password and want it shared.
+- **macOS:** dragging **AvialSync** to `~/Applications` instead of `/Applications` works the same
+  way.
+- **Linux:** the AppImage is already a plain file you run from anywhere you can write.
+
+  One exception worth knowing, because it is the only place this claim can
+  break: an AppImage mounts itself using FUSE 2, and distributions that ship
+  only FUSE 3 need `libfuse2` installed — which *does* need admin. You do not
+  have to install it. Run the image with `--appimage-extract-and-run` instead,
+  which unpacks to a temporary directory and needs no privileges at all:
+
+  ```bash
+  ./AvialSync.AppImage --appimage-extract-and-run
+  ```
+
+The `pip` install below is also entirely per-user.
+
+### First-launch security warnings
+
+The artifacts are not yet code-signed or notarized, so the operating system reports an unidentified
+developer the first time you open one.
+
+- **macOS:** right-click **AvialSync** and choose **Open** once, or run
+  `xattr -dr com.apple.quarantine /Applications/AvialSync.app`.
+- **Windows:** choose **More info → Run anyway** in the SmartScreen prompt.
+
+### Support boundaries
+
+Two installers have a deliberate boundary. Use the pip install above if you fall outside one:
+
+| Installer | Requires | Otherwise |
+|---|---|---|
+| `AvialSync.dmg` | Apple silicon | Intel Macs: `pip install avialsync` |
+| `AvialSync.AppImage` | glibc 2.39 or newer (Ubuntu 24.04+, Fedora 40+) | Debian 12, Ubuntu 22.04: `pip install avialsync` |
+
+The AppImage also needs FUSE 2 to mount itself. Without it, run
+`./AvialSync.AppImage --appimage-extract-and-run`.
 
 ## Check the installation
 

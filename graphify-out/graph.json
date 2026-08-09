@@ -41218,7 +41218,7 @@
       "label": "First session",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L67",
+      "source_location": "L68",
       "_origin": "ast"
     },
     {
@@ -41226,7 +41226,7 @@
       "label": "Documentation",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L84",
+      "source_location": "L86",
       "_origin": "ast"
     },
     {
@@ -41234,7 +41234,7 @@
       "label": "Contributing",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L96",
+      "source_location": "L98",
       "_origin": "ast"
     },
     {
@@ -41242,7 +41242,7 @@
       "label": "Licence",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L108",
+      "source_location": "L110",
       "_origin": "ast"
     },
     {
@@ -41438,43 +41438,11 @@
       "_origin": "ast"
     },
     {
-      "id": "docs_install_desktop_installers_recommended",
-      "label": "Desktop installers (recommended)",
+      "id": "docs_install_install_with_pip_recommended",
+      "label": "Install with pip (recommended)",
       "file_type": "document",
       "source_file": "docs/install.md",
-      "source_location": "L8",
-      "_origin": "ast"
-    },
-    {
-      "id": "docs_install_none_of_them_need_administrator_rights",
-      "label": "None of them need administrator rights",
-      "file_type": "document",
-      "source_file": "docs/install.md",
-      "source_location": "L22",
-      "_origin": "ast"
-    },
-    {
-      "id": "docs_install_first_launch_security_warnings",
-      "label": "First-launch security warnings",
-      "file_type": "document",
-      "source_file": "docs/install.md",
-      "source_location": "L47",
-      "_origin": "ast"
-    },
-    {
-      "id": "docs_install_support_boundaries",
-      "label": "Support boundaries",
-      "file_type": "document",
-      "source_file": "docs/install.md",
-      "source_location": "L56",
-      "_origin": "ast"
-    },
-    {
-      "id": "docs_install_install_from_pypi",
-      "label": "Install from PyPI",
-      "file_type": "document",
-      "source_file": "docs/install.md",
-      "source_location": "L68",
+      "source_location": "L15",
       "_origin": "ast"
     },
     {
@@ -41482,7 +41450,7 @@
       "label": "One note about Linux",
       "file_type": "document",
       "source_file": "docs/install.md",
-      "source_location": "L92",
+      "source_location": "L39",
       "_origin": "ast"
     },
     {
@@ -41490,7 +41458,7 @@
       "label": "Windows",
       "file_type": "document",
       "source_file": "docs/install.md",
-      "source_location": "L123",
+      "source_location": "L70",
       "_origin": "ast"
     },
     {
@@ -41498,7 +41466,7 @@
       "label": "1. Create the environment",
       "file_type": "document",
       "source_file": "docs/install.md",
-      "source_location": "L128",
+      "source_location": "L75",
       "_origin": "ast"
     },
     {
@@ -41506,7 +41474,7 @@
       "label": "2. Keep per-user packages out of the environment",
       "file_type": "document",
       "source_file": "docs/install.md",
-      "source_location": "L136",
+      "source_location": "L83",
       "_origin": "ast"
     },
     {
@@ -41514,7 +41482,39 @@
       "label": "3. Run it",
       "file_type": "document",
       "source_file": "docs/install.md",
+      "source_location": "L109",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_install_desktop_installers",
+      "label": "Desktop installers",
+      "file_type": "document",
+      "source_file": "docs/install.md",
+      "source_location": "L119",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_install_none_of_them_need_administrator_rights",
+      "label": "None of them need administrator rights",
+      "file_type": "document",
+      "source_file": "docs/install.md",
+      "source_location": "L137",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_install_first_launch_security_warnings",
+      "label": "First-launch security warnings",
+      "file_type": "document",
+      "source_file": "docs/install.md",
       "source_location": "L162",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_install_support_boundaries",
+      "label": "Support boundaries",
+      "file_type": "document",
+      "source_file": "docs/install.md",
+      "source_location": "L171",
       "_origin": "ast"
     },
     {
@@ -41522,7 +41522,7 @@
       "label": "Check the installation",
       "file_type": "document",
       "source_file": "docs/install.md",
-      "source_location": "L172",
+      "source_location": "L183",
       "_origin": "ast"
     },
     {
@@ -41670,8 +41670,8 @@
       "_origin": "ast"
     },
     {
-      "id": "docs_quickstart_if_you_installed_with_pip",
-      "label": "If you installed with pip",
+      "id": "docs_quickstart_after_installing",
+      "label": "After installing",
       "file_type": "document",
       "source_file": "docs/quickstart.md",
       "source_location": "L11",
@@ -132646,7 +132646,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L67",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -132656,7 +132656,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L84",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -132666,7 +132666,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L96",
+      "source_location": "L98",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -132676,7 +132676,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L108",
+      "source_location": "L110",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -132902,71 +132902,31 @@
     },
     {
       "source": "docs_install_installation",
-      "target": "docs_install_desktop_installers_recommended",
+      "target": "docs_install_install_with_pip_recommended",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/install.md",
-      "source_location": "L8",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "docs_install_desktop_installers_recommended",
-      "target": "docs_install_none_of_them_need_administrator_rights",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/install.md",
-      "source_location": "L22",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "docs_install_desktop_installers_recommended",
-      "target": "docs_install_first_launch_security_warnings",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/install.md",
-      "source_location": "L47",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "docs_install_desktop_installers_recommended",
-      "target": "docs_install_support_boundaries",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/install.md",
-      "source_location": "L56",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "docs_install_installation",
-      "target": "docs_install_install_from_pypi",
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/install.md",
-      "source_location": "L68",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "docs_install_install_from_pypi",
+      "source": "docs_install_install_with_pip_recommended",
       "target": "docs_install_one_note_about_linux",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/install.md",
-      "source_location": "L92",
+      "source_location": "L39",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "docs_install_install_from_pypi",
+      "source": "docs_install_install_with_pip_recommended",
       "target": "docs_install_windows",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/install.md",
-      "source_location": "L123",
+      "source_location": "L70",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -132976,7 +132936,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/install.md",
-      "source_location": "L128",
+      "source_location": "L75",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -132986,7 +132946,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/install.md",
-      "source_location": "L136",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -132996,7 +132956,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "docs/install.md",
-      "source_location": "L144",
+      "source_location": "L91",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133006,7 +132966,47 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/install.md",
+      "source_location": "L109",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_install_installation",
+      "target": "docs_install_desktop_installers",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/install.md",
+      "source_location": "L119",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_install_desktop_installers",
+      "target": "docs_install_none_of_them_need_administrator_rights",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/install.md",
+      "source_location": "L137",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_install_desktop_installers",
+      "target": "docs_install_first_launch_security_warnings",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/install.md",
       "source_location": "L162",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_install_desktop_installers",
+      "target": "docs_install_support_boundaries",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/install.md",
+      "source_location": "L171",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133016,7 +133016,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/install.md",
-      "source_location": "L172",
+      "source_location": "L183",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133026,7 +133026,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "docs/install.md",
-      "source_location": "L183",
+      "source_location": "L194",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133182,7 +133182,7 @@
     },
     {
       "source": "docs_quickstart_quickstart",
-      "target": "docs_quickstart_if_you_installed_with_pip",
+      "target": "docs_quickstart_after_installing",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/quickstart.md",
