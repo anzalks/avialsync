@@ -1,0 +1,49 @@
+#!/bin/sh
+# Credit the author, and nobody else.
+#
+# Coding agents rotate through this repository (AGENTS.md), and every one of
+# them is told by its own vendor prompt to append "Co-Authored-By:" and
+# "Generated with ..." trailers. GitHub renders those as real co-authors on the
+# commit and in the PR body. This project credits the person who made the
+# commit; an agent is a tool, like the editor and the compiler.
+#
+# Enabled with `git config core.hooksPath .githooks`, alongside the pre-commit
+# hook that refuses raw recording data.
+#
+# Signed-off-by is deliberately NOT stripped: it attests to the author's own
+# sign-off, it does not credit a third party.
+
+set -e
+
+msg_file="$1"
+[ -n "$msg_file" ] || exit 0
+[ -f "$msg_file" ] || exit 0
+
+cleaned="$msg_file.attribution.$$"
+
+# Blank lines are held back until a real line follows, so removing a trailer
+# block does not leave the message ending in its separator.
+awk '
+	{
+		probe = tolower($0)
+		sub(/^[ \t]+/, "", probe)
+
+		if (probe ~ /^(co-authored-by|co-committed-by|co-developed-by|coauthored-by|assisted-by|generated-by|created-by|authored-with|reviewed-by-agent)[ \t]*:/) next
+		if (probe ~ /(generated|created|written|co-authored|assisted) (with|by) .*(claude|anthropic|codex|openai|gpt|gemini|antigravity|cursor|copilot|windsurf|aider|devin|llm)/) next
+		if (probe ~ /^[^a-z0-9]*(generated|created) with \[?(claude|codex|gemini|cursor|copilot|windsurf|aider|devin)/) next
+
+		if ($0 ~ /^[ \t]*$/) { pending++; next }
+		while (pending > 0) { print ""; pending-- }
+		print
+	}
+' "$msg_file" > "$cleaned"
+
+# An empty result would mean the whole message was attribution; let git reject
+# an empty message itself rather than writing one over a real one.
+if [ -s "$cleaned" ]; then
+	mv -f "$cleaned" "$msg_file"
+else
+	rm -f "$cleaned"
+fi
+
+exit 0

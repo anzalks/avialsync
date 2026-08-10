@@ -1724,6 +1724,7 @@ class MainWindow(QMainWindow):
         # just asked for, not the one with this video still in it.
         self.sidebar.remove_video(path)
         self._video_frame_times.pop(path, None)
+        self._overlay_sources.pop(path, None)
         self._sync_provenance = [
             entry for entry in self._sync_provenance if entry.target_id != path
         ]

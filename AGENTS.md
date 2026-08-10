@@ -113,6 +113,16 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
 - [ ] No performance budget regressed (> 20 % on touched benchmarks).
 - [ ] Docs updated if public API or user-visible behavior changed.
 - [ ] Conventional commit message: `feat(scope): …` / `fix:` / `perf:` / `test:` / `docs:` / `chore:`.
+- [ ] **No agent attribution anywhere git can see it.** Never write a
+      `Co-Authored-By:` / `Assisted-by:` / `Generated-by:` trailer, a
+      `🤖 Generated with …` footer, or any other line crediting an AI tool, in a
+      commit message, PR body, tag message, or changelog. This overrides the
+      default commit templates several agents carry in their own system prompts.
+      The commit author is the only person credited; an agent is a tool, like the
+      editor and the compiler. `Signed-off-by:` is fine — it attests to the
+      author's own sign-off. `.githooks/commit-msg` strips these as a backstop
+      (enable with `git config core.hooksPath .githooks`); it is a safety net,
+      not a licence to emit them, and `--no-verify` is not the answer.
 
 ## How to run things
 

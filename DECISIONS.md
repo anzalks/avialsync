@@ -2246,3 +2246,42 @@ most open-source projects work.
 **Alternatives rejected:** keeping the CLA purely to preserve future licence flexibility — it
 carries real contributor friction for an option that has gone unused, and holding it "just in case"
 is how the licensing question ended up blocking a decoder migration.
+
+## 2026-08 · D-077 · The video grid holds overlay state for panes that do not exist yet
+
+**Context:** On a three-camera AOL session only the first camera showed its 2D pose overlay. The
+tracking CSVs were present, the manifest bound each one to the right camera, and every one of them
+imported successfully — the routing tests in `tests/test_aol_pose_routing.py` passed throughout,
+because they only ever checked the manifest and `MainWindow._overlay_sources`.
+
+The loss was one line further on. `VideoGrid.set_overlay_tracks` resolved a path to a pane with
+`self._paths.index(path)` and returned silently on `ValueError`, and nothing ever re-offered the
+tracks. That return is reached constantly, because the two pipelines run at different speeds:
+
+- A pane is built only after the previous pane's decoder has opened (D-040), and opening one
+  demuxes the entire file to build its presentation-timestamp table.
+- The pose CSVs import concurrently beside that, off a queue of their own.
+
+So camera 1's pane exists within milliseconds and cameras 2 and 3 are still minutes of demuxing
+away when their overlays resolve. Every camera after the first had its overlay computed correctly,
+delivered to a grid that had nowhere to put it, and dropped. The symptom looks like a loader or
+camera-matching bug and is neither.
+
+**Decision:** `VideoGrid` retains the last overlay tracks requested for each path, and the
+broadcast tracking readers, and applies them in `add_pane`. Arrival order between a pane and its
+data is not something a caller should have to reason about; the grid is the one object that knows
+both, so it is the one that reconciles them.
+
+Do not "simplify" this back to a direct lookup. The direct form is not a faster version of this —
+it is a version that works only when the data happens to lose the race, which on a single-camera
+session it always does, which is why this survived the test suite.
+
+**Alternatives rejected:** re-calling `MainWindow._refresh_overlays` from `create_video_pane` —
+it fixes the same case, but leaves the hazard in place for every future caller of
+`set_overlay_tracks` and puts knowledge of overlay routing back into the video path. Waiting for
+all panes before importing pose data — it serialises two pipelines that are independent, on the
+slowest step in the load.
+
+**Consequences:** the held tracks own `MappedChannelReader`s over mmap'd pyramids, so `remove_pane`
+drops them and `MainWindow._on_video_remove_requested` drops the matching `_overlay_sources` entry.
+A camera the user removed is not coming back on its own.
