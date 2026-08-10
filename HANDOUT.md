@@ -578,6 +578,18 @@ routes those to the overlay / 3D view instead of `plot_pane.load_channels`. 2D g
 its own video path only — every camera and model emits `head_bar_x`, so broadcasting paints SideCam
 points over FaceCam. 2D carries no `start_epoch` (overlay uses the source's own media clock); 3D does (master time).
 
+### 0c-bis. Overlay data reaches the grid before most panes exist (D-077)
+`VideoGrid.set_overlay_tracks(path, tracks)` used to resolve `path` against `self._paths` and return
+silently when it missed. That miss is the *common* case on a multi-camera session: panes are built
+one at a time (D-040) and opening one demuxes the whole file for its pts table, while the pose CSVs
+import concurrently on their own queue. Camera 1's pane exists in milliseconds; cameras 2 and 3 are
+still demuxing when their overlays resolve — so every camera after the first was computed correctly,
+delivered, and dropped. It reads like a loader or camera-matching bug and is neither: the manifest,
+the routing, and `MainWindow._overlay_sources` were all right, which is why the AOL routing tests
+never saw it. The grid now retains the tracks per path and applies them in `add_pane`. Do not
+collapse that back to a direct lookup — the direct form only works when the data loses the race,
+which it always does on a single-camera session.
+
 ### 0d. `"_eks.csv".split("_")[0]` is `""` — and `"" in name` matches everything
 The session-level 3D file names no camera, so substring-matching its leading token bound it to
 whichever video came first. Blank tokens are ignored in `_resolve_eks_start_epoch`, which falls back

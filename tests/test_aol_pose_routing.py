@@ -246,6 +246,60 @@ def test_non_pose_sources_still_plot(tmp_path: Path, qtbot, monkeypatch) -> None
     window.close()
 
 
+def test_every_camera_is_painted_even_when_its_pane_is_built_last(
+    tmp_path: Path, qtbot, monkeypatch
+) -> None:
+    """A three-camera session paints all three, not just the one that loaded first.
+
+    This is the real AOL order. Opening a video pane demuxes the whole file to
+    build its timestamp table and panes are built strictly one at a time, while
+    the pose CSVs import concurrently beside them — so the second and third
+    cameras' overlays are ready long before their panes are. They used to be
+    dropped on arrival, leaving only the first camera with any markers.
+    """
+    from avialsync.ui import video_grid as video_grid_module
+    from avialsync.ui.main_window import MainWindow
+    from tests.test_video_grid import _RecordingPane
+
+    monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
+    monkeypatch.setattr(video_grid_module, "VideoPane", _RecordingPane)
+    window = MainWindow()
+    qtbot.addWidget(window)
+
+    cameras = ("FaceCam", "SideCam", "TopCam")
+    videos = {camera: str(tmp_path / f"{camera}.mp4") for camera in cameras}
+
+    # Every camera's pose import completes first, as it does on a real session.
+    for camera in cameras:
+        _finish_import(
+            window,
+            f"{camera}_eks.csv",
+            tmp_path / f"{camera}_eks.avialcache",
+            ["head_bar_x", "head_bar_y"],
+            {
+                "role": "overlay2d",
+                "overlay_video": videos[camera],
+                "overlay_camera": camera,
+                "overlay_label": "eks",
+                "overlay_is_ensemble": True,
+            },
+        )
+
+    panes = {camera: window.video_grid.add_pane(videos[camera]) for camera in cameras}
+
+    for camera in cameras:
+        tracks = panes[camera].overlay_tracks
+        assert len(tracks) == 1, f"{camera} was left with no overlay"
+        assert tracks[0].label == "eks"
+        # And it is its own camera's data, not the first camera's broadcast.
+        assert (
+            tracks[0].points
+            is window._overlay_sources[videos[camera]][f"{camera}_eks.csv"]["points"]
+        )
+
+    window.close()
+
+
 def test_overlay_tracks_get_distinct_colours_and_labels(tmp_path: Path, qtbot, monkeypatch) -> None:
     """Overlaid models must be distinguishable by label, not colour alone."""
     from avialsync.ui.main_window import MainWindow

@@ -43,6 +43,11 @@ class VideoGrid(QWidget):
         self._pane_enabled: list[bool] = []
         self._grid_mode: bool = False
         self._batch_depth: int = 0
+        #: Overlay state that arrived before the pane it belongs to. Panes are
+        #: built one at a time and each one demuxes its whole file first, so
+        #: tracking data routinely resolves while later cameras have no pane.
+        self._overlay_tracks: dict[str, list] = {}
+        self._tracking_readers: list = []
 
         self._layout = QGridLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
@@ -104,9 +109,15 @@ class VideoGrid(QWidget):
         return records
 
     def set_tracking_readers(self, readers: list) -> None:
-        """Pass tracking data readers to all video panes for overlay rendering."""
+        """Pass tracking data readers to all video panes for overlay rendering.
+
+        Retained, for the same reason :meth:`set_overlay_tracks` retains: a pane
+        built after this call would otherwise show nothing until the plot's
+        source list next changed.
+        """
+        self._tracking_readers = list(readers)
         for pane in self.panes:
-            pane.set_tracking_readers(readers)
+            pane.set_tracking_readers(list(self._tracking_readers))
 
     def set_overlay_tracks(self, path: str, tracks: list) -> None:
         """Attach named 2D prediction tracks to the pane showing *path* only.
@@ -114,12 +125,25 @@ class VideoGrid(QWidget):
         2D pose data is camera-specific: a track extracted from SideCam must
         never be painted over FaceCam, so this routes by exact video path
         instead of broadcasting like :meth:`set_tracking_readers`.
+
+        The tracks are kept against the path because they routinely arrive
+        before their pane exists, and the arrival is a one-shot event nobody
+        repeats. Opening a pane demuxes the whole file to build its timestamp
+        table, and panes are built strictly one at a time (D-040), while the
+        pose CSVs import concurrently beside them. On a multi-camera session
+        that means every camera after the first had its overlay resolved while
+        it still had no pane to land on — dropped here, and never asked for
+        again, so only the first camera was ever painted.
         """
+        self._overlay_tracks[path] = list(tracks)
         try:
             index = self._paths.index(path)
         except ValueError:
+            logger.debug(
+                "Holding %d overlay track(s) for %s until its pane is built.", len(tracks), path
+            )
             return
-        self.panes[index].set_overlay_tracks(tracks)
+        self.panes[index].set_overlay_tracks(self._overlay_tracks[path])
 
     def set_grid_mode(self, enabled: bool) -> None:
         """Switch between horizontal-strip and NxN grid layout."""
@@ -145,6 +169,13 @@ class VideoGrid(QWidget):
         self.panes.append(pane)
         self._paths.append(path)
         self._pane_enabled.append(True)
+        # Whatever already resolved for this camera while it had no pane. Applied
+        # before `open`, so the pane's first paint is already correct.
+        if self._tracking_readers:
+            pane.set_tracking_readers(list(self._tracking_readers))
+        held = self._overlay_tracks.get(path)
+        if held:
+            pane.set_overlay_tracks(list(held))
         pane.open(media_path or path)
         if self._batch_depth == 0:
             self._relayout()
@@ -162,6 +193,10 @@ class VideoGrid(QWidget):
         self._paths.pop(idx)
         if idx < len(self._pane_enabled):
             self._pane_enabled.pop(idx)
+        # The held tracks own channel readers over mmap'd pyramids. A camera the
+        # user removed is not coming back on its own, so holding them past this
+        # point is retention with no reader.
+        self._overlay_tracks.pop(path, None)
 
         if self._fullscreen_pane == pane:
             self._fullscreen_pane = None
@@ -199,6 +234,8 @@ class VideoGrid(QWidget):
         self._paths.clear()
         self._fullscreen_pane = None
         self._pane_enabled.clear()
+        self._overlay_tracks.clear()
+        self._tracking_readers.clear()
 
     def set_offset(self, path: str, offset: float) -> None:
         """Update the time offset for a specific video."""
