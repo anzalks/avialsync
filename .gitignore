@@ -4,8 +4,13 @@ __pycache__/
 *$py.class
 *.pyd
 
-# C extensions
+# C extensions and native runtime libraries. `*.so` alone left the Windows and
+# macOS equivalents uncovered, which is how 393 MB of staged FFmpeg/libmpv DLLs
+# sat in the tree as merely-untracked rather than ignored.
 *.so
+*.dll
+*.dylib
+*.pdb
 
 # Build, packaging, and release output
 .Python
@@ -39,6 +44,12 @@ MANIFEST
 *.exe
 installer-output/
 
+# Locally staged media runtime. This predates D-075: PyAV's wheel now carries
+# its own FFmpeg, the spec no longer reads AVIALSYNC_MEDIA_ROOT, and
+# tests/test_packaging_spec.py fails if it comes back. Anything left here is a
+# few hundred MB of stale libmpv/FFmpeg DLLs from the old Windows route.
+packaging/media/
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -57,6 +68,9 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+# pytest-benchmark's saved runs. Speed is certified locally (AGENTS.md), so
+# these accumulate on a developer machine and belong to nobody else.
+.benchmarks/
 
 # Translations
 *.mo
@@ -117,8 +131,19 @@ venv.bak/
 
 # Coding-agent tool config. Project rules live in AGENTS.md (CLAUDE.md and
 # GEMINI.md are thin pointers to it), so anything an agent writes here is that
-# developer's local setup rather than shared project configuration.
+# developer's local setup rather than shared project configuration. Several
+# models rotate through this codebase, so each one's scratch directory is
+# listed rather than only the one that happened to be used first.
 .claude/
+.codex/
+.gemini/
+.cursor/
+.cursorindexingignore
+.copilot/
+.continue/
+.antigravity/
+.windsurf/
+.aider*
 
 # mypy
 .mypy_cache/
@@ -151,8 +176,11 @@ docs/_build/
 .release/
 
 # Console captures from a local run. One of these was committed once as a stale
-# UTF-16 capture of a failing suite; nothing should reach the tree this way.
+# UTF-16 capture of a failing suite; a second reached tests/ as an empty
+# `.out` beside the test it was captured from. Nothing should reach the tree
+# this way — a captured run is not a fixture and not a golden file.
 pytest_out.txt
+*.out
 
 # User raw data directories.
 # Recording sessions are named HH-MM-SS by the acquisition rig, so the pattern
