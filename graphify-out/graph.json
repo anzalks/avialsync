@@ -23182,6 +23182,14 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_ci_platform_config_test_every_tracked_path_can_exist_on_windows",
+      "label": "test_every_tracked_path_can_exist_on_windows()",
+      "file_type": "code",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L273",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_ci_platform_config_rationale_1",
       "label": "Regression checks for the shared cross-platform CI and release contract.",
       "file_type": "rationale",
@@ -23291,6 +23299,14 @@
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
       "source_location": "L246",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ci_platform_config_rationale_274",
+      "label": "A path Windows cannot create fails the job in checkout, before any test.      Th",
+      "file_type": "rationale",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L274",
       "_origin": "ast"
     },
     {
@@ -97058,6 +97074,16 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_ci_platform_config",
+      "target": "tests_test_ci_platform_config_test_every_tracked_path_can_exist_on_windows",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L273",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_ci_platform_config_rationale_1",
       "target": "tests_test_ci_platform_config",
       "relation": "rationale_for",
@@ -97194,6 +97220,16 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
       "source_location": "L246",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ci_platform_config_rationale_274",
+      "target": "tests_test_ci_platform_config_test_every_tracked_path_can_exist_on_windows",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L274",
       "weight": 1.0,
       "_origin": "ast"
     },
