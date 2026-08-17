@@ -163,6 +163,11 @@ dmypy.json
 .DS_Store
 .DS_Store?
 ._*
+# Finder aliases. Their names embed the path they point at, colons and all, and
+# a colon is illegal in a Windows filename — committing one makes the Windows
+# job fail in `actions/checkout`, before a single test runs.
+*.fileloc
+*.inetloc
 .Spotlight-V100
 .Trashes
 ehthumbs.db

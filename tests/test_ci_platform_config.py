@@ -253,3 +253,56 @@ def test_signing_scripts_refuse_to_run_without_credentials() -> None:
     # already-shipped installers start warning.
     assert "--timestamp" in notarize
     assert "/tr $TimestampUrl" in windows
+
+
+#: Characters Windows forbids in a path component. All are legal on POSIX, which
+#: is exactly why one reaches a commit without anybody noticing.
+_WINDOWS_ILLEGAL = '<>:"|?*'
+
+#: Names Windows reserves whatever the extension, inherited from DOS devices.
+_WINDOWS_RESERVED = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{n}" for n in range(1, 10)),
+    *(f"LPT{n}" for n in range(1, 10)),
+}
+
+
+def test_every_tracked_path_can_exist_on_windows() -> None:
+    """A path Windows cannot create fails the job in checkout, before any test.
+
+    This is not a style rule. A stray macOS Finder alias — ``Users:.fileloc``,
+    whose name embeds the path it points at, colon included — was committed and
+    took down both Windows jobs at ``actions/checkout``: nothing was built, no
+    test ran, and the log points at the checkout action rather than at anything
+    in the repository. The other five matrix jobs passed, so the failure reads
+    like flaky infrastructure.
+
+    Guarding it here rather than trusting ``.gitignore``: an ignore rule only
+    covers the patterns somebody thought of, and this one is cheap and total.
+    """
+    import subprocess
+
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split("\0")
+
+    offenders: list[str] = []
+    for path in filter(None, tracked):
+        for part in Path(path).parts:
+            if any(character in part for character in _WINDOWS_ILLEGAL):
+                offenders.append(f"{path} (illegal character)")
+            elif part.rstrip(". ") != part:
+                offenders.append(f"{path} (trailing dot or space)")
+            elif part.split(".")[0].upper() in _WINDOWS_RESERVED:
+                offenders.append(f"{path} (reserved device name)")
+
+    assert not offenders, (
+        "These tracked paths cannot be checked out on Windows, so the Windows "
+        "CI jobs will fail before running anything:\n  " + "\n  ".join(sorted(set(offenders)))
+    )
