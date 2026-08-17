@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFontDatabase
+from PySide6.QtGui import QFontDatabase, QPalette
 from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
@@ -42,7 +42,11 @@ class _ChannelReadout(QWidget):
 
         self._idx_lbl = QLabel("")
         self._idx_lbl.setFixedWidth(60)
-        self._idx_lbl.setStyleSheet("color: #777;")
+        # A role, not a colour: Qt re-resolves it against whatever palette is
+        # current, so this de-emphasised text follows a light/dark switch on its
+        # own. The stylesheet literal it replaces stayed dark grey on a dark
+        # panel, where it was very nearly invisible.
+        self._idx_lbl.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         self._idx_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         layout.addWidget(self._name_lbl)

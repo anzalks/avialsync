@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.inspection import SourceInspection
 from avialsync.ui.source_properties import VideoPropertiesPanel
+from avialsync.ui.theme import follow_palette, status_color
 
 _W = TypeVar("_W", bound=QWidget)
 
@@ -87,7 +89,10 @@ class SensorInfoWidget(QFrame):
         self._badge_btn = QPushButton("⚠")
         self._badge_btn.setFixedSize(18, 18)
         self._badge_btn.setFlat(True)
-        self._badge_btn.setStyleSheet("color: #e9c46a; font-weight: bold;")
+        follow_palette(
+            self._badge_btn,
+            lambda palette: f"color: {status_color(palette, 'warning').name()}; font-weight: bold;",
+        )
         self._badge_btn.setVisible(False)
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
 
@@ -151,7 +156,14 @@ class SensorInfoWidget(QFrame):
         self.tree.setIndentation(12)
         self.tree.setMinimumHeight(120)
         self.tree.setMaximumHeight(250)
-        self.tree.setStyleSheet("QTreeWidget { border: 1px solid #444; background: transparent; }")
+        follow_palette(
+            self.tree,
+            lambda palette: (
+                "QTreeWidget { border: 1px solid "
+                f"{palette.color(QPalette.ColorRole.Mid).name()}"
+                "; background: transparent; }"
+            ),
+        )
         layout.addWidget(self.tree)
 
         self._channel_items: dict[str, QTreeWidgetItem] = {}
@@ -324,7 +336,10 @@ class VideoInfoWidget(QFrame):
         self._badge_btn = QPushButton("⚠")
         self._badge_btn.setFixedSize(18, 18)
         self._badge_btn.setFlat(True)
-        self._badge_btn.setStyleSheet("color: #e9c46a; font-weight: bold;")
+        follow_palette(
+            self._badge_btn,
+            lambda palette: f"color: {status_color(palette, 'warning').name()}; font-weight: bold;",
+        )
         self._badge_btn.setVisible(False)
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
         header_layout.insertWidget(2, self._badge_btn)  # between name and close

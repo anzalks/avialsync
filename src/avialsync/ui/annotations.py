@@ -7,7 +7,9 @@ import dataclasses
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -19,8 +21,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-# Palette for cycling annotation colours
-_COLORS = ["#f4a261", "#e76f51", "#2a9d8f", "#e9c46a", "#a8dadc", "#b5838d", "#84a98c"]
+from avialsync.ui.theme import marker_color
+
+
+def _resolved_marker_color(index: int) -> str:
+    """Return the *index*-th marker colour against the application palette."""
+    # `instance()` is typed as the QCoreApplication base, which has no palette;
+    # a headless run legitimately has none, so both cases fall back to a default
+    # palette rather than assuming a GUI application exists.
+    app = QApplication.instance()
+    palette = app.palette() if isinstance(app, QApplication) else QPalette()
+    return marker_color(palette, index).name()
 
 
 @dataclasses.dataclass
@@ -43,8 +54,17 @@ class Marker:
     t_start: float
     t_end: float | None
     label: str
-    color: str = "#f4a261"
+    #: Position in the categorical marker sequence, not a colour. The colour it
+    #: resolves to depends on the live palette, so a marker stays legible when
+    #: the user switches appearance instead of keeping a hex tuned for the
+    #: theme that happened to be active when it was created.
+    color_index: int = 0
     video_frames: list[VideoFrame] = dataclasses.field(default_factory=list)
+
+    @property
+    def color(self) -> str:
+        """Resolve this marker's colour against the current application palette."""
+        return _resolved_marker_color(self.color_index)
 
 
 class AnnotationStore(QObject):
@@ -69,9 +89,11 @@ class AnnotationStore(QObject):
         self, t: float, label: str = "", video_frames: list[VideoFrame] | None = None
     ) -> Marker:
         """Add a point marker at time *t*."""
-        color = _COLORS[self._color_idx % len(_COLORS)]
+        index = self._color_idx
         self._color_idx += 1
-        m = Marker(t_start=t, t_end=None, label=label, color=color, video_frames=video_frames or [])
+        m = Marker(
+            t_start=t, t_end=None, label=label, color_index=index, video_frames=video_frames or []
+        )
         self._markers.append(m)
         self.changed.emit()
         return m
@@ -86,10 +108,14 @@ class AnnotationStore(QObject):
         """Add a range marker from *t_start* to *t_end*."""
         if t_start > t_end:
             t_start, t_end = t_end, t_start
-        color = _COLORS[self._color_idx % len(_COLORS)]
+        index = self._color_idx
         self._color_idx += 1
         m = Marker(
-            t_start=t_start, t_end=t_end, label=label, color=color, video_frames=video_frames or []
+            t_start=t_start,
+            t_end=t_end,
+            label=label,
+            color_index=index,
+            video_frames=video_frames or [],
         )
         self._markers.append(m)
         self.changed.emit()

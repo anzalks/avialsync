@@ -164,6 +164,25 @@ def test_an_empty_lane_yields_no_columns(overview: TimelineOverview) -> None:
     assert overview._visible_event_x("ttl", 0.0, 100.0) == []
 
 
+def test_the_message_lane_is_indexed_like_every_other_lane(
+    overview: TimelineOverview,
+) -> None:
+    """A new lane must inherit the sorted index, not scan its events per frame.
+
+    This is the property a lane added later is most likely to lose: it costs
+    nothing at ten messages and repaints a whole recording at fifty thousand.
+    """
+    overview.set_message_events([(9.0, "late"), (1.0, "early")])
+
+    assert [text for _, text in overview._message_events] == ["early", "late"]
+    assert np.all(np.diff(overview._event_times["message"]) > 0)
+
+    overview.set_message_events(list(np.linspace(0.0, 100.0, 50_000)))
+    columns = overview._visible_event_x("message", 0.0, 100.0)
+    assert len(columns) <= overview.width()
+    assert len(columns) == len(set(columns))
+
+
 def test_nearest_event_lookup_finds_the_closest_within_tolerance(
     overview: TimelineOverview,
 ) -> None:

@@ -32,6 +32,7 @@ import neo
 import numpy as np
 
 from avialsync.core.errors import SourceOpenError
+from avialsync.core.messages import MAX_MESSAGES, Message, clean
 from avialsync.core.source import ChannelInfo, TimeSeriesSource
 from avialsync.loaders.open_ephys_format import find_recordings, is_recording_dir
 
@@ -398,7 +399,9 @@ class NeoLoader(TimeSeriesSource):
             return [""]
         distinct = sorted({str(value) for value in labels})
         # A text annotation stream (Open Ephys ``MessageCenter``) has free-form
-        # labels and no logic level to plot; a TTL line is numbered.
+        # labels and no logic level to plot; a TTL line is numbered.  Skipped
+        # here as a *channel* only — :meth:`messages` reads the same stream for
+        # its text, so declining to plot it no longer discards it.
         if not all(value.isdigit() for value in distinct):
             logger.info("Skipping non-numeric neo event channel %r.", event.name)
             return None
@@ -443,6 +446,59 @@ class NeoLoader(TimeSeriesSource):
 
     def channels(self) -> list[ChannelInfo]:
         return self._schema_channels
+
+    def messages(self) -> list[Message]:
+        """Return the recording's free-text annotations, in source time.
+
+        These are the event channels :meth:`_event_labels` declines to make
+        channels of: an Open Ephys ``MessageCenter`` holds whatever the
+        experimenter typed during the recording, which has text but no logic
+        level, so there is nothing to plot and everything to read.  Skipping the
+        channel was right; discarding its contents was not.
+
+        Deliberately harvested whatever ``config['events']`` says.  The messages
+        belong to the *recording*, and a session that fans one recording out into
+        four streams imports them through whichever of those the user chose;
+        gating on the events flag would mean a signals-only import silently lost
+        the notes describing it.  The duplication that produces across sibling
+        streams is resolved once, where it is visible, by
+        :class:`~avialsync.ui.message_panel.MessageStore`.
+        """
+        if self._block is None:
+            return []
+        found: list[Message] = []
+        for seg_idx, segment in enumerate(self._block.segments):
+            for ev_idx, event in enumerate(segment.events):
+                if len(found) >= MAX_MESSAGES:
+                    break
+                found.extend(self._channel_messages(seg_idx, ev_idx, event))
+        return found
+
+    def _channel_messages(self, seg_idx: int, ev_idx: int, event: Any) -> list[Message]:
+        """Return one message per text-labelled event on a single event channel."""
+        try:
+            times, _durations, labels = self._raw_events(seg_idx, ev_idx)
+        except SourceOpenError:
+            logger.warning(
+                "Neo event channel %r could not be read for messages; skipping it.",
+                event.name,
+                exc_info=True,
+            )
+            return []
+        if labels is None or len(times) == 0 or len(labels) != len(times):
+            return []
+        texts = [str(value) for value in labels]
+        # A numbered line is a TTL state, already a plotted channel; only the
+        # free-form stream is prose. `all` over an empty list is True, so the
+        # emptiness check above is what keeps a channel of blanks out.
+        if all(text.isdigit() for text in texts):
+            return []
+        channel = str(event.name or f"Event_{seg_idx}_{ev_idx}")
+        return [
+            Message(text=clean(text), time=float(time), channel=channel)
+            for time, text in zip(times[:MAX_MESSAGES], texts[:MAX_MESSAGES], strict=False)
+            if clean(text)
+        ]
 
     # ── Reading ─────────────────────────────────────────────────────────
 

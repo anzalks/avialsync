@@ -118,6 +118,35 @@ chunk must carry every channel you declared, on the same rows, under the same
 ordering, duplicate, and NaN rules as `read_chunks` — both paths must build the
 same cache from the same file.
 
+### Optional: messages the recording carries
+
+Many formats store prose the experimenter wrote — an acquisition system's
+annotation stream, a commented file header, a note appended when the session
+stopped. If yours does, return it from `messages()`:
+
+```python
+from avialsync.core.messages import Message
+
+
+def messages(self) -> list[Message]:
+    """Return free-text records, in this source's own timeline."""
+    return [Message(text="stimulus on", time=61.4, channel="MessageCenter")]
+```
+
+It is called once after `open()`, on the import thread, and has a default that
+returns nothing, so a plugin that never defines it is fully supported. Times are
+in your source's timeline — the same one `read_chunks` yields — so the session's
+alignment moves a note and the samples it describes together.
+
+**Leave `time` as `None` for anything the file did not timestamp.** A header or a
+closing comment has no place on the clock, and AvialSync shows those as untimed
+notes rather than pinning them to the start of the recording. Do not substitute
+`0.0`: that asserts a moment the file never recorded.
+
+Messages are displayed read-only, in their own Inspector tab and timeline lane.
+They are not annotations — the user's own markers are separate, editable, and
+exported as their work (see D-078).
+
 ## Video plugins
 
 Subclass `VideoSource` and implement every abstract method. `open()` runs in a

@@ -9,6 +9,8 @@ from typing import Any
 
 import numpy as np
 
+from avialsync.core.messages import Message
+
 
 @dataclass
 class ChannelInfo:
@@ -257,6 +259,25 @@ class TimeSeriesSource(_Nameable, ABC):
         gaps after ingest using a 10× median-sample-interval threshold.
         """
         pass
+
+    def messages(self) -> list[Message]:
+        """Return free-text records this file stores, or an empty list.
+
+        Additive default, so frozen v1 plugins are unaffected.  Override it when
+        the format carries prose the experimenter wrote — an acquisition
+        system's annotation stream, a commented file header, a note appended
+        when the session ended.  Times are in this source's own timeline, the
+        same one :meth:`read_chunks` yields, so the session's ``TimeMap`` places
+        a message and the samples it describes together.
+
+        Called once by the importer after :meth:`open`, on the import thread.
+        Return :data:`~avialsync.core.messages.Message` records with ``time`` set
+        to ``None`` for anything the file did not timestamp; do not invent a time
+        for it.  A source that logs prose per sample must bound what it returns —
+        the importer caps the list, but building millions of strings to have them
+        discarded is the loader's own cost.
+        """
+        return []
 
     def is_frame_indexed(self) -> bool:
         """Return True if this source stores frame numbers instead of wall-clock time.

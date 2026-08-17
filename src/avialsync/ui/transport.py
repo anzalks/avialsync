@@ -30,7 +30,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.ui.theme import set_font_family, system_accent
+from avialsync.ui.theme import (
+    evidence_color,
+    follow_palette,
+    loop_pin_color,
+    set_font_family,
+    status_color,
+    system_accent,
+)
 from avialsync.ui.time_format import TimeDisplayMode, format_time
 
 
@@ -123,16 +130,34 @@ class TimelineOverview(QWidget):
         self._coverage: dict[str, tuple[float, float, str]] = {}
         self._ttl_events: tuple[tuple[float, str], ...] = ()
         self._gap_events: tuple[tuple[float, str], ...] = ()
+        self._message_events: tuple[tuple[float, str], ...] = ()
         # Sorted time index per event lane.  Paint and hover binary-search this
         # instead of scanning every event, so a 100k-event session costs the
         # same per frame as a 100-event one (P3.5 P1 hot path).
-        self._event_times: dict[str, np.ndarray] = {"ttl": _EMPTY_TIMES, "gap": _EMPTY_TIMES}
+        self._event_times: dict[str, np.ndarray] = {
+            "ttl": _EMPTY_TIMES,
+            "gap": _EMPTY_TIMES,
+            "message": _EMPTY_TIMES,
+        }
         self._markers: tuple[tuple[float, float | None, str], ...] = ()
         self._viewport_start = 0.0
         self._viewport_duration = 0.0
         self._viewport_phase = 0.0
         self._dragging_viewport = False
         self._viewport_drag_offset = 0.0
+
+    def changeEvent(self, event: QEvent) -> None:
+        """Repaint the lanes when the platform appearance changes.
+
+        Lane colours are derived from the palette at paint time, so following a
+        light/dark switch costs one repaint and no stored state. Qt already
+        repaints widgets it styles itself; a widget that paints its own content
+        has to ask, which is why a custom lane would otherwise keep the previous
+        theme's colours until something else happened to invalidate it.
+        """
+        if event.type() == QEvent.Type.PaletteChange:
+            self.update()
+        super().changeEvent(event)
 
     def set_bounds(self, t0: float, t1: float) -> None:
         """Set the shared master-time range rendered by this overview."""
@@ -168,6 +193,14 @@ class TimelineOverview(QWidget):
         self._event_times["gap"] = _time_index(self._gap_events)
         self._on_evidence_changed()
 
+    def set_message_events(
+        self, events: list[float | tuple[float, str]] | tuple[float, ...]
+    ) -> None:
+        """Display messages the sources recorded, with their text inspectable."""
+        self._message_events = _normalise_events(events)
+        self._event_times["message"] = _time_index(self._message_events)
+        self._on_evidence_changed()
+
     def _visible_event_x(self, kind: str, t0: float, t1: float) -> list[int]:
         """Return the distinct pixel columns of the events inside ``[t0, t1]``.
 
@@ -188,12 +221,25 @@ class TimelineOverview(QWidget):
         )
         return [int(column) for column in np.unique(columns)]
 
+    def _events_of(self, kind: str) -> tuple[tuple[float, str], ...]:
+        """Return the event tuples behind one lane kind.
+
+        A lookup rather than a conditional: the two-lane ternary this replaced
+        answered "gap" for every kind that was not "ttl", so a third lane would
+        have silently reported gap text under its own name.
+        """
+        return {
+            "ttl": self._ttl_events,
+            "gap": self._gap_events,
+            "message": self._message_events,
+        }.get(kind, ())
+
     def _nearest_event(self, kind: str, time: float, tolerance: float):
         """Binary-search the nearest event of *kind*, or None outside tolerance."""
         times = self._event_times.get(kind, _EMPTY_TIMES)
         if len(times) == 0:
             return None
-        events = self._ttl_events if kind == "ttl" else self._gap_events
+        events = self._events_of(kind)
         index = int(np.searchsorted(times, time))
         candidates = [i for i in (index - 1, index) if 0 <= i < len(times)]
         if not candidates:
@@ -218,6 +264,8 @@ class TimelineOverview(QWidget):
             labels.append("Sync / TTL")
         if self._gap_events:
             labels.append("Data gaps")
+        if self._message_events:
+            labels.append("Messages")
         if self._markers:
             labels.append("Annotations")
         return labels
@@ -248,6 +296,8 @@ class TimelineOverview(QWidget):
             lanes.append(("Sync / TTL", "ttl", _EventLane(self._ttl_events)))
         if self._gap_events:
             lanes.append(("Data gaps", "gap", _EventLane(self._gap_events)))
+        if self._message_events:
+            lanes.append(("Messages", "message", _EventLane(self._message_events)))
         if self._markers:
             lanes.append(("Annotations", "annotation", _AnnotationLane(self._markers)))
         return lanes
@@ -372,8 +422,16 @@ class TimelineOverview(QWidget):
                 for x in self._visible_event_x("ttl", t0, t1):
                     painter.drawLine(x, top + 2, x, bottom - 2)
             elif lane_kind == "gap":
-                painter.setPen(QColor("#d64545"))
+                painter.setPen(evidence_color(palette, "gap"))
                 for x in self._visible_event_x("gap", t0, t1):
+                    painter.drawLine(x, top + 2, x, bottom - 2)
+            elif lane_kind == "message":
+                # Neither the accent nor the defect red: a note the experimenter
+                # typed is neither a sync match nor an error, and colouring it
+                # like either would misreport what it is. Derived from the live
+                # accent, so that separation holds under any theme.
+                painter.setPen(evidence_color(palette, "message"))
+                for x in self._visible_event_x("message", t0, t1):
                     painter.drawLine(x, top + 2, x, bottom - 2)
             elif isinstance(payload, _AnnotationLane):
                 for start, end, marker_color in payload.markers:
@@ -427,10 +485,14 @@ class TimelineOverview(QWidget):
                 return (
                     f"Coverage\nSource: {Path(payload.source_id).name}\nMaster time: {time:.6f} s"
                 )
-        if kind in {"ttl", "gap"}:
+        if kind in {"ttl", "gap", "message"}:
             nearest = self._nearest_event(kind, time, tolerance)
             if nearest is not None:
-                event_name = "Accepted sync / TTL event" if kind == "ttl" else "Imported data gap"
+                event_name = {
+                    "ttl": "Accepted sync / TTL event",
+                    "gap": "Imported data gap",
+                    "message": "Recorded message",
+                }[kind]
                 extra = f"\n{nearest[1]}" if nearest[1] else ""
                 return f"{event_name}\nMaster time: {nearest[0]:.6f} s{extra}"
         if isinstance(payload, _AnnotationLane):
@@ -488,6 +550,14 @@ class TimelineEvidence(QWidget):
         self._status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._status_label.setToolTip("Non-blocking application status")
         self._status_label.hide()
+        # The severity is state, so the builder reads it rather than closing over
+        # one value: a theme switch must re-colour whatever severity is showing
+        # at that moment, not the one this widget was built with.
+        self._status_severity = "info"
+        follow_palette(
+            self._status_label,
+            lambda palette: f"color: {status_color(palette, self._status_severity).name()};",
+        )
         self._status_clear_timer = QTimer(self)
         self._status_clear_timer.setSingleShot(True)
         self._status_clear_timer.timeout.connect(self._clear_status)
@@ -507,9 +577,11 @@ class TimelineEvidence(QWidget):
 
     def set_status(self, message: str, severity: str = "info") -> None:
         """Show active work beside Reset Zoom and clear non-active messages shortly after."""
-        colors = {"info": "#b8c7d9", "busy": "#f0c674", "warning": "#ff9f43", "error": "#ff6b6b"}
+        self._status_severity = severity
         self._status_label.setText(f"Status: {message}")
-        self._status_label.setStyleSheet(f"color: {colors.get(severity, colors['info'])};")
+        self._status_label.setStyleSheet(
+            f"color: {status_color(self._status_label.palette(), severity).name()};"
+        )
         self._status_label.show()
         if severity == "busy":
             self._status_clear_timer.stop()
@@ -533,11 +605,16 @@ class TimelineEvidence(QWidget):
 class _ABPin(QFrame):
     """Thin vertical marker overlaid on the slider for A/B loop points."""
 
-    def __init__(self, color: str, parent: QWidget) -> None:
+    def __init__(self, which: str, parent: QWidget) -> None:
         super().__init__(parent)
         self.setFixedWidth(2)
-        self.setStyleSheet(f"background-color: {color}; border: none;")
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        follow_palette(
+            self,
+            lambda palette: (
+                f"background-color: {loop_pin_color(palette, which).name()}; border: none;"
+            ),
+        )
         self.hide()
 
     def pin_to_slider(self, slider: QSlider, frac: float) -> None:
@@ -729,8 +806,8 @@ class Transport(QWidget):
         self._t_epoch = 0.0
 
         # Overlay pins for A/B markers
-        self._pin_in = _ABPin("#2a9d8f", self)
-        self._pin_out = _ABPin("#e76f51", self)
+        self._pin_in = _ABPin("in", self)
+        self._pin_out = _ABPin("out", self)
 
         # Keep normal Tab traversal. Space itself is arbitrated below so controls
         # do not steal the window-scoped play/pause command.
@@ -799,6 +876,12 @@ class Transport(QWidget):
     def set_gap_events(self, events: list[float | tuple[float, str]] | tuple[float, ...]) -> None:
         """Show imported data gaps in the overview strip."""
         self.overview.set_gap_events(events)
+
+    def set_message_events(
+        self, events: list[float | tuple[float, str]] | tuple[float, ...]
+    ) -> None:
+        """Show messages the sources recorded in the overview strip."""
+        self.overview.set_message_events(events)
 
     def set_annotation_markers(self, markers: list[tuple[float, float | None, str]]) -> None:
         """Show point and range annotations in the overview strip."""

@@ -15,6 +15,7 @@ from PySide6.QtCore import QObject, Signal
 from avialsync.core.cache import CacheManager
 from avialsync.core.errors import LoaderContractError, SourceOpenError
 from avialsync.core.inspection import ImportReport, IntegrityFlags, SourceInspection
+from avialsync.core.messages import Message, bounded
 from avialsync.core.pyramid import ChannelStage, PyramidBuilder, build_gap_mask, count_nan
 from avialsync.loaders.csv_loader import CSVLoader
 
@@ -139,6 +140,7 @@ class ImportWorker(QObject):
                 import_report=report,
                 integrity_flags=flags,
                 fps_binding=fps_binding,
+                messages=self._collect_messages(loader),
             )
 
             self._write_manifest(temp_dir, channel_names, (t0, t1), inspection)
@@ -150,6 +152,28 @@ class ImportWorker(QObject):
         except Exception as e:
             traceback.print_exc()
             self.error.emit(str(e))
+
+    @staticmethod
+    def _collect_messages(loader: Any) -> tuple[Message, ...]:
+        """Return the loader's free-text records, bounded, never fatally.
+
+        A format's prose is the least load-bearing thing it carries: losing the
+        samples fails the import, losing a note must not.  A third-party plugin
+        that raises here would otherwise turn a readable recording into an
+        unopenable one over a comment field.
+        """
+        reader = getattr(loader, "messages", None)
+        if not callable(reader):
+            return ()
+        try:
+            return bounded(list(reader()))
+        except Exception:  # noqa: BLE001 - third-party plugin surface
+            logger.warning(
+                "Loader %s failed to read messages; importing without them.",
+                type(loader).__name__,
+                exc_info=True,
+            )
+            return ()
 
     def _cache_manager(self) -> CacheManager:
         """Return the sidecar manager scoped to loader identity and accepted config."""

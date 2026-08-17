@@ -61,11 +61,27 @@ class TTLSpec:
 
 
 @dataclass
+class MessageSpec:
+    """The ``MessageCenter`` annotation stream — what the experimenter typed.
+
+    Open Ephys writes it as an ordinary event stream whose labels come from
+    ``text.npy`` instead of ``states.npy``, which is exactly why it has no logic
+    level to plot and must be read as prose.
+    """
+
+    #: ``(acquisition-clock seconds, text)`` in the order they were typed.
+    entries: list[tuple[float, str]]
+    #: The stream whose sample rate converts these times to sample numbers.
+    stream: str = "board"
+
+
+@dataclass
 class RecordingSpec:
     """Everything one ``recordingN`` directory should contain."""
 
     streams: list[StreamSpec]
     ttl: TTLSpec | None = None
+    messages: MessageSpec | None = None
     software_epoch_ms: int | None = SOFTWARE_EPOCH_MS
     record_dir_name: str = RECORD_DIR_NAME
     extra_messages: list[str] = field(default_factory=list)
@@ -111,6 +127,11 @@ def write_recording(root: Path, spec: RecordingSpec | None = None) -> Path:
         _write_ttl(recording, spec)
         assert isinstance(manifest["events"], list)
         manifest["events"].append(_ttl_manifest(spec.ttl))
+
+    if spec.messages is not None:
+        _write_messages(recording, spec)
+        assert isinstance(manifest["events"], list)
+        manifest["events"].append(_message_manifest())
 
     (recording / "structure.oebin").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
     _write_sync_messages(recording, spec)
@@ -202,6 +223,40 @@ def _ttl_manifest(ttl: TTLSpec) -> dict[str, object]:
         "source_processor": "Board",
         "stream_name": ttl.stream,
         "initial_state": 0,
+    }
+
+
+def _write_messages(recording: Path, spec: RecordingSpec) -> None:
+    messages = spec.messages
+    assert messages is not None
+    stream = next(item for item in spec.streams if item.name == messages.stream)
+    directory = recording / "events" / "MessageCenter"
+    directory.mkdir(parents=True, exist_ok=True)
+
+    times = np.asarray([time for time, _ in messages.entries], dtype=np.float64)
+    # Byte strings, as the Open Ephys GUI writes them.  neo decodes this array
+    # itself and would raise on a unicode one, so a "U" fixture would test a
+    # file no rig produces.
+    texts = np.asarray([text.encode("utf-8") for _, text in messages.entries], dtype="S")
+
+    np.save(directory / "timestamps.npy", times)
+    np.save(directory / "text.npy", texts)
+    np.save(
+        directory / "sample_numbers.npy",
+        np.round(times * stream.sample_rate).astype(np.int64),
+    )
+
+
+def _message_manifest() -> dict[str, object]:
+    return {
+        "folder_name": "MessageCenter/",
+        "channel_name": "MessageCenter",
+        "description": "Broadcast messages from the GUI",
+        "identifier": "messagecenter.events",
+        "sample_rate": 1000.0,
+        "type": "string",
+        "source_processor": "Message Center",
+        "stream_name": "",
     }
 
 

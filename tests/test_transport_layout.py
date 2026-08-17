@@ -3,6 +3,7 @@
 import pytest
 from PySide6.QtCore import QPoint, Qt
 
+from avialsync.ui.theme import status_color
 from avialsync.ui.transport import Transport
 
 
@@ -36,7 +37,12 @@ def test_transport_status_and_reset_signal(qtbot) -> None:
 
     assert transport._end_time_label.text() == "00:01:02.500"
     assert transport.evidence._status_label.text() == "Status: Importing sensor data 62%"
-    assert "#f0c674" in transport.evidence._status_label.styleSheet()
+    # Asserted as the derived colour, not as a hex literal. Pinning the literal
+    # is what let the hardcoded amber sit here unnoticed: it read as dark grey
+    # on a light theme, and the test agreed with it either way.
+    label = transport.evidence._status_label
+    assert status_color(label.palette(), "busy").name() in label.styleSheet()
+    assert status_color(label.palette(), "busy") != status_color(label.palette(), "error")
     assert reset_requests == [True]
     assert transport.play_btn.focusPolicy() == Qt.FocusPolicy.TabFocus
 
@@ -214,6 +220,44 @@ def test_evidence_event_detail_identifies_type_source_and_time(qtbot) -> None:
     )
     assert "Imported data gap" in detail
     assert "sensors.csv" in detail
+
+
+def test_messages_get_their_own_named_lane_with_readable_text(qtbot) -> None:
+    """A recorded note is neither a sync match nor a defect, and reads as itself."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.resize(1000, 180)
+    transport.show()
+    qtbot.waitExposed(transport)
+    transport.set_bounds(0.0, 100.0)
+    transport.set_source_coverage("/data/board", 0.0, 100.0, "data")
+    transport.set_message_events([(30.0, "board: stimulus on")])
+
+    assert transport.overview.lane_labels() == ["Data · board", "Messages"]
+
+    lane_height = transport.overview.height() // len(transport.overview.lane_labels())
+    detail = transport.overview._event_detail(transport.overview._content_x(30.0), lane_height + 5)
+    assert "Recorded message" in detail
+    assert "stimulus on" in detail
+
+
+def test_a_lane_never_reports_another_lanes_text(qtbot) -> None:
+    """Hover text is looked up per kind; the old ternary answered "gap" for all."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.resize(1000, 180)
+    transport.show()
+    qtbot.waitExposed(transport)
+    transport.set_bounds(0.0, 100.0)
+    transport.set_gap_events([(10.0, "Source: sensors.csv")])
+    transport.set_message_events([(30.0, "board: stimulus on")])
+
+    lane_height = transport.overview.height() // len(transport.overview.lane_labels())
+    message_detail = transport.overview._event_detail(
+        transport.overview._content_x(30.0), lane_height + 5
+    )
+    assert "sensors.csv" not in message_detail
+    assert "stimulus on" in message_detail
 
 
 def test_overview_keeps_labels_clear_of_clipped_master_time_coverage(qtbot) -> None:

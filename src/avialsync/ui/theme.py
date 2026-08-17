@@ -12,10 +12,10 @@ from __future__ import annotations
 import gc
 import subprocess
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QEvent, QObject, QSettings
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 from shiboken6 import isValid
@@ -202,6 +202,204 @@ def system_accent(palette: QPalette) -> QColor:
         except (OSError, subprocess.SubprocessError, ValueError, KeyError):
             pass
     return _accent(palette)
+
+
+# ── Derived colours for custom-painted evidence ──────────────────────────
+#
+# Qt has palette roles for surfaces, text, selection and links, and none for
+# "this is a defect" or "this lane is not that lane".  Custom-painted widgets
+# therefore used literal hex, which is how a tick tuned on a dark build turned
+# into a smear on a light one and stopped following the user's accent entirely.
+#
+# What is fixed below is *hue* and nothing else.  Saturation and lightness are
+# solved against the live surface on every call, so one constant renders as a
+# pale mark on a dark panel and a deep one on a white panel, and a palette
+# change moves it without anybody storing a second value.
+
+#: Lightness a painted mark targets, per surface polarity.  Far enough from the
+#: surface that a one-pixel tick is still visible, short of the pure white and
+#: pure black that make thin marks shimmer on sub-pixel-rendered displays.
+_MARK_LIGHTNESS_ON_DARK = 0.70
+_MARK_LIGHTNESS_ON_LIGHT = 0.38
+
+#: Saturation for a derived mark.  High enough to read as a colour rather than
+#: as grey, low enough not to vibrate against a saturated accent.
+_MARK_SATURATION = 0.58
+
+#: The one colour convention worth keeping fixed: a defect is red, in every
+#: theme and under every accent.  Everything else is derived from the accent.
+_DEFECT_HUE = 0.995
+
+#: Severity hues for transient status text, in turns: caution amber, alert
+#: orange, defect red.  Deliberately ordered so the three read as a progression.
+_CAUTION_HUE = 0.11
+_ALERT_HUE = 0.05
+
+#: How far apart two derived hues must stay to remain tellable apart.
+_MIN_HUE_SEPARATION = 0.08
+
+
+def _surface(palette: QPalette) -> QColor:
+    """Return the surface custom-painted evidence is drawn on."""
+    return palette.color(QPalette.ColorRole.AlternateBase)
+
+
+def on_surface(palette: QPalette, hue: float, saturation: float = _MARK_SATURATION) -> QColor:
+    """Return a mark of *hue* whose lightness is solved against *palette*.
+
+    This is what replaces a hex literal.  The caller states the meaning it wants
+    a colour for; how light that has to be is a property of the surface, which
+    only the live palette knows.
+    """
+    dark = _surface(palette).lightnessF() < 0.5
+    lightness = _MARK_LIGHTNESS_ON_DARK if dark else _MARK_LIGHTNESS_ON_LIGHT
+    return QColor.fromHslF(hue % 1.0, saturation, lightness)
+
+
+def accent_hue(palette: QPalette) -> float:
+    """Return the platform accent's hue, or a stable stand-in when it has none.
+
+    ``hueF`` answers -1 for an achromatic colour, and macOS' Graphite accent is
+    very nearly that.  Deriving a lane colour from -1 would silently produce the
+    same colour for every lane, so a grey accent falls back to a fixed hue and
+    the lanes stay tellable apart.
+    """
+    hue = system_accent(palette).hueF()
+    return 0.58 if hue < 0.0 else float(hue)
+
+
+def _separated(hue: float, avoid: float, minimum: float = _MIN_HUE_SEPARATION) -> float:
+    """Return *hue* pushed away from *avoid* until they are distinguishable.
+
+    Without this, a cyan accent rotates its derived message hue straight onto
+    the defect red, and two lanes that mean opposite things paint identically.
+    """
+    distance = abs((hue - avoid + 0.5) % 1.0 - 0.5)
+    if distance >= minimum:
+        return hue % 1.0
+    return (avoid + minimum) % 1.0
+
+
+def evidence_color(palette: QPalette, kind: str) -> QColor:
+    """Return the colour for one timeline lane, derived from the live palette.
+
+    Coverage and sync keep the accent and the ``Link`` role directly: they are
+    broad filled spans, already palette-driven, and normalising them would churn
+    a working appearance for nothing. The lanes that had no role to sit on —
+    defects and recorded messages — are derived here instead of hardcoded.
+    """
+    if kind in {"video", "ttl", "sync"}:
+        return system_accent(palette)
+    if kind == "data":
+        return palette.color(QPalette.ColorRole.Link)
+    if kind == "gap":
+        return on_surface(palette, _DEFECT_HUE)
+    if kind == "message":
+        # Opposite the accent, so it can never collide with the sync lane, then
+        # pushed clear of the defect red so it cannot be misread as an error.
+        return on_surface(palette, _separated(accent_hue(palette) + 0.5, _DEFECT_HUE))
+    return palette.color(QPalette.ColorRole.WindowText)
+
+
+def status_color(palette: QPalette, severity: str) -> QColor:
+    """Return the colour for a transient status message of *severity*."""
+    if severity == "busy":
+        return on_surface(palette, _CAUTION_HUE)
+    if severity == "warning":
+        return on_surface(palette, _ALERT_HUE)
+    if severity == "error":
+        return on_surface(palette, _DEFECT_HUE)
+    return palette.color(QPalette.ColorRole.WindowText)
+
+
+#: How many marker colours before the sequence repeats.  Seven evenly-spaced
+#: hues is about the limit of what stays tellable apart at a two-pixel tick.
+MARKER_COLOR_COUNT = 7
+
+#: Markers are more saturated than an evidence lane.  Measured, not guessed: at
+#: the mark saturation used elsewhere the closest pair of the seven differs by
+#: 0.14 in RGB, which is under the 0.15 two colours need to be tellable apart.
+_MARKER_SATURATION = 0.8
+
+
+def marker_color(palette: QPalette, index: int) -> QColor:
+    """Return the *index*-th categorical marker colour for this palette.
+
+    A categorical palette is not a theme colour: its job is to tell one marker
+    from the next, so the hues are spread evenly around the wheel on purpose and
+    do not track the accent — an accent-relative sequence would collapse toward
+    the accent and stop distinguishing anything, which is the one thing it is
+    for.
+
+    Even spacing is also why this does not use :func:`_separated`: pushing one
+    hue clear of the defect red destroys the spacing and shoves that marker into
+    its neighbour. The sequence is offset by half a step instead, which keeps
+    every gap equal *and* leaves no marker sitting exactly on the defect hue.
+    Markers do not need to be told apart from a gap anyway — they are a
+    different lane in a different widget, both of them labelled.
+
+    What the palette does decide is how light each one is, so the sequence stays
+    readable on a white plot background and on a black one. The literal list this
+    replaces was tuned for a light background and washed out on a dark one.
+    """
+    hue = (index % MARKER_COLOR_COUNT + 0.5) / MARKER_COLOR_COUNT
+    return on_surface(palette, hue, saturation=_MARKER_SATURATION)
+
+
+def loop_pin_color(palette: QPalette, which: str) -> QColor:
+    """Return the A or B loop-pin colour, both derived from the accent.
+
+    A and B are a pair, so they are placed a fixed distance apart on the wheel
+    rather than picked independently: whatever the accent, they stay as far from
+    each other as they were designed to be.
+    """
+    base = accent_hue(palette)
+    offset = 0.33 if which == "in" else 0.66
+    return on_surface(palette, _separated(base + offset, _DEFECT_HUE))
+
+
+class _PaletteStyleFollower(QObject):
+    """Re-runs a widget's stylesheet builder whenever its palette changes."""
+
+    def __init__(self, widget: QWidget, build: Callable[[QPalette], str]) -> None:
+        super().__init__(widget)
+        self._widget = widget
+        self._build = build
+        self._applying = False
+        widget.installEventFilter(self)
+        self._apply()
+
+    def _apply(self) -> None:
+        if self._applying:
+            return
+        self._applying = True
+        try:
+            self._widget.setStyleSheet(self._build(self._widget.palette()))
+        finally:
+            self._applying = False
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.PaletteChange:
+            self._apply()
+        return False
+
+
+def follow_palette(widget: QWidget, build: Callable[[QPalette], str]) -> None:
+    """Keep *widget*'s stylesheet derived from the live palette.
+
+    Qt re-resolves palette *roles* when the appearance changes, but a stylesheet
+    is a literal from the moment it is set — nothing re-runs the f-string that
+    produced it. That is why every hardcoded ``setStyleSheet("color: #...")``
+    in this application froze at whichever theme was current when the widget was
+    built, and stayed there through a light/dark switch.
+
+    Prefer :meth:`QWidget.setForegroundRole` where a plain palette role will do;
+    it needs no helper at all. Use this for the cases a role cannot express —
+    a severity colour, an attention badge — so they still follow the theme.
+
+    The follower is parented to the widget, so it dies with it.
+    """
+    _PaletteStyleFollower(widget, build)
 
 
 def _palette_with_surfaces(dark: bool, accent: QColor) -> QPalette:

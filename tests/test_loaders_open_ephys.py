@@ -23,6 +23,7 @@ from avialsync.loaders.video_standard import VideoStandardLoader, read_frame_tim
 from tests.open_ephys_fixture import (
     FIRST_SAMPLE_TIME,
     SOFTWARE_EPOCH_MS,
+    MessageSpec,
     RecordingSpec,
     StreamSpec,
     TTLSpec,
@@ -334,6 +335,61 @@ def test_recording_without_ttl_reports_no_event_channels(tmp_path: Path) -> None
     recording = write_recording(tmp_path, spec)
     with pytest.raises(SourceOpenError):
         NeoLoader().open(recording, {"events": True})
+
+
+def _with_messages(tmp_path: Path) -> Path:
+    """Write the default recording plus a MessageCenter the experimenter typed."""
+    spec = default_spec()
+    spec.messages = MessageSpec(
+        entries=[(5.2, "baseline start"), (6.0, "stimulus on"), (6.4, "animal moved")]
+    )
+    return write_recording(tmp_path, spec)
+
+
+def test_message_center_text_is_read_not_discarded(tmp_path: Path) -> None:
+    """The annotation stream has no logic level to plot, and prose to read.
+
+    Declining to make it a *channel* was right; the text used to go with it.
+    """
+    recording = _with_messages(tmp_path)
+    loader = NeoLoader()
+    loader.open(recording, {"events": True})
+
+    messages = loader.messages()
+    assert [m.text for m in messages] == ["baseline start", "stimulus on", "animal moved"]
+    assert [m.time for m in messages] == pytest.approx([5.2, 6.0, 6.4])
+    assert {m.channel for m in messages} == {"MessageCenter"}
+
+
+def test_message_center_is_still_not_a_plotted_channel(tmp_path: Path) -> None:
+    """Reading the text must not resurrect the zero-filled trace it used to make."""
+    recording = _with_messages(tmp_path)
+    loader = NeoLoader()
+    loader.open(recording, {"events": True})
+    assert [channel.name for channel in loader.channels()] == ["TTL-1"]
+
+
+def test_messages_reach_a_signals_only_import(tmp_path: Path) -> None:
+    """The notes belong to the recording, not to whichever stream was chosen.
+
+    Gating on the events flag would mean importing the ephys and silently losing
+    the notes that describe it.
+    """
+    recording = _with_messages(tmp_path)
+    loader = NeoLoader()
+    loader.open(recording, {"stream_id": "1"})
+    assert [m.text for m in loader.messages()] == [
+        "baseline start",
+        "stimulus on",
+        "animal moved",
+    ]
+
+
+def test_numeric_ttl_labels_are_never_mistaken_for_prose(recording: Path) -> None:
+    """A TTL line is a plotted channel; reporting its edges as messages is noise."""
+    loader = NeoLoader()
+    loader.open(recording, {"events": True})
+    assert loader.messages() == []
 
 
 def test_channel_names_are_legal_filenames_everywhere() -> None:

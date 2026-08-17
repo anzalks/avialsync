@@ -2285,3 +2285,98 @@ slowest step in the load.
 **Consequences:** the held tracks own `MappedChannelReader`s over mmap'd pyramids, so `remove_pane`
 drops them and `MainWindow._on_video_remove_requested` drops the matching `_overlay_sources` entry.
 A camera the user removed is not coming back on its own.
+
+## 2026-08 · D-078 · A message the rig recorded is evidence, not an annotation
+
+**Context:** experimentalists write prose into their recordings. Open Ephys' `MessageCenter` is an
+event stream whose labels are free text typed during acquisition; other formats carry a commented
+header or a note appended when the session stopped. AvialSync read none of it. `NeoLoader`
+explicitly skipped non-numeric event channels — correctly, since a text label has no logic level to
+plot — and the text went with them.
+
+The obvious place to put the recovered text was `AnnotationStore`: it already holds timestamped
+labels, already draws them on the overview, already exports CSV.
+
+**Decision:** messages get their own store, their own panel, and their own lane. `core/messages.py`
+defines the record; `TimeSeriesSource.messages()` is an additive optional hook beside
+`exact_time_mapping()`; `ui/message_panel.py` holds `MessageStore` and the read-only `MessagePanel`,
+which is the Inspector's third tab, between Values and Annotations.
+
+An annotation is authored by the user, edited in place, and exported as their own work. A message
+belongs to the source file and cannot be written back to it. Sharing one store would have made a
+data record silently editable in a table cell, and would have mixed the two provenances in the
+annotation CSV export — an exported row would no longer say whether a human or a rig wrote it.
+Two stores that never merge is the cheaper property to hold than a provenance field every consumer
+must remember to check.
+
+**A message with no time stays untimed.** The panel shows those as a block above the table and the
+overview lane omits them entirely. Serialising `None` as `0.0` would put a file header at the first
+sample and make it read as a description of it; that is fabricated evidence, in the one place a
+user goes to read what actually happened.
+
+**Times are stored in source time and mapped on read.** `MessageStore` keeps each source's raw
+times and its `TimeMap`, exactly as channel data is remapped rather than re-imported, so correcting
+an offset moves a note and the trace it describes together.
+
+**Alternatives rejected:** a `Marker` subtype with a `read_only` flag — one forgotten check makes a
+data record editable, and the export still has to branch. Harvesting messages only on an
+`events: True` import — a signals-only import would then silently lose the notes describing it.
+Deduplicating identical notes inside `NeoLoader` — a session fans one recording into several
+streams and each import legitimately reports what its file contains; the duplication is only
+observable where the streams meet, so `MessageStore` collapses it there.
+
+**Consequences:** messages ride in `SourceInspection`, because that is what already survives into
+the sidecar manifest and reaches the UI intact on a cache hit, when the loader is never opened.
+`_IMPORT_CACHE_VERSION` is deliberately *not* bumped: no cached array changes meaning, a manifest
+without a `messages` key simply has none, and bumping would force a multi-gigabyte re-import of
+every source on disk to gain a text field. A recording imported before this shows its messages
+after one re-import. A loader that raises from `messages()` loses its prose and keeps its import —
+losing samples fails an import, losing a comment must not.
+
+## 2026-08 · D-079 · Colour literals live in `ui/theme.py` and nowhere else
+
+**Context:** custom-painted widgets need colours Qt's palette has no role for — "this is a defect",
+"this lane is not that lane", "marker 3 is not marker 4". Every one of them had been solved with a
+hex literal at the point of use: the Data-gaps lane, the four status severities, the A/B loop pins,
+the warning badges, the channel-tree border, and the seven-colour annotation cycle.
+
+Two failures follow, and both had already shipped. A literal tuned against one surface is wrong on
+the other — the readout's `#777` sample index was near-invisible on a dark panel, and the amber
+`#f0c674` status read as dark grey on a light one. And a literal ignores the platform accent
+entirely, so an application that otherwise follows the user's accent, contrast and font quietly
+stopped following it the moment a widget painted itself.
+
+**Decision:** `ui/theme.py` is the only module allowed to contain a colour literal, and what it
+contains is *hues*, not finished colours. `on_surface(palette, hue)` solves saturation and lightness
+against the live surface on every call, so one constant renders as a pale mark on a dark panel and a
+deep one on a white panel. `evidence_color`, `status_color`, `marker_color` and `loop_pin_color`
+name a *meaning*; the palette decides what that looks like.
+
+The literals that remain in `theme.py` are the Dark and Light palette definitions and the macOS
+accent table. Those are the theme stating its own surfaces, which is the one place a colour is not
+derived from anything.
+
+**A stylesheet is a literal the moment it is set.** Qt re-resolves palette *roles* on an appearance
+change but never re-runs the f-string that produced a stylesheet, which is why every
+`setStyleSheet("color: #…")` froze at whichever theme was current when its widget was built.
+`follow_palette(widget, build)` re-applies the builder on `QEvent.PaletteChange`. Prefer
+`setForegroundRole` where a role suffices — it needs no helper at all. A self-painting widget must
+also request its own repaint on `PaletteChange`; Qt only does that for widgets it styles itself,
+which is why `TimelineOverview` grew a `changeEvent`.
+
+**Alternatives rejected:** a fixed "semantic palette" of dark and light variants — two literals per
+meaning instead of one, and still blind to the accent. Deriving *every* colour from the accent —
+a categorical sequence must stay evenly spread to do its job, and collapsing it toward the accent
+destroys the only property it has. Leaving marker colours alone as "identity, not theme" — they are
+identity, but identity that was unreadable on half the themes.
+
+**Consequences:** `Marker.color` is now a property resolving `color_index` against the live palette,
+so a marker created under one appearance is legible under the other; nothing persists a marker
+colour, so no session file changes. Hue separation is enforced rather than assumed: a cyan accent
+rotates the Messages hue straight onto the defect red, so `_separated` pushes it clear. `hueF()`
+answers -1 for an achromatic colour and macOS Graphite is very nearly that, so `accent_hue`
+substitutes a stable hue rather than deriving every lane from -1 and painting them all alike.
+Marker saturation is 0.8 because at the lane saturation the closest of the seven differed by 0.14 in
+RGB, under the 0.15 two colours need — measured, not chosen. Tests assert these properties and never
+a hex; a test that pins a literal is the same bug, and one that pinned `#f0c674` is what let the
+frozen amber sit unnoticed.

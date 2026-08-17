@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QFormLayout,
@@ -96,7 +97,9 @@ class _PropertiesBase(QGroupBox):
 
     def _add_row(self, label: str, value: str) -> QLabel:
         lbl = QLabel(label)
-        lbl.setStyleSheet("color: #888;")
+        # A palette role, so the de-emphasis survives a theme change instead of
+        # freezing at one grey that only reads on a light background.
+        lbl.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         val = QLabel(value)
         val.setWordWrap(True)
         self._form.addRow(lbl, val)

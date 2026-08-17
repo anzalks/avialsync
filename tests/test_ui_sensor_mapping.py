@@ -150,3 +150,53 @@ def test_removing_a_sensor_drops_its_mapping(window: MainWindow) -> None:
 
     assert SENSOR_PATH not in window._sensor_cache_dirs
     assert window.plot_pane.channels == []
+
+
+def test_imported_messages_reach_the_panel_already_on_master_time(
+    window: MainWindow, qtbot
+) -> None:
+    """The seam between the importer and the panel — and what session reload uses.
+
+    A restored session re-runs the import (from cache), so this path is the only
+    thing that puts a recording's notes back on screen after a relaunch.
+    """
+    from avialsync.core.inspection import SourceInspection
+    from avialsync.core.messages import Message
+
+    other = "/tmp/fixture-messages.csv"
+    window._pending_sensor_mappings[other] = (2.0, 0.0)
+    window._on_import_finished(
+        other,
+        str(window._sensor_cache_dirs[SENSOR_PATH]),
+        ["a"],
+        (0.0, 19.99),
+        SourceInspection(
+            path=other,
+            messages=(Message(text="stimulus on", time=10.0, channel="MessageCenter"),),
+        ),
+    )
+
+    (mapped,) = window.message_store.messages()
+    assert mapped.text == "stimulus on"
+    assert mapped.time == pytest.approx(8.0), "the source's offset must already be applied"
+
+
+def test_editing_an_offset_moves_the_notes_with_the_trace(window: MainWindow) -> None:
+    """A note left on the old clock would sit beside the wrong part of the signal."""
+    from avialsync.core.messages import Message
+
+    window.message_store.set_source_messages(SENSOR_PATH, (Message(text="stimulus on", time=10.0),))
+    assert window.message_store.messages()[0].time == pytest.approx(10.0)
+
+    window._on_sensor_mapping_changed(SENSOR_PATH, 3.0, 0.0)
+
+    assert window.message_store.messages()[0].time == pytest.approx(7.0)
+
+
+def test_removing_a_sensor_takes_its_messages_with_it(window: MainWindow) -> None:
+    from avialsync.core.messages import Message
+
+    window.message_store.set_source_messages(SENSOR_PATH, (Message(text="note", time=1.0),))
+    window._on_sensor_remove_requested(SENSOR_PATH)
+
+    assert window.message_store.messages() == []

@@ -337,12 +337,25 @@ class MainWindow(QMainWindow):
         self.annotation_panel = AnnotationPanel(self.annotation_store, self)
         self.plot_pane.set_annotation_store(self.annotation_store)
 
-        # One compact inspector keeps source management, values, and annotations available
-        # without permanently consuming three stacked panes of workspace height.
+        # Messages the acquisition system recorded. A separate store from
+        # annotations on purpose: these belong to the source file and must stay
+        # read-only, while annotations are the user's own editable, exported work.
+        from avialsync.ui.message_panel import MessagePanel, MessageStore
+
+        self.message_store = MessageStore(self)
+        self.message_store.changed.connect(self._update_timeline_messages)
+        self.message_panel = MessagePanel(self.message_store, self)
+        self.message_panel.seek_requested.connect(self._on_message_seek_requested)
+
+        # One compact inspector keeps source management, values, messages, and
+        # annotations available without permanently consuming four stacked panes
+        # of workspace height. Messages sit beside annotations because they
+        # answer the same question — what happened here — from the rig's side.
         self._left_tabs = QTabWidget(self)
         self._left_tabs.setAccessibleName("Inspector")
         self._left_tabs.addTab(self.sidebar, "Sources")
         self._left_tabs.addTab(self.readout_panel, "Values")
+        self._left_tabs.addTab(self.message_panel, "Messages")
         self._left_tabs.addTab(self.annotation_panel, "Annotations")
 
         h_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -590,6 +603,26 @@ class MainWindow(QMainWindow):
         self._plotted_readers = list(readers)
         self._refresh_pose_3d()
 
+    def _update_timeline_messages(self) -> None:
+        """Mirror recorded messages to the overview lane, text and all.
+
+        Untimed notes are excluded rather than parked at zero: the lane is a
+        map of when things happened, and a file header did not happen anywhere.
+        The Messages tab still shows them.
+        """
+        self.transport.set_message_events(
+            [
+                (float(message.time), f"{Path(message.source_id).name}: {message.text}")
+                for message in self.message_store.messages()
+                if message.time is not None
+            ]
+        )
+
+    def _on_message_seek_requested(self, t: float) -> None:
+        """Seek to a message's timestamp, clamped to the loaded bounds."""
+        bounds = self.clock.state.bounds
+        self.player.seek(max(bounds[0], min(bounds[1], t)), exact=True)
+
     def _update_timeline_annotations(self) -> None:
         """Mirror annotations to the overview without adding another time model."""
         self.transport.set_annotation_markers(
@@ -654,6 +687,7 @@ class MainWindow(QMainWindow):
         self._time_mode = mode
         self.transport.set_time_mode(mode)
         self.plot_pane.set_time_mode(mode)
+        self.message_panel.set_time_mode(mode)
         self.transport.set_time(self.clock.state.t)
         self.time_mode_changed.emit(mode)
 
@@ -1739,6 +1773,7 @@ class MainWindow(QMainWindow):
             cache_dir = CacheManager(loader_version=3).get_cache_dir(Path(path))
         self.plot_pane.remove_channels(cache_dir)
         self.sidebar.remove_sensor(path)
+        self.message_store.remove_source(path)
         self.transport.set_source_coverage(path, 0.0, 0.0, "data")
 
     def _on_sensor_mapping_changed(self, path: str, offset: float, drift_ppm: float) -> None:
@@ -1751,6 +1786,9 @@ class MainWindow(QMainWindow):
         if cache_dir is None:
             return
         self.plot_pane.set_source_mapping(cache_dir, offset, drift_ppm)
+        # A note moves with the samples it describes; leaving it behind would
+        # put an experimenter's "stimulus on" beside the wrong trace.
+        self.message_store.set_source_mapping(path, offset, drift_ppm)
         bounds = self.plot_pane.source_bounds(cache_dir)
         if bounds is not None:
             self.transport.set_source_coverage(path, bounds[0], bounds[1], "data")

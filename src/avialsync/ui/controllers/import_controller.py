@@ -247,6 +247,12 @@ def on_import_finished(
     if isinstance(inspection, SourceInspection):
         window._inspections[path] = inspection
         window.sidebar.set_sensor_inspection(path, inspection)
+        # Messages arrive in source time, so the mapping goes in first: setting
+        # them the other way round would emit a change the panel renders at the
+        # unmapped position before the correction lands.
+        if inspection.messages:
+            window.message_store.set_source_mapping(path, offset, drift_ppm)
+            window.message_store.set_source_messages(path, inspection.messages)
         # Extract per-channel units from import config ("units" key → dict or mapping)
         units_cfg = inspection.import_config.get("units", {})
         if isinstance(units_cfg, dict):

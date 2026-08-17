@@ -8,6 +8,8 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
+from avialsync.core.messages import Message
+
 
 @dataclasses.dataclass(frozen=True)
 class ImportReport:
@@ -129,6 +131,14 @@ class SourceInspection:
     integrity_flags: IntegrityFlags = dataclasses.field(default_factory=IntegrityFlags)
     fps_binding: str = ""  # "provisional", "bound:<video_path>", or ""
 
+    #: Free-text records the source file carried, in *source* time.  They ride
+    #: here rather than on a signal of their own because this is what already
+    #: reaches the UI intact on a cache hit, when the loader is never opened at
+    #: all.  A manifest written before messages existed simply has none, which
+    #: is why no cache version bump is needed: nothing already cached changes
+    #: meaning, and a recording re-imported once gains its messages.
+    messages: tuple[Message, ...] = ()
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
@@ -137,6 +147,7 @@ class SourceInspection:
             "import_report": self.import_report.as_dict() if self.import_report else None,
             "integrity_flags": self.integrity_flags.as_dict(),
             "fps_binding": self.fps_binding,
+            "messages": [message.as_dict() for message in self.messages],
         }
 
     @classmethod
@@ -149,4 +160,5 @@ class SourceInspection:
             import_report=ImportReport.from_dict(report_d) if report_d else None,
             integrity_flags=IntegrityFlags.from_dict(d.get("integrity_flags", {})),
             fps_binding=d.get("fps_binding", ""),
+            messages=tuple(Message.from_dict(m) for m in d.get("messages", [])),
         )
