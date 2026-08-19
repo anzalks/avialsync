@@ -35,6 +35,7 @@ _T = TypeVar("_T", bound=type[_Capability])
 _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.aol_encoder_loader", "AOLEncoderLoader"),
     ("avialsync.loaders.aol_eks_loader", "AOLEksLoader"),
+    ("avialsync.loaders.aol_metric_loader", "AOLMetricLoader"),
     ("avialsync.loaders.csv_loader", "CSVLoader"),
     ("avialsync.loaders.video_standard", "VideoStandardLoader"),
     ("avialsync.loaders.tracking_loader", "TrackingLoader"),

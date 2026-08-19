@@ -38,6 +38,9 @@ requirements:
     - numpy
     - polars
     - xxhash
+    # Reads the plain '-v6' single-variable MAT files an optical-flow/MI
+    # extraction toolbox externalizes per ROI/metric (avialsync_data_schema.md).
+    - scipy
     - neo
     # A floor on neo's own dependency: through 0.16.2 `quantities` reads the
     # `np.ndarray.ptp` method that NumPy 2 removed, so `import neo` raises.

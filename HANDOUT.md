@@ -379,6 +379,7 @@ contradicts the runtime.
 | `loaders/aol_session_loader.py` | AOL folder detection + manifest (videos, 2D/3D pose, encoder, timing) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |
 | `loaders/aol_eks_loader.py` | AOL 3D EKS CSV; frame-indexed x/y/z triplets | `AOLEksLoader` (`read_all_chunks` is the bulk API) |
 | `loaders/aol_encoder_loader.py` | AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045) | `AOLEncoderLoader` |
+| `loaders/aol_metric_loader.py` | Extracted per-frame optical-flow/MI MAT files (`avialsync_data_schema.md`); frame-indexed, no `role` — plots like any sensor | `AOLMetricLoader`, `ROI_METRIC_FILENAME_RE` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
 | `engine/sync_worker.py` | Chunked event extraction and deterministic alignment fit (D-026) | `SyncWorker`, evidence specs |
@@ -406,6 +407,7 @@ contradicts the runtime.
 | `loaders/aol_session_loader.py` | AOL session manifest: raw videos, fused per-camera EKS, encoder | `build_manifest()`, `is_aol_session()` |
 | `loaders/aol_eks_loader.py` | AOL 2D/3D pose CSV ingest | `AOLEksLoader` |
 | `loaders/aol_encoder_loader.py` | AOL encoder log ingest | `AOLEncoderLoader` |
+| `loaders/aol_metric_loader.py` | Extracted optical-flow/MI per-ROI MAT ingest | `AOLMetricLoader` |
 | `ui/video_overlay.py` | Live pose overlay with named markers | `PaintCanvas`, `OverlayTrack` |
 | `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown | `JobManager`, `Job`, `JobState` |
 | `ui/ui_heartbeat.py` | Measures UI-thread stalls and reports them | `UiHeartbeat` |
@@ -939,6 +941,25 @@ toggled. `_collect_2d_tracks` keeps only `*_eks.csv` (one per camera); the
 `model_N/` contributing predictions are intermediate pipeline output. Pose data
 never reaches a plot row: `overlay2d`/`pose3d` roles route through
 `_register_tracking_source`, not `plot_pane.load_channels`.
+
+### 26b. AOL extracted-metric MAT files are found by filename, never a fixed folder name
+
+`avialsync_data_schema.md` documents an optical-flow/MI toolbox that externalizes each
+`(ROI, metric)` result as a plain `-v6` MAT file, `<roi_id>__<metric>.mat`, under a `data_root`
+folder whose *name* is user-configurable (default `<export_filename stem>_data/`, e.g.
+`optical_flow_and_MI_data/`). `_collect_metric_files` therefore does not look for a fixed folder
+name — it walks the whole AOL session with `rglob("*.mat")` and matches
+`ROI_METRIC_FILENAME_RE` (`^(\d+)__(.+)\.mat$`), which `thumbnail.mat` never matches (no
+`roi_id` prefix). Do not "simplify" this into a hardcoded `data_root` folder name; a lab that
+renamed their `export_filename` would silently stop being detected.
+
+The video_type folder (immediate parent) is resolved back to one of AOL's own camera labels with
+the same longest-match rule 2D pose files use (`_match_camera`), since the toolbox's own
+sanitization can turn a camera name's punctuation into underscores. Timing reuses the same
+per-camera `start_epoch`/`camera_fps` the videos and EKS tracking already use
+(`manifest.camera_start_epochs`) — no separate timestamp reconstruction path. Unlike pose data
+(D-046), these are ordinary signals: no `role` is set, so they reach `plot_pane.load_channels`
+like the encoder trace.
 
 ### 27. The window must always close; jobs are owned by JobManager (V-09)
 

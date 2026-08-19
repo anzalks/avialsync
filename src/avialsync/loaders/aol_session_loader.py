@@ -43,6 +43,23 @@ class AOL2DTrack:
         return self.model == "eks"
 
 
+@dataclass(frozen=True)
+class AOLMetricFile:
+    """One (ROI, metric) extraction result under a `data_root`-style export.
+
+    Layout is fixed by the optical-flow/MI toolbox's own contract
+    (``avialsync_data_schema.md`` §2): ``<video_type>/<roi_id>__<metric>.mat``,
+    with ``video_type`` the same camera name AOL's own videos and timing files
+    use, sanitized. ``camera`` here is already resolved back to AOL's own
+    camera label where possible -- see ``_collect_metric_files``.
+    """
+
+    path: Path
+    camera: str
+    roi_id: str
+    metric: str
+
+
 @dataclass
 class AOLManifest:
     """Structured manifest of files in an AOL session folder."""
@@ -56,12 +73,18 @@ class AOLManifest:
     eks_files: list[Path] = field(default_factory=list)
     # One fused 2D pose prediction per camera (the ensemble *_eks result)
     pose_2d_tracks: list[AOL2DTrack] = field(default_factory=list)
+    # Extracted per-frame metrics (optical flow / motion index / etc.) found
+    # anywhere under the session, keyed to the same cameras as the videos.
+    metric_files: list[AOLMetricFile] = field(default_factory=list)
     # Encoder log file
     encoder_file: Path | None = None
     # Per-camera relative timing files
     timing_files: dict[str, Path] = field(default_factory=dict)
     # Parsed video start epochs (float UTC epoch), mapping video str(Path) to epoch
     video_start_epochs: dict[str, float] = field(default_factory=dict)
+    # Parsed video start epochs, keyed by camera label instead of video path --
+    # metric files have no video of their own to match against.
+    camera_start_epochs: dict[str, float] = field(default_factory=dict)
     # Parsed anchor date for encoder (YYYY-MM-DD)
     anchor_date: str | None = None
     # Camera fps from trial_config.yml
@@ -166,6 +189,9 @@ def build_manifest(session_dir: Path) -> AOLManifest:
     # ── Discover 2D per-camera pose predictions ──────────────────────
     manifest.pose_2d_tracks = _collect_2d_tracks(session_dir, manifest.camera_labels)
 
+    # ── Discover extracted per-frame metrics (optical flow / MI / etc.) ──
+    manifest.metric_files = _collect_metric_files(session_dir, manifest.camera_labels)
+
     # ── Discover encoder log ─────────────────────────────────────────
     encoder = session_dir / "encoder_log.txt"
     if encoder.is_file():
@@ -190,6 +216,7 @@ def build_manifest(session_dir: Path) -> AOLManifest:
                             tzinfo=datetime.UTC
                         )
                         epoch = dt.timestamp()
+                        manifest.camera_start_epochs[cam_name] = epoch
 
                         # Match video file to this camera
                         for video in manifest.videos:
@@ -259,6 +286,49 @@ def _collect_2d_tracks(session_dir: Path, camera_labels: list[str]) -> list[AOL2
     tracks = [by_camera[camera] for camera in sorted(by_camera)]
     logger.info("AOL 2D tracks: one fused overlay for each of %d camera(s)", len(tracks))
     return tracks
+
+
+def _collect_metric_files(session_dir: Path, camera_labels: list[str]) -> list[AOLMetricFile]:
+    """Find extracted per-frame metric files anywhere under the session folder.
+
+    The optical-flow/MI toolbox lays these out as
+    ``<video_type>/<roi_id>__<metric>.mat`` under a `data_root` folder whose
+    own name is user-configurable (``avialsync_data_schema.md`` §1-2, default
+    ``<export_filename stem>_data/``) -- so detection matches the filename
+    contract itself (`parse_roi_data_filename.m`) rather than a fixed folder
+    name, and works regardless of how deep that folder sits or what it is
+    called. ``thumbnail.mat`` never matches: it carries no ``roi_id`` prefix
+    and is a reference image, not a time series.
+
+    ``video_type`` (the immediate parent folder) is resolved back to one of
+    AOL's own camera labels with the same longest-match rule 2D pose files
+    use, since the toolbox's own sanitization can turn spaces or punctuation
+    in a camera name into underscores. A folder matching no known camera is
+    still collected under its own raw name, so a data_root dropped without
+    its sibling videos still loads -- just without epoch alignment.
+    """
+    from avialsync.loaders.aol_metric_loader import ROI_METRIC_FILENAME_RE
+
+    files: list[AOLMetricFile] = []
+    for mat_file in sorted(session_dir.rglob("*.mat")):
+        match = ROI_METRIC_FILENAME_RE.match(mat_file.name)
+        if match is None:
+            continue
+        raw_camera = mat_file.parent.name
+        camera = _match_camera(raw_camera, camera_labels) or raw_camera
+        files.append(
+            AOLMetricFile(
+                path=mat_file, camera=camera, roi_id=match.group(1), metric=match.group(2)
+            )
+        )
+
+    if files:
+        logger.info(
+            "AOL manifest: %d extracted metric file(s) across %d camera folder(s)",
+            len(files),
+            len({f.camera for f in files}),
+        )
+    return files
 
 
 def _match_camera(stem: str, camera_labels: list[str]) -> str | None:
@@ -392,6 +462,7 @@ class AOLSessionSource(SessionSource):
         items.extend(_video_items(manifest, anchor_epoch, registry))
         items.extend(_eks_items(manifest, anchor_epoch))
         items.extend(_pose_2d_items(manifest, anchor_epoch, registry))
+        items.extend(_metric_items(manifest, anchor_epoch))
         items.extend(_encoder_items(manifest))
 
         logger.info(
@@ -518,6 +589,41 @@ def _pose_2d_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) ->
                     "overlay_is_ensemble": track.is_ensemble,
                 },
                 label=f"{track.path.name} — 2D pose over {track.camera}",
+            )
+        )
+    return items
+
+
+def _start_epoch_for_camera(manifest: AOLManifest, camera: str) -> float:
+    return manifest.camera_start_epochs.get(camera, 0.0)
+
+
+def _metric_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionItem]:
+    """Extracted per-frame metrics (optical flow / motion index / etc.).
+
+    No ``role`` is set: unlike pose data (D-046) these are ordinary recorded
+    signals, so they become plot rows just like the encoder trace.
+    """
+    from avialsync.loaders.aol_metric_loader import AOLMetricLoader
+
+    items: list[SessionItem] = []
+    for metric_file in manifest.metric_files:
+        start_epoch = _rebased(_start_epoch_for_camera(manifest, metric_file.camera), anchor_epoch)
+        items.append(
+            SessionItem(
+                metric_file.path,
+                AOLMetricLoader,
+                {
+                    "fps": manifest.camera_fps,
+                    "start_epoch": start_epoch,
+                    "metric": metric_file.metric,
+                    "auto_resolved": True,
+                    "_is_frame_indexed": True,
+                },
+                label=(
+                    f"{metric_file.path.name} — {metric_file.camera} "
+                    f"{metric_file.metric.replace('_', ' ')}"
+                ),
             )
         )
     return items

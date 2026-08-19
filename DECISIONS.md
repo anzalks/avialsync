@@ -2380,3 +2380,58 @@ Marker saturation is 0.8 because at the lane saturation the closest of the seven
 RGB, under the 0.15 two colours need — measured, not chosen. Tests assert these properties and never
 a hex; a test that pins a literal is the same bug, and one that pinned `#f0c674` is what let the
 frozen amber sit unnoticed.
+
+## 2026-08 · D-080 · AOL extracted-metric MAT files are detected by filename, not a fixed folder
+
+### Context
+
+`avialsync_data_schema.md` documents a separate optical-flow/motion-index extraction toolbox that
+externalizes each `(ROI, metric)` result as a plain single-variable `-v6` MAT file —
+`<roi_id>__<metric>.mat`, holding `roi_metric_data`, no time column, no header — under a
+`data_root` folder placed next to that toolbox's own primary `.mat` (the `-v7.3` `Analysis_Set`
+object graph, which needs MATLAB and is explicitly out of scope). The schema is explicit that the
+`data_root` folder's *name* is not fixed: it defaults to `<export_filename stem>_data/` but follows
+whatever `export_filename` a lab configured, and nothing constrains how deep it sits relative to an
+AOL session folder.
+
+### Decision
+
+`AOLManifest.metric_files` (populated by `_collect_metric_files`) does not look for a fixed folder
+name. It walks the whole AOL session folder (`session_dir.rglob("*.mat")`) and matches each
+candidate against `ROI_METRIC_FILENAME_RE` (`^(\d+)__(.+)\.mat$`, `aol_metric_loader.py`) — the
+same contract `parse_roi_data_filename.m` encodes. `thumbnail.mat` never matches, since it carries
+no `roi_id` prefix, which is what keeps the one per-camera reference frame out of this path without
+a special case.
+
+The immediate parent folder (`video_type` in the schema) is resolved back to one of AOL's own
+camera labels with the same longest-match, longest-first rule `_collect_2d_tracks` already uses for
+2D pose files, because the toolbox's own sanitization (`[^A-Za-z0-9_.-]` → `_`) can turn a camera
+name's punctuation into underscores. A folder matching no known camera is still collected under its
+own raw name — a `data_root` dropped without its sibling videos still loads, just without epoch
+alignment (`start_epoch` stays `0.0`).
+
+Timing reuses the exact per-camera axis the videos and EKS tracking already sit on: the timing-file
+parse loop that fills `video_start_epochs` now also fills `camera_start_epochs` (keyed by camera
+label, since a metric file has no video path of its own to match against), and `_metric_items`
+rebases through the same `_rebased()` anchor-epoch step `_video_items`/`_eks_items` use. No new
+timestamp-reconstruction path was added.
+
+Unlike pose data (D-046), an extracted metric is an ordinary recorded signal: `_metric_items` sets
+no `role`, so it reaches `plot_pane.load_channels` exactly like the encoder trace — this is the
+point of the feature, since these traces are meant to be inspected like any other sensor.
+
+### Alternatives rejected
+
+A hardcoded `data_root`-suffixed folder name — breaks the moment a lab renames `export_filename`,
+which the schema explicitly allows. Requiring the folder to sit at a fixed depth under the session
+— the schema's own §2 layout note says extra nesting is normal and only basenames matter.
+
+### Consequences
+
+`tests/test_aol_metric_routing.py` covers detection under an arbitrarily named, arbitrarily nested
+`data_root`, camera-epoch alignment against the sibling video, and the unmatched-camera fallback.
+`tests/test_aol_metric_loader.py` covers the loader itself: built-in metric column mapping (§3),
+the generic fallback for a custom metric or a column-count mismatch (never mislabeling a column
+rather than guessing), and `thumbnail.mat` exclusion. Adds `scipy` (BSD-3-Clause) as a runtime
+dependency — the first and only reader of `-v6` MAT files in this codebase; the primary `-v7.3`
+`Analysis_Set` file remains unreadable by design (§1 of the schema) and no code here attempts it.

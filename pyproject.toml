@@ -50,6 +50,11 @@ dependencies = [
     "numpy",
     "polars",
     "xxhash",
+    # BSD-3-Clause. Reads the plain '-v6' single-variable MAT files an
+    # optical-flow/MI extraction toolbox externalizes per ROI/metric
+    # (avialsync_data_schema.md) -- never the primary '-v7.3' Analysis_Set
+    # object graph, which needs MATLAB.
+    "scipy",
     "neo",
     # Not imported by us: a floor on neo's own dependency. Up to and including
     # 0.16.2, `quantities` decorates a method with `@with_doc(np.ndarray.ptp)`,
@@ -102,6 +107,7 @@ tracking = "avialsync.loaders.tracking_loader:TrackingLoader"
 neo = "avialsync.loaders.neo_loader:NeoLoader"
 aol_encoder = "avialsync.loaders.aol_encoder_loader:AOLEncoderLoader"
 aol_eks = "avialsync.loaders.aol_eks_loader:AOLEksLoader"
+aol_metric = "avialsync.loaders.aol_metric_loader:AOLMetricLoader"
 
 # Session scanners lay out a whole recording folder (D-068). A lab adds support
 # for its own directory layout by publishing here; nothing in the application
@@ -156,5 +162,14 @@ pythonpath = ["."]
 # the one legitimate suppression (AGENTS §Coding standards): it silences the
 # *absence of stubs*, not errors in our own code.
 [[tool.mypy.overrides]]
-module = ["av.*", "pyqtgraph.*", "neo.*", "quantities.*", "pyarrow.*", "polars.*", "xxhash.*"]
+module = [
+    "av.*",
+    "pyqtgraph.*",
+    "neo.*",
+    "quantities.*",
+    "pyarrow.*",
+    "polars.*",
+    "xxhash.*",
+    "scipy.*",
+]
 ignore_missing_imports = true
