@@ -79,7 +79,9 @@ runs off the UI thread and may read files.
 
 Return session-wide settings as `SessionLayout` fields, not as extra items:
 `anchor_epoch` (the UTC instant relative timestamps are measured from — it also
-switches the display to wall-clock time), `camera_fps`, and `skeleton`. Set a
+switches the display to wall-clock time), `camera_fps`, and `skeleton` (body-part
+pairs; declaring them takes precedence over the skeleton the 3D view otherwise
+detects from pairwise rigidity, D-082). Set a
 `SessionItem.loader` of `None` to let capability resolution pick one, which is
 what you should do for ordinary video.
 

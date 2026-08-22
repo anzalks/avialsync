@@ -118,8 +118,10 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
         window.plot_pane.set_time_mode(TimeDisplayMode.UTC, layout.anchor_epoch)
         window.transport.set_t_epoch(layout.anchor_epoch)
 
-    if layout.skeleton:
-        window.tracking_3d_pane.set_skeleton(layout.skeleton)
+    # Set unconditionally, including to nothing: a session that declares no
+    # skeleton must not inherit the previous one's bones, and an empty list is
+    # what hands the 3D view over to its own detection (D-082).
+    window.tracking_3d_pane.set_skeleton(list(layout.skeleton or []))
 
 
 def on_drop_scan_finished(

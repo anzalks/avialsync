@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QSplitter
 
 from avialsync.core.pyramid import PyramidBuilder, PyramidReader
 from avialsync.ui.tracking_3d_pane import Tracking3DPane
+from avialsync.ui.tracking_skeleton import BoneMode
 
 
 def _tracking_readers(
@@ -185,3 +186,152 @@ def test_main_window_places_3d_view_beside_video_grid(qtbot, monkeypatch) -> Non
     assert window.player.tracking_3d_pane is window.tracking_3d_pane
 
     window.close()
+
+
+def _rigid_chain_readers(
+    cache_dir: Path,
+    names: tuple[str, ...] = ("head", "spine", "tail"),
+    frames: int = 90,
+) -> list[PyramidReader]:
+    """An animal whose segments hold their length while the whole body moves.
+
+    Distance is the only evidence the detector reads, so the body has to move:
+    points that merely sit at fixed coordinates are rigid against everything,
+    including a wall.
+    """
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    times = np.linspace(0.0, frames / 30.0, frames)
+    phase = np.linspace(0.0, 6.0, frames)
+    # A chain descending in Z, each joint bending on its own, carried around by
+    # a moving root: consecutive points hold their spacing, skipped ones do not.
+    position = np.column_stack((np.sin(phase) * 30.0, np.cos(phase) * 30.0, np.zeros(frames)))
+    readers = []
+    for index, point in enumerate(names):
+        if index:
+            bend = np.sin(phase * (index + 1.7)) * 0.8
+            position = position + np.column_stack(
+                (np.sin(bend) * 40.0, np.zeros(frames), -np.cos(bend) * 40.0)
+            )
+        for axis_index, axis in enumerate("xyz"):
+            name = f"{point}_{axis}"
+            PyramidBuilder(cache_dir, name).build_and_save(times, position[:, axis_index])
+            readers.append(name)
+    return [PyramidReader(cache_dir, name) for name in readers]
+
+
+def test_skeleton_is_detected_when_the_data_declares_none(qtbot, tmp_path: Path) -> None:
+    """Pose with no declared topology still shows bones, marked as detected (D-082)."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_readers(_rigid_chain_readers(tmp_path / "chain.avialcache"))
+
+    assert pane.canvas.skeleton_edges, "no skeleton was detected from the geometry"
+    assert pane.canvas.skeleton_is_derived
+    assert "detected" in pane.status_label.text()
+
+    # Painting is where a derived skeleton differs from a declared one -- dashed
+    # pens and a per-bone width -- so exercise it rather than only the edge list.
+    pane.resize(400, 400)
+    pane.set_cursor(1.0)
+    assert not pane.canvas.grab().isNull()
+
+
+def test_detected_bones_flow_outward_from_the_top(qtbot, tmp_path: Path) -> None:
+    """Detection reports a direction, rooted on the view's anatomical vertical."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_readers(_rigid_chain_readers(tmp_path / "flow.avialcache"))
+
+    estimate = pane.canvas.inferred_skeleton
+    assert estimate.roots == ("head",)
+    assert estimate.parents == {"spine": "head", "tail": "spine"}
+    assert pane.canvas.skeleton_edges[0] == ("head", "spine")
+
+
+def test_declared_topology_wins_over_detection(qtbot, tmp_path: Path) -> None:
+    """A session that names its own bones is never second-guessed."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_skeleton([("head", "tail")])
+    pane.set_readers(_rigid_chain_readers(tmp_path / "declared.avialcache"))
+
+    assert pane.canvas.skeleton_edges == [("head", "tail")]
+    assert not pane.canvas.skeleton_is_derived
+    assert "from session" in pane.status_label.text()
+
+
+def test_declared_names_resolve_through_a_loader_prefix(qtbot, tmp_path: Path) -> None:
+    """A body part the cache kept prefixed still gets its declared bone drawn."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_skeleton([("head", "spine")])
+    pane.set_readers(
+        _rigid_chain_readers(
+            tmp_path / "prefixed.avialcache",
+            names=("ensemble_head", "ensemble_spine", "ensemble_tail"),
+        )
+    )
+
+    assert pane.canvas.skeleton_edges == [("ensemble_head", "ensemble_spine")]
+    assert not pane.canvas.skeleton_is_derived
+
+
+def test_an_ambiguous_declared_name_is_skipped_not_guessed(qtbot, tmp_path: Path) -> None:
+    """Two points could answer to 'head', so that edge is dropped rather than picked."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_skeleton([("head", "tail")])
+    pane.set_readers(
+        _rigid_chain_readers(
+            tmp_path / "ambiguous.avialcache",
+            names=("left_head", "right_head", "tail"),
+        )
+    )
+
+    # Nothing declared survived resolution, so the view falls back to detection
+    # rather than drawing a bone to whichever 'head' happened to sort first.
+    assert pane.canvas.skeleton_is_derived
+
+
+def test_bones_can_be_turned_off_and_forced_to_detected(qtbot, tmp_path: Path) -> None:
+    """The header pins the choice; a scientist can refuse a derived skeleton."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_skeleton([("head", "tail")])
+    pane.set_readers(_rigid_chain_readers(tmp_path / "modes.avialcache"))
+
+    pane.set_bone_mode(BoneMode.OFF)
+    assert pane.canvas.skeleton_edges == []
+
+    pane.set_bone_mode(BoneMode.DETECTED)
+    assert pane.canvas.skeleton_is_derived
+    assert ("head", "tail") not in pane.canvas.skeleton_edges
+
+    pane.set_bone_mode(BoneMode.AUTO)
+    assert pane.canvas.skeleton_edges == [("head", "tail")]
+
+
+def test_a_session_without_a_skeleton_clears_the_previous_one(qtbot, tmp_path: Path) -> None:
+    """Loading a second session must not leave the first one's bones on screen."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_skeleton([("head", "tail")])
+    pane.set_readers(_rigid_chain_readers(tmp_path / "first.avialcache"))
+    assert not pane.canvas.skeleton_is_derived
+
+    pane.set_skeleton([])
+    assert ("head", "tail") not in pane.canvas.skeleton_edges
+    assert pane.canvas.skeleton_is_derived
+
+
+def test_detected_skeleton_survives_an_up_axis_change(qtbot, tmp_path: Path) -> None:
+    """Re-orienting the view re-roots the flow instead of losing the bones."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_readers(_rigid_chain_readers(tmp_path / "reroot.avialcache"))
+    assert pane.canvas.inferred_skeleton.roots == ("head",)
+
+    pane.set_up_axis(2, True)
+
+    assert pane.canvas.inferred_skeleton.roots == ("tail",)
+    assert len(pane.canvas.skeleton_edges) == 2

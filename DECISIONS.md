@@ -2508,3 +2508,69 @@ corrections, filename-safe names, both collision paths, determinism, and the mal
 h5py `dtype == object`, which no measured file had -- is declined rather than indexed on a
 guess. `tests/test_aol_video_extraction_routing.py` covers the supersede rule and that a foreign
 `.mat` is not claimed. Adds `h5py` (BSD-3-Clause) as a runtime dependency.
+
+
+## 2026-08 · D-082 · A skeleton is detected from geometry when the data declares none
+
+### Context
+
+D-041 refused to infer skeleton edges, and D-046 reaffirmed it: point names do not imply
+anatomy, and a viewer that reads `head_bar` and draws a bone to `left_shoulder` has invented
+scientific semantics the recording never carried. That refusal was right about *names* and was
+read as a refusal to derive topology at all.
+
+The practical result was a 3D view with no bones on most data. `trial_config.yml` is the only
+source of topology AvialSync had, so an AOL session without a `skeleton:` block, a folder loaded
+outside a session, and every non-AOL pose format all rendered as a cloud of unconnected markers
+— which is what a reader has the hardest time reading a pose out of.
+
+### Decision
+
+Topology may be derived from the **trajectories**, never from the names.
+
+`core/skeleton.py` measures the distance between every pair of points across a strided sample of
+the recording, and keeps a pair only when that distance holds steady — a length coefficient of
+variation at or below 0.15. A minimum spanning tree over those rigidity costs is the skeleton;
+pairs with no rigid evidence are dropped rather than linked, so the result is a forest and two
+animals in one arena stay two animals. Each component is rooted at its topmost point along the
+view's anatomical vertical (D-046), which gives every edge a direction: the estimate is emitted
+parent-first, breadth-first from the root.
+
+Precedence is fixed. A declared skeleton always wins; detection only fills the gap where the
+data declared nothing. A derived skeleton is drawn **dashed** and tapering away from its root,
+and the pane's status line says `detected` rather than `from session`, so a reader is never shown
+AvialSync's reading of the geometry as if it were the recording's own claim. A `Bones:` selector
+pins `Auto`, `Detected`, or `Off` against later loads.
+
+Declared edges are also now resolved against the point names actually loaded — exact, then
+case-insensitive, then one unambiguous suffix (`head_bar` for `ensemble_head_bar`). This renames
+endpoints of edges the data already declared; it never creates one, and a name matching two
+points is dropped rather than picked between.
+
+### Alternatives rejected
+
+Inferring from names, still (D-041 stands: this module never reads a name). Correlation of
+velocities rather than distance rigidity — it links a whole animal to itself, since every marker
+on one body moves together. Forcing one spanning tree over all points, which draws a bone between
+two unrelated bodies whenever nothing better is available. Running detection across sources,
+which compares points from caches that share no timestamp array. Drawing derived bones like
+declared ones, which is the actual thing D-041 was protecting against.
+
+### Consequences
+
+Detection runs once per pose import, on the UI thread, bounded to 64 points and a 400 k-element
+pairwise pass (256 frames at 27 points, 97 at 64). Measured 11.5 ms at the 64-point worst case
+against the 30 ms UI-callback ceiling; `tests/benchmarks/test_bench_tracking_3d.py` guards it at
+25 ms, and the 2 ms cursor budget is untouched because nothing here runs per tick. Changing the
+vertical axis re-roots the estimate from the samples cached at load, rather than re-reading.
+
+`_read_trial_config` now parses a YAML sequence as a list. It folded one into a mapping, so a
+skeleton that branches — `head_bar` parenting both shoulders — kept only the last of those edges
+and silently lost the rest. `apply_session_layout` sets the skeleton unconditionally, including
+to nothing, so a session that declares none no longer inherits the previous session's bones.
+
+`tests/test_core_skeleton.py` covers recovery of a rigid chain, rooting and its inversion, the
+forest, gaps excluded pair-by-pair, and that anatomical names on unrelated trajectories still
+produce nothing. `tests/test_ui_tracking_3d.py` covers precedence, name resolution, ambiguity,
+the modes, and re-rooting; `tests/test_aol_pose_routing.py` covers the branching skeleton and
+both session paths.

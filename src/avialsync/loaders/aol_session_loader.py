@@ -434,45 +434,65 @@ def _read_trial_config(path: Path) -> dict[str, object]:
     """Parse a simple YAML trial config without requiring PyYAML.
 
     Handles the flat key:value and one-level nested structure typical
-    of AOL trial_config.yml files.
+    of AOL trial_config.yml files. A section written as a YAML *sequence*
+    becomes a list, not a mapping: a skeleton branches, so ``head_bar`` is the
+    first name of two edges at once, and folding those lines into one dict
+    kept only the last of them — a rig lost its shoulders and one leg to a
+    parser detail, with no error anywhere to say so.
     """
     config: dict[str, object] = {}
-    current_section: dict[str, object] | None = None
+    current_key: str | None = None
+    current_section: dict[str, object] | list[object] | None = None
 
     try:
         with open(path, encoding="utf-8") as f:
             for line in f:
                 stripped = line.rstrip()
-                if not stripped or stripped.startswith("#"):
+                if not stripped or stripped.lstrip().startswith("#"):
                     continue
 
                 indent = len(line) - len(line.lstrip())
-
                 if indent == 0:
-                    # Top-level key
-                    if ":" in stripped:
-                        key, _, value = stripped.partition(":")
-                        key = key.strip()
-                        value = value.strip()
-                        if value:
-                            config[key] = _yaml_value(value)
-                            current_section = None
-                        else:
-                            # Start of a nested section
-                            current_section = {}
-                            config[key] = current_section
-
-                elif current_section is not None and indent > 0:
-                    # Nested key
-                    if ":" in stripped:
-                        key, _, value = stripped.partition(":")
-                        key = key.strip()
-                        value = value.strip()
-                        current_section[key] = _yaml_value(value)
+                    key, _, value = stripped.partition(":")
+                    if not _:
+                        continue
+                    current_key, current_section = key.strip(), None
+                    if value.strip():
+                        config[current_key] = _yaml_value(value.strip())
+                        current_key = None
+                elif current_key is not None:
+                    current_section = _append_config_entry(
+                        config, current_key, current_section, stripped.strip()
+                    )
     except (OSError, UnicodeError) as exc:
         logger.warning("Could not read trial config %s: %s", path, exc)
 
     return config
+
+
+def _append_config_entry(
+    config: dict[str, object],
+    section_key: str,
+    section: dict[str, object] | list[object] | None,
+    entry: str,
+) -> dict[str, object] | list[object] | None:
+    """Add one indented line to its section, creating it as list or mapping."""
+    is_item = entry.startswith("-")
+    if is_item:
+        entry = entry[1:].strip()
+    if section is None:
+        section = [] if is_item else {}
+        config[section_key] = section
+
+    key, separator, value = entry.partition(":")
+    if isinstance(section, list):
+        if separator:
+            section.append({key.strip(): _yaml_value(value.strip())})
+        elif entry:
+            section.append(_yaml_value(entry))
+    elif separator:
+        section[key.strip()] = _yaml_value(value.strip())
+    return section
 
 
 def _yaml_value(value: str) -> object:

@@ -43,8 +43,11 @@ The 3D pane is a view over the same cache, not a new loader or source type. It g
 `name_x`, `name_y`, and `name_z` triplets, performs one nearest-timestamp lookup per source, and
 custom-paints only the current pose. It does not scan or render a full trajectory on a clock tick.
 The 3D pane and video grid sit in a native side-by-side splitter, whose size is a local view
-preference. Point names do not imply scientific topology, so the viewer never invents skeleton
-connections.
+preference. Point names do not imply scientific topology, so the viewer never derives connections
+from them. It does derive them from the trajectories: pairs whose separation holds steady across a
+strided sample of the recording are joined by a minimum spanning tree, rooted at the topmost point
+so the bones have a direction. A skeleton the session declared always wins, and a derived one is
+drawn dashed and labelled `detected` rather than passed off as the recording's own (D-082).
 
 For exact paused-frame verification, AvialSync reads the pixels the pane actually painted and
 decodes a frame-index strip out of them, rather than trusting a returned seek command or a reported

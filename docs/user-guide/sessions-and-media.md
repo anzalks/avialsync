@@ -50,8 +50,16 @@ pane. Incomplete triplets stay ordinary time-series plots.
 - Drag the vertical splitter to give the 3D pane or the videos more room.
 
 The pane draws the pose at the current time only — it never scans or renders a whole trajectory on a
-clock tick. It also draws no connections between points unless a session declares a skeleton:
-point names do not imply anatomy, and inventing links would be inventing data.
+clock tick.
+
+Connections between points come from the session when it declares a skeleton. When it does not,
+AvialSync detects one from the movement itself: two markers that keep the same distance apart
+however the animal moves are on one rigid segment, and those are the pairs it joins. A detected
+skeleton is drawn **dashed**, thinning as it runs away from the topmost point, and the pane says
+`detected` beside the point count — it is a reading of your data, not something the recording
+claimed. Names are never used to decide anatomy. Use **Bones:** in the pane header to keep the
+detected skeleton (`Detected`), turn bones off entirely (`Off`), or return to `Auto`, which prefers
+whatever the session declared.
 
 ## Plot navigation
 

@@ -339,3 +339,69 @@ def test_overlay_tracks_get_distinct_colours_and_labels(tmp_path: Path, qtbot, m
     ensembles = [track for track in tracks if track.is_ensemble]
     assert len(ensembles) == 1 and ensembles[0].label == "eks"
     window.close()
+
+
+def _declare_skeleton(session: Path, body: str) -> None:
+    """Rewrite the session's trial config with a skeleton block appended."""
+    (session / "trial_config.yml").write_text(
+        f"hardware:\n  camera_fps: 230.0\nskeleton:\n{body}", encoding="utf-8"
+    )
+
+
+def test_a_branching_skeleton_keeps_every_edge(aol_session: Path) -> None:
+    """One body part parenting two others must not collapse to a single bone.
+
+    A skeleton is a tree, so its trunk names several edges. Folding the YAML
+    sequence into a mapping kept only the last of them, and the rig silently
+    lost a shoulder with nothing raised anywhere.
+    """
+    _declare_skeleton(
+        aol_session,
+        "  - head_bar: left_shoulder\n  - head_bar: right_shoulder\n  - left_shoulder: left_toe\n",
+    )
+
+    manifest = build_manifest(aol_session)
+
+    assert manifest.skeleton == [
+        ("head_bar", "left_shoulder"),
+        ("head_bar", "right_shoulder"),
+        ("left_shoulder", "left_toe"),
+    ]
+
+
+def test_declared_skeleton_reaches_the_3d_view(aol_session: Path, qtbot, monkeypatch) -> None:
+    """A skeleton in trial_config.yml is what the 3D pane draws (D-082)."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.ui.controllers.drop_controller import apply_session_layout
+    from avialsync.ui.main_window import MainWindow
+
+    _declare_skeleton(aol_session, "  - head_bar: left_toe\n")
+    layout = AOLSessionSource().scan(aol_session, LoaderRegistry())
+
+    monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
+    window = MainWindow()
+    qtbot.addWidget(window)
+    apply_session_layout(window, layout)
+
+    assert window.tracking_3d_pane.canvas.declared_skeleton == [("head_bar", "left_toe")]
+    window.close()
+
+
+def test_a_session_declaring_no_skeleton_leaves_no_stale_bones(
+    aol_session: Path, qtbot, monkeypatch
+) -> None:
+    """The next session must not inherit the previous session's topology."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.ui.controllers.drop_controller import apply_session_layout
+    from avialsync.ui.main_window import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.tracking_3d_pane.set_skeleton([("stale_a", "stale_b")])
+
+    # The fixture's trial_config declares fps and nothing else.
+    apply_session_layout(window, AOLSessionSource().scan(aol_session, LoaderRegistry()))
+
+    assert window.tracking_3d_pane.canvas.declared_skeleton == []
+    window.close()

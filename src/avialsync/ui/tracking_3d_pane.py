@@ -20,8 +20,15 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skeleton
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.tracking_colors import color_for_point, register_points
+from avialsync.ui.tracking_skeleton import (
+    BoneMode,
+    bone_depths,
+    resolve_edges,
+    sample_trajectories,
+)
 
 _MAX_LABELS = 24
 _SAMPLE_TOLERANCE_S = 0.1
@@ -215,7 +222,17 @@ class Tracking3DCanvas(QWidget):
         self._positions = np.empty((0, 3), dtype=np.float64)
         self._valid = np.empty(0, dtype=bool)
         self._time = 0.0
-        self._skeleton_edges: list[tuple[str, str]] = []
+
+        # Topology the data declared, and topology derived from its geometry.
+        # They are kept apart so a declared skeleton is never diluted by a
+        # derived one, and so the view can say which it is drawing (D-082).
+        self._declared_edges: list[tuple[str, str]] = []
+        self._inference_samples: tuple[tuple[tuple[str, ...], np.ndarray], ...] = ()
+        self._inferred = SkeletonEstimate()
+        self._bone_mode = BoneMode.AUTO
+        self._active_edges: list[tuple[str, str]] = []
+        self._skeleton_is_derived = False
+        self._depths: dict[str, int] = {}
 
         # Which world axis renders upward. Z-up is the neutral default; loading
         # data with recognisable head/foot landmarks re-orients it (D-046).
@@ -270,6 +287,10 @@ class Tracking3DCanvas(QWidget):
         self._up_auto = automatic
         self._view_basis = _view_matrix(self._up_axis, -1.0 if self._up_inverted else 1.0)
         self._has_scene_bounds = False
+        # Re-root the derived skeleton: the topology does not change with the
+        # view, but which end of it counts as the top does, and the taper reads
+        # backwards if the flow keeps pointing at what is now the bottom.
+        self._infer_skeleton()
         self.set_cursor(self._time)
         self.fit_current_pose()
 
@@ -282,6 +303,10 @@ class Tracking3DCanvas(QWidget):
         """Select complete XYZ triplets and retain only their mmap-backed arrays."""
         self._sources = _build_sources(readers)
         self._names = tuple(point.name for source in self._sources for point in source.points)
+        self._inference_samples = tuple(
+            sample_trajectories(source.points, frame_budget(len(source.points)))
+            for source in self._sources
+        )
         # Colours are decided here, on the whole point set, rather than at paint
         # time: a body part the 2D overlay already named keeps that colour, and
         # one only this view knows about gets its own.
@@ -296,16 +321,95 @@ class Tracking3DCanvas(QWidget):
                 self._up_axis = axis
                 self._up_inverted = inverted
                 self._view_basis = _view_matrix(axis, -1.0 if inverted else 1.0)
+        self._infer_skeleton()
         self.set_cursor(self._time)
 
     def set_skeleton(self, edges: list[tuple[str, str]]) -> None:
-        """Set explicit skeleton edges between named points.
+        """Set the skeleton edges the data itself declared.
 
-        Each edge is a ``(name_a, name_b)`` pair referencing point names.
-        Edges whose endpoints are not both present/valid are silently skipped.
-        This never infers topology from names (D-041).
+        Each edge is a ``(name_a, name_b)`` pair referencing point names. Names
+        are resolved against the points actually loaded, so an edge a loader
+        prefixed differently still lands; an edge whose endpoints are missing or
+        ambiguous is skipped. Topology is never invented from names (D-041) —
+        an empty list means the data declared none, which in ``BoneMode.AUTO``
+        hands the view over to the geometry-derived estimate (D-082).
         """
-        self._skeleton_edges = list(edges)
+        self._declared_edges = list(edges)
+        self._refresh_bones()
+
+    def set_bone_mode(self, mode: BoneMode) -> None:
+        """Choose between declared, derived, and no skeleton."""
+        self._bone_mode = mode
+        self._refresh_bones()
+
+    @property
+    def bone_mode(self) -> BoneMode:
+        """Which skeleton the view is currently drawing."""
+        return self._bone_mode
+
+    @property
+    def declared_skeleton(self) -> list[tuple[str, str]]:
+        """Copy of the skeleton the session declared, before name resolution."""
+        return list(self._declared_edges)
+
+    @property
+    def inferred_skeleton(self) -> SkeletonEstimate:
+        """The geometry-derived estimate for the loaded points."""
+        return self._inferred
+
+    @property
+    def skeleton_edges(self) -> list[tuple[str, str]]:
+        """Edges the view draws right now, parent first where a flow is known."""
+        return list(self._active_edges)
+
+    @property
+    def skeleton_is_derived(self) -> bool:
+        """Whether the drawn skeleton came from geometry rather than the data."""
+        return self._skeleton_is_derived
+
+    def _infer_skeleton(self) -> None:
+        """Derive topology per source, from the strided samples taken on load.
+
+        Per source, never across them: two caches share no timestamp array, so a
+        pair drawn from both would be compared at times that never coincided.
+        """
+        up = np.eye(3)[self._up_axis] * (-1.0 if self._up_inverted else 1.0)
+        edges: list[tuple[str, str]] = []
+        roots: list[str] = []
+        parents: dict[str, str] = {}
+        variation: dict[tuple[str, str], float] = {}
+        frames_used = 0
+        for names, samples in self._inference_samples:
+            estimate = infer_skeleton(names, samples, up=up)
+            edges.extend(estimate.edges)
+            roots.extend(estimate.roots)
+            parents.update(estimate.parents)
+            variation.update(estimate.variation)
+            frames_used = max(frames_used, estimate.frames_used)
+        self._inferred = SkeletonEstimate(
+            edges=tuple(edges),
+            roots=tuple(roots),
+            parents=parents,
+            variation=variation,
+            frames_used=frames_used,
+        )
+        self._refresh_bones()
+
+    def _refresh_bones(self) -> None:
+        """Resolve the mode into the edge list and taper depths the painter uses."""
+        declared = resolve_edges(self._declared_edges, self._names)
+        if self._bone_mode is BoneMode.OFF:
+            active: list[tuple[str, str]] = []
+            derived = False
+        elif self._bone_mode is BoneMode.DETECTED or not declared:
+            active = list(self._inferred.edges)
+            derived = bool(active)
+        else:
+            active = declared
+            derived = False
+        self._active_edges = active
+        self._skeleton_is_derived = derived
+        self._depths = bone_depths(active, self._inferred.roots) if derived else {}
         self.update()
 
     def set_cursor(self, t_master: float) -> None:
@@ -441,16 +545,32 @@ class Tracking3DCanvas(QWidget):
         painter: QPainter,
         name_to_screen: dict[str, tuple[float, float]],
     ) -> None:
-        """Draw explicit edges between connected named points."""
-        if not self._skeleton_edges:
+        """Draw the bones in force, tapering a derived skeleton along its flow.
+
+        A derived skeleton is drawn dashed and tapering outward from its root,
+        so it never passes for topology the recording declared: the reader can
+        see at a glance that these bones are AvialSync's reading of the
+        geometry, and which way that reading runs (D-082).
+        """
+        if not self._active_edges:
             return
-        bone_pen = QPen(QColor(100, 100, 100), 2)
-        painter.setPen(bone_pen)
-        for name_a, name_b in self._skeleton_edges:
+        color = QColor(120, 120, 120) if self._skeleton_is_derived else QColor(100, 100, 100)
+        for name_a, name_b in self._active_edges:
             pos_a = name_to_screen.get(name_a)
             pos_b = name_to_screen.get(name_b)
-            if pos_a is not None and pos_b is not None:
-                painter.drawLine(QPointF(*pos_a), QPointF(*pos_b))
+            if pos_a is None or pos_b is None:
+                continue
+            pen = QPen(color, self._bone_width(name_a))
+            if self._skeleton_is_derived:
+                pen.setStyle(Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.drawLine(QPointF(*pos_a), QPointF(*pos_b))
+
+    def _bone_width(self, parent: str) -> float:
+        """Thin a bone as it runs further from the root it was flowed out from."""
+        if not self._skeleton_is_derived:
+            return 2.0
+        return max(1.0, 3.0 - 0.5 * self._depths.get(parent, 0))
 
     def _draw_grid(self, painter: QPainter) -> None:
         """Draw a light ground-plane grid behind the pose."""
@@ -588,6 +708,20 @@ class Tracking3DPane(QWidget):
         ):
             self.up_axis_combo.addItem(label, (axis, inverted))
         self.up_axis_combo.activated.connect(self._on_up_axis_selected)
+        self.bone_combo = QComboBox(header)
+        self.bone_combo.setAccessibleName("Skeleton")
+        self.bone_combo.setToolTip(
+            "Which skeleton to draw. Auto uses the one the session declared and "
+            "falls back to bones detected from how rigidly the points hold "
+            "together; Detected always uses the detected one, drawn dashed."
+        )
+        for label, mode in (
+            ("Bones: Auto", BoneMode.AUTO),
+            ("Bones: Detected", BoneMode.DETECTED),
+            ("Bones: Off", BoneMode.OFF),
+        ):
+            self.bone_combo.addItem(label, mode)
+        self.bone_combo.activated.connect(self._on_bone_mode_selected)
         self.fit_button = QPushButton("Fit View", header)
         self.fit_button.setToolTip("Fit the 3D camera to the current tracked pose")
         self.fit_button.clicked.connect(self._fit_view)
@@ -595,6 +729,7 @@ class Tracking3DPane(QWidget):
         header_layout.addStretch()
         header_layout.addWidget(self.status_label)
         header_layout.addWidget(self.up_axis_combo)
+        header_layout.addWidget(self.bone_combo)
         header_layout.addWidget(self.fit_button)
 
         self.canvas = Tracking3DCanvas(self)
@@ -604,15 +739,30 @@ class Tracking3DPane(QWidget):
     def set_readers(self, readers: list[MappedChannelReader]) -> None:
         """Use complete XYZ channel triplets from the active cached readers."""
         self.canvas.set_readers(readers)
-        count = self.canvas.point_count
-        suffix = "" if count == 1 else "s"
-        self.status_label.setText(
-            f"{count} tracked point{suffix}" if count else "No XYZ tracking channels"
-        )
-        self.fit_button.setEnabled(count > 0)
+        self._refresh_status()
+        self.fit_button.setEnabled(self.canvas.point_count > 0)
         self._sync_up_axis_combo()
-        if count:
+        if self.canvas.point_count:
             self.canvas.fit_current_pose()
+
+    def _refresh_status(self) -> None:
+        """Say how many points are loaded, and where their bones came from.
+
+        The provenance is part of the status rather than a tooltip: a derived
+        skeleton is a reading of the data, and a reader who cannot tell it from
+        a declared one has been handed a conclusion the recording never made.
+        """
+        count = self.canvas.point_count
+        if not count:
+            self.status_label.setText("No XYZ tracking channels")
+            return
+        suffix = "" if count == 1 else "s"
+        text = f"{count} tracked point{suffix}"
+        bones = len(self.canvas.skeleton_edges)
+        if bones:
+            origin = "detected" if self.canvas.skeleton_is_derived else "from session"
+            text += f" · {bones} bone{'' if bones == 1 else 's'} ({origin})"
+        self.status_label.setText(text)
 
     def _sync_up_axis_combo(self) -> None:
         """Reflect the canvas's current orientation without re-triggering it."""
@@ -637,8 +787,27 @@ class Tracking3DPane(QWidget):
         self._sync_up_axis_combo()
 
     def set_skeleton(self, edges: list[tuple[str, str]]) -> None:
-        """Set explicit skeleton connectivity for the 3D view."""
+        """Set the connectivity the session declared; empty falls back to detection."""
         self.canvas.set_skeleton(edges)
+        self._refresh_status()
+
+    def set_bone_mode(self, mode: BoneMode) -> None:
+        """Pin which skeleton the view draws (see :class:`BoneMode`)."""
+        self.canvas.set_bone_mode(mode)
+        index = self.bone_combo.findData(mode)
+        if index >= 0:
+            self.bone_combo.blockSignals(True)
+            self.bone_combo.setCurrentIndex(index)
+            self.bone_combo.blockSignals(False)
+        self._refresh_status()
+
+    def _on_bone_mode_selected(self, index: int) -> None:
+        """Apply the skeleton mode the user chose in the header."""
+        mode = self.bone_combo.itemData(index)
+        if mode is None:
+            return
+        self.canvas.set_bone_mode(mode)
+        self._refresh_status()
 
     def set_cursor(self, t_master: float) -> None:
         """Update from the same master-clock value used by video and 2D plots."""

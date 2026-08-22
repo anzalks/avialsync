@@ -316,7 +316,10 @@ with explicit user acceptance and session provenance. Native plugin event provid
 - Video/3D horizontal QSplitter: `_media_splitter` gives the video grid and `Tracking3DPane` a
   draggable vertical handle; state is persisted in QSettings `splitter/media`. Complete cached
   `name_x` / `name_y` / `name_z` triplets render as the current pose with orbit, wheel zoom, and
-  Fit View controls (D-041). No skeleton connectivity is inferred.
+  Fit View controls (D-041). Bones come from the session when it declares them and are
+  otherwise detected from pairwise rigidity by `core/skeleton.py`, drawn dashed and rooted on the
+  vertical axis; the header's `Bones:` selector pins Auto / Detected / Off (D-082). Names never
+  imply topology.
 - Reset Zoom: wired to View → Reset Plot Zoom (Ctrl+0), timeline-row button, and shortcuts dialog
 - Transport UX: the full-width **Data Streams** section is distinct from both plots and the
   seek/transport section with the native splitter handles used for video/plot resizing. Its header owns Hide, Flag Frame, Snapshot,

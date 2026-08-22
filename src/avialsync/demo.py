@@ -452,7 +452,9 @@ def load_demo(window: DemoWindow, data: DemoData) -> None:
     )
     window._enqueue_import(data.tracking, TrackingLoader, {"fps": 30.0})
 
-    # Explicit skeleton for the demo's walking animal (D-041: never inferred).
+    # Declared skeleton for the demo's walking animal. Never inferred from the
+    # names (D-041); declaring it here also takes precedence over the skeleton
+    # the 3D view would otherwise detect from the geometry (D-082).
     window.tracking_3d_pane.set_skeleton(
         [
             ("left_toe", "left_paw"),
