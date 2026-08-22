@@ -34,6 +34,10 @@ ROI_METRIC_FILENAME_RE = re.compile(r"^(\d+)__(.+)\.mat$")
 #: `Extracted_Data.saveobj` / `write_roi_metric.m`'s single exported variable.
 _VARIABLE_NAME = "roi_metric_data"
 
+#: Column names stored alongside the numbers. Optional, and absent on older
+#: files, which is why the metric-name table below still exists as a fallback.
+_COLUMNS_VARIABLE_NAME = "roi_metric_columns"
+
 _BATCH_SIZE = 50_000
 
 #: `get_metric_column_names` in `Video.m` -- column order for the built-in
@@ -55,6 +59,27 @@ _METRIC_COLUMNS: dict[str, list[str]] = {
         "Drift",
     ],
 }
+
+
+def _stored_column_names(raw: object) -> list[str] | None:
+    """Return column names read from the file, or ``None`` when it stored none.
+
+    MATLAB writes this as a cell of char arrays, which ``scipy.io.loadmat``
+    hands back as a nested object array; older exports omit the variable
+    entirely. Anything unreadable is treated as absent rather than fatal --
+    the numbers are still perfectly good with fallback names.
+    """
+    if raw is None:
+        return None
+    try:
+        flattened = np.asarray(raw, dtype=object).ravel()
+        names = [
+            str(np.asarray(item).ravel()[0]) if np.ndim(item) else str(item) for item in flattened
+        ]
+    except (TypeError, ValueError, IndexError):
+        return None
+    cleaned = [name.strip() for name in names if str(name).strip()]
+    return cleaned or None
 
 
 def _column_names(metric: str, n_columns: int) -> list[str]:
@@ -161,6 +186,7 @@ class AOLMetricLoader(TimeSeriesSource):
                 "Check that this is a per-ROI metric export from write_roi_metric.m."
             )
 
+        stored_columns = _stored_column_names(mat.get(_COLUMNS_VARIABLE_NAME))
         data = np.asarray(mat[_VARIABLE_NAME], dtype=np.float64)
         if data.ndim == 1:
             data = data[:, None]
@@ -171,7 +197,20 @@ class AOLMetricLoader(TimeSeriesSource):
             )
 
         self._data = data
-        self._channel_names = _column_names(self._metric, data.shape[1])
+        # Names recorded with the numbers beat names inferred from the metric
+        # name: the file is the only thing that knows what it actually wrote.
+        if stored_columns is not None and len(stored_columns) == data.shape[1]:
+            self._channel_names = stored_columns
+        else:
+            if stored_columns is not None:
+                logger.warning(
+                    "'%s' in %s lists %d name(s) for %d column(s); ignoring it.",
+                    _COLUMNS_VARIABLE_NAME,
+                    path.name,
+                    len(stored_columns),
+                    data.shape[1],
+                )
+            self._channel_names = _column_names(self._metric, data.shape[1])
 
         logger.info(
             "AOL metric loader: %d frame(s), %d channel(s) (%s) from %s",

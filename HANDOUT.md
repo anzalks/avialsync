@@ -380,6 +380,7 @@ contradicts the runtime.
 | `loaders/aol_eks_loader.py` | AOL 3D EKS CSV; frame-indexed x/y/z triplets | `AOLEksLoader` (`read_all_chunks` is the bulk API) |
 | `loaders/aol_encoder_loader.py` | AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045) | `AOLEncoderLoader` |
 | `loaders/aol_metric_loader.py` | Extracted per-frame optical-flow/MI MAT files (`avialsync_data_schema.md`); frame-indexed, no `role` — plots like any sensor | `AOLMetricLoader`, `ROI_METRIC_FILENAME_RE` |
+| `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera export: v7.3/HDF5 + JSON sidecar, one channel per (ROI, column). Carries its own time axis, so NOT frame-indexed (D-081) | `AOLVideoExtractionLoader`, `read_sidecar()`, `sidecar_path()` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
 | `engine/sync_worker.py` | Chunked event extraction and deterministic alignment fit (D-026) | `SyncWorker`, evidence specs |
@@ -408,6 +409,7 @@ contradicts the runtime.
 | `loaders/aol_eks_loader.py` | AOL 2D/3D pose CSV ingest | `AOLEksLoader` |
 | `loaders/aol_encoder_loader.py` | AOL encoder log ingest | `AOLEncoderLoader` |
 | `loaders/aol_metric_loader.py` | Extracted optical-flow/MI per-ROI MAT ingest | `AOLMetricLoader` |
+| `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera ROI metric ingest | `AOLVideoExtractionLoader` |
 | `ui/video_overlay.py` | Live pose overlay with named markers | `PaintCanvas`, `OverlayTrack` |
 | `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown | `JobManager`, `Job`, `JobState` |
 | `ui/ui_heartbeat.py` | Measures UI-thread stalls and reports them | `UiHeartbeat` |
@@ -947,7 +949,7 @@ never reaches a plot row: `overlay2d`/`pose3d` roles route through
 `avialsync_data_schema.md` documents an optical-flow/MI toolbox that externalizes each
 `(ROI, metric)` result as a plain `-v6` MAT file, `<roi_id>__<metric>.mat`, under a `data_root`
 folder whose *name* is user-configurable (default `<export_filename stem>_data/`, e.g.
-`optical_flow_and_MI_data/`). `_collect_metric_files` therefore does not look for a fixed folder
+`optical_flow_and_MI_data/`). `_collect_extracted_metrics` therefore does not look for a fixed folder
 name — it walks the whole AOL session with `rglob("*.mat")` and matches
 `ROI_METRIC_FILENAME_RE` (`^(\d+)__(.+)\.mat$`), which `thumbnail.mat` never matches (no
 `roi_id` prefix). Do not "simplify" this into a hardcoded `data_root` folder name; a lab that
@@ -960,6 +962,35 @@ per-camera `start_epoch`/`camera_fps` the videos and EKS tracking already use
 (`manifest.camera_start_epochs`) — no separate timestamp reconstruction path. Unlike pose data
 (D-046), these are ordinary signals: no `role` is set, so they reach `plot_pane.load_channels`
 like the encoder trace.
+
+### 26c. Video-extraction exports are v7.3/HDF5 and need the JSON sidecar
+
+The video-extraction toolbox writes `<recording>/video-extraction/<variant>/<Camera>.mat`
+plus `<Camera>.metadata.json`. Three things bite here:
+
+- **`scipy.io.loadmat` cannot open it.** MAT v7.3 *is* HDF5; scipy handles v7.2 and below.
+  `AOLVideoExtractionLoader` uses `h5py`. The older per-`(ROI, metric)` v6 store that
+  `AOLMetricLoader` reads is genuinely scipy-readable -- do not merge the two loaders.
+- **Read labels from the JSON, numbers from the HDF5.** MATLAB stores cell/char arrays as
+  HDF5 object references to `uint16` arrays, so ROI labels and column names read out of the
+  `.mat` need dereferencing and character-decoding. The sidecar carries them as plain JSON
+  and is written whenever the `.mat` is, so it is required, not optional -- it is also what
+  `can_open` matches on (`tool == "video-extraction-toolbox"`), which is why a MATLAB file
+  from another tool in the same tree is never claimed.
+- **h5py reports every shape reversed from the MATLAB view.** `metrics/<metric>` is
+  `(n_roi, n_col, n_frames)` to h5py and `[n_frames x n_col x n_roi]` in MATLAB. Index it
+  as `arr[roi, column, :]`. Test fixtures must be written in the h5py order or they will
+  pass against a loader that indexes wrongly.
+
+Two more that are easy to get wrong:
+
+- **The first `MI` sample is NaN in every file** (a frame-difference metric has no
+  predecessor at frame 1). Never drop or fill it -- that shifts the whole channel one frame
+  against every other source.
+- **Channel names become cache filenames verbatim.** The schema suggests `"{roi}/{column}"`;
+  `PyramidBuilder` writes `cache_dir / f"{channel_id}_t.npy"` with no sanitisation, so a
+  slash is a path separator on POSIX and illegal on Windows. `_safe_label` strips the
+  reserved set and names join with `_`.
 
 ### 27. The window must always close; jobs are owned by JobManager (V-09)
 

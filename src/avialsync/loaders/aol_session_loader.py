@@ -51,13 +51,29 @@ class AOLMetricFile:
     (``avialsync_data_schema.md`` §2): ``<video_type>/<roi_id>__<metric>.mat``,
     with ``video_type`` the same camera name AOL's own videos and timing files
     use, sanitized. ``camera`` here is already resolved back to AOL's own
-    camera label where possible -- see ``_collect_metric_files``.
+    camera label where possible -- see ``_collect_extracted_metrics``.
     """
 
     path: Path
     camera: str
     roi_id: str
     metric: str
+
+
+@dataclass(frozen=True)
+class AOLVideoExtraction:
+    """One camera's exported ROI metrics from the video-extraction toolbox.
+
+    The export is ``video-extraction/<variant>/<Camera>.mat`` (MATLAB v7.3 /
+    HDF5) beside its ``<Camera>.metadata.json`` sidecar. Preferred over the
+    upstream per-``(ROI, metric)`` v6 store, which holds the same numbers but
+    no time axis, no ROI labels and no ROI geometry.
+    """
+
+    path: Path
+    camera: str
+    variant: str
+    metrics: tuple[str, ...]
 
 
 @dataclass
@@ -76,6 +92,8 @@ class AOLManifest:
     # Extracted per-frame metrics (optical flow / motion index / etc.) found
     # anywhere under the session, keyed to the same cameras as the videos.
     metric_files: list[AOLMetricFile] = field(default_factory=list)
+    # One exported ROI-metric file per camera from the video-extraction toolbox.
+    video_extraction_files: list[AOLVideoExtraction] = field(default_factory=list)
     # Encoder log file
     encoder_file: Path | None = None
     # Per-camera relative timing files
@@ -190,7 +208,10 @@ def build_manifest(session_dir: Path) -> AOLManifest:
     manifest.pose_2d_tracks = _collect_2d_tracks(session_dir, manifest.camera_labels)
 
     # ── Discover extracted per-frame metrics (optical flow / MI / etc.) ──
-    manifest.metric_files = _collect_metric_files(session_dir, manifest.camera_labels)
+    (
+        manifest.video_extraction_files,
+        manifest.metric_files,
+    ) = _collect_extracted_metrics(session_dir, manifest.camera_labels)
 
     # ── Discover encoder log ─────────────────────────────────────────
     encoder = session_dir / "encoder_log.txt"
@@ -288,47 +309,89 @@ def _collect_2d_tracks(session_dir: Path, camera_labels: list[str]) -> list[AOL2
     return tracks
 
 
-def _collect_metric_files(session_dir: Path, camera_labels: list[str]) -> list[AOLMetricFile]:
-    """Find extracted per-frame metric files anywhere under the session folder.
+def _collect_extracted_metrics(
+    session_dir: Path, camera_labels: list[str]
+) -> tuple[list[AOLVideoExtraction], list[AOLMetricFile]]:
+    """Find both extracted-metric stores in one walk of the session folder.
 
-    The optical-flow/MI toolbox lays these out as
-    ``<video_type>/<roi_id>__<metric>.mat`` under a `data_root` folder whose
-    own name is user-configurable (``avialsync_data_schema.md`` §1-2, default
-    ``<export_filename stem>_data/``) -- so detection matches the filename
-    contract itself (`parse_roi_data_filename.m`) rather than a fixed folder
-    name, and works regardless of how deep that folder sits or what it is
-    called. ``thumbnail.mat`` never matches: it carries no ``roi_id`` prefix
-    and is a reference image, not a time series.
+    Two formats, one traversal. The toolbox's per-camera *export* is
+    ``video-extraction/<variant>/<Camera>.mat`` beside a JSON sidecar, and its
+    upstream store is one ``<roi_id>__<metric>.mat`` per (ROI, metric) under a
+    ``data_root``. Neither lives at a fixed path -- the export tree can be
+    emitted under a separate root, and ``data_root``'s own name follows the
+    lab's ``export_filename`` -- so both are recognised by what the file *is*
+    rather than where it sits (D-080, D-081).
 
-    ``video_type`` (the immediate parent folder) is resolved back to one of
-    AOL's own camera labels with the same longest-match rule 2D pose files
-    use, since the toolbox's own sanitization can turn spaces or punctuation
-    in a camera name into underscores. A folder matching no known camera is
-    still collected under its own raw name, so a data_root dropped without
-    its sibling videos still loads -- just without epoch alignment.
+    They are collected together because a session that carries the upstream
+    store carries thousands of those small files, and walking the tree twice to
+    ask two questions about the same paths doubles that cost for nothing.
+
+    An export supersedes the upstream store for its camera: the two hold the
+    same numbers, and importing both would plot every ROI twice, once on the
+    export's real timestamps and once on timestamps synthesised from
+    ``index / fps``.
+
+    A MATLAB file that is neither -- another tool's output in the same tree --
+    matches nothing and is ignored. ``thumbnail.mat`` is a static reference
+    image with no ``roi_id`` prefix, so it never matches either.
     """
     from avialsync.loaders.aol_metric_loader import ROI_METRIC_FILENAME_RE
+    from avialsync.loaders.aol_video_extraction_loader import read_sidecar
 
-    files: list[AOLMetricFile] = []
+    exports: list[AOLVideoExtraction] = []
+    from_store: list[AOLMetricFile] = []
+
     for mat_file in sorted(session_dir.rglob("*.mat")):
+        meta = read_sidecar(mat_file)
+        if meta is not None:
+            metrics = meta.get("metrics")
+            exports.append(
+                AOLVideoExtraction(
+                    path=mat_file,
+                    camera=str(meta.get("camera") or mat_file.stem),
+                    variant=str(meta.get("variant") or mat_file.parent.name),
+                    metrics=tuple(str(m) for m in metrics) if isinstance(metrics, list) else (),
+                )
+            )
+            continue
+
         match = ROI_METRIC_FILENAME_RE.match(mat_file.name)
         if match is None:
             continue
+        # The parent folder is the toolbox's `video_type`. Resolve it back to
+        # one of AOL's own camera labels with the same longest-match rule 2D
+        # pose files use, since the toolbox sanitises punctuation to `_`. A
+        # folder matching no known camera keeps its raw name, so a store
+        # dropped without its sibling videos still loads -- just unaligned.
         raw_camera = mat_file.parent.name
         camera = _match_camera(raw_camera, camera_labels) or raw_camera
-        files.append(
+        from_store.append(
             AOLMetricFile(
                 path=mat_file, camera=camera, roi_id=match.group(1), metric=match.group(2)
             )
         )
 
-    if files:
+    superseded = {export.camera for export in exports}
+    metric_files = [metric for metric in from_store if metric.camera not in superseded]
+
+    if exports:
         logger.info(
-            "AOL manifest: %d extracted metric file(s) across %d camera folder(s)",
-            len(files),
-            len({f.camera for f in files}),
+            "AOL manifest: %d video-extraction export(s) for camera(s) %s",
+            len(exports),
+            ", ".join(sorted(superseded)),
         )
-    return files
+    if metric_files:
+        logger.info(
+            "AOL manifest: %d per-ROI metric file(s) across %d camera folder(s)",
+            len(metric_files),
+            len({metric.camera for metric in metric_files}),
+        )
+    if len(from_store) != len(metric_files):
+        logger.info(
+            "Ignoring %d per-ROI metric file(s) superseded by a video-extraction export.",
+            len(from_store) - len(metric_files),
+        )
+    return exports, metric_files
 
 
 def _match_camera(stem: str, camera_labels: list[str]) -> str | None:
@@ -462,6 +525,7 @@ class AOLSessionSource(SessionSource):
         items.extend(_video_items(manifest, anchor_epoch, registry))
         items.extend(_eks_items(manifest, anchor_epoch))
         items.extend(_pose_2d_items(manifest, anchor_epoch, registry))
+        items.extend(_video_extraction_items(manifest, anchor_epoch))
         items.extend(_metric_items(manifest, anchor_epoch))
         items.extend(_encoder_items(manifest))
 
@@ -589,6 +653,40 @@ def _pose_2d_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) ->
                     "overlay_is_ensemble": track.is_ensemble,
                 },
                 label=f"{track.path.name} — 2D pose over {track.camera}",
+            )
+        )
+    return items
+
+
+def _video_extraction_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionItem]:
+    """Exported ROI metrics, plotted like any other recorded signal.
+
+    No ``role`` is set: unlike the pose exports sitting in the same recording
+    folder (D-046), these are ordinary sensor traces and belong on plot rows.
+
+    Both timing reference points are handed over rather than one resolved
+    offset, because only the loader discovers which axis its file actually
+    carries -- an absolute POSIX one needs the anchor subtracted, while a
+    recording-relative one needs the camera's rebased start added, and telling
+    them apart at scan time would mean opening every HDF5 file.
+    """
+    from avialsync.loaders.aol_video_extraction_loader import AOLVideoExtractionLoader
+
+    items: list[SessionItem] = []
+    for export in manifest.video_extraction_files:
+        start_epoch = _rebased(_start_epoch_for_camera(manifest, export.camera), anchor_epoch)
+        config: dict[str, Any] = {
+            "anchor_epoch": anchor_epoch,
+            "start_epoch": start_epoch,
+            "auto_resolved": True,
+        }
+        metrics = ", ".join(export.metrics) if export.metrics else "ROI metrics"
+        items.append(
+            SessionItem(
+                export.path,
+                AOLVideoExtractionLoader,
+                config,
+                label=f"{export.path.name} - {export.camera} {metrics}",
             )
         )
     return items

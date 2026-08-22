@@ -2396,7 +2396,7 @@ AOL session folder.
 
 ### Decision
 
-`AOLManifest.metric_files` (populated by `_collect_metric_files`) does not look for a fixed folder
+`AOLManifest.metric_files` (populated by `_collect_extracted_metrics`) does not look for a fixed folder
 name. It walks the whole AOL session folder (`session_dir.rglob("*.mat")`) and matches each
 candidate against `ROI_METRIC_FILENAME_RE` (`^(\d+)__(.+)\.mat$`, `aol_metric_loader.py`) — the
 same contract `parse_roi_data_filename.m` encodes. `thumbnail.mat` never matches, since it carries
@@ -2435,3 +2435,76 @@ the generic fallback for a custom metric or a column-count mismatch (never misla
 rather than guessing), and `thumbnail.mat` exclusion. Adds `scipy` (BSD-3-Clause) as a runtime
 dependency — the first and only reader of `-v6` MAT files in this codebase; the primary `-v7.3`
 `Analysis_Set` file remains unreadable by design (§1 of the schema) and no code here attempts it.
+
+**Amended by D-081:** the toolbox's own measured schema later showed this per-ROI store is the exporter's *upstream* store, not its integration surface, and that the preferred per-camera export is itself v7.3/HDF5. The detection rule above still governs the per-ROI store; `h5py` now reads the export beside it.
+
+## 2026-08 · D-081 · The video-extraction export is the ROI-metric surface, and it is HDF5
+
+### Context
+
+D-080 read the video-extraction toolbox's upstream per-``(ROI, metric)`` store: plain v6 MAT
+files named ``<roi_id>__<metric>.mat``, one array each, no time axis. The toolbox's measured
+output schema shows that store is not the integration surface. The toolbox *exports* one file
+per camera into the acquisition tree --
+``<recording>/video-extraction/<variant>/<Camera>.mat`` plus ``<Camera>.metadata.json`` -- and
+that export carries what the per-ROI store cannot: the time axis, the ROI labels, the ROI
+geometry, and the provenance of its own column names.
+
+### Decision
+
+`AOLVideoExtractionLoader` reads the export and is preferred over the per-ROI store; an export
+supersedes that store for its camera in `build_manifest`, since both hold the same numbers and
+importing both would plot every ROI twice, once on real timestamps and once on synthesised ones.
+`AOLMetricLoader` stays for cameras with no export, and gains support for the optional
+`roi_metric_columns` variable the schema documents on newer per-ROI files.
+
+Four properties of the format drive the implementation, and each is a way to get it silently
+wrong rather than an error:
+
+- **MAT v7.3 is HDF5**, so `h5py` reads it and `scipy.io.loadmat` cannot. Both loaders exist
+  because the two stores are genuinely different formats, not because of duplication.
+- **The JSON sidecar is required.** MATLAB writes cell/char arrays as HDF5 object references to
+  `uint16` arrays; every label pulled from the `.mat` would need dereferencing and
+  character-decoding, while the sidecar carries the same values as plain types. It is also what
+  detection matches on, so a MATLAB file from another tool in the same tree is never claimed.
+- **h5py reports MATLAB's shapes reversed**: `metrics/<metric>` is `(n_roi, n_col, n_frames)`.
+  Fixtures are written in that order deliberately -- written the MATLAB way round, they would
+  pass against a loader that indexes the data wrongly.
+- **The first `MI` sample is NaN in every file**, because a frame-difference metric has no
+  predecessor at frame 1. It is preserved; dropping it shifts the channel one frame against
+  every other source in the session.
+
+**The time-axis correction is resolved in the loader, not at scan time.** The file may carry an
+absolute POSIX axis or a recording-relative one, and only whatever opened the HDF5 knows which.
+An AOL session's master axis is seconds since midnight (D-045), so absolute times need the
+anchor epoch subtracted while relative times need the camera's already-rebased start added. The
+session hands over both reference points (`anchor_epoch`, `start_epoch`) and the loader picks;
+deciding at scan time would mean opening every HDF5 file just to choose, or guessing.
+
+**Channel names are `{roi}_{column}`, not the schema's suggested `{roi}/{column}`.** A channel
+name becomes a cache filename verbatim -- `PyramidBuilder` writes
+`cache_dir / f"{channel_id}_t.npy"` with no sanitisation -- so a slash would be a path separator
+on POSIX and rejected outright on Windows. Collisions are real from two directions: ROI labels
+are user-entered and not unique within a camera, and `motion_index` and `flow_kinematics` both
+emit an `MI` column. The metric is inserted first because it keeps the name readable, and the
+ROI id is the fallback that cannot collide.
+
+Like the per-ROI store and unlike the pose outputs beside them, these are ordinary recorded
+signals: no `role`, so they reach plot rows (D-046).
+
+### Alternatives rejected
+
+Reading labels out of the HDF5 to make the sidecar optional -- it is written whenever the `.mat`
+is, so the decoding work buys nothing. Trusting `metric_column_source` silently: `table` and
+`mismatch` mean the labels were inferred now rather than recorded, which is logged rather than
+presented as fact. Importing both stores and de-duplicating later -- the duplication is
+observable as doubled plot rows long before anything could collapse it.
+
+### Consequences
+
+`tests/test_aol_video_extraction_loader.py` covers axis order, the NaN, both time-base
+corrections, filename-safe names, both collision paths, determinism, and the malformed cases
+(ragged cell, frame-count disagreement, backwards time, missing sidecar). A ragged metric --
+h5py `dtype == object`, which no measured file had -- is declined rather than indexed on a
+guess. `tests/test_aol_video_extraction_routing.py` covers the supersede rule and that a foreign
+`.mat` is not claimed. Adds `h5py` (BSD-3-Clause) as a runtime dependency.

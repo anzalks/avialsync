@@ -50,11 +50,13 @@ dependencies = [
     "numpy",
     "polars",
     "xxhash",
-    # BSD-3-Clause. Reads the plain '-v6' single-variable MAT files an
-    # optical-flow/MI extraction toolbox externalizes per ROI/metric
-    # (avialsync_data_schema.md) -- never the primary '-v7.3' Analysis_Set
-    # object graph, which needs MATLAB.
+    # BSD-3-Clause. Reads the plain '-v6' single-variable MAT files the
+    # video-extraction toolbox keeps in its upstream per-(ROI, metric) store.
     "scipy",
+    # BSD-3-Clause. The video-extraction toolbox's exported per-camera .mat is
+    # MATLAB v7.3, which is HDF5 -- scipy.io handles v7.2 and below only, so
+    # the preferred export surface is unreadable without this.
+    "h5py",
     "neo",
     # Not imported by us: a floor on neo's own dependency. Up to and including
     # 0.16.2, `quantities` decorates a method with `@with_doc(np.ndarray.ptp)`,
@@ -108,6 +110,7 @@ neo = "avialsync.loaders.neo_loader:NeoLoader"
 aol_encoder = "avialsync.loaders.aol_encoder_loader:AOLEncoderLoader"
 aol_eks = "avialsync.loaders.aol_eks_loader:AOLEksLoader"
 aol_metric = "avialsync.loaders.aol_metric_loader:AOLMetricLoader"
+aol_video_extraction = "avialsync.loaders.aol_video_extraction_loader:AOLVideoExtractionLoader"
 
 # Session scanners lay out a whole recording folder (D-068). A lab adds support
 # for its own directory layout by publishing here; nothing in the application
@@ -171,5 +174,6 @@ module = [
     "polars.*",
     "xxhash.*",
     "scipy.*",
+    "h5py.*",
 ]
 ignore_missing_imports = true
