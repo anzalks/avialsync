@@ -2536,8 +2536,13 @@ animals in one arena stay two animals. Each component is rooted at its topmost p
 view's anatomical vertical (D-046), which gives every edge a direction: the estimate is emitted
 parent-first, breadth-first from the root.
 
-Precedence is fixed. A declared skeleton always wins; detection only fills the gap where the
-data declared nothing. A derived skeleton is drawn **dashed** and tapering away from its root,
+Precedence is fixed, in three steps. A skeleton declared in `trial_config.yml` wins. Failing
+that, an AOL session falls back to the rig's own chain — `left_toe` up the forelimb to
+`head_bar` and down the other side, `DEFAULT_SKELETON_CHAIN` in `aol_session_loader.py` — built
+only from the parts that session's EKS export actually contains, so a rig without `left_elbow`
+joins `left_paw` straight to `left_shoulder` instead of losing that limb to two dropped edges,
+and a rig the chain does not recognise (fewer than two members present) produces nothing.
+Geometry detection fills the gap only when neither declared anything. A derived skeleton is drawn **dashed** and tapering away from its root,
 and the pane's status line says `detected` rather than `from session`, so a reader is never shown
 AvialSync's reading of the geometry as if it were the recording's own claim. A `Bones:` selector
 pins `Auto`, `Detected`, or `Off` against later loads.
@@ -2563,6 +2568,12 @@ pairwise pass (256 frames at 27 points, 97 at 64). Measured 11.5 ms at the 64-po
 against the 30 ms UI-callback ceiling; `tests/benchmarks/test_bench_tracking_3d.py` guards it at
 25 ms, and the 2 ms cursor budget is untouched because nothing here runs per tick. Changing the
 vertical axis re-roots the estimate from the samples cached at load, rather than re-reading.
+
+The rig default reaches `AOLEksLoader` as its `skeleton` config, which is what strips model
+prefixes off channel names. An AOL session with prefixed EKS columns and no declared skeleton
+therefore names its channels `head_bar_x` where it previously named them
+`ensemble_head_bar_x` — a one-time sidecar cache rebuild for those sessions, and the reason the
+names now match the bones drawn over them.
 
 `_read_trial_config` now parses a YAML sequence as a list. It folded one into a mapping, so a
 skeleton that branches — `head_bar` parenting both shoulders — kept only the last of those edges

@@ -400,8 +400,102 @@ def test_a_session_declaring_no_skeleton_leaves_no_stale_bones(
     qtbot.addWidget(window)
     window.tracking_3d_pane.set_skeleton([("stale_a", "stale_b")])
 
-    # The fixture's trial_config declares fps and nothing else.
+    # The fixture's trial_config declares fps and nothing else, so the layout
+    # carries the rig's own default rather than the previous session's bones.
     apply_session_layout(window, AOLSessionSource().scan(aol_session, LoaderRegistry()))
 
-    assert window.tracking_3d_pane.canvas.declared_skeleton == []
+    declared = window.tracking_3d_pane.canvas.declared_skeleton
+    assert ("stale_a", "stale_b") not in declared
+    assert declared == [("left_toe", "head_bar")]
     window.close()
+
+
+_FULL_RIG = (
+    "left_toe",
+    "left_paw",
+    "left_elbow",
+    "left_shoulder",
+    "head_bar",
+    "right_shoulder",
+    "right_elbow",
+    "right_paw",
+    "right_toe",
+)
+
+
+def _write_eks(path: Path, bodyparts: tuple[str, ...]) -> None:
+    """Write a 3D EKS export holding one XYZ triplet per body part."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    columns = [f"{part}_{axis}" for part in bodyparts for axis in "xyz"] + ["fnum"]
+    rows = [",".join(columns)]
+    for frame in range(2):
+        rows.append(",".join([str(1.0 + frame)] * (len(columns) - 1) + [str(frame)]))
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
+def test_the_rig_default_chains_toe_to_toe_through_the_head_bar(aol_session: Path) -> None:
+    """A full AOL rig with no declared skeleton gets the pipeline's own bones."""
+    _write_eks(aol_session / "pose-3d" / "default_sv" / "_eks.csv", _FULL_RIG)
+
+    manifest = build_manifest(aol_session)
+
+    assert manifest.skeleton == [
+        ("left_toe", "left_paw"),
+        ("left_paw", "left_elbow"),
+        ("left_elbow", "left_shoulder"),
+        ("left_shoulder", "head_bar"),
+        ("head_bar", "right_shoulder"),
+        ("right_shoulder", "right_elbow"),
+        ("right_elbow", "right_paw"),
+        ("right_paw", "right_toe"),
+    ]
+
+
+def test_a_rig_missing_a_joint_links_straight_across_it(aol_session: Path) -> None:
+    """No left_elbow means paw joins shoulder, not that the left side is lost."""
+    _write_eks(
+        aol_session / "pose-3d" / "default_sv" / "_eks.csv",
+        tuple(part for part in _FULL_RIG if part != "left_elbow"),
+    )
+
+    manifest = build_manifest(aol_session)
+
+    assert ("left_paw", "left_shoulder") in manifest.skeleton
+    assert not any("elbow" in part for edge in manifest.skeleton for part in edge if "left" in part)
+    assert len(manifest.skeleton) == 7
+
+
+def test_the_rig_default_sees_through_a_model_prefix(aol_session: Path) -> None:
+    """Columns the loader has not stripped yet still resolve to their body part."""
+    _write_eks(
+        aol_session / "pose-3d" / "default_sv" / "_eks.csv",
+        tuple(f"ensemble_{part}" for part in _FULL_RIG),
+    )
+
+    manifest = build_manifest(aol_session)
+
+    # Named as the loader will name the channels, not as the column reads.
+    assert ("left_shoulder", "head_bar") in manifest.skeleton
+    assert len(manifest.skeleton) == 8
+
+
+def test_a_declared_skeleton_still_beats_the_rig_default(aol_session: Path) -> None:
+    """trial_config.yml is the session speaking for itself; it wins."""
+    _write_eks(aol_session / "pose-3d" / "default_sv" / "_eks.csv", _FULL_RIG)
+    _declare_skeleton(aol_session, "  - head_bar: left_toe\n")
+
+    manifest = build_manifest(aol_session)
+
+    assert manifest.skeleton == [("head_bar", "left_toe")]
+
+
+def test_an_unrecognised_rig_gets_no_default_bones(aol_session: Path) -> None:
+    """Another lab's body parts are left to detection rather than mis-chained."""
+    _write_eks(
+        aol_session / "pose-3d" / "default_sv" / "_eks.csv",
+        ("beak", "wingtip", "tail_base"),
+    )
+
+    manifest = build_manifest(aol_session)
+
+    assert manifest.skeleton == []

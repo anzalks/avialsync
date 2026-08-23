@@ -52,8 +52,11 @@ pane. Incomplete triplets stay ordinary time-series plots.
 The pane draws the pose at the current time only — it never scans or renders a whole trajectory on a
 clock tick.
 
-Connections between points come from the session when it declares a skeleton. When it does not,
-AvialSync detects one from the movement itself: two markers that keep the same distance apart
+Connections between points come from the session when it declares a skeleton — for an AOL folder,
+that is the `skeleton:` block in `trial_config.yml`. An AOL session that declares none falls back to
+the rig's own chain, from one toe up the forelimb to the head bar and down the other side, using
+only the body parts that session's EKS export contains. When neither applies, AvialSync detects a
+skeleton from the movement itself: two markers that keep the same distance apart
 however the animal moves are on one rigid segment, and those are the pairs it joins. A detected
 skeleton is drawn **dashed**, thinning as it runs away from the topmost point, and the pane says
 `detected` beside the point count — it is a reading of your data, not something the recording

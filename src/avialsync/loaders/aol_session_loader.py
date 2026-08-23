@@ -20,6 +20,29 @@ from avialsync.core.source import SessionItem, SessionLayout, SessionSource
 
 logger = logging.getLogger(__name__)
 
+#: Anatomical order of the AOL rig: up one forelimb, across the head bar, and
+#: down the other. Consecutive members are bones; the chain is walked in order,
+#: so a rig missing a joint links straight across it — a session without
+#: ``left_elbow`` joins ``left_paw`` to ``left_shoulder`` rather than losing
+#: that side of the animal to two dropped edges.
+#:
+#: This is the AOL pipeline's own rig, not a guess about anatomy in general:
+#: it applies only to a folder ``AOLSessionSource`` claimed, only when
+#: ``trial_config.yml`` declares no skeleton of its own, and only to the parts
+#: the EKS export actually contains. A rig it does not recognise produces
+#: nothing and leaves the 3D view to detect its own (D-082).
+DEFAULT_SKELETON_CHAIN: tuple[str, ...] = (
+    "left_toe",
+    "left_paw",
+    "left_elbow",
+    "left_shoulder",
+    "head_bar",
+    "right_shoulder",
+    "right_elbow",
+    "right_paw",
+    "right_toe",
+)
+
 
 @dataclass(frozen=True)
 class AOL2DTrack:
@@ -113,6 +136,51 @@ class AOLManifest:
     skeleton: list[tuple[str, str]] = field(default_factory=list)
 
 
+def _eks_bodyparts(path: Path) -> list[str]:
+    """Body-part names in an EKS export, from its header line alone.
+
+    One ``readline``: this runs for every claimed folder on the scan thread,
+    and the file is the session's full 3D trajectory.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            header = handle.readline().strip()
+    except (OSError, UnicodeError) as exc:
+        logger.warning("Could not read EKS header %s: %s", path, exc)
+        return []
+
+    bodyparts: list[str] = []
+    for column in (c.strip() for c in header.split(",")):
+        if column.endswith(("_x", "_y", "_z")):
+            name = column[:-2]
+            if name and name not in bodyparts:
+                bodyparts.append(name)
+    return bodyparts
+
+
+def default_skeleton(bodyparts: list[str]) -> list[tuple[str, str]]:
+    """Bones between consecutive :data:`DEFAULT_SKELETON_CHAIN` parts that exist.
+
+    Matching is by suffix, because a column may still carry the model prefix
+    the EKS loader strips later (``ensemble_head_bar`` is ``head_bar``). The
+    chain name is what comes back, which is what the loader names the channel
+    and therefore what the 3D view sees.
+
+    Returns nothing when fewer than two chain members are present: one bone
+    drawn across an unrecognised rig is worse than none, and none is what hands
+    the view over to its own detection.
+    """
+    present = [name for name in DEFAULT_SKELETON_CHAIN if _has_bodypart(name, bodyparts)]
+    if len(present) < 2:
+        return []
+    return list(zip(present, present[1:], strict=False))
+
+
+def _has_bodypart(name: str, bodyparts: list[str]) -> bool:
+    """Whether *name* is one of *bodyparts*, prefixed or not."""
+    return any(part == name or part.endswith(f"_{name}") for part in bodyparts)
+
+
 def is_aol_session(path: Path) -> bool:
     """Return True if the directory has AOL session signature files.
 
@@ -203,6 +271,15 @@ def build_manifest(session_dir: Path) -> AOLManifest:
         manifest.eks_files.append(csv_file)
 
     manifest.eks_files.sort()
+
+    # The rig's own skeleton, for a session that declared none of its own.
+    if not manifest.skeleton and manifest.eks_files:
+        manifest.skeleton = default_skeleton(_eks_bodyparts(manifest.eks_files[0]))
+        if manifest.skeleton:
+            logger.info(
+                "No skeleton in trial_config.yml; using the AOL rig's %d default bones.",
+                len(manifest.skeleton),
+            )
 
     # ── Discover 2D per-camera pose predictions ──────────────────────
     manifest.pose_2d_tracks = _collect_2d_tracks(session_dir, manifest.camera_labels)
