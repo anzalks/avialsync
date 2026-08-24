@@ -111,6 +111,12 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
         str(item.path): item.label for item in layout.items if item.label
     }
     window._session_item_kinds = {str(item.path): item.kind for item in layout.items if item.kind}
+    # Which items share one Data Streams lane is the session's call for the same
+    # reason: seven files extracted from three videos cover one span, and only
+    # the thing that laid them out knows that they do.
+    window._session_coverage_groups = {
+        str(item.path): item.coverage_group for item in layout.items if item.coverage_group
+    }
 
     if layout.anchor_epoch > 0.0:
         # The session knows what absolute instant its timestamps are relative

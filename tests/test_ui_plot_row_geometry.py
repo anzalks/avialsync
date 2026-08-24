@@ -79,3 +79,35 @@ def test_a_row_added_after_the_first_load_also_fills_the_pane(qtbot, tmp_path: P
     assert len(widths) == 3
     floor = pane.graphics_layout.width() - _GUTTER_ALLOWANCE_PX
     assert all(value > floor for value in widths.values()), widths
+
+
+def test_a_stack_taller_than_the_pane_scrolls_instead_of_clipping(qtbot, tmp_path: Path) -> None:
+    """More rows than fit must be reachable by scrolling, at full height.
+
+    The alternative the pane used to have was not "no scrollbar" but "rows you
+    cannot see and cannot get to": pyqtgraph pins its scene rect to the
+    viewport, so whatever hung below the bottom edge was simply clipped. A user
+    picking one sensor stream out of a session with seventy of them has to be
+    able to scroll to it.
+    """
+    rows = 12
+    pane = _pane_with_channels(qtbot, tmp_path, rows, 1000, 320)
+    scroll = pane._plot_scroll
+
+    qtbot.waitUntil(lambda: scroll.verticalScrollBar().maximum() > 0, timeout=2000)
+
+    assert pane.graphics_layout.height() >= rows * 110, (
+        "the stack collapsed to the viewport, so the rows below the fold are "
+        "clipped rather than scrollable"
+    )
+    assert scroll.verticalScrollBar().maximum() > 0
+    assert all(channel.plot_item.minimumHeight() == 110 for channel in pane.channels)
+
+
+def test_rows_that_fit_share_the_pane_without_a_scrollbar(qtbot, tmp_path: Path) -> None:
+    """Scrolling must not cost the ordinary case its full-height rows."""
+    pane = _pane_with_channels(qtbot, tmp_path, 2, 1000, 700)
+    scroll = pane._plot_scroll
+
+    assert scroll.verticalScrollBar().maximum() == 0
+    assert pane.graphics_layout.height() == scroll.viewport().height()

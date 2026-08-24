@@ -239,7 +239,9 @@ def on_import_finished(
         mapped = window.plot_pane.source_bounds(Path(cache_dir)) or bounds
         window._pending_bounds_sources[path] = Path(cache_dir)
     window._update_bounds(mapped[0], mapped[1])
-    window.transport.set_source_coverage(path, mapped[0], mapped[1], "data")
+    window.transport.set_source_coverage(
+        path, mapped[0], mapped[1], "data", window.coverage_group_for(path)
+    )
     window.sidebar.add_sensor(path, channels)
     if offset or drift_ppm:
         window.sidebar.set_sensor_mapping(path, offset, drift_ppm)

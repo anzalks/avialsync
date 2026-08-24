@@ -121,11 +121,24 @@ def test_channel_y_modes_make_auto_explicit_and_manual_hold_the_current_range(sw
 
 
 def test_row_height_control_uses_one_scrollable_plot_stack(sweep_pane) -> None:
+    """The chosen row height must size the stack, not just the rows in it.
+
+    This used to assert `ScrollBarAsNeeded` on the graphics view, which is a
+    setting that can never take effect: pyqtgraph re-pins its scene rect to the
+    viewport on every resize, so that scrollbar has no range to show and the
+    rows below the fold are clipped rather than reachable. The stack's own
+    height is the thing the scroll area around it actually acts on.
+    """
     pane = sweep_pane
     pane.row_height_combo.setCurrentText("Compact")
 
-    assert pane.graphics_layout.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAsNeeded
     assert pane.channels[0].plot_item.minimumHeight() == 72
+    assert pane.graphics_layout.minimumHeight() >= 2 * 72
+
+    pane.row_height_combo.setCurrentText("Large")
+
+    assert pane.channels[0].plot_item.minimumHeight() == 160
+    assert pane.graphics_layout.minimumHeight() >= 2 * 160
 
 
 def test_pyramid_is_not_requeried_on_every_master_clock_tick(sweep_pane, monkeypatch) -> None:

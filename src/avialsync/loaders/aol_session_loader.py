@@ -31,6 +31,14 @@ logger = logging.getLogger(__name__)
 #: ``trial_config.yml`` declares no skeleton of its own, and only to the parts
 #: the EKS export actually contains. A rig it does not recognise produces
 #: nothing and leaves the 3D view to detect its own (D-082).
+#: One Data Streams lane for everything the pipeline derived from the cameras:
+#: 3D pose, per-camera 2D pose, and the extracted ROI metrics. They are read
+#: from the same videos frame for frame, so their coverage spans are the same
+#: span, and one recording drew seven identical lanes above the encoder trace
+#: whose span is the only one that differs. The videos keep their own lanes:
+#: that a camera is present is not the same statement as that it was tracked.
+VIDEO_DERIVED_COVERAGE_GROUP = "Video tracking"
+
 DEFAULT_SKELETON_CHAIN: tuple[str, ...] = (
     "left_toe",
     "left_paw",
@@ -706,6 +714,7 @@ def _eks_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionItem]:
                 # becomes a plot row (D-046), so the filename alone left no way
                 # to tell which drives the 3D view and which paint a video.
                 label=f"{eks_file.name} — 3D pose",
+                coverage_group=VIDEO_DERIVED_COVERAGE_GROUP,
             )
         )
     return items
@@ -750,6 +759,7 @@ def _pose_2d_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) ->
                     "overlay_is_ensemble": track.is_ensemble,
                 },
                 label=f"{track.path.name} — 2D pose over {track.camera}",
+                coverage_group=VIDEO_DERIVED_COVERAGE_GROUP,
             )
         )
     return items
@@ -766,17 +776,34 @@ def _video_extraction_items(manifest: AOLManifest, anchor_epoch: float) -> list[
     carries -- an absolute POSIX one needs the anchor subtracted, while a
     recording-relative one needs the camera's rebased start added, and telling
     them apart at scan time would mean opening every HDF5 file.
+
+    Where the camera's own start is known, ``time_base`` asks for it to be the
+    anchor. The export's ``absolute_times`` is true POSIX, converted from the
+    camera's *local* wall clock at export time, while this session's axis is
+    that wall clock read as seconds since midnight (D-045). On the reference
+    session the two differ by exactly the site's UTC offset, which placed every
+    ROI metric one hour before the video it came from. The camera start carries
+    no time zone, so it is the one reference both sides already agree on.
     """
-    from avialsync.loaders.aol_video_extraction_loader import AOLVideoExtractionLoader
+    from avialsync.loaders.aol_video_extraction_loader import (
+        TIME_BASE_CAMERA_START,
+        AOLVideoExtractionLoader,
+    )
 
     items: list[SessionItem] = []
     for export in manifest.video_extraction_files:
-        start_epoch = _rebased(_start_epoch_for_camera(manifest, export.camera), anchor_epoch)
+        camera_epoch = _start_epoch_for_camera(manifest, export.camera)
+        start_epoch = _rebased(camera_epoch, anchor_epoch)
         config: dict[str, Any] = {
             "anchor_epoch": anchor_epoch,
             "start_epoch": start_epoch,
             "auto_resolved": True,
         }
+        if camera_epoch > 0.0:
+            # Tested on the camera's own epoch, not on the rebased start: a
+            # camera that began exactly at the anchor rebases to 0.0, which is
+            # a real start rather than a missing one.
+            config["time_base"] = TIME_BASE_CAMERA_START
         metrics = ", ".join(export.metrics) if export.metrics else "ROI metrics"
         items.append(
             SessionItem(
@@ -784,6 +811,7 @@ def _video_extraction_items(manifest: AOLManifest, anchor_epoch: float) -> list[
                 AOLVideoExtractionLoader,
                 config,
                 label=f"{export.path.name} - {export.camera} {metrics}",
+                coverage_group=VIDEO_DERIVED_COVERAGE_GROUP,
             )
         )
     return items
@@ -819,6 +847,7 @@ def _metric_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionIte
                     f"{metric_file.path.name} — {metric_file.camera} "
                     f"{metric_file.metric.replace('_', ' ')}"
                 ),
+                coverage_group=VIDEO_DERIVED_COVERAGE_GROUP,
             )
         )
     return items

@@ -194,6 +194,50 @@ def test_evidence_lanes_are_named_conditional_and_collapsible(qtbot) -> None:
     assert not transport.overview.isHidden()
 
 
+def test_grouped_coverage_draws_one_lane_spanning_every_member(qtbot) -> None:
+    """Files that cover one span get one lane, positioned at the first member.
+
+    Seven pose and ROI-metric files extracted from three videos start and stop
+    with those videos, so seven identical lanes crowd out the sources whose
+    coverage actually differs -- which is the only thing the strip is for.
+    """
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.set_bounds(0.0, 100.0)
+    transport.set_source_coverage("/s/FaceCam.mat", 10.0, 70.0, "data", "Video tracking")
+    transport.set_source_coverage("/s/encoder_log.txt", 5.0, 95.0, "data")
+    transport.set_source_coverage("/s/SideCam.mat", 12.0, 74.0, "data", "Video tracking")
+
+    assert transport.overview.lane_labels() == [
+        "Data · Video tracking",
+        "Data · encoder_log.txt",
+    ]
+
+    label, _kind, payload = transport.overview._lanes()[0]
+    assert label == "Data · Video tracking"
+    assert (payload.start, payload.end) == (10.0, 74.0)
+    assert payload.members == 2
+
+
+def test_a_removed_group_member_does_not_stretch_its_lane_to_zero(qtbot) -> None:
+    """An empty span at the origin is a removal, not coverage from time zero."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.set_bounds(0.0, 100.0)
+    transport.set_source_coverage("/s/FaceCam.mat", 10.0, 70.0, "data", "Video tracking")
+    transport.set_source_coverage("/s/SideCam.mat", 12.0, 74.0, "data", "Video tracking")
+
+    transport.set_source_coverage("/s/SideCam.mat", 0.0, 0.0, "data")
+
+    _label, _kind, payload = transport.overview._lanes()[0]
+    assert (payload.start, payload.end) == (10.0, 70.0)
+    assert payload.members == 1
+
+    transport.set_source_coverage("/s/FaceCam.mat", 0.0, 0.0, "data")
+
+    assert transport.overview.lane_labels() == []
+
+
 def test_evidence_event_detail_identifies_type_source_and_time(qtbot) -> None:
     """Hover details make sync evidence inspectable rather than colour-only."""
     transport = Transport()

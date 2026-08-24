@@ -58,12 +58,18 @@ _EMPTY_TIMES = np.empty(0, dtype=np.float64)
 
 @dataclass(frozen=True)
 class _CoverageLane:
-    """One source's coverage span."""
+    """One coverage span: a single source's, or a whole group's merged.
+
+    ``members`` is 1 for an ordinary source lane and the number of sources
+    behind a grouped one, which is the only thing a reader cannot recover from
+    the span itself once several files have been merged into it.
+    """
 
     source_id: str
     start: float
     end: float
     kind: str
+    members: int = 1
 
 
 @dataclass(frozen=True)
@@ -127,7 +133,10 @@ class TimelineOverview(QWidget):
         )
         self._bounds = (0.0, 0.0)
         self._cursor = 0.0
-        self._coverage: dict[str, tuple[float, float, str]] = {}
+        #: source id -> (start, end, kind, coverage group). Keyed per source
+        #: even when grouped, so one member can still be replaced or removed
+        #: without the rest of its group being rebuilt.
+        self._coverage: dict[str, tuple[float, float, str, str]] = {}
         self._ttl_events: tuple[tuple[float, str], ...] = ()
         self._gap_events: tuple[tuple[float, str], ...] = ()
         self._message_events: tuple[tuple[float, str], ...] = ()
@@ -176,9 +185,23 @@ class TimelineOverview(QWidget):
         self._viewport_phase = max(0.0, min(1.0, phase / duration)) if duration > 0 else 0.0
         self.update()
 
-    def set_coverage(self, source_id: str, t0: float, t1: float, kind: str) -> None:
-        """Register one source coverage span, keyed for later replacement."""
-        self._coverage[source_id] = (t0, t1, kind)
+    def set_coverage(
+        self, source_id: str, t0: float, t1: float, kind: str, group: str = ""
+    ) -> None:
+        """Register one source coverage span, keyed for later replacement.
+
+        A non-empty *group* merges this span into one lane with every other
+        source naming the same group, instead of giving it a lane of its own.
+
+        An empty span at the origin is how the window says a source is gone, so
+        it drops the entry rather than storing a lane that draws nothing -- and,
+        once groups exist, one that would otherwise drag its group's start back
+        to zero and make the whole lane claim coverage nobody has.
+        """
+        if t0 == 0.0 and t1 == 0.0:
+            self._coverage.pop(source_id, None)
+        else:
+            self._coverage[source_id] = (t0, t1, kind, group)
         self._on_evidence_changed()
 
     def set_ttl_events(self, events: list[float | tuple[float, str]] | tuple[float, ...]) -> None:
@@ -255,20 +278,13 @@ class TimelineOverview(QWidget):
         self._on_evidence_changed()
 
     def lane_labels(self) -> list[str]:
-        """Return the currently populated lanes, in their rendered order."""
-        labels = [
-            self._coverage_label(source_id, kind)
-            for source_id, (_, _, kind) in self._coverage.items()
-        ]
-        if self._ttl_events:
-            labels.append("Sync / TTL")
-        if self._gap_events:
-            labels.append("Data gaps")
-        if self._message_events:
-            labels.append("Messages")
-        if self._markers:
-            labels.append("Annotations")
-        return labels
+        """Return the currently populated lanes, in their rendered order.
+
+        Read from the lanes themselves rather than rebuilt beside them: the two
+        listings have to agree on how many lanes there are, since the height
+        each one gets is the widget height divided by this count.
+        """
+        return [label for label, _, _ in self._lanes()]
 
     def _on_evidence_changed(self) -> None:
         """Refresh labels and ensure populated lanes have usable vertical space."""
@@ -283,15 +299,56 @@ class TimelineOverview(QWidget):
         kind_label = "Video" if kind == "video" else "Data"
         return f"{kind_label} · {Path(source_id).name}"
 
-    def _lanes(self) -> list[tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | None]]:
-        lanes: list[tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | None]] = [
-            (
-                self._coverage_label(source_id, kind),
-                "coverage",
-                _CoverageLane(source_id, start, end, kind),
+    def _coverage_lanes(
+        self,
+    ) -> list[tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | None]]:
+        """Return one lane per ungrouped source, plus one merged lane per group.
+
+        A group takes the position of its first member, so grouping collapses
+        lanes without reordering the ones around them, and its span is the union
+        of its members'. That keeps the merged lane answering the only question
+        a coverage lane exists to answer: when this data starts and stops.
+        """
+        lanes: list[tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | None]] = []
+        positions: dict[tuple[str, str], int] = {}
+        for source_id, (start, end, kind, group) in self._coverage.items():
+            if not group:
+                lanes.append(
+                    (
+                        self._coverage_label(source_id, kind),
+                        "coverage",
+                        _CoverageLane(source_id, start, end, kind),
+                    )
+                )
+                continue
+            position = positions.get((group, kind))
+            if position is None:
+                positions[(group, kind)] = len(lanes)
+                lanes.append(
+                    (
+                        self._coverage_label(group, kind),
+                        "coverage",
+                        _CoverageLane(group, start, end, kind),
+                    )
+                )
+                continue
+            label, tag, merged = lanes[position]
+            assert isinstance(merged, _CoverageLane)
+            lanes[position] = (
+                label,
+                tag,
+                _CoverageLane(
+                    merged.source_id,
+                    min(merged.start, start),
+                    max(merged.end, end),
+                    kind,
+                    merged.members + 1,
+                ),
             )
-            for source_id, (start, end, kind) in self._coverage.items()
-        ]
+        return lanes
+
+    def _lanes(self) -> list[tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | None]]:
+        lanes = self._coverage_lanes()
         if self._ttl_events:
             lanes.append(("Sync / TTL", "ttl", _EventLane(self._ttl_events)))
         if self._gap_events:
@@ -482,9 +539,10 @@ class TimelineOverview(QWidget):
         tolerance = (t1 - t0) * 8 / max(1, self.width() - self._LABEL_WIDTH)
         if isinstance(payload, _CoverageLane):
             if payload.start <= time <= payload.end:
-                return (
-                    f"Coverage\nSource: {Path(payload.source_id).name}\nMaster time: {time:.6f} s"
-                )
+                source = Path(payload.source_id).name
+                if payload.members > 1:
+                    source = f"{source} ({payload.members} sources)"
+                return f"Coverage\nSource: {source}\nMaster time: {time:.6f} s"
         if kind in {"ttl", "gap", "message"}:
             nearest = self._nearest_event(kind, time, tolerance)
             if nearest is not None:
@@ -865,9 +923,16 @@ class Transport(QWidget):
         """Show compact, non-blocking status text beside Reset Zoom."""
         self.evidence.set_status(message, severity)
 
-    def set_source_coverage(self, source_id: str, t0: float, t1: float, kind: str) -> None:
-        """Show one video or data coverage span in the overview strip."""
-        self.overview.set_coverage(source_id, t0, t1, kind)
+    def set_source_coverage(
+        self, source_id: str, t0: float, t1: float, kind: str, group: str = ""
+    ) -> None:
+        """Show one video or data coverage span in the overview strip.
+
+        A *group* draws this span in one shared lane with every other source
+        naming the same group, for files that are one recording seen from one
+        angle and would otherwise repeat one span down the whole strip.
+        """
+        self.overview.set_coverage(source_id, t0, t1, kind, group)
 
     def set_ttl_events(self, events: list[float | tuple[float, str]] | tuple[float, ...]) -> None:
         """Show accepted synchronization events in the overview strip."""

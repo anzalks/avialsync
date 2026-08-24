@@ -157,6 +157,22 @@ class SessionItem:
     #: labels, since it selects among them; empty means the loader's own name.
     kind: str = ""
 
+    #: Name of the shared Data Streams lane this item's coverage belongs in.
+    #: Items naming the same group draw as one span rather than one lane each.
+    #:
+    #: For the case where several files are one recording seen from one angle:
+    #: a rig that extracts pose and per-ROI metrics from three cameras emits
+    #: seven derived files that all start and end with the same video, so seven
+    #: identical lanes crowd out the sources whose coverage actually differs.
+    #: Only a session knows which of its items share a span that way — nothing
+    #: about the files themselves says so. Empty means the item gets its own
+    #: lane, which is right for anything with a span of its own.
+    #:
+    #: Not part of ``config``, for the same reason :attr:`label` is not: config
+    #: is hashed into the sidecar cache key, so renaming a lane would rebuild
+    #: every pyramid underneath it.
+    coverage_group: str = ""
+
 
 @dataclass(frozen=True)
 class SessionLayout:

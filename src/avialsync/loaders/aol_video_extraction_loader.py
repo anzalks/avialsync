@@ -50,6 +50,18 @@ _UNSAFE_IN_FILENAME = '<>:"/\\|?*'
 #: rather than recorded, and so should be reported rather than trusted silently.
 _UNCERTAIN_COLUMN_SOURCES = {"table", "mismatch"}
 
+#: ``config["time_base"]``: place frame 1 at the camera start the session
+#: resolved and keep the file's own frame-to-frame spacing, rather than
+#: trusting the absolute POSIX axis the exporter wrote. Any other value, and
+#: the absence of the key, means the absolute axis rebased onto the anchor --
+#: which is what a file opened outside a session gets.
+TIME_BASE_CAMERA_START = "camera_start"
+
+#: How far the two axes may disagree about where frame 1 lands before it is
+#: worth a log line. Well under the smallest offset an experimenter would care
+#: about, and far above the sub-millisecond rounding of a 230 Hz timestamp log.
+_AXIS_DISAGREEMENT_TOLERANCE_S = 0.05
+
 
 def _safe_label(text: str) -> str:
     """Return *text* with characters no Windows filename may contain replaced.
@@ -111,6 +123,11 @@ class AOLVideoExtractionLoader(TimeSeriesSource):
         self._meta: dict[str, Any] = {}
         self._camera: str = ""
         self._times: np.ndarray | None = None
+        #: Both recorded axes, as the file carries them. Which one reaches
+        #: master time is decided in :meth:`_select_time_axis` once the config
+        #: is known, not while reading.
+        self._absolute_times: np.ndarray | None = None
+        self._relative_times: np.ndarray | None = None
         self._times_are_epoch: bool = False
         self._sampling_rate: float = 0.0
         self._time_shift: float = 0.0
@@ -191,8 +208,8 @@ class AOLVideoExtractionLoader(TimeSeriesSource):
                 "Check that this is a video-extraction-toolbox export written as MATLAB v7.3."
             ) from exc
 
+        self._select_time_axis(path)
         self._validate_time_axis(path)
-        self._time_shift = self._resolve_time_shift()
         self._channels = self._build_channels(path)
         self._warn_about_inferred_columns()
 
@@ -205,47 +222,98 @@ class AOLVideoExtractionLoader(TimeSeriesSource):
             self._sampling_rate,
         )
 
-    def _resolve_time_shift(self) -> float:
-        """Return what to add to the file's own axis to reach master time.
+    def _select_time_axis(self, path: Path) -> None:
+        """Choose which recorded axis reaches master time, and how far to move it.
 
-        Which correction applies depends on *which* axis the file turned out to
-        carry, and only this object knows that -- the sidecar does not say, and
-        a session scanner would have to open the HDF5 to find out. So the
-        session hands over both reference points and the decision is made here
-        rather than guessed at scan time.
+        The two axes are not interchangeable, and the difference is a time
+        zone. ``absolute_times`` is true POSIX UTC: the exporter converted the
+        camera's *local* wall clock when it wrote the file. An AOL session's
+        master axis is the wall clock itself, read as seconds since midnight
+        (D-045) -- the encoder log, the camera timing files, and every folder
+        name in the tree are on it. Measured on the reference session, the two
+        differ by exactly the recording site's UTC offset: 3600 s, which put
+        every ROI metric a full hour before the video it was extracted from.
 
-        An AOL session's master axis is seconds since midnight UTC (D-045): the
-        manifest reads each camera's absolute start epoch and subtracts the
-        session's anchor-date epoch. So an absolute POSIX axis needs that same
-        anchor subtracted, while a recording-relative axis starting at 0.0
-        needs its camera's already-rebased start added instead.
+        So inside a session the camera start wins. ``timestamps`` and the
+        camera's ``*-relative times.txt`` are the same numbers from the same
+        hardware log -- 60.187474 s against 60187.474 ms on the measured file --
+        so anchoring frame 1 at the start the manifest already resolved puts the
+        metrics on the session's own clock with no time zone in the arithmetic.
 
-        Both default to ``0.0``, so a file opened on its own outside a session
-        keeps whichever axis it was written with.
+        A file opened on its own has no camera start to anchor to and keeps its
+        absolute axis, rebased onto whatever anchor it was given.
         """
-        if self._times_are_epoch:
-            return -float(self._config.get("anchor_epoch", 0.0))
-        return float(self._config.get("start_epoch", 0.0))
+        absolute, relative = self._absolute_times, self._relative_times
+        camera_start = float(self._config.get("start_epoch", 0.0))
+
+        if self._config.get("time_base") == TIME_BASE_CAMERA_START:
+            if relative is None:
+                # Only an absolute axis was written. Its *spacing* is still the
+                # camera's own, so re-zeroing it recovers the relative axis the
+                # exporter did not store rather than declining a usable file.
+                assert absolute is not None  # _read_time_axis guarantees one axis
+                relative = absolute - absolute[0]
+            self._times = relative
+            self._times_are_epoch = False
+            self._time_shift = camera_start
+            self._warn_about_axis_disagreement(path)
+            return
+
+        if absolute is not None:
+            self._times = absolute
+            self._times_are_epoch = True
+            self._time_shift = -float(self._config.get("anchor_epoch", 0.0))
+            return
+
+        self._times = relative
+        self._times_are_epoch = False
+        self._time_shift = camera_start
+
+    def _warn_about_axis_disagreement(self, path: Path) -> None:
+        """Report how far the file's own absolute axis sits from the camera start.
+
+        A whole-hour gap is the recording site's UTC offset and is exactly what
+        timing from the camera start exists to absorb. Anything else is the file
+        and the session genuinely disagreeing about when the recording began,
+        which is worth seeing rather than silently correcting away.
+        """
+        absolute = self._absolute_times
+        anchor = float(self._config.get("anchor_epoch", 0.0))
+        if absolute is None or absolute.size == 0 or anchor <= 0.0:
+            return
+        residual = (absolute[0] - anchor) - self._time_shift
+        if abs(residual) <= _AXIS_DISAGREEMENT_TOLERANCE_S:
+            return
+        logger.info(
+            "%s: absolute_times puts frame 1 %.3f s from the camera start this session "
+            "resolved; timing from the camera start. A whole-hour difference is the "
+            "recording site's UTC offset, which the exporter applied and the session's "
+            "wall-clock axis does not (D-045).",
+            path.name,
+            residual,
+        )
 
     def _read_time_axis(self, handle: Any, path: Path) -> None:
-        """Prefer the absolute POSIX axis; fall back to recording-relative.
+        """Read every recorded axis without yet choosing between them.
 
-        ``absolute_times`` comes from the camera's own timestamp log rather
-        than from ``sampling_rate * index``, which is what makes it usable for
-        cross-source alignment.
+        Both are kept: neither is redundant. ``absolute_times`` is the only one
+        that means anything to a file opened on its own, and ``timestamps`` is
+        the only one free of the time zone the exporter baked into the other.
+        Which reaches master time is :meth:`_select_time_axis`'s decision, and
+        it needs the config, which is why it is not made here.
         """
         if "absolute_times" in handle:
-            self._times = np.asarray(handle["absolute_times"], dtype=np.float64).ravel()
-            self._times_are_epoch = True
-        elif "timestamps" in handle:
-            self._times = np.asarray(handle["timestamps"], dtype=np.float64).ravel()
-            self._times_are_epoch = False
-            logger.info("%s has no absolute_times; using the recording-relative axis.", path.name)
-        else:
+            self._absolute_times = np.asarray(handle["absolute_times"], dtype=np.float64).ravel()
+        if "timestamps" in handle:
+            self._relative_times = np.asarray(handle["timestamps"], dtype=np.float64).ravel()
+
+        if self._absolute_times is None and self._relative_times is None:
             raise SourceOpenError(
                 f"Neither 'absolute_times' nor 'timestamps' found in {path}. "
                 "A video-extraction export always carries one of them."
             )
+        if self._absolute_times is None:
+            logger.info("%s has no absolute_times; using the recording-relative axis.", path.name)
 
         if "sampling_rate" in handle:
             rate = np.asarray(handle["sampling_rate"], dtype=np.float64).ravel()

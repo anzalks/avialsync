@@ -217,6 +217,14 @@ conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format 
 - `mypy` results depend on the installed NumPy, not just on the code: NumPy 2.4.6 and 2.5.1 type
   `np.concatenate` differently, so `mypy src/avialsync/core` passed locally and failed in CI on
   identical source. To reproduce CI exactly, build a venv pinned to the versions its log reports.
+- On Windows `time.monotonic()` is `GetTickCount64` and `time.get_clock_info("monotonic").resolution`
+  reports **15.625 ms** — coarser than every sub-frame budget in the app. `plot_pane`'s 8 ms row-build
+  slice measured with it could run a whole 128-row requery inside one tick, see "0 ms elapsed", and
+  never yield: the budget that exists to keep the UI answering did nothing on the platform it was
+  protecting, and the test that pins the behaviour flaked at ~18 % because of it. Time any budget
+  shorter than ~50 ms with `time.perf_counter` (sub-microsecond and monotonic on all three
+  platforms); `time.monotonic` is fine for second-scale timeouts. Check with `time.get_clock_info`
+  before assuming a clock is fine-grained.
 - Windows ships no IANA time zone database, so `zoneinfo` finds nothing there. `tzdata` is declared
   as a Windows-only dependency; without it every timezone-aware CSV import fails on Windows only.
 - A conda env is not a virtualenv: it still reads the **per-user** site-packages

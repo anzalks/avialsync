@@ -330,7 +330,9 @@ with explicit user acceptance and session provenance. Native plugin event provid
   gaps, accepted TTL matches, and playhead; the native handle resizes it against the video/plot workspace,
   never the seek/controls area. A fixed source-label
   gutter prevents coverage from painting beneath labels. It uses the
-  system accent for video/TTL evidence.
+  system accent for video/TTL evidence. A session may name a shared lane for items
+  that cover one span — AOL puts pose and ROI-metric exports in one `Video tracking`
+  lane rather than one per file, keeping the cameras' own lanes (D-083).
 - VFR: integrity is derived from presentation timestamps; its on-video OSD reports the current
   timestamp-derived rate, range, and nominal declaration, never a misleading single average rate.
 - Bug: `video_grid._panes` → `video_grid.panes` (AttributeError on annotate)
@@ -384,7 +386,7 @@ contradicts the runtime.
 | `loaders/aol_eks_loader.py` | AOL 3D EKS CSV; frame-indexed x/y/z triplets | `AOLEksLoader` (`read_all_chunks` is the bulk API) |
 | `loaders/aol_encoder_loader.py` | AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045) | `AOLEncoderLoader` |
 | `loaders/aol_metric_loader.py` | Extracted per-frame optical-flow/MI MAT files (`avialsync_data_schema.md`); frame-indexed, no `role` — plots like any sensor | `AOLMetricLoader`, `ROI_METRIC_FILENAME_RE` |
-| `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera export: v7.3/HDF5 + JSON sidecar, one channel per (ROI, column). Carries its own time axis, so NOT frame-indexed (D-081) | `AOLVideoExtractionLoader`, `read_sidecar()`, `sidecar_path()` |
+| `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera export: v7.3/HDF5 + JSON sidecar, one channel per (ROI, column). Carries its own time axis, so NOT frame-indexed (D-081). In a session it is timed from the camera start, not from `absolute_times`, which is an hour out against the session's wall-clock axis (D-083) | `AOLVideoExtractionLoader`, `TIME_BASE_CAMERA_START`, `read_sidecar()`, `sidecar_path()` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
 | `engine/sync_worker.py` | Chunked event extraction and deterministic alignment fit (D-026) | `SyncWorker`, evidence specs |
@@ -396,14 +398,14 @@ contradicts the runtime.
 | `ui/video_timing.py` | Timestamp rate/readout helpers and pane timing mixin; re-exports the two `core/video_timing.py` selectors | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
 | `ui/video_overlay.py` | Transparent current-frame tracking paint layer | `PaintCanvas` |
 | `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()` |
-| `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
+| `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal. The row stack lives in a `QScrollArea` (`_plot_scroll`): pyqtgraph pins its scene rect to the viewport, so a scrollbar on the graphics view itself can never have a range | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
 | `ui/plot_header.py` | Compact plot presentation, page, Y-fit, row-height, and reset controls | `PlotHeader` |
 | `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control | `ChannelPlot`, `create_channel_plot()`, `fit_channel_y()` |
 | `ui/plot_sweep.py` | Review/Sweep/Scope state and shared unit-converting logarithmic time-span control | `PlotPresentation`, `SweepWindowControl`, `SweepCurveItem` |
 | `ui/plot_interactions.py` | Plot context actions, measurement, annotation, and gap interaction state | `PlotInteractionController` |
 | `ui/plot_overlays.py` | Bounded page-local overlay drawing and plot context menu helpers | `redraw_annotations()`, `redraw_measure_lines()` |
 | `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit | `Tracking3DPane.set_readers()`, `set_cursor()` |
-| `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status | `set_time()`, `set_bounds()`, `set_source_coverage()`, `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
+| `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status | `set_time()`, `set_bounds()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |

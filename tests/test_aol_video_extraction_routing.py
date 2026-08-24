@@ -82,6 +82,63 @@ def test_export_items_carry_both_timing_reference_points(session_with_exports: P
     np.testing.assert_allclose(item.config["start_epoch"], -video.config["offset"])
 
 
+def test_a_known_camera_start_is_what_the_export_is_timed_from(
+    session_with_exports: Path,
+) -> None:
+    """The camera start carries no time zone; the export's absolute axis does."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.loaders.aol_session_loader import AOLSessionSource
+    from avialsync.loaders.aol_video_extraction_loader import TIME_BASE_CAMERA_START
+
+    layout = AOLSessionSource().scan(session_with_exports, LoaderRegistry())
+    item = next(item for item in layout.items if item.path.name == "FaceCam.mat")
+
+    assert item.config["time_base"] == TIME_BASE_CAMERA_START
+
+
+def test_an_export_whose_camera_has_no_timing_file_keeps_its_absolute_axis(
+    tmp_path: Path,
+) -> None:
+    """With no camera start to anchor to, the file's own axis is all there is."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.loaders.aol_session_loader import AOLSessionSource
+
+    session = _session_with_cameras(tmp_path, "FaceCam")
+    # A camera with a video and an export, but no "-relative times.txt".
+    (session / "SideCam.mp4").write_bytes(b"\x00" * 64)
+    write_export(session / "video-extraction" / "default", camera="SideCam")
+
+    layout = AOLSessionSource().scan(session, LoaderRegistry())
+    item = next(item for item in layout.items if item.path.name == "SideCam.mat")
+
+    assert "time_base" not in item.config
+
+
+def test_video_derived_items_share_one_data_streams_lane(session_with_exports: Path) -> None:
+    """Seven files extracted from three videos cover one span, not seven.
+
+    The cameras keep their own lanes: that a camera is present is a different
+    statement from that it was tracked.
+    """
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.loaders.aol_session_loader import (
+        VIDEO_DERIVED_COVERAGE_GROUP,
+        AOLSessionSource,
+    )
+
+    layout = AOLSessionSource().scan(session_with_exports, LoaderRegistry())
+    grouped = {item.path.name for item in layout.items if item.coverage_group}
+    videos = [item for item in layout.items if item.path.suffix == ".mp4"]
+
+    assert grouped == {"FaceCam.mat", "SideCam.mat"}
+    assert all(
+        item.coverage_group == VIDEO_DERIVED_COVERAGE_GROUP
+        for item in layout.items
+        if item.coverage_group
+    )
+    assert videos and all(item.coverage_group == "" for item in videos)
+
+
 def test_export_item_is_labelled_by_camera_and_metric(session_with_exports: Path) -> None:
     from avialsync.core.registry import LoaderRegistry
     from avialsync.loaders.aol_session_loader import AOLSessionSource

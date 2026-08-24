@@ -199,21 +199,28 @@ regressions.** So the `NonMonotonicTimeError` path should not trigger on
 well-formed toolbox output — but keep the check, since these come from per-camera
 hardware timestamp files that can be truncated.
 
-`absolute_times` is the one to use for cross-source alignment; it comes from the
-camera's own timestamp log, not from `sampling_rate × index`. For a
-`SessionSource`, `anchor_epoch` is `absolute_times[0]` and `camera_fps` is
-`sampling_rate`.
+Both come from the camera's own timestamp log rather than from
+`sampling_rate × index`, so both carry the real frame-to-frame spacing. They
+differ in **origin, not spacing**: `absolute_times` is true POSIX UTC, which
+means the exporter has already applied the recording site's UTC offset to the
+local wall clock the camera wrote. Aligning against anything that kept that wall
+clock — as an AOL session's own axis does — is out by that offset.
 
 Measured: ~230 fps, ~13 840 frames, ~60.2 s per recording. Frame counts vary
 slightly between cameras of the same recording (13834–13844), so **do not assume
 cameras share a frame count or a common time grid.**
 
 > **AvialSync note.** An AOL session's master axis is seconds since midnight UTC
-> (D-045), not raw POSIX. `AOLSessionSource` passes both `anchor_epoch` and the
-> camera's rebased `start_epoch`; the loader subtracts the anchor from an
-> absolute axis, or adds the camera start to a relative one. Only the loader
-> knows which axis the file actually carried, so the choice is made there rather
-> than guessed at scan time.
+> (D-045), not raw POSIX, and it is built from the camera timing files' wall
+> clock. Measured on the reference session, `absolute_times[0]` is exactly
+> 3600 s before the `FaceCam-relative times.txt` line that names the same frame,
+> which is the site's UTC offset. So `AOLSessionSource` passes `anchor_epoch`,
+> the camera's rebased `start_epoch`, **and** `time_base="camera_start"` when it
+> resolved a start for that camera; the loader then anchors frame 1 there and
+> keeps `timestamps`' own spacing. Without a camera start it falls back to
+> subtracting the anchor from the absolute axis. Only the loader knows which
+> axes the file actually carried, so the choice is made there rather than
+> guessed at scan time. See D-083.
 
 ### NaNs
 
@@ -228,7 +235,8 @@ against every other source in the session.
 
 ## 7. Session-level notes
 
-- `anchor_epoch` = `absolute_times[0]`, already UTC POSIX seconds
+- `anchor_epoch` = `absolute_times[0]`, already UTC POSIX seconds — but see the
+  note in §6 before aligning anything against it
 - `camera_fps` = `sampling_rate` (~230 Hz measured; do not hard-code)
 - These are **timeseries**, not pose. The existing `pose-2d` / `pose-3d` outputs
   in the same recording folder are the `"overlay2d"` / `"pose3d"` roles; ROI

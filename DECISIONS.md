@@ -2585,3 +2585,89 @@ forest, gaps excluded pair-by-pair, and that anatomical names on unrelated traje
 produce nothing. `tests/test_ui_tracking_3d.py` covers precedence, name resolution, ambiguity,
 the modes, and re-rooting; `tests/test_aol_pose_routing.py` covers the branching skeleton and
 both session paths.
+
+## 2026-08 · D-083 · Video-derived data is timed from the camera start, and shares one lane
+
+### Context
+
+D-081 had `AOLVideoExtractionLoader` prefer the export's `absolute_times`, on the schema's own
+advice that it is "the one to use for cross-source alignment" because it comes from the camera's
+hardware timestamp log rather than from `sampling_rate x index`. That reasoning is right about
+*spacing* and wrong about *origin*.
+
+Measured on the reference session (`2026-05-08/experiment_1/09-35-24`):
+
+| source | frame 1 |
+|---|---|
+| `FaceCam-relative times.txt` line 1 | `08-05-2026;09:35:26.3120` -> master `34526.312` |
+| `video-extraction/default/FaceCam.mat` `absolute_times[0]` | `1778229326.312` = `08:35:26.312` UTC |
+
+Exactly 3600.000 s apart. The camera writes a local wall clock; the MATLAB exporter converted it
+to true POSIX, and an AOL session's master axis is that same wall clock read as seconds since
+midnight (D-045) — the encoder log, the timing files, and every folder name in the tree are on
+it. So the two are the same instant written two ways, one recording site's UTC offset apart, and
+rebasing the absolute axis put every ROI metric a full hour before the video it was extracted
+from: a session spanning 08:35:26 to 09:36:26 instead of 60 s.
+
+The strip below it had a second problem of its own. One recording emitted eleven Data Streams
+lanes, seven of them pose and ROI-metric files extracted from the same three videos and therefore
+covering the same span, above the one encoder lane whose span actually differs.
+
+### Decision
+
+1. Inside a session the **camera start wins**. `_video_extraction_items` passes
+   `time_base="camera_start"` whenever the manifest resolved a start for that camera, and the
+   loader then places frame 1 there and keeps the file's own frame-to-frame spacing.
+   `timestamps` and the camera's `*-relative times.txt` are the same numbers from the same
+   hardware log — 60.187474 s against 60187.474 ms on the measured file — so this keeps every
+   claim D-081 made about spacing while taking the origin from the one reference both sides
+   already agree on, with no time zone in the arithmetic.
+2. The loader keeps **both** axes and chooses between them; `absolute_times` remains what a file
+   opened outside a session is timed by, since there is then no camera start to anchor to. Where
+   the two disagree by more than 50 ms the residual is logged rather than silently absorbed, so a
+   genuine desync is still visible behind the correction for a time zone.
+3. `SessionItem.coverage_group` names a shared Data Streams lane. Sources naming the same group
+   draw as one lane spanning all of them, positioned at the first member. AOL groups its 3D pose,
+   per-camera 2D pose, and ROI-metric exports as `"Video tracking"`; the cameras keep their own
+   lanes, because that a camera is present is not the same statement as that it was tracked.
+
+   It is a `SessionItem` field and not a `config` key for the reason `label` is not: config is
+   hashed into the sidecar cache key, so naming a lane would rebuild every pyramid under it.
+   Only a session knows which of its files cover one span — nothing about the files says so.
+
+### Consequences
+
+The reference session's ROI metrics now cover master `[34526.312 .. 34586.499]` against the
+video's `[34526.312 .. 34586.502]`, and the strip shows five lanes where it showed eleven.
+
+`time_base` *is* a config key, so it is in the cache key: the video-extraction sidecar caches of
+any session already imported are rebuilt once, which is correct, because the timestamps they hold
+are the wrong ones. The pose caches are untouched — grouping is what would have invalidated them,
+and grouping stays out of config.
+
+A `.avv` restored in a later run has no session layout to read groups from, so its lanes are
+per-source until the folder is dropped again. Persisting them means a session-file field, which
+is not worth a format change for a lane label.
+
+Scrolling the row stack needed a `QScrollArea` around the graphics view: pyqtgraph re-pins its
+scene rect to the viewport on every resize, so the `ScrollBarAsNeeded` the pane used to set on the
+view itself could never acquire a range, and rows past the bottom edge were clipped rather than
+reachable. `_apply_stack_height` gives the view the height its visible rows need; while they fit,
+the stack stays viewport-high and nothing about the old behaviour changes.
+
+Measuring that turned up a defect underneath it: `plot_pane` timed its 8 ms row-build slice with
+`time.monotonic`, which on Windows is `GetTickCount64` at a measured 15.625 ms resolution. A whole
+128-row requery could finish inside one tick, read as 0 ms, and never yield — the budget protecting
+UI responsiveness did nothing on Windows, and `test_ui_plot_sliced_refresh` flaked at 7/40 because
+of it. Every budget in that module now uses `time.perf_counter`; the same 40-trial probe reports
+1/40, and `test_bench_row_build_slice` falls from a 18.5 ms mean / 82.0 ms max to 9.9 ms / 21.4 ms â€”
+the worst UI block during a large load, which is what D-060 sliced the work to bound in the first
+place. `test_bench_window_duration_change[128]` rises 19.9 -> 21.8 ms (+9.5%, ceiling 30 ms), which
+is the cost of a callback that now really does yield; `[32]` is unchanged. AGENTS.md carries the
+trap. The tests that fake this clock patch `plot_pane._elapsed` rather than reassigning
+`time.monotonic` process-wide for the duration of a loop.
+
+`tests/test_aol_video_extraction_loader.py` covers the hour-out case, an export carrying only an
+absolute axis, and the disagreement log line; `tests/test_aol_video_extraction_routing.py` covers
+`time_base` present with a camera start and absent without one, and the grouping;
+`tests/test_transport_layout.py` covers the merged lane and the removal of one member.

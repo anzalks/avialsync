@@ -199,6 +199,9 @@ class MainWindow(QMainWindow):
         self._session_item_labels: dict[str, str] = {}
         #: Per-item data kinds the claiming session declared, by path.
         self._session_item_kinds: dict[str, str] = {}
+        #: Shared Data Streams lane names the claiming session asked for, by
+        #: path. Only a session knows which of its files cover the same span.
+        self._session_coverage_groups: dict[str, str] = {}
         # Keep QObject workers alive until their QThread has finished. Moving an
         # object to a thread does not transfer Python ownership.
         self._video_load_jobs: dict[QThread, object] = {}
@@ -573,6 +576,14 @@ class MainWindow(QMainWindow):
         for splitter, sizes in defaults[1:]:
             self._pane_proportions.set_fractions(splitter, sizes)
 
+    def coverage_group_for(self, path: str) -> str:
+        """Return the shared Data Streams lane *path* belongs in, if any.
+
+        Empty for anything the current session did not group, which is every
+        ordinary drop: a file with a span of its own keeps a lane of its own.
+        """
+        return self._session_coverage_groups.get(path, "")
+
     def _refine_source_bounds(self) -> None:
         """Apply exact reader-derived bounds once every queued row exists.
 
@@ -588,7 +599,9 @@ class MainWindow(QMainWindow):
                 continue
             self._pending_bounds_sources.pop(path, None)
             self._update_bounds(span[0], span[1])
-            self.transport.set_source_coverage(path, span[0], span[1], "data")
+            self.transport.set_source_coverage(
+                path, span[0], span[1], "data", self.coverage_group_for(path)
+            )
 
     def _on_rows_pending(self, remaining: int) -> None:
         """Say that rows are still appearing, so a partial plot is not read as all of it."""
@@ -1791,7 +1804,9 @@ class MainWindow(QMainWindow):
         self.message_store.set_source_mapping(path, offset, drift_ppm)
         bounds = self.plot_pane.source_bounds(cache_dir)
         if bounds is not None:
-            self.transport.set_source_coverage(path, bounds[0], bounds[1], "data")
+            self.transport.set_source_coverage(
+                path, bounds[0], bounds[1], "data", self.coverage_group_for(path)
+            )
             self._update_bounds(bounds[0], bounds[1])
         self.readout_panel.set_cursor(self.clock.state.t)
 

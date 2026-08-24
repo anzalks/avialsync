@@ -326,6 +326,101 @@ class TestReading:
         assert loader.times_are_epoch is False
         np.testing.assert_allclose(times, 34526.312 + relative, atol=1e-6)
 
+    def test_the_camera_start_wins_over_an_absolute_axis_an_hour_out(self, tmp_path: Path) -> None:
+        """The exporter writes true POSIX; an AOL session runs on a wall clock.
+
+        Measured on the reference session: the camera timing file says frame 1
+        is at 09:35:26.312 and the export's ``absolute_times[0]`` is
+        1778229326.312, which is 08:35:26.312 UTC -- the same instant written
+        two ways, one hour apart, because the exporter converted local time and
+        the session axis does not (D-045). Rebasing the absolute axis put every
+        ROI metric an hour before the video it was extracted from.
+        """
+        from avialsync.loaders.aol_video_extraction_loader import (
+            TIME_BASE_CAMERA_START,
+            AOLVideoExtractionLoader,
+        )
+
+        anchor = 1778198400.0  # 2026-05-08T00:00:00Z
+        camera_start = 34526.312  # 09:35:26.312, as the timing file writes it
+        relative = np.arange(4) / 230.0
+        # One hour behind the session's own clock, exactly as MATLAB wrote it.
+        absolute = anchor + camera_start - 3600.0 + relative
+        path = write_export(
+            tmp_path / "tz", n_frames=4, absolute_times=absolute, relative_times=relative
+        )
+
+        loader = AOLVideoExtractionLoader()
+        loader.open(
+            path,
+            {
+                "anchor_epoch": anchor,
+                "start_epoch": camera_start,
+                "time_base": TIME_BASE_CAMERA_START,
+            },
+        )
+        times, _values = next(iter(loader.read_all_chunks()))["Jaw_MI"]
+
+        assert loader.times_are_epoch is False
+        np.testing.assert_allclose(times, camera_start + relative, atol=1e-6)
+
+    def test_the_camera_start_recovers_a_relative_axis_that_was_not_written(
+        self, tmp_path: Path
+    ) -> None:
+        """An export carrying only `absolute_times` still has the right spacing."""
+        from avialsync.loaders.aol_video_extraction_loader import (
+            TIME_BASE_CAMERA_START,
+            AOLVideoExtractionLoader,
+        )
+
+        anchor = 1778198400.0
+        camera_start = 34526.312
+        absolute = anchor + camera_start - 3600.0 + np.arange(4) / 230.0
+        path = write_export(tmp_path / "absonly", n_frames=4, absolute_times=absolute)
+
+        loader = AOLVideoExtractionLoader()
+        loader.open(
+            path,
+            {
+                "anchor_epoch": anchor,
+                "start_epoch": camera_start,
+                "time_base": TIME_BASE_CAMERA_START,
+            },
+        )
+        times, _values = next(iter(loader.read_all_chunks()))["Jaw_MI"]
+
+        np.testing.assert_allclose(times, camera_start + np.arange(4) / 230.0, atol=1e-6)
+
+    def test_an_axis_disagreement_is_reported_rather_than_silently_absorbed(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A real desync must not hide behind the correction for a time zone."""
+        from avialsync.loaders.aol_video_extraction_loader import (
+            TIME_BASE_CAMERA_START,
+            AOLVideoExtractionLoader,
+        )
+
+        anchor = 1778198400.0
+        camera_start = 34526.312
+        relative = np.arange(4) / 230.0
+        absolute = anchor + camera_start - 3600.0 + relative
+        path = write_export(
+            tmp_path / "warn", n_frames=4, absolute_times=absolute, relative_times=relative
+        )
+
+        loader = AOLVideoExtractionLoader()
+        with caplog.at_level(logging.INFO, logger="avialsync.loaders.aol_video_extraction_loader"):
+            loader.open(
+                path,
+                {
+                    "anchor_epoch": anchor,
+                    "start_epoch": camera_start,
+                    "time_base": TIME_BASE_CAMERA_START,
+                },
+            )
+
+        assert any("-3600.000 s" in record.getMessage() for record in caplog.records)
+
     def test_an_unconfigured_open_keeps_the_files_own_axis(self, export: Path) -> None:
         """Opened alone, outside a session, nothing is shifted."""
         from avialsync.loaders.aol_video_extraction_loader import AOLVideoExtractionLoader

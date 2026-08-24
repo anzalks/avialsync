@@ -394,14 +394,20 @@ def test_the_plot_repaints_at_half_the_tick_rate(qapp: QApplication) -> None:
     repaints: list[float] = []
     pane.view_window_changed.connect(lambda *_: repaints.append(1.0))
 
-    real_monotonic = time.monotonic
+    # The pane reads its clock through `plot_pane._elapsed`, not through
+    # `time.monotonic`: on Windows that clock has a 15.625 ms resolution, which
+    # is coarser than the 8.3 ms slack this throttle is specified in and would
+    # make the budget meaningless. Faking the module's own seam also keeps the
+    # substitution local, where reassigning `time.monotonic` reached every
+    # library in the process for the duration of the loop.
+    real_elapsed = plot_pane_module._elapsed
     try:
         for step in range(120):  # two seconds of 60 Hz ticks
             now = step / 60.0
-            time.monotonic = lambda now=now: now  # type: ignore[assignment]
+            plot_pane_module._elapsed = lambda now=now: now
             pane.set_cursor(1.0 + now)
     finally:
-        time.monotonic = real_monotonic  # type: ignore[assignment]
+        plot_pane_module._elapsed = real_elapsed
 
     expected = 2.0 * plot_pane_module._CURSOR_REPAINT_HZ
     assert len(repaints) <= expected + 1
@@ -416,14 +422,14 @@ def test_a_seek_repaints_the_plot_immediately(qapp: QApplication) -> None:
     repaints: list[float] = []
     pane.view_window_changed.connect(lambda *_: repaints.append(1.0))
 
-    real_monotonic = time.monotonic
+    real_elapsed = plot_pane_module._elapsed
     try:
-        time.monotonic = lambda: 500.0  # type: ignore[assignment]
+        plot_pane_module._elapsed = lambda: 500.0
         pane.set_cursor(1.0, immediate=True)
         pane.set_cursor(1.5, immediate=True)
         pane.set_cursor(2.0, immediate=True)
     finally:
-        time.monotonic = real_monotonic  # type: ignore[assignment]
+        plot_pane_module._elapsed = real_elapsed
 
     assert len(repaints) == 3
 

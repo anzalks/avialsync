@@ -1,13 +1,14 @@
 """Plot rendering pane using pyqtgraph and decimation pyramids."""
 
 import logging
+import math
 import time
 from pathlib import Path
 
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QResizeEvent
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.timeline import TimeMap
@@ -61,6 +62,17 @@ _CURSOR_REPAINT_SLACK_S = 1.0 / 120.0
 #: cannot push the worst case below the cost of a single row.
 _ROW_BUILD_SLICE_S = 0.008
 
+#: Every budget in this module is a fraction of a frame, so they are timed on
+#: `perf_counter`, never `time.monotonic`. On Windows `monotonic` is
+#: `GetTickCount64` and reports a resolution of 15.625 ms — coarser than the
+#: 8 ms slice and half the 33 ms repaint interval — so a whole 128-row requery
+#: could run inside one tick, read as "0 ms elapsed", and never yield: the
+#: budget silently did nothing on the platform it was protecting. Measured with
+#: `time.get_clock_info`, not assumed. `perf_counter` is sub-microsecond on all
+#: three platforms and is monotonic too; only its epoch is undefined, and every
+#: use here is a difference.
+_elapsed = time.perf_counter
+
 
 class PlotPane(QWidget):
     """
@@ -110,8 +122,22 @@ class PlotPane(QWidget):
         self.graphics_layout = pg.GraphicsLayoutWidget()
         self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.graphics_layout.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.graphics_layout.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        _layout.addWidget(self.graphics_layout)
+        # The channel stack scrolls in an ordinary scroll area, not in the
+        # graphics view. pyqtgraph's GraphicsView re-pins its scene rect to the
+        # viewport on every resize (`autoPixelRange`), so its own vertical
+        # scrollbar can never acquire a range however the policy is set: rows
+        # past the bottom edge were clipped away with no way to reach them.
+        # `_apply_stack_height` gives the view a real height instead, and this
+        # scrolls it.
+        self._plot_scroll = QScrollArea(self)
+        self._plot_scroll.setWidgetResizable(True)
+        self._plot_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._plot_scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._plot_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._plot_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._plot_scroll.setAccessibleName("Channel plot stack")
+        self._plot_scroll.setWidget(self.graphics_layout)
+        _layout.addWidget(self._plot_scroll)
 
         self._sweep_control = SweepWindowControl(self)
         self._sweep_control.window_changed.connect(self._on_window_changed)
@@ -210,9 +236,9 @@ class PlotPane(QWidget):
         so the work cannot move to a worker; it is sliced instead, and a
         zero-delay timer hands control back to the event loop between slices.
         """
-        started = time.monotonic()
+        started = _elapsed()
         while self._pending_rows:
-            row_started = time.monotonic()
+            row_started = _elapsed()
             cache_dir, name, time_map, source_id = self._pending_rows.pop(0)
             row = len(self.channels)
             channel = create_channel_plot(
@@ -244,8 +270,8 @@ class PlotPane(QWidget):
             # Stop before the *next* row would overrun, not after this one
             # already has. Checking afterwards let a slice run to twice its
             # budget whenever a row started just under the deadline.
-            self._row_build_cost_s = max(self._row_build_cost_s, time.monotonic() - row_started)
-            elapsed = time.monotonic() - started
+            self._row_build_cost_s = max(self._row_build_cost_s, _elapsed() - row_started)
+            elapsed = _elapsed() - started
             if elapsed + self._row_build_cost_s > _ROW_BUILD_SLICE_S:
                 break
 
@@ -302,6 +328,9 @@ class PlotPane(QWidget):
         # Intermittent, because it depends on whether a resize happened to land
         # after the final row. `resizeEvent` ignores its argument and re-applies
         # the view's real size, which is what pushes geometry onto the item.
+        # The stack's height is part of the geometry being pushed, so it is set
+        # before the resize rather than with the rest of the row layout after it.
+        self._apply_stack_height()
         self.graphics_layout.resizeEvent(None)
         self.graphics_layout.ci.layout.activate()
         self._configure_shared_x_range()
@@ -377,7 +406,7 @@ class PlotPane(QWidget):
                 self._master_plot = self.channels[0].plot_item if self.channels else None
 
         self._link_x_axes()
-        self._update_axis_visibility()
+        self._relayout_rows()
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._interactions.redraw_annotations()
@@ -414,7 +443,7 @@ class PlotPane(QWidget):
                 self._master_plot = self.channels[0].plot_item if self.channels else None
 
         self._link_x_axes()
-        self._update_axis_visibility()
+        self._relayout_rows()
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._interactions.redraw_annotations()
@@ -469,7 +498,7 @@ class PlotPane(QWidget):
         if self.sweep_start is None:
             self._pending_refresh.clear()
             return
-        started = time.monotonic()
+        started = _elapsed()
         t0 = self.sweep_start
         t1 = t0 + self.window_duration
         point_budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
@@ -477,7 +506,7 @@ class PlotPane(QWidget):
 
         while self._pending_refresh:
             self._refresh_one_row(self._pending_refresh.pop(0), t0, t1, point_budget)
-            if time.monotonic() - started > _ROW_BUILD_SLICE_S:
+            if _elapsed() - started > _ROW_BUILD_SLICE_S:
                 break
 
         if self._pending_refresh:
@@ -525,7 +554,7 @@ class PlotPane(QWidget):
                     point_budget_for_width(int(self.graphics_layout.viewport().width())),
                 )
                 self._redraw_sweep_overlays()
-        self._update_axis_visibility()
+        self._relayout_rows()
 
     def reset_zoom(self) -> None:
         """Set the shared sweep window to the full master-timeline duration."""
@@ -676,6 +705,39 @@ class PlotPane(QWidget):
                 ch.plot_item.setXLink(self._master_plot)
         self._configure_shared_x_range()
 
+    def _relayout_rows(self) -> None:
+        """Re-apply everything that depends on which rows are visible.
+
+        The visible set changes in exactly four places -- a load finishing, a
+        source removed, a row removed, a row hidden -- and both the shared axis
+        and the stack height are wrong until it is re-read. Keeping them behind
+        one call is what stops the next such place from remembering only one.
+        """
+        self._apply_stack_height()
+        self._update_axis_visibility()
+
+    def _apply_stack_height(self) -> None:
+        """Give the channel stack the height its visible rows actually need.
+
+        Under the scroll area this is what produces a scrollbar: while the rows
+        fit, the stack stays exactly viewport-high and they share the space as
+        before; past that it grows and the scroll area scrolls it, instead of
+        the rows below the fold being clipped away unreachably.
+
+        Spacing and margins are read from the layout rather than assumed. They
+        come from the style, so a hard-coded guess is a few pixels of drift per
+        row, and at thirty rows that is a scrollbar that stops short of the last
+        one.
+        """
+        visible = [channel for channel in self.channels if channel.visible]
+        layout = self.graphics_layout.ci.layout
+        spacing = max(0.0, layout.verticalSpacing())
+        _, top, _, bottom = layout.getContentsMargins()
+        wanted = sum(channel.row_height for channel in visible)
+        if visible:
+            wanted += spacing * (len(visible) - 1) + top + bottom
+        self.graphics_layout.setMinimumHeight(math.ceil(wanted))
+
     def _update_axis_visibility(self) -> None:
         """Use one shared bottom X axis while keeping all rows X-linked."""
         visible = [channel for channel in self.channels if channel.visible]
@@ -696,6 +758,7 @@ class PlotPane(QWidget):
         for channel in self.channels:
             channel.row_height = height
             apply_channel_visibility(channel)
+        self._apply_stack_height()
 
     def _on_presentation_changed(self, _index: int) -> None:
         data = self.presentation_combo.currentData()
@@ -744,7 +807,7 @@ class PlotPane(QWidget):
         motion reads as stepped, and it frees roughly half the plot's share of
         the UI thread for video presentation.
         """
-        now = time.monotonic()
+        now = _elapsed()
         due_after = _CURSOR_REPAINT_INTERVAL_S - _CURSOR_REPAINT_SLACK_S
         if (now - self._last_cursor_repaint) < due_after:
             return False
