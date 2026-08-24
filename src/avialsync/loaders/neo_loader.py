@@ -40,6 +40,8 @@ from avialsync.loaders.open_ephys_format import (
     is_recording_dir,
     read_messages,
 )
+from avialsync.loaders.open_ephys_legacy import is_legacy_recording
+from avialsync.loaders.open_ephys_legacy import read_messages as read_legacy_messages
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +101,26 @@ def safe_channel_name(name: str) -> str:
     """Return *name* reduced to characters legal in a cache filename everywhere."""
     cleaned = _UNSAFE_NAME_CHARS.sub("_", str(name)).strip().rstrip(".")
     return cleaned or "channel"
+
+
+def _is_numeric_label(text: str) -> bool:
+    """Return whether an event label is a logic level rather than prose.
+
+    ``str.isdigit`` was the test here, and it is False for ``-1``, ``1.5`` and
+    ``+1`` — all of which are levels, not prose.  A format labelling its lines
+    that way would have them dropped as unplottable *and* reported as messages,
+    one edge per row, which is the noisiest possible way to be wrong.
+
+    Open Ephys is not currently that format: it writes states as ``±1``, but neo
+    pairs them into epochs and keeps only the rising label, so what arrives here
+    is ``"1"``.  Every other reader neo fronts is free to differ, and the test
+    costs nothing to state correctly (D-085).
+    """
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
 
 
 def _reject_unreadable_recording(path: Path) -> None:
@@ -471,7 +493,7 @@ class NeoLoader(TimeSeriesSource):
         # labels and no logic level to plot; a TTL line is numbered.  Skipped
         # here as a *channel* only — :meth:`messages` reads the same stream for
         # its text, so declining to plot it no longer discards it.
-        if not all(value.isdigit() for value in distinct):
+        if not all(_is_numeric_label(value) for value in distinct):
             logger.info("Skipping non-numeric neo event channel %r.", event.name)
             return None
         return distinct
@@ -557,14 +579,23 @@ class NeoLoader(TimeSeriesSource):
         sample rate without anything reporting it.  The format module decides per
         stream, from the file present in that folder (D-085).
 
+        The original ``.continuous`` format is read here for a different reason:
+        neo does not implement its ``messages.events`` at all — the file is
+        filtered out by name and the channel that would carry it is commented
+        out upstream — so there is no neo answer to prefer over (D-085).
+
         ``None`` means "not a format handled here, use neo's labels" — it is not
         the same answer as an empty list, which means the recording was read and
         carries no prose.
         """
         root = self._resolved_path
-        if root is None or not is_recording_dir(root):
+        if root is None:
             return None
-        return read_messages(root)
+        if is_recording_dir(root):
+            return read_messages(root)
+        if is_legacy_recording(root):
+            return read_legacy_messages(root)
+        return None
 
     def _channel_messages(self, seg_idx: int, ev_idx: int, event: Any) -> list[Message]:
         """Return one message per text-labelled event on a single event channel."""
@@ -582,8 +613,10 @@ class NeoLoader(TimeSeriesSource):
         texts = [str(value) for value in labels]
         # A numbered line is a TTL state, already a plotted channel; only the
         # free-form stream is prose. `all` over an empty list is True, so the
-        # emptiness check above is what keeps a channel of blanks out.
-        if all(text.isdigit() for text in texts):
+        # emptiness check above is what keeps a channel of blanks out.  The same
+        # predicate decides plottability in :meth:`_event_labels`; the two are
+        # complementary and must not drift apart.
+        if all(_is_numeric_label(text) for text in texts):
             return []
         channel = str(event.name or f"Event_{seg_idx}_{ev_idx}")
         return [

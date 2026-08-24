@@ -12,6 +12,8 @@ so they stay apart and merely sit in neighbouring tabs.
 from __future__ import annotations
 
 import dataclasses
+from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
@@ -150,6 +152,7 @@ class MessagePanel(QGroupBox):
         self._filter = ""
         self._rows: list[MappedMessage] = []
         self._untimed: list[MappedMessage] = []
+        self._names: dict[str, str] = {}
         self._time_mode = TimeDisplayMode.RELATIVE
         self._t_epoch = 0.0
 
@@ -208,7 +211,8 @@ class MessagePanel(QGroupBox):
     def _matches(self, message: MappedMessage) -> bool:
         if not self._filter:
             return True
-        haystack = f"{message.text} {_source_name(message.source_id)} {message.channel}"
+        name = self._names.get(message.source_id) or _source_name(message.source_id)
+        haystack = f"{message.text} {name} {message.channel}"
         return self._filter in haystack.casefold()
 
     def _refresh(self) -> None:
@@ -224,6 +228,7 @@ class MessagePanel(QGroupBox):
         messages = self._store.messages()
         self._untimed = [message for message in messages if message.time is None]
         self._rows = [message for message in messages if message.time is not None]
+        self._names = _display_names(message.source_id for message in messages)
 
         self._table.blockSignals(True)
         self._table.setRowCount(len(self._rows))
@@ -231,7 +236,7 @@ class MessagePanel(QGroupBox):
             time_item = QTableWidgetItem(
                 format_time(float(message.time or 0.0), self._time_mode, self._t_epoch)
             )
-            source_label = _source_name(message.source_id)
+            source_label = self._names.get(message.source_id) or _source_name(message.source_id)
             if message.channel:
                 source_label = f"{source_label} · {message.channel}"
             source_item = QTableWidgetItem(source_label)
@@ -251,7 +256,11 @@ class MessagePanel(QGroupBox):
         self._notes.setVisible(bool(notes))
         if notes:
             self._notes.setText(
-                "\n".join(f"{_source_name(note.source_id)}: {note.text}" for note in notes)
+                "\n".join(
+                    f"{self._names.get(note.source_id) or _source_name(note.source_id)}"
+                    f": {note.text}"
+                    for note in notes
+                )
             )
 
         self._table.blockSignals(True)
@@ -285,3 +294,46 @@ class MessagePanel(QGroupBox):
 def _source_name(source_id: str) -> str:
     """Return the file name of *source_id*, falling back to the id itself."""
     return Path(source_id).name or source_id
+
+
+#: How far up a path the disambiguator may walk.  Four segments reaches the
+#: record node in ``Record Node 101/experiment1/recording1/continuous/<stream>``,
+#: which is the deepest collision this format produces.
+_MAX_NAME_DEPTH = 5
+
+
+def _path_tail(source_id: str, depth: int) -> str:
+    """Return the last *depth* segments of *source_id*."""
+    parts = Path(source_id).parts
+    if not parts:
+        return source_id
+    return "/".join(parts[-depth:])
+
+
+def _display_names(source_ids: Iterable[str]) -> dict[str, str]:
+    """Return a short label per source, extended only as far as it must be.
+
+    Two record nodes of one Open Ephys session write the same stream directory
+    name under different ``Record Node N`` parents, so a file name alone labels
+    both rows identically and the panel cannot say which rig wrote which note.
+    Sources that do not collide keep the bare file name they always had (D-085).
+    """
+    labels: dict[str, str] = {}
+    remaining = list(dict.fromkeys(source_ids))
+    for depth in range(1, _MAX_NAME_DEPTH + 1):
+        if not remaining:
+            break
+        candidates = {source_id: _path_tail(source_id, depth) for source_id in remaining}
+        counts = Counter(candidates.values())
+        still_ambiguous: list[str] = []
+        for source_id in remaining:
+            if counts[candidates[source_id]] == 1:
+                labels[source_id] = candidates[source_id]
+            else:
+                still_ambiguous.append(source_id)
+        remaining = still_ambiguous
+    # Distinct ids that are still identical this far up differ only above the
+    # depth cap; the full id is the only thing left that tells them apart.
+    for source_id in remaining:
+        labels[source_id] = source_id
+    return labels

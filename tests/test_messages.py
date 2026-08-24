@@ -227,3 +227,38 @@ def test_filter_narrows_the_table(qtbot) -> None:
     # rows the widget happens to be holding.
     shown = [row for row in range(table.rowCount()) if not table.isRowHidden(row)]
     assert [table.item(row, 2).text() for row in shown] == ["stimulus on"]
+
+
+def test_two_record_nodes_are_told_apart_in_the_source_column(qtbot) -> None:
+    """Both nodes name their stream directory the same thing (D-085).
+
+    An Open Ephys session with two record nodes writes
+    ``Record Node 101/experiment1/recording1/continuous/Board-1.board`` and the
+    same tail under ``Record Node 102``.  Labelling a row by file name alone put
+    "Board-1.board" on both, so a note could not be attributed to the rig that
+    wrote it.
+    """
+    store = MessageStore()
+    panel = MessagePanel(store)
+    qtbot.addWidget(panel)
+    for node in ("101", "102"):
+        store.set_source_messages(
+            f"/data/Record Node {node}/experiment1/recording1/continuous/Board-1.board",
+            (Message(text=f"typed on {node}", time=float(node)),),
+        )
+
+    table = _table(panel)
+    labels = [table.item(row, 1).text() for row in range(table.rowCount())]
+    assert len(set(labels)) == 2
+    assert any("Record Node 101" in label for label in labels)
+    assert any("Record Node 102" in label for label in labels)
+
+
+def test_a_source_that_collides_with_nothing_keeps_its_bare_name(qtbot) -> None:
+    """Disambiguation must not lengthen every label to pay for the rare case."""
+    store = MessageStore()
+    panel = MessagePanel(store)
+    qtbot.addWidget(panel)
+    store.set_source_messages("/data/rig/session/ephys.dat", (Message(text="go", time=1.0),))
+
+    assert _table(panel).item(0, 1).text() == "ephys.dat"

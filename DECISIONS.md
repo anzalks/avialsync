@@ -2781,7 +2781,32 @@ rather than paid for with a model/view rewrite of a working panel. `test_filter_
 now asserts which rows are *visible* instead of `rowCount()` — the property it exists to protect,
 and the stronger assertion of the two.
 
-**Not addressed, deliberately:** neo does not implement the legacy `.continuous` format's
-`messages.events` at all (`openephysrawio.py` filters the file out by name, and the event channel
-that would carry it is commented out upstream). Recordings in that format still show no messages.
-Reading them would mean parsing a second, older container here, and no decision above depends on it.
+**The original `.continuous` format is read too.** neo does not implement its `messages.events` at
+all — `openephysrawio.py` filters the file out by name and leaves the event channel commented out,
+marked "not implemented yet" — so unlike the binary format there is no neo answer to prefer over.
+`open_ephys_legacy.py` reads it: plain ASCII, no 1024-byte header, lines of `<sample number> <text>`.
+
+Three things about that file are easy to get wrong and are pinned by tests. Its sync preamble
+(`Software time:`, `Processor: N start time:`) is *consumed for the rate and withheld from the
+list*, exactly as the binary format's `sync_messages.txt` is parsed for its epoch rather than shown —
+a preamble places the clock, it is not something a person wrote. The rate comes only from the
+`start time:` line, because `Software time:` carries a 1 MHz software clock and reading the rate
+from there divides every message by about 33. And times are `stamp / rate` with **no** rebasing on
+the first recorded sample, because that is the axis neo puts the samples on
+(`_segment_t_start` is `timestamp0 / sampling_rate`); subtracting the start would offset every note
+from the trace it describes. A recording whose rate cannot be established keeps untimed notes
+rather than notes pinned to zero (D-078). Open Ephys' own stamp is known upstream to keep running
+while recording is paused; that is the file's claim and is reported as the file makes it.
+
+**The plot-or-prose test is numeric, not `isdigit`.** `str.isdigit` is False for `-1`, `+1` and
+`1.5`, all of which are logic levels. A format labelling its lines that way would have them skipped
+as unplottable *and* listed as messages, one row per edge. Open Ephys is not currently such a
+format — it writes states as `±1` but neo pairs them into epochs and keeps only the rising `"1"` —
+so this is correctness, not a fix for an observed failure. `_is_numeric_label` is shared by
+`_event_labels` and `_channel_messages`, which are complementary and must not drift apart.
+
+**The panel disambiguates a source only when it has to.** Two record nodes of one session write the
+same stream directory name under different `Record Node N` parents, so labelling a row by file name
+alone put the same text on both and a note could not be attributed to the rig that wrote it.
+`_display_names` extends a label with parent directories only as far as it takes to make it unique;
+a source that collides with nothing keeps the bare file name it always had.

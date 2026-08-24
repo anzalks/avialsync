@@ -159,6 +159,18 @@ Messages are displayed read-only, in their own Inspector tab and timeline lane.
 They are not annotations — the user's own markers are separate, editable, and
 exported as their work (see D-078).
 
+**Do not return a note the file wrote about itself.** A sync preamble — the line
+declaring the recording's start sample or its software clock — places the clock
+rather than saying anything a person wrote, and listing it puts the same two rows
+at the head of every recording a user opens. Parse it for the times you need and
+withhold it, as both Open Ephys readers do with `sync_messages.txt` and with
+`messages.events`' `Software time:` and `start time:` lines (D-085).
+
+If your format stores a message as a sample number, divide by the rate onto the
+**same axis your `read_chunks` timestamps use**. Rebasing onto the first recorded
+sample when your samples are not rebased offsets every note from the trace it
+describes by the recording's own start.
+
 ## Video plugins
 
 Subclass `VideoSource` and implement every abstract method. `open()` runs in a
