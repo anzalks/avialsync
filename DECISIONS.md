@@ -2671,3 +2671,56 @@ trap. The tests that fake this clock patch `plot_pane._elapsed` rather than reas
 absolute axis, and the disagreement log line; `tests/test_aol_video_extraction_routing.py` covers
 `time_base` present with a camera start and absent without one, and the grouping;
 `tests/test_transport_layout.py` covers the merged lane and the removal of one member.
+
+## 2026-08 · D-084 · A seek is answered by its own frame, not by any frame
+
+### Context
+
+`VideoPane.is_seeking` was a bare boolean: `seek()` set it and `_on_frame_ready` cleared it,
+whichever frame that happened to be. `Seeker.is_settled()` is documented as "every pane has painted
+the frame it was asked for", and it cannot know that from a boolean.
+
+Opening a pane makes the gap reachable rather than theoretical. `_on_opened` issues a seek of its
+own so something is on screen, so a pane that has just reported `has_media` still has a decode in
+flight. Delaying only that first decode makes the failure deterministic:
+
+```
+after has_media:    is_seeking=True  time_pos=0.0     <- open-time seek still outstanding
+after seek(20.25):  is_seeking=True
+waitUntil returned: time_pos=0.0  frames delivered=[(0, 0.0)]
+```
+
+The caller waited for `not is_seeking`, was released by the *open-time* frame, and read the frame
+before the one it asked for. `test_the_pane_reports_the_frames_own_timestamp_not_the_request` had
+been failing intermittently in full-suite runs for exactly this reason — under load the open-time
+frame is more likely to land after the next `seek()` call, which is what made it look like a slow
+test rather than the product defect it was. `tests/test_sync_golden.py` never saw it because it
+additionally checks `abs(pane.time_pos - expected_time) <= tolerance`; that guard was compensating
+for this defect.
+
+### Decision
+
+Every seek carries a request id. `VideoPane.seek` increments `_seek_id` and passes it to
+`DecodeWorker.request(request_id, source_time)`; the id travels *with* the time in `_pending`, so a
+coalesced request keeps the id of the time that survived rather than being reported under a newer
+id. `frame_ready(request_id, index, pts, rgb)` echoes it, and `_on_frame_ready` clears `is_seeking`
+only when `request_id == self._seek_id`.
+
+Every frame is still painted and still updates `time_pos`. The decoder emits in decode order on one
+thread, so anything arriving is newer than what is on screen; withholding it would show a staler
+frame, not a safer one. Only the *flag* is gated.
+
+Do not reduce this to a boolean again, and do not "simplify" `_pending` into parallel id and time
+fields — the pairing is what makes coalescing keep a truthful id.
+
+### Consequences
+
+`Seeker.is_settled()` now means what it says, so anything gating on a completed seek — scrub
+release, snapshot and clip export, the readout — acts on the frame it asked for. The intermittent
+failure is gone: `test_an_open_time_frame_does_not_answer_a_later_seek` reproduces the old
+behaviour deterministically by delaying the first decode, and fails on a tree with the fix reverted.
+
+No measurable cost: `test_bench_pyav_jump_to_a_new_time` and the coalescing benchmarks are
+unchanged, an integer being all that was added to a request. The golden sync tests are untouched
+and passing, as a change in seek logic requires.
+

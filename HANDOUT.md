@@ -100,7 +100,10 @@ with explicit user acceptance and session provenance. Native plugin event provid
   to trade accuracy for speed, because the frame containing `t` costs a few milliseconds when it is
   near where the decoder already is. Golden tests decode the frame-index strip out of the pixels the
   pane actually painted, which is the only definitive frame-accuracy evidence; there is no retry
-  loop, because the buffer is replaced in the same slot that clears `is_seeking`. Fixture seeks use
+  loop, because the buffer is replaced in the same slot that clears `is_seeking`. Every seek carries
+  a request id that `frame_ready` echoes, and only the newest id clears `is_seeking` (D-084) — a
+  pane issues a seek of its own on open, so without the id that first frame answered for whatever
+  seek arrived next. Fixture seeks use
   a timestamp *inside* the known decoded-frame interval — a quarter-frame past its start — never a
   boundary, where an off-by-one reader would look correct.
 - **One rendering path everywhere**: headless or not, Windows, macOS, and Linux all decode to a
@@ -393,7 +396,7 @@ contradicts the runtime.
 | `engine/session_worker.py` | Off-UI-thread session save/load and annotation export (D-046) | `SessionSaveWorker`, `SessionLoadWorker`, `AnnotationExportWorker` |
 | `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `ui/main_window.py` | Widget construction, menu/shortcut table, controller wiring; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066) | `MainWindow` |
-| `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075) | `VideoPane`, `set_sync_correction()`, `video_size` |
+| `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075). Seeks are id-tagged so `is_seeking` answers only the newest one (D-084): `DecodeWorker.request(request_id, source_time)`, `frame_ready(request_id, index, pts, rgb)` | `VideoPane`, `set_sync_correction()`, `video_size` |
 | `core/video_timing.py` | **The** frame-selection authority — last frame with `pts <= t`. Headless so `engine/` can share it (D-075) | `frame_index_at()`, `adjacent_frame_time()`, `PTS_EPSILON_S` |
 | `ui/video_timing.py` | Timestamp rate/readout helpers and pane timing mixin; re-exports the two `core/video_timing.py` selectors | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
 | `ui/video_overlay.py` | Transparent current-frame tracking paint layer | `PaintCanvas` |

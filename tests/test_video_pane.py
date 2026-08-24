@@ -12,6 +12,7 @@ started it.
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -128,6 +129,50 @@ def test_the_pane_reports_the_frames_own_timestamp_not_the_request(clip: Path, q
         pane.close()
 
 
+def test_an_open_time_frame_does_not_answer_a_later_seek(clip: Path, qtbot, monkeypatch) -> None:
+    """``is_seeking`` must mean "the frame I asked for", not "a frame".
+
+    Opening a pane issues a seek of its own so something is on screen, so a pane
+    that has just reported ``has_media`` still has a decode in flight. While
+    ``is_seeking`` was a bare boolean, that first frame cleared the flag for
+    whatever seek the caller made in the meantime: a caller waiting on
+    ``not pane.is_seeking`` was handed the *previous* frame, and
+    ``Seeker.is_settled`` — which promises every pane has painted the frame it
+    was asked for — could not tell the difference.
+
+    Delaying only the first decode makes that ordering happen every time. It
+    reproduced the intermittent failure of
+    ``test_the_pane_reports_the_frames_own_timestamp_not_the_request``, which
+    was a real defect surfacing under load rather than a slow test.
+    """
+    from avialsync.engine.pyav_reader import PyAVReader
+
+    original = PyAVReader.frame_at_index
+    calls = {"count": 0}
+
+    def slow_first_decode(self: PyAVReader, index: int):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            time.sleep(0.3)
+        return original(self, index)
+
+    monkeypatch.setattr(PyAVReader, "frame_at_index", slow_first_decode)
+
+    pane = _opened_pane(clip, qtbot)
+    try:
+        # The open-time seek is still outstanding; this is the state the race
+        # needed, and asserting it keeps the test honest if that ever changes.
+        assert pane.is_seeking
+
+        pane.seek((20 + 0.25) / FPS)
+        qtbot.waitUntil(lambda: not pane.is_seeking, timeout=5000)
+
+        assert pane.time_pos == pytest.approx(20 / FPS, abs=1e-6)
+        assert decode_frame_strip(pane.surface._buffer) == 20
+    finally:
+        pane.close()
+
+
 def test_decoding_never_runs_on_the_ui_thread(clip: Path, qtbot) -> None:
     """AGENTS.md rule 3: no decoding on the thread that has to stay responsive."""
     pane = _opened_pane(clip, qtbot)
@@ -191,17 +236,25 @@ def test_requests_coalesce_onto_the_newest_wanted_time() -> None:
     """
     worker = video_pane.DecodeWorker("unused.mp4")
     decoded: list[float] = []
+    announced: list[int] = []
+    pixels = np.zeros((2, 2, 3), dtype=np.uint8)
     worker._reader = SimpleNamespace(  # type: ignore[assignment]
         index_at_time=lambda t: decoded.append(t) or 0,
-        frame_at_index=lambda i: SimpleNamespace(),
+        # Convertible, unlike a bare namespace: the id is only observable on
+        # `frame_ready`, which a frame that cannot become an array never reaches.
+        frame_at_index=lambda i: SimpleNamespace(to_ndarray=lambda format=None: pixels),
         time_at_index=lambda i: 0.0,
     )
+    worker.frame_ready.connect(lambda request_id, *_: announced.append(request_id))
 
     for step in range(50):
-        worker.request(step / 60.0)
+        worker.request(step, step / 60.0)
     worker.decode_pending()
 
     assert decoded == [49 / 60.0]
+    # The id travels with the time, so the surviving request keeps its own id
+    # rather than the last one posted being reported against an older time.
+    assert announced == [49]
 
     # A second invocation with nothing outstanding must not redo the work.
     worker.decode_pending()

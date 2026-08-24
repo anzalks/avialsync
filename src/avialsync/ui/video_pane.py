@@ -58,18 +58,24 @@ class DecodeWorker(QObject):
     tick drive a decoder that takes longer than a tick without ever queueing a
     backlog of frames nobody will see — sync correctness beats frame
     completeness (AGENTS.md rule 6).
+
+    Each request carries an id the caller assigns, and the id travels *with* the
+    time rather than beside it, so a coalesced request keeps the id of the time
+    that survived.  ``frame_ready`` echoes it, which is what lets the pane tell
+    "the frame I asked for" from "a frame" — see :meth:`VideoPane.seek`.
     """
 
     opened = Signal(object, int, int, str)  # frame_times, width, height, codec
     failed = Signal(str)
-    frame_ready = Signal(int, float, object)  # frame index, pts seconds, RGB array
+    # request id, frame index, pts seconds, RGB array
+    frame_ready = Signal(int, int, float, object)
 
     def __init__(self, path: str) -> None:
         super().__init__()
         self._path = path
         self._reader: PyAVReader | None = None
         self._lock = threading.Lock()
-        self._pending: float | None = None
+        self._pending: tuple[int, float] | None = None
 
     @Slot()
     def open(self) -> None:
@@ -91,19 +97,20 @@ class DecodeWorker(QObject):
             str(stream.codec_context.name or ""),
         )
 
-    def request(self, source_time: float) -> None:
-        """Record the newest wanted time. Safe to call from the UI thread."""
+    def request(self, request_id: int, source_time: float) -> None:
+        """Record the newest wanted time and its id. Safe to call from the UI thread."""
         with self._lock:
-            self._pending = source_time
+            self._pending = (request_id, source_time)
 
     @Slot()
     def decode_pending(self) -> None:
         """Decode the newest requested time, if one is still outstanding."""
         with self._lock:
-            source_time = self._pending
+            pending = self._pending
             self._pending = None
-        if source_time is None or self._reader is None:
+        if pending is None or self._reader is None:
             return
+        request_id, source_time = pending
         try:
             index = self._reader.index_at_time(source_time)
             frame = self._reader.frame_at_index(index)
@@ -114,7 +121,7 @@ class DecodeWorker(QObject):
             # region of a file from taking the pane down with it.
             logger.warning("Could not decode %s at %.6fs", self._path, source_time, exc_info=error)
             return
-        self.frame_ready.emit(index, self._reader.time_at_index(index), rgb)
+        self.frame_ready.emit(request_id, index, self._reader.time_at_index(index), rgb)
 
     @Slot()
     def shutdown(self) -> None:
@@ -206,6 +213,9 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.is_seeking = False
         self._media_loaded = False
         self._pending_seek: float | None = None
+        #: Id of the most recent seek. A frame clears `is_seeking` only when it
+        #: carries this id, so an older decode cannot answer for a newer seek.
+        self._seek_id = 0
         self._target_pause = True
         self._osd_lock = threading.Lock()
         self._pending_osd: tuple[float, float] = (0.0, 0.0)
@@ -287,12 +297,24 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.lbl_no_footage.setVisible(True)
         self.open_failed.emit(reason)
 
-    @Slot(int, float, object)
-    def _on_frame_ready(self, index: int, pts: float, rgb: np.ndarray) -> None:
-        """Show a decoded frame and report the timestamp it actually carries."""
+    @Slot(int, int, float, object)
+    def _on_frame_ready(self, request_id: int, index: int, pts: float, rgb: np.ndarray) -> None:
+        """Show a decoded frame and report the timestamp it actually carries.
+
+        Every frame is painted: the decoder emits in decode order, so anything
+        arriving here is newer than what is on screen and worth showing.
+
+        Only the frame for the *newest* seek clears ``is_seeking``. Opening a
+        pane issues a seek of its own (`_on_opened`), so a pane that has just
+        reported ``has_media`` already has a decode in flight; with a bare
+        boolean that first frame answered for whatever seek the caller made in
+        the meantime, and `Seeker.is_settled` — which promises every pane has
+        painted *the frame it was asked for* — could not tell the difference.
+        """
         del index
         self.surface.set_frame(rgb)
-        self.is_seeking = False
+        if request_id == self._seek_id:
+            self.is_seeking = False
         self.time_pos = pts
         self.frame_presented.emit(pts)
         self._queue_osd_update(pts, self._displayed_rate(pts))
@@ -324,8 +346,9 @@ class VideoPane(VideoTimingMixin, QWidget):
         if not self._media_loaded or self._worker is None:
             self._pending_seek = float(t)
             return
+        self._seek_id += 1
         self.is_seeking = True
-        self._worker.request(float(t))
+        self._worker.request(self._seek_id, float(t))
         QMetaObject.invokeMethod(self._worker, "decode_pending", Qt.ConnectionType.QueuedConnection)
 
     def play(self) -> None:
