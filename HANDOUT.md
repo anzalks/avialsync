@@ -32,7 +32,7 @@ Use `AvialSync` for displayed text and `avialsync` for technical identifiers. Do
 | Layer | Library | Notes |
 |---|---|---|
 | GUI | `PySide6` | NEVER PyQt5/PyQt6 — license |
-| Video | `av` (PyAV) → `import av` | FFmpeg ships inside the wheel. Never QtMultimedia, OpenCV, or libmpv (D-075) |
+| Video | `av` (PyAV) → `import av` | FFmpeg ships inside the wheel. Never QtMultimedia, OpenCV, or libmpv (D-075). No `mpv` import exists anywhere in `src/` or `tests/` — the benchmark comparison arm went too, and two guards in `test_ci_platform_config.py` reject its return (D-086) |
 | Plots | `pyqtgraph` | All data via decimation pyramid — never raw arrays >100k samples |
 | Data | `polars` + `numpy` | polars for CSV; numpy for pyramid math |
 | Build | `hatchling` | `pip install -e .[dev]` |

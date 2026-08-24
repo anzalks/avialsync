@@ -2810,3 +2810,44 @@ same stream directory name under different `Record Node N` parents, so labelling
 alone put the same text on both and a note could not be attributed to the rig that wrote it.
 `_display_names` extends a label with parent directories only as far as it takes to make it unique;
 a source that collides with nothing keeps the bare file name it always had.
+
+## 2026-08 · D-086 · The last of libmpv goes, including the arm that measured it
+
+**Context:** D-075 replaced libmpv with PyAV and removed it from the product, the packaging, and
+CI. Two things survived that removal. `tests/benchmarks/test_seek_backends.py` kept a libmpv
+comparison arm — `import mpv`, a `ctypes.util.find_library` patch, a headless-player fixture and
+three benchmarks — gated behind `AVIALSYNC_BENCH_LIBMPV=1` so it skipped by default. And every
+working copy that had built a Windows bundle before D-075 still held `packaging/media/`, 384 MB of
+staged DLLs including `libmpv-2.dll`.
+
+Neither reached a user. The directory is gitignored and nothing is tracked in it, the PyInstaller
+spec stages no media at all, and the arm was opt-in. What they cost was subtler: they made "is
+libmpv gone?" a question that could not be answered *yes*, and the arm was the only reason a second
+video backend still had to be installable anywhere.
+
+**Decision:** the comparison arm is deleted and the stale media directory with it. PyAV is the only
+video backend that exists in this repository, in any form, including test harnesses.
+
+**The measurements are kept; the ability to re-take them is not.** BLUEPRINT.md's "Measured scrub
+baseline" table holds the libmpv figures — 330 / 338 / 333 ms against PyAV's 117 / 3 / 1 ms — and
+that table is now marked as a record rather than something the suite reproduces. Re-deriving those
+three numbers would have meant keeping a whole second backend reachable forever, and nothing
+depends on them: they are the *evidence for* a decision already made, not an input to a live one.
+
+**Two guards, because the arm is how the last one persisted.**
+`test_no_python_in_the_repository_imports_mpv` walks every module under `src/` and `tests/` and
+rejects an `mpv` import anywhere, and `test_the_scrub_benchmark_measures_one_backend` rejects the
+*shape* the arm had — an environment-variable gate naming a video library, and a `find_library`
+patch — rather than only the import. Both check parsed modules or comment-stripped text, so this
+history can still be described in a docstring without tripping the rule that enforces it. That
+pattern is D-075's and is deliberately reused.
+
+**Alternatives rejected:** leaving the arm because it skips cleanly — skipping is exactly why it
+survived a removal that was otherwise complete, and a permanently-skipped test is a claim nobody
+checks. Deleting the libmpv column from BLUEPRINT.md along with the arm — the numbers are the
+justification for D-075, and a decision that deletes its own evidence cannot be reviewed later.
+
+**Consequences:** `pytest tests/benchmarks --benchmark-only` reports one fewer skip group; the file
+is 174 lines instead of 300. `packaging/media/` is a stale-artefact path on old working copies
+only — `.gitignore` keeps its rule, because the rule is what stops those 384 MB being committed by
+someone who still has them.

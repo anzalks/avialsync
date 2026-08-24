@@ -306,3 +306,53 @@ def test_every_tracked_path_can_exist_on_windows() -> None:
         "These tracked paths cannot be checked out on Windows, so the Windows "
         "CI jobs will fail before running anything:\n  " + "\n  ".join(sorted(set(offenders)))
     )
+
+
+def test_no_python_in_the_repository_imports_mpv() -> None:
+    """libmpv is gone from the tests too, not only from the product (D-086).
+
+    The benchmark suite kept a libmpv comparison arm long after the application
+    stopped using it, so ``import mpv`` and a ``find_library`` patch survived in
+    tree — opt-in, but installable, and the only reason a second video backend
+    still had to exist anywhere. Its measurements are a recorded table in
+    BLUEPRINT.md; re-deriving them was never worth keeping a whole backend
+    reachable for.
+
+    Checked against each parsed module rather than its text, so history can
+    still be *described* in a docstring — as this one does — without tripping
+    the guard that enforces it.
+    """
+    offenders: list[str] = []
+    for source in (*Path("src").rglob("*.py"), *Path("tests").rglob("*.py")):
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        imported = {
+            alias.name.split(".")[0]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        } | {
+            node.module.split(".")[0]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module
+        }
+        if "mpv" in imported:
+            offenders.append(str(source))
+
+    assert not offenders, (
+        f"PyAV is the only video backend (D-075, D-086); these import mpv: {offenders}"
+    )
+
+
+def test_the_scrub_benchmark_measures_one_backend() -> None:
+    """The seek benchmark must not grow a second backend back (D-086).
+
+    A comparison arm is how the last one persisted: gated behind an environment
+    variable, skipped by default, and therefore never noticed. An env-var gate
+    naming a video library is the shape to reject, not the import alone.
+    """
+    benchmark = Path("tests/benchmarks/test_seek_backends.py").read_text(encoding="utf-8")
+    instructions = "\n".join(
+        line for line in benchmark.splitlines() if not line.strip().startswith("#")
+    )
+    assert "AVIALSYNC_BENCH_LIBMPV" not in instructions
+    assert "find_library" not in instructions

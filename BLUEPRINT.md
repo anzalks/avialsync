@@ -46,8 +46,9 @@ macOS arm64, three 1440×1080 files, 3-cam parallel fanout, long-GOP (250) worst
 all-intra footage is roughly six times faster than the figures below.
 
 The PyAV column is what `tests/benchmarks/test_seek_backends.py` measures against the shipped
-reader — re-run it to reproduce, and set `AVIALSYNC_BENCH_LIBMPV=1` on a machine with libmpv to
-re-measure the comparison arm.
+reader — re-run it to reproduce. **The libmpv column is a record, not a re-measurable result**: the
+comparison arm was deleted with the last of libmpv (D-086). These figures were taken once, on the
+hardware named above, and stand as the reason D-075 was made.
 
 | Interaction | libmpv | PyAV + frame cache | Budget |
 |---|---|---|---|
