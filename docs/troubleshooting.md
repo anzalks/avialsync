@@ -74,6 +74,34 @@ Two cases it will decline on purpose:
 - **A raw format such as `.bin`.** It carries no header saying resolution, pixel format, or rate, so
   nothing can infer how to read it. That needs a [plugin](plugin-guide.md) to declare those.
 
+## An Open Ephys recording will not open, and the error names an event stream
+
+An error reading something like *"… declares an event stream neo cannot read, so none of the
+recording can be opened until it is corrected — events/MessageCenter: no timestamps.npy"* means what
+it says, and the folder it names is the thing to look at.
+
+The reader AvialSync uses checks every event stream while reading the recording's header, so one
+malformed annotation folder stops the whole recording rather than only its notes. Two shapes cause
+it: a folder listed in `structure.oebin` that holds no `timestamps.npy`, and a `text.npy` rewritten
+as unicode rather than the byte strings the Open Ephys GUI writes — usually the result of a script
+that re-saved the file. Restoring that folder from the original recording, or removing it and its
+entry from `structure.oebin`, opens the recording again.
+
+A folder listed in `structure.oebin` that is simply *absent* is not this problem and is skipped
+harmlessly.
+
+If one recording inside a dropped folder is affected, the others still load — the status line says
+which one was left out, so the session never quietly comes up short.
+
+## The Messages tab is empty
+
+Most often the loaded files genuinely carry no prose; not every format stores any.
+
+Two other causes are worth checking. A recording imported before AvialSync read messages keeps its
+cached import, and **re-importing that source once** picks them up — nothing else needs rebuilding.
+And a recording's sync preamble is deliberately not listed: the line naming the software time or the
+first sample number places the clock rather than saying anything a person wrote.
+
 ## The import wizard read my timestamps wrong
 
 Everything downstream — alignment, frame numbers, exports — inherits this, so it is worth

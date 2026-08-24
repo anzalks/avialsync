@@ -39,6 +39,26 @@ Delimited text data can be imported through the guided importer. It lets you ide
 column, time units, units for channels, missing-value sentinels, and timestamp details. Tracking CSV
 files can be treated as frame-indexed when that is how the source was produced.
 
+## Acquisition recordings
+
+Electrophysiology and instrument recordings are read through [neo](https://neo.readthedocs.io), so
+the formats it supports arrive in the same shape as everything else: continuous streams become
+plots, and TTL lines become a square wave drawn from their edges rather than a dense trace.
+
+**Open Ephys** folders are recognised as whole sessions. Drop the recording folder — or the folder
+holding it and the cameras recorded beside it — and the streams, TTL lines, and videos are laid out
+together on the recording's own clock, with wall-clock time taken from the recording's own
+`sync_messages.txt` rather than assumed.
+
+Both Open Ephys layouts are read, including the free text each one stores:
+
+- **Binary format** (GUI v0.6 and later) — messages typed into the GUI's Message Center.
+- **Original format** (`.continuous` files, earlier versions) — the messages saved in
+  `messages.events`.
+
+In both cases the recording's sync preamble is used to place the clock and is not listed as a
+message: it is what the software wrote about the recording, not something a person typed.
+
 ## Lab formats
 
 Ask your lab for its AvialSync plugin, or see the [plugin guide](plugin-guide.md) to write one.

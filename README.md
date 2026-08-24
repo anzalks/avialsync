@@ -22,12 +22,14 @@ changes a scientific timestamp. Your lab can add support for its own file types 
 through plugins.
 
 ![A one-second loop of three synchronised camera views of a head-fixed mouse with 2D pose overlays,
-a 3D pose view, and the wheel encoder velocity trace advancing together on one master
+a triangulated 3D pose drawn as a skeleton, and per-ROI motion traces measured from the video, all
+advancing together on one master
 timeline.](https://raw.githubusercontent.com/anzalks/avialsync/main/docs/_static/screenshots/aol_session_overview.gif)
 
 *A real recording session: three cameras at 230 fps with per-camera 2D pose drawn over each view,
-triangulated 3D pose on the right, and wheel-encoder velocity below — one second of it, at the speed
-it was recorded, every source moving on one master clock. The whole folder was opened by dropping it
+triangulated 3D pose on the right drawn with the skeleton the session declares, and per-ROI motion
+measured from the video below — one second of it, at the speed it was recorded, every source moving
+on one master clock. The whole folder was opened by dropping it
 on the window; a [session plugin](https://avialsync.readthedocs.io/en/latest/plugin-guide.html)
 recognised the layout and placed each file, including the shared time base. Nothing in AvialSync
 knows this lab's format.*
@@ -37,6 +39,8 @@ knows this lab's format.*
 - Several camera recordings playing together on one clock.
 - Sensor, electrode, and tracking traces beside the video, up to 50 kHz across many channels.
 - Alignment by offset, drift, or TTL/event evidence, with the original files left unchanged.
+- Notes the acquisition system itself recorded — read out of the file, placed on the same clock,
+  and kept read-only so they never mix with your own marks.
 - Event marks, A/B time ranges, and exports of snapshots or selected spans for analysis elsewhere.
 
 ## Install
