@@ -1045,3 +1045,122 @@ def test_a_video_without_a_sidecar_reports_no_drops() -> None:
     loader = VideoStandardLoader()
     loader.open(video, {})
     assert loader.video_metadata().dropped_frames == 0
+
+
+# ── A malformed annotation stream must not cost the recording (D-085) ──
+
+
+def _messages_dir(recording: Path) -> Path:
+    return recording / "events" / "MessageCenter"
+
+
+def test_unicode_message_text_names_the_folder_not_an_unrelated_reader(tmp_path: Path) -> None:
+    """The error a user sees must name the file they have to go and fix.
+
+    neo decodes every event label whenever the dtype is textual, which raises on
+    a ``"U"`` array while parsing the *whole* recording's header.  The exception
+    escapes neo's format sniffing, which then binds the path to whichever
+    unrelated reader also claims ``.npy`` — so what used to reach the user was
+    ``NeoReadWriteError: This IO does not support lazy reading``, naming neither
+    Open Ephys, nor MessageCenter, nor text.
+    """
+    from avialsync.core.errors import SourceOpenError
+
+    recording = _with_messages(tmp_path)
+    np.save(_messages_dir(recording) / "text.npy", np.asarray(["baseline start"], dtype="U"))
+
+    with pytest.raises(SourceOpenError) as raised:
+        NeoLoader().open(recording, {"events": True})
+
+    reported = str(raised.value)
+    assert "MessageCenter" in reported
+    assert "text.npy" in reported
+    assert "lazy" not in reported.casefold()
+
+
+def test_message_stream_without_timestamps_is_reported_not_asserted(tmp_path: Path) -> None:
+    """neo asserts on this one, which is not an error a user can act on."""
+    from avialsync.core.errors import SourceOpenError
+
+    recording = _with_messages(tmp_path)
+    (_messages_dir(recording) / "timestamps.npy").unlink()
+
+    with pytest.raises(SourceOpenError, match="timestamps.npy"):
+        NeoLoader().open(recording, {"events": True})
+
+
+def test_a_healthy_recording_declares_no_defects(tmp_path: Path) -> None:
+    """The check must stay quiet on the recordings a rig actually writes."""
+    assert fmt.event_stream_defects(_with_messages(tmp_path)) == []
+
+
+def test_a_declared_but_absent_event_folder_is_not_fatal(tmp_path: Path) -> None:
+    """neo warns and skips this one, so the recording still opens and must."""
+    import shutil
+
+    recording = _with_messages(tmp_path)
+    shutil.rmtree(_messages_dir(recording))
+
+    assert fmt.event_stream_defects(recording) == []
+    loader = NeoLoader()
+    loader.open(recording, {"events": True})
+    assert loader.messages() == []
+
+
+def test_messages_are_read_even_from_text_neo_cannot_decode(tmp_path: Path) -> None:
+    """Reading the prose ourselves is what makes the text survive the defect."""
+    recording = _with_messages(tmp_path)
+    np.save(
+        _messages_dir(recording) / "text.npy",
+        np.asarray(["baseline start", "stimulus on", "animal moved"], dtype="U"),
+    )
+
+    assert [m.text for m in fmt.read_messages(recording)] == [
+        "baseline start",
+        "stimulus on",
+        "animal moved",
+    ]
+
+
+def test_message_times_do_not_follow_another_streams_timestamp_rule(tmp_path: Path) -> None:
+    """neo picks one seconds-or-sample-numbers rule for the whole recording.
+
+    The flag is overwritten by each event stream in turn and the last one wins,
+    so a recording whose annotation folder predates v0.6 while its TTL folder
+    does not gets *both* rescaled the same way — moving every message by a
+    factor of the sample rate, silently.  Read per stream, from the file that is
+    actually in that folder, the two disagree without either being wrong.
+    """
+    recording = _with_messages(tmp_path)
+    # A v0.5-shaped annotation folder: sample numbers in timestamps.npy, and no
+    # sample_numbers.npy beside it to say otherwise.  The TTL folder keeps its
+    # v0.6 shape, which is the disagreement neo cannot represent.
+    directory = _messages_dir(recording)
+    (directory / "sample_numbers.npy").unlink()
+    np.save(directory / "timestamps.npy", np.asarray([5200.0, 6000.0, 6400.0], dtype=np.float64))
+
+    times = [m.time for m in fmt.read_messages(recording)]
+    assert times == pytest.approx([5.2, 6.0, 6.4])
+
+
+def test_a_broken_recording_is_reported_rather_than_dropped(tmp_path: Path) -> None:
+    """A folder holding one bad recording must still yield the good one — loudly.
+
+    The scan cannot fail the whole drop over one recording, and it must not
+    quietly return fewer items either: that leaves a session that looks complete
+    while missing data, with only a log line to say otherwise.
+    """
+    for name, broken in (("first", False), ("second", True)):
+        spec = default_spec()
+        spec.messages = MessageSpec(entries=[(5.2, "baseline start")])
+        recording = write_recording(tmp_path / name, spec)
+        if broken:
+            np.save(_messages_dir(recording) / "text.npy", np.asarray(["x"], dtype="U"))
+
+    layout = OpenEphysSessionSource().scan(tmp_path, LoaderRegistry())
+
+    assert [warning for warning in layout.warnings if "MessageCenter" in warning]
+    assert any(item.label.startswith("board") for item in layout.items)
+    # The good recording contributes its streams; the broken one contributes
+    # nothing at all, rather than the orphaned event item it used to leave behind.
+    assert sum(1 for item in layout.items if item.label.startswith("board")) == 1

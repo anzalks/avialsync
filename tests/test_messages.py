@@ -220,5 +220,10 @@ def test_filter_narrows_the_table(qtbot) -> None:
 
     panel._search.setText("stimulus")
     table = _table(panel)
-    assert table.rowCount() == 1
-    assert table.item(0, 2).text() == "stimulus on"
+    # Asserted as what the user can see rather than as ``rowCount``: a filter
+    # keystroke hides rows instead of rebuilding them, because rebuilding cost
+    # 51-87 ms at MAX_MESSAGES and blocked the UI thread (D-085).  The property
+    # this test exists to protect is which messages are readable, not how many
+    # rows the widget happens to be holding.
+    shown = [row for row in range(table.rowCount()) if not table.isRowHidden(row)]
+    assert [table.item(row, 2).text() for row in shown] == ["stimulus on"]

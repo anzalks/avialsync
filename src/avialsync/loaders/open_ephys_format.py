@@ -5,6 +5,13 @@ Sample reading is neo's job and stays there — this module never opens
 does not model: where a recording sits inside a record-node tree, and how the
 acquisition clock relates to wall-clock time.
 
+It also reads the recording's *event prose*, which neo does model — badly enough
+that we do not use its answer.  neo picks one seconds-or-sample-numbers rule for
+the whole recording and lets the last event stream read set it, and it raises
+mid-header on shapes the format permits, which loses the entire recording rather
+than one annotation.  :func:`read_messages` and :func:`event_stream_defects`
+exist for those two reasons and no others (D-085).
+
 ``timestamps.npy`` is a free-running acquisition clock, not a UTC epoch, and neo
 reports ``t_start`` on that same clock.  The only absolute instant an Open Ephys
 recording contains is the first line of ``sync_messages.txt``.  Pairing that with
@@ -17,11 +24,17 @@ Reference: Open Ephys "Binary Format" (GUI v0.6+).
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import json
 import logging
 import re
 from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from avialsync.core.messages import MAX_MESSAGES, Message, clean
 
 logger = logging.getLogger(__name__)
 
@@ -123,23 +136,10 @@ def stream_folder_names(recording: Path) -> list[str]:
     The names come from the manifest rather than from neo's stream names, which
     are decorated with the record node they came through.
     """
-    manifest = recording / MANIFEST_NAME
-    try:
-        declared = json.loads(manifest.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        logger.warning("Cannot read Open Ephys manifest %s", manifest, exc_info=True)
-        return []
-    if not isinstance(declared, dict):
-        return []
-
-    names: list[str] = []
-    for entry in declared.get("continuous", []) or []:
-        if not isinstance(entry, dict):
-            continue
-        folder = str(entry.get("folder_name", "")).rstrip("/")
-        if folder:
-            names.append(folder)
-    return names
+    return [
+        str(entry["folder_name"]).rstrip("/")
+        for entry in _declared_entries(recording, "continuous")
+    ]
 
 
 def parse_software_epoch(recording: Path) -> float | None:
@@ -241,3 +241,179 @@ def recording_utc_offset(recording: Path) -> float | None:
     if local_naive is None:
         return None
     return utc_offset_seconds(local_naive, software_epoch)
+
+
+# ── Event streams ───────────────────────────────────────────────────────
+
+#: Files an Open Ephys event folder may carry its labels in, in the order neo
+#: prefers them.  A folder with none of these has nothing to say, and neo raises
+#: on it rather than skipping it.
+_LABEL_FILE_NAMES = ("text.npy", "metadata.npy", "channels.npy", "states.npy")
+
+#: The file whose presence means ``timestamps.npy`` is already in seconds.  Open
+#: Ephys v0.6 moved sample numbers into their own file and rebased timestamps
+#: onto seconds; before that, ``timestamps.npy`` held the sample numbers.
+_SAMPLE_NUMBERS_NAME = "sample_numbers.npy"
+
+_TIMESTAMPS_NAME = "timestamps.npy"
+_TEXT_NAME = "text.npy"
+
+
+@dataclasses.dataclass(frozen=True)
+class EventStreamDefect:
+    """A declared event stream that neo cannot read past.
+
+    neo validates every event stream while parsing the *whole* recording's
+    header, so one malformed annotation folder raises before any continuous
+    stream is reached and the entire recording becomes unopenable.  Worse, the
+    exception escapes neo's format sniffing, which then hands back a reader for
+    some unrelated format entirely — so what reaches the user names neither this
+    folder nor this problem.
+
+    Naming both is what turns that into something a user can fix (D-085).
+    """
+
+    folder: str
+    problem: str
+
+    def __str__(self) -> str:
+        return f"events/{self.folder}: {self.problem}"
+
+
+def _read_manifest(recording: Path) -> dict[str, Any]:
+    """Return the recording's parsed ``structure.oebin``, or an empty mapping."""
+    manifest = recording / MANIFEST_NAME
+    try:
+        declared = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.warning("Cannot read Open Ephys manifest %s", manifest, exc_info=True)
+        return {}
+    return declared if isinstance(declared, dict) else {}
+
+
+def _declared_entries(recording: Path, kind: str) -> list[dict[str, Any]]:
+    """Return the manifest's ``continuous`` or ``events`` entries that name a folder."""
+    entries: list[dict[str, Any]] = []
+    for entry in _read_manifest(recording).get(kind, []) or []:
+        if isinstance(entry, dict) and str(entry.get("folder_name", "")).strip():
+            entries.append(entry)
+    return entries
+
+
+def _load_array(path: Path) -> Any | None:
+    """Return the array at *path*, or ``None`` if it cannot be read as one.
+
+    Memory-mapped, so checking a header costs no read.  ``allow_pickle`` stays
+    off: an object-dtype array is not something an acquisition system writes,
+    and honouring one would mean executing whatever sits in the data directory.
+    """
+    try:
+        return np.load(path, mmap_mode="r")
+    except Exception:  # noqa: BLE001 - an unreadable array is a defect to report, not a crash
+        logger.debug("Open Ephys event array %s is unreadable.", path, exc_info=True)
+        return None
+
+
+def event_stream_defects(recording: Path) -> list[EventStreamDefect]:
+    """Return every declared event stream neo would raise on, in manifest order.
+
+    Empty for a healthy recording, and empty for a folder neo merely warns about
+    and skips.  Only what is *fatal to the whole recording* is reported, because
+    that is the difference between a note the user loses and a recording they
+    cannot open at all.
+    """
+    defects: list[EventStreamDefect] = []
+    for entry in _declared_entries(recording, "events"):
+        folder = str(entry["folder_name"]).rstrip("/")
+        directory = recording / "events" / folder
+        if not directory.is_dir():
+            # neo warns and skips a declared-but-absent folder; the recording
+            # still opens, so this is not the fatal class being reported.
+            continue
+        if not (directory / _TIMESTAMPS_NAME).is_file():
+            defects.append(EventStreamDefect(folder, f"no {_TIMESTAMPS_NAME}"))
+            continue
+        labels = [name for name in _LABEL_FILE_NAMES if (directory / name).is_file()]
+        if not labels:
+            expected = ", ".join(_LABEL_FILE_NAMES)
+            defects.append(EventStreamDefect(folder, f"no labels — expected one of {expected}"))
+            continue
+        array = _load_array(directory / labels[0])
+        if array is None:
+            defects.append(EventStreamDefect(folder, f"{labels[0]} is not a readable .npy array"))
+        elif array.dtype.kind == "U":
+            # neo calls .decode() on every label whenever the dtype is textual,
+            # but a "U" array already holds str.  The GUI writes "S"; a file
+            # rewritten in Python is what produces this.
+            defects.append(
+                EventStreamDefect(
+                    folder,
+                    f"{labels[0]} holds unicode text; neo can only decode the byte "
+                    "strings the Open Ephys GUI writes",
+                )
+            )
+    return defects
+
+
+def read_messages(recording: Path) -> list[Message]:
+    """Return the recording's free-text annotations, read without neo.
+
+    Read here rather than taken from neo's event channels because neo decides
+    once, for the whole recording, whether event timestamps are seconds or
+    sample numbers: the flag is overwritten by each stream in turn and the last
+    one wins.  A recording whose annotation folder and TTL folder disagree gets
+    *both* rescaled by whichever was read last, silently moving every message —
+    and every TTL edge — by a factor of the sample rate.  Deciding per stream,
+    from the file actually present in that folder, is why this exists (D-085).
+
+    Times are on the recording's own acquisition clock, exactly like the samples.
+    """
+    found: list[Message] = []
+    for entry in _declared_entries(recording, "events"):
+        if len(found) >= MAX_MESSAGES:
+            break
+        folder = str(entry["folder_name"]).rstrip("/")
+        directory = recording / "events" / folder
+        text = _load_array(directory / _TEXT_NAME)
+        times = _load_array(directory / _TIMESTAMPS_NAME)
+        # Only a stream carrying prose is a message stream.  A TTL folder has
+        # states and channels, which are already a plotted square wave.
+        if text is None or times is None or len(text) == 0 or len(text) != len(times):
+            continue
+        seconds = _event_seconds(times, directory, entry)
+        channel = str(entry.get("channel_name") or folder)
+        for time, value in zip(seconds[:MAX_MESSAGES], text[:MAX_MESSAGES], strict=False):
+            body = clean(_decode(value))
+            if body:
+                found.append(Message(text=body, time=float(time), channel=channel))
+    return found
+
+
+def _event_seconds(times: Any, directory: Path, entry: dict[str, Any]) -> Any:
+    """Return *times* in seconds on the acquisition clock.
+
+    Decided per stream, from the file present in *this* folder — see
+    :func:`read_messages` for why that is deliberately not neo's answer.
+    """
+    values = np.asarray(times, dtype=np.float64)
+    if (directory / _SAMPLE_NUMBERS_NAME).is_file():
+        return values
+    try:
+        rate = float(entry.get("sample_rate") or 0.0)
+    except (TypeError, ValueError):
+        rate = 0.0
+    if rate <= 0.0:
+        logger.info(
+            "Open Ephys event stream %s declares no usable sample rate; "
+            "reading its timestamps as seconds.",
+            directory.name,
+        )
+        return values
+    return values / rate
+
+
+def _decode(value: Any) -> str:
+    """Return one label as text, whichever way the file spelled it."""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)

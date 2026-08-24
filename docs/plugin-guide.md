@@ -85,6 +85,16 @@ detects from pairwise rigidity, D-082). Set a
 `SessionItem.loader` of `None` to let capability resolution pick one, which is
 what you should do for ordinary video.
 
+**If your scan leaves something out, say so in `warnings`.** A folder holding one
+unreadable recording beside three good ones should still yield the three — do not
+fail the whole scan — but returning fewer items and nothing else leaves a session
+that looks complete while missing data. Each string is shown to the user; the log
+is not (D-085).
+
+```python
+return SessionLayout(items=items, warnings=[f"{name} could not be read — {why}"])
+```
+
 `config` reaches the loader as its import config. Two keys are interpreted by
 the application: `role` routes a source away from the plot rows — `"pose3d"` to
 the 3D view, `"overlay2d"` (with `overlay_video`) to that camera's overlay —

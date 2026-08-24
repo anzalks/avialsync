@@ -37,6 +37,7 @@ from avialsync.core.source import SessionItem, SessionLayout, SessionSource
 from avialsync.loaders.neo_loader import NeoLoader
 from avialsync.loaders.open_ephys_format import (
     anchor_epoch,
+    event_stream_defects,
     find_recordings,
     parse_software_epoch,
     recording_utc_offset,
@@ -99,7 +100,17 @@ class OpenEphysSessionSource(SessionSource):
         clock = _RecordingClock.probe(primary)
 
         items: list[SessionItem] = []
+        warnings: list[str] = []
         for recording in recordings:
+            defects = event_stream_defects(recording)
+            if defects:
+                # neo raises on these while parsing the header, so *no* stream of
+                # this recording can be enumerated and it would otherwise drop
+                # out of the session with only a log line to say so (D-085).
+                listed = "; ".join(str(defect) for defect in defects)
+                warnings.append(f"{recording.name} could not be read — {listed}")
+                logger.warning("Skipping unreadable Open Ephys recording %s: %s", recording, listed)
+                continue
             items.extend(_stream_items(recording))
             items.extend(_event_items(recording))
         items.extend(_camera_items(path, recordings, clock))
@@ -111,7 +122,7 @@ class OpenEphysSessionSource(SessionSource):
             clock.anchor_epoch,
             "unknown" if clock.utc_offset is None else f"{clock.utc_offset / 3600:+.2f} h",
         )
-        return SessionLayout(items=items, anchor_epoch=clock.anchor_epoch)
+        return SessionLayout(items=items, anchor_epoch=clock.anchor_epoch, warnings=warnings)
 
 
 class _RecordingClock:

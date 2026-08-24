@@ -2724,3 +2724,64 @@ No measurable cost: `test_bench_pyav_jump_to_a_new_time` and the coalescing benc
 unchanged, an integer being all that was added to a request. The golden sync tests are untouched
 and passing, as a change in seek logic requires.
 
+
+## 2026-08 · D-085 · A comment field must never cost the recording
+
+**Context:** D-078 established that a rig's prose is the least load-bearing thing a file carries —
+"losing samples fails an import, losing a comment must not." The Open Ephys path did the opposite.
+neo's `OpenEphysBinaryRawIO` validates *every* event stream while parsing the whole recording's
+header, so one malformed annotation folder raises before any continuous stream is reached.
+Reproduced against neo 0.14.5: a `text.npy` written as `"U"` instead of `"S"` raises
+`AttributeError: 'numpy.str_' object has no attribute 'decode'`, and a MessageCenter folder declared
+in `structure.oebin` with no `.npy` files raises `AssertionError: Event stream does not have
+timestamps!`.
+
+Neither is what the user saw. `neo.io.get_io` selects a reader by sniffing extensions, so a path it
+cannot parse does not fail — it comes back bound to whichever unrelated format also claims `.npy`
+or `.txt`. For an Open Ephys recording that was **ElphyIO**, and its complaint,
+`NeoReadWriteError: This IO does not support lazy reading`, named neither Open Ephys, nor
+MessageCenter, nor text.
+
+A third defect had no error at all. `_neo_streams` guards neo behind `except Exception` and returns
+`[]`, so a folder holding one bad recording beside three good ones scanned "successfully" with the
+bad one's streams simply absent — a session that looks complete while missing data.
+
+And neo decides **once per recording** whether event timestamps are seconds or sample numbers:
+`_use_direct_evt_timestamps` is a scalar assigned inside a loop over event streams, so the last one
+read wins and `_rescale_event_timestamp` then applies it to all of them. Measured: deleting
+`sample_numbers.npy` from the annotation folder moved the *TTL* channel from 5.5 s to 0.0055 s.
+
+**Decision:** four changes, one principle — a defect in prose costs the prose, and nothing else.
+
+**Open Ephys event prose is read by `open_ephys_format`, not taken from neo.** `read_messages()`
+decides the seconds-or-sample-numbers rule *per stream*, from the file present in that folder, so
+two streams may legitimately disagree. It also decodes `"U"` and `"S"` alike, which means the text
+survives a file neo cannot read at all. `NeoLoader.messages()` prefers it and falls back to neo's
+event labels for every other format; `None` from `_recording_messages()` means "not handled here",
+which is not the same answer as an empty list.
+
+**A recording is checked before neo opens it.** `event_stream_defects()` reports only what is fatal
+to the whole recording — a declared-but-absent folder, which neo warns about and skips, is
+deliberately not a defect. `NeoLoader` raises `SourceOpenError` naming the folder and the problem.
+This is the one place the generic neo adapter knows a format by name, and it is worth it: every
+other format neo reads fails on the stream that is actually broken and needs no pre-flight.
+
+**`get_io`'s probe exception is kept.** It is the true cause; the substituted reader's error is
+noise from an unrelated format. `_open_failure()` leads with the first and labels the second.
+
+**A scan that leaves something out says so.** `SessionLayout.warnings` carries it to the drop
+controller, which shows it on the transport status line. A scanner still must not fail a whole
+folder because one recording in it is unreadable — but dropping it silently is worse than either.
+
+**Consequences:** the message panel filters by hiding rows rather than rebuilding them. Rebuilding
+measured 51–87 ms per keystroke at `MAX_MESSAGES`, two to three times the 30 ms an interaction may
+hold the UI thread (AGENTS §3); hiding measures 10–13 ms. The first build after an import still
+costs ~54 ms, which is a one-off on a store change rather than per keystroke, and is left alone
+rather than paid for with a model/view rewrite of a working panel. `test_filter_narrows_the_table`
+now asserts which rows are *visible* instead of `rowCount()` — the property it exists to protect,
+and the stronger assertion of the two.
+
+**Not addressed, deliberately:** neo does not implement the legacy `.continuous` format's
+`messages.events` at all (`openephysrawio.py` filters the file out by name, and the event channel
+that would carry it is commented out upstream). Recordings in that format still show no messages.
+Reading them would mean parsing a second, older container here, and no decision above depends on it.

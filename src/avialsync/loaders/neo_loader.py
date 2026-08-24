@@ -34,7 +34,12 @@ import numpy as np
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.messages import MAX_MESSAGES, Message, clean
 from avialsync.core.source import ChannelInfo, TimeSeriesSource
-from avialsync.loaders.open_ephys_format import find_recordings, is_recording_dir
+from avialsync.loaders.open_ephys_format import (
+    event_stream_defects,
+    find_recordings,
+    is_recording_dir,
+    read_messages,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +101,27 @@ def safe_channel_name(name: str) -> str:
     return cleaned or "channel"
 
 
+def _reject_unreadable_recording(path: Path) -> None:
+    """Raise if *path* is a recording neo will fail to parse, naming why.
+
+    Only Open Ephys is checked, because it is the one format here whose reader
+    validates *every* stream while building the header: a single malformed
+    annotation folder raises before any continuous stream is reached, so the
+    cost of a bad comment field is the whole recording (D-085).  Every other
+    format fails on the stream that is actually broken and needs no pre-flight.
+    """
+    if not is_recording_dir(path):
+        return
+    defects = event_stream_defects(path)
+    if not defects:
+        return
+    listed = "; ".join(str(defect) for defect in defects)
+    raise SourceOpenError(
+        f"{path.name} declares an event stream neo cannot read, so none of the "
+        f"recording can be opened until it is corrected — {listed}."
+    )
+
+
 def _fit_length(batch: np.ndarray, expected: int) -> np.ndarray:
     """Trim or NaN-pad *batch* to *expected* samples.
 
@@ -133,6 +159,10 @@ class NeoLoader(TimeSeriesSource):
 
     def __init__(self) -> None:
         self._path: Path | None = None
+        #: The directory actually handed to neo, which is the recording rather
+        #: than the per-stream folder a session points each item at.  Messages
+        #: belong to that recording, so this is what reads them.
+        self._resolved_path: Path | None = None
         self._config: dict[str, Any] = {}
         self._schema_channels: list[ChannelInfo] = []
         self._block: neo.Block | None = None
@@ -263,26 +293,47 @@ class NeoLoader(TimeSeriesSource):
 
         configured_root = config.get("root")
         resolved_path = Path(configured_root) if configured_root else path
+        # Why the probe's exception is kept: `get_io` picks a reader by sniffing
+        # extensions, so a path it cannot parse does not fail — it comes back
+        # bound to whichever unrelated format also claims `.npy` or `.txt`, and
+        # *that* reader's complaint is what would reach the user.  The probe saw
+        # the real cause; nothing downstream will see it again (D-085).
+        probe_error: Exception | None = None
         if not configured_root:
             try:
                 neo.io.get_io(str(resolved_path))
-            except Exception:  # noqa: BLE001 - probing whether neo accepts the path as given
+            except Exception as error:  # noqa: BLE001 - probing whether neo accepts the path as given
+                probe_error = error
                 root = self._find_dataset_root(path)
                 if root:
                     resolved_path = root
+
+        # An Open Ephys recording is checked before neo sees it: neo validates
+        # every event stream while parsing the whole recording's header, so one
+        # malformed annotation folder costs the entire recording.  Naming the
+        # folder is the difference between a fixable file and a mystery.
+        _reject_unreadable_recording(resolved_path)
+        self._resolved_path = resolved_path
 
         # Lazy mode returns proxy signals whose samples stay on disk until a
         # slice is requested, so a 50 kHz multi-hour recording never has to fit
         # in RAM.  Not every neo IO implements it; fall back to an eager read and
         # let the readers slice the loaded array.
-        self._io = neo.io.get_io(str(resolved_path))
         try:
-            self._block = self._io.read_block(lazy=True)
-            self._lazy = True
-        except (TypeError, ValueError, NotImplementedError) as error:
-            logger.info("Neo IO %s has no lazy mode (%s); reading eagerly.", type(self._io), error)
-            self._block = self._io.read_block()
-            self._lazy = False
+            self._io = neo.io.get_io(str(resolved_path))
+            try:
+                self._block = self._io.read_block(lazy=True)
+                self._lazy = True
+            except (TypeError, ValueError, NotImplementedError) as error:
+                logger.info(
+                    "Neo IO %s has no lazy mode (%s); reading eagerly.", type(self._io), error
+                )
+                self._block = self._io.read_block()
+                self._lazy = False
+        except SourceOpenError:
+            raise
+        except Exception as error:  # noqa: BLE001 - neo raises anything its readers raise
+            raise SourceOpenError(self._open_failure(resolved_path, error, probe_error)) from error
 
         self._schema_channels = []
         self._channel_map = {}
@@ -300,6 +351,24 @@ class NeoLoader(TimeSeriesSource):
                 f"Neo found no importable channels in {path}"
                 + (f" for stream {config['stream_id']!r}." if "stream_id" in config else ".")
             )
+
+    @staticmethod
+    def _open_failure(path: Path, error: Exception, probe_error: Exception | None) -> str:
+        """Return an error naming what actually failed, not what neo landed on.
+
+        *probe_error* is what the format matched-and-failed on first; *error* is
+        what the reader `get_io` fell through to said afterwards.  The first is
+        almost always the true cause and the second is noise from an unrelated
+        format, so the true cause leads and the substitute is labelled as such.
+        """
+        cause = probe_error if probe_error is not None else error
+        message = f"Neo could not open {path.name}: {type(cause).__name__}: {cause}"
+        if probe_error is not None and type(error) is not type(probe_error):
+            message += (
+                f" (neo then matched the path to an unrelated reader, which reported "
+                f"{type(error).__name__}: {error})"
+            )
+        return message
 
     def _build_signal_schema(self, stream_id: str | None) -> None:
         """Describe every selected analogue channel and note whether one clock spans them."""
@@ -464,6 +533,9 @@ class NeoLoader(TimeSeriesSource):
         streams is resolved once, where it is visible, by
         :class:`~avialsync.ui.message_panel.MessageStore`.
         """
+        native = self._recording_messages()
+        if native is not None:
+            return native
         if self._block is None:
             return []
         found: list[Message] = []
@@ -473,6 +545,26 @@ class NeoLoader(TimeSeriesSource):
                     break
                 found.extend(self._channel_messages(seg_idx, ev_idx, event))
         return found
+
+    def _recording_messages(self) -> list[Message] | None:
+        """Return messages read straight from the format, or ``None`` if it has none.
+
+        Open Ephys is read directly rather than through neo's event labels
+        because neo applies one seconds-or-sample-numbers rule to every event
+        stream in the recording, set by whichever stream it happened to read
+        last.  A recording whose annotation folder and TTL folder disagree gets
+        both rescaled the same wrong way, which moves a note by a factor of the
+        sample rate without anything reporting it.  The format module decides per
+        stream, from the file present in that folder (D-085).
+
+        ``None`` means "not a format handled here, use neo's labels" — it is not
+        the same answer as an empty list, which means the recording was read and
+        carries no prose.
+        """
+        root = self._resolved_path
+        if root is None or not is_recording_dir(root):
+            return None
+        return read_messages(root)
 
     def _channel_messages(self, seg_idx: int, ev_idx: int, event: Any) -> list[Message]:
         """Return one message per text-labelled event on a single event channel."""

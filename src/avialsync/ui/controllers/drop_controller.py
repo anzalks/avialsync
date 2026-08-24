@@ -129,6 +129,16 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     # what hands the 3D view over to its own detection (D-082).
     window.tracking_3d_pane.set_skeleton(list(layout.skeleton or []))
 
+    # A scan that left something out has to say so on screen.  The log already
+    # holds the detail; what belongs here is the fact that the session in front
+    # of the user is not everything the folder contained (D-085).
+    if layout.warnings:
+        first = layout.warnings[0]
+        more = len(layout.warnings) - 1
+        window.transport.set_status(
+            first + (f" (and {more} more)" if more else ""), severity="warning"
+        )
+
 
 def on_drop_scan_finished(
     window: MainWindow,

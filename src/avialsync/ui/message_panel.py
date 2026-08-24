@@ -149,6 +149,7 @@ class MessagePanel(QGroupBox):
         self._store.changed.connect(self._refresh)
         self._filter = ""
         self._rows: list[MappedMessage] = []
+        self._untimed: list[MappedMessage] = []
         self._time_mode = TimeDisplayMode.RELATIVE
         self._t_epoch = 0.0
 
@@ -202,7 +203,7 @@ class MessagePanel(QGroupBox):
 
     def _on_filter_changed(self, text: str) -> None:
         self._filter = text.strip().casefold()
-        self._refresh()
+        self._apply_filter()
 
     def _matches(self, message: MappedMessage) -> bool:
         if not self._filter:
@@ -211,17 +212,19 @@ class MessagePanel(QGroupBox):
         return self._filter in haystack.casefold()
 
     def _refresh(self) -> None:
+        """Rebuild every row from the store, then apply the current filter.
+
+        Called when the store changes or the time display does — the two things
+        that change what a row *says*.  Typing in the filter box changes neither:
+        it only changes which rows are worth looking at.  Rebuilding the table
+        for a keystroke measured 51–87 ms at :data:`~avialsync.core.messages.MAX_MESSAGES`,
+        two to three times the 30 ms an interaction is allowed to hold the UI
+        thread for, so filtering hides rows instead (D-085).
+        """
         messages = self._store.messages()
-        visible = [message for message in messages if self._matches(message)]
+        self._untimed = [message for message in messages if message.time is None]
+        self._rows = [message for message in messages if message.time is not None]
 
-        notes = [message for message in visible if message.time is None]
-        self._notes.setVisible(bool(notes))
-        if notes:
-            self._notes.setText(
-                "\n".join(f"{_source_name(note.source_id)}: {note.text}" for note in notes)
-            )
-
-        self._rows = [message for message in visible if message.time is not None]
         self._table.blockSignals(True)
         self._table.setRowCount(len(self._rows))
         for row, message in enumerate(self._rows):
@@ -240,13 +243,31 @@ class MessagePanel(QGroupBox):
             self._table.setItem(row, self._SOURCE_COLUMN, source_item)
             self._table.setItem(row, self._TEXT_COLUMN, text_item)
         self._table.blockSignals(False)
+        self._apply_filter()
 
-        has_any = bool(notes or self._rows)
-        self._table.setVisible(bool(self._rows))
+    def _apply_filter(self) -> None:
+        """Show the rows that match the filter, without rebuilding any of them."""
+        notes = [note for note in self._untimed if self._matches(note)]
+        self._notes.setVisible(bool(notes))
+        if notes:
+            self._notes.setText(
+                "\n".join(f"{_source_name(note.source_id)}: {note.text}" for note in notes)
+            )
+
+        self._table.blockSignals(True)
+        shown = 0
+        for row, message in enumerate(self._rows):
+            hidden = not self._matches(message)
+            self._table.setRowHidden(row, hidden)
+            shown += not hidden
+        self._table.blockSignals(False)
+
+        has_any = bool(notes or shown)
+        self._table.setVisible(bool(shown))
         self._empty.setVisible(not has_any)
         self._empty.setText(
             "No message matches this filter."
-            if messages and not has_any
+            if (self._rows or self._untimed) and not has_any
             else "No messages in the loaded sources."
         )
 

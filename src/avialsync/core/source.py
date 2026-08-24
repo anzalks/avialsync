@@ -197,6 +197,13 @@ class SessionLayout:
     #: Body-part pairs to draw as a skeleton over pose data, if any.
     skeleton: list[tuple[str, str]] | None = None
 
+    #: What the scan could not lay out, in the user's words rather than the log's.
+    #: A scanner must not fail a whole folder because one recording in it is
+    #: unreadable — the other recordings are still good — but dropping the bad
+    #: one silently is worse than either: the session then looks complete while
+    #: missing data, and nothing on screen says so (D-085).
+    warnings: list[str] = field(default_factory=list)
+
 
 class SessionSource(_Nameable, ABC):
     """Optional plugin contract for a whole recording folder.
