@@ -104,7 +104,7 @@ class LoaderRegistry:
         for plugin_dir in self._plugin_dirs:
             self._discover_directory(plugin_dir)
 
-    def _load_builtins(self, specs: tuple[tuple[str, str], ...], into: list) -> None:
+    def _load_builtins(self, specs: tuple[tuple[str, str], ...], into: list[_T]) -> None:
         """Add each built-in class in *specs*, reporting any that will not import.
 
         A built-in gets the same treatment as a third-party plugin rather than a
@@ -119,7 +119,7 @@ class LoaderRegistry:
                 logger.warning("Built-in loader %s failed to load: %s", class_name, error)
                 self.plugin_errors.append((class_name, f"{type(error).__name__}: {error}"))
 
-    def _load_entry_points(self, group: str, into: list) -> None:
+    def _load_entry_points(self, group: str, into: list[_T]) -> None:
         """Add every class published under *group*, skipping ones that fail.
 
         Deduplicates by class identity, so a built-in that is also declared as
