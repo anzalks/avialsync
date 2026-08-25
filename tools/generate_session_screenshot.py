@@ -29,6 +29,7 @@ to show the layout and small enough to arrive before the reader scrolls past it.
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 import time
 from pathlib import Path
@@ -149,6 +150,8 @@ def capture(
     duration: float,
     gif_size: tuple[int, int],
     colors: int,
+    azimuth_deg: float | None = None,
+    elevation_deg: float | None = None,
 ) -> None:
     """Open ``session_dir``, record ``frames`` of playback, and write the loop."""
     from avialsync.ui.main_window import MainWindow
@@ -158,6 +161,16 @@ def capture(
     window = MainWindow()
     window.resize(width, height)
     window.show()
+
+    # Seed the first-run pane ratio rather than inheriting a saved one.
+    #
+    # MainWindow restores splitter state from QSettings, so how much height the
+    # plots get is decided by however the app was last left on this machine —
+    # two runs of this same command produced three visible trace rows and then
+    # one. A documentation image has to be a property of the recording, not of
+    # the operator's window. Applied before loading so the relayout it causes
+    # settles during the import rather than under the capture.
+    window._apply_default_splitter_sizes()
 
     def settle(rounds: int = 60) -> None:
         """Drain the event loop without blocking it.
@@ -243,6 +256,32 @@ def capture(
     settle_for(3.0)
     wait_until_quiet()
 
+    # Frame the 3D pose the way a reader would: press Fit View.
+    #
+    # The 3D camera fits once when tracking first arrives, and its scene bounds
+    # then only ever *grow* — `set_cursor` expands them with every pose it is
+    # shown. By the time the loading above has settled, the camera is framing
+    # the union of every pose the cursor passed through, so the one pose the
+    # loop actually shows sits small and off-centre inside it, with the limbs
+    # nearest the camera collapsing onto each other. Fit View resets those
+    # bounds to the current pose, which is the picture the pane is for.
+    window.tracking_3d_pane.fit_button.click()
+
+    # Then place the camera, when the caller named an angle. The pane's default
+    # orbit shows this rig's limbs nearly end-on, so elbow, paw and toe project
+    # onto one another and their labels overlap into an unreadable clump; a
+    # front-on view separates every joint.
+    #
+    # Reaching past the public surface is deliberate and confined to this
+    # harness: orbiting is a mouse gesture, and synthesising drag events to
+    # arrive at a known angle would be less exact than naming the angle.
+    if azimuth_deg is not None:
+        window.tracking_3d_pane.canvas._azimuth = math.radians(azimuth_deg)
+    if elevation_deg is not None:
+        window.tracking_3d_pane.canvas._elevation = math.radians(elevation_deg)
+    window.tracking_3d_pane.canvas.update()
+    settle()
+
     # Do NOT resize the window here to force a relayout: a resize can land the
     # capture between a layout change and the next paint, and the screenshot
     # comes back with black video panes instead of frames.
@@ -287,6 +326,18 @@ def main() -> None:
     )
     parser.add_argument("--frames", type=int, default=12, help="number of GIF frames")
     parser.add_argument(
+        "--azimuth",
+        type=float,
+        default=None,
+        help="3D camera azimuth in degrees; omit to keep the pane's own orbit",
+    )
+    parser.add_argument(
+        "--elevation",
+        type=float,
+        default=None,
+        help="3D camera elevation in degrees; 0 puts the ground plane edge-on",
+    )
+    parser.add_argument(
         "--duration",
         type=float,
         default=1.0,
@@ -318,6 +369,8 @@ def main() -> None:
         args.duration,
         (args.gif_width, args.gif_height),
         args.colors,
+        args.azimuth,
+        args.elevation,
     )
 
 
