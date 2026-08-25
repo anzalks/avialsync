@@ -828,10 +828,29 @@ class MainWindow(QMainWindow):
 
         _wsc = Qt.ShortcutContext.WindowShortcut
 
-        def _act(text: str, category: str, handler: Callable[[], None], *keys: Any) -> QAction:
+        def _act(
+            text: str,
+            category: str,
+            handler: Callable[[], None],
+            *keys: Any,
+            repeatable: bool = False,
+        ) -> QAction:
             a = QAction(text, self)
             a.setShortcuts([QKeySequence(k) for k in keys])
             a.setShortcutContext(_wsc)
+            # Qt defaults `QAction.autoRepeat` to True, so holding a shortcut
+            # runs its handler once per OS key repeat. For a *toggle* that is a
+            # bug rather than a convenience: holding Space re-ran
+            # "Play / Pause" on every repeat, flapping playback for as long as
+            # the key was down and landing wherever the parity fell. Whether
+            # a user ever saw it depended on their keyboard repeat delay and
+            # rate, which on Windows is a per-machine Control Panel setting --
+            # hence a report of double-toggling "only on some machines".
+            #
+            # So repeat is opted into, never inherited: it stays on only where
+            # holding the key *is* the gesture (frame stepping, second jumps,
+            # plot zoom), and every toggle and one-shot action is off.
+            a.setAutoRepeat(repeatable)
             a.triggered.connect(handler)
             a.setProperty("av_category", category)
             self.addAction(a)
@@ -860,6 +879,7 @@ class MainWindow(QMainWindow):
             lambda: self.transport.frame_step_requested.emit(-1),
             Qt.Key.Key_Left,
             Qt.Key.Key_Comma,
+            repeatable=True,
         )
         _act(
             "Step forward 1 frame",
@@ -867,6 +887,7 @@ class MainWindow(QMainWindow):
             lambda: self.transport.frame_step_requested.emit(1),
             Qt.Key.Key_Right,
             Qt.Key.Key_Period,
+            repeatable=True,
         )
 
         # Jump ±1 s: emit transport signal (D-022.1 — duplicates –1s/+1s buttons)
@@ -876,12 +897,14 @@ class MainWindow(QMainWindow):
             lambda: self.transport.jump_requested.emit(-1.0),
             "Shift+Left",
             "J",
+            repeatable=True,
         )
         _act(
             "Jump forward 1 second",
             "Playback",
             lambda: self.transport.jump_requested.emit(1.0),
             "Shift+Right",
+            repeatable=True,
         )
 
         # J/K/L shuttle (D-022.4) — J already aliased above
@@ -941,8 +964,8 @@ class MainWindow(QMainWindow):
         _act("Cycle theme", "View", self._cycle_theme, "Ctrl+T")
 
         # Plot zoom in/out (D-022)
-        _act("Plot zoom in", "View", self.plot_pane.zoom_in, "+")
-        _act("Plot zoom out", "View", self.plot_pane.zoom_out, "-")
+        _act("Plot zoom in", "View", self.plot_pane.zoom_in, "+", repeatable=True)
+        _act("Plot zoom out", "View", self.plot_pane.zoom_out, "-", repeatable=True)
 
         # "?" as alias for F1 shortcuts dialog (StandardKey.HelpContents already on menu action)
         _act(
@@ -1154,6 +1177,10 @@ class MainWindow(QMainWindow):
         def _reg(act: QAction, category: str) -> QAction:
             """Tag an action with its shortcuts-dialog category."""
             act.setProperty("av_category", category)
+            # No menu action is a hold-to-repeat gesture -- opening a file
+            # dialog or cycling the theme once per key repeat is never what was
+            # meant. See `_act` for why Qt's default is the wrong one here.
+            act.setAutoRepeat(False)
             if act.shortcuts():
                 self._all_actions.append(act)
             return act

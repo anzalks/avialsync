@@ -13,8 +13,8 @@ shortcut added later, is covered without anyone remembering to extend this file.
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QValidator
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QKeyEvent, QValidator
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QWidget
 
@@ -187,3 +187,73 @@ def test_the_timecode_field_refuses_a_letter_that_is_a_shortcut(window: MainWind
     for letter in ("j", "k", "l"):
         state, _, _ = validator.validate(f"00:00:0{letter}", 8)
         assert state == QValidator.State.Invalid
+
+
+# -- A held key must not repeat an action that toggles -----------------
+
+
+#: The only actions where holding the key down *is* the gesture. Everything
+#: else must fire once per press, however long the key is held.
+HOLD_TO_SCAN = frozenset(
+    {
+        "Step back 1 frame",
+        "Step forward 1 frame",
+        "Jump back 1 second",
+        "Jump forward 1 second",
+        "Plot zoom in",
+        "Plot zoom out",
+    }
+)
+
+
+def _hold(window: MainWindow, key: Qt.Key, repeats: int = 5) -> None:
+    """Press *key* and let it auto-repeat *repeats* times, as holding it would.
+
+    ``QTest.keyClick`` cannot express this: it offers no way to set the
+    autorepeat flag, so every event it synthesises reads as a fresh press and
+    the bug is invisible to it. The events are therefore built directly --
+    ``QKeyEvent``'s ``autorep`` argument is the entire subject of the test --
+    and delivered the way Qt delivers a real key, the ``ShortcutOverride``
+    offer first and then the press.
+    """
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    for index in range(repeats + 1):
+        for event_type in (QEvent.Type.ShortcutOverride, QEvent.Type.KeyPress):
+            event = QKeyEvent(event_type, key, Qt.KeyboardModifier.NoModifier, " ", index > 0, 1)
+            QApplication.sendEvent(app.focusWidget() or window, event)
+        app.processEvents()
+
+
+def test_holding_space_toggles_playback_exactly_once(window: MainWindow) -> None:
+    """Holding Space must not flap play/pause for as long as the key is down.
+
+    ``QAction.autoRepeat`` defaults to True, so each OS key repeat re-ran the
+    "Play / Pause" handler -- which *toggles* -- tens of times a second, and
+    playback ended up started or stopped according to where the parity fell.
+    It read as machine-specific because the Windows keyboard repeat delay and
+    rate are per-machine settings, so whether a normal press produced a second
+    trigger at all varied by machine.
+
+    The cause is the action, not the event filter: ``_reserve_playhead_key``
+    decides *who* receives the key, and a bare window with no focus widget and
+    no filter at all repeated identically.
+    """
+    toggles: list[bool] = []
+    window.transport.play_toggled.connect(toggles.append)
+
+    _hold(window, Qt.Key.Key_Space, repeats=5)
+
+    assert toggles == [True], f"one held press produced {len(toggles)} toggles: {toggles}"
+
+
+def test_no_action_inherits_qts_autorepeat_default(window: MainWindow) -> None:
+    """Qt's ``autoRepeat = True`` must never be picked up by accident.
+
+    Checked over every registered action rather than the handful that were
+    wrong, so a binding added later is covered without this file being touched.
+    A new hold-to-scan action is a deliberate edit to ``HOLD_TO_SCAN``.
+    """
+    repeating = {action.text() for action in window._all_actions if action.autoRepeat()}
+
+    assert repeating == set(HOLD_TO_SCAN)
