@@ -1,29 +1,29 @@
 # Graph Report - avialview  (2026-08-25)
 
 ## Corpus Check
-- 247 files · ~390,526 words
+- 262 files · ~413,291 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 6047 nodes · 11256 edges · 285 communities (259 shown, 26 thin omitted)
-- Extraction: 91% EXTRACTED · 9% INFERRED · 0% AMBIGUOUS · INFERRED: 994 edges (avg confidence: 0.6)
+- 6133 nodes · 11567 edges · 276 communities (261 shown, 15 thin omitted)
+- Extraction: 91% EXTRACTED · 9% INFERRED · 0% AMBIGUOUS · INFERRED: 1015 edges (avg confidence: 0.59)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a0956476`
+- Built from commit: `a52e1041`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - MainWindow
 - test_loaders_open_ephys.py
-- SourceOpenError
+- AOLEncoderLoader
 - .can_open
 - test_video_pane_timing.py
 - VideoPane
-- test_aol_loaders.py
+- main_window.py
 - PyramidReader
-- neo_loader.py
+- open_ephys_format.py
 - DECISIONS.md — lightweight ADR log
 - aol_session_loader.py
 - sync.py
@@ -31,7 +31,7 @@
 - test_core_coverage_edges.py
 - test_playback_smoothness.py
 - test_pane_proportions.py
-- main_window.py
+- TimeSeriesSource
 - infer_skeleton
 - Known Traps
 - plot_pane.py
@@ -46,7 +46,7 @@
 - MappedChannelReader
 - generate_guide_screenshots.py
 - SweepWindowControl
-- SessionState
+- .load
 - Message
 - PyramidBuilder
 - LoaderRegistry
@@ -54,37 +54,37 @@
 - AvialSync — Project Blueprint (v1)
 - MasterClock
 - test_aol_chunk_boundaries.py
-- test_pyav_reader.py
+- decode_frame_strip
 - test_session_worker.py
-- Path
+- test_pyav_reader.py
 - test_scrubbing.py
-- main_window
-- ._finalize_bulk_channels
+- test_loaders_open_ephys_legacy.py
+- ._build_channel_by_channel
 - TimeMap
-- sync_worker.py
-- Path
+- SyncWizard
+- test_worker_lifetime.py
 - PlotPane
 - format_time
-- write_export
+- AnnotationStore
 - Path
 - ._on_evidence_changed
 - PyAVReader
 - test_seek_backends.py
 - test_theme_colors.py
-- TestReading
+- AOLVideoExtractionLoader
 - CSVLoader
-- Path
+- .close
 - ChannelKey
 - test_workload_responsiveness.py
 - pyramid.py
 - import_controller.py
 - test_ci_platform_config.py
-- AnnotationExportWorker
+- ReaderReference
 - write_recording
 - DummyVideoLoader
 - SourceInspection
 - test_ui_plot_row_geometry.py
-- test_typed_source_errors.py
+- neo_loader.py
 - test_ui_sensor_mapping.py
 - Player
 - PaintCanvas
@@ -93,33 +93,33 @@
 - PlotInteractionController
 - video_pane.py
 - export_worker.py
-- PointColorRegistry
+- color_for_point
 - PlotHeader
 - demo.py
 - prepare_release.py
 - Tracking3DCanvas
 - test_ui_follow.py
 - VideoMetadata
-- _BulkLoader
+- test_engine_importer.py
 - test_theme_tooltips.py
 - test_subprocess_no_window.py
 - test_ui_shortcut_reach.py
-- skeleton.py
+- test_plugin_discovery.py
 - AOLEksLoader
 - make_fixtures.py
 - test_ui_layout_resize.py
-- SidebarPane
-- tracking_3d_pane.py
+- .__init__
+- .paintEvent
 - TestShowDelta
 - ImportWizard
 - _pulses
-- ._read_batches
+- evidence_color
 - Tracking3DPane
-- ._select_time_axis
+- SourceOpenError
 - build_manifest
 - test_never_freeze.py
 - test_ui_dialogs.py
-- tracking_skeleton.py
+- tracking_3d_pane.py
 - fit_exact_index_mapping
 - DropScanWorker
 - test_frame_indexed.py
@@ -133,28 +133,28 @@
 - VideoPropertiesPanel
 - AvialSync Plot UX Refinement Plan
 - test_bench_cursor_path
-- ._build_pending_rows
+- create_channel_plot
 - UiHeartbeat
 - TESTING.md
-- RelinkDialog
+- _parse_args
 - ARCHITECTURE.md
 - ToyBinarySource
-- AnnotationStore
+- annotations.py
 - AnnotationPanel
 - ui/__init__.py
 - test_close_and_focus.py
-- AOLVideoExtractionLoader
-- follow_palette
+- ._finish_loading
+- TimelineEvidence
 - test_bench_plot_pane.py
 - test_demo_data.py
 - test_transport_resize.py
-- test_engine_importer.py
+- open_ephys_legacy.py
 - job_manager.py
-- ._relayout
+- Path
 - AOLSessionSource
 - VideoGrid
-- .run
-- TrackingLoader
+- AGENTS.md — AvialSync agent instructions (canonical)
+- ChannelInfo
 - Contributor Covenant Code of Conduct
 - 2026-07 · D-020 · Inspection layer — what is surfaced where
 - Data handling
@@ -162,14 +162,14 @@
 - diagnostics.py
 - JobManager
 - ._apply_default_splitter_sizes
-- sync_wizard.py
+- generate_demo_screenshots.py
 - test_conda_recipe.py
 - TestMeasureMarkers
-- ReaderReference
+- test_aol_metric_routing.py
 - theme.py
 - ProxyWorker
 - VideoOpenWorker
-- ndarray
+- _BulkLoader
 - test_video_grid.py
 - generate_icons.py
 - test_job_thread_lifetime.py
@@ -181,48 +181,48 @@
 - TestAOLSessionDetection
 - Job
 - .eventFilter
-- TestCanOpen
-- VideoClipWorker
-- DemoWindow
+- ImportWorker
+- test_core_cache.py
+- Contributing to AvialSync
 - test_headless_core.py
 - PROMPTS.md — kickoff prompts per phase
-- OpenEphysSessionSource
-- test_axis.py
+- test_a_type_names_the_data_never_the_rig
+- SyncProposal
 - Video Extraction Toolbox — output schema for AvialSync
-- .can_open
+- aol_metric_loader.py
 - _ArrayReader
-- ._refresh_status
+- .set_inspection
 - test_prepare_release.py
 - Data Output Schema — for AvialSync integration
 - no_startup_diagnostics
 - 2026-07 · D-022 · Interaction standard — visible surface, depth in menus, shortcuts as accelerators
 - 2. Evidence-based alignment from TTL or frame triggers
-- ._channel_messages
-- load_video
+- .video_metadata
+- video_controller.py
 - _QuickWorker
-- _format_rate
+- open_ephys_session.py
 - Plugin guide
 - Troubleshooting
 - Phase Status
-- ._timezone_name
-- .read_all_chunks
-- ._warn_about_inferred_columns
-- .reset_view
+- _PaletteStyleFollower
+- MissingColumnError
+- ._apply_presentation
+- ShortcutsDialog
 - quickstart.md
 - Quickstart
 - Development and release
 - User Guide
 - Sessions, proxies, and the 3D view
 - Performance Budgets (engineering-certified where ★)
-- smoke_bundle
+- RuntimeError
 - AvialSync
-- SyncWizard
+- SyncWorker
 - ImportReportDialog
 - Architecture
 - Tutorial: inspect a first session
 - release
 - Signal Wiring Map
-- ._epoch_unit_from_format
+- default_display_name
 - test_ui_plot_sliced_refresh.py
 - CacheManager
 - Transport
@@ -233,10 +233,10 @@
 - Tutorial: flag frames and export
 - build_bundle
 - 2026-08 · D-084 · A seek is answered by its own frame, not by any frame
-- TestPluginDiscovery
-- _StubThread
+- ._on_font_size_selected
+- test_ui_source_properties.py
 - .eventFilter
-- _RecordingMessageBox
+- .resizeEvent
 - test_packaging_spec.py
 - 2026-07 · D-032 · Headless CI uses null video, decoded-frame evidence, and explicit mpv ownership — AMENDED by D-075
 - 2026-07 · D-037 · Releases require a tag reachable from main
@@ -248,12 +248,11 @@
 - pull_request_template.md
 - sign_notarize.sh
 - _demo_frame
-- .add_pane
-- _FakeFileDialog
-- main_window
+- .count
+- test_on_surface_is_the_only_thing_that_needs_the_surface
+- test_a_stylesheet_widget_re_derives_its_colour_on_a_palette_change
 - .closeEvent
 - .coverage_group_for
-- ._on_pane_double_clicked
 - .exact_time_mapping
 - 2026-07 · D-033 · Packaging inputs are explicit and CI artifact builds are a separate gate
 - 2026-07 · D-034 · Themes are palette/font appearance, never interaction redesign
@@ -262,12 +261,8 @@
 - 2026-07 · D-039 · Release bundles own the complete media runtime — AMENDED by D-075
 - 2026-07 · D-040 · Sidecar writes use bounded concurrency and failures remain observable
 - 2026-07 · D-042 · Plots use one fixed, shared oscilloscope sweep
-- .is_frame_indexed
-- .sampling_rate
-- .set_time
-- .visible_panes
 - .set_viewport
-- ._generate_proxy
+- _JobWorker
 - test_three_camera_four_stream_session_can_be_cached_and_queried
 - test_packaging_metadata.py
 - test_worker_thread_teardown.py
@@ -275,7 +270,6 @@
 - 2026-07 · D-029 · Separate GitHub workload correctness from local speed certification
 - 2026-07 · D-030 · Test-level watchdog for cross-platform Qt verification
 - 2026-07 · D-031 · Libmpv commands stay on the Qt-owning thread — SUPERSEDED by D-075
-- .wheelEvent
 - conf.py
 - commit-msg
 - post-commit
@@ -284,17 +278,14 @@
 - make_dmg.sh
 - avialsync
 - test_bench_sync.py
-- DemoProgressDialog
+- DemoLaunch
 - QLabel
-- .frame_records_at
-- .set_sync_mapping
-- .shutdown
 - 2026-08 · D-082 · A skeleton is detected from geometry when the data declares none
-- read_frame_timestamps
+- _MappingLoader
 - 2026-08 · D-083 · Video-derived data is timed from the camera start, and shares one lane
 
 ## God Nodes (most connected - your core abstractions)
-1. `MainWindow` - 372 edges
+1. `MainWindow` - 374 edges
 2. `PlotPane` - 116 edges
 3. `TimeMap` - 111 edges
 4. `PyramidReader` - 105 edges
@@ -306,69 +297,69 @@
 10. `VideoStandardLoader` - 69 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `test_manifest_finds_metric_files_regardless_of_data_root_name()` --calls--> `build_manifest()`  [INFERRED]
-  tests/test_aol_metric_routing.py → src/avialsync/loaders/aol_session_loader.py
-- `test_manifest_finds_one_export_per_camera()` --calls--> `build_manifest()`  [INFERRED]
-  tests/test_aol_video_extraction_routing.py → src/avialsync/loaders/aol_session_loader.py
 - `test_main_window_places_3d_view_beside_video_grid()` --calls--> `MainWindow`  [INFERRED]
   tests/test_ui_tracking_3d.py → src/avialsync/ui/main_window.py
 - `ToyBinarySource` --uses--> `ChannelInfo`  [INFERRED]
   examples/plugins/avialsync-plugin-example/src/avialsync_plugin_example/__init__.py → src/avialsync/core/source.py
 - `ToyBinarySource` --uses--> `TimeSeriesSource`  [INFERRED]
   examples/plugins/avialsync-plugin-example/src/avialsync_plugin_example/__init__.py → src/avialsync/core/source.py
+- `TestPyramidLevels` --uses--> `CacheManager`  [INFERRED]
+  tests/test_core_remaining_paths.py → src/avialsync/core/cache.py
+- `test_hiding_channels_does_not_block()` --calls--> `ChannelKey`  [INFERRED]
+  tests/test_workload_responsiveness.py → src/avialsync/core/channel_reader.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (285 total, 26 thin omitted)
+## Communities (276 total, 15 thin omitted)
 
 ### Community 0 - "MainWindow"
-Cohesion: 0.02
-Nodes (43): QMainWindow, drag_enter(), on_drop_scan_error(), QDragEnterEvent, build_next_video_pane(), on_video_opened(), on_video_pane_ready(), on_video_thread_finished() (+35 more)
+Cohesion: 0.03
+Nodes (14): QMainWindow, on_drop_scan_error(), MainWindow, Slot, Detach from the application before this window is destroyed. A filter installed…, Toggle fullscreen for the first (or only) pane (D-022)., Clamp and seek relative to the current playhead (D-022)., Route a plot-row close through the owning source's visibility checkbox. (+6 more)
 
 ### Community 1 - "test_loaders_open_ephys.py"
 Cohesion: 0.05
-Nodes (78): _drop(), _layout(), _messages_dir(), datetime, Path, Tests for the Open Ephys session plugin and the neo ingest path behind it.…, The error a user sees must name the file they have to go and fix. neo decodes…, neo asserts on this one, which is not an error a user can act on. (+70 more)
+Nodes (79): _drop(), _layout(), _messages_dir(), datetime, Path, Tests for the Open Ephys session plugin and the neo ingest path behind it.…, The error a user sees must name the file they have to go and fix. neo decodes…, neo asserts on this one, which is not an error a user can act on. (+71 more)
 
-### Community 2 - "SourceOpenError"
-Cohesion: 0.04
-Nodes (63): AvialSyncError, CodecUnsupportedError, FileUnreadableError, MissingColumnError, NonMonotonicTimeError, Any, Exception, AvialSync exception hierarchy. (+55 more)
+### Community 2 - "AOLEncoderLoader"
+Cohesion: 0.09
+Nodes (16): AOLEncoderLoader, Any, ndarray, Path, Return a single velocity channel. ``rate_hz`` stays ``None``: the logger writes…, Convert HH:MM:SS:mmm to seconds since midnight., Yield bounded (time, value) chunks for the requested channel. Chunk boundaries…, Validate and de-duplicate one chunk, retaining its final sample. The retained… (+8 more)
 
 ### Community 3 - ".can_open"
-Cohesion: 0.12
-Nodes (22): Return 1.0 for whitelisted ephys formats; 0.0 for everything else. Directories…, Path, Tests for the NeoLoader ephys data plugin., NeoLoader must never claim .csv files., NeoLoader must return 0.0 for plain text files., NeoLoader must return 0.0 for files with a non-whitelisted extension., Directory containing structure.oebin is recognised as OpenEphys dataset., Directory with no ephys signatures should score 0.0. (+14 more)
+Cohesion: 0.09
+Nodes (27): Path, Find the dataset root neo should be pointed at, or ``None``. Open Ephys…, Return whether *path* is a dataset rather than a session containing one. A…, Return 1.0 for whitelisted ephys formats; 0.0 for everything else. Directories…, Path, Tests for the NeoLoader ephys data plugin., NeoLoader must never claim .csv files., NeoLoader must return 0.0 for plain text files. (+19 more)
 
 ### Community 4 - "test_video_pane_timing.py"
-Cohesion: 0.13
-Nodes (21): OverlayTrack, One prediction source drawn over a camera's video. ``points`` maps a body-part…, Draw one or more named prediction sources over this camera., _draw_and_capture_text(), _FixedReader, _one_track(), QApplication, Timestamp-derived video readout tests. (+13 more)
+Cohesion: 0.12
+Nodes (22): OverlayTrack, One prediction source drawn over a camera's video. ``points`` maps a body-part…, Draw one or more named prediction sources over this camera., _draw_and_capture_text(), _FixedReader, _one_track(), QApplication, Timestamp-derived video readout tests. (+14 more)
 
 ### Community 5 - "VideoPane"
 Cohesion: 0.04
-Nodes (39): DecodeWorker, ndarray, QCloseEvent, QObject, QPaintEvent, QWidget, setter, Slot (+31 more)
+Nodes (40): DecodeWorker, ndarray, QCloseEvent, QObject, QPaintEvent, QWidget, setter, Slot (+32 more)
 
-### Community 6 - "test_aol_loaders.py"
-Cohesion: 0.16
-Nodes (14): fixture, Tests for AOL loaders (encoder log, EKS 3D tracking, session detection)., Create a minimal encoder_log.txt fixture., Create a minimal EKS CSV fixture with x/y/z columns and fnum., Create an EKS CSV without a fnum column., A session emits four "_eks.csv" files that go to three different places. One is…, Create a minimal AOL session folder structure., `config` is hashed into the sidecar cache key; a display string must not be. (+6 more)
+### Community 6 - "main_window.py"
+Cohesion: 0.07
+Nodes (29): _quit_legacy_jobs(), Main window for AvialSync., Ask the pre-JobManager registries to stop, without blocking on them. These…, _display_names(), MappedMessage, _path_tail(), Recorded messages: the store that maps them, and the panel that lists them. A…, Adopt the window's time display mode, like every other timed widget. (+21 more)
 
 ### Community 7 - "PyramidReader"
 Cohesion: 0.06
-Nodes (41): PyramidReader, Reads pyramid queries dynamically from mmapped arrays., Return this channel's ``(t_first, t_last)`` extent, or None when empty., Return the number of stored full-resolution samples., Return the ``(index, value)`` of the last sample at or before *t_target*.…, Return ``(t, v, gap)`` mmap views bounded to ``[t0, t1]``. Slicing an mmap…, Yield chronological ``(t, v)`` views of at most *chunk_size* samples. This is…, Return the level-1 ``(t, v, gap)`` mmap views without copying. Reserved for… (+33 more)
+Nodes (40): PyramidReader, Reads pyramid queries dynamically from mmapped arrays., channel(), fixture, Edge behaviour of the pyramid reader and the loader registry. Both sit on paths…, A one-second channel sampled at 100 Hz, with a gap in the middle., `value_at` answers for any time; outside coverage the answer is NaN., Nearest-sample, not interpolation: the readout must not invent data. (+32 more)
 
-### Community 8 - "neo_loader.py"
-Cohesion: 0.05
-Nodes (68): clean(), Return *text* as a single-line, length-bounded message body. Embedded newlines…, Neo-based electrophysiology loader — the single ingest path for ephys data.…, Raise if *path* is a recording neo will fail to parse, naming why. Only Open…, Return messages read straight from the format, or ``None`` if it has none. Open…, _reject_unreadable_recording(), anchor_epoch(), _declared_entries() (+60 more)
+### Community 8 - "open_ephys_format.py"
+Cohesion: 0.10
+Nodes (36): Raise if *path* is a recording neo will fail to parse, naming why. Only Open…, _reject_unreadable_recording(), _declared_entries(), _decode(), _event_seconds(), event_stream_defects(), EventStreamDefect, find_record_dir() (+28 more)
 
 ### Community 9 - "DECISIONS.md — lightweight ADR log"
 Cohesion: 0.03
 Nodes (66): 2026-07 · D-001 · Master time = float64 seconds, UTC epoch, 2026-07 · D-002 · Video playback = libmpv only — SUPERSEDED by D-075, 2026-07 · D-003 · License Apache-2.0; no GPL deps — SUPERSEDED by D-069, 2026-07 · D-004 · Sidecar cache format, 2026-07 · D-005 · Chunked ingest is the only ingest path, 2026-07 · D-006 · VideoSource conversion hook is first-class, 2026-07 · D-007 · Frame stepping uses actual frame timestamps, 2026-07 · D-008 · Cache key gets content-hash tail (+58 more)
 
 ### Community 10 - "aol_session_loader.py"
-Cohesion: 0.08
-Nodes (49): One file a session contributes, with the loader and config it needs. ``loader``…, SessionItem, _add_root_videos(), _anchor_epoch(), AOLManifest, _append_config_entry(), _camera_label_from_labeled(), _collect_2d_tracks() (+41 more)
+Cohesion: 0.06
+Nodes (63): One file a session contributes, with the loader and config it needs. ``loader``…, What a recording folder contains, plus the settings that span it. Session-wide…, Optional plugin contract for a whole recording folder. Additive to API v1 and…, Return the session's contents and the settings that span them. ``registry``…, SessionItem, SessionLayout, SessionSource, _add_root_videos() (+55 more)
 
 ### Community 11 - "sync.py"
-Cohesion: 0.09
-Nodes (33): Raised when synchronization evidence is malformed or insufficient., Raised when event evidence supports multiple equally valid alignments., SyncAmbiguityError, SyncEvidenceError, _candidate_indices(), _default_tolerance(), _evidence_indices(), _fit_affine() (+25 more)
+Cohesion: 0.10
+Nodes (29): Raised when synchronization evidence is malformed or insufficient., Raised when event evidence supports multiple equally valid alignments., SyncAmbiguityError, SyncEvidenceError, _candidate_indices(), _default_tolerance(), _evidence_indices(), _fit_affine() (+21 more)
 
 ### Community 12 - "TimelineOverview"
 Cohesion: 0.05
@@ -386,57 +377,57 @@ Nodes (48): SimpleNamespace, DecodingPane, _osd_pane(), _OsdPane, QApplication, 
 Cohesion: 0.06
 Nodes (48): distribute(), _pane_minimums(), PaneProportions, QObject, QSplitter, Hold each pane's share of the workspace steady while the window is resized.…, Manage *splitters*, adopting each one's ratio the first time it lays out., Adopt *splitter*'s current pane ratio as the one to hold. A visible pane… (+40 more)
 
-### Community 16 - "main_window.py"
-Cohesion: 0.03
-Nodes (90): ABC, _Capability, Protocol, Plugin registry and discovery., What every scored plugin has in common: it can rate a path., Return all discovered source loaders., default_display_name(), _Nameable (+82 more)
+### Community 16 - "TimeSeriesSource"
+Cohesion: 0.05
+Nodes (43): ABC, _Capability, Protocol, Plugin registry and discovery., What every scored plugin has in common: it can rate a path., Return all discovered source loaders., _Nameable, Source plugin abstract base classes. (+35 more)
 
 ### Community 17 - "infer_skeleton"
-Cohesion: 0.10
-Nodes (32): frame_budget(), infer_skeleton(), Derive skeleton connectivity from how rigidly point pairs hold together. Args:…, Frames to sample for *point_count* points, bounded by the pairwise budget., _articulated_chain(), Tests for geometry-derived skeleton topology (D-082). Headless by construction:…, Two clusters with no rigid link stay two components, never a guessed bone., Anatomical names on unrelated trajectories stay unconnected (D-041). (+24 more)
+Cohesion: 0.06
+Nodes (53): _component(), _finite_height(), frame_budget(), infer_skeleton(), _pair_statistics(), ndarray, Skeleton topology derived from the geometry of 3D pose points. Point *names*…, Return (cost, variation) matrices; ``inf`` marks a pair that cannot link. (+45 more)
 
 ### Community 18 - "Known Traps"
 Cohesion: 0.04
 Nodes (55): 0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064), 0a. A `QObject` moved to a `QThread` needs an owning Python reference, 0b. Building a widget list can free the widgets in it (D-065), 0b. Do NOT add the anchor date to AOL encoder timestamps (D-045), 0c. AOL pose data must not become plot rows (D-046), 0c-bis. Overlay data reaches the grid before most panes exist (D-077), 0d. `"_eks.csv".split("_")[0]` is `""` — and `"" in name` matches everything, 0e. A container's declared frame rate is a claim, not evidence (D-072) (+47 more)
 
 ### Community 19 - "plot_pane.py"
-Cohesion: 0.06
-Nodes (46): GraphicsLayoutWidget, Compact shared controls for the time-series plot stack., Plot rendering pane using pyqtgraph and decimation pyramids., Load pyramid data for *channels* only, if a page is established., Resolve a channel reference to the rows it identifies. A :class:`ChannelKey`…, Refresh the current sweep from the decimation pyramid. ``sliced`` spreads the…, Requery one row and settle its once-only Y fit., Requery queued rows for one time slice, then yield to the event loop. The… (+38 more)
+Cohesion: 0.08
+Nodes (34): Plot rendering pane using pyqtgraph and decimation pyramids., Load pyramid data for *channels* only, if a page is established., Resolve a channel reference to the rows it identifies. A :class:`ChannelKey`…, Refresh the current sweep from the decimation pyramid. ``sliced`` spreads the…, Requery one row and settle its once-only Y fit., Requery queued rows for one time slice, then yield to the event loop. The…, Show or hide the plot row(s) identified by *channel*., Update the fixed channel gutter after import metadata is available. (+26 more)
 
 ### Community 20 - "AOLMetricLoader"
-Cohesion: 0.08
-Nodes (18): AOLMetricLoader, Extracted Metric (Optical Flow / MI). Format: single-variable `-v6` MAT file,…, Rows are frames with no stored time axis, same contract as EKS., Match the `<roi_id>__<metric>.mat` filename, then confirm the variable. The…, Return one ChannelInfo per column, at the camera's frame rate., Tests for AOLMetricLoader (extracted optical-flow/MI per-ROI MAT files).…, A version-skewed export with the wrong column count is not mislabeled., One-column motion_index export, four frames. (+10 more)
+Cohesion: 0.10
+Nodes (21): AOLMetricLoader, Extracted Metric (Optical Flow / MI). Format: single-variable `-v6` MAT file,…, Rows are frames with no stored time axis, same contract as EKS., Match the `<roi_id>__<metric>.mat` filename, then confirm the variable. The…, fixture, MonkeyPatch, ndarray, Path (+13 more)
 
 ### Community 21 - "export_controller.py"
-Cohesion: 0.06
-Nodes (44): QWidget, Grab a widget's current visual content as a QPixmap., snapshot_widget(), export_annotations(), export_data_slice(), export_snapshot(), export_snapshot_for_pane(), export_video_clip() (+36 more)
+Cohesion: 0.05
+Nodes (48): QWidget, Grab a widget's current visual content as a QPixmap., snapshot_widget(), export_annotations(), export_data_slice(), export_snapshot(), export_snapshot_for_pane(), export_video_clip() (+40 more)
 
 ### Community 22 - "VideoStandardLoader"
-Cohesion: 0.06
-Nodes (31): _holds_video_stream(), Any, ndarray, Path, Return whether *path* opens as a container carrying real video. Header read…, Loads standard videos, probing metadata and frame timing with PyAV., Read container and stream metadata with PyAV. This used to shell out to…, Adopt per-frame exposure times the acquisition system recorded, if given. A… (+23 more)
+Cohesion: 0.05
+Nodes (38): main(), main(), Any, ndarray, Path, Return per-frame exposure evidence from a ``frame_number,timestamp`` sidecar.…, Loads standard videos, probing metadata and frame timing with PyAV., Read container and stream metadata with PyAV. This used to shell out to… (+30 more)
 
 ### Community 23 - "NeoLoader"
-Cohesion: 0.06
-Nodes (34): main(), main(), _fit_length(), NeoLoader, Any, Exception, ndarray, Path (+26 more)
+Cohesion: 0.07
+Nodes (30): _fit_length(), _is_numeric_label(), NeoLoader, Any, Exception, ndarray, Return *name* reduced to characters legal in a cache filename everywhere., Return whether an event label is a logic level rather than prose.… (+22 more)
 
 ### Community 24 - "write_video"
 Cohesion: 0.08
-Nodes (36): Score this file as standard video. Two gates, deliberately in this order. A…, MonkeyPatch, Path, CFR timestamps must not receive the VFR integrity warning., Variable presentation intervals win over a container's nominal CFR declaration., A second open mmaps the validated frame index instead of rebuilding it.…, The common case must not pay a file open during loader selection., A rig that names its recordings something nobody listed must still load. This… (+28 more)
+Nodes (35): _holds_video_stream(), Return whether *path* opens as a container carrying real video. Header read…, Score this file as standard video. Two gates, deliberately in this order. A…, MonkeyPatch, Path, CFR timestamps must not receive the VFR integrity warning., Variable presentation intervals win over a container's nominal CFR declaration., A second open mmaps the validated frame index instead of rebuilding it.… (+27 more)
 
 ### Community 25 - "test_import_streaming.py"
-Cohesion: 0.08
-Nodes (39): ImportWorker, ChannelStage, Append-only on-disk staging buffer for one float64 channel. An import worker…, Number of samples appended so far., _BulkLoader, _LegacyLoader, Any, fixture (+31 more)
+Cohesion: 0.14
+Nodes (30): ChannelStage, Append-only on-disk staging buffer for one float64 channel. An import worker…, fixture, MonkeyPatch, parametrize, Path, Bounded-memory import: staging buffers instead of complete-channel…, Streaming must not change a single stored sample. (+22 more)
 
 ### Community 26 - "test_cli_demo.py"
-Cohesion: 0.06
-Nodes (46): AvialSync root module., _parse_args(), Namespace, Parse the supported AvialSync command-line arguments., Path, Tests for the installed ``avialsync demo`` command., The previous two-channel cache cannot silently downgrade the restored demo., The release smoke gate waits for this count, so it must be reachable. It was… (+38 more)
+Cohesion: 0.10
+Nodes (23): AvialSync root module., Path, Tests for the installed ``avialsync demo`` command., The previous two-channel cache cannot silently downgrade the restored demo., The release smoke gate waits for this count, so it must be reachable. It was…, First-run preparation is visible rather than appearing as a frozen window., The first run remains event-driven while FFmpeg creates every input., The installed CLI exposes a real demo subcommand. (+15 more)
 
 ### Community 27 - "test_interaction_standard.py"
-Cohesion: 0.05
-Nodes (46): QAction, QDialog, QWidget, Keyboard shortcuts reference dialog — derived from live QAction registry…, Modal dialog listing all keyboard shortcuts. Derives content entirely from live…, ShortcutsDialog, _all_shortcuts(), main_window() (+38 more)
+Cohesion: 0.06
+Nodes (40): _all_shortcuts(), main_window(), fixture, parametrize, QApplication, D-022 interaction standard tests. Verifies: - New transport buttons emit the…, The reset-zoom action in the plot context menu must be the same object as the…, Collect the NativeText of every shortcut registered on the window. (+32 more)
 
 ### Community 28 - "MappedChannelReader"
-Cohesion: 0.07
-Nodes (31): MappedChannelReader, Path, Replace the offset/drift mapping in place. Existing plot rows and readout rows…, Return this channel's master-time extent, or None when empty., A pyramid channel presented on the master clock through its ``TimeMap``., The underlying source-time reader., cache_dir(), identity() (+23 more)
+Cohesion: 0.05
+Nodes (37): MappedChannelReader, ndarray, Path, Replace the offset/drift mapping in place. Existing plot rows and readout rows…, Return this channel's master-time extent, or None when empty., Return ``(t_master, v, gap)`` for a bounded master-time range., Yield bounded ``(t_master, v)`` chunks., Decimated master-time query; the result is bounded by *max_points*. (+29 more)
 
 ### Community 29 - "generate_guide_screenshots.py"
 Cohesion: 0.20
@@ -444,31 +435,31 @@ Nodes (16): _capture_all(), generate(), _load_session(), Path, QApplication, Cap
 
 ### Community 30 - "SweepWindowControl"
 Cohesion: 0.08
-Nodes (17): QWidget, Return the shared sweep duration in seconds., Return the absolute master time at the current sweep's left edge., Return the latest master-clock value supplied by the player., Set master bounds and anchor all future sweeps to their start., Set and emit a duration clamped to the current master bounds., Expand the sweep to the complete master timeline., Move the continuous slider one small step inward. (+9 more)
+Nodes (18): QSlider, QWidget, Return the shared sweep duration in seconds., Return the absolute master time at the current sweep's left edge., Return the latest master-clock value supplied by the player., Set master bounds and anchor all future sweeps to their start., Set and emit a duration clamped to the current master bounds., Expand the sweep to the complete master timeline. (+10 more)
 
-### Community 31 - "SessionState"
-Cohesion: 0.05
-Nodes (54): MarkerEntry, Any, Path, Session state and JSON serialization for .avv files., Deserialise from a parsed JSON dict (accepts v1 through v6)., Write session JSON and large exact mappings atomically. Small mappings remain…, Persisted state for one loaded video., Read a .avv session file and validate any exact-map sidecars. (+46 more)
+### Community 31 - ".load"
+Cohesion: 0.07
+Nodes (37): MarkerEntry, Any, Path, Session state and JSON serialization for .avv files., Deserialise from a parsed JSON dict (accepts v1 through v6)., Write session JSON and large exact mappings atomically. Small mappings remain…, Persisted state for one loaded video., Read a .avv session file and validate any exact-map sidecars. (+29 more)
 
 ### Community 32 - "Message"
 Cohesion: 0.07
-Nodes (43): Headless dataclasses for import statistics and source integrity (D-020). No…, bounded(), Message, Any, Free-text records the acquisition system stored alongside the data.…, One free-text record read from a source file. ``time`` is in the *source's* own…, Return *messages* sorted with untimed records first, capped at the limit.…, Return free-text records this file stores, or an empty list. Additive default,… (+35 more)
+Nodes (49): QTableWidget, Headless dataclasses for import statistics and source integrity (D-020). No…, bounded(), Message, Any, Free-text records the acquisition system stored alongside the data.…, One free-text record read from a source file. ``time`` is in the *source's* own…, Return *messages* sorted with untimed records first, capped at the limit.… (+41 more)
 
 ### Community 33 - "PyramidBuilder"
 Cohesion: 0.09
-Nodes (23): PyramidBuilder, Builds and serializes a multi-level pyramid to disk., MonkeyPatch, Path, A valid short raw gap cannot disappear merely because the view is coarse., A background sidecar failure must fail the import, never look successful., A transient macOS EINTR takes the robust fallback without hiding data., A plot must get roughly one column per pixel, not one per fifteen. Stored… (+15 more)
+Nodes (24): PyramidBuilder, Builds and serializes a multi-level pyramid to disk., MonkeyPatch, Path, A valid short raw gap cannot disappear merely because the view is coarse., A background sidecar failure must fail the import, never look successful., A transient macOS EINTR takes the robust fallback without hiding data., A plot must get roughly one column per pixel, not one per fifteen. Stored… (+16 more)
 
 ### Community 34 - "LoaderRegistry"
-Cohesion: 0.06
-Nodes (45): LoaderRegistry, ModuleType, Path, Add each built-in class in *specs*, reporting any that will not import. A…, Add every class published under *group*, skipping ones that fail. Deduplicates…, Load source classes exported by loose ``*.py`` plugin modules., Import one loose plugin module without adding its directory to ``sys.path``.…, Return the candidate scoring highest above zero on *path*. ``can_open`` is… (+37 more)
+Cohesion: 0.07
+Nodes (26): LoaderRegistry, ModuleType, Path, Add each built-in class in *specs*, reporting any that will not import. A…, Add every class published under *group*, skipping ones that fail. Deduplicates…, Load source classes exported by loose ``*.py`` plugin modules., Import one loose plugin module without adding its directory to ``sys.path``.…, Return the candidate scoring highest above zero on *path*. ``can_open`` is… (+18 more)
 
 ### Community 35 - "test_video_pane.py"
 Cohesion: 0.09
 Nodes (37): clip(), _opened_pane(), fixture, Path, QApplication, TempPathFactory, Video-pane construction, decoding, and teardown tests. Everything here used to…, End-to-end, through the real thread: the pixels must name the frame. (+29 more)
 
 ### Community 36 - "AvialSync — Project Blueprint (v1)"
-Cohesion: 0.05
-Nodes (36): AGENTS.md — AvialSync agent instructions (canonical), Architecture rules (violations = rejected PR), Coding standards, Definition of Done (every task), How to run things, Known traps (learned the hard way — do not rediscover), Naming & casing — BINDING (never invent variants), Task protocol for agents (+28 more)
+Cohesion: 0.12
+Nodes (16): AvialSync — Project Blueprint (v1), Full performance and accurate-streaming audit (2026-07-29; implementation closed 2026-07-30), Measured scrub baseline (2026-08-07, D-075), Non-negotiable design principles (every phase, every agent, every PR), P4.6 — Plot review and sweep UX refinement (core implementation complete; certification pending), P5.4 — Evidence-based synchronization (TTL/events), Performance budgets (engineering-certified where marked ★), Phase 0 — Foundation (Week 0–1) (+8 more)
 
 ### Community 37 - "MasterClock"
 Cohesion: 0.06
@@ -478,53 +469,53 @@ Nodes (32): given, MasterClock, PlaybackState, Master timeline and synchronizati
 Cohesion: 0.16
 Nodes (23): _collect(), fixture, ndarray, Path, AOL loaders honour the frozen ingest contract across batch boundaries (V-15,…, A 15-channel file must not read 45 columns to answer for one., Projection is an optimisation; it must not change a single sample., Shrink the batch size so a boundary is reachable in a small fixture. (+15 more)
 
-### Community 39 - "test_pyav_reader.py"
-Cohesion: 0.07
-Nodes (48): FixtureRequest, adjacent_frame_time(), frame_index_at(), ndarray, Frame selection from presentation timestamps — the single authority. The frame…, Return the index of the presentation frame active at ``source_time``. Args:…, Return the neighbouring real presentation timestamp. Anchored on the frame…, Headless exact-frame video reading on PyAV. This is the decoder the application… (+40 more)
+### Community 39 - "decode_frame_strip"
+Cohesion: 0.08
+Nodes (38): FixtureRequest, adjacent_frame_time(), frame_index_at(), ndarray, Frame selection from presentation timestamps — the single authority. The frame…, Return the index of the presentation frame active at ``source_time``. Args:…, Return the neighbouring real presentation timestamp. Anchored on the frame…, Headless exact-frame video reading on PyAV. This is the decoder the application… (+30 more)
 
 ### Community 40 - "test_session_worker.py"
-Cohesion: 0.12
-Nodes (28): Path, QObject, Slot, Background workers for session persistence. Architecture rule 3: the UI thread…, Serialize and write .avv + sidecars off the UI thread., Read and parse .avv + sidecars off the UI thread. Only parsing moves here.…, SessionLoadWorker, SessionSaveWorker (+20 more)
-
-### Community 41 - "Path"
 Cohesion: 0.11
-Nodes (19): MonkeyPatch, Path, The cache is a window on where the user just was, bounded by frames., Two float probes in one interval must be one entry, never two., Naming a frame and finding it again must be the same operation., A bad file is a source error the UI can phrase, not a stray FFmpeg one., ``engine/pyav_reader.py`` must stay headless and worker-thread safe., Guard the guard: without B-frames the display-order sort proves nothing. (+11 more)
+Nodes (30): AnnotationExportWorker, Export annotation markers to CSV off the UI thread., Path, QObject, Slot, Background workers for session persistence. Architecture rule 3: the UI thread…, Serialize and write .avv + sidecars off the UI thread., Read and parse .avv + sidecars off the UI thread. Only parsing moves here.… (+22 more)
+
+### Community 41 - "test_pyav_reader.py"
+Cohesion: 0.10
+Nodes (27): long_gop_video(), fixture, MonkeyPatch, Path, TempPathFactory, Unit tests for the PyAV exact-frame reader. Frame *identity* is proven in…, The cache is a window on where the user just was, bounded by frames., Two float probes in one interval must be one entry, never two. (+19 more)
 
 ### Community 42 - "test_scrubbing.py"
 Cohesion: 0.05
 Nodes (36): player_with_mocks(), fixture, Tests for live scrubbing coalescing behaviour in Player., Return a Player wired to mock collaborators (no Qt event loop needed)., _on_tick dispatches the pending scrub target once seeker settles., _on_tick does NOT flush while seeker is still busy., A stalled decoder may drop frames but cannot stop plots or 3D., Exact seek on release clears any pending coalesced target. (+28 more)
 
-### Community 43 - "main_window"
-Cohesion: 0.67
-Nodes (3): main_window(), fixture, QApplication
+### Community 43 - "test_loaders_open_ephys_legacy.py"
+Cohesion: 0.11
+Nodes (29): Path, Tests for the Open Ephys original-format message reader (D-085). neo reads…, Still something somebody wrote; the file just did not time it., Losing a comment must never fail an import (D-078)., neo's ``_segment_t_start`` is ``timestamp0 / rate``, with no subtraction.…, The plot/prose test must agree with itself on every numeric spelling.…, ``messages()`` must pick the reader by what the folder actually is. Driven…, ``None`` from the format readers means "use neo's event labels". (+21 more)
 
-### Community 44 - "._finalize_bulk_channels"
-Cohesion: 0.22
-Nodes (8): count_nan(), Count NaNs in a possibly mmap-backed array without a full-size temporary., _gap_locations(), Materialise staged samples into the sidecar; scopes every mmap locally., Build legacy plugin channels while keeping compatibility with v1 loaders. Each…, Give *target* the same bytes as *source*, without a second copy if possible.…, Return up to :data:`MAX_GAP_LOCATIONS` gap timestamps as bounded evidence., _share_file()
+### Community 44 - "._build_channel_by_channel"
+Cohesion: 0.14
+Nodes (15): count_nan(), Count NaNs in a possibly mmap-backed array without a full-size temporary., _gap_locations(), Any, ndarray, Path, Build aligned channels from one loader pass, retaining shared timestamps once.…, Materialise staged samples into the sidecar; scopes every mmap locally. (+7 more)
 
 ### Community 45 - "TimeMap"
 Cohesion: 0.05
-Nodes (23): The source-to-master mapping applied by every method here., Return the equivalent master-to-target mapping., ndarray, setter, Maps master timeline to a specific source timeline. t_source = t_master +…, Return the source-time rate relative to master time., Return whether accepted per-frame evidence owns this mapping., Return the local source/master rate around ``t_master``. Exact frame-trigger… (+15 more)
+Nodes (22): The source-to-master mapping applied by every method here., ndarray, setter, Maps master timeline to a specific source timeline. t_source = t_master +…, Return the source-time rate relative to master time., Return the local source/master rate around ``t_master``. Exact frame-trigger…, Snap to the nearest accepted frame-trigger timestamp, if available., Return whether exact evidence covers ``t_master``. Affine mappings are… (+14 more)
 
-### Community 46 - "sync_worker.py"
-Cohesion: 0.11
-Nodes (15): EventEvidenceSpec, Background TTL/event evidence extraction and alignment fitting., A cached signal channel from which TTL transitions are extracted., Native timestamp evidence, such as camera-frame trigger timestamps., SignalEvidenceSpec, Open evidence-based TTL/frame-event alignment for loaded sources., Path, Tests for background synchronization evidence extraction. (+7 more)
+### Community 46 - "SyncWizard"
+Cohesion: 0.09
+Nodes (21): EventEvidenceSpec, Background TTL/event evidence extraction and alignment fitting., A cached signal channel from which TTL transitions are extracted., Native timestamp evidence, such as camera-frame trigger timestamps., SignalEvidenceSpec, Open evidence-based TTL/frame-event alignment for loaded sources., QDialog, Slot (+13 more)
 
-### Community 47 - "Path"
-Cohesion: 0.15
-Nodes (17): MonkeyPatch, Path, QDropEvent, _start_session_save must actually run its worker and produce a file., A save must not permanently latch _save_in_progress and block later saves., An export must run its worker and tell the user it finished. Coverage for the…, Result signals must be wired before the worker can emit, not after.…, Deliver a real Qt drag-enter + drop of *path* onto *target*. (+9 more)
+### Community 47 - "test_worker_lifetime.py"
+Cohesion: 0.07
+Nodes (28): Behaviour extracted from :class:`~avialsync.ui.main_window.MainWindow`. Each…, _FakeFileDialog, main_window(), fixture, MonkeyPatch, Path, QApplication, QDropEvent (+20 more)
 
 ### Community 48 - "PlotPane"
 Cohesion: 0.03
-Nodes (47): PlotPane, InfiniteLine, QAction, QEvent, QResizeEvent, Keep pyqtgraph's canvas aligned with an application palette change., Coalesce resize storms before selecting a new pyramid resolution., Apply the active Qt palette to pyqtgraph's global canvas settings. (+39 more)
+Nodes (37): PlotPane, InfiniteLine, QAction, Abandon queued row building. Called when the window closes. A queued slice…, Advance the fixed sweep from the master-clock time. Called on every 60 Hz tick.…, Compatibility alias for setting the shared continuous window., Set the fixed sweep duration shared by every plot row., Retain the legacy state flag without creating another navigation model. (+29 more)
 
 ### Community 49 - "format_time"
-Cohesion: 0.06
-Nodes (29): MappedMessage, Recorded messages: the store that maps them, and the panel that lists them. A…, Adopt the window's time display mode, like every other timed widget., Return the file name of *source_id*, falling back to the id itself., One message placed on the master clock, with the file it came from., Return every message on the master clock, untimed notes first. A recording that…, _source_name(), _fmt_relative() (+21 more)
+Cohesion: 0.09
+Nodes (11): _fmt_relative(), format_time(), Format *t_seconds* according to *mode*. t_epoch is the Unix epoch of master-…, Format signed elapsed time without wrapping negative values by a day., Move the overview playhead without recalculating any evidence., Update the displayed time (unless the user is typing)., Tests for ui.time_format — format_time() all three modes., TestFormatTimeEdgeCases (+3 more)
 
-### Community 50 - "write_export"
-Cohesion: 0.19
-Nodes (10): export(), Tests for AOLVideoExtractionLoader (video-extraction-toolbox exports). Fixtures…, Mis-indexing would attribute one ROI's numbers to another., Write one ``<Camera>.mat`` + ``<Camera>.metadata.json`` pair., Well-formed exports never do this, but a truncated log can., A 'table' tag means the labels were inferred now, not recorded. Half the…, test_inferred_column_names_are_reported(), test_recorded_column_names_are_not_reported() (+2 more)
+### Community 50 - "AnnotationStore"
+Cohesion: 0.09
+Nodes (20): AnnotationStore, Marker, QObject, QWidget, Add a range marker from *t_start* to *t_end*., Per-video frame snapshot stored with an annotation marker., A single annotation marker on the timeline. If ``t_end`` is None this is a…, In-memory store for timeline markers. Emits ``changed`` whenever markers are… (+12 more)
 
 ### Community 51 - "Path"
 Cohesion: 0.06
@@ -535,136 +526,132 @@ Cohesion: 0.10
 Nodes (14): _normalise_events(), ndarray, Return the sorted time column of *events* for binary search., Register one source coverage span, keyed for later replacement. A non-empty…, Display accepted sync matches with inspectable provenance text., Display imported data gaps as red ticks., Display messages the sources recorded, with their text inspectable., Display point/range annotations in their stored colors. (+6 more)
 
 ### Community 53 - "PyAVReader"
-Cohesion: 0.05
-Nodes (29): ndarray, Path, VideoStream, PyAVReader, Demux one pass to collect presentation timestamps and keyframes. Demux only —…, Presentation timestamps in source seconds, display order., Number of frames the container actually carries timestamps for., The decoded video stream, for callers building format metadata. (+21 more)
+Cohesion: 0.07
+Nodes (22): ndarray, Path, VideoStream, PyAVReader, Demux one pass to collect presentation timestamps and keyframes. Demux only —…, Presentation timestamps in source seconds, display order., Number of frames the container actually carries timestamps for., The decoded video stream, for callers building format metadata. (+14 more)
 
 ### Community 54 - "test_seek_backends.py"
 Cohesion: 0.16
 Nodes (19): _assert_within(), camera_files(), _fanout(), _jump_targets(), Any, fixture, Path, TempPathFactory (+11 more)
 
 ### Community 55 - "test_theme_colors.py"
-Cohesion: 0.06
-Nodes (56): QPalette, Return the *index*-th marker colour against the application palette., _resolved_marker_color(), _accent(), accent_hue(), evidence_color(), loop_pin_color(), marker_color() (+48 more)
+Cohesion: 0.14
+Nodes (28): _contrast(), _distance(), _palette(), parametrize, QColor, QPalette, Derived colours: legible on both surfaces, distinct, and following the accent.…, Derived means derived — change the accent and the lane moves with it. (+20 more)
 
-### Community 56 - "TestReading"
-Cohesion: 0.10
-Nodes (9): The whole point of matching h5py's reported axis order., Dropping it would shift the channel one frame against every source., An AOL session's master axis is seconds since midnight UTC (D-045)., The fallback axis starts at 0.0 and needs the camera start added., The exporter writes true POSIX; an AOL session runs on a wall clock. Measured…, An export carrying only `absolute_times` still has the right spacing., A real desync must not hide behind the correction for a time zone., Opened alone, outside a session, nothing is shifted. (+1 more)
+### Community 56 - "AOLVideoExtractionLoader"
+Cohesion: 0.06
+Nodes (39): AOLVideoExtractionLoader, Extracted ROI Metrics (Video Extraction). One file is one camera. Each ``(ROI,…, False: this export carries its own time axis. The per-ROI v6 store has no time…, The camera this file belongs to, as the sidecar names it., Whether the loaded axis is absolute POSIX rather than recording-relative., Nominal frame rate the toolbox recorded, or ``0.0`` when absent., Claim a MAT file whose sidecar names this toolbox. Reads only the small JSON…, export() (+31 more)
 
 ### Community 57 - "CSVLoader"
-Cohesion: 0.13
-Nodes (22): CSVLoader, Loads CSV files in chunks using polars., Purposes users pick this by, all of them still a CSV underneath., Path, `rate_hz=None` means irregular; a plainly 100 Hz file must not claim it., Claiming a rate for jittered data would be a false statement., The rate must be in Hz regardless of the column's unit., test_csv_loader_applies_selected_timezone() (+14 more)
-
-### Community 58 - "Path"
-Cohesion: 0.20
-Nodes (4): Path, Close the staging handle; safe to call more than once., Close and delete the staging file without materialising it., Write staged samples to *target* as ``.npy`` and return its mmap. The copy runs…
+Cohesion: 0.06
+Nodes (39): DataType, Series, FileUnreadableError, AvialSync exception hierarchy., Raised when a file cannot be read or parsed., CSVLoader, Any, ndarray (+31 more)
 
 ### Community 59 - "ChannelKey"
-Cohesion: 0.09
-Nodes (26): ChannelKey, disambiguate(), Master-clock presentation of a cached pyramid channel. A…, Stable identity of one channel: its source plus its name. A channel name alone…, Return the display name, qualified by source only when it must be., Return display labels, qualifying only names owned by more than one source., Update all known channel units without changing reader identity or data., Row close button: hide this source's row and tell the sidebar which one. (+18 more)
+Cohesion: 0.08
+Nodes (29): ChannelKey, disambiguate(), Master-clock presentation of a cached pyramid channel. A…, Stable identity of one channel: its source plus its name. A channel name alone…, Return the display name, qualified by source only when it must be., Return display labels, qualifying only names owned by more than one source., Remove only this source's row — another file may use the same name., Replace displayed channels with a new list of readers. Rows are keyed by… (+21 more)
 
 ### Community 60 - "test_workload_responsiveness.py"
 Cohesion: 0.11
 Nodes (30): _assert_no_stall_tail(), dense_source(), loaded_window(), _measure(), _measure_each(), _percentile(), fixture, parametrize (+22 more)
 
 ### Community 61 - "pyramid.py"
-Cohesion: 0.07
-Nodes (36): _aggregate_gap_mask(), _aggregate_pyramid_level(), build_gap_mask(), build_pyramid_level(), _nan_envelope(), ndarray, Pyramid module for decimation and plotting., Return a boolean mask where True indicates a gap larger than 10x median dt.… (+28 more)
+Cohesion: 0.04
+Nodes (45): _aggregate_gap_mask(), _aggregate_pyramid_level(), build_gap_mask(), build_pyramid_level(), _nan_envelope(), ndarray, Path, Pyramid module for decimation and plotting. (+37 more)
 
 ### Community 62 - "import_controller.py"
 Cohesion: 0.09
-Nodes (28): enqueue_import(), on_import_error(), on_import_finished(), on_import_thread_finished(), Any, Path, Time-series import and pose routing. One import worker owns the modal progress…, Queue a source import so only one worker owns the import UI at a time. (+20 more)
+Nodes (26): enqueue_import(), on_import_error(), on_import_finished(), on_import_thread_finished(), Any, Path, Time-series import and pose routing. One import worker owns the modal progress…, Queue a source import so only one worker owns the import UI at a time. (+18 more)
 
 ### Community 63 - "test_ci_platform_config.py"
 Cohesion: 0.06
 Nodes (33): Regression checks for the shared cross-platform CI and release contract., An unpinned ffmpeg is both a CI flake and an unreproducible installer.…, Ubuntu 24.04 must provide AppImageTool's libfuse.so.2 runtime ABI., A version tag must not release a side branch or detached commit., Pushing a branch must never publish, and neither must a non-version tag.…, No job may build or publish without the tag having been verified., PyPI and the GitHub release must not publish two different versions. Nothing…, A PEP 440 pre-release tag must be marked as one on the release page. (+25 more)
 
-### Community 64 - "AnnotationExportWorker"
-Cohesion: 0.12
-Nodes (15): AnnotationExportWorker, DataExportWorker, Path, QImage, QObject, Encode UI-captured images without blocking the Qt event loop., Export annotation markers to CSV off the UI thread., Write a requested data range without blocking the Qt event loop. (+7 more)
+### Community 64 - "ReaderReference"
+Cohesion: 0.11
+Nodes (20): DataExportWorker, Path, QImage, QObject, Calculate A/B-region statistics from worker-local pyramid readers., Run ffmpeg clipping jobs outside the Qt event loop., Encode UI-captured images without blocking the Qt event loop., The stable information needed to open one mapped reader in a worker. The… (+12 more)
 
 ### Community 65 - "write_recording"
 Cohesion: 0.11
-Nodes (33): default_spec(), _message_manifest(), MessageSpec, Path, Build a miniature Open Ephys binary recording for tests. Small enough to write…, Write *spec* under *root* and return the ``recording1`` directory., One continuous stream to write into the fixture., A TTL line to write as rising/falling edge pairs. (+25 more)
+Nodes (35): default_spec(), _message_manifest(), MessageSpec, Path, Build a miniature Open Ephys binary recording for tests. Small enough to write…, Write *spec* under *root* and return the ``recording1`` directory., One continuous stream to write into the fixture., A TTL line to write as rising/falling edge pairs. (+27 more)
 
 ### Community 66 - "DummyVideoLoader"
 Cohesion: 0.08
 Nodes (20): patch, DummyTimeSeriesLoader, DummyVideoLoader, MonkeyPatch, Path, The `~/.avialsync/plugins/` drop-in path is a supported way to add a format., A broken plugin is otherwise indistinguishable from one never installed. Its…, Importable but useless is still a failure the author needs told about. (+12 more)
 
 ### Community 67 - "SourceInspection"
-Cohesion: 0.06
-Nodes (29): LoaderContractError, Raised when a source plugin violates the frozen v1 ingest contract. Distinct…, ImportReport, IntegrityFlags, Any, All collected inspection data for one loaded source. Not frozen because…, Statistics collected by ImportWorker during one source import., Anomaly flags for one loaded source. Video flags (is_vfr, fps_mismatch) are set… (+21 more)
+Cohesion: 0.09
+Nodes (20): ImportReport, IntegrityFlags, Any, All collected inspection data for one loaded source. Not frozen because…, Statistics collected by ImportWorker during one source import., Anomaly flags for one loaded source. Video flags (is_vfr, fps_mismatch) are set…, SourceInspection, create_video_pane() (+12 more)
 
 ### Community 68 - "test_ui_plot_row_geometry.py"
 Cohesion: 0.26
 Nodes (12): _pane_with_channels(), parametrize, Path, Plot rows must occupy the pane, not collapse to their minimum width. Rows are…, Scrolling must not cost the ordinary case its full-height rows., Every row's plot area must span the pane, whatever the size or row count., A second load must not leave the newest row collapsed beside settled ones., More rows than fit must be reachable by scrolling, at full height. The… (+4 more)
 
-### Community 69 - "test_typed_source_errors.py"
-Cohesion: 0.14
-Nodes (14): Any, Path, Loaders and the importer raise typed errors, not bare builtins (V-06). AGENTS…, Distinct from SourceOpenError: the fix is in the plugin, not the data., The UI cannot turn a bare builtin into an actionable dialog., One base means the UI can catch the whole family in a single handler., test_a_plugin_breaking_the_ingest_contract_is_named_as_such(), test_every_typed_error_shares_one_base() (+6 more)
+### Community 69 - "neo_loader.py"
+Cohesion: 0.07
+Nodes (25): AvialSyncError, CodecUnsupportedError, LoaderContractError, Exception, Raised when a video codec is not supported., Raised when a source plugin violates the frozen v1 ingest contract. Distinct…, Base exception for all AvialSync errors., Asynchronous data source importer pipeline. (+17 more)
 
 ### Community 70 - "test_ui_sensor_mapping.py"
-Cohesion: 0.11
-Nodes (25): cache_dir(), fixture, Path, QApplication, Sensor offset/drift editing in the sidebar re-aligns plots without reimporting., Session restore holds the mapping until the async import finishes., set_mapping is display-only; it must not re-emit into the handler., A note left on the old clock would sit beside the wrong part of the signal. (+17 more)
+Cohesion: 0.10
+Nodes (27): cache_dir(), fixture, Path, QApplication, Sensor offset/drift editing in the sidebar re-aligns plots without reimporting., Session restore holds the mapping until the async import finishes., set_mapping is display-only; it must not re-emit into the handler., The seam between the importer and the panel — and what session reload uses. A… (+19 more)
 
 ### Community 71 - "Player"
-Cohesion: 0.13
-Nodes (11): Player, QObject, Stop UI ticks before the owning window tears down its panes., Start playback for programmatic callers such as the demo launcher., Use the first active exact mapping as the reference frame clock. This is…, Step to the neighbouring decoded frame across all video panes. The step size…, Set or clear the A/B loop region on the master clock., Synchronize pane availability with master-time coverage before display or seek. (+3 more)
+Cohesion: 0.12
+Nodes (12): Return whether accepted per-frame evidence owns this mapping., Player, QObject, Stop UI ticks before the owning window tears down its panes., Start playback for programmatic callers such as the demo launcher., Use the first active exact mapping as the reference frame clock. This is…, Step to the neighbouring decoded frame across all video panes. The step size…, Set or clear the A/B loop region on the master clock. (+4 more)
 
 ### Community 72 - "PaintCanvas"
-Cohesion: 0.06
-Nodes (35): color_for_point(), One palette, one name-to-colour rule, shared by the 2D overlay and 3D view. The…, Return the shared colour for the body part called *name*., PaintCanvas, Any, QColor, QFont, QPainter (+27 more)
+Cohesion: 0.11
+Nodes (17): PaintCanvas, Any, QColor, QFont, QPainter, QPaintEvent, QWidget, Draw every complete XY point of every track at the current source time. (+9 more)
 
 ### Community 73 - "capture"
 Cohesion: 0.19
 Nodes (15): capture(), _load_session(), main(), Image, Path, QImage, quantize_to_shared_palette(), Capture a short looping animation of a real session folder opened through its… (+7 more)
 
 ### Community 74 - "session_controller.py"
-Cohesion: 0.11
-Nodes (27): autosave(), autosave_before_close(), on_session_load_error(), open_recent(), open_session(), Path, Session persistence, window geometry, autosave, and the recent-files menu.…, Load all sources from a SessionState object. (+19 more)
+Cohesion: 0.07
+Nodes (32): QSettings, autosave(), autosave_before_close(), on_session_load_error(), open_recent(), open_session(), Path, Session persistence, window geometry, autosave, and the recent-files menu.… (+24 more)
 
 ### Community 75 - "PlotInteractionController"
 Cohesion: 0.11
 Nodes (15): PlotInteractionController, Any, QAction, Refresh overlays whose X coordinates depend on the current page., Handle a right-click only when it lands inside a visible channel row., Own page-local overlay state while delegating semantic actions to PlotPane., Register shared QActions for the plot context menu., Place measurement pin A and publish a complete A/B interval. (+7 more)
 
 ### Community 76 - "video_pane.py"
-Cohesion: 0.08
-Nodes (24): Asynchronous seek coordinator., Fan out non-blocking frame requests across video panes. ``VideoPane.seek``…, Request one pane's frame at a source time, without blocking., Request every active pane's frame at master time ``t``., Return True once every pane has painted the frame it was asked for., SeekGroup, Video grid layout manager., Video rendering pane: decode with PyAV, blit with Qt. One path on every… (+16 more)
+Cohesion: 0.09
+Nodes (21): Asynchronous seek coordinator., Fan out non-blocking frame requests across video panes. ``VideoPane.seek``…, Request one pane's frame at a source time, without blocking., Request every active pane's frame at master time ``t``., Return True once every pane has painted the frame it was asked for., SeekGroup, Video grid layout manager., Video rendering pane: decode with PyAV, blit with Qt. One path on every… (+13 more)
 
 ### Community 77 - "export_worker.py"
-Cohesion: 0.12
-Nodes (26): QPixmap, The owning source's stable identifier (its path)., compute_region_stats(), export_data_slice_csv(), export_data_slice_parquet(), Any, ndarray, Path (+18 more)
+Cohesion: 0.09
+Nodes (29): QPixmap, compute_region_stats(), export_data_slice_csv(), export_data_slice_parquet(), Any, ndarray, Path, QImage (+21 more)
 
-### Community 78 - "PointColorRegistry"
-Cohesion: 0.22
-Nodes (6): PointColorRegistry, Hand out one stable colour per body-part name, decided at load time., Assign a colour to every name not seen before, in sorted order. Idempotent, so…, Return *name*'s colour, assigning one now if it was never registered. Painting…, Forget every assignment. For tests that need a known starting point., test_registry_rejects_an_empty_palette()
+### Community 78 - "color_for_point"
+Cohesion: 0.08
+Nodes (26): color_for_point(), PointColorRegistry, One palette, one name-to-colour rule, shared by the 2D overlay and 3D view. The…, Decide colours for *names* now, before anything paints them., Return the shared colour for the body part called *name*., Hand out one stable colour per body-part name, decided at load time., Assign a colour to every name not seen before, in sorted order. Idempotent, so…, Return *name*'s colour, assigning one now if it was never registered. Painting… (+18 more)
 
 ### Community 79 - "PlotHeader"
-Cohesion: 0.16
-Nodes (9): PlotHeader, QWidget, Expose one live-style, page, Y-fit, row-height, and reset control strip., Show a persisted live style without emitting a duplicate state transition., QWidget, Return the effective presentation after playback/scrub state is applied., PlotPresentation, The plot presentation selected from one authoritative master clock. (+1 more)
+Cohesion: 0.10
+Nodes (14): PlotHeader, QWidget, Compact shared controls for the time-series plot stack., Expose one live-style, page, Y-fit, row-height, and reset control strip., Show a persisted live style without emitting a duplicate state transition., QEvent, QWidget, Keep pyqtgraph's canvas aligned with an application palette change. (+6 more)
 
 ### Community 80 - "demo.py"
-Cohesion: 0.14
-Nodes (23): CancelledCallback, RuntimeError, demo_data_dir(), _demo_frame_times(), DemoData, ensure_demo_data(), _generate_video(), _has_header() (+15 more)
+Cohesion: 0.11
+Nodes (28): CancelledCallback, demo_data_dir(), _demo_frame_times(), DemoData, DemoWindow, ensure_demo_data(), _generate_video(), _has_header() (+20 more)
 
 ### Community 81 - "prepare_release.py"
 Cohesion: 0.16
 Nodes (23): Pattern, dirty_paths(), ensure_preconditions(), main(), prepare_release(), Path, Prepare, validate, commit, tag, and push an AvialSync PyPI release. Run from…, Update version authorities and optionally create and publish the release tag. (+15 more)
 
 ### Community 82 - "Tracking3DCanvas"
-Cohesion: 0.05
-Nodes (37): _nearest_index(), ndarray, QPainter, QPaintEvent, QWidget, _qcolor(), Custom-painted current-pose view with mouse orbit and wheel zoom., Number of complete XYZ points available to the view. (+29 more)
+Cohesion: 0.04
+Nodes (33): QWheelEvent, Connectivity derived from pose geometry, with the flow it was rooted in.…, True when any connectivity was found., SkeletonEstimate, QMouseEvent, QWidget, Custom-painted current-pose view with mouse orbit and wheel zoom., Number of complete XYZ points available to the view. (+25 more)
 
 ### Community 83 - "test_ui_follow.py"
-Cohesion: 0.10
-Nodes (8): fixture, Path, Tests for fixed-window oscilloscope plotting., The chosen row height must size the stack, not just the rows in it. This used…, A narrow spike remains visible instead of being averaged into a midpoint., sweep_pane(), test_decimated_plot_preserves_minimum_and_maximum_envelope(), test_row_height_control_uses_one_scrollable_plot_stack()
+Cohesion: 0.08
+Nodes (10): The owning source's stable identifier (its path)., fixture, Path, Tests for fixed-window oscilloscope plotting., The chosen row height must size the stack, not just the rows in it. This used…, A narrow spike remains visible instead of being averaged into a midpoint., sweep_pane(), test_decimated_plot_preserves_minimum_and_maximum_envelope() (+2 more)
 
 ### Community 84 - "VideoMetadata"
 Cohesion: 0.06
 Nodes (35): Format-neutral video metadata exposed by every video source. Timestamp-derived…, VideoMetadata, displayed_frame_rate(), format_video_osd(), human_file_size(), instantaneous_frame_rate(), ndarray, Fast, timestamp-based video readout and frame-index helpers. (+27 more)
 
-### Community 85 - "_BulkLoader"
-Cohesion: 0.15
-Nodes (6): _BulkLoader, A loader that also carries what the experimenter typed during recording., A third-party loader whose message reader is broken., One-pass test loader whose legacy per-channel API must never be used., _SulkyLoader, _TalkativeLoader
+### Community 85 - "test_engine_importer.py"
+Cohesion: 0.11
+Nodes (16): _BulkLoader, Path, Tests for the asynchronous time-series import pipeline., A loader that also carries what the experimenter typed during recording., A third-party loader whose message reader is broken., On a cache hit the loader is never opened, so the manifest must carry them.…, One-pass test loader whose legacy per-channel API must never be used., Losing the samples fails an import; losing a comment must not. (+8 more)
 
 ### Community 86 - "test_theme_tooltips.py"
 Cohesion: 0.08
@@ -678,13 +665,13 @@ Nodes (21): Call, skipif, no_window_kwargs(), NoWindowKwargs, Process-level runt
 Cohesion: 0.14
 Nodes (20): KeyboardModifier, _fires(), _focusable(), fixture, Key, parametrize, QWidget, Every transport shortcut must reach the playhead from anywhere in the window.… (+12 more)
 
-### Community 89 - "skeleton.py"
-Cohesion: 0.16
-Nodes (18): _component(), _finite_height(), _pair_statistics(), ndarray, Skeleton topology derived from the geometry of 3D pose points. Point *names*…, Return (cost, variation) matrices; ``inf`` marks a pair that cannot link., Prim's algorithm, restarted per component, over a dense cost matrix. Restarting…, Treat a missing height as the lowest possible, never as a winner. (+10 more)
+### Community 89 - "test_plugin_discovery.py"
+Cohesion: 0.12
+Nodes (26): Path, Plugin API v1 discovery coverage., A drop-in plugin directory exposes a v1 source to the registry., They are hardcoded *and* declared as entry points; that must not duplicate., `can_open` is offered directories, so a lab can adopt its own folder layout.…, Claiming the folder must stop the scan recursing into its files. Otherwise the…, A lab adds its own folder layout by dropping in a file — no core change., The fan-out AOL uses must be reachable by any plugin, which is the point. (+18 more)
 
 ### Community 90 - "AOLEksLoader"
-Cohesion: 0.06
-Nodes (27): AOLEksLoader, Any, Path, Return one ChannelInfo per x/y/z coordinate. EKS rows are one video frame each,…, Tracking Data (2D/3D). Format: standard CSV with header row. Columns follow the…, EKS data is always frame-indexed., Detect EKS CSV by filename pattern and header structure., Read headers and identify x/y/z channels. (+19 more)
+Cohesion: 0.05
+Nodes (40): AOLEksLoader, Any, Path, Return one ChannelInfo per x/y/z coordinate. EKS rows are one video frame each,…, Tracking Data (2D/3D). Format: standard CSV with header row. Columns follow the…, EKS data is always frame-indexed., Detect EKS CSV by filename pattern and header structure., Read headers and identify x/y/z channels. (+32 more)
 
 ### Community 91 - "make_fixtures.py"
 Cohesion: 0.14
@@ -694,13 +681,13 @@ Nodes (21): Path, Regression guard: make_fixtures._clean_generated() must never 
 Cohesion: 0.12
 Nodes (22): fixture, Path, QApplication, Window and pane resizing behaviour. Three defects motivated these tests: 1.…, A rigid minimum makes the window feel unresizable on a small screen., Dragging a handle must actually move it, not snap back. Two things made earlier…, The regression: plots used to be handed zero pixels on launch., saveState stores the collapsible flag; restoring must not undo the policy. (+14 more)
 
-### Community 93 - "SidebarPane"
+### Community 93 - ".__init__"
 Cohesion: 0.04
-Nodes (44): QTreeWidgetItem, QVBoxLayout, Register window-scoped QActions for all keyboard-only shortcuts (D-022). Rules…, _make_empty_inspection(), QFrame, QWidget, Left Sidebar / Inspector Pane., Set a channel checkbox and return whether this source owns it. (+36 more)
+Nodes (40): QTreeWidgetItem, QVBoxLayout, Register window-scoped QActions for all keyboard-only shortcuts (D-022). Rules…, _make_empty_inspection(), QFrame, QWidget, Left Sidebar / Inspector Pane., Set a channel checkbox and return whether this source owns it. (+32 more)
 
-### Community 94 - "tracking_3d_pane.py"
-Cohesion: 0.14
-Nodes (17): Connectivity derived from pose geometry, with the flow it was rooted in.…, True when any connectivity was found., SkeletonEstimate, _build_sources(), _coordinate_name(), detect_up_axis(), _mean_axis_position(), _PointChannels (+9 more)
+### Community 94 - ".paintEvent"
+Cohesion: 0.11
+Nodes (16): _nearest_index(), ndarray, QPainter, QPaintEvent, _qcolor(), Copy of the currently sampled XYZ positions, including NaN placeholders., Rotate world coordinates so the anatomical vertical is view +Z., Project world points to screen; the anatomical vertical maps to screen up. (+8 more)
 
 ### Community 95 - "TestShowDelta"
 Cohesion: 0.12
@@ -711,48 +698,52 @@ Cohesion: 0.10
 Nodes (17): _guess_format(), _guess_time_column(), ImportWizard, Any, Path, QDialog, QWidget, Timestamp import wizard with preview, format autodetect, and timezone handling. (+9 more)
 
 ### Community 97 - "_pulses"
-Cohesion: 0.10
-Nodes (16): _pulses(), ndarray, parametrize, An unsafe alignment must be refused, never guessed. `core/sync.py` decides…, Shifting past the end leaves nothing to pair., Video frame 0 maps to reference index N, the documented behaviour., Malformed timestamp arrays must be rejected before any fitting., Reordering evidence would fabricate a pairing the source never had. (+8 more)
+Cohesion: 0.14
+Nodes (12): _pulses(), ndarray, parametrize, An unsafe alignment must be refused, never guessed. `core/sync.py` decides…, Malformed timestamp arrays must be rejected before any fitting., Reordering evidence would fabricate a pairing the source never had., A repeated timestamp has no single position on the master clock., Refuse configurations that cannot produce a trustworthy fit. (+4 more)
 
-### Community 98 - "._read_batches"
-Cohesion: 0.19
-Nodes (8): DataType, Series, ndarray, Map wizard format strings to internal categories., Return the explicit parser dtype required by the chosen time format., Yield every channel from one parser pass with strict chunk boundaries., Yield aligned channel chunks from a single CSV parser pass., Yield one channel while retaining the same boundary guarantees as bulk ingest.
+### Community 98 - "evidence_color"
+Cohesion: 0.14
+Nodes (25): _accent(), accent_hue(), evidence_color(), loop_pin_color(), marker_color(), on_surface(), _palette_with_surfaces(), QColor (+17 more)
 
 ### Community 99 - "Tracking3DPane"
-Cohesion: 0.12
-Nodes (36): Timeline-synchronized 3D tracking pane., Tracking3DPane, _anatomical_readers(), Path, Tests for the timeline-synchronized 3D tracking pane., Build a pose whose vertical axis is Y and grows downward. Mirrors the real AOL…, The 3D view must orient anatomy head-up, not use a fixed Z-up axis. The…, An explicit choice pins the orientation against later auto-detection. (+28 more)
+Cohesion: 0.08
+Nodes (44): Timeline-synchronized 3D tracking pane., Use complete XYZ channel triplets from the active cached readers., Say how many points are loaded, and where their bones came from. The provenance…, Reflect the canvas's current orientation without re-triggering it., Pin an explicit vertical axis chosen by the user., Pin which source axis renders upward (see :meth:`Tracking3DCanvas.set_up_axis`)., Set the connectivity the session declared; empty falls back to detection., Pin which skeleton the view draws (see :class:`BoneMode`). (+36 more)
+
+### Community 100 - "SourceOpenError"
+Cohesion: 0.11
+Nodes (20): Raised when a media or data source fails to open., SourceOpenError, Any, Path, Video-extraction-toolbox ROI metric loader. Reads one camera's extracted…, Read the sidecar, then every numeric array from the HDF5 file., Choose which recorded axis reaches master time, and how far to move it. The two…, Report how far the file's own absolute axis sits from the camera start. A… (+12 more)
 
 ### Community 101 - "build_manifest"
-Cohesion: 0.09
-Nodes (43): build_manifest(), Scan an AOL session folder and build a loading manifest. Priority for videos:…, aol_session(), _declare_skeleton(), _finish_import(), fixture, Path, AOL pose routing: 2D overlays per camera, 3D to the 3D view, neither plotted.… (+35 more)
+Cohesion: 0.08
+Nodes (49): build_manifest(), Scan an AOL session folder and build a loading manifest. Priority for videos:…, apply_session_layout(), Adopt the settings a session plugin reported for the folder it laid out.…, aol_session(), _declare_skeleton(), _finish_import(), fixture (+41 more)
 
 ### Community 102 - "test_never_freeze.py"
 Cohesion: 0.14
 Nodes (19): QApplication, The UI must stay responsive, visible, and closeable under any workload. This is…, The regression: closeEvent called event.ignore() and trapped the user., Abandoning jobs must not skip the session write., A worker that ignores cancellation, like a blocked syscall., A wedged job must not hold shutdown open., The grace period is a total budget, not per job., test_a_quiet_job_is_reported_as_not_responding() (+11 more)
 
 ### Community 103 - "test_ui_dialogs.py"
-Cohesion: 0.18
-Nodes (22): csv_file(), Path, QApplication, Coverage for the four import/inspection dialogs (P6.1). `import_wizard`,…, Browsing is the only way a path gets resolved, so drive that., Skipping a file must open the session without it, not invent a path., Configs are per-file; one file's settings must not leak onto another., A column literally called "timestamp" must not need manual selection. (+14 more)
+Cohesion: 0.09
+Nodes (35): QDialog, Missing-file relink dialog shown when session files cannot be found., Return {original_path: new_path} for files the user relocated., Lets the user relocate missing files referenced by a session. Shows a table of…, RelinkDialog, csv_file(), inspection(), fixture (+27 more)
 
-### Community 104 - "tracking_skeleton.py"
-Cohesion: 0.11
-Nodes (16): bone_depths(), BoneMode, _PointArrays, Bone topology for the 3D view: what to draw, and where it came from. Two…, Find the one point *declared* refers to, or None when it is ambiguous., Depth of each point below its root, for edges already ordered parent-first. The…, Which skeleton the 3D view draws. ``AUTO`` is the default and the only mode…, The shape of one tracked point, as the 3D pane already holds it. Read-only… (+8 more)
+### Community 104 - "tracking_3d_pane.py"
+Cohesion: 0.07
+Nodes (33): _build_sources(), _coordinate_name(), detect_up_axis(), _mean_axis_position(), _PointChannels, Interactive 3D view for cached tracking-coordinate channels., Group complete XYZ triplets by source cache and pre-warm their mmap arrays., Mean XYZ of every point whose name matches *hints*, or None if none match. (+25 more)
 
 ### Community 105 - "fit_exact_index_mapping"
-Cohesion: 0.31
-Nodes (8): fit_exact_index_mapping(), Create a deterministic exact index mapping, overriding affine limits. Frames…, parametrize, Ground-truth tests for exact index synchronization., test_exact_index_mapping_bounds_display_evidence_but_keeps_full_mapping(), test_exact_index_mapping_preserves_raw_pairs_and_nonlinear_timestamps(), test_exact_index_offset_records_unmatched_reference_evidence(), test_exact_index_rejects_dense_samples_mistaken_for_frame_triggers()
+Cohesion: 0.16
+Nodes (12): fit_exact_index_mapping(), Create a deterministic exact index mapping, overriding affine limits. Frames…, Shifting past the end leaves nothing to pair., Video frame 0 maps to reference index N, the documented behaviour., The 1:1 frame mapping has its own overlap requirement., TestExactIndexMapping, parametrize, Ground-truth tests for exact index synchronization. (+4 more)
 
 ### Community 106 - "DropScanWorker"
-Cohesion: 0.19
-Nodes (8): Return True if this source stores frame numbers instead of wall-clock time.…, DropScanWorker, Path, QObject, Slot, Lay out *path* with the session plugin that claims it, if any. Returns ``None``…, Scan dropped paths for importable sources off the UI thread., Collect paths and their best-guess loaders recursively, avoiding session files.
+Cohesion: 0.16
+Nodes (10): Return True if this source stores frame numbers instead of wall-clock time.…, DropScanWorker, Path, QObject, Slot, Lay out *path* with the session plugin that claims it, if any. Returns ``None``…, Scan dropped paths for importable sources off the UI thread., Collect paths and their best-guess loaders recursively, avoiding session files. (+2 more)
 
 ### Community 107 - "test_frame_indexed.py"
 Cohesion: 0.14
 Nodes (19): Path, Tests for frame-indexed source contract and DLC fps resolution (D-019)., _frame_indexed_sources accumulates provisional entries when no video is loaded., TimeSeriesSource.is_frame_indexed() should default to False., _rebind_frame_indexed_sources should clear the provisional list., After rebind, re-enqueued import uses the video fps, not the provisional fps., TrackingLoader.is_frame_indexed() must return True., Write a minimal two-bodypart DLC CSV to *path*. (+11 more)
 
 ### Community 108 - "util_pyav_fixtures.py"
-Cohesion: 0.27
-Nodes (9): encode_frame_index(), ndarray, Encode a 32-bit integer into the top-left pixels of the given frame (in-place).…, _detail_planes(), _identity_frame(), ndarray, PyAV fixture writers for frame-exactness and seek-latency tests. Every fixture…, Build the static pixel content once per resolution. Rebuilding this per frame… (+1 more)
+Cohesion: 0.17
+Nodes (14): encode_frame_index(), ndarray, Frame strip encoder and decoder for robust video sync testing. We encode a…, Encode a 32-bit integer into the top-left pixels of the given frame (in-place).…, Test that we can perfectly round-trip integers through the encoder/decoder., Generate a tiny video, extract frames with ffmpeg, decode, assert indices., test_framestrip_in_memory(), test_framestrip_via_ffmpeg() (+6 more)
 
 ### Community 109 - "encode_proxy"
 Cohesion: 0.15
@@ -771,16 +762,16 @@ Cohesion: 0.14
 Nodes (18): app_with_main_window(), _capture_frame(), _fixture_frame_time(), fixture, ndarray, QApplication, Golden sync testing for video playback., Test multi-camera golden sync with offsets. (+10 more)
 
 ### Community 113 - "test_ui_main.py"
-Cohesion: 0.11
-Nodes (28): MonkeyPatch, parametrize, Path, Main Window regression tests., Demo/programmatic imports may finish without an interactive progress dialog., Dropped files route by registered source type, not a suffix allow-list., A generic directory falls back to capability-routing its direct children., Video workers need an explicit owner after being moved to a QThread. (+20 more)
+Cohesion: 0.06
+Nodes (45): main_window(), fixture, MonkeyPatch, parametrize, Path, QApplication, Main Window regression tests., Exact arrays survive the asynchronous gap between restore and pane creation. (+37 more)
 
 ### Community 114 - "extract_ttl_edges"
 Cohesion: 0.10
 Nodes (18): Edge, extract_ttl_edges(), Extract raw TTL transitions from chronological signal chunks. Args: chunks:…, Raw edges are evidence; unusable input must not become empty evidence., Anonymous evidence cannot be attributed in saved provenance., A contact bounce is one transition, not several., TestTtlExtraction, Ground-truth tests for headless TTL/event synchronization. (+10 more)
 
 ### Community 115 - "VideoPropertiesPanel"
-Cohesion: 0.07
-Nodes (19): _frame_count_text(), _PropertiesBase, Any, QGroupBox, QWidget, Collapsible source-properties panels for VideoInfoWidget and SensorInfoWidget…, Collapsible properties panel for one video source., Read the pane's current decode state; call when the panel is expanded. The rate… (+11 more)
+Cohesion: 0.10
+Nodes (12): _frame_count_text(), _PropertiesBase, Any, QGroupBox, QWidget, Collapsible source-properties panels for VideoInfoWidget and SensorInfoWidget…, Collapsible properties panel for one video source., Read the pane's current decode state; call when the panel is expanded. The rate… (+4 more)
 
 ### Community 116 - "AvialSync Plot UX Refinement Plan"
 Cohesion: 0.12
@@ -790,9 +781,9 @@ Nodes (16): 10. Focus and keyboard contract, 11. Performance invariants, 12. Per
 Cohesion: 0.19
 Nodes (12): large_dataset(), fixture, Path, Pyramid and cursor-path benchmarks with local engineering budget gates.…, A committed shared-window change stays below the 30 ms UI budget., Generate 180M samples once per session to save time and memory., Pyramid build for 180M samples must complete within the ★ budget., Full per-tick cursor path: plot set_cursor + transport set_time + readout… (+4 more)
 
-### Community 118 - "._build_pending_rows"
-Cohesion: 0.17
-Nodes (7): Path, Load multiple data sources from cache and build plot rows. Every row of one…, Build queued rows in time slices, letting the event loop run between them. A…, Re-align one time-series source against the master clock. The rows keep their…, Return the ``(offset, drift_ppm)`` currently applied to a source., Return one source's master-time coverage across all of its channels., Backwards compatibility for Phase 2 single-channel load.
+### Community 118 - "create_channel_plot"
+Cohesion: 0.08
+Nodes (17): GraphicsLayoutWidget, Path, Load multiple data sources from cache and build plot rows. Every row of one…, Build queued rows in time slices, letting the event loop run between them. A…, Re-align one time-series source against the master clock. The rows keep their…, Return the ``(offset, drift_ppm)`` currently applied to a source., Return one source's master-time coverage across all of its channels., Backwards compatibility for Phase 2 single-channel load. (+9 more)
 
 ### Community 119 - "UiHeartbeat"
 Cohesion: 0.12
@@ -802,9 +793,9 @@ Nodes (9): QObject, Detect and report stalls of the UI thread itself. Background
 Cohesion: 0.12
 Nodes (15): 1. Test layers, 2. Fixtures — `tools/make_fixtures.py` (ground truth for everything), 3. Golden sync tests (`tests/test_sync_golden.py`), 3a. TTL/event synchronization golden tests (D-026), 4. Performance benchmarks (`tests/benchmarks/`), 5. GUI test conventions, 5a. Plot UX refinement gates (P4.6 / D-044), 6. Manual smoke checklist (human, end of each phase, on YOUR real field data) (+7 more)
 
-### Community 121 - "RelinkDialog"
-Cohesion: 0.18
-Nodes (8): QDialog, Missing-file relink dialog shown when session files cannot be found., Return {original_path: new_path} for files the user relocated., Lets the user relocate missing files referenced by a session. Shows a table of…, RelinkDialog, Callers must not be able to mutate the dialog's state through the result., test_relink_cancelled_browse_resolves_nothing(), test_relink_mapping_is_a_copy()
+### Community 121 - "_parse_args"
+Cohesion: 0.12
+Nodes (23): _parse_args(), Namespace, Parse the supported AvialSync command-line arguments., Path, Tests for the installed ``avialsync open`` command., The documented `avialsync open <session>` invocation is supported., AGENTS.md documents opening a sample-session folder, not only a file., `open` with nothing to open must not silently start an empty window. (+15 more)
 
 ### Community 122 - "ARCHITECTURE.md"
 Cohesion: 0.12
@@ -814,13 +805,13 @@ Nodes (14): 1. Repository layout (complete — the authoritative map of what liv
 Cohesion: 0.13
 Nodes (10): Any, ndarray, Path, A minimal external AvialSync Plugin API v1 implementation., Read ``.toybin`` records encoded as little-endian ``(time, value)`` pairs., Recognise the example file extension without opening the input., Store the path after validating whole-record alignment., Expose the single dimensionless signal channel. (+2 more)
 
-### Community 124 - "AnnotationStore"
-Cohesion: 0.09
-Nodes (26): PlotItem, AnnotationStore, QObject, QWidget, In-memory store for timeline markers. Emits ``changed`` whenever markers are…, Stateful interaction controller for plot measurements, markers, and menus., ContextChoice, Any (+18 more)
+### Community 124 - "annotations.py"
+Cohesion: 0.11
+Nodes (20): PlotItem, Annotation markers: point and range, with list panel and CSV export., Return the *index*-th marker colour against the application palette., Resolve this marker's colour against the current application palette., _resolved_marker_color(), Stateful interaction controller for plot measurements, markers, and menus., ContextChoice, Any (+12 more)
 
 ### Community 125 - "AnnotationPanel"
-Cohesion: 0.18
-Nodes (8): QTableWidgetItem, AnnotationPanel, Path, QGroupBox, Remove a marker by index., Write one row per (marker, video) — format for DLC/LightningPose retraining.…, Widget that lists annotations and provides add/delete/export controls., Rebuild the table from the store.
+Cohesion: 0.14
+Nodes (10): QTableWidgetItem, AnnotationPanel, Path, QGroupBox, Remove a marker by index., Write one row per (marker, video) — format for DLC/LightningPose retraining.…, Widget that lists annotations and provides add/delete/export controls., Rebuild the table from the store. (+2 more)
 
 ### Community 126 - "ui/__init__.py"
 Cohesion: 0.15
@@ -830,53 +821,53 @@ Nodes (11): Startup diagnostics lifecycle tests., A failed capability query must
 Cohesion: 0.07
 Nodes (42): _playhead_events(), _press(), fixture, Key, parametrize, Path, QApplication, _pyramid_channels() (+34 more)
 
-### Community 128 - "AOLVideoExtractionLoader"
-Cohesion: 0.11
-Nodes (11): AOLVideoExtractionLoader, Extracted ROI Metrics (Video Extraction). One file is one camera. Each ``(ROI,…, The camera this file belongs to, as the sidecar names it., Return a channel name not already in *taken*. Two independent collisions are…, Return one ChannelInfo per ``(ROI, column)`` pair., A channel name becomes a cache filename verbatim. The schema suggests…, It carries its own time axis, unlike the per-ROI v6 store., ROI labels are user-entered and not unique within a camera. (+3 more)
+### Community 128 - "._finish_loading"
+Cohesion: 0.09
+Nodes (12): QResizeEvent, Coalesce resize storms before selecting a new pyramid resolution., Apply the once-per-load work after the last queued row exists., Finish any queued row building immediately. For callers that need every row to…, Remove all channels associated with a specific cache_dir (source)., Remove the row(s) identified by *channel*., Requery every row for the new span, without freezing the window. At 128…, Set the window on the link master, which propagates to every row. Only the… (+4 more)
 
-### Community 129 - "follow_palette"
-Cohesion: 0.14
-Nodes (11): follow_palette(), Keep *widget*'s stylesheet derived from the live palette. Qt re-resolves…, _ABPin, QFrame, QWidget, Titled, collapsible Data Streams shell for named TimelineOverview lanes., The currently displayed status message, without its label prefix., Show active work beside Reset Zoom and clear non-active messages shortly after. (+3 more)
+### Community 129 - "TimelineEvidence"
+Cohesion: 0.15
+Nodes (9): _ABPin, QFrame, QWidget, Titled, collapsible Data Streams shell for named TimelineOverview lanes., The currently displayed status message, without its label prefix., Show active work beside Reset Zoom and clear non-active messages shortly after., Thin vertical marker overlaid on the slider for A/B loop points., Detach Data Streams so the main workspace splitter can own its height. (+1 more)
 
 ### Community 130 - "test_bench_plot_pane.py"
 Cohesion: 0.22
 Nodes (15): _channel_cache(), _populated_pane(), parametrize, Path, Performance guards for the populated plot pane (BLUEPRINT.md budgets). P4.6's…, A drag resizes continuously; no single callback may pass the ceiling. 128…, One slice of row construction must not freeze the window. Rows are built in…, Build a field-shaped multi-channel pyramid cache. Sample depth is kept modest… (+7 more)
 
 ### Community 131 - "test_demo_data.py"
-Cohesion: 0.17
-Nodes (14): Path, Regression tests for generated, user-facing demo inputs., The demo tracking file must match the loader's three-row DLC contract., The compatibility script cannot drift from ``avialsync demo`` again., test_generated_pose_csv_is_importable_dlc_data(), test_tools_launcher_delegates_to_installed_application(), _is_dlc_pose_csv(), main() (+6 more)
+Cohesion: 0.15
+Nodes (15): Path, Path, Regression tests for generated, user-facing demo inputs., The demo tracking file must match the loader's three-row DLC contract., The compatibility script cannot drift from ``avialsync demo`` again., test_generated_pose_csv_is_importable_dlc_data(), test_tools_launcher_delegates_to_installed_application(), _is_dlc_pose_csv() (+7 more)
 
 ### Community 132 - "test_transport_resize.py"
 Cohesion: 0.17
 Nodes (15): _expected_pin_x(), fixture, Regression tests: transport A/B pins must realign after window resize., Pin remains correctly positioned across consecutive resizes., Return the correct x for a pin at *frac* given the slider's current geometry., A/B in-pin must sit at the correct groove fraction after a resize., A/B out-pin realigns after resize (non-midpoint fraction)., Both A/B pins realign independently after a single resize. (+7 more)
 
-### Community 133 - "test_engine_importer.py"
-Cohesion: 0.25
-Nodes (10): Path, Tests for the asynchronous time-series import pipeline., On a cache hit the loader is never opened, so the manifest must carry them.…, Losing the samples fails an import; losing a comment must not., Bounds come from parsed data, so Windows can atomically rename the cache., test_a_broken_message_reader_does_not_fail_the_import(), test_import_cache_key_includes_accepted_loader_configuration(), test_import_worker_commits_cache_without_reopening_mmap() (+2 more)
+### Community 133 - "open_ephys_legacy.py"
+Cohesion: 0.18
+Nodes (15): clean(), Return *text* as a single-line, length-bounded message body. Embedded newlines…, _declared_rate(), is_legacy_recording(), Path, _rate_from_continuous_header(), Free text an Open Ephys *original-format* recording carries. The original…, Return the messages file as text, or ``None`` when it cannot be read. (+7 more)
 
 ### Community 134 - "job_manager.py"
 Cohesion: 0.17
 Nodes (11): BackgroundWorker, _drop_finished_threads(), JobState, Enum, Protocol, QThread, One owner for every background job, so the UI can never be trapped. Three…, Release retained jobs whose threads have stopped. Never call this from a… (+3 more)
 
-### Community 135 - "._relayout"
-Cohesion: 0.18
-Nodes (6): Switch between horizontal-strip and NxN grid layout., Remove a video pane by path., Show or hide a video pane without unloading it., Resume relayout after a batch add sequence., Remove all widgets from the grid and re-add them in the current arrangement…, Update camera labels, disambiguating duplicate filenames.
+### Community 135 - "Path"
+Cohesion: 0.13
+Nodes (9): Any, Path, Return 0..1 confidence that *path* is a session this can lay out. Called with…, Return a confidence in ``[0.0, 1.0]`` without expensive I/O., Read metadata required for :meth:`channels` and :meth:`read_chunks`. ``config``…, Return 0..1 confidence that this loader can open the file., Probe source metadata; this method may perform blocking I/O., Produce a playable cached proxy and report progress in ``[0, 1]``. (+1 more)
 
 ### Community 136 - "AOLSessionSource"
-Cohesion: 0.08
-Nodes (33): AOLSessionSource, Lay out an AOL multi-camera experiment folder as a session. This is the…, aol_session_with_metrics(), AOL extracted-metric routing: data_root MAT exports become plot rows. Unlike…, A data_root dropped without its sibling videos still loads, unaligned., An AOL session with one camera plus a nested data_root-style export., The metric file's start_epoch must match its camera's video, not 0., test_manifest_finds_metric_files_regardless_of_data_root_name() (+25 more)
+Cohesion: 0.14
+Nodes (25): AOLSessionSource, Lay out an AOL multi-camera experiment folder as a session. This is the…, fixture, Path, AOL session routing for video-extraction-toolbox exports. These are ordinary…, With no camera start to anchor to, the file's own axis is all there is., Seven files extracted from three videos cover one span, not seven. The cameras…, The two hold the same numbers; importing both would plot every ROI twice. The… (+17 more)
 
 ### Community 137 - "VideoGrid"
-Cohesion: 0.13
-Nodes (15): QWidget, Manages N VideoPanes in either a horizontal strip or an NxN grid. Uses a single…, Update the time offset for a specific video., Defer relayout until end_batch_add(). Use for multi-file drops., Return a copy of the loaded video paths, parallel to self.panes., VideoGrid, Tests for frame-accurate annotation: VideoFrame, export, AnnotationPanel., Pane-owned decode threads must stop before Qt destroys the grid. (+7 more)
+Cohesion: 0.05
+Nodes (34): Any, ndarray, QWidget, Pass tracking data readers to all video panes for overlay rendering. Retained,…, Attach named 2D prediction tracks to the pane showing *path* only. 2D pose data…, Switch between horizontal-strip and NxN grid layout., Add a pane identified by original *path*, playing *media_path* if supplied., Remove a video pane by path. (+26 more)
 
-### Community 138 - ".run"
-Cohesion: 0.20
-Nodes (5): Slot, Open worker-local readers and persist the requested range., Calculate region statistics and tag the result with its request id., Trim every requested clip sequentially without blocking UI input., Compose and save the immutable image copies on this worker thread.
+### Community 138 - "AGENTS.md — AvialSync agent instructions (canonical)"
+Cohesion: 0.14
+Nodes (10): AGENTS.md — AvialSync agent instructions (canonical), Architecture rules (violations = rejected PR), Coding standards, Definition of Done (every task), How to run things, Known traps (learned the hard way — do not rediscover), Naming & casing — BINDING (never invent variants), Task protocol for agents (+2 more)
 
-### Community 139 - "TrackingLoader"
-Cohesion: 0.15
-Nodes (10): ndarray, Path, Yield every tracking channel from one CSV parser pass. The importer consumes…, Loads DeepLabCut and LightningPose multi-index CSV files., Yield one tracking channel while preserving the single-pass parser API., TrackingLoader, Path, test_loader() (+2 more)
+### Community 139 - "ChannelInfo"
+Cohesion: 0.08
+Nodes (21): NonMonotonicTimeError, Raised when time series timestamps go backwards., ChannelInfo, Metadata for a single data channel., AOL EKS 3D Tracking Loader. Parses Ensemble Kalman Smoother (EKS) CSV files…, _MidnightUnwrapper, AOL Encoder Log Loader. Parses MATLAB-generated encoder_log.txt files with…, Turn wrapping seconds-since-midnight into a continuous axis. AOL video and EKS… (+13 more)
 
 ### Community 140 - "Contributor Covenant Code of Conduct"
 Cohesion: 0.14
@@ -906,9 +897,9 @@ Nodes (7): JobManager, QObject, Owns every background worker/thread pair and rep
 Cohesion: 0.25
 Nodes (4): QSplitter, Forbid collapsing a pane to nothing. Must be re-applied after ``restoreState``:…, Re-seed any splitter a previously-saved state left with a zero pane. A zero-…, Seed the first-run pane layout, as sizes now and as shares thereafter. Called…
 
-### Community 147 - "sync_wizard.py"
+### Community 147 - "generate_demo_screenshots.py"
 Cohesion: 0.21
-Nodes (10): Non-blocking wizard for inspecting and accepting synchronization evidence., generate_screenshots(), main(), _pin_appearance(), Path, QApplication, Capture the synchronization walkthrough used in the README. Run with ``conda…, Force the documented appearance without touching saved preferences.… (+2 more)
+Nodes (9): generate_screenshots(), main(), _pin_appearance(), Path, QApplication, Capture the synchronization walkthrough used in the README. Run with ``conda…, Force the documented appearance without touching saved preferences.…, generate_screenshots() (+1 more)
 
 ### Community 148 - "test_conda_recipe.py"
 Cohesion: 0.24
@@ -918,25 +909,25 @@ Nodes (13): _project_metadata(), The conda-forge recipe must describe the packag
 Cohesion: 0.15
 Nodes (5): app(), plot_pane(), fixture, Tests for PlotPane measure markers and measure_changed signal., TestMeasureMarkers
 
-### Community 150 - "ReaderReference"
-Cohesion: 0.20
-Nodes (8): Calculate A/B-region statistics from worker-local pyramid readers., The stable information needed to open one mapped reader in a worker. The…, ReaderReference, RegionStatsWorker, Return worker-safe references for the currently visible data channels., Calculate A/B statistics in a dedicated worker thread., reader_references(), start_region_stats()
+### Community 150 - "test_aol_metric_routing.py"
+Cohesion: 0.22
+Nodes (13): aol_session_with_metrics(), fixture, ndarray, Path, AOL extracted-metric routing: data_root MAT exports become plot rows. Unlike…, A data_root dropped without its sibling videos still loads, unaligned., An AOL session with one camera plus a nested data_root-style export., The metric file's start_epoch must match its camera's video, not 0. (+5 more)
 
 ### Community 151 - "theme.py"
-Cohesion: 0.05
-Nodes (53): QSettings, DemoLaunch, Coordinate visible demo preparation with a worker thread., Show progress UI and start generation., main(), Import Report dialog — shows ImportReport stats with a copy-as-text button., QAction, Apply the selected system-relative application font scale. (+45 more)
+Cohesion: 0.11
+Nodes (31): _apply(), apply_font_size(), _apply_font_to_existing_widgets(), apply_theme(), _capture_widget_base_fonts(), _collection_paused(), _install_system_appearance_listener(), is_dark() (+23 more)
 
 ### Community 152 - "ProxyWorker"
 Cohesion: 0.17
 Nodes (12): needs_proxy(), proxy_path_for(), ProxyWorker, Path, QObject, Proxy generation — re-encode videos to all-keyframe scrub-friendly proxies., Return the sidecar proxy path for a given video., Check if a proxy already exists and is newer than the source. (+4 more)
 
 ### Community 153 - "VideoOpenWorker"
-Cohesion: 0.08
-Nodes (15): Any, Path, QObject, Slot, Select, open, and optionally prepare one video source off the UI thread., Request cancellation between source operations., Open the selected source and emit a usable media path on success., Adapt the plugin's normalized progress callback to the UI signal. (+7 more)
+Cohesion: 0.09
+Nodes (13): Any, Path, QObject, Slot, Select, open, and optionally prepare one video source off the UI thread., Request cancellation between source operations., Open the selected source and emit a usable media path on success., Adapt the plugin's normalized progress callback to the UI signal. (+5 more)
 
-### Community 154 - "ndarray"
-Cohesion: 0.22
-Nodes (5): ndarray, Return ``(t_master, v, gap)`` for a bounded master-time range., Yield bounded ``(t_master, v)`` chunks., Decimated master-time query; the result is bounded by *max_points*., Return level-1 mmap views in **source** time. Kept unmapped on purpose:…
+### Community 154 - "_BulkLoader"
+Cohesion: 0.18
+Nodes (6): _BulkLoader, _LegacyLoader, Any, ndarray, Loader exposing the one-pass bulk chunk API used by CSV/tracking., Loader with only the frozen v1 ``read_chunks`` contract.
 
 ### Community 155 - "test_video_grid.py"
 Cohesion: 0.11
@@ -982,17 +973,17 @@ Nodes (6): Job, One unit of background work, owned for its whole lifetime., Whet
 Cohesion: 0.11
 Nodes (16): _editor_rejects_text(), _is_mid_edit(), QDragEnterEvent, QDropEvent, QEvent, QObject, QWidget, Forward drops over child panes, and keep the playhead keys reserved. (+8 more)
 
-### Community 166 - "TestCanOpen"
-Cohesion: 0.25
-Nodes (4): Claim a MAT file whose sidecar names this toolbox. Reads only the small JSON…, A JSON sidecar is not enough; it has to name this toolbox., Chained with_suffix would turn Face.Cam.mat into Face.metadata.json., TestCanOpen
+### Community 166 - "ImportWorker"
+Cohesion: 0.24
+Nodes (6): ImportWorker, QObject, Return the sidecar manager scoped to loader identity and accepted config., Return a validated cache manifest without opening the source parser., Persist cache metadata required to reopen without parsing the source., Background worker for parsing and building pyramids from time-series sources.
 
-### Community 167 - "VideoClipWorker"
-Cohesion: 0.31
-Nodes (8): Run ffmpeg clipping jobs outside the Qt event loop., VideoClipWorker, Path, Exact, bounded-memory export and statistics regression tests., test_background_export_and_stats_open_worker_local_readers(), test_export_and_stats_use_only_the_requested_raw_slice(), test_snapshot_worker_encodes_ui_captures_in_the_background(), test_video_clip_worker_runs_ffmpeg_jobs_off_the_ui_path()
+### Community 167 - "test_core_cache.py"
+Cohesion: 0.27
+Nodes (10): Path, Neither tier may fail silently, and no mixed sidecar may survive.…, A cache written by an older loader_version is stale post-change (D-023)., A held directory handle must not fail the commit. On Windows a sync client,…, test_atomic_commit(), test_cache_commit_falls_back_to_an_in_place_swap_when_the_directory_rename_fails(), test_cache_commit_raises_when_both_the_rename_and_the_in_place_swap_fail(), test_cache_manager_keys() (+2 more)
 
-### Community 168 - "DemoWindow"
-Cohesion: 0.32
-Nodes (6): DemoWindow, load_demo(), Any, Protocol, The source-loading surface the demo needs from the main window., Load the complete synchronized demo through normal asynchronous paths.
+### Community 168 - "Contributing to AvialSync"
+Cohesion: 0.20
+Nodes (10): Before you start, Commits and pull requests, Contributing to AvialSync, Known traps, Licensing your contribution, Reporting bugs, Rules that get a pull request rejected, Setting up (+2 more)
 
 ### Community 169 - "test_headless_core.py"
 Cohesion: 0.20
@@ -1002,29 +993,29 @@ Nodes (10): _production_trees(), Headless core guard test., Architecture rule 2 
 Cohesion: 0.18
 Nodes (10): Debugging prompt template (any phase), Phase 0 prompts, Phase 1 prompts, Phase 2 prompts, Phase 3 prompts, Phase 4 prompts (one per feature, same pattern), Phase 5 prompts, Phase 6 prompts (+2 more)
 
-### Community 171 - "OpenEphysSessionSource"
-Cohesion: 0.12
-Nodes (8): Kinds of data an acquisition recording carries besides the ephys. One…, OpenEphysSessionSource, Lay out an Open Ephys record-node tree and the cameras recorded with it., One rig must read the same wherever it appears, beside the others. "Rig Camera…, One reader serves many kinds, so the type must not be the reader's name. Every…, test_a_rig_plugin_is_named_system_then_kind(), test_a_type_names_the_data_never_the_rig(), test_session_claims_a_folder_holding_ephys_and_cameras()
+### Community 171 - "test_a_type_names_the_data_never_the_rig"
+Cohesion: 0.33
+Nodes (3): Kinds of data an acquisition recording carries besides the ephys. One…, One reader serves many kinds, so the type must not be the reader's name. Every…, test_a_type_names_the_data_never_the_rig()
 
-### Community 172 - "test_axis.py"
-Cohesion: 0.29
-Nodes (6): parametrize, Tests for the shared bounded plot-window slider., test_adjacent_slider_positions_produce_distinct_continuous_windows(), test_programmatic_window_change_keeps_slider_and_label_in_sync(), test_time_span_editor_is_the_same_duration_authority_as_the_slider(), test_time_span_unit_conversion_preserves_duration_and_typed_value_sets_it()
+### Community 172 - "SyncProposal"
+Cohesion: 0.20
+Nodes (7): A deterministic synchronization proposal with bounded display evidence., Whether this proposal is unambiguous and within its fit tolerance., SyncProposal, Return the proposal selected by the user after accepted execution., Provide an explicit fallback when evidence is sparse or ambiguous., A user-accepted proposal changes only the target TimeMap and is persisted., test_accepted_sync_mapping_updates_video_and_session()
 
 ### Community 173 - "Video Extraction Toolbox — output schema for AvialSync"
 Cohesion: 0.13
 Nodes (14): 1. Where the files are, 2. File format, 3. HDF5 layout, 4. JSON sidecar, 5. Channel model, 6. Time base, 7. Session-level notes, 8. The per-ROI store (upstream of the export) (+6 more)
 
-### Community 174 - ".can_open"
-Cohesion: 0.33
-Nodes (5): Path, A recording's TTL *directory* sits beside an alias named "…Events (CSV)".…, `.suffix` alone said yes: a directory can be called anything., test_csv_loader_declines_a_directory_named_like_a_csv(), test_csv_loader_refuses_a_directory_with_something_actionable()
+### Community 174 - "aol_metric_loader.py"
+Cohesion: 0.22
+Nodes (8): _column_names(), Any, Path, AOL Extracted-Metric MAT Loader. Reads the per-(ROI, metric) `-v6` MAT files an…, Load the single `roi_metric_data` array and resolve column names., Return column names read from the file, or ``None`` when it stored none. MATLAB…, Resolve column names for *metric*, falling back to generic ones. A mismatch…, _stored_column_names()
 
 ### Community 175 - "_ArrayReader"
-Cohesion: 0.19
-Nodes (9): _ArrayReader, ndarray, Path, Performance guard for the 3D tracking cursor hot path., Minimal mmap-reader equivalent for isolating per-tick sampling cost., Sampling 128 XYZ points must leave room in the existing cursor budget., Detecting bones on load must stay inside the UI-callback ceiling (D-082).…, test_bench_skeleton_detection() (+1 more)
+Cohesion: 0.22
+Nodes (7): _ArrayReader, ndarray, Path, Performance guard for the 3D tracking cursor hot path., Minimal mmap-reader equivalent for isolating per-tick sampling cost., Sampling 128 XYZ points must leave room in the existing cursor budget., test_bench_tracking_3d_cursor()
 
-### Community 176 - "._refresh_status"
-Cohesion: 0.11
-Nodes (10): BoneMode, Which skeleton the view is currently drawing., Use complete XYZ channel triplets from the active cached readers., Say how many points are loaded, and where their bones came from. The provenance…, Reflect the canvas's current orientation without re-triggering it., Pin an explicit vertical axis chosen by the user., Pin which source axis renders upward (see :meth:`Tracking3DCanvas.set_up_axis`)., Set the connectivity the session declared; empty falls back to detection. (+2 more)
+### Community 176 - ".set_inspection"
+Cohesion: 0.22
+Nodes (4): Update badge and properties panel from a SourceInspection., Show badge if integrity flags are set., Forward SourceInspection to the VideoInfoWidget badge., Forward SourceInspection to the SensorInfoWidget badge + panel.
 
 ### Community 177 - "test_prepare_release.py"
 Cohesion: 0.27
@@ -1046,21 +1037,21 @@ Nodes (10): 1. Single authority — one QAction (or one transport signal) per ac
 Cohesion: 0.20
 Nodes (10): 1. A fixed offset, when one recording is simply early or late, 2. Evidence-based alignment from TTL or frame triggers, 3. Check the result, Before you start, Choose the strategy, Choose what to compare, Or set the mapping by hand, Preview first, then accept (+2 more)
 
-### Community 182 - "._channel_messages"
-Cohesion: 0.33
-Nodes (4): _is_numeric_label(), Return whether an event label is a logic level rather than prose.…, Return the recording's free-text annotations, in source time. These are the…, Return one message per text-labelled event on a single event channel.
+### Community 182 - ".video_metadata"
+Cohesion: 0.25
+Nodes (4): Return an optional UTC-epoch metadata guess; user offset always wins., Return source coverage in master-time seconds. Sources with a metadata start…, Nominal frames per second., Return format-neutral inspection metadata. This additive default preserves…
 
-### Community 183 - "load_video"
-Cohesion: 0.33
-Nodes (6): load_video(), on_video_open_error(), Any, Path, Show a source-open error without leaving a partially-created pane., Queue a video source for probing and, in request order, pane creation.
+### Community 183 - "video_controller.py"
+Cohesion: 0.09
+Nodes (22): build_next_video_pane(), load_video(), on_video_open_error(), on_video_opened(), on_video_pane_ready(), on_video_thread_finished(), Any, ndarray (+14 more)
 
 ### Community 184 - "_QuickWorker"
 Cohesion: 0.20
 Nodes (8): QObject, Slot, _QuickWorker, A job that starts reporting again must stop being flagged., A QObject moved to a QThread with no Python reference never starts., test_a_registered_worker_actually_runs(), test_finished_jobs_are_dropped_from_the_registry(), test_progress_clears_a_not_responding_state()
 
-### Community 185 - "_format_rate"
-Cohesion: 0.40
-Nodes (4): _format_rate(), Return the dialog row for this stream: what it is, and what it costs. The…, Render a sampling rate the way an experimenter says it., test_rates_read_the_way_an_experimenter_says_them()
+### Community 185 - "open_ephys_session.py"
+Cohesion: 0.07
+Nodes (33): anchor_epoch(), find_recordings(), Return the UTC epoch that acquisition-clock zero corresponds to. Master time…, Return every recording directory at or below *root*, in a stable order. A…, _camera_items(), _event_items(), _first_sample_time(), _format_rate() (+25 more)
 
 ### Community 186 - "Plugin guide"
 Cohesion: 0.22
@@ -1074,13 +1065,21 @@ Nodes (11): A file does not open, A startup error naming numpy or quantities, A 
 Cohesion: 0.22
 Nodes (9): Cross-platform pressure audit (D-040), Done — Inspection Layer (A–K, D-020), Done (Phase 4), Done (Phase 4 UX / loader fixes), Fixed (this PR — Phase 4 stabilization), Implemented — TTL/event synchronization baseline (D-026), mypy is clean — keep it that way (V-07), Pending (+1 more)
 
-### Community 190 - ".read_all_chunks"
-Cohesion: 0.50
-Nodes (3): ndarray, Yield (time, value) chunks for one channel. Compatibility path for the frozen…, Yield x/y/z channels from a single CSV pass. ``channels`` restricts the…
+### Community 189 - "_PaletteStyleFollower"
+Cohesion: 0.29
+Nodes (5): _PaletteStyleFollower, QEvent, QObject, QWidget, Re-runs a widget's stylesheet builder whenever its palette changes.
 
-### Community 192 - ".reset_view"
-Cohesion: 0.17
-Nodes (6): QMouseEvent, Restore the default orbit and fit the current pose., Begin orbiting on a primary-button drag., Orbit around the stable scene bounds., Finish an orbit gesture., Fit the current pose on double click.
+### Community 190 - "MissingColumnError"
+Cohesion: 0.13
+Nodes (12): MissingColumnError, Any, Raised when a required CSV column is missing., ndarray, Yield (time, value) chunks for one channel. Compatibility path for the frozen…, Yield x/y/z channels from a single CSV pass. ``channels`` restricts the…, ndarray, Yield (time, value) chunks for one channel. Compatibility path for the frozen… (+4 more)
+
+### Community 191 - "._apply_presentation"
+Cohesion: 0.29
+Nodes (3): Select live Sweep/Scope painting or complete Review painting., Reveal a complete page while approximate master-time scrubbing is active., Change paint-only state without re-querying pyramid data.
+
+### Community 192 - "ShortcutsDialog"
+Cohesion: 0.33
+Nodes (4): QDialog, Keyboard shortcuts reference dialog — derived from live QAction registry…, Modal dialog listing all keyboard shortcuts. Derives content entirely from live…, ShortcutsDialog
 
 ### Community 194 - "Quickstart"
 Cohesion: 0.25
@@ -1102,21 +1101,21 @@ Nodes (8): Appearance, Keyboard shortcuts, Plot navigation, Proxies, Sessions, S
 Cohesion: 0.25
 Nodes (8): 29. A built-in loader's dependencies can fail, and that must not be fatal, 30. The Windows `0xC0000005` was inside faulthandler — trigger removed with libmpv, 31. Connect a job's result signals in `configure`, never after `_run_job` returns, 8f. The pyramid query must fill the point budget, not merely fit under it, 8g. Shutdown steps are isolated and ordered; never let one raise skip the rest, 8h. Text editors steal the playhead keys unless they are explicitly reserved, 8i. Never build all plot rows in one call, Performance Budgets (engineering-certified where ★)
 
-### Community 199 - "smoke_bundle"
-Cohesion: 0.36
-Nodes (7): bundle_executable(), main(), Path, Launch a built AvialSync bundle headlessly and require a clean shutdown., Return the platform executable in a PyInstaller one-directory bundle., Require the bundled Qt application to construct and close successfully.…, smoke_bundle()
+### Community 199 - "RuntimeError"
+Cohesion: 0.31
+Nodes (8): bundle_executable(), main(), Path, Launch a built AvialSync bundle headlessly and require a clean shutdown., Return the platform executable in a PyInstaller one-directory bundle., Require the bundled Qt application to construct and close successfully.…, smoke_bundle(), RuntimeError
 
 ### Community 200 - "AvialSync"
 Cohesion: 0.25
 Nodes (7): AvialSync, Contributing, Documentation, First session, Install, Licence, What it gives you
 
-### Community 201 - "SyncWizard"
-Cohesion: 0.11
-Nodes (14): EvidenceSpec, ndarray, QObject, Slot, Build an evidence-based proposal without blocking the UI thread., Extract raw evidence and emit one deterministic fit proposal., SyncWorker, QDialog (+6 more)
+### Community 201 - "SyncWorker"
+Cohesion: 0.22
+Nodes (7): EvidenceSpec, ndarray, QObject, Slot, Build an evidence-based proposal without blocking the UI thread., Extract raw evidence and emit one deterministic fit proposal., SyncWorker
 
 ### Community 202 - "ImportReportDialog"
-Cohesion: 0.20
-Nodes (8): ImportReportDialog, QDialog, QWidget, Scrollable plain-text view of an ImportReport with a Copy button., Show the full ImportReport dialog for a data source., A v1 session carries no ImportReport; the dialog must still open., test_import_report_handles_a_source_with_no_report(), test_import_report_states_what_the_import_found()
+Cohesion: 0.22
+Nodes (6): ImportReportDialog, QDialog, QWidget, Import Report dialog — shows ImportReport stats with a copy-as-text button., Scrollable plain-text view of an ImportReport with a Copy button., Show the full ImportReport dialog for a data source.
 
 ### Community 203 - "Architecture"
 Cohesion: 0.29
@@ -1134,17 +1133,21 @@ Nodes (6): Event, drain_abandoned(), Wait for retained threads to finish. For te
 Cohesion: 0.29
 Nodes (7): Import pipeline (updated, D-020), PlotPane / Player → downstream, Sidebar → MainWindow → subsystems, Signal Wiring Map, Source properties + integrity (D-020), Time display mode (D-020), Transport → Player → subsystems
 
+### Community 207 - "default_display_name"
+Cohesion: 0.50
+Nodes (3): default_display_name(), Return the human-readable name for this format., Derive a readable format name from a class name. ``AOLEksLoader`` becomes "AOL…
+
 ### Community 208 - "test_ui_plot_sliced_refresh.py"
 Cohesion: 0.13
 Nodes (16): channel_cache(), pane(), fixture, Path, A span change requeries every row without holding the UI thread (D-063). The…, Built once: 128 pyramids are slow enough to matter per test., The callback must hand work back to the event loop, not finish it all., Deferring must not mean dropping. (+8 more)
 
 ### Community 209 - "CacheManager"
 Cohesion: 0.05
-Nodes (57): CacheManager, is_cache_path(), Any, Path, Cache management for sidecar files., Get a temporary directory for writing cache. Ensure atomic swap later., Commit a replacement without discarding the last valid sidecar first., Replace a sidecar's contents without renaming the directory. Individual files… (+49 more)
+Nodes (58): CacheManager, is_cache_path(), Any, Path, Cache management for sidecar files., Get a temporary directory for writing cache. Ensure atomic swap later., Commit a replacement without discarding the last valid sidecar first., Replace a sidecar's contents without renaming the directory. Individual files… (+50 more)
 
 ### Community 210 - "Transport"
 Cohesion: 0.03
-Nodes (53): QSlider, QResizeEvent, Reposition all visible A/B pins from stored times + current geometry., Set A/B in-point at current slider position., Button click — set A/B in-point (button state managed here)., Set A/B out-point at current slider position., Button click — set A/B out-point (button state managed here)., Parse HH:MM:SS.fff, MM:SS, or bare seconds. (+45 more)
+Nodes (52): QResizeEvent, Reposition all visible A/B pins from stored times + current geometry., Set A/B in-point at current slider position., Button click — set A/B in-point (button state managed here)., Set A/B out-point at current slider position., Button click — set A/B out-point (button state managed here)., Parse HH:MM:SS.fff, MM:SS, or bare seconds., Transport bar: play/pause, frame step, scrub slider, A/B loop, rate control,… (+44 more)
 
 ### Community 211 - "recording"
 Cohesion: 0.40
@@ -1174,9 +1177,9 @@ Nodes (5): build_bundle(), main(), Path, Build a one-directory AvialSync bundle 
 Cohesion: 0.50
 Nodes (4): 2026-08 · D-084 · A seek is answered by its own frame, not by any frame, Consequences, Context, Decision
 
-### Community 218 - "TestPluginDiscovery"
-Cohesion: 0.12
-Nodes (13): channel(), fixture, LogCaptureFixture, Path, Edge behaviour of the pyramid reader and the loader registry. Both sit on paths…, A leading underscore marks a helper, not a plugin to import., A one-second channel sampled at 100 Hz, with a gap in the middle., A channel with no samples must answer, not raise, on every query. (+5 more)
+### Community 219 - "test_ui_source_properties.py"
+Cohesion: 0.50
+Nodes (3): app(), fixture, Tests for ui.source_properties — as_plain_text() roundtrips.
 
 ### Community 220 - ".eventFilter"
 Cohesion: 0.33
@@ -1226,14 +1229,6 @@ Nodes (4): notarize_dmg(), require_env(), sign_notarize.sh script, sign_app()
 Cohesion: 0.67
 Nodes (3): _demo_frame(), ndarray, Draw one recognisable test frame. A moving bar over a static gradient, plus a…
 
-### Community 233 - ".add_pane"
-Cohesion: 0.33
-Nodes (3): Pass tracking data readers to all video panes for overlay rendering. Retained,…, Attach named 2D prediction tracks to the pane showing *path* only. 2D pose data…, Add a pane identified by original *path*, playing *media_path* if supplied.
-
-### Community 235 - "main_window"
-Cohesion: 0.67
-Nodes (3): main_window(), fixture, QApplication
-
 ### Community 236 - ".closeEvent"
 Cohesion: 0.40
 Nodes (3): QCloseEvent, Run one shutdown step; log and continue if it fails. Closing is the one path…, Always close. This used to ``event.ignore()`` while any background job was…
@@ -1274,6 +1269,10 @@ Nodes (4): 2026-07 · D-040 · Sidecar writes use bounded concurrency and failur
 Cohesion: 0.50
 Nodes (4): 2026-07 · D-042 · Plots use one fixed, shared oscilloscope sweep, Consequences, Context, Decision
 
+### Community 252 - "_JobWorker"
+Cohesion: 0.28
+Nodes (5): _JobWorker, Protocol, QThread, A QObject with a run() slot, moved to a QThread by _run_job., Own a worker/thread pair for the whole life of a background job. Delegates to…
+
 ### Community 254 - "test_three_camera_four_stream_session_can_be_cached_and_queried"
 Cohesion: 0.40
 Nodes (4): Path, Cross-platform functional check for the representative scientific workload., Exercise the session shape scientists use without treating CI as a speed test., test_three_camera_four_stream_session_can_be_cached_and_queried()
@@ -1306,21 +1305,21 @@ Nodes (3): 2026-07 · D-031 · Libmpv commands stay on the Qt-owning thread — 
 Cohesion: 0.50
 Nodes (3): Performance gate for deterministic TTL/event alignment previews., A 10,000-event preview must remain interactive and deterministic., test_bench_sync_fit_preview()
 
-### Community 283 - "DemoProgressDialog"
-Cohesion: 0.12
-Nodes (13): DemoGenerationWorker, DemoProgressDialog, QDialog, QObject, QWidget, Slot, Show demo generation progress and an inspectable activity log., Display a worker status event. (+5 more)
+### Community 283 - "DemoLaunch"
+Cohesion: 0.09
+Nodes (20): DemoGenerationWorker, DemoLaunch, DemoProgressDialog, QDialog, QObject, QWidget, Slot, Show demo generation progress and an inspectable activity log. (+12 more)
 
 ### Community 284 - "QLabel"
-Cohesion: 0.10
-Nodes (21): QLabel, _CameraRow, _ChannelReadout, _DeltaRow, QGroupBox, QWidget, Cursor readout panel — per-channel values, camera frame numbers, Δ measurement., Show this camera's frame number and media time. Deliberately not called… (+13 more)
+Cohesion: 0.08
+Nodes (25): QLabel, _CameraRow, _ChannelReadout, _DeltaRow, QGroupBox, QWidget, Cursor readout panel — per-channel values, camera frame numbers, Δ measurement., Show this camera's frame number and media time. Deliberately not called… (+17 more)
 
 ### Community 292 - "2026-08 · D-082 · A skeleton is detected from geometry when the data declares none"
 Cohesion: 0.40
 Nodes (5): 2026-08 · D-082 · A skeleton is detected from geometry when the data declares none, Alternatives rejected, Consequences, Context, Decision
 
-### Community 300 - "read_frame_timestamps"
-Cohesion: 0.15
-Nodes (13): Return per-frame exposure evidence from a ``frame_number,timestamp`` sidecar.…, read_frame_timestamps(), parametrize, Bad timing evidence costs exact timing; it must never cost the video., This arrives from a plugin, so it is checked rather than trusted. A mapping…, The fallback names any plugin that does not override, so it must read well. The…, The counter is the only proof they existed. Timestamps alone cannot tell "a…, test_a_restarting_counter_reports_no_drops_rather_than_nonsense() (+5 more)
+### Community 300 - "_MappingLoader"
+Cohesion: 0.17
+Nodes (12): _declared_exact_mapping(), Return per-frame timing the loader recorded, once it has been validated. A…, _MappingLoader, parametrize, Bad timing evidence costs exact timing; it must never cost the video., Minimal stand-in for a VideoSource that declares per-frame timing., This arrives from a plugin, so it is checked rather than trusted. A mapping…, The fallback names any plugin that does not override, so it must read well. The… (+4 more)
 
 ### Community 315 - "2026-08 · D-083 · Video-derived data is timed from the camera start, and shares one lane"
 Cohesion: 0.50
@@ -1329,19 +1328,19 @@ Nodes (4): 2026-08 · D-083 · Video-derived data is timed from the camera start
 ## Knowledge Gaps
 - **467 isolated node(s):** `avialsync-plugin-example`, `make_appimage.sh script`, `make_dmg.sh script`, `avialsync`, `What and why` (+462 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **26 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **15 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `MainWindow` connect `MainWindow` to `VideoGrid`, `sync.py`, `test_pane_proportions.py`, `main_window.py`, `JobManager`, `._apply_default_splitter_sizes`, `diagnostics.py`, `sync_wizard.py`, `export_controller.py`, `ReaderReference`, `theme.py`, `ProxyWorker`, `VideoOpenWorker`, `test_cli_demo.py`, `DemoProgressDialog`, `test_interaction_standard.py`, `QLabel`, `generate_guide_screenshots.py`, `SessionState`, `PyramidBuilder`, `LoaderRegistry`, `MasterClock`, `.eventFilter`, `DemoWindow`, `test_session_worker.py`, `main_window`, `TimeMap`, `sync_worker.py`, `Path`, `PlotPane`, `format_time`, `Path`, `PyAVReader`, `load_video`, `_QuickWorker`, `ChannelKey`, `test_workload_responsiveness.py`, `import_controller.py`, `SourceInspection`, `test_ui_sensor_mapping.py`, `Player`, `SyncWizard`, `session_controller.py`, `ImportReportDialog`, `capture`, `demo.py`, `CacheManager`, `Transport`, `test_ui_shortcut_reach.py`, `_StubThread`, `test_ui_layout_resize.py`, `SidebarPane`, `_RecordingMessageBox`, `Tracking3DPane`, `build_manifest`, `test_never_freeze.py`, `_FakeFileDialog`, `test_frame_indexed.py`, `.closeEvent`, `.coverage_group_for`, `main_window`, `_FakePane`, `test_sync_golden.py`, `test_ui_main.py`, `._generate_proxy`, `UiHeartbeat`, `AnnotationStore`, `AnnotationPanel`, `test_close_and_focus.py`?**
-  _High betweenness centrality (0.181) - this node is a cross-community bridge._
-- **Why does `PlotPane` connect `PlotPane` to `MainWindow`, `test_bench_plot_pane.py`, `main_window.py`, `plot_pane.py`, `TestMeasureMarkers`, `SweepWindowControl`, `test_axis.py`, `TimeMap`, `format_time`, `ChannelKey`, `test_ui_plot_row_geometry.py`, `Player`, `PlotInteractionController`, `video_pane.py`, `PlotHeader`, `test_ui_plot_sliced_refresh.py`, `test_ui_follow.py`, `test_theme_tooltips.py`, `SidebarPane`, `test_bench_cursor_path`, `._build_pending_rows`, `AnnotationStore`, `test_close_and_focus.py`?**
-  _High betweenness centrality (0.089) - this node is a cross-community bridge._
-- **Why does `TimeMap` connect `TimeMap` to `test_video_pane_timing.py`, `VideoPane`, `sync.py`, `test_core_coverage_edges.py`, `test_playback_smoothness.py`, `main_window.py`, `plot_pane.py`, `ReaderReference`, `MappedChannelReader`, `Message`, `MasterClock`, `VideoClipWorker`, `PlotPane`, `format_time`, `ChannelKey`, `import_controller.py`, `AnnotationExportWorker`, `video_pane.py`, `export_worker.py`, `CacheManager`, `Tracking3DCanvas`, `VideoMetadata`, `tracking_3d_pane.py`, `Tracking3DPane`, `._build_pending_rows`?**
-  _High betweenness centrality (0.064) - this node is a cross-community bridge._
-- **Are the 58 inferred relationships involving `MainWindow` (e.g. with `DemoData` and `DemoGenerationWorker`) actually correct?**
-  _`MainWindow` has 58 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `MainWindow` connect `MainWindow` to `main_window.py`, `VideoGrid`, `test_pane_proportions.py`, `TimeSeriesSource`, `JobManager`, `._apply_default_splitter_sizes`, `diagnostics.py`, `generate_demo_screenshots.py`, `export_controller.py`, `VideoStandardLoader`, `ProxyWorker`, `DemoLaunch`, `QLabel`, `test_interaction_standard.py`, `generate_guide_screenshots.py`, `.load`, `Message`, `PyramidBuilder`, `LoaderRegistry`, `MasterClock`, `.eventFilter`, `test_session_worker.py`, `SyncProposal`, `TimeMap`, `SyncWizard`, `test_worker_lifetime.py`, `PlotPane`, `AnnotationStore`, `Path`, `video_controller.py`, `_QuickWorker`, `ChannelKey`, `test_workload_responsiveness.py`, `import_controller.py`, `ReaderReference`, `ShortcutsDialog`, `SourceInspection`, `test_ui_sensor_mapping.py`, `Player`, `capture`, `session_controller.py`, `ImportReportDialog`, `demo.py`, `CacheManager`, `Transport`, `test_ui_shortcut_reach.py`, `._on_font_size_selected`, `test_ui_layout_resize.py`, `.__init__`, `.resizeEvent`, `Tracking3DPane`, `build_manifest`, `test_never_freeze.py`, `DropScanWorker`, `test_frame_indexed.py`, `.closeEvent`, `.coverage_group_for`, `_FakePane`, `test_sync_golden.py`, `test_ui_main.py`, `UiHeartbeat`, `_parse_args`, `_JobWorker`, `AnnotationPanel`, `test_close_and_focus.py`?**
+  _High betweenness centrality (0.200) - this node is a cross-community bridge._
+- **Why does `PlotPane` connect `PlotPane` to `MainWindow`, `._finish_loading`, `test_bench_plot_pane.py`, `main_window.py`, `plot_pane.py`, `TestMeasureMarkers`, `SweepWindowControl`, `TimeMap`, `AnnotationStore`, `ChannelKey`, `._apply_presentation`, `test_ui_plot_row_geometry.py`, `Player`, `PlotInteractionController`, `video_pane.py`, `PlotHeader`, `test_ui_plot_sliced_refresh.py`, `test_ui_follow.py`, `test_theme_tooltips.py`, `.__init__`, `_JobWorker`, `test_bench_cursor_path`, `create_channel_plot`, `annotations.py`, `test_close_and_focus.py`?**
+  _High betweenness centrality (0.068) - this node is a cross-community bridge._
+- **Why does `TimeSeriesSource` connect `TimeSeriesSource` to `MainWindow`, `AOLEncoderLoader`, `main_window.py`, `Path`, `ChannelInfo`, `AOLMetricLoader`, `NeoLoader`, `Message`, `LoaderRegistry`, `aol_metric_loader.py`, `Path`, `AOLVideoExtractionLoader`, `CSVLoader`, `import_controller.py`, `DummyVideoLoader`, `neo_loader.py`, `AOLEksLoader`, `SourceOpenError`, `DropScanWorker`, `.exact_time_mapping`, `ToyBinarySource`, `_JobWorker`?**
+  _High betweenness centrality (0.060) - this node is a cross-community bridge._
+- **Are the 60 inferred relationships involving `MainWindow` (e.g. with `DemoData` and `DemoGenerationWorker`) actually correct?**
+  _`MainWindow` has 60 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 19 inferred relationships involving `PlotPane` (e.g. with `Player` and `_JobWorker`) actually correct?**
   _`PlotPane` has 19 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 43 inferred relationships involving `TimeMap` (e.g. with `ChannelKey` and `MappedChannelReader`) actually correct?**
