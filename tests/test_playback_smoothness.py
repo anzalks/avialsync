@@ -17,7 +17,6 @@ correction, and no drift for a correction to chase.
 
 from __future__ import annotations
 
-import time
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -26,6 +25,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 
 from avialsync.core.timeline import MasterClock, TimeMap
+from avialsync.engine import player as player_module
 from avialsync.engine.player import Player
 from avialsync.engine.seeker import SeekGroup
 from avialsync.ui import video_pane as video_pane_module
@@ -149,7 +149,6 @@ def _rigged_player(panes: list[DecodingPane]) -> tuple[Player, MasterClock]:
     player._playing_pane_ids = {id(p) for p in panes}
     player._displayed_pane_ids = {id(p) for p in panes}
     player._last_presentation_at = 0.0
-    player._last_tick_monotonic = 0.0
     player._is_scrubbing = False
     player._pending_scrub_t = None
     player._ab_in = None
@@ -171,17 +170,23 @@ def _run(
     clock.play()
     clock.advance(0.0)
     samples: list[tuple[float, float]] = []
-    real_monotonic = time.monotonic
+    # Drive the player's own clock seam rather than `time.monotonic`: playback
+    # reads `player._now` precisely because `time.monotonic` steps in 15.625 ms
+    # on Windows, the same size as the tick this simulates and so unable to
+    # resolve one (see `test_player_clock.py`). Faking the module's own seam
+    # also keeps the substitution local to the player, where reassigning
+    # `time.monotonic` reached every library in the process for the whole loop.
+    real_now = player_module._now
     try:
         for step in range(1, int(seconds / TICK) + 1):
             now = step * TICK
             for pane in panes:
                 pane.tick()
-            time.monotonic = lambda now=now: now  # type: ignore[assignment]
+            player_module._now = lambda now=now: now
             player._on_tick()
             samples.append((clock.state.t, abs(panes[0].time_pos - clock.state.t)))
     finally:
-        time.monotonic = real_monotonic  # type: ignore[assignment]
+        player_module._now = real_now
     return samples
 
 
@@ -322,16 +327,19 @@ def test_osd_repaints_are_capped_below_the_frame_rate(qapp: QApplication) -> Non
     flush = video_pane_module.VideoPane._flush_osd_update
     queue = video_pane_module.VideoPane._queue_osd_update
 
-    real_monotonic = time.monotonic
+    # The pane reads `video_pane._elapsed`, not `time.monotonic`: on Windows the
+    # latter steps 15.625 ms, so a 50 ms throttle could only be measured as a
+    # multiple of that and ran at 16 Hz (see `test_player_clock.py`).
+    real_elapsed = video_pane_module._elapsed
     try:
         # One simulated second of 120 fps frame delivery.
         for frame in range(120):
             now = frame / 120.0
-            time.monotonic = lambda now=now: now  # type: ignore[assignment]
+            video_pane_module._elapsed = lambda now=now: now
             queue(pane, now, 120.0)
             flush(pane)
     finally:
-        time.monotonic = real_monotonic  # type: ignore[assignment]
+        video_pane_module._elapsed = real_elapsed
 
     assert len(pane.updates) <= video_pane_module._OSD_MAX_HZ + 1
     assert len(pane.updates) >= 1
@@ -343,13 +351,13 @@ def test_the_first_frame_after_a_pause_paints_immediately(qapp: QApplication) ->
     flush = video_pane_module.VideoPane._flush_osd_update
     queue = video_pane_module.VideoPane._queue_osd_update
 
-    real_monotonic = time.monotonic
+    real_elapsed = video_pane_module._elapsed
     try:
-        time.monotonic = lambda: 100.0  # type: ignore[assignment]
+        video_pane_module._elapsed = lambda: 100.0
         queue(pane, 4.25, 30.0)
         flush(pane)
     finally:
-        time.monotonic = real_monotonic  # type: ignore[assignment]
+        video_pane_module._elapsed = real_elapsed
 
     assert pane.updates == [4.25]
 
@@ -360,19 +368,19 @@ def test_a_deferred_osd_paint_keeps_the_newest_frame(qapp: QApplication) -> None
     flush = video_pane_module.VideoPane._flush_osd_update
     queue = video_pane_module.VideoPane._queue_osd_update
 
-    real_monotonic = time.monotonic
+    real_elapsed = video_pane_module._elapsed
     try:
-        time.monotonic = lambda: 100.0  # type: ignore[assignment]
+        video_pane_module._elapsed = lambda: 100.0
         queue(pane, 1.0, 30.0)
         flush(pane)  # paints immediately
         for frame in range(1, 6):  # arrive inside the rate-limit window
             queue(pane, 1.0 + frame / 120.0, 30.0)
             flush(pane)
         # The window elapses and the trailing paint runs.
-        time.monotonic = lambda: 100.0 + video_pane_module._OSD_MIN_INTERVAL_S  # type: ignore[assignment]
+        video_pane_module._elapsed = lambda: 100.0 + video_pane_module._OSD_MIN_INTERVAL_S
         flush(pane)
     finally:
-        time.monotonic = real_monotonic  # type: ignore[assignment]
+        video_pane_module._elapsed = real_elapsed
 
     assert pane.updates == [1.0, pytest.approx(1.0 + 5 / 120.0)]
 

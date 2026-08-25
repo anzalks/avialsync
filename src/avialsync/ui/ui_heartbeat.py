@@ -31,6 +31,16 @@ STALL_THRESHOLD_MS = 30.0
 #: does not produce a flood of warnings during normal interaction.
 REPORT_THRESHOLD_MS = 250.0
 
+#: `perf_counter`, never `time.monotonic` — the same reason as
+#: `player._now` and `plot_pane._elapsed`, and it bites hardest here.  On
+#: Windows through Python 3.12, `monotonic` steps 15.625 ms, so a 100 ms
+#: interval can only be measured as 93.75 ms or 109.375 ms: a timer that fired
+#: perfectly on time reports -6.25 ms or +9.375 ms of lateness, and the error
+#: is half of :data:`STALL_THRESHOLD_MS` itself.  A real 30 ms stall could
+#: measure as 14 ms and be dropped without a word — a stall detector that
+#: cannot resolve its own threshold reports the app is healthy when it is not.
+_elapsed = time.perf_counter
+
 
 class UiHeartbeat(QObject):
     """Measure UI-thread responsiveness and report stalls."""
@@ -44,12 +54,12 @@ class UiHeartbeat(QObject):
         self._timer = QTimer(self)
         self._timer.setInterval(_INTERVAL_MS)
         self._timer.timeout.connect(self._tick)
-        self._last_tick = time.monotonic()
+        self._last_tick = _elapsed()
         self._worst_ms = 0.0
         self._stall_count = 0
 
     def start(self) -> None:
-        self._last_tick = time.monotonic()
+        self._last_tick = _elapsed()
         self._timer.start()
 
     def stop(self) -> None:
@@ -67,10 +77,10 @@ class UiHeartbeat(QObject):
     def reset(self) -> None:
         self._worst_ms = 0.0
         self._stall_count = 0
-        self._last_tick = time.monotonic()
+        self._last_tick = _elapsed()
 
     def _tick(self) -> None:
-        now = time.monotonic()
+        now = _elapsed()
         lateness_ms = (now - self._last_tick) * 1000.0 - _INTERVAL_MS
         self._last_tick = now
         if lateness_ms <= STALL_THRESHOLD_MS:

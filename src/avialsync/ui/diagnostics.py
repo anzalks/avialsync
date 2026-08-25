@@ -45,6 +45,15 @@ def probe_hwdec() -> dict:
     return result
 
 
+#: `perf_counter`, never `time.monotonic` — the same reason as
+#: `player._now` and `plot_pane._elapsed`.  The 32 MB read below lands around
+#: 20 ms on a warm cache, and `monotonic`'s 15.625 ms step quantises that into
+#: two buckets: measured here, a true 1600 MB/s reported as either 1032 or
+#: 2000 MB/s.  On a machine fast enough to finish inside one step it measures
+#: exactly zero, and the guard below then reports the disk as 0 MB/s.
+_elapsed = time.perf_counter
+
+
 def probe_disk_speed(path: str | None = None) -> float:
     """Measure sequential read speed in MB/s.
 
@@ -67,10 +76,10 @@ def probe_disk_speed(path: str | None = None) -> float:
             os.fsync(tmp.fileno())
 
         # Drop caches as much as possible (open fresh)
-        start = time.monotonic()
+        start = _elapsed()
         with open(tmp_path, "rb") as f:
             _ = f.read()
-        elapsed = time.monotonic() - start
+        elapsed = _elapsed() - start
 
         if elapsed > 0:
             return (size / (1024 * 1024)) / elapsed

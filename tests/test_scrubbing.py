@@ -148,10 +148,12 @@ def test_busy_video_seek_never_freezes_master_timeline(player_with_mocks, monkey
     clock.advance(100.0)
     from itertools import cycle
 
-    monotonic_times = cycle(100.0 + step / 60.0 for step in range(1, 121))
+    tick_times = cycle(100.0 + step / 60.0 for step in range(1, 121))
+    # `_now` is the player's clock seam; it is not `time.monotonic`, which is
+    # too coarse on Windows to time a 16.7 ms tick (see `test_player_clock.py`).
     monkeypatch.setattr(
-        "avialsync.engine.player.time.monotonic",
-        lambda: next(monotonic_times),
+        "avialsync.engine.player._now",
+        lambda: next(tick_times),
     )
 
     for _ in range(120):

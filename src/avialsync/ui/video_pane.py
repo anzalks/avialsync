@@ -40,13 +40,28 @@ _OSD_MIN_INTERVAL_S = 1.0 / _OSD_MAX_HZ
 
 #: Slack on the "is the next paint due yet" test.  Below one timer tick there is
 #: nothing to gain by deferring, and an exact comparison would arm a timer for a
-#: rounding error's worth of time.
+#: rounding error's worth of time.  This is only meaningful because the clock
+#: below resolves far finer than it: measured against ``time.monotonic``'s
+#: 15.625 ms step on Windows, a 1 ms slack can never be the reason anything is
+#: painted, and the deferral it exists to prevent happens anyway.
 _OSD_DUE_EPSILON_S = 0.001
 
 #: How long a decode thread gets to finish its current frame at teardown.
 #: A worst-case cold jump is ~120 ms, so this is generous; it exists only so a
 #: wedged decoder cannot hold the UI thread for the length of a job timeout.
 _DECODER_STOP_TIMEOUT_MS = 3000
+
+#: `perf_counter`, never `time.monotonic` — the same reason as
+#: `plot_pane._elapsed` and `player._now`.  On Windows through Python 3.12,
+#: `monotonic` is `GetTickCount64` and steps 15.625 ms at a time, so the 50 ms
+#: OSD interval could only ever be measured as a multiple of that: the throttle
+#: ran at 16 Hz rather than the 20 Hz it documents, and the trailing paint armed
+#: a 3.125 ms timer that re-armed itself unchanged every time it fired until the
+#: clock finally ticked over, because the clock could not resolve its own
+#: deadline.  `perf_counter` is sub-microsecond on all three platforms and is
+#: monotonic too; only its epoch is undefined, and every use here is a
+#: difference.
+_elapsed = time.perf_counter
 
 
 class DecodeWorker(QObject):
@@ -407,7 +422,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         paused seek or a frame step must show its result at once — and a
         trailing timer guarantees the final frame of a burst is not dropped.
         """
-        now = time.monotonic()
+        now = _elapsed()
         remaining = _OSD_MIN_INTERVAL_S - (now - self._last_osd_flush)
         # Anything this close to due is painted now.  Deferring it would arm a
         # timer for less than the clock's own resolution.

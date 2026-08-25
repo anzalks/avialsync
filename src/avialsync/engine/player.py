@@ -31,6 +31,23 @@ logger = logging.getLogger(__name__)
 _PRESENTATION_HZ = 20.0
 _PRESENTATION_INTERVAL_S = 1.0 / _PRESENTATION_HZ
 
+#: Playback timing samples ``time.perf_counter`` and never ``time.monotonic``.
+#: Through Python 3.12 — and this project pins ``<3.13`` — ``time.monotonic`` on
+#: Windows is ``GetTickCount64``, which steps 15.625 ms at a time.  That is not
+#: *coarser* than the 16 ms tick — it is a shade finer, which is exactly why
+#: the number looks harmless — but it is the same *size*, and a clock only
+#: measures intervals it is far finer than.  At 16 / 15.625 = 1.024 every tick
+#: spans one step or two, so :meth:`MasterClock.advance` is handed 15.625 ms or
+#: 31.25 ms and never the ~16 ms that actually elapsed: the playhead dawdles at
+#: 0.94x, then leaps at 1.88x, while the wall clock runs evenly.
+#: Raising the system timer resolution does not help — ``timeBeginPeriod`` moves
+#: the interrupt, not ``GetTickCount64``'s published tick.
+#: ``perf_counter`` is ``QueryPerformanceCounter`` there (~100 ns) and is
+#: monotonic on every platform we ship, the only property ``advance`` needs.
+#: CPython gave ``monotonic`` the same clock in 3.13 (gh-88494); we cannot wait.
+#: ``tests/test_player_clock.py`` pins all of this, measurements included.
+_now = time.perf_counter
+
 
 class Player(QObject):
     """Coordinates playback between UI and MasterClock.
@@ -65,14 +82,16 @@ class Player(QObject):
         self.seeker = SeekGroup(self.video_grid.panes)
 
         self._timer = QTimer(self)
-        self._timer.setInterval(1000 // 60)  # 60 Hz
+        # 1000 // 60 is 16 ms, so this is 62.5 Hz rather than 60 -- the extra
+        # 2.5 Hz is harmless (the clock integrates real elapsed time, it does
+        # not count ticks) but the arithmetic is worth not rediscovering.
+        self._timer.setInterval(1000 // 60)  # 16 ms
         self._timer.setTimerType(Qt.TimerType.PreciseTimer)
         self._timer.timeout.connect(self._on_tick)
         self.video_grid.displayed_panes_changed.connect(self._on_displayed_panes_changed)
 
         self._playing_pane_ids: set[int] = set()
         self._displayed_pane_ids = {id(pane) for pane in self.video_grid.visible_panes()}
-        self._last_tick_monotonic = time.monotonic()
         # Presentation consumers are rate-limited independently of the clock.
         self._last_presentation_at = 0.0
 
@@ -94,7 +113,6 @@ class Player(QObject):
         self._pending_scrub_t: float | None = None
 
     def start(self) -> None:
-        self._last_tick_monotonic = time.monotonic()
         self._timer.start()
 
     def stop(self) -> None:
@@ -116,7 +134,6 @@ class Player(QObject):
             if current_t >= end_t - 0.05:
                 self.seek(start_t, exact=True)
 
-            self._last_tick_monotonic = time.monotonic()
             self.clock.play()
             self._update_pane_footage(self.clock.state.t)
         else:
@@ -151,9 +168,8 @@ class Player(QObject):
             self.seeker.seek(t, exact=exact)
 
         # Update UI instantly (cursor + readout follow live during drag)
-        now = time.monotonic()
+        now = _now()
         self._update_timeline_views(self.clock.state.t, now, force=True)
-        self._last_tick_monotonic = now
 
     def _snap_to_frame_evidence(self, t_master: float) -> float:
         """Use the first active exact mapping as the reference frame clock.
@@ -239,7 +255,7 @@ class Player(QObject):
                 self.seeker.seek_pane(pane, source_t, exact=True)
 
     def _on_tick(self) -> None:
-        now = time.monotonic()
+        now = _now()
 
         # Flush a coalesced pending scrub seek as soon as the seeker is free
         if self._pending_scrub_t is not None:
@@ -271,8 +287,6 @@ class Player(QObject):
             # Update UI
             self._update_timeline_views(t, now)
 
-        self._last_tick_monotonic = now
-
     def _update_timeline_views(self, t_master: float, now: float, force: bool = False) -> None:
         """Move every timeline observer from one master-time value.
 
@@ -283,7 +297,7 @@ class Player(QObject):
         rate-limited to :data:`_PRESENTATION_HZ` and skipped entirely while their
         panel is collapsed or hidden (P3.5 P1 hot path).
 
-        ``now`` is the caller's already-sampled ``time.monotonic()`` value; this
+        ``now`` is the caller's already-sampled :data:`_now` value; this
         method never samples the clock itself, so it cannot perturb the tick's
         own timing.  ``force=True`` bypasses the rate limit for discrete events —
         a seek, a frame step, a pause — where a stale readout would be a lie
