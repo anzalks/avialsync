@@ -1,7 +1,7 @@
-# Graph Report - avialview  (2026-08-25)
+# Graph Report - avialview  (2026-08-26)
 
 ## Corpus Check
-- 263 files · ~416,616 words
+- 263 files · ~416,918 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3e2c0d07`
+- Built from commit: `68a33cca`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -1360,7 +1360,7 @@ Cohesion: 0.50
 Nodes (4): 2026-08 · D-083 · Video-derived data is timed from the camera start, and shares one lane, Consequences, Context, Decision
 
 ## Knowledge Gaps
-- **467 isolated node(s):** `avialsync-plugin-example`, `make_appimage.sh script`, `make_dmg.sh script`, `avialsync`, `What and why` (+462 more)
+- **467 isolated node(s):** `avialsync`, `avialsync-plugin-example`, `make_appimage.sh script`, `make_dmg.sh script`, `What and why` (+462 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **24 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 

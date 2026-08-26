@@ -4,15 +4,51 @@
   "graph": {},
   "nodes": [
     {
+      "label": "avialsync",
+      "file_type": "code",
+      "type": "package",
+      "ecosystem": "python",
+      "source_file": "pyproject.toml",
+      "source_location": "L1",
+      "version": "0.1.4",
+      "_origin": "ast",
+      "id": "pkg_avialsync",
+      "community": 273,
+      "community_name": "avialsync",
+      "norm_label": "avialsync"
+    },
+    {
+      "label": "avialsync/__init__.py",
+      "file_type": "code",
+      "source_file": "src/avialsync/__init__.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_avialsync_init",
+      "community": 26,
+      "community_name": "test_cli_demo.py",
+      "norm_label": "avialsync/__init__.py"
+    },
+    {
+      "label": "AvialSync root module.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/__init__.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_avialsync_init_rationale_1",
+      "community": 26,
+      "community_name": "test_cli_demo.py",
+      "norm_label": "avialsync root module."
+    },
+    {
       "label": "registry.py",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry",
       "community": 16,
       "community_name": "TimeSeriesSource",
-      "norm_label": "registry.py"
+      "norm_label": "registry.py",
+      "id": "src_avialsync_core_registry"
     },
     {
       "label": "_Capability",
@@ -22,10 +58,10 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_capability",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "_capability"
+      "norm_label": "_capability",
+      "id": "src_avialsync_core_registry_capability"
     },
     {
       "label": "Protocol",
@@ -33,10 +69,10 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "protocol",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "protocol"
+      "norm_label": "protocol",
+      "id": "protocol"
     },
     {
       "label": ".can_open()",
@@ -45,10 +81,10 @@
       "source_location": "L23",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_capability_can_open",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": ".can_open()"
+      "norm_label": ".can_open()",
+      "id": "src_avialsync_core_registry_capability_can_open"
     },
     {
       "label": "Path",
@@ -56,10 +92,10 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "path",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "path"
+      "norm_label": "path",
+      "id": "path"
     },
     {
       "label": "LoaderRegistry",
@@ -69,10 +105,10 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "loaderregistry"
+      "norm_label": "loaderregistry",
+      "id": "src_avialsync_core_registry_loaderregistry"
     },
     {
       "label": ".__init__()",
@@ -81,10 +117,10 @@
       "source_location": "L56",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_init",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": ".__init__()"
+      "norm_label": ".__init__()",
+      "id": "src_avialsync_core_registry_loaderregistry_init"
     },
     {
       "label": "._default_plugin_dirs()",
@@ -93,10 +129,10 @@
       "source_location": "L72",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "._default_plugin_dirs()"
+      "norm_label": "._default_plugin_dirs()",
+      "id": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs"
     },
     {
       "label": "._discover()",
@@ -105,10 +141,10 @@
       "source_location": "L93",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_discover",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "._discover()"
+      "norm_label": "._discover()",
+      "id": "src_avialsync_core_registry_loaderregistry_discover"
     },
     {
       "label": "._load_builtins()",
@@ -117,10 +153,10 @@
       "source_location": "L107",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_load_builtins",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "._load_builtins()"
+      "norm_label": "._load_builtins()",
+      "id": "src_avialsync_core_registry_loaderregistry_load_builtins"
     },
     {
       "label": "_T",
@@ -128,10 +164,10 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "t",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "_t"
+      "norm_label": "_t",
+      "id": "t"
     },
     {
       "label": "._load_entry_points()",
@@ -140,10 +176,10 @@
       "source_location": "L122",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_load_entry_points",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "._load_entry_points()"
+      "norm_label": "._load_entry_points()",
+      "id": "src_avialsync_core_registry_loaderregistry_load_entry_points"
     },
     {
       "label": "._discover_directory()",
@@ -152,10 +188,10 @@
       "source_location": "L142",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_discover_directory",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "._discover_directory()"
+      "norm_label": "._discover_directory()",
+      "id": "src_avialsync_core_registry_loaderregistry_discover_directory"
     },
     {
       "label": "._load_module()",
@@ -164,10 +200,10 @@
       "source_location": "L185",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_load_module",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "._load_module()"
+      "norm_label": "._load_module()",
+      "id": "src_avialsync_core_registry_loaderregistry_load_module"
     },
     {
       "label": "ModuleType",
@@ -175,10 +211,10 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "moduletype",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "moduletype"
+      "norm_label": "moduletype",
+      "id": "moduletype"
     },
     {
       "label": "._best_by_capability()",
@@ -187,10 +223,10 @@
       "source_location": "L220",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_best_by_capability",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "._best_by_capability()"
+      "norm_label": "._best_by_capability()",
+      "id": "src_avialsync_core_registry_loaderregistry_best_by_capability"
     },
     {
       "label": ".find_best_loader()",
@@ -199,10 +235,10 @@
       "source_location": "L244",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_find_best_loader",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": ".find_best_loader()"
+      "norm_label": ".find_best_loader()",
+      "id": "src_avialsync_core_registry_loaderregistry_find_best_loader"
     },
     {
       "label": "TimeSeriesSource",
@@ -210,10 +246,10 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "timeseriessource",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "timeseriessource"
+      "norm_label": "timeseriessource",
+      "id": "timeseriessource"
     },
     {
       "label": "VideoSource",
@@ -221,10 +257,10 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "videosource",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "videosource"
+      "norm_label": "videosource",
+      "id": "videosource"
     },
     {
       "label": ".find_best_session()",
@@ -233,10 +269,10 @@
       "source_location": "L248",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_find_best_session",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": ".find_best_session()"
+      "norm_label": ".find_best_session()",
+      "id": "src_avialsync_core_registry_loaderregistry_find_best_session"
     },
     {
       "label": "SessionSource",
@@ -244,10 +280,10 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "sessionsource",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "sessionsource"
+      "norm_label": "sessionsource",
+      "id": "sessionsource"
     },
     {
       "label": ".loaders()",
@@ -256,10 +292,10 @@
       "source_location": "L256",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_loaders",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": ".loaders()"
+      "norm_label": ".loaders()",
+      "id": "src_avialsync_core_registry_loaderregistry_loaders"
     },
     {
       "label": ".sessions()",
@@ -268,10 +304,10 @@
       "source_location": "L260",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_loaderregistry_sessions",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": ".sessions()"
+      "norm_label": ".sessions()",
+      "id": "src_avialsync_core_registry_loaderregistry_sessions"
     },
     {
       "label": "Plugin registry and discovery.",
@@ -279,10 +315,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_1",
       "community": 16,
       "community_name": "TimeSeriesSource",
-      "norm_label": "plugin registry and discovery."
+      "norm_label": "plugin registry and discovery.",
+      "id": "src_avialsync_core_registry_rationale_1"
     },
     {
       "label": "What every scored plugin has in common: it can rate a path.",
@@ -290,10 +326,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L20",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_20",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "what every scored plugin has in common: it can rate a path."
+      "norm_label": "what every scored plugin has in common: it can rate a path.",
+      "id": "src_avialsync_core_registry_rationale_20"
     },
     {
       "label": "Discovers and loads source plugins.",
@@ -301,10 +337,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L54",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_54",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "discovers and loads source plugins."
+      "norm_label": "discovers and loads source plugins.",
+      "id": "src_avialsync_core_registry_rationale_54"
     },
     {
       "label": "Return supported loose-plugin directories, in discovery order. BLUEPRINT Phase\u2026",
@@ -312,10 +348,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L73",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_73",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "return supported loose-plugin directories, in discovery order. blueprint phase..."
+      "norm_label": "return supported loose-plugin directories, in discovery order. blueprint phase...",
+      "id": "src_avialsync_core_registry_rationale_73"
     },
     {
       "label": "Find loaders and session scanners in their entry point groups.",
@@ -323,10 +359,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L94",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_94",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "find loaders and session scanners in their entry point groups."
+      "norm_label": "find loaders and session scanners in their entry point groups.",
+      "id": "src_avialsync_core_registry_rationale_94"
     },
     {
       "label": "Add each built-in class in *specs*, reporting any that will not import. A\u2026",
@@ -334,10 +370,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L108",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_108",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "add each built-in class in *specs*, reporting any that will not import. a..."
+      "norm_label": "add each built-in class in *specs*, reporting any that will not import. a...",
+      "id": "src_avialsync_core_registry_rationale_108"
     },
     {
       "label": "Add every class published under *group*, skipping ones that fail. Deduplicates\u2026",
@@ -345,10 +381,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L123",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_123",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "add every class published under *group*, skipping ones that fail. deduplicates..."
+      "norm_label": "add every class published under *group*, skipping ones that fail. deduplicates...",
+      "id": "src_avialsync_core_registry_rationale_123"
     },
     {
       "label": "Load source classes exported by loose ``*.py`` plugin modules.",
@@ -356,10 +392,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L143",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_143",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "load source classes exported by loose ``*.py`` plugin modules."
+      "norm_label": "load source classes exported by loose ``*.py`` plugin modules.",
+      "id": "src_avialsync_core_registry_rationale_143"
     },
     {
       "label": "Import one loose plugin module without adding its directory to ``sys.path``.\u2026",
@@ -367,10 +403,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L186",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_186",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "import one loose plugin module without adding its directory to ``sys.path``...."
+      "norm_label": "import one loose plugin module without adding its directory to ``sys.path``....",
+      "id": "src_avialsync_core_registry_rationale_186"
     },
     {
       "label": "Return the candidate scoring highest above zero on *path*. ``can_open`` is\u2026",
@@ -378,10 +414,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L221",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_221",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "return the candidate scoring highest above zero on *path*. ``can_open`` is..."
+      "norm_label": "return the candidate scoring highest above zero on *path*. ``can_open`` is...",
+      "id": "src_avialsync_core_registry_rationale_221"
     },
     {
       "label": "Return the loader with the highest can_open() score > 0.",
@@ -389,10 +425,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L245",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_245",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "return the loader with the highest can_open() score > 0."
+      "norm_label": "return the loader with the highest can_open() score > 0.",
+      "id": "src_avialsync_core_registry_rationale_245"
     },
     {
       "label": "Return the session scanner claiming *path*, if any. Asked before per-file\u2026",
@@ -400,10 +436,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L249",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_249",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "return the session scanner claiming *path*, if any. asked before per-file..."
+      "norm_label": "return the session scanner claiming *path*, if any. asked before per-file...",
+      "id": "src_avialsync_core_registry_rationale_249"
     },
     {
       "label": "Return all discovered source loaders.",
@@ -411,10 +447,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L257",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_257",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "return all discovered source loaders."
+      "norm_label": "return all discovered source loaders.",
+      "id": "src_avialsync_core_registry_rationale_257"
     },
     {
       "label": "Return all discovered session scanners.",
@@ -422,10 +458,10 @@
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L261",
       "_origin": "ast",
-      "id": "src_avialsync_core_registry_rationale_261",
       "community": 34,
       "community_name": "LoaderRegistry",
-      "norm_label": "return all discovered session scanners."
+      "norm_label": "return all discovered session scanners.",
+      "id": "src_avialsync_core_registry_rationale_261"
     },
     {
       "label": "commit-msg",
@@ -1097,42 +1133,6 @@
       "community_name": "sign.ps1",
       "norm_label": "sign.ps1",
       "id": "packaging_windows_sign"
-    },
-    {
-      "label": "avialsync",
-      "file_type": "code",
-      "type": "package",
-      "ecosystem": "python",
-      "source_file": "pyproject.toml",
-      "source_location": "L1",
-      "version": "0.1.3",
-      "_origin": "ast",
-      "community": 273,
-      "community_name": "avialsync",
-      "norm_label": "avialsync",
-      "id": "pkg_avialsync"
-    },
-    {
-      "label": "avialsync/__init__.py",
-      "file_type": "code",
-      "source_file": "src/avialsync/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "test_cli_demo.py",
-      "norm_label": "avialsync/__init__.py",
-      "id": "src_avialsync_init"
-    },
-    {
-      "label": "AvialSync root module.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/__init__.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "community": 26,
-      "community_name": "test_cli_demo.py",
-      "norm_label": "avialsync root module.",
-      "id": "src_avialsync_init_rationale_1"
     },
     {
       "label": "__main__.py",
@@ -71101,15 +71101,50 @@
   ],
   "links": [
     {
+      "relation": "depends_on",
+      "context": "dependency",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "examples/plugins/avialsync-plugin-example/pyproject.toml",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "pkg_avialsync_plugin_example",
+      "target": "pkg_avialsync"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/__init__.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_avialsync_init_rationale_1",
+      "target": "src_avialsync_init",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_cli_demo.py",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast",
+      "confidence_score": 1.0,
+      "source": "tests_test_cli_demo",
+      "target": "src_avialsync_init"
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L19",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry",
-      "target": "src_avialsync_core_registry_capability",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_capability"
     },
     {
       "relation": "contains",
@@ -71118,9 +71153,9 @@
       "source_location": "L53",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry",
-      "target": "src_avialsync_core_registry_loaderregistry",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry"
     },
     {
       "relation": "rationale_for",
@@ -71129,9 +71164,9 @@
       "source_location": "L1",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_1",
-      "target": "src_avialsync_core_registry",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry"
     },
     {
       "relation": "imports_from",
@@ -71248,9 +71283,9 @@
       "source_location": "L19",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_capability",
-      "target": "protocol",
-      "confidence_score": 1.0
+      "target": "protocol"
     },
     {
       "relation": "method",
@@ -71259,9 +71294,9 @@
       "source_location": "L23",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_capability",
-      "target": "src_avialsync_core_registry_capability_can_open",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_capability_can_open"
     },
     {
       "relation": "rationale_for",
@@ -71270,9 +71305,9 @@
       "source_location": "L20",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_20",
-      "target": "src_avialsync_core_registry_capability",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_capability"
     },
     {
       "relation": "references",
@@ -71282,9 +71317,9 @@
       "source_location": "L23",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_capability_can_open",
-      "target": "path",
-      "confidence_score": 1.0
+      "target": "path"
     },
     {
       "relation": "calls",
@@ -71294,9 +71329,9 @@
       "source_location": "L232",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_best_by_capability",
-      "target": "src_avialsync_core_registry_capability_can_open",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_capability_can_open"
     },
     {
       "relation": "references",
@@ -71306,9 +71341,9 @@
       "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_best_by_capability",
-      "target": "path",
-      "confidence_score": 1.0
+      "target": "path"
     },
     {
       "relation": "references",
@@ -71318,9 +71353,9 @@
       "source_location": "L72",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs",
-      "target": "path",
-      "confidence_score": 1.0
+      "target": "path"
     },
     {
       "relation": "references",
@@ -71330,9 +71365,9 @@
       "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_discover_directory",
-      "target": "path",
-      "confidence_score": 1.0
+      "target": "path"
     },
     {
       "relation": "references",
@@ -71342,9 +71377,9 @@
       "source_location": "L244",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_find_best_loader",
-      "target": "path",
-      "confidence_score": 1.0
+      "target": "path"
     },
     {
       "relation": "references",
@@ -71354,9 +71389,9 @@
       "source_location": "L248",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_find_best_session",
-      "target": "path",
-      "confidence_score": 1.0
+      "target": "path"
     },
     {
       "relation": "references",
@@ -71366,9 +71401,9 @@
       "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_init",
-      "target": "path",
-      "confidence_score": 1.0
+      "target": "path"
     },
     {
       "relation": "references",
@@ -71378,9 +71413,9 @@
       "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_load_module",
-      "target": "path",
-      "confidence_score": 1.0
+      "target": "path"
     },
     {
       "relation": "method",
@@ -71389,9 +71424,9 @@
       "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_best_by_capability",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_best_by_capability"
     },
     {
       "relation": "method",
@@ -71400,9 +71435,9 @@
       "source_location": "L72",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs"
     },
     {
       "relation": "method",
@@ -71411,9 +71446,9 @@
       "source_location": "L93",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_discover",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_discover"
     },
     {
       "relation": "method",
@@ -71422,9 +71457,9 @@
       "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_discover_directory",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_discover_directory"
     },
     {
       "relation": "method",
@@ -71433,9 +71468,9 @@
       "source_location": "L244",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_find_best_loader",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_find_best_loader"
     },
     {
       "relation": "method",
@@ -71444,9 +71479,9 @@
       "source_location": "L248",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_find_best_session",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_find_best_session"
     },
     {
       "relation": "method",
@@ -71455,9 +71490,9 @@
       "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_init",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_init"
     },
     {
       "relation": "method",
@@ -71466,9 +71501,9 @@
       "source_location": "L107",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_load_builtins",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_load_builtins"
     },
     {
       "relation": "method",
@@ -71477,9 +71512,9 @@
       "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_load_entry_points",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_load_entry_points"
     },
     {
       "relation": "method",
@@ -71488,9 +71523,9 @@
       "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_load_module",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_load_module"
     },
     {
       "relation": "method",
@@ -71499,9 +71534,9 @@
       "source_location": "L256",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_loaders",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_loaders"
     },
     {
       "relation": "method",
@@ -71510,9 +71545,9 @@
       "source_location": "L260",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_sessions",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_sessions"
     },
     {
       "relation": "rationale_for",
@@ -71521,9 +71556,9 @@
       "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_54",
-      "target": "src_avialsync_core_registry_loaderregistry",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry"
     },
     {
       "relation": "imports",
@@ -72444,9 +72479,9 @@
       "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_init",
-      "target": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs"
     },
     {
       "relation": "calls",
@@ -72456,9 +72491,9 @@
       "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_init",
-      "target": "src_avialsync_core_registry_loaderregistry_discover",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_discover"
     },
     {
       "relation": "rationale_for",
@@ -72467,9 +72502,9 @@
       "source_location": "L73",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_73",
-      "target": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs"
     },
     {
       "relation": "calls",
@@ -72491,9 +72526,9 @@
       "source_location": "L105",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_discover",
-      "target": "src_avialsync_core_registry_loaderregistry_discover_directory",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_discover_directory"
     },
     {
       "relation": "calls",
@@ -72503,9 +72538,9 @@
       "source_location": "L98",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_discover",
-      "target": "src_avialsync_core_registry_loaderregistry_load_builtins",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_load_builtins"
     },
     {
       "relation": "calls",
@@ -72515,9 +72550,9 @@
       "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_discover",
-      "target": "src_avialsync_core_registry_loaderregistry_load_entry_points",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_load_entry_points"
     },
     {
       "relation": "rationale_for",
@@ -72526,9 +72561,9 @@
       "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_94",
-      "target": "src_avialsync_core_registry_loaderregistry_discover",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_discover"
     },
     {
       "relation": "references",
@@ -72538,9 +72573,9 @@
       "source_location": "L107",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_load_builtins",
-      "target": "t",
-      "confidence_score": 1.0
+      "target": "t"
     },
     {
       "relation": "rationale_for",
@@ -72549,9 +72584,9 @@
       "source_location": "L108",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_108",
-      "target": "src_avialsync_core_registry_loaderregistry_load_builtins",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_load_builtins"
     },
     {
       "relation": "references",
@@ -72561,9 +72596,9 @@
       "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_best_by_capability",
-      "target": "t",
-      "confidence_score": 1.0
+      "target": "t"
     },
     {
       "relation": "references",
@@ -72573,9 +72608,9 @@
       "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_load_entry_points",
-      "target": "t",
-      "confidence_score": 1.0
+      "target": "t"
     },
     {
       "relation": "rationale_for",
@@ -72584,9 +72619,9 @@
       "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_123",
-      "target": "src_avialsync_core_registry_loaderregistry_load_entry_points",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_load_entry_points"
     },
     {
       "relation": "calls",
@@ -72596,9 +72631,9 @@
       "source_location": "L149",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_discover_directory",
-      "target": "src_avialsync_core_registry_loaderregistry_load_module",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_load_module"
     },
     {
       "relation": "rationale_for",
@@ -72607,9 +72642,9 @@
       "source_location": "L143",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_143",
-      "target": "src_avialsync_core_registry_loaderregistry_discover_directory",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_discover_directory"
     },
     {
       "relation": "references",
@@ -72619,9 +72654,9 @@
       "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_load_module",
-      "target": "moduletype",
-      "confidence_score": 1.0
+      "target": "moduletype"
     },
     {
       "relation": "rationale_for",
@@ -72630,9 +72665,9 @@
       "source_location": "L186",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_186",
-      "target": "src_avialsync_core_registry_loaderregistry_load_module",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_load_module"
     },
     {
       "relation": "calls",
@@ -72666,9 +72701,9 @@
       "source_location": "L246",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_find_best_loader",
-      "target": "src_avialsync_core_registry_loaderregistry_best_by_capability",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_best_by_capability"
     },
     {
       "relation": "calls",
@@ -72678,9 +72713,9 @@
       "source_location": "L254",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_find_best_session",
-      "target": "src_avialsync_core_registry_loaderregistry_best_by_capability",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_best_by_capability"
     },
     {
       "relation": "rationale_for",
@@ -72689,9 +72724,9 @@
       "source_location": "L221",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_221",
-      "target": "src_avialsync_core_registry_loaderregistry_best_by_capability",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_best_by_capability"
     },
     {
       "relation": "references",
@@ -72701,9 +72736,9 @@
       "source_location": "L244",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_find_best_loader",
-      "target": "timeseriessource",
-      "confidence_score": 1.0
+      "target": "timeseriessource"
     },
     {
       "relation": "references",
@@ -72713,9 +72748,9 @@
       "source_location": "L244",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_find_best_loader",
-      "target": "videosource",
-      "confidence_score": 1.0
+      "target": "videosource"
     },
     {
       "relation": "rationale_for",
@@ -72724,9 +72759,9 @@
       "source_location": "L245",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_245",
-      "target": "src_avialsync_core_registry_loaderregistry_find_best_loader",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_find_best_loader"
     },
     {
       "relation": "references",
@@ -72736,9 +72771,9 @@
       "source_location": "L256",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_loaders",
-      "target": "timeseriessource",
-      "confidence_score": 1.0
+      "target": "timeseriessource"
     },
     {
       "relation": "references",
@@ -72748,9 +72783,9 @@
       "source_location": "L256",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_loaders",
-      "target": "videosource",
-      "confidence_score": 1.0
+      "target": "videosource"
     },
     {
       "relation": "references",
@@ -72760,9 +72795,9 @@
       "source_location": "L248",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_find_best_session",
-      "target": "sessionsource",
-      "confidence_score": 1.0
+      "target": "sessionsource"
     },
     {
       "relation": "rationale_for",
@@ -72771,9 +72806,9 @@
       "source_location": "L249",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_249",
-      "target": "src_avialsync_core_registry_loaderregistry_find_best_session",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_find_best_session"
     },
     {
       "relation": "references",
@@ -72783,9 +72818,9 @@
       "source_location": "L260",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_loaderregistry_sessions",
-      "target": "sessionsource",
-      "confidence_score": 1.0
+      "target": "sessionsource"
     },
     {
       "relation": "rationale_for",
@@ -72794,9 +72829,9 @@
       "source_location": "L257",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_257",
-      "target": "src_avialsync_core_registry_loaderregistry_loaders",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_loaders"
     },
     {
       "relation": "rationale_for",
@@ -72805,9 +72840,9 @@
       "source_location": "L261",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "src_avialsync_core_registry_rationale_261",
-      "target": "src_avialsync_core_registry_loaderregistry_sessions",
-      "confidence_score": 1.0
+      "target": "src_avialsync_core_registry_loaderregistry_sessions"
     },
     {
       "relation": "contains",
@@ -72911,18 +72946,6 @@
       "_origin": "ast",
       "source": "examples_load_tenss_data_main",
       "target": "src_avialsync_loaders_video_standard_videostandardloader"
-    },
-    {
-      "relation": "depends_on",
-      "context": "dependency",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "examples/plugins/avialsync-plugin-example/pyproject.toml",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "pkg_avialsync_plugin_example",
-      "target": "pkg_avialsync"
     },
     {
       "relation": "contains",
@@ -73528,29 +73551,6 @@
       "_origin": "ast",
       "source": "packaging_smoke_test_smoke_bundle",
       "target": "runtimeerror"
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/__init__.py",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "src_avialsync_init_rationale_1",
-      "target": "src_avialsync_init"
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "tests/test_cli_demo.py",
-      "source_location": "L10",
-      "weight": 1.0,
-      "_origin": "ast",
-      "confidence_score": 1.0,
-      "source": "tests_test_cli_demo",
-      "target": "src_avialsync_init"
     },
     {
       "relation": "imports",
@@ -204269,5 +204269,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "3e2c0d07403d5b6b737ad27732a3545b37b93495"
+  "built_at_commit": "68a33cca90564bcfd28f09cb6b6515c511bbf176"
 }
