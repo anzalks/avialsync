@@ -268,6 +268,9 @@ def create_video_pane(
     window.sidebar.set_video_inspection(original_path, inspection)
     if frame_times is not None:
         window._video_frame_times[original_path] = frame_times
+        from avialsync.ui.controllers import import_controller
+
+        import_controller.calibrate_overlay_timing(window, original_path)
     if window._frame_indexed_sources and len(window._video_fps) == 1:
         window._rebind_frame_indexed_sources(loader.fps())
     window.transport.set_status(f"Ready · loaded {Path(original_path).name}")

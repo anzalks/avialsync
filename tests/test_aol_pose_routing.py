@@ -209,6 +209,41 @@ def test_2d_pose_overlays_its_camera_and_is_not_plotted(tmp_path: Path, qtbot, m
     window.close()
 
 
+def test_2d_overlay_uses_its_target_videos_presentation_times(tmp_path: Path) -> None:
+    """A dropped frame must not make one camera's 2D overlay drift from its pixels."""
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from avialsync.core.channel_reader import MappedChannelReader
+    from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+    from avialsync.core.timeline import TimeMap
+    from avialsync.ui.controllers.import_controller import calibrate_overlay_timing
+
+    source_times = np.array([0.0, 1.0, 2.0])
+    for channel in ("nose_x", "nose_y"):
+        PyramidBuilder(tmp_path, channel).build_and_save(source_times, source_times)
+    tracking_map = TimeMap(offset=-100.0)
+    points = {
+        "nose": (
+            MappedChannelReader(PyramidReader(tmp_path, "nose_x"), tracking_map, "FaceCam_eks.csv"),
+            MappedChannelReader(PyramidReader(tmp_path, "nose_y"), tracking_map, "FaceCam_eks.csv"),
+        )
+    }
+    video = "FaceCam.mp4"
+    pane = SimpleNamespace(time_map=TimeMap(offset=-100.0))
+    window = SimpleNamespace(
+        video_grid=SimpleNamespace(pane_paths=lambda: [video], panes=[pane]),
+        _video_frame_times={video: np.array([0.0, 0.5, 2.0])},
+        _overlay_sources={video: {"FaceCam_eks.csv": {"frame_rate": 1.0, "points": points}}},
+    )
+
+    calibrate_overlay_timing(window, video)
+
+    assert tracking_map.to_master(1.0) == pytest.approx(100.5)
+    assert tracking_map.to_master(2.0) == pytest.approx(102.0)
+
+
 def test_3d_pose_reaches_the_3d_view_and_is_not_plotted(tmp_path: Path, qtbot, monkeypatch) -> None:
     from avialsync.ui.main_window import MainWindow
 

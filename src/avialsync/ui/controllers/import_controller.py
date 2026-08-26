@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtWidgets import QMessageBox
 
@@ -348,8 +349,57 @@ def register_tracking_source(
         "label": str(config.get("overlay_label", Path(path).stem)),
         "is_ensemble": bool(config.get("overlay_is_ensemble", False)),
         "points": points,
+        "frame_rate": float(config.get("fps", 0.0)),
     }
+    calibrate_overlay_timing(window, video)
     window._refresh_overlays(video)
+
+
+def calibrate_overlay_timing(window: MainWindow, video: str) -> None:
+    """Map an AOL 2D track's frame indices to its video's presentation times.
+
+    Tracking CSVs name frames while a video may have VFR intervals or dropped
+    frames.  Matching the track's stored frame-index times to the target pane's
+    measured timestamps keeps the overlay tied to the pixels actually shown.
+    """
+    try:
+        pane_index = window.video_grid.pane_paths().index(video)
+    except ValueError:
+        return
+    frame_times = window._video_frame_times.get(video)
+    if frame_times is None or len(frame_times) < 2:
+        return
+
+    pane = window.video_grid.panes[pane_index]
+    for entry in window._overlay_sources.get(video, {}).values():
+        frame_rate = float(entry.get("frame_rate", 0.0))
+        points = entry.get("points", {})
+        if frame_rate <= 0.0 or not points:
+            continue
+        first_reader = next(iter(points.values()))[0]
+        source_times = first_reader.source_reader.mapped_columns()[0]
+        if len(source_times) < 2:
+            continue
+        frame_indices = np.rint(source_times * frame_rate).astype(np.intp)
+        if (
+            not np.allclose(source_times * frame_rate, frame_indices)
+            or frame_indices[0] < 0
+            or frame_indices[-1] >= len(frame_times)
+        ):
+            logger.warning(
+                "Cannot align AOL overlay %s to %s: tracking frame indices do not fit video.",
+                video,
+                Path(first_reader.source_id).name,
+            )
+            continue
+        master_times = pane.time_map.to_master_array(frame_times[frame_indices])
+        time_maps = {
+            id(reader.time_map): reader.time_map
+            for axes in points.values()
+            for reader in axes
+        }
+        for time_map in time_maps.values():
+            time_map.set_exact_mapping(master_times, source_times)
 
 
 def refresh_pose_3d(window: MainWindow) -> None:
