@@ -88,6 +88,8 @@ class PlotPane(QWidget):
     measure_changed = Signal(float, float)
     # Emitted when user picks "Add marker here" from the plot context menu (D-022)
     annotate_at_requested = Signal(float)  # t in master-clock seconds
+    # Emitted when a visible plot row is left-clicked at an absolute master time.
+    seek_requested = Signal(float)
     # Emitted by the row close button; MainWindow mirrors it to the sidebar checkbox.
     channel_close_requested = Signal(str, str)  # source_id, channel_id
     # Absolute current page plus cursor phase for the shared Data Streams navigator.

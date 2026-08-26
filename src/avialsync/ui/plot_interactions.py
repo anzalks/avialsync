@@ -105,8 +105,8 @@ class PlotInteractionController:
         self.redraw_annotations()
 
     def on_scene_clicked(self, event: Any) -> None:
-        """Handle a right-click only when it lands inside a visible channel row."""
-        if event.button() != Qt.MouseButton.RightButton or self._pane.sweep_start is None:
+        """Seek on left-clicks and show actions for right-clicks in visible rows."""
+        if self._pane.sweep_start is None:
             return
         scene_pos = event.scenePos()
         channel = next(
@@ -119,6 +119,13 @@ class PlotInteractionController:
             None,
         )
         if channel is None:
+            return
+        if event.button() == Qt.MouseButton.LeftButton:
+            view_pos = channel.plot_item.vb.mapSceneToView(scene_pos)
+            self._pane.seek_requested.emit(self._pane.sweep_start + float(view_pos.x()))
+            event.accept()
+            return
+        if event.button() != Qt.MouseButton.RightButton:
             return
         choice = show_context_menu(
             event, channel, self._pane.sweep_start, self._extra_context_actions

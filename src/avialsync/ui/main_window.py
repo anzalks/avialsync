@@ -281,6 +281,7 @@ class MainWindow(QMainWindow):
         self.data_streams = self.transport.detach_data_streams()
         self.transport.reset_zoom_requested.connect(self.plot_pane.reset_zoom)
         self.plot_pane.view_window_changed.connect(self.transport.set_plot_viewport)
+        self.plot_pane.seek_requested.connect(self._on_plot_seek_requested)
 
         # Engine
         from avialsync.core.registry import LoaderRegistry
@@ -649,6 +650,11 @@ class MainWindow(QMainWindow):
 
     def _on_message_seek_requested(self, t: float) -> None:
         """Seek to a message's timestamp, clamped to the loaded bounds."""
+        bounds = self.clock.state.bounds
+        self.player.seek(max(bounds[0], min(bounds[1], t)), exact=True)
+
+    def _on_plot_seek_requested(self, t: float) -> None:
+        """Seek the shared master clock to a time selected in a plot row."""
         bounds = self.clock.state.bounds
         self.player.seek(max(bounds[0], min(bounds[1], t)), exact=True)
 

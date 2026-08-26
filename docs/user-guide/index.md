@@ -11,6 +11,7 @@
   The trace grows from left to right and starts again at the left edge when the window completes.
   Set **Window limit** in `ms`, `s`, `min`, or `h`, then use the single slider to choose the shared
   visible span. A smaller limit gives fine adjustment; a larger unit gives coarse adjustment.
+  Left-click a trace to move the shared playhead to that exact time across every view.
 - **Data Streams** shows when every loaded file is available. A coloured span means the source has
   data; an empty span means it does not.
 - **Shared time bar** moves every view together.
@@ -71,7 +72,7 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 - **Flag Frame** (`M`) records the current time *and*, for every loaded camera, that camera's exact
   frame index and presentation timestamp — which is what makes the export usable as a pose-model
   corrections list.
-- Clicking a plot directly adds a marker at that moment without moving the playhead first.
+- Right-click a plot to add a marker at that moment without moving the playhead first.
 - The **Annotations** tab lists what you flagged; double-click a label to name it.
 - **File → Export Annotations (CSV)** writes one row per (marker, camera).
 - **File → Export Snapshot / Trimmed Video Clip / Data Slice** cover images, media, and signals.
