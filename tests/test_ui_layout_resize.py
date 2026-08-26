@@ -122,6 +122,31 @@ def test_shrinking_the_window_keeps_all_panes_visible(
                 assert sizes[index] > 0, f"{name} pane {index} vanished when shrinking"
 
 
+def test_compact_viewport_keeps_every_workspace_surface_available(
+    window: MainWindow, qapp: QApplication
+) -> None:
+    """3D, videos, plots, and Data Streams all remain reachable on a small display."""
+    window.tracking_3d_pane.setVisible(True)
+    window.resize(640, 480)
+    qapp.processEvents()
+    window._pane_proportions.reapply()
+    qapp.processEvents()
+
+    assert window.size().width() == 640
+    assert window.size().height() == 480
+    for name, pane in (
+        ("video", window.video_grid),
+        ("3d", window.tracking_3d_pane),
+        ("plots", window.plot_pane),
+        ("data streams", window.data_streams),
+    ):
+        assert pane.width() > 0 and pane.height() > 0, f"{name} is unavailable in compact view"
+
+    canvas = window.tracking_3d_pane.canvas
+    assert 0 < canvas.width() <= window.tracking_3d_pane.width()
+    assert 0 < canvas.height() <= window.tracking_3d_pane.height()
+
+
 #: The narrowest laptop panel the project supports. The window must fit inside
 #: one, since a minimum wider than the screen leaves it unresizable.
 #:
@@ -159,6 +184,11 @@ def test_user_splitter_positions_are_honoured(window: MainWindow, qapp: QApplica
     splitter = window._v_splitter
     # Plenty of room, so the move below is one the layout can actually make.
     window.resize(1400, 2000)
+    qapp.processEvents()
+    # A user cannot drag the inner handle until the resize allocation has
+    # settled. Stabilize its parent before selecting a pixel target from the
+    # inner splitter's legal range.
+    window._pane_proportions.reapply()
     qapp.processEvents()
 
     lowest, highest = splitter.getRange(1)

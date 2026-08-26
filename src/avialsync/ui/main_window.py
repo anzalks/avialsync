@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QProgressDialog,
+    QSizePolicy,
     QSplitter,
     QTabWidget,
     QVBoxLayout,
@@ -398,6 +399,21 @@ class MainWindow(QMainWindow):
         h_splitter.addWidget(right_widget)
         h_splitter.setStretchFactor(0, 0)
         h_splitter.setStretchFactor(1, 1)
+
+        # Every workspace surface may shrink horizontally in a compact viewport.
+        # QSplitter then distributes constrained width by the remembered
+        # proportions instead of letting a child size hint enlarge the window
+        # beyond the display. Vertical size policies stay intact: they preserve
+        # the established video/plot/Data Streams height allocation.
+        for pane in (
+            self._left_tabs,
+            self.video_grid,
+            self.tracking_3d_pane,
+            self.plot_pane,
+            self.data_streams,
+            self.transport,
+        ):
+            pane.setSizePolicy(QSizePolicy.Policy.Ignored, pane.sizePolicy().verticalPolicy())
 
         # Stretch factors alone let Qt hand a pane zero pixels when the sibling's
         # size hint already fills the splitter — that is how the plot area came up

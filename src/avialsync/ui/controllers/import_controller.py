@@ -394,9 +394,7 @@ def calibrate_overlay_timing(window: MainWindow, video: str) -> None:
             continue
         master_times = pane.time_map.to_master_array(frame_times[frame_indices])
         time_maps = {
-            id(reader.time_map): reader.time_map
-            for axes in points.values()
-            for reader in axes
+            id(reader.time_map): reader.time_map for axes in points.values() for reader in axes
         }
         for time_map in time_maps.values():
             time_map.set_exact_mapping(master_times, source_times)

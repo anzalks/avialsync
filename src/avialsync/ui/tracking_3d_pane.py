@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -212,7 +213,9 @@ class Tracking3DCanvas(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setMinimumSize(160, 140)
+        self.setMinimumWidth(0)
+        self.setMinimumHeight(140)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName("Interactive 3D tracking plot")
         self.setMouseTracking(True)
