@@ -120,7 +120,7 @@ is needed any more, and you can delete `AVIALSYNC_MEDIA_ROOT` if you set it prev
 
 An alternative to `pip` for anyone who would rather not manage a Python environment. Download the
 artifact for your platform from the
-[GitHub Releases page](https://github.com/anzalks/avialsync/releases):
+[GitHub Releases page](https://github.com/TeamNeuralNetworks/avialsync/releases):
 
 | Platform | File | Install |
 |---|---|---|

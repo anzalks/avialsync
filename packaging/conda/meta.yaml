@@ -60,7 +60,7 @@ test:
     - avialsync --help
 
 about:
-  home: https://github.com/anzalks/avialsync
+  home: https://github.com/TeamNeuralNetworks/avialsync
   summary: >-
     GUI desktop app to scrub time-synchronized multi-camera video and dense
     time series.
@@ -68,7 +68,7 @@ about:
   license_family: AGPL
   license_file: LICENSE
   doc_url: https://avialsync.readthedocs.io
-  dev_url: https://github.com/anzalks/avialsync
+  dev_url: https://github.com/TeamNeuralNetworks/avialsync
 
 extra:
   recipe-maintainers:
