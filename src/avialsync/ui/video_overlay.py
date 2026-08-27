@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from PySide6.QtCore import Qt
@@ -93,13 +93,20 @@ class PaintCanvas(QWidget):
     def _video_scale(self) -> tuple[float, float, float] | None:
         """Return ``(scale, offset_x, offset_y)`` mapping video pixels to widget.
 
-        The size comes from the pane, which publishes it once when the file is
-        opened, never from a decoder queried during the paint.  Under libmpv
-        reading ``dwidth`` here took its core lock inside ``paintEvent``, on the
-        UI thread, while the decode threads contended for it — measured at
-        26-34 us typical and 165 us at p99, paid once per pane per frame.
+        The transform comes from the video surface, which also draws the frame;
+        it is never derived from a decoder during paint.
         """
-        size = getattr(self.parent(), "video_size", None)
+        parent = self.parent()
+        surface = getattr(parent, "surface", None)
+        if surface is not None:
+            geometry = cast(
+                tuple[float, float, float] | None,
+                surface.frame_geometry(self.width(), self.height()),
+            )
+            if geometry is not None:
+                return geometry
+
+        size = getattr(parent, "video_size", None)
         if size is None:
             return None
         video_width, video_height = size

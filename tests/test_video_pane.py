@@ -18,8 +18,9 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from PySide6.QtGui import QCloseEvent
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QCloseEvent, QWheelEvent
+from PySide6.QtWidgets import QApplication, QPushButton
 
 from avialsync.ui import video_pane
 from tests.util_framestrip import decode_frame_strip
@@ -86,6 +87,81 @@ def test_a_pane_with_no_media_still_builds_its_chrome(qapp: QApplication) -> Non
 
         assert pane.lbl_name.text() == "Camera 1"
         assert pane.has_media is False
+    finally:
+        pane.close()
+
+
+def test_video_surface_wheel_zoom_middle_drag_and_reset(qtbot) -> None:
+    """Each surface owns a bounded view transform driven by its input events."""
+    surface = video_pane.VideoSurface()
+    qtbot.addWidget(surface)
+    try:
+        surface.resize(320, 240)
+        surface.set_frame(np.zeros((360, 640, 3), dtype=np.uint8))
+        surface.show()
+        qtbot.waitUntil(surface.isVisible)
+
+        wheel = QWheelEvent(
+            QPointF(160.0, 120.0),
+            QPointF(160.0, 120.0),
+            QPoint(),
+            QPoint(0, 120),
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+            Qt.ScrollPhase.ScrollUpdate,
+            False,
+        )
+        QApplication.sendEvent(surface, wheel)
+        zoomed_scale, _, _ = surface.frame_geometry() or (0.0, 0.0, 0.0)
+        assert zoomed_scale == pytest.approx(0.5 * 1.15)
+
+        surface.zoom_by(2.0 / 1.15)
+        _, before_x, before_y = surface.frame_geometry() or (0.0, 0.0, 0.0)
+        qtbot.mousePress(surface, Qt.MouseButton.MiddleButton, pos=QPoint(160, 120))
+        qtbot.mouseMove(surface, QPoint(180, 130))
+        qtbot.mouseRelease(surface, Qt.MouseButton.MiddleButton, pos=QPoint(180, 130))
+        _, after_x, after_y = surface.frame_geometry() or (0.0, 0.0, 0.0)
+        assert after_x == pytest.approx(before_x + 20.0)
+        assert after_y == pytest.approx(before_y + 10.0)
+
+        surface.reset_view()
+        assert surface.frame_geometry() == pytest.approx((0.5, 0.0, 30.0))
+    finally:
+        surface.close()
+
+
+def test_video_pane_zoom_controls_and_overlay_share_the_surface_transform(qtbot) -> None:
+    """Control actions and tracking points use the same per-pane view state."""
+    pane = video_pane.VideoPane()
+    qtbot.addWidget(pane)
+    try:
+        pane.resize(320, 240)
+        pane.surface.set_frame(np.zeros((360, 640, 3), dtype=np.uint8))
+        pane.show()
+        qtbot.waitUntil(lambda: pane.surface.width() > 0)
+
+        fitted_scale = min(pane.surface.width() / 640.0, pane.surface.height() / 360.0)
+        pane.zoom_in_button.click()
+        scale, _, _ = pane.surface.frame_geometry() or (0.0, 0.0, 0.0)
+        assert scale == pytest.approx(fitted_scale * 1.25)
+        assert pane.paint_canvas._video_scale() == pytest.approx(
+            pane.surface.frame_geometry(pane.paint_canvas.width(), pane.paint_canvas.height())
+        )
+
+        pane.reset_zoom_button.click()
+        reset_scale, reset_x, reset_y = pane.surface.frame_geometry() or (0.0, 0.0, 0.0)
+        assert reset_scale == pytest.approx(fitted_scale)
+        assert reset_x == pytest.approx((pane.surface.width() - 640.0 * fitted_scale) / 2.0)
+        assert reset_y == pytest.approx((pane.surface.height() - 360.0 * fitted_scale) / 2.0)
+        assert pane.zoom_in_button.toolTip() == "Zoom in"
+        assert pane.zoom_out_button.toolTip() == "Zoom out"
+        assert pane.reset_zoom_button.toolTip() == "Reset zoom"
+        assert isinstance(pane.zoom_in_button, QPushButton)
+        assert isinstance(pane.zoom_out_button, QPushButton)
+        assert isinstance(pane.reset_zoom_button, QPushButton)
+        assert not pane.zoom_in_button.isFlat()
+        assert not pane.zoom_out_button.isFlat()
+        assert not pane.reset_zoom_button.isFlat()
     finally:
         pane.close()
 

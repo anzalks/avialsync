@@ -17,9 +17,26 @@ import time
 from dataclasses import replace
 
 import numpy as np
-from PySide6.QtCore import QMetaObject, QObject, QRectF, Qt, QThread, QTimer, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QFontDatabase, QImage, QPainter, QPaintEvent
-from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import QMetaObject, QObject, QPointF, QRectF, Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtGui import (
+    QCloseEvent,
+    QFontDatabase,
+    QImage,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QResizeEvent,
+    QWheelEvent,
+)
+from PySide6.QtWidgets import (
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QStyle,
+    QVBoxLayout,
+    QWidget,
+)
 
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.source import VideoMetadata
@@ -149,12 +166,13 @@ class DecodeWorker(QObject):
 
 
 class VideoSurface(QWidget):
-    """Paints the decoded frame, letterboxed.
+    """Paint the decoded frame with an independent zoom and pan transform.
 
-    The geometry here must match :meth:`PaintCanvas._video_scale` exactly — the
-    tracking overlay maps video pixels to widget pixels with the same formula,
-    and any divergence would draw markers off the thing they mark.
+    :meth:`frame_geometry` is also the tracking overlay's single source of
+    truth, so markers follow the same transform as the image.
     """
+
+    view_changed = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -163,10 +181,25 @@ class VideoSurface(QWidget):
         #: The array the QImage borrows. QImage does not copy the buffer, so
         #: dropping this would leave it pointing at freed memory.
         self._buffer: np.ndarray | None = None
+        self._video_size = (0, 0)
+        self._zoom = 1.0
+        self._pan = QPointF()
+        self._pan_origin: QPointF | None = None
+
+    def set_video_size(self, width: int, height: int) -> None:
+        """Publish the decoded video dimensions before its first frame arrives."""
+        size = (width, height)
+        if self._video_size == size:
+            return
+        self._video_size = size
+        self._clamp_pan()
+        self.update()
+        self.view_changed.emit()
 
     def set_frame(self, rgb: np.ndarray) -> None:
         """Show a decoded ``(H, W, 3)`` uint8 RGB frame."""
         height, width, _ = rgb.shape
+        self.set_video_size(width, height)
         self._buffer = rgb
         self._image = QImage(rgb.data, width, height, rgb.strides[0], QImage.Format.Format_RGB888)
         self.update()
@@ -177,24 +210,142 @@ class VideoSurface(QWidget):
         self._buffer = None
         self.update()
 
+    def frame_geometry(
+        self, target_width: int | None = None, target_height: int | None = None
+    ) -> tuple[float, float, float] | None:
+        """Return ``(scale, offset_x, offset_y)`` for a target widget size."""
+        width = self.width() if target_width is None else target_width
+        height = self.height() if target_height is None else target_height
+        geometry = self._base_geometry(width, height)
+        if geometry is None:
+            return None
+        scale, offset_x, offset_y = geometry
+        return scale, offset_x + self._pan.x(), offset_y + self._pan.y()
+
+    def zoom_by(self, factor: float, anchor: QPointF | None = None) -> None:
+        """Scale the view around ``anchor`` while preserving the sampled pixel."""
+        if factor <= 0.0:
+            return
+        previous = self.frame_geometry()
+        next_zoom = min(max(self._zoom * factor, 1.0), 20.0)
+        if next_zoom == self._zoom:
+            return
+        if anchor is None:
+            anchor = QPointF(self.width() / 2.0, self.height() / 2.0)
+        self._zoom = next_zoom
+        if previous is not None:
+            scale, offset_x, offset_y = previous
+            source_x = (anchor.x() - offset_x) / scale
+            source_y = (anchor.y() - offset_y) / scale
+            base_geometry = self._base_geometry(self.width(), self.height())
+            if base_geometry is not None:
+                new_scale, new_offset_x, new_offset_y = base_geometry
+                self._pan = QPointF(
+                    anchor.x() - new_offset_x - source_x * new_scale,
+                    anchor.y() - new_offset_y - source_y * new_scale,
+                )
+        self._clamp_pan()
+        self.update()
+        self.view_changed.emit()
+
+    def reset_view(self) -> None:
+        """Restore the fitted, centred video view."""
+        if self._zoom == 1.0 and self._pan.isNull():
+            return
+        self._zoom = 1.0
+        self._pan = QPointF()
+        self.update()
+        self.view_changed.emit()
+
+    def _base_geometry(
+        self, target_width: int, target_height: int
+    ) -> tuple[float, float, float] | None:
+        video_width, video_height = self._video_size
+        if target_width <= 0 or target_height <= 0 or video_width <= 0 or video_height <= 0:
+            return None
+        scale = min(target_width / video_width, target_height / video_height) * self._zoom
+        width = video_width * scale
+        height = video_height * scale
+        return scale, (target_width - width) / 2.0, (target_height - height) / 2.0
+
+    def _clamp_pan(self) -> None:
+        """Keep a panned image from revealing empty space beyond its edges."""
+        geometry = self._base_geometry(self.width(), self.height())
+        if geometry is None:
+            self._pan = QPointF()
+            return
+        scale, _, _ = geometry
+        video_width, video_height = self._video_size
+        max_x = max(0.0, (video_width * scale - self.width()) / 2.0)
+        max_y = max(0.0, (video_height * scale - self.height()) / 2.0)
+        self._pan = QPointF(
+            min(max(self._pan.x(), -max_x), max_x),
+            min(max(self._pan.y(), -max_y), max_y),
+        )
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        """Constrain the retained pan when the pane changes size."""
+        super().resizeEvent(event)
+        self._clamp_pan()
+        self.view_changed.emit()
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        """Zoom around the mouse cursor with the scroll wheel."""
+        steps = event.angleDelta().y() / 120.0
+        if steps:
+            self.zoom_by(1.15**steps, event.position())
+            event.accept()
+            return
+        super().wheelEvent(event)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        """Start a middle-button pan when the view is magnified."""
+        if event.button() == Qt.MouseButton.MiddleButton and self._zoom > 1.0:
+            self._pan_origin = event.position()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        """Pan the magnified frame with the held middle button."""
+        if self._pan_origin is None or not event.buttons() & Qt.MouseButton.MiddleButton:
+            super().mouseMoveEvent(event)
+            return
+        position = event.position()
+        self._pan += position - self._pan_origin
+        self._pan_origin = position
+        self._clamp_pan()
+        self.update()
+        self.view_changed.emit()
+        event.accept()
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        """Finish a middle-button pan gesture."""
+        if event.button() == Qt.MouseButton.MiddleButton and self._pan_origin is not None:
+            self._pan_origin = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
     def paintEvent(self, event: QPaintEvent) -> None:
-        """Blit the frame centred, preserving aspect ratio."""
+        """Blit the frame using the current view transform."""
         del event
         painter = QPainter(self)
         painter.fillRect(self.rect(), Qt.GlobalColor.black)
         image = self._image
         if image is None or image.isNull():
             return
-        scale = min(self.width() / image.width(), self.height() / image.height())
-        width = image.width() * scale
-        height = image.height() * scale
+        geometry = self.frame_geometry()
+        if geometry is None:
+            return
+        scale, offset_x, offset_y = geometry
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         painter.drawImage(
             QRectF(
-                (self.width() - width) / 2.0,
-                (self.height() - height) / 2.0,
-                width,
-                height,
+                offset_x,
+                offset_y,
+                image.width() * scale,
+                image.height() * scale,
             ),
             image,
         )
@@ -260,6 +411,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._grid.addWidget(self.surface, 0, 0)
 
         self._build_overlay_chrome()
+        self.surface.view_changed.connect(self.paint_canvas.update)
         self._osd_update.connect(self._flush_osd_update)
         self.surface.installEventFilter(self)
 
@@ -295,6 +447,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Adopt the decoder's timestamp table and show the first wanted frame."""
         self._frame_times = frame_times
         self.video_size = (width, height)
+        self.surface.set_video_size(width, height)
         if not self._metadata.codec or self._metadata.codec == "unknown":
             self._metadata = replace(self._metadata, codec=codec, width=width, height=height)
         self._media_loaded = True
@@ -529,6 +682,40 @@ class VideoPane(VideoTimingMixin, QWidget):
         olayout.addWidget(self.lbl_no_footage, 1)  # stretch
 
         self._grid.addWidget(self.overlay, 0, 0)
+
+        self.zoom_controls = QWidget(self)
+        zoom_layout = QHBoxLayout(self.zoom_controls)
+        zoom_layout.setContentsMargins(4, 4, 4, 4)
+        zoom_layout.setSpacing(0)
+
+        self.zoom_in_button = QPushButton(self.zoom_controls)
+        self.zoom_in_button.setText("+")
+        self.zoom_in_button.setToolTip("Zoom in")
+        self.zoom_in_button.clicked.connect(lambda: self.surface.zoom_by(1.25))
+
+        self.zoom_out_button = QPushButton(self.zoom_controls)
+        self.zoom_out_button.setText("-")
+        self.zoom_out_button.setToolTip("Zoom out")
+        self.zoom_out_button.clicked.connect(lambda: self.surface.zoom_by(1.0 / 1.25))
+
+        self.reset_zoom_button = QPushButton(self.zoom_controls)
+        self.reset_zoom_button.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+        )
+        self.reset_zoom_button.setToolTip("Reset zoom")
+        self.reset_zoom_button.clicked.connect(self.surface.reset_view)
+
+        for button in (self.zoom_in_button, self.zoom_out_button, self.reset_zoom_button):
+            button.setFlat(False)
+            button.setFixedSize(24, 24)
+            zoom_layout.addWidget(button)
+
+        self._grid.addWidget(
+            self.zoom_controls,
+            0,
+            0,
+            Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft,
+        )
 
     # ── teardown ─────────────────────────────────────────────────────
 
