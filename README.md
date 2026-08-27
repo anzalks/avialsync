@@ -27,9 +27,9 @@ advancing together on one master
 timeline.](https://raw.githubusercontent.com/anzalks/avialsync/main/docs/_static/screenshots/aol_session_overview.gif)
 
 *A real recording session: three cameras at 230 fps with per-camera 2D pose drawn over each view,
-triangulated 3D pose on the right drawn with the skeleton the session declares, and per-ROI motion
-measured from the video below — one second of it, at the speed it was recorded, every source moving
-on one master clock. The whole folder was opened by dropping it
+triangulated 3D pose in a fourth column no wider than one camera view, and per-ROI motion traces
+below — one second of it, at the speed it was recorded, every source moving on one master clock. The
+whole folder was opened by dropping it
 on the window; a [session plugin](https://avialsync.readthedocs.io/en/latest/plugin-guide.html)
 recognised the layout and placed each file, including the shared time base. Nothing in AvialSync
 knows this lab's format.*

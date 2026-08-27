@@ -39,9 +39,10 @@ from PIL import Image
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
+from screenshot_kit import pin_appearance
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "_static" / "screenshots" / "session_overview.gif"
+DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "_static" / "screenshots" / "aol_session_overview.gif"
 
 #: Longest we wait for one exact seek to reach every pane before capturing anyway.
 SEEK_TIMEOUT_SECONDS = 5.0
@@ -157,6 +158,7 @@ def capture(
     from avialsync.ui.main_window import MainWindow
 
     app = QApplication.instance() or QApplication(sys.argv)
+    pin_appearance(app)
 
     window = MainWindow()
     window.resize(width, height)

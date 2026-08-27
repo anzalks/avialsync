@@ -12,7 +12,7 @@ from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QWheelEvent
 from PySide6.QtWidgets import (
     QComboBox,
-    QHBoxLayout,
+    QGridLayout,
     QLabel,
     QPushButton,
     QSizePolicy,
@@ -690,11 +690,14 @@ class Tracking3DPane(QWidget):
         layout.setSpacing(0)
 
         header = QWidget(self)
-        header_layout = QHBoxLayout(header)
+        header_layout = QGridLayout(header)
         header_layout.setContentsMargins(8, 4, 8, 4)
+        header_layout.setHorizontalSpacing(4)
+        header_layout.setVerticalSpacing(2)
         self.title_label = QLabel("3D Tracking", header)
         self.status_label = QLabel("No XYZ tracking channels", header)
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.status_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.up_axis_combo = QComboBox(header)
         self.up_axis_combo.setAccessibleName("Vertical axis")
         self.up_axis_combo.setToolTip(
@@ -728,12 +731,13 @@ class Tracking3DPane(QWidget):
         self.fit_button = QPushButton("Fit View", header)
         self.fit_button.setToolTip("Fit the 3D camera to the current tracked pose")
         self.fit_button.clicked.connect(self._fit_view)
-        header_layout.addWidget(self.title_label)
-        header_layout.addStretch()
-        header_layout.addWidget(self.status_label)
-        header_layout.addWidget(self.up_axis_combo)
-        header_layout.addWidget(self.bone_combo)
-        header_layout.addWidget(self.fit_button)
+        header_layout.addWidget(self.title_label, 0, 0, 1, 3)
+        header_layout.addWidget(self.status_label, 1, 0, 1, 3)
+        header_layout.addWidget(self.up_axis_combo, 2, 0)
+        header_layout.addWidget(self.bone_combo, 2, 1)
+        header_layout.addWidget(self.fit_button, 2, 2)
+        header_layout.setColumnStretch(0, 1)
+        header_layout.setColumnStretch(1, 1)
 
         self.canvas = Tracking3DCanvas(self)
         layout.addWidget(header)

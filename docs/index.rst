@@ -14,9 +14,9 @@ It is for looking carefully at data, checking alignment, and preparing observati
          from the video, all advancing together on one master timeline.
    :width: 100%
 
-*Three cameras at 230 fps with per-camera 2D pose, triangulated 3D pose drawn with the skeleton the
-session declares, and per-ROI motion measured from the video — one second of it, at the speed it
-was recorded, every source moving on one master clock. The folder was opened by dropping it on the
+*Three cameras at 230 fps with per-camera 2D pose, triangulated 3D pose in a fourth column no wider
+than one camera view, and per-ROI motion traces below — one second of it, at the speed it was
+recorded, every source moving on one master clock. The folder was opened by dropping it on the
 window; a session plugin recognised the layout.*
 
 Project links

@@ -281,6 +281,8 @@ def test_demo_launcher_uses_the_application_theme() -> None:
     """The demo must use the same saved appearance as the production app."""
     launcher = Path("tools/launch_demo.py").read_text(encoding="utf-8")
     application = Path("src/avialsync/__main__.py").read_text(encoding="utf-8")
+    session_capture = Path("tools/generate_session_screenshot.py").read_text(encoding="utf-8")
     assert "from avialsync.__main__ import main" in launcher
     assert "load_saved_theme(app)" in application
     assert "ToolTipBase" not in launcher
+    assert "pin_appearance(app)" in session_capture

@@ -584,7 +584,9 @@ class MainWindow(QMainWindow):
             (self._h_splitter, (280, 1000)),
             (self._content_splitter, (620, 160)),
             (self._v_splitter, (380, 240)),
-            (self._media_splitter, (700, 300)),
+            # With three video columns, a quarter-width 3D pane is no wider
+            # than one video column in the documented session layout.
+            (self._media_splitter, (750, 250)),
         )
         for splitter, sizes in defaults:
             splitter.setSizes(list(sizes))

@@ -24,6 +24,7 @@ from PySide6.QtWidgets import QApplication
 
 from avialsync.core.pyramid import PyramidBuilder
 from avialsync.ui.main_window import MainWindow
+from avialsync.ui.video_pane import VideoPane
 
 
 @pytest.fixture
@@ -213,6 +214,18 @@ def test_tracking_pane_is_hidden_without_xyz_channels(window: MainWindow) -> Non
 def test_tracking_pane_appears_once_a_source_has_triplets(
     window: MainWindow, qapp: QApplication, tmp_path: Path
 ) -> None:
+    # Match the documented GIF capture, which resets saved splitter state before
+    # loading the three-video plus 3D session.
+    window.resize(1600, 1000)
+    window._apply_default_splitter_sizes()
+    qapp.processEvents()
+    for index in range(3):
+        window.video_grid.panes.append(VideoPane(window.video_grid))
+        window.video_grid._paths.append(f"/tmp/camera_{index}.mp4")
+        window.video_grid._pane_enabled.append(True)
+    window.video_grid._relayout()
+    qapp.processEvents()
+
     times = np.arange(500, dtype=np.float64) / 50.0
     for name in ("nose_x", "nose_y", "nose_z"):
         PyramidBuilder(tmp_path, name).build_and_save(times, times)
@@ -223,7 +236,11 @@ def test_tracking_pane_appears_once_a_source_has_triplets(
     qapp.processEvents()
 
     assert window.tracking_3d_pane.isVisible()
-    assert window._media_splitter.sizes()[1] > 0
+    video_width, tracking_width = window._media_splitter.sizes()
+    assert tracking_width > 0
+    # The documented session has three video columns: the 3D view occupies a
+    # fourth column and may never be wider than one video pane.
+    assert tracking_width * 3 <= video_width
 
 
 def test_video_keeps_the_full_media_width_without_tracking_data(

@@ -413,7 +413,7 @@ def refresh_pose_3d(window: MainWindow) -> None:
 def update_tracking_pane_visibility(window: MainWindow) -> None:
     """Show the 3D pane only while a source provides complete XYZ triplets.
 
-    An always-present empty pane keeps a third of the media width and raises
+    An always-present empty pane keeps a quarter of the media width and raises
     the window's minimum width for sessions that have no tracking data.
     """
     has_points = window.tracking_3d_pane.canvas.point_count > 0
@@ -422,7 +422,7 @@ def update_tracking_pane_visibility(window: MainWindow) -> None:
     window.tracking_3d_pane.setVisible(has_points)
     if has_points:
         width = max(window._media_splitter.width(), 600)
-        window._media_splitter.setSizes([int(width * 0.65), int(width * 0.35)])
+        window._media_splitter.setSizes([int(width * 0.75), int(width * 0.25)])
     # Showing or hiding a pane changes which panes share the width, so the
     # split that results is the one to hold from here on.
     window._pane_proportions.record(window._media_splitter)
