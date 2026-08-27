@@ -44282,7 +44282,7 @@
       "label": "ReleasePreparationError",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L26",
+      "source_location": "L27",
       "_origin": "ast"
     },
     {
@@ -44298,7 +44298,7 @@
       "label": "repository_root()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L30",
+      "source_location": "L31",
       "_origin": "ast"
     },
     {
@@ -44314,7 +44314,7 @@
       "label": "run_command()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L35",
+      "source_location": "L36",
       "_origin": "ast"
     },
     {
@@ -44322,7 +44322,7 @@
       "label": "validate_version()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L51",
+      "source_location": "L52",
       "_origin": "ast"
     },
     {
@@ -44330,7 +44330,7 @@
       "label": "replace_declared_version()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L59",
+      "source_location": "L60",
       "_origin": "ast"
     },
     {
@@ -44346,7 +44346,7 @@
       "label": "dirty_paths()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L68",
+      "source_location": "L69",
       "_origin": "ast"
     },
     {
@@ -44354,7 +44354,7 @@
       "label": "ensure_preconditions()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L75",
+      "source_location": "L76",
       "_origin": "ast"
     },
     {
@@ -44362,7 +44362,7 @@
       "label": "run_package_preflight()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L96",
+      "source_location": "L97",
       "_origin": "ast"
     },
     {
@@ -44370,7 +44370,7 @@
       "label": "prepare_release()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L108",
+      "source_location": "L109",
       "_origin": "ast"
     },
     {
@@ -44378,7 +44378,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L143",
+      "source_location": "L152",
       "_origin": "ast"
     },
     {
@@ -44390,83 +44390,83 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_27",
+      "id": "tools_prepare_release_rationale_28",
       "label": "Raised when release preparation would create an unsafe tag.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L27",
+      "source_location": "L28",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_31",
+      "id": "tools_prepare_release_rationale_32",
       "label": "Return the repository root containing this script.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L31",
+      "source_location": "L32",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_36",
+      "id": "tools_prepare_release_rationale_37",
       "label": "Run one argument-list command from the repository root.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_52",
+      "id": "tools_prepare_release_rationale_53",
       "label": "Require the canonical public PEP 440 versions used by AvialSync releases.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L52",
+      "source_location": "L53",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_60",
+      "id": "tools_prepare_release_rationale_61",
       "label": "Replace precisely one quoted version declaration in *path*.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L60",
+      "source_location": "L61",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_69",
+      "id": "tools_prepare_release_rationale_70",
       "label": "Return changed paths, excluding the user-managed offline Graphify graph.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L69",
+      "source_location": "L70",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_76",
+      "id": "tools_prepare_release_rationale_77",
       "label": "Check branch, worktree, and local/remote tag uniqueness before editing.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L76",
+      "source_location": "L77",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_97",
+      "id": "tools_prepare_release_rationale_98",
       "label": "Build into a temporary directory and validate the exact publishable artifacts.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L97",
+      "source_location": "L98",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_109",
+      "id": "tools_prepare_release_rationale_110",
       "label": "Update version authorities and optionally create and publish the release tag.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L109",
+      "source_location": "L110",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_144",
+      "id": "tools_prepare_release_rationale_153",
       "label": "Parse command-line arguments and prepare one tag-triggered release.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L144",
+      "source_location": "L153",
       "_origin": "ast"
     },
     {
@@ -150038,7 +150038,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L26",
+      "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150048,7 +150048,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L26",
+      "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150058,7 +150058,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L30",
+      "source_location": "L31",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150069,7 +150069,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L30",
+      "source_location": "L31",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150079,7 +150079,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L35",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150090,7 +150090,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L35",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150100,7 +150100,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L51",
+      "source_location": "L52",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150110,7 +150110,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L59",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150121,7 +150121,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L59",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150132,7 +150132,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L59",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150142,7 +150142,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L68",
+      "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150153,7 +150153,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L68",
+      "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150163,7 +150163,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L75",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150174,7 +150174,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L75",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150184,7 +150184,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L96",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150195,7 +150195,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L96",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150205,7 +150205,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L108",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150216,7 +150216,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L108",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150226,7 +150226,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L143",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150237,7 +150237,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L32",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150248,7 +150248,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L47",
+      "source_location": "L48",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150259,7 +150259,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L54",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150270,7 +150270,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L64",
+      "source_location": "L65",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150281,7 +150281,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L70",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150292,7 +150292,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L77",
+      "source_location": "L78",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150303,7 +150303,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L78",
+      "source_location": "L79",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150314,24 +150314,13 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L81",
+      "source_location": "L82",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tools_prepare_release_run_package_preflight",
       "target": "tools_prepare_release_run_command",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "tools/prepare_release.py",
-      "source_location": "L99",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "tools_prepare_release_run_package_preflight",
-      "target": "tools_prepare_release_py_path",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -150342,12 +150331,23 @@
     },
     {
       "source": "tools_prepare_release_run_package_preflight",
+      "target": "tools_prepare_release_py_path",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L101",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_run_package_preflight",
       "target": "tools_prepare_release_releasepreparationerror",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L102",
+      "source_location": "L103",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150358,7 +150358,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L110",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150369,7 +150369,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L111",
+      "source_location": "L112",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150380,7 +150380,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L116",
+      "source_location": "L117",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150391,7 +150391,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L121",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150402,7 +150402,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L132",
+      "source_location": "L134",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150413,7 +150413,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L152",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150424,7 +150424,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L152",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -150439,102 +150439,102 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_27",
+      "source": "tools_prepare_release_rationale_28",
       "target": "tools_prepare_release_releasepreparationerror",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L27",
+      "source_location": "L28",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_31",
+      "source": "tools_prepare_release_rationale_32",
       "target": "tools_prepare_release_repository_root",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L31",
+      "source_location": "L32",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_36",
+      "source": "tools_prepare_release_rationale_37",
       "target": "tools_prepare_release_run_command",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_52",
+      "source": "tools_prepare_release_rationale_53",
       "target": "tools_prepare_release_validate_version",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L52",
+      "source_location": "L53",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_60",
+      "source": "tools_prepare_release_rationale_61",
       "target": "tools_prepare_release_replace_declared_version",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L60",
+      "source_location": "L61",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_69",
+      "source": "tools_prepare_release_rationale_70",
       "target": "tools_prepare_release_dirty_paths",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L69",
+      "source_location": "L70",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_76",
+      "source": "tools_prepare_release_rationale_77",
       "target": "tools_prepare_release_ensure_preconditions",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L76",
+      "source_location": "L77",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_97",
+      "source": "tools_prepare_release_rationale_98",
       "target": "tools_prepare_release_run_package_preflight",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L97",
+      "source_location": "L98",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_109",
+      "source": "tools_prepare_release_rationale_110",
       "target": "tools_prepare_release_prepare_release",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L109",
+      "source_location": "L110",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_144",
+      "source": "tools_prepare_release_rationale_153",
       "target": "tools_prepare_release_main",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L144",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast"
     },
