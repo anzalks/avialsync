@@ -506,7 +506,7 @@
       "ecosystem": "python",
       "source_file": "pyproject.toml",
       "source_location": "L1",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "_origin": "ast"
     },
     {
@@ -155053,12 +155053,42 @@
       "_origin": "ast"
     },
     {
+      "source": "readme",
+      "target": "contributing",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L105",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "readme",
+      "target": "code_of_conduct",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L108",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "readme_avialsync",
       "target": "readme_licence",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
       "source_location": "L114",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "readme",
+      "target": "users_anzalks_documents_kinochronix_license_md",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L117",
       "weight": 1.0,
       "_origin": "ast"
     },
