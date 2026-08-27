@@ -22,11 +22,11 @@ window; a session plugin recognised the layout.*
 Project links
 -------------
 
-- `Source code on GitHub <https://github.com/TeamNeuralNetworks/avialsync>`_
-- `Report an issue <https://github.com/TeamNeuralNetworks/avialsync/issues>`_
-- `Releases and changelog <https://github.com/TeamNeuralNetworks/avialsync/releases>`_
+- `Source code on GitHub <https://github.com/anzalks/avialsync>`_
+- `Report an issue <https://github.com/anzalks/avialsync/issues>`_
+- `Releases and changelog <https://github.com/anzalks/avialsync/releases>`_
 - `Package on PyPI <https://pypi.org/project/avialsync/>`_
-- `Contributing guide <https://github.com/TeamNeuralNetworks/avialsync/blob/main/CONTRIBUTING.md>`_
+- `Contributing guide <https://github.com/anzalks/avialsync/blob/main/CONTRIBUTING.md>`_
 
 Every page also carries an "Edit this page" link to its source in the repository.
 
@@ -66,8 +66,8 @@ Every page also carries an "Edit this page" link to its source in the repository
    :target: https://pypi.org/project/avialsync/
    :alt: Supported Python versions
 
-.. |CI| image:: https://github.com/TeamNeuralNetworks/avialsync/actions/workflows/ci.yml/badge.svg?branch=main
-   :target: https://github.com/TeamNeuralNetworks/avialsync/actions/workflows/ci.yml
+.. |CI| image:: https://github.com/anzalks/avialsync/actions/workflows/ci.yml/badge.svg?branch=main
+   :target: https://github.com/anzalks/avialsync/actions/workflows/ci.yml
    :alt: Continuous integration status
 
 .. |Documentation| image:: https://readthedocs.org/projects/avialsync/badge/?version=latest
@@ -75,9 +75,9 @@ Every page also carries an "Edit this page" link to its source in the repository
    :alt: Documentation build status
 
 .. |Licence| image:: https://img.shields.io/badge/licence-AGPL--3.0-blue.svg
-   :target: https://github.com/TeamNeuralNetworks/avialsync/blob/main/LICENSE
+   :target: https://github.com/anzalks/avialsync/blob/main/LICENSE
    :alt: Licensed under AGPL-3.0-or-later
 
 .. |Platforms| image:: https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg
-   :target: https://github.com/TeamNeuralNetworks/avialsync/releases
+   :target: https://github.com/anzalks/avialsync/releases
    :alt: Runs on Windows, macOS and Linux

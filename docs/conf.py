@@ -46,13 +46,13 @@ html_favicon = "_static/avialsync-logo.png"
 # than custom CSS, JS, or footer markup — the theme default is what readers
 # of Python documentation already know how to use.
 html_theme_options = {
-    "source_repository": "https://github.com/TeamNeuralNetworks/avialsync/",
+    "source_repository": "https://github.com/anzalks/avialsync/",
     "source_branch": "main",
     "source_directory": "docs/",
     "footer_icons": [
         {
             "name": "GitHub",
-            "url": "https://github.com/TeamNeuralNetworks/avialsync",
+            "url": "https://github.com/anzalks/avialsync",
             "class": "",
             # Furo renders this inline, so the mark is inlined rather than
             # fetched: a remote icon would be one more request that can fail

@@ -75,11 +75,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/TeamNeuralNetworks/avialsync"
+Homepage = "https://github.com/anzalks/avialsync"
 Documentation = "https://avialsync.readthedocs.io/"
-Source = "https://github.com/TeamNeuralNetworks/avialsync"
-Issues = "https://github.com/TeamNeuralNetworks/avialsync/issues"
-Changelog = "https://github.com/TeamNeuralNetworks/avialsync/releases"
+Source = "https://github.com/anzalks/avialsync"
+Issues = "https://github.com/anzalks/avialsync/issues"
+Changelog = "https://github.com/anzalks/avialsync/releases"
 
 [project.optional-dependencies]
 dev = [

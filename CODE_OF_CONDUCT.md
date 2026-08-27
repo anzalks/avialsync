@@ -69,7 +69,7 @@ Instances of abusive, harassing, or otherwise unacceptable behaviour may be
 reported to the project maintainer, Anzal K Shahul, at **anzal.ks@gmail.com**.
 
 If you would rather not send email, you can open a
-[private security advisory](https://github.com/TeamNeuralNetworks/avialsync/security/advisories/new)
+[private security advisory](https://github.com/anzalks/avialsync/security/advisories/new)
 on the repository instead — it is visible only to maintainers.
 
 All complaints will be reviewed and investigated promptly and fairly. All

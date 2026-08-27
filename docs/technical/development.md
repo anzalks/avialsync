@@ -4,7 +4,7 @@ For people running AvialSync from a Git checkout, building the documentation, or
 People who installed a release artifact or `pip install avialsync` do not need any of this; see
 [Installation](../install.md).
 
-[CONTRIBUTING.md](https://github.com/TeamNeuralNetworks/avialsync/blob/main/CONTRIBUTING.md) holds the
+[CONTRIBUTING.md](https://github.com/anzalks/avialsync/blob/main/CONTRIBUTING.md) holds the
 contribution rules and the four-command gate every change must pass; `AGENTS.md` is the canonical
 source for architecture rules.
 
@@ -81,7 +81,7 @@ The repository is already configured — `.readthedocs.yaml` pins Ubuntu 22.04, 
 `docs` extra, with `fail_on_warning: true`. What remains is connecting the project once:
 
 1. Sign in at [readthedocs.org](https://readthedocs.org/) with the GitHub account that owns the
-   repository, and grant it access to `TeamNeuralNetworks/avialsync`.
+   repository, and grant it access to `anzalks/avialsync`.
 2. **Import a Project → Import Manually** (or pick the repository from the list). Set the name to
    `avialsync` so the site lands on `https://avialsync.readthedocs.io/`, the address the README
    badge and links already use. A different name means editing both.

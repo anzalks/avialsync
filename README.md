@@ -4,10 +4,10 @@
 
 [![PyPI](https://img.shields.io/pypi/v/avialsync.svg)](https://pypi.org/project/avialsync/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://pypi.org/project/avialsync/)
-[![CI](https://github.com/TeamNeuralNetworks/avialsync/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/TeamNeuralNetworks/avialsync/actions/workflows/ci.yml)
+[![CI](https://github.com/anzalks/avialsync/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/anzalks/avialsync/actions/workflows/ci.yml)
 [![Documentation](https://readthedocs.org/projects/avialsync/badge/?version=latest)](https://avialsync.readthedocs.io/en/latest/)
-[![Licence](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](https://github.com/TeamNeuralNetworks/avialsync/blob/main/LICENSE)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/TeamNeuralNetworks/avialsync/releases)
+[![Licence](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/anzalks/avialsync/releases)
 
 AvialSync is a desktop viewer for looking through an experiment in time.
 
@@ -24,7 +24,7 @@ through plugins.
 ![A one-second loop of three synchronised camera views of a head-fixed mouse with 2D pose overlays,
 a triangulated 3D pose drawn as a skeleton, and per-ROI motion traces measured from the video, all
 advancing together on one master
-timeline.](https://raw.githubusercontent.com/TeamNeuralNetworks/avialsync/main/docs/_static/screenshots/aol_session_overview.gif)
+timeline.](https://raw.githubusercontent.com/anzalks/avialsync/main/docs/_static/screenshots/aol_session_overview.gif)
 
 *A real recording session: three cameras at 230 fps with per-camera 2D pose drawn over each view,
 triangulated 3D pose in a fourth column no wider than one camera view, and per-ROI motion traces
@@ -56,7 +56,7 @@ That is the whole install. Video decoding, proxy generation, and clip export all
 Python packages, so there is no media runtime to install separately and nothing to configure.
 
 **Or download a desktop installer** from the
-[Releases page](https://github.com/TeamNeuralNetworks/avialsync/releases) — `AvialSync-Setup.exe`,
+[Releases page](https://github.com/anzalks/avialsync/releases) — `AvialSync-Setup.exe`,
 `AvialSync.dmg`, or `AvialSync.AppImage` — if you would rather not manage a Python environment.
 They bundle everything, install without an administrator password, and are not yet code-signed, so
 the first launch needs
@@ -102,10 +102,10 @@ architecture, data handling, performance, and the development and release proces
 ## Contributing
 
 Contributions are welcome — see
-[CONTRIBUTING.md](https://github.com/TeamNeuralNetworks/avialsync/blob/main/CONTRIBUTING.md) for setup, the
+[CONTRIBUTING.md](CONTRIBUTING.md) for setup, the
 four-command gate every change must pass, and the architecture rules that exist because breaking
 them caused real bugs. Participation is governed by our
-[Code of Conduct](https://github.com/TeamNeuralNetworks/avialsync/blob/main/CODE_OF_CONDUCT.md).
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 Good places to start are format plugins (the `TimeSeriesSource` / `VideoSource` contracts are frozen
 — see the [plugin guide](https://avialsync.readthedocs.io/en/latest/plugin-guide.html)), platform
@@ -114,7 +114,7 @@ verification on real hardware, and the open items under "Pending" in `HANDOUT.md
 ## Licence
 
 AvialSync is free software under the
-[GNU AGPL v3 or later](https://github.com/TeamNeuralNetworks/avialsync/blob/main/LICENSE). Use it, study it,
+[GNU AGPL v3 or later](LICENSE). Use it, study it,
 modify it, redistribute it. The one condition is reciprocity: if you convey a modified version —
 including letting others use it over a network — you publish your changes under the same licence.
 
