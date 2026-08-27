@@ -130,6 +130,34 @@ def test_video_surface_wheel_zoom_middle_drag_and_reset(qtbot) -> None:
         surface.close()
 
 
+def test_pan_by_places_a_chosen_point_and_never_uncovers_the_edge(qtbot) -> None:
+    """Callers can aim the magnified view without reproducing a drag gesture.
+
+    ``tools/generate_session_screenshot.py`` frames each pane on a tracked marker
+    this way, so the offset a pan asks for has to be the offset it gets — right
+    up to the frame's own border, past which it must clamp instead.
+    """
+    surface = video_pane.VideoSurface()
+    qtbot.addWidget(surface)
+    try:
+        surface.resize(320, 240)
+        surface.set_frame(np.zeros((360, 640, 3), dtype=np.uint8))
+        surface.zoom_by(4.0)
+        _, before_x, before_y = surface.frame_geometry() or (0.0, 0.0, 0.0)
+
+        surface.pan_by(QPointF(-30.0, 25.0))
+        _, after_x, after_y = surface.frame_geometry() or (0.0, 0.0, 0.0)
+        assert (after_x, after_y) == pytest.approx((before_x - 30.0, before_y + 25.0))
+
+        # Far past the edge: the request is honoured only as far as the frame goes.
+        surface.pan_by(QPointF(10_000.0, 0.0))
+        scale, clamped_x, _ = surface.frame_geometry() or (0.0, 0.0, 0.0)
+        assert clamped_x == pytest.approx(0.0)
+        assert scale * 640 > 320
+    finally:
+        surface.close()
+
+
 def test_video_pane_zoom_controls_and_overlay_share_the_surface_transform(qtbot) -> None:
     """Control actions and tracking points use the same per-pane view state."""
     pane = video_pane.VideoPane()

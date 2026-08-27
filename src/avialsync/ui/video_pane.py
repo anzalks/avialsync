@@ -248,6 +248,15 @@ class VideoSurface(QWidget):
         self.update()
         self.view_changed.emit()
 
+    def pan_by(self, delta: QPointF) -> None:
+        """Shift the magnified frame by ``delta`` widget pixels, clamped to its edges."""
+        if delta.isNull():
+            return
+        self._pan += delta
+        self._clamp_pan()
+        self.update()
+        self.view_changed.emit()
+
     def reset_view(self) -> None:
         """Restore the fitted, centred video view."""
         if self._zoom == 1.0 and self._pan.isNull():
@@ -312,11 +321,9 @@ class VideoSurface(QWidget):
             super().mouseMoveEvent(event)
             return
         position = event.position()
-        self._pan += position - self._pan_origin
+        delta = position - self._pan_origin
         self._pan_origin = position
-        self._clamp_pan()
-        self.update()
-        self.view_changed.emit()
+        self.pan_by(delta)
         event.accept()
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:

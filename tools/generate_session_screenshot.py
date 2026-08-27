@@ -21,6 +21,10 @@ these cameras record, stepping frame by frame instead would advance the traces b
 a few milliseconds and look frozen. Raise ``--span`` above ``--duration`` to
 compress a longer stretch, at the cost of no longer showing real-time speed.
 
+Each video pane is zoomed onto the limbs before recording, since the joints the
+tracking overlay marks are otherwise a cluster of dots too small to read at GIF
+size. Pass ``--video-zoom 1.0`` for the fitted whole-animal view instead.
+
 The frame size and palette are chosen for how fast the loop appears, not for
 fidelity: this is the first thing on the README, so it has to be readable enough
 to show the layout and small enough to arrive before the reader scrolls past it.
@@ -36,7 +40,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
 from screenshot_kit import pin_appearance
@@ -53,6 +57,11 @@ QUIET_TIMEOUT_SECONDS = 60.0
 QUIET_TOLERANCE = 24
 #: Fraction of changed pixels below which two grabs count as the same picture.
 QUIET_FRACTION = 0.001
+
+#: Gap in pane pixels left above the highest tracked marker once the video panes
+#: are framed. Small enough that the head bar reads as sitting on the pane's top
+#: edge, wide enough that its marker is not clipped in half by it.
+VIDEO_FRAME_TOP_MARGIN = 12.0
 
 
 def _to_pillow(image: QImage) -> Image.Image:
@@ -140,6 +149,44 @@ def _load_session(window, session_dir: Path) -> None:
         window.video_grid.end_batch_add()
 
 
+def _tracked_points(pane: object) -> list[tuple[float, float]]:
+    """Return the pane's limb markers in video pixels at the frame it is showing.
+
+    Read from the overlay canvas rather than from the readers directly so the
+    framing is decided by exactly the markers the reader will see drawn, at the
+    time the pane is actually parked on.
+    """
+    canvas = pane.paint_canvas  # type: ignore[attr-defined]
+    points: list[tuple[float, float]] = []
+    for track in canvas.tracks:
+        for reader_x, reader_y in track.points.values():
+            x = reader_x.value_at(canvas.t)
+            y = reader_y.value_at(canvas.t)
+            if not (np.isnan(x) or np.isnan(y)):
+                points.append((float(x), float(y)))
+    return points
+
+
+def _frame_pane_on_limbs(pane: object, zoom: float) -> None:
+    """Magnify one video pane and hang its topmost marker off the pane's top edge."""
+    surface = pane.surface  # type: ignore[attr-defined]
+    surface.zoom_by(zoom)
+    points = _tracked_points(pane)
+    geometry = surface.frame_geometry()
+    if not points or geometry is None:
+        # Nothing tracked in this camera at this instant: a centred zoom is
+        # still better than the fitted view, and guessing a pan would be worse.
+        return
+    scale, offset_x, offset_y = geometry
+    top_x, top_y = min(points, key=lambda point: point[1])
+    surface.pan_by(
+        QPointF(
+            surface.width() / 2.0 - (offset_x + top_x * scale),
+            VIDEO_FRAME_TOP_MARGIN - (offset_y + top_y * scale),
+        )
+    )
+
+
 def capture(
     session_dir: Path,
     out_path: Path,
@@ -153,6 +200,7 @@ def capture(
     colors: int,
     azimuth_deg: float | None = None,
     elevation_deg: float | None = None,
+    video_zoom: float = 1.0,
 ) -> None:
     """Open ``session_dir``, record ``frames`` of playback, and write the loop."""
     from avialsync.ui.main_window import MainWindow
@@ -284,6 +332,22 @@ def capture(
     window.tracking_3d_pane.canvas.update()
     settle()
 
+    # Frame the video panes on the limbs, the way a reader would with the pane's
+    # own zoom buttons and a middle-button drag.
+    #
+    # Fitted whole, each camera spends most of its pane on apparatus, body and
+    # head, and the tracked joints — shoulder through toe — end up as a cluster
+    # of markers too small to read at GIF size. Zooming alone does not fix that:
+    # centred, the magnified view keeps whatever the camera happens to be aimed
+    # at, and each camera sees the animal somewhere else. So the pan that follows
+    # is derived from the overlay's own markers at the frame being recorded: the
+    # topmost one — the head bar, in this rig — is hung at the top centre of the
+    # pane, which lands the skeleton below it in every camera at once.
+    if video_zoom > 1.0:
+        for pane in window.video_grid.visible_panes():
+            _frame_pane_on_limbs(pane, video_zoom)
+        settle()
+
     # Do NOT resize the window here to force a relayout: a resize can land the
     # capture between a layout change and the next paint, and the screenshot
     # comes back with black video panes instead of frames.
@@ -345,6 +409,15 @@ def main() -> None:
         default=1.0,
         help="seconds one loop of the GIF lasts",
     )
+    parser.add_argument(
+        "--video-zoom",
+        type=float,
+        default=1.25**8,
+        help=(
+            "magnify each video pane onto the limbs; 1.0 keeps the fitted view. "
+            "The default is eight presses of a pane's + button (1.25 each)"
+        ),
+    )
     parser.add_argument("--gif-width", type=int, default=960, help="max GIF width")
     parser.add_argument("--gif-height", type=int, default=720, help="max GIF height")
     parser.add_argument(
@@ -373,6 +446,7 @@ def main() -> None:
         args.colors,
         args.azimuth,
         args.elevation,
+        args.video_zoom,
     )
 
 
