@@ -63,6 +63,10 @@ QUIET_FRACTION = 0.001
 #: edge, wide enough that its marker is not clipped in half by it.
 VIDEO_FRAME_TOP_MARGIN = 12.0
 
+#: Clearance in pane pixels kept beside the outermost markers. A marker exactly
+#: on the border reads as cut off, and its name is drawn beside it.
+VIDEO_FRAME_SIDE_MARGIN = 16.0
+
 
 def _to_pillow(image: QImage) -> Image.Image:
     """Copy a QImage into Pillow without a PNG round trip.
@@ -167,15 +171,33 @@ def _tracked_points(pane: object) -> list[tuple[float, float]]:
     return points
 
 
-def _frame_pane_on_limbs(pane: object, zoom: float) -> None:
+def _frame_pane_on_limbs(pane: object, zoom: float, crowded_zoom: float) -> None:
     """Magnify one video pane and hang its topmost marker off the pane's top edge."""
     surface = pane.surface  # type: ignore[attr-defined]
-    surface.zoom_by(zoom)
     points = _tracked_points(pane)
-    geometry = surface.frame_geometry()
-    if not points or geometry is None:
+    fitted = surface.frame_geometry()
+    if not points or fitted is None:
         # Nothing tracked in this camera at this instant: a centred zoom is
         # still better than the fitted view, and guessing a pan would be worse.
+        surface.zoom_by(zoom)
+        return
+
+    # Pull back the one camera the requested zoom is too tight for.
+    #
+    # The zoom is asked for once for all three cameras, but they are not aimed
+    # alike: the one looking along the animal spreads the same nine joints over
+    # twice the pane width the others need, and at the shared zoom it is visibly
+    # closer in than its neighbours. Backing that pane off keeps the three
+    # roughly matched; the cameras that already fit are left at what was asked.
+    marker_span = (max(x for x, _ in points) - min(x for x, _ in points)) * fitted[0]
+    room = surface.width() - 2 * VIDEO_FRAME_SIDE_MARGIN
+    if marker_span > 0.0 and marker_span * zoom > room:
+        zoom = min(zoom, crowded_zoom)
+        print(f"markers overrun this pane; holding this camera at {zoom:.2f}x")
+
+    surface.zoom_by(zoom)
+    geometry = surface.frame_geometry()
+    if geometry is None:
         return
     scale, offset_x, offset_y = geometry
     top_x, top_y = min(points, key=lambda point: point[1])
@@ -185,6 +207,32 @@ def _frame_pane_on_limbs(pane: object, zoom: float) -> None:
             VIDEO_FRAME_TOP_MARGIN - (offset_y + top_y * scale),
         )
     )
+    _nudge_markers_into_view(surface, points)
+
+
+def _nudge_markers_into_view(surface: object, points: list[tuple[float, float]]) -> None:
+    """Shift a framed pane sideways by as little as it takes to show every marker.
+
+    Centring on the topmost marker sets the vertical framing, but it says nothing
+    about how the rest spread out beside it: in the camera looking along the
+    animal, the head bar sits at one end of the row and half the limbs fall off
+    the pane. A camera whose markers already fit is not moved.
+    """
+    geometry = surface.frame_geometry()  # type: ignore[attr-defined]
+    if geometry is None:
+        return
+    scale, offset_x, _ = geometry
+    left = offset_x + min(x for x, _ in points) * scale
+    right = offset_x + max(x for x, _ in points) * scale
+    width = surface.width()  # type: ignore[attr-defined]
+    if right - left > width - 2 * VIDEO_FRAME_SIDE_MARGIN:
+        # Only reachable if a marker moved between the zoom cap and here: split
+        # the loss evenly rather than dropping one whole limb off one side.
+        surface.pan_by(QPointF(width / 2.0 - (left + right) / 2.0, 0.0))  # type: ignore[attr-defined]
+        return
+    overshoot_left = max(0.0, VIDEO_FRAME_SIDE_MARGIN - left)
+    overshoot_right = max(0.0, right - (width - VIDEO_FRAME_SIDE_MARGIN))
+    surface.pan_by(QPointF(overshoot_left - overshoot_right, 0.0))  # type: ignore[attr-defined]
 
 
 def capture(
@@ -201,6 +249,7 @@ def capture(
     azimuth_deg: float | None = None,
     elevation_deg: float | None = None,
     video_zoom: float = 1.0,
+    crowded_zoom: float = 1.0,
 ) -> None:
     """Open ``session_dir``, record ``frames`` of playback, and write the loop."""
     from avialsync.ui.main_window import MainWindow
@@ -345,7 +394,7 @@ def capture(
     # pane, which lands the skeleton below it in every camera at once.
     if video_zoom > 1.0:
         for pane in window.video_grid.visible_panes():
-            _frame_pane_on_limbs(pane, video_zoom)
+            _frame_pane_on_limbs(pane, video_zoom, crowded_zoom)
         settle()
 
     # Do NOT resize the window here to force a relayout: a resize can land the
@@ -418,6 +467,15 @@ def main() -> None:
             "The default is eight presses of a pane's + button (1.25 each)"
         ),
     )
+    parser.add_argument(
+        "--crowded-zoom",
+        type=float,
+        default=1.25**7,
+        help=(
+            "zoom used instead for a camera whose markers overrun the pane at "
+            "--video-zoom; the default is one press of + less"
+        ),
+    )
     parser.add_argument("--gif-width", type=int, default=960, help="max GIF width")
     parser.add_argument("--gif-height", type=int, default=720, help="max GIF height")
     parser.add_argument(
@@ -447,6 +505,7 @@ def main() -> None:
         args.azimuth,
         args.elevation,
         args.video_zoom,
+        args.crowded_zoom,
     )
 
 
