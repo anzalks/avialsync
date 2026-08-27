@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Shahul"
+    given-names: "Anzal K"
+    orcid: "https://orcid.org/0009-0006-9932-7944"
+  - family-names: "Valera"
+    given-names: "Antoine"
+    orcid: "https://orcid.org/0000-0002-0230-9752"
+title: "AvialSync"
+version: "0.1.5"
+url: "https://github.com/TeamNeuralNetworks/avialsync"

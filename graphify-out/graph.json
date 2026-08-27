@@ -43962,7 +43962,7 @@
       "label": "_to_pillow()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L67",
+      "source_location": "L71",
       "_origin": "ast"
     },
     {
@@ -43986,7 +43986,7 @@
       "label": "quantize_to_shared_palette()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L84",
+      "source_location": "L88",
       "_origin": "ast"
     },
     {
@@ -43994,7 +43994,7 @@
       "label": "write_gif()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L105",
+      "source_location": "L109",
       "_origin": "ast"
     },
     {
@@ -44010,7 +44010,7 @@
       "label": "_load_session()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L124",
+      "source_location": "L128",
       "_origin": "ast"
     },
     {
@@ -44018,7 +44018,7 @@
       "label": "_tracked_points()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L152",
+      "source_location": "L156",
       "_origin": "ast"
     },
     {
@@ -44026,7 +44026,15 @@
       "label": "_frame_pane_on_limbs()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L170",
+      "source_location": "L174",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_session_screenshot_nudge_markers_into_view",
+      "label": "_nudge_markers_into_view()",
+      "file_type": "code",
+      "source_file": "tools/generate_session_screenshot.py",
+      "source_location": "L213",
       "_origin": "ast"
     },
     {
@@ -44034,7 +44042,7 @@
       "label": "capture()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L190",
+      "source_location": "L238",
       "_origin": "ast"
     },
     {
@@ -44042,7 +44050,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L375",
+      "source_location": "L424",
       "_origin": "ast"
     },
     {
@@ -44054,59 +44062,67 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_68",
+      "id": "tools_generate_session_screenshot_rationale_72",
       "label": "Copy a QImage into Pillow without a PNG round trip.      Qt pads every scanline",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L68",
+      "source_location": "L72",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_85",
+      "id": "tools_generate_session_screenshot_rationale_89",
       "label": "Map every frame onto one palette derived from all of them.      Per-frame palett",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L85",
+      "source_location": "L89",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_106",
+      "id": "tools_generate_session_screenshot_rationale_110",
       "label": "Write ``frames`` as one endlessly looping GIF spanning ``duration`` seconds.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L106",
+      "source_location": "L110",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_125",
+      "id": "tools_generate_session_screenshot_rationale_129",
       "label": "Open ``session_dir`` the way a drop onto the window would.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L125",
+      "source_location": "L129",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_153",
+      "id": "tools_generate_session_screenshot_rationale_157",
       "label": "Return the pane's limb markers in video pixels at the frame it is showing.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L153",
+      "source_location": "L157",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_171",
+      "id": "tools_generate_session_screenshot_rationale_175",
       "label": "Magnify one video pane and hang its topmost marker off the pane's top edge.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L171",
+      "source_location": "L175",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_205",
+      "id": "tools_generate_session_screenshot_rationale_214",
+      "label": "Shift a framed pane sideways by as little as it takes to show every marker.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_session_screenshot.py",
+      "source_location": "L214",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_session_screenshot_rationale_254",
       "label": "Open ``session_dir``, record ``frames`` of playback, and write the loop.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L205",
+      "source_location": "L254",
       "_origin": "ast"
     },
     {
@@ -149141,7 +149157,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L67",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149152,7 +149168,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L67",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149163,7 +149179,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L67",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149173,7 +149189,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L84",
+      "source_location": "L88",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149184,7 +149200,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L84",
+      "source_location": "L88",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149194,7 +149210,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L105",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149205,7 +149221,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L105",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149216,7 +149232,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L105",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149226,7 +149242,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L124",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149237,7 +149253,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L124",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149247,7 +149263,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L152",
+      "source_location": "L156",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149257,7 +149273,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L170",
+      "source_location": "L174",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_session_screenshot",
+      "target": "tools_generate_session_screenshot_nudge_markers_into_view",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_session_screenshot.py",
+      "source_location": "L213",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149267,7 +149293,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L190",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149278,7 +149304,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L190",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149288,7 +149314,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L375",
+      "source_location": "L424",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149299,7 +149325,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L111",
+      "source_location": "L115",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149310,7 +149336,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L174",
+      "source_location": "L177",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_session_screenshot_frame_pane_on_limbs",
+      "target": "tools_generate_session_screenshot_nudge_markers_into_view",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_session_screenshot.py",
+      "source_location": "L210",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149321,7 +149358,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L286",
+      "source_location": "L335",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149332,7 +149369,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L348",
+      "source_location": "L397",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149343,7 +149380,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L370",
+      "source_location": "L419",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149354,7 +149391,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L436",
+      "source_location": "L494",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149369,72 +149406,82 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_68",
+      "source": "tools_generate_session_screenshot_rationale_72",
       "target": "tools_generate_session_screenshot_to_pillow",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L68",
+      "source_location": "L72",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_85",
+      "source": "tools_generate_session_screenshot_rationale_89",
       "target": "tools_generate_session_screenshot_quantize_to_shared_palette",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L85",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_106",
+      "source": "tools_generate_session_screenshot_rationale_110",
       "target": "tools_generate_session_screenshot_write_gif",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L106",
+      "source_location": "L110",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_125",
+      "source": "tools_generate_session_screenshot_rationale_129",
       "target": "tools_generate_session_screenshot_load_session",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L125",
+      "source_location": "L129",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_153",
+      "source": "tools_generate_session_screenshot_rationale_157",
       "target": "tools_generate_session_screenshot_tracked_points",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L153",
+      "source_location": "L157",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_171",
+      "source": "tools_generate_session_screenshot_rationale_175",
       "target": "tools_generate_session_screenshot_frame_pane_on_limbs",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L171",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_205",
+      "source": "tools_generate_session_screenshot_rationale_214",
+      "target": "tools_generate_session_screenshot_nudge_markers_into_view",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_session_screenshot.py",
+      "source_location": "L214",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_session_screenshot_rationale_254",
       "target": "tools_generate_session_screenshot_capture",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L205",
+      "source_location": "L254",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -162395,7 +162442,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L209",
+      "source_location": "L258",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -184868,7 +184915,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L135",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -184880,7 +184927,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L211",
+      "source_location": "L260",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -184892,7 +184939,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L333",
+      "source_location": "L382",
       "weight": 1.0,
       "_origin": "ast"
     },

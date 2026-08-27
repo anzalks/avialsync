@@ -9,7 +9,10 @@ description = "GUI desktop app to scrub time-synchronized multi-camera video and
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = { text = "AGPL-3.0-or-later" }
-authors = [{ name = "Anzal K Shahul", email = "anzal.ks@gmail.com" }]
+authors = [
+    { name = "Anzal K Shahul", email = "anzal.ks@gmail.com" },
+    { name = "Antoine Valera" }
+]
 keywords = [
     "neuroscience",
     "electrophysiology",
