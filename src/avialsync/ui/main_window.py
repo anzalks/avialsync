@@ -186,6 +186,7 @@ class MainWindow(QMainWindow):
         self.resize(1280, 800)
 
         self._session_path: Path | None = None
+        self._session_generation = 0
 
         # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
         self._video_fps: dict[str, float] = {}
@@ -312,6 +313,7 @@ class MainWindow(QMainWindow):
         self.sidebar = SidebarPane(self)
         self.sidebar.open_video_requested.connect(self._open_video)
         self.sidebar.open_sensor_requested.connect(self._open_data)
+        self.sidebar.reset_session_requested.connect(self._reset_session)
         self.sidebar.video_offset_changed.connect(self._on_video_offset_changed)
         self.sidebar.video_remove_requested.connect(self._on_video_remove_requested)
         # Persist before a removed pane's media client is torn down: that
@@ -768,6 +770,9 @@ class MainWindow(QMainWindow):
 
     def _open_session(self) -> None:
         session_controller.open_session(self)
+
+    def _reset_session(self) -> None:
+        session_controller.reset_session(self)
 
     def _start_session_load(self, path: Path) -> None:
         session_controller.start_session_load(self, path)

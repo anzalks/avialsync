@@ -314,6 +314,20 @@ class PlotPane(QWidget):
         self._pending_rows.clear()
         self._pending_refresh.clear()
 
+    def clear_sources(self) -> None:
+        """Remove every plotted source and its pending row work."""
+        self.cancel_pending_rows()
+        for channel in self.channels:
+            self.graphics_layout.removeItem(channel.plot_item)
+            self.graphics_layout.removeItem(channel.close_proxy)
+        self.channels.clear()
+        self._source_time_maps.clear()
+        self._master_plot = None
+        self._link_x_axes()
+        self._relayout_rows()
+        self.sources_changed.emit([])
+        self._interactions.redraw_annotations()
+
     def _finish_loading(self) -> None:
         """Apply the once-per-load work after the last queued row exists."""
         # pyqtgraph maps an X link through the two views' *pixel* geometry, and

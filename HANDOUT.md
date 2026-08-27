@@ -53,6 +53,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
 
 ### Done (Phase 4)
 - Session save/load `.avv` schema v5, autosave 2 min, recent files, relink dialog
+- Sources → Open Files → Reset Session cancels pending loads and clears the current workspace without
+  modifying recordings, sidecar caches, or a saved `.avv` file.
 - Transport: unified `QLineEdit` 110px minimum, `HH:MM:SS.fff`, `_time_editing` guard
 - Theme: System/Dark/Light radio group in View menu; Ctrl+T cycles; System retains the platform
   style, palette, accent, and font, and follows Qt-reported palette changes while open. Explicit

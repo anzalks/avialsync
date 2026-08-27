@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QThread, QUrl, Signal, Slot
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
-from PySide6.QtWidgets import QApplication, QMessageBox, QSplitter
+from PySide6.QtWidgets import QApplication, QMessageBox, QSplitter, QWidget
 
 from avialsync.core.session import (
     SensorEntry,
@@ -79,6 +79,58 @@ def test_inspector_uses_compact_tabs_for_sources_values_messages_and_annotations
     assert main_window._left_tabs.widget(1) is main_window.readout_panel
     assert main_window._left_tabs.widget(2) is main_window.message_panel
     assert main_window._left_tabs.widget(3) is main_window.annotation_panel
+
+
+def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow, qtbot) -> None:
+    """Reset removes loaded state so the same window accepts a fresh drop."""
+    from avialsync.core.timeline import TimeMap
+
+    video_path = "/tmp/camera.mp4"
+    sensor_path = "/tmp/sensor.csv"
+    cache_dir = Path("/tmp/sensor.avialcache")
+    pane = QWidget()
+    main_window.video_grid.panes.append(pane)
+    main_window.video_grid._paths.append(video_path)
+    main_window.video_grid._pane_enabled.append(True)
+    main_window.sidebar.add_video(video_path, {})
+    main_window.sidebar.add_sensor(sensor_path, ["force"])
+    main_window._session_path = Path("/tmp/prior.avv")
+    main_window._video_fps[video_path] = 30.0
+    main_window._sensor_cache_dirs[sensor_path] = cache_dir
+    main_window._overlay_sources[video_path] = {}
+    main_window._pose_3d_sources[sensor_path] = []
+    main_window._sync_provenance.append(object())
+    main_window._overview_gaps[1.0] = "Source: sensor.csv"
+    main_window._session_item_labels[sensor_path] = "Force"
+    main_window.plot_pane._source_time_maps[cache_dir] = TimeMap()
+    main_window.annotation_store.add_point(1.0, "mark")
+    main_window.message_store._by_source[sensor_path] = ()
+    main_window.transport.set_source_coverage(video_path, 0.0, 2.0, "video")
+    main_window.transport.set_gap_events([(1.0, "gap")])
+
+    with qtbot.waitSignal(main_window.sidebar.reset_session_requested):
+        main_window.sidebar.btn_reset_session.click()
+
+    assert main_window._session_path is None
+    assert main_window._session_generation == 1
+    assert not main_window.video_grid.panes
+    assert not main_window.video_grid.pane_paths()
+    assert not main_window.sidebar._video_widgets
+    assert main_window.sidebar.sensor_widget(sensor_path) is None
+    assert not main_window.plot_pane.channels
+    assert not main_window.plot_pane._source_time_maps
+    assert not main_window.annotation_store.markers
+    assert not main_window.message_store._by_source
+    assert not main_window._video_fps
+    assert not main_window._sensor_cache_dirs
+    assert not main_window._overlay_sources
+    assert not main_window._pose_3d_sources
+    assert not main_window._sync_provenance
+    assert not main_window._overview_gaps
+    assert main_window.clock.state.bounds == (0.0, 0.0)
+    assert main_window.clock.state.t == 0.0
+    assert not main_window.transport.overview._coverage
+    assert not main_window.transport.overview._gap_events
 
 
 def test_annotate_with_pane_present_no_error(main_window: MainWindow) -> None:

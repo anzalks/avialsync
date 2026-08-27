@@ -8,6 +8,10 @@ The parts of day-to-day use that are not alignment, annotation, or import.
 drift, any accepted mappings and the evidence behind them, your annotations, and the layout. **File
 → Open Session…** restores it.
 
+Use **Reset Session** in the **Sources** tab's **Open Files** section to close every loaded source and
+clear annotations, messages, synchronization evidence, and timeline state before opening or dropping a
+different recording. It does not modify your recordings, sidecar caches, or an already-saved `.avv` file.
+
 A session stores *paths*, not copies. Your recordings stay where they are and are never modified,
 which means a session is small and safe to share with a colleague — provided they can reach the
 same files.

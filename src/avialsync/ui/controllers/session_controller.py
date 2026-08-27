@@ -31,6 +31,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _disconnect(signal: object, slot: object) -> None:
+    """Detach a result handler when a reset makes its work obsolete."""
+    disconnect = getattr(signal, "disconnect", None)
+    if not callable(disconnect):
+        return
+    try:
+        disconnect(slot)
+    except (RuntimeError, TypeError):
+        pass
+
+
 def restore_geometry(window: MainWindow) -> None:
     settings = QSettings("AvialSync", "AvialSync")
     geom = settings.value("window/geometry")
@@ -163,6 +174,7 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
 
     window._save_in_progress = True
     state = window._build_session_state()
+    session_generation = window._session_generation
 
     from avialsync.engine.session_worker import SessionSaveWorker
 
@@ -172,6 +184,8 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
         window.transport.set_status("Saving session…")
 
     def on_finished():
+        if session_generation != window._session_generation:
+            return
         window._session_path = path
         add_recent(str(path))
         if not is_autosave:
@@ -228,8 +242,11 @@ def start_session_load(window: MainWindow, path: Path) -> None:
 
     window.transport.set_status("Loading session…")
     worker = SessionLoadWorker(path)
+    session_generation = window._session_generation
 
     def on_finished(state: SessionState):
+        if session_generation != window._session_generation:
+            return
         window.transport.set_status("")
         window._session_path = path
         add_recent(str(path))
@@ -258,6 +275,94 @@ def start_session_load(window: MainWindow, path: Path) -> None:
         # The owning registry drops its reference on the UI thread instead.
 
     window._run_job(worker, configure=_wire)
+
+
+def reset_session(window: MainWindow) -> None:
+    """Return the workspace to its empty, ready-to-open state."""
+    window._session_generation += 1
+    window._session_path = None
+
+    for worker in list(window._video_load_jobs.values()):
+        _disconnect(getattr(worker, "opened", None), window._on_video_opened)
+        _disconnect(getattr(worker, "error", None), window._on_video_open_error)
+        cancel = getattr(worker, "cancel", None)
+        if callable(cancel):
+            cancel()
+    window._pending_video_loads.clear()
+    window._video_request_order.clear()
+    window._probed_videos.clear()
+    window._video_load_offsets.clear()
+    window._video_load_drifts.clear()
+    window._video_pane_initializing = None
+
+    import_worker = window._import_worker
+    if import_worker is not None:
+        if window._progress_dialog is not None:
+            _disconnect(getattr(import_worker, "progress", None), window._progress_dialog.setValue)
+        _disconnect(getattr(import_worker, "finished", None), window._on_import_finished)
+        _disconnect(getattr(import_worker, "error", None), window._on_import_error)
+        cancel = getattr(import_worker, "cancel", None)
+        if callable(cancel):
+            cancel()
+    if window._progress_dialog is not None:
+        window._progress_dialog.close()
+    window._pending_imports.clear()
+
+    for job in window._job_manager.jobs():
+        worker = job.worker
+        _disconnect(getattr(worker, "finished", None), window._on_drop_scan_finished)
+        _disconnect(getattr(worker, "session_found", None), window._on_drop_session_found)
+        _disconnect(getattr(worker, "error", None), window._on_drop_scan_error)
+    window._job_manager.cancel_all()
+
+    source_paths = set(window.video_grid.pane_paths())
+    source_paths.update(window._sensor_cache_dirs)
+    source_paths.update(window._overlay_sources)
+    source_paths.update(window._pose_3d_sources)
+    for path in source_paths:
+        window.transport.set_source_coverage(path, 0.0, 0.0, "data")
+
+    window.player.stop()
+    for path in list(window.video_grid.pane_paths()):
+        window.video_grid.remove_pane(path)
+    window.sidebar.clear_sources()
+    window.plot_pane.clear_sources()
+    window.plot_pane.clear_measure()
+    window.annotation_store.clear()
+    window.message_store.clear()
+
+    window._video_fps.clear()
+    window._video_frame_times.clear()
+    window._video_source_bounds.clear()
+    window._video_time_mappings.clear()
+    window._sync_provenance.clear()
+    window._pending_exact_mappings.clear()
+    window._overview_gaps.clear()
+    window._frame_indexed_sources.clear()
+    window._overlay_sources.clear()
+    window._pose_3d_sources.clear()
+    window._plotted_readers.clear()
+    window._inspections.clear()
+    window._channel_units.clear()
+    window._sensor_cache_dirs.clear()
+    window._pending_bounds_sources.clear()
+    window._pending_sensor_mappings.clear()
+    window._session_camera_fps = 0.0
+    window._session_anchor_epoch = 0.0
+    window._session_item_labels.clear()
+    window._session_item_kinds.clear()
+    window._session_coverage_groups.clear()
+
+    window._refresh_pose_3d()
+    window.clock.set_bounds(0.0, 0.0)
+    window.plot_pane.set_timeline_bounds(0.0, 0.0)
+    window.transport.set_bounds(0.0, 0.0)
+    window.transport.set_time(0.0)
+    window.transport.set_ttl_events([])
+    window.transport.set_gap_events([])
+    window.transport.set_message_events([])
+    window.transport.set_annotation_markers([])
+    window.transport.set_status("Ready")
 
 
 def on_session_load_error(window: MainWindow, error: str) -> None:
