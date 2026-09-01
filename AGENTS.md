@@ -170,24 +170,34 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
 
 ## How to run things
 
-ALL commands must be prefixed with `conda run -n avialsync` when working inside the
-`avialsync` conda environment. Never run project commands (pytest, ruff, mypy, pip,
-avialsync) without this prefix — the system Python may differ from the env Python.
+ALL project commands must be prefixed with `conda run -n <env>`. Never run project
+commands (pytest, ruff, mypy, pip, avialsync) without this prefix — the system Python
+may differ from the env Python.
+
+**Check the env name before you use it — it is not `avialsync`.** This file named a
+non-existent env for several phases, which cost every agent a failed command on its
+first run. Run `conda env list`: on the primary development machine the editable
+install lives in **`avialview`** (a leftover from the pre-rebrand repo directory
+name, D-018 forbids renaming things opportunistically, and the env is not worth the
+churn). An `avialsync_test` env also exists and holds a stale non-editable copy — it
+is not the development env. Verify with
+`conda run -n <env> python -c "import avialsync; print(avialsync.__file__)"`: the
+right env resolves to `src/avialsync/` in this working tree.
 
 ```bash
-conda run -n avialsync pip install -e .[dev]          # setup
-conda run -n avialsync python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
-QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q   # tests
-conda run -n avialsync pytest --benchmark-only                   # perf budgets
-conda run -n avialsync avialsync                                # run the app
-conda run -n avialsync avialsync open tests/fixtures/sample_session/
+conda run -n <env> pip install -e .[dev]          # setup
+conda run -n <env> python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
+QT_QPA_PLATFORM=offscreen conda run -n <env> pytest -x -q   # tests
+conda run -n <env> pytest --benchmark-only                   # perf budgets
+conda run -n <env> avialsync                                # run the app
+conda run -n <env> avialsync open tests/fixtures/sample_session/
 
 # Type checking — run BOTH; strict mode applies only to core/
-conda run -n avialsync mypy src/avialsync/core    # strict (enforced)
-conda run -n avialsync mypy src/avialsync          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
+conda run -n <env> mypy src/avialsync/core    # strict (enforced)
+conda run -n <env> mypy src/avialsync          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
 
 # Lint + format
-conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format .
+conda run -n <env> ruff check --fix . && conda run -n <env> ruff format .
 ```
 
 ## Task protocol for agents

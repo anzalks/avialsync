@@ -1,6 +1,9 @@
 # AvialSync — UX Foundations Plan (Phase 7)
 
-> **Status:** planned, unstarted. Branch `ux_foundations`.
+> **Status:** in progress on branch `ux_foundations`, based on v0.1.6.
+> **WP-1 landed** (`dc5dc34`): the command bus, dirty state, the session-named
+> title, and hot exit. Its step 4 — routing live mutations through the bus — needs the
+> `MutationTarget` adapter and lands with WP-2. WP-2 … WP-12 are unstarted.
 > **Companion documents:** binding rules in AGENTS.md §Architecture rules 10–17; phase entry in
 > BLUEPRINT.md Phase 7; settled choices in DECISIONS.md D-087 … D-094; per-package kickoff prompts
 > in PROMPTS.md §Phase 7 prompts.
