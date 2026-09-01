@@ -23,6 +23,7 @@ from avialsync.core.session import (
     SessionState,
     VideoEntry,
 )
+from avialsync.ui import recovery
 from avialsync.ui.recent_files import add_recent, get_recent
 
 if TYPE_CHECKING:
@@ -188,6 +189,12 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
             return
         window._session_path = path
         add_recent(str(path))
+        # The work is now in a file the user chose, so the recovery snapshot
+        # describes nothing they could still lose. Leaving it would offer a
+        # pointless restore on the next launch and train them to dismiss the
+        # bar without reading it.
+        recovery.clear_recovery()
+        window._mark_session_saved()
         if not is_autosave:
             window.transport.set_status("")
 
@@ -281,6 +288,12 @@ def reset_session(window: MainWindow) -> None:
     """Return the workspace to its empty, ready-to-open state."""
     window._session_generation += 1
     window._session_path = None
+    # A reset empties the workspace and drops the path. Any snapshot still on
+    # disk describes work this reset has just discarded on purpose; keeping it
+    # would resurrect it at the next launch, and letting the close-time write
+    # replace it with an empty workspace would destroy genuinely unsaved work
+    # from before the reset. Clear it, do not overwrite it (D-089).
+    recovery.clear_recovery()
 
     for worker in list(window._video_load_jobs.values()):
         _disconnect(getattr(worker, "opened", None), window._on_video_opened)
@@ -463,14 +476,48 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
 
 
 def autosave(window: MainWindow) -> None:
-    """Silently autosave if a session path is set.
+    """Silently autosave, to the session file or to the recovery snapshot.
 
     Runs on the same worker path as an explicit save, so a large session
     never stalls playback on the two-minute timer.
+
+    This used to return early when there was no session path, which meant the
+    two-minute autosave protected only sessions that were already safe. A
+    session that had never been saved had no protection at all (D-089), so an
+    untitled session now writes a recovery snapshot instead of nothing.
     """
-    if window._session_path is None or window._save_in_progress:
+    if window._save_in_progress:
+        return
+    if window._session_path is None:
+        _write_recovery_snapshot(window)
         return
     window._start_session_save(window._session_path, is_autosave=True)
+
+
+def _write_recovery_snapshot(window: MainWindow) -> bool:
+    """Persist unsaved work for an untitled session. Returns whether it wrote.
+
+    An empty workspace writes nothing and clears whatever was there. Reset
+    Session empties the workspace and sets ``_session_path`` to ``None``, so
+    without this a reset followed by a quit would overwrite a good snapshot
+    with an empty one — the safety net causing the loss it exists to prevent.
+
+    Serialising is inside the guard, not before it. One call site is
+    ``closeEvent``, where the workspace can hold whatever a half-finished load
+    or a test double left behind, and ``SessionState.to_dict`` raises on state
+    it cannot encode. A safety net that throws on the way up is worse than no
+    safety net: the surrounding ``_close_step`` would log and continue, but the
+    snapshot this function exists to write would silently not happen.
+    """
+    try:
+        state = window._build_session_state().to_dict()
+    except Exception:
+        logger.exception("Could not serialise the workspace for recovery; skipping the snapshot")
+        return False
+    if recovery.is_empty_state(state):
+        recovery.clear_recovery()
+        return False
+    return recovery.write_recovery(state, None)
 
 
 def write_session_snapshot(window: MainWindow) -> None:
@@ -480,8 +527,12 @@ def write_session_snapshot(window: MainWindow) -> None:
     go away, or a media client is about to be torn down in a way that can kill
     the process outright. Both are bounded by a single small JSON write, which
     is why this is the one legitimate blocking write in the application.
+
+    With no session path the same state goes to the recovery snapshot instead,
+    so closing an untitled session preserves it rather than discarding it.
     """
     if window._session_path is None:
+        _write_recovery_snapshot(window)
         return
     from avialsync.engine.session_worker import SessionSaveWorker
 
@@ -494,6 +545,9 @@ def autosave_before_close(window: MainWindow) -> None:
     A threaded save started here could never finish: the window (and its
     worker registry) is gone right after this returns. It runs after the final
     paint, so the write is not competing with a UI-thread budget.
+
+    Quitting still never prompts (D-088). It is lossless instead, which is what
+    removes the reason to prompt.
     """
     write_session_snapshot(window)
 

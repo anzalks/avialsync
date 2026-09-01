@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.channel_reader import ChannelKey
+from avialsync.core.document import Document
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.session import (
     SessionState,
@@ -182,11 +183,18 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("AvialSync")
         self.resize(1280, 800)
 
         self._session_path: Path | None = None
         self._session_generation = 0
+
+        # The one place that knows whether this session has unsaved changes
+        # (D-087). Dirty state, undo, and the autosave trigger all derive from
+        # its log rather than being tracked separately -- which is why the
+        # title was a constant string and closing preserved nothing before it.
+        self.document = Document()
+        self.document.observe_dirty(self._on_dirty_changed)
+        self._update_window_title()
 
         # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
         self._video_fps: dict[str, float] = {}
@@ -1355,6 +1363,38 @@ class MainWindow(QMainWindow):
         act = help_menu.addAction("About AvialSync")
         act.setMenuRole(QAction.MenuRole.AboutRole)
         act.triggered.connect(self._show_about)
+
+    # ── Session identity and dirty state ─────────────────────────────
+
+    def _update_window_title(self) -> None:
+        """Name the open session in the title bar, with Qt's modified marker.
+
+        The title used to be the constant string "AvialSync", so two windows
+        were indistinguishable in the taskbar and nothing showed that a session
+        had unsaved changes. ``[*]`` is Qt's placeholder: it renders as the
+        platform's own modified indicator when ``setWindowModified(True)`` and
+        disappears otherwise, so this stays native on each OS rather than
+        hardcoding an asterisk.
+        """
+        name = self._session_path.stem if self._session_path is not None else "Untitled"
+        self.setWindowTitle(f"{name}[*] — AvialSync")
+        self.setWindowModified(self.document.is_dirty)
+
+    def _on_dirty_changed(self, dirty: bool) -> None:
+        """Reflect a dirty transition in the title.
+
+        The Document notifies only on a genuine clean/dirty transition, so this
+        does not need a throttle of its own: a two-hundred-step offset drag is
+        one merged command and at most one transition, which keeps the title
+        repaint clear of the 8 ms UI-callback target (WP-1 step 6).
+        """
+        self.setWindowModified(dirty)
+
+    def _mark_session_saved(self) -> None:
+        """Record that the session on disk now matches the workspace."""
+        self.document.session_path = str(self._session_path) if self._session_path else None
+        self.document.mark_saved()
+        self._update_window_title()
 
     def _rebuild_recent_menu(self) -> None:
         session_controller.rebuild_recent_menu(self)
