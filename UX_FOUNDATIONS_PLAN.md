@@ -100,10 +100,12 @@ Consequences that follow, and that you must not undo:
 > checkbox in View → Overlays, a stable id, a persisted per-session visibility state, and a
 > default. No exceptions, including for overlays a plugin contributes.**
 
-Today this is violated in both directions: tracking point labels and the track legend have
-`set_point_labels_visible()` / `set_legend_visible()` methods on `ui/video_overlay.py::PaintCanvas`
-that **no caller anywhere invokes**, while the OSD text and the camera name label are drawn with no
-toggle at all. Adding the next overlay without a registry adds the next dead API.
+Today this is violated in both directions. `ui/video_overlay.py::PaintCanvas` carries
+`set_point_labels_visible()` and `set_legend_visible()`: `set_legend_visible` has **no caller at
+all**, and `set_point_labels_visible` has exactly one, in `tests/test_video_pane_timing.py` — so
+both are reachable only from a test and **neither has any production control surface**. Meanwhile
+the OSD text and the camera name label are drawn with no toggle at all. Adding the next overlay
+without a registry adds the next unreachable method.
 
 See WP-4 for the registry and the exact inventory to migrate.
 
@@ -153,6 +155,11 @@ package is wrong — stop and report.
     that docstring already establishes — state is captured before `video_grid.shutdown()` clears it.
 17. `.avv` session round-trip for every currently persisted field. WP-1 bumps the schema; the
     migration must be one-way-compatible per §7.
+18. **Reset Session (0.1.6)** returns the workspace to empty without modifying recordings, sidecar
+    caches, or a saved `.avv` file, and cancels pending loads rather than letting them land in the
+    cleared workspace — `_session_generation` is the guard that makes late arrivals safe. Covered by
+    `tests/test_ui_main.py`. WP-1, WP-2, and WP-5 all touch this function; none may weaken those
+    properties. Making it undoable (WP-2) must not make it slower to reach or add a confirmation.
 
 **Performance** — every budget in BLUEPRINT §Performance budgets. See §6 for which this phase
 touches and by how much.
@@ -222,7 +229,17 @@ lossless.
 4. Route these mutations through `execute()` — this is the complete Phase 7 list, do not expand it
    without a DECISIONS entry: per-source offset and drift; annotation add / delete / relabel /
    retime; source add and remove; accepted sync proposal; per-source and per-channel visibility;
-   video and plot row order (once WP-11 lands); overlay visibility (once WP-4 lands).
+   video and plot row order (once WP-11 lands); overlay visibility (once WP-4 lands); and
+   **Reset Session** (see below).
+   - **Reset Session (added in 0.1.6) is the most destructive action in the application** and it
+     must be in this list. `session_controller.reset_session()` cancels pending loads, removes every
+     pane, and calls `annotation_store.clear()` and `message_store.clear()` — it discards every
+     annotation the user has made. It is reachable from a plain sidebar button
+     (`sidebar.py::btn_reset_session`, "Reset Session") with no confirmation and, today, no undo.
+     Do not add a confirmation dialog; make it one undoable command (WP-2).
+   - `reset_session` increments `window._session_generation`, which is the guard that invalidates
+     in-flight async loads (`session_controller` compares it before applying a completed load).
+     The `Document` must not duplicate that counter — read it, do not shadow it.
 5. Window title becomes `<session name> — AvialSync` with Qt's `[*]` placeholder, driven by
    `setWindowModified()`. Untitled sessions read `Untitled — AvialSync`. Today the title is the
    constant string `"AvialSync"` and never changes.
@@ -240,6 +257,12 @@ lossless.
    - On launch, if a recovery snapshot exists and is newer than its session file, show a
      **non-modal** bar: "Unsaved work from &lt;time&gt; was recovered." with Restore and Discard.
      Never a modal, never a startup gate (Law 1).
+   - **Reset Session interacts with this and the interaction is a trap.** `reset_session()` sets
+     `_session_path = None` and empties the workspace. A naive hot exit then writes an *empty*
+     recovery snapshot over a good one the moment the user resets and quits — turning a safety net
+     into the data loss it exists to prevent. Rule: a reset clears the recovery snapshot rather than
+     overwriting it with emptiness, and an empty workspace never produces a snapshot at all.
+     `tests/test_hot_exit.py` must cover reset-then-quit explicitly.
 8. Quitting still never prompts. That is the point of step 7.
 
 **Acceptance evidence**
@@ -276,13 +299,21 @@ is honoured.
    visible platform-conventions violation. Register through F3 once WP-3 lands; until then use the
    existing `_reg()` helper so the shortcuts dialog picks them up.
 3. Destructive actions become undoable rather than confirmed: the sensor `✕`, the video close
-   button, and annotation **Delete** push commands. **Do not add confirmation dialogs** — they
-   violate Law 1's spirit and undo is the better answer.
+   button, annotation **Delete**, and — most importantly — **Reset Session** push commands.
+   **Do not add confirmation dialogs** — they violate Law 1's spirit and undo is the better answer.
+   - Reset Session is the priority here. It is one sidebar click, it clears every pane, every
+     annotation, and every recorded message, and today nothing warns and nothing recovers it. As a
+     single undoable command ("Reset session") it becomes safe without becoming annoying.
+   - Reset is the one command whose inverse legitimately needs bulk state rather than a small
+     inverse op. That is fine and is not a violation of step 3 in WP-1: cap it at **one** retained
+     pre-reset snapshot, held only while it sits on the undo stack, and drop it when the command is
+     evicted. Do not generalise snapshotting to other commands.
 4. Undo is session-scoped and cleared on session load.
 
 **Acceptance evidence.** `tests/test_undo.py`: delete a source and undo restores it with its
-offset, drift, visibility, and channel states intact; undo depth survives an autosave; the stack
-clears on load.
+offset, drift, visibility, and channel states intact; **Reset Session followed by undo restores the
+panes, annotations, and messages**; undo depth survives an autosave; the stack clears on load. The
+existing reset-session coverage in `tests/test_ui_main.py` stays green.
 
 **Budget impact.** None. No hot path.
 
@@ -356,8 +387,8 @@ lists as an open P2 maintainability item. Read D-051 first — composition only,
    | Overlay id | Label | Group | Default | Today |
    |---|---|---|---|---|
    | `tracking.points` | Tracking points | Tracking | on | drawn, no toggle |
-   | `tracking.point_labels` | Body-part names | Tracking | off | `set_point_labels_visible()` exists, **never called** |
-   | `tracking.legend` | Track legend | Tracking | on | `set_legend_visible()` exists, **never called** |
+   | `tracking.point_labels` | Body-part names | Tracking | off | `set_point_labels_visible()` exists, **called only from a test** |
+   | `tracking.legend` | Track legend | Tracking | on | `set_legend_visible()` exists, **no caller at all** |
    | `tracking.skeleton` | Skeleton | Tracking | on | drawn via `ui/tracking_skeleton.py`, no toggle |
    | `camera.name` | Camera name | Chrome | on | drawn, no toggle |
    | `camera.osd` | Timecode / fps readout | Chrome | on | drawn, no toggle |
@@ -408,6 +439,14 @@ tracking, cooperative cancel, stall detection). Only the view is missing.
    and the proxy-generation dialog. Both already run on JobManager; the modality is gratuitous. The
    budget allows 60 s for a 1 GB CSV import, which today is a full minute of frozen application
    (D-091).
+   - **`_progress_dialog` has a second reader you must update in the same change.**
+     `session_controller.reset_session()` (added in 0.1.6) disconnects the import worker's
+     `progress` signal from `window._progress_dialog.setValue` and then closes the dialog. Deleting
+     the attribute without touching `reset_session` leaves a dangling reference that fails only when
+     someone resets during an import. Route it through the activity area instead, and keep the
+     cancel-on-reset behaviour that code already implements — it is correct.
+   - `reset_session` also calls `window._job_manager.cancel_all()`. The jobs panel must show that
+     as cancellation, not as failure.
 5. ETA derived from observed progress rate, shown only once it is stable enough not to jitter.
 6. Update rate capped at 20 Hz, matching D-047. Never repaint the activity area from the 60 Hz
    clock tick.
@@ -514,6 +553,14 @@ registry.
 3. About gains: version, git commit, Python / Qt / PySide6 / PyAV / pyqtgraph versions, licence
    link, and **Copy to clipboard**. Today it is three lines of plain text, so every bug report you
    receive is missing the version.
+4. **Cite this software.** `CITATION.cff` was added in 0.1.6 and `tools/prepare_release.py` keeps
+   its version in step with the package. Surface it: a Help → **Cite AvialSync…** item offering the
+   citation as text and BibTeX, read from the shipped `CITATION.cff` rather than retyped, so it
+   cannot drift from the file the release process maintains. For a tool used to produce published
+   figures this is not decoration.
+5. Read the project URLs from `pyproject.toml`'s `[project.urls]` (Homepage, Documentation, Source,
+   Issues, Changelog) rather than hardcoding them — they were repointed during the 0.1.6 cycle and
+   hardcoded copies would have silently gone stale.
 
 **Acceptance evidence.** `tests/test_empty_state.py`: the empty state appears with zero sources and
 disappears on first load; the demo button produces a loadable session; About reports the installed
@@ -853,9 +900,16 @@ Every AGENTS.md Definition-of-Done item applies unchanged. Additionally, for thi
   will tempt you here.
 - **`session_controller.autosave()` returns early when `_session_path is None`.** That single line
   is why unsaved work has no protection today. It is the first thing WP-1 changes.
-- **Overlay toggles that already exist are dead code.** `set_point_labels_visible()` and
-  `set_legend_visible()` on `PaintCanvas` have no caller anywhere in `src/` or `tests/`. Wire them
-  through the registry; do not write new parallel toggles beside them.
+- **Reset Session (0.1.6) is a loaded gun that three packages touch.** One sidebar click clears every
+  pane, annotation, and recorded message with no confirmation and no undo. WP-1 must route it through
+  the command bus and must not let a reset-then-quit overwrite a good recovery snapshot with an empty
+  workspace; WP-2 must make it undoable; WP-5 must update its `_progress_dialog` handling when that
+  dialog is deleted. Read `session_controller.reset_session()` in full before touching any of the
+  three — it is ~105 lines and it disconnects signals by name.
+- **Overlay toggles that already exist have no production caller.** On `PaintCanvas`,
+  `set_legend_visible()` has no caller at all and `set_point_labels_visible()` has exactly one, in
+  `tests/test_video_pane_timing.py`. Nothing in `src/` invokes either. Wire them through the
+  registry; do not write new parallel toggles beside them, and do not delete the test caller.
 - **`to_ndarray(format="rgb24")` destroys 12-bit range inside swscale**, before any UI code runs.
   A pane-level brightness control cannot fix this. WP-9 must change the conversion, not add a
   filter after it.

@@ -2886,6 +2886,15 @@ snapshot-based undo (RAM budget, above); `QUndoStack` in `core/` (breaks the hea
 **Consequences:** the mutation list is now a closed set, enumerated in `UX_FOUNDATIONS_PLAN.md`
 WP-1 step 4. Adding a mutation outside it requires amending that list. `.avv` goes to schema v7.
 
+**Amendment (0.1.6):** `reset_session()`, added after this entry was drafted, belongs in that list
+and is the most destructive member of it — one sidebar button clears every pane, annotation, and
+recorded message, with no confirmation and no undo. It is also the one command whose inverse
+legitimately needs a bulk snapshot rather than a small inverse operation. That is permitted for
+reset alone, capped at one retained pre-reset state held only while the command sits on the undo
+stack; it is not a licence to generalise snapshotting, which is the thing this entry exists to
+forbid. Note also that a reset sets `_session_path = None`, so hot exit (D-089) must clear the
+recovery snapshot on reset rather than overwriting a good one with an empty workspace.
+
 ## 2026-09 · D-088 · Opening is never blocked; the user is informed instead
 
 **Context:** "dirty" is ambiguous in English and the ambiguity was producing two different bad
@@ -2949,10 +2958,12 @@ total. The recovery snapshot uses the `.avv` v7 schema plus `recovered_at` and t
 
 **Context:** the overlay situation had drifted in both directions at once.
 `ui/video_overlay.py::PaintCanvas` carries `set_point_labels_visible()` and `set_legend_visible()`
-— and **no caller anywhere in `src/` or `tests/` invokes either**. They are dead API: a previous
-author knew the toggles were needed, built them, and had nowhere to put the control. Meanwhile the
-OSD readout, the camera name label, and the tracking skeleton are drawn with no toggle at all.
-Adding the next overlay without a registry adds the next dead method.
+— and **neither has a production caller**: `set_legend_visible` has none at all, and
+`set_point_labels_visible` is reached only from `tests/test_video_pane_timing.py`. Nothing in
+`src/` invokes either. A previous author knew the toggles were needed, built them, and had nowhere
+to put the control. Meanwhile the OSD readout, the camera name label, and the tracking skeleton are
+drawn with no toggle at all. Adding the next overlay without a registry adds the next method that
+only a test can reach.
 
 **Decision:** every graphic composited over a video frame is a registered `OverlayLayer` with a
 stable id, label, group, default, and a checkbox in **View → Overlays**. Per-camera overrides live

@@ -574,9 +574,16 @@ Verified against the tree, not inferred. Each has caused, or will cause, a wrong
    that has never been saved has no protection at all, and `closeEvent`'s "always close" contract
    discards it silently. Do not describe the app as having autosave without this caveat. WP-1 and
    D-089 fix it with a recovery snapshot.
-2. **`PaintCanvas.set_point_labels_visible()` and `set_legend_visible()` have no caller** anywhere
-   in `src/` or `tests/`. They are dead API — the toggles exist, the control surface does not. Wire
-   them through `ui/overlay_registry.py` (D-090); do not write new parallel toggles beside them.
+2. **`PaintCanvas.set_point_labels_visible()` and `set_legend_visible()` have no production
+   caller.** `set_legend_visible` has no caller at all; `set_point_labels_visible` has exactly one,
+   in `tests/test_video_pane_timing.py`. Nothing in `src/` invokes either — the toggles exist, the
+   control surface does not. Wire them through `ui/overlay_registry.py` (D-090); do not write new
+   parallel toggles beside them.
+4. **`reset_session()` (0.1.6) clears every annotation with one sidebar click**, via
+   `annotation_store.clear()` and `message_store.clear()`, with no confirmation and no undo. It also
+   holds a reference to `window._progress_dialog`, which Phase 7 WP-5 deletes. Read the whole
+   function before touching it: it disconnects signals by name, and `_session_generation` is what
+   keeps a late async load from landing in the cleared workspace.
 3. **`to_ndarray(format="rgb24")` performs the 12→8 bit reduction inside swscale**, so a 12-bit
    greyscale frame has already lost its dynamic range before any UI code sees it. A brightness or
    levels control on the pane would be stretching discarded data. Display levels must be a decode
