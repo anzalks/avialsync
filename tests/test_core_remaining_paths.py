@@ -155,9 +155,12 @@ class TestBrokenEntryPointPlugins:
 
         with caplog.at_level("WARNING"):
             registry = LoaderRegistry(plugin_dirs=[])
+            registry.ensure_discovered()
 
         assert any("broken_third_party" in record.getMessage() for record in caplog.records)
-        assert registry.loaders, "built-in loaders must survive a broken entry point"
+        # `registry.loaders` without the call is a bound method and therefore
+        # always truthy -- this asserted nothing before.
+        assert registry.loaders(), "built-in loaders must survive a broken entry point"
 
 
 class TestCacheCommitFallback:

@@ -1,6 +1,8 @@
 # AvialSync — UX Foundations Plan (Phase 7)
 
 > **Status:** in progress on branch `ux_foundations`, based on v0.1.6.
+> **WP-0 landed**: launch and teardown responsiveness — two pre-existing
+> architecture-rule-3 violations, construction 373 ms → 41 ms and zero UI stalls.
 > **WP-1 landed** (`dc5dc34`): the command bus, dirty state, the session-named
 > title, and hot exit. Its step 4 — routing live mutations through the bus — needs the
 > `MutationTarget` adapter and lands with WP-2. WP-2 … WP-12 are unstarted.
@@ -195,7 +197,50 @@ enum".
 
 ## 5. Work packages
 
-Twelve packages. The dependency graph is in §8. Each is sized for one agent session.
+Twelve packages plus WP-0. The dependency graph is in §8. Each is sized for one agent session.
+
+---
+
+### WP-0 — Launch and teardown responsiveness — **DONE**
+
+**Foundation:** none; it predates them. **Depends on:** nothing.
+
+Added after a field report of "UI thread blocked for 4584 ms" on launch followed
+by `QThread: Destroyed while thread '' is still running` on close. Both were
+**pre-existing in the shipped v0.1.6**, not Phase 7 regressions — the release tag
+reproduces the startup stall at 266–272 ms under the same probe. Recorded here
+because they are architecture-rule-3 violations and this plan is the vehicle for
+that class of work.
+
+**What was wrong**
+
+1. `LoaderRegistry.__init__` imported every built-in loader inline, inside
+   `MainWindow.__init__`. Profiling put 469 ms of a 509 ms construction there —
+   `neo` (224 ms, pulling scipy and quantities) and the AOL EKS loader (212 ms,
+   pulling h5py). Module IO on the UI thread. Cold, behind on-access virus
+   scanning, the same work took over four seconds before a window appeared.
+2. A decode thread is `QThread(self)`, parented to its pane. When
+   `_shutdown_decoder`'s 3 s wait timed out, the pane was destroyed with a
+   running QThread as its child, which Qt warns about and can abort on.
+
+**What was done.** Discovery is deferred behind `ensure_discovered()` and warmed
+by `start_warmup()` on a background thread, with every public accessor —
+including `plugin_errors`, now a property — waiting on the same lock (D-095). A
+decode thread that outruns its timeout is detached from its parent and retained
+until it finishes, the mechanism `job_manager` already uses, and threads are now
+named (D-096).
+
+**Measured.** `MainWindow` construction **373 ms → 41 ms**; UI heartbeat **one
+~280 ms stall per launch → zero stalls**.
+
+**Evidence.** `tests/test_startup_responsiveness.py`. The startup test asserts
+the *shape* — `MainWindow.__init__` returns with `_discovered` still false —
+rather than a wall-clock budget, which would be flaky on a loaded CI machine and
+could pass by accident.
+
+**Note for later packages.** WP-5 will touch `job_manager`'s abandon path and
+WP-9 will touch `video_pane`'s decode threads. Both must preserve D-096:
+a running QThread is never destroyed, and the window always closes.
 
 ---
 

@@ -124,7 +124,7 @@ def test_a_plugin_exporting_nothing_is_reported(tmp_path: Path, caplog) -> None:
     empty.write_text("VALUE = 1\n", encoding="utf-8")
 
     with caplog.at_level(logging.WARNING, logger="avialsync.core.registry"):
-        LoaderRegistry(plugin_dirs=[tmp_path])
+        LoaderRegistry(plugin_dirs=[tmp_path]).ensure_discovered()
 
     assert any("nothing.py" in record.getMessage() for record in caplog.records)
 

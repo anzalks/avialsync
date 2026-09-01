@@ -579,7 +579,18 @@ Verified against the tree, not inferred. Each has caused, or will cause, a wrong
    in `tests/test_video_pane_timing.py`. Nothing in `src/` invokes either — the toggles exist, the
    control surface does not. Wire them through `ui/overlay_registry.py` (D-090); do not write new
    parallel toggles beside them.
-4. **`reset_session()` (0.1.6) clears every annotation with one sidebar click**, via
+4. **Never import a loader from the UI thread (D-095).** `LoaderRegistry` no longer discovers in
+   its constructor — discovery is deferred behind `ensure_discovered()` and warmed by
+   `start_warmup()` on a background thread. Constructing a registry therefore has *no* side
+   effects; a test that expects `plugin_errors` or `_loaders` to be populated must trigger
+   discovery explicitly. Putting an eager import back into `MainWindow.__init__` costs ~470 ms
+   warm and over four seconds cold behind virus scanning.
+5. **A running QThread must never be destroyed (D-096).** Decode threads are parented to their
+   pane, so a teardown wait that times out used to let Qt destroy a live thread —
+   "QThread: Destroyed while thread '' is still running", which can abort the process.
+   `video_pane._abandon_decoder` detaches and retains it instead, matching `job_manager`'s
+   `_ABANDONED`. Do not "simplify" either one back into a plain wait.
+6. **`reset_session()` (0.1.6) clears every annotation with one sidebar click**, via
    `annotation_store.clear()` and `message_store.clear()`, with no confirmation and no undo. It also
    holds a reference to `window._progress_dialog`, which Phase 7 WP-5 deletes. Read the whole
    function before touching it: it disconnects signals by name, and `_session_generation` is what

@@ -3108,3 +3108,103 @@ telling two markers apart).
 **Consequences:** `marker_color`'s docstring reasoning is preserved for the properties it does get
 right (palette-derived lightness, defect-red avoidance) and its hue-spacing rationale is replaced.
 The test makes a future regression to an evenly spaced wheel fail CI.
+
+
+## 2026-09 · D-095 · Plugin discovery is deferred and warmed on a background thread
+
+**Context:** launching the application blocked the UI thread for seconds before
+the window appeared. Reported from the field as "UI thread blocked for 4584 ms",
+then 1646 ms on a second run — the shrinking figure on a warm file cache being
+itself the signature of import IO rather than computation.
+
+Profiling `MainWindow.__init__` put 469 ms of a 509 ms construction inside
+`LoaderRegistry.__init__` → `_discover()` → `_load_builtins()`, of which
+`loaders/neo_loader.py` was 224 ms and `loaders/aol_eks_loader.py` 212 ms. `neo`
+pulls in scipy and quantities; the AOL loader pulls in h5py. The registry
+imported every built-in loader eagerly, inline, in the window constructor.
+
+That is module IO on the UI thread, which architecture rule 3 forbids. It was
+present in the shipped v0.1.6 — measured at 266–272 ms on the release tag under
+the same probe — so it is not a regression from Phase 7, and the field figure is
+the same defect on a cold cache behind on-access virus scanning.
+
+**Decision:** `LoaderRegistry.__init__` no longer discovers. Discovery runs once,
+guarded by a lock, triggered either by `start_warmup()` on a background thread or
+by the first real use. Every public accessor — `loaders()`, `sessions()`,
+`find_best_loader()`, `find_best_session()`, and the `plugin_errors` property —
+calls `ensure_discovered()` first, so no caller can observe a half-discovered
+registry. `MainWindow.__init__` calls `start_warmup()` and moves on.
+
+`plugin_errors` became a property for this reason specifically: reading the raw
+list mid-warm-up would have **Help → Diagnostics** report that every plugin
+loaded fine, which is worse than the slow start it replaced.
+
+The warm-up is a plain `threading.Thread`, not a `QThread`: `core/` may not
+import PySide6 (rule 2), and `ui/diagnostics.py` already starts its startup
+probes exactly this way.
+
+The lock guards the whole discovery rather than just a flag because
+`engine/drop_worker.py` already queries this registry from a worker thread — two
+threads can arrive concurrently and must not both import.
+
+**Measured:** `MainWindow` construction 373 ms → 41 ms, and the UI heartbeat goes
+from a reliable single ~280 ms stall per launch to **zero stalls**.
+
+**Alternatives rejected:** importing loaders lazily per-format (the registry must
+score every candidate with `can_open` to pick one, so it needs the classes);
+constructing the registry off-thread entirely (it is reached synchronously from
+drop handling, so somebody still has to wait — deferring plus warming puts the
+wait where it cannot be seen); keeping discovery in `__init__` and accepting the
+cost (it is a rule-3 violation, and four seconds before a window appears reads as
+a hang).
+
+**Consequences:** constructing a `LoaderRegistry` no longer has discovery side
+effects. Four existing tests asserted those side effects at construction and now
+call `ensure_discovered()` explicitly; their assertions are unchanged. Two of
+them also asserted `registry.loaders` rather than `registry.loaders()` — a bound
+method, always truthy — so they had been asserting nothing; both now call it.
+`tests/test_startup_responsiveness.py` guards the shape of this fix, asserting
+that `MainWindow.__init__` completes with `_discovered` still false, which cannot
+pass by accident the way a wall-clock budget could on a loaded CI machine.
+
+## 2026-09 · D-096 · A decode thread that will not stop is detached, never destroyed
+
+**Context:** closing the window printed
+`QThread: Destroyed while thread '' is still running`. A decode thread is created
+as `QThread(self)` in `ui/video_pane.py`, parented to its pane. `_shutdown_decoder`
+waits `_DECODER_STOP_TIMEOUT_MS` (3 s) for it; on timeout it logged and carried
+on, so the pane was then destroyed with a running QThread as its child. Qt
+destroys children with their parent, and destroying a running QThread prints that
+warning and can abort the process. Closing with a camera mid-seek was enough to
+reach it.
+
+Waiting longer is not available: `MainWindow.closeEvent` guarantees the window
+always closes, because being unable to quit is a worse failure than an abandoned
+background job. So the thread has to outlive the pane.
+
+**Decision:** on timeout, detach the thread from its parent and retain it, with
+its worker, in a module-level set until `finished` fires. This is the mechanism
+`ui/job_manager.py` already uses for the identical hazard, and reusing it keeps
+one pattern rather than two. `drain_abandoned_decoders()` mirrors the job
+manager's drain for tests and interpreter shutdown, where a live QThread makes Qt
+abort and turns a clean test run into a crash report.
+
+The worker is retained beside the thread for the reason HANDOUT trap 0a records:
+a QObject moved to a QThread with no owning Python reference is collected out
+from under it.
+
+Decode threads also gained an object name (`avialsync-decode:<file>`). The empty
+`''` in the original warning was the default name, which is why the message named
+neither the pane nor the camera.
+
+**Alternatives rejected:** `QThread.terminate()` (on a thread blocked in Python it
+deadlocks against the GIL — worse than the job it stops, and already rejected in
+`job_manager`); a longer timeout (moves the failure rather than removing it, and
+delays the close the user asked for); creating the thread unparented from the
+start (the parent is what keeps it alive during normal operation).
+
+**Consequences:** the warning is gone, and a wedged decoder can no longer abort
+the process on close. The trade-off is unchanged and still deliberate: the window
+closes, and a decoder that will not stop is abandoned rather than waited for.
+`setParent(None)` is called from the UI thread, which owns the QThread *object* —
+that is what makes it legal while `run()` is still executing.

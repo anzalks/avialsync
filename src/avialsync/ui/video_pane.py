@@ -15,6 +15,7 @@ import logging
 import threading
 import time
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QMetaObject, QObject, QPointF, QRectF, Qt, QThread, QTimer, Signal, Slot
@@ -67,6 +68,61 @@ _OSD_DUE_EPSILON_S = 0.001
 #: A worst-case cold jump is ~120 ms, so this is generous; it exists only so a
 #: wedged decoder cannot hold the UI thread for the length of a job timeout.
 _DECODER_STOP_TIMEOUT_MS = 3000
+
+#: Decode threads that outlived their timeout, retained until they finish.
+#:
+#: A decode thread is created as ``QThread(self)`` — parented to its pane — so
+#: destroying the pane destroys it too. When the teardown wait times out, that
+#: means Qt destroys a *running* QThread, which prints
+#: "QThread: Destroyed while thread '' is still running" and can abort the
+#: process outright. Closing the window with a camera mid-seek was enough to
+#: reach it.
+#:
+#: The fix is the one ``ui/job_manager.py`` already uses for the same hazard:
+#: detach the thread from its parent and hold a reference here until it really
+#: finishes. Waiting longer is not an option — the window always closes
+#: (``MainWindow.closeEvent``), and a wedged decoder must not be able to
+#: prevent that.
+_ABANDONED_DECODERS: set[tuple[QThread, object]] = set()
+
+
+def _abandon_decoder(thread: QThread, worker: object) -> None:
+    """Detach a decode thread that would not stop, and keep it alive.
+
+    The worker is retained beside the thread for the same reason it is retained
+    while running: a QObject moved to a QThread with no owning Python reference
+    is collected out from under it.
+    """
+    entry = (thread, worker)
+    _ABANDONED_DECODERS.add(entry)
+    # setParent is called from the thread that owns the QThread *object* — the
+    # UI thread — not from the thread of execution, which is what makes it safe
+    # here even though run() is still going.
+    thread.setParent(None)
+    thread.finished.connect(lambda: _ABANDONED_DECODERS.discard(entry))
+
+
+def drain_abandoned_decoders(timeout_ms: int = 2000) -> None:
+    """Wait for detached decode threads, for tests and interpreter shutdown.
+
+    Production does not need this: the window has already closed. But a running
+    QThread alive at interpreter shutdown makes Qt abort, which turns a clean
+    test run into a crash report — the same reasoning as ``job_manager``'s
+    drain.
+    """
+    for entry in list(_ABANDONED_DECODERS):
+        thread, _worker = entry
+        try:
+            thread.quit()
+            thread.wait(timeout_ms)
+            finished = thread.isFinished()
+        except RuntimeError:
+            # The C++ object was already deleted after finishing; a Python
+            # wrapper outliving it is not a leak worth reporting.
+            finished = True
+        if finished:
+            _ABANDONED_DECODERS.discard(entry)
+
 
 #: `perf_counter`, never `time.monotonic` — the same reason as
 #: `plot_pane._elapsed` and `player._now`.  On Windows through Python 3.12,
@@ -436,6 +492,10 @@ class VideoPane(VideoTimingMixin, QWidget):
 
         worker = DecodeWorker(path)
         thread = QThread(self)
+        # Named so that any Qt warning about it identifies the camera. The
+        # unnamed default is why "QThread: Destroyed while thread '' is still
+        # running" gave no clue which pane it came from.
+        thread.setObjectName(f"avialsync-decode:{Path(path).name}")
         worker.moveToThread(thread)
         # The worker must be held for the thread's whole life: a QObject moved
         # to a QThread with no owning Python reference is collected out from
@@ -750,7 +810,13 @@ class VideoPane(VideoTimingMixin, QWidget):
         if thread is not None:
             thread.quit()
             if not thread.wait(_DECODER_STOP_TIMEOUT_MS):
-                logger.warning("Decode thread did not stop within %d ms", _DECODER_STOP_TIMEOUT_MS)
+                logger.warning(
+                    "Decode thread for %s did not stop within %d ms; detaching it so the "
+                    "pane can be destroyed without taking a running thread with it",
+                    getattr(worker, "path", "<unknown>"),
+                    _DECODER_STOP_TIMEOUT_MS,
+                )
+                _abandon_decoder(thread, worker)
         self._media_loaded = False
 
     def _stop_everything(self) -> None:

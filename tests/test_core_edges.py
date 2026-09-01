@@ -97,8 +97,11 @@ class TestPluginDiscovery:
 
         with caplog.at_level("WARNING"):
             registry = LoaderRegistry(plugin_dirs=[tmp_path])
+            registry.ensure_discovered()
 
-        assert registry.loaders, "built-in loaders must survive a broken plugin"
+        # `registry.loaders` without the call is a bound method and therefore
+        # always truthy -- this asserted nothing before.
+        assert registry.loaders(), "built-in loaders must survive a broken plugin"
         assert any("broken" in record.getMessage() for record in caplog.records)
 
     def test_private_modules_are_skipped(self, tmp_path: Path) -> None:

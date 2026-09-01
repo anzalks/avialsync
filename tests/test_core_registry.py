@@ -81,6 +81,9 @@ def test_loader_discovery(mock_eps):
     mock_eps.return_value = [ep1, ep2]
 
     registry = LoaderRegistry()
+    # Discovery is deferred, so ask for it: constructing the registry no longer
+    # imports anything, and `_loaders` is empty until something needs it.
+    registry.ensure_discovered()
     # Every built-in, plus the two mocked entry points. Counted from the built-in
     # table rather than hardcoded: adding a format is routine, and a fixed number
     # here fails for that alone while saying nothing about discovery.

@@ -296,6 +296,14 @@ class MainWindow(QMainWindow):
         from avialsync.core.registry import LoaderRegistry
 
         self._registry = LoaderRegistry()
+        # Discover plugins on a background thread rather than here. Constructing
+        # the registry used to import every built-in loader inline -- `neo`
+        # pulling in scipy and quantities, the AOL loader pulling in h5py --
+        # which is ~470 ms of module IO on the UI thread warm, and was measured
+        # at over four seconds cold behind on-access virus scanning, all of it
+        # before the window appeared. Nothing in this constructor needs a
+        # loader; the first file open does, and it waits on the same lock.
+        self._registry.start_warmup()
 
         self.player = Player(
             self.clock,

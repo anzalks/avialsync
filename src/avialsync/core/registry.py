@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import logging
 import sys
+import threading
 from collections.abc import Iterable
 from importlib.metadata import entry_points
 from pathlib import Path
@@ -62,11 +63,75 @@ class LoaderRegistry:
         #: nothing to tell the user why. A log line is not enough — the person
         #: who installed the plugin is not reading the log. `ui/diagnostics.py`
         #: renders this list so **Help → Diagnostics** can answer the question.
-        self.plugin_errors: list[tuple[str, str]] = []
+        self._plugin_errors: list[tuple[str, str]] = []
         self._plugin_dirs = (
             list(plugin_dirs) if plugin_dirs is not None else self._default_plugin_dirs()
         )
-        self._discover()
+        # Discovery is deferred, not skipped. Importing the built-ins costs
+        # ~470 ms on a warm filesystem -- `neo` pulls in scipy and quantities,
+        # the AOL loader pulls in h5py -- and this registry used to run all of
+        # it inside `MainWindow.__init__`, which is module IO on the UI thread
+        # (architecture rule 3). Cold, behind on-access virus scanning, the same
+        # work was measured at over four seconds before the window appeared.
+        #
+        # `_lock` guards the whole discovery, not just the flag: `drop_worker`
+        # already queries this registry from a worker thread, so two threads can
+        # arrive here at once and must not both import.
+        self._discovered = False
+        self._lock = threading.Lock()
+        self._warmup: threading.Thread | None = None
+
+    @property
+    def plugin_errors(self) -> list[tuple[str, str]]:
+        """Plugins that were found but could not be used.
+
+        Reading this is a use of the registry, so it waits for discovery like
+        any other accessor -- otherwise Diagnostics would report an empty list
+        while the warm-up was still running and say every plugin was fine.
+        """
+        self.ensure_discovered()
+        return self._plugin_errors
+
+    def start_warmup(self) -> None:
+        """Begin discovery on a background thread; return immediately.
+
+        Call once, early, from whatever is about to show a window. The first
+        real use of the registry blocks on the same lock, so a user who drops a
+        file before the warm-up finishes waits for the remainder rather than
+        racing it.
+
+        A plain ``threading.Thread`` rather than a ``QThread``: ``core/`` may
+        not import PySide6 (architecture rule 2), and this is exactly what
+        ``ui/diagnostics.py`` already does for its startup probes.
+        """
+        with self._lock:
+            if self._discovered or self._warmup is not None:
+                return
+            self._warmup = threading.Thread(
+                target=self._warm,
+                name="avialsync-plugin-discovery",
+                daemon=True,
+            )
+            warmup = self._warmup
+        warmup.start()
+
+    def _warm(self) -> None:
+        try:
+            self.ensure_discovered()
+        except Exception:
+            # A warm-up that raises would otherwise die silently on its own
+            # thread and leave `ensure_discovered` to redo the work later.
+            logger.exception("Plugin discovery failed during warm-up")
+
+    def ensure_discovered(self) -> None:
+        """Run discovery once, blocking any caller that arrives mid-flight."""
+        if self._discovered:
+            return
+        with self._lock:
+            if self._discovered:
+                return
+            self._discover()
+            self._discovered = True
 
     @staticmethod
     def _default_plugin_dirs() -> list[Path]:
@@ -117,7 +182,7 @@ class LoaderRegistry:
                 into.append(getattr(importlib.import_module(module_name), class_name))
             except Exception as error:  # noqa: BLE001 - a loader's dependencies are third-party
                 logger.warning("Built-in loader %s failed to load: %s", class_name, error)
-                self.plugin_errors.append((class_name, f"{type(error).__name__}: {error}"))
+                self._plugin_errors.append((class_name, f"{type(error).__name__}: {error}"))
 
     def _load_entry_points(self, group: str, into: list[_T]) -> None:
         """Add every class published under *group*, skipping ones that fail.
@@ -132,7 +197,7 @@ class LoaderRegistry:
                 # A broken third-party plugin must be diagnosable. Silently
                 # continuing made it vanish with no way to tell why.
                 logger.warning("%s entry point %r failed to load: %s", group, ep.name, error)
-                self.plugin_errors.append(
+                self._plugin_errors.append(
                     (f"entry point {ep.name!r}", f"{type(error).__name__}: {error}")
                 )
                 continue
@@ -148,7 +213,7 @@ class LoaderRegistry:
                 continue
             module, error = self._load_module(path)
             if module is None:
-                self.plugin_errors.append((path.name, error or "could not be imported"))
+                self._plugin_errors.append((path.name, error or "could not be imported"))
                 continue
             exported = 0
             for candidate in vars(module).values():
@@ -174,7 +239,7 @@ class LoaderRegistry:
                     "subclass.",
                     path.name,
                 )
-                self.plugin_errors.append(
+                self._plugin_errors.append(
                     (
                         path.name,
                         "exported no TimeSeriesSource, VideoSource, or SessionSource subclass",
@@ -232,7 +297,7 @@ class LoaderRegistry:
                 score = candidate.can_open(path)
             except Exception as error:  # noqa: BLE001 - plugin boundary
                 logger.warning("%s %s.can_open failed: %s", kind, candidate.__name__, error)
-                self.plugin_errors.append(
+                self._plugin_errors.append(
                     (candidate.__name__, f"can_open raised {type(error).__name__}: {error}")
                 )
                 continue
@@ -243,6 +308,7 @@ class LoaderRegistry:
 
     def find_best_loader(self, path: Path) -> type[TimeSeriesSource | VideoSource] | None:
         """Return the loader with the highest can_open() score > 0."""
+        self.ensure_discovered()
         return self._best_by_capability(self._loaders, path, "loader")
 
     def find_best_session(self, path: Path) -> type[SessionSource] | None:
@@ -251,12 +317,15 @@ class LoaderRegistry:
         Asked before per-file resolution so a folder that *is* a recording is
         laid out by whatever understands it, rather than swept for loose files.
         """
+        self.ensure_discovered()
         return self._best_by_capability(self._sessions, path, "session")
 
     def loaders(self) -> list[type[TimeSeriesSource | VideoSource]]:
         """Return all discovered source loaders."""
+        self.ensure_discovered()
         return list(self._loaders)
 
     def sessions(self) -> list[type[SessionSource]]:
         """Return all discovered session scanners."""
+        self.ensure_discovered()
         return list(self._sessions)
