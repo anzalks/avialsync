@@ -2851,3 +2851,249 @@ justification for D-075, and a decision that deletes its own evidence cannot be 
 is 174 lines instead of 300. `packaging/media/` is a stale-artefact path on old working copies
 only — `.gitignore` keeps its rule, because the rule is what stops those 384 MB being committed by
 someone who still has them.
+
+
+## 2026-09 · D-087 · Every user-visible mutation goes through a command bus in `core/`
+
+**Context:** the application could not answer "has this session changed?". There was no dirty flag,
+no `setWindowModified`, and no single place a mutation passed through: offsets changed a spin box,
+annotations changed a table, an accepted fit changed a `TimeMap`, and nothing observed all three.
+Three consequences followed — the window title was the constant string `"AvialSync"`, closing never
+prompted or preserved, and nothing could be undone.
+
+**Decision:** every user-visible mutation is a `Command` executed against a `Document` in
+`core/document.py`. Dirty state, undo, and autosave all derive from that one log rather than being
+tracked separately.
+
+Two constraints on the implementation, both load-bearing:
+
+1. **Inverse operations, never state snapshots.** A snapshot of a session with 128 channels of
+   pyramid metadata per undo step would consume the 2.5 GB idle-RAM budget within roughly twenty
+   edits. An offset command is a source id and two floats — about 80 bytes. The log caps at 200.
+2. **The bus is headless.** `core/` may not import PySide6 (architecture rule 2, enforced by test),
+   so `QUndoStack` cannot live there. The bus is plain Python with callback observers; a thin
+   `ui/undo_adapter.py` wraps each command in a `QUndoCommand`. This is not negotiable for
+   convenience: the same rule is why `core/` is unit-testable without a display.
+
+Notification is coalesced at 20 Hz (the D-047 pattern). A `QDoubleSpinBox` drag emits
+`valueChanged` continuously; an uncoalesced dirty signal would repaint the title on every step and
+breach the 8 ms UI-callback target, and would push two hundred commands where one belongs.
+
+**Alternatives rejected:** a boolean `_dirty` set by hand at each call site (it is wrong the first
+time someone adds a mutation and forgets — the failure is silent and the cost is a user's work);
+snapshot-based undo (RAM budget, above); `QUndoStack` in `core/` (breaks the headless guarantee).
+
+**Consequences:** the mutation list is now a closed set, enumerated in `UX_FOUNDATIONS_PLAN.md`
+WP-1 step 4. Adding a mutation outside it requires amending that list. `.avv` goes to schema v7.
+
+## 2026-09 · D-088 · Opening is never blocked; the user is informed instead
+
+**Context:** "dirty" is ambiguous in English and the ambiguity was producing two different bad
+designs. It can mean the *document* has unsaved changes, or that the *data* has quality problems.
+Both were unhandled, and the obvious fix for each — a modal "save your changes?" gate, and a modal
+"this file has gaps" warning — would have made the application worse in the same way: by standing
+between a scientist and their recording.
+
+**Decision:** the application never refuses to open a file, and never blocks to tell the user
+something. Both dirtinesses are informational, on a persistent surface, and neither is a gate.
+
+| Term | Means | Surfaced as | Never |
+|---|---|---|---|
+| Document dirty | unsaved session changes | `[*]` in the title, Save affordance in the status bar | a modal in front of Open / drop / Open Recent / quit |
+| Data dirty | gaps, NaN and sentinel runs, missing container metadata, VFR declared as CFR, dropped frames, no accepted TimeMap | a per-source quality badge expanding to specific findings with jump-to-time | refusing the load, or silently "fixing" it |
+
+A damaged or unusual file loads as far as it can; what could not be read is reported per source.
+Partial success beats refusal. The only modals that remain are dialogs the user explicitly asked
+for, and errors offering named recovery actions.
+
+**Alternatives rejected:** the conventional save-prompt (it is the industry default, and it is a
+gate — D-089 shows the better answer was already implied by this codebase's own close contract);
+refusing to load pathological files (the tool exists to inspect real recordings, which are
+pathological; TESTING.md already generates VFR, dropped-frame, no-metadata and sentinel fixtures
+precisely because those are the normal case).
+
+**Consequences:** every current and future `QMessageBox` in a load path is a rules violation. The
+quality badge needs no new detection work — the loaders already produce `SourceInspection`; it was
+simply never shown as a first-class state.
+
+## 2026-09 · D-089 · Quitting always proceeds and never loses work (hot exit)
+
+**Context:** `MainWindow.closeEvent` already documents "Always close" — the window used to
+`event.ignore()` while a job ran, so a wedged probe on a network share trapped the user in an
+application they could not quit. That was fixed. But the fix was only half of the contract:
+`session_controller.autosave()` returns early when `window._session_path is None`, so a session
+that had never been saved had *no protection at all*. Load four cameras, tune offsets, accept a
+fit, drop forty annotations, never pick Save Session — and quitting discarded all of it, silently.
+
+**Decision:** quitting keeps proceeding without a prompt, and becomes lossless. Autosave writes to
+the session path when one exists and to a recovery snapshot in `QStandardPaths.AppDataLocation`
+when one does not. `closeEvent` writes a final recovery snapshot unconditionally, in the existing
+ordering — state captured before `video_grid.shutdown()` clears the panes, as that docstring
+already requires. On the next launch, a newer-than-its-file snapshot surfaces a **non-modal** bar
+offering Restore or Discard.
+
+This is hot exit, and it is the resolution of an apparent conflict rather than a compromise: the
+conventional save-prompt would have contradicted both the existing "always close" contract and
+D-088. Making the exit lossless satisfies both.
+
+**Alternatives rejected:** a save-on-quit confirmation (a gate, contradicts D-088, and still loses
+work if the process dies rather than quits); autosave only for named sessions (the status quo — it
+protects exactly the sessions that were already safe); writing recovery into the user's own
+directories (it is app state, not their document, and it must not appear in their file manager).
+
+**Consequences:** a crash mid-work is now recoverable to the last autosave interval rather than
+total. The recovery snapshot uses the `.avv` v7 schema plus `recovered_at` and the original path.
+`tests/test_hot_exit.py` guards it.
+
+## 2026-09 · D-090 · Every overlay drawn on video is a registered, toggleable layer
+
+**Context:** the overlay situation had drifted in both directions at once.
+`ui/video_overlay.py::PaintCanvas` carries `set_point_labels_visible()` and `set_legend_visible()`
+— and **no caller anywhere in `src/` or `tests/` invokes either**. They are dead API: a previous
+author knew the toggles were needed, built them, and had nowhere to put the control. Meanwhile the
+OSD readout, the camera name label, and the tracking skeleton are drawn with no toggle at all.
+Adding the next overlay without a registry adds the next dead method.
+
+**Decision:** every graphic composited over a video frame is a registered `OverlayLayer` with a
+stable id, label, group, default, and a checkbox in **View → Overlays**. Per-camera overrides live
+in the pane context menu. Visibility persists in `.avv` and routes through the command bus, so it
+is undoable. Overlays contributed by plugins register the same way and get their checkbox
+automatically — the registry is the extension point, documented in the plugin guide.
+
+One layer is registered and **locked visible**: the D-010 "No Footage" placeholder. Hiding it would
+let a blank pane be mistaken for black footage, which is the exact misreading D-010 exists to
+prevent. It appears greyed with an explanatory tooltip rather than being omitted, so the inventory
+stays complete and the reason is visible rather than folklore.
+
+**Alternatives rejected:** a fixed set of hardcoded checkboxes (the next overlay is added without
+one, and the registry test is what makes that impossible); per-pane toggles only (a four-camera rig
+would need the same click four times); leaving chrome such as the OSD untoggleable on the grounds
+that it is "not really an overlay" (it occludes footage, which is the only criterion that matters).
+
+**Consequences:** `tests/test_overlay_registry.py` enumerates the registry against an expected
+inventory, so drawing over a frame without registering fails CI. The seven existing overlays are
+migrated in WP-4; no drawing code changes.
+
+## 2026-09 · D-091 · Long work is never modal
+
+**Context:** the import path raises a modal `QProgressDialog`. The performance budget allows 60 s
+for a 1 GB CSV — a full minute during which the application cannot be touched, for work that
+`ui/job_manager.py` is already running on a worker with cooperative cancel and stall detection. The
+job model was correct; the presentation was blocking for no reason. The proxy-generation dialog had
+the same shape.
+
+**Decision:** anything that can exceed roughly 500 ms reports through a status-bar activity area, a
+jobs panel, and a notification strip, with cancel wired to the existing JobManager path.
+`QProgressDialog` is banned from `src/`, asserted by a grep test. A modal is permitted only for a
+dialog the user explicitly opened, or an error offering named recovery actions.
+
+Update rate is capped at 20 Hz (D-047's pattern), and the activity area is never repainted from the
+60 Hz clock tick.
+
+**Alternatives rejected:** a modal with a cancel button (still blocks inspection of the data
+already loaded, which is the whole point of the application); a spinner with no cancel (JobManager
+already supports cancel; discarding that is a regression).
+
+**Consequences:** `ui/job_manager.py`'s existing state, cancel, and stall-detection machinery
+becomes visible for the first time. Its threading does not change — only signals are added.
+
+## 2026-09 · D-092 · One registry owns each user-visible concept
+
+**Context:** three symptoms of the same cause. The File menu says `"Open Video(s)…"` while the
+sidebar button for the same command says `"Open Videos"`. Real preferences are spread across View
+menu radio groups and five separate `QSettings("AvialSync", "AvialSync")` construction sites.
+Overlay visibility had no owner at all. Each is a case of the same user-visible fact being defined
+in more than one place, which drifts by default rather than by accident.
+
+**Decision:** one registry per concept, and it is the authority.
+
+- `ui/action_registry.py` — id, label, category, default shortcut, icon, enablement. A menu item
+  and a button invoking the same command read the same entry and cannot diverge. It extends the
+  existing `_reg()` helper rather than replacing it, so `shortcuts_dialog.py` keeps deriving from
+  live `QAction`s (D-022.6) — that property is preserved, not traded away.
+- `core/settings_schema.py` — key, type, default, label, group, help. The Preferences dialog is
+  *generated* from it; a hand-built dialog is how "Reset to default" gets forgotten.
+- `ui/overlay_registry.py` — per D-090.
+
+Adding a second place to define one of these is a rejected PR.
+
+**Alternatives rejected:** a shared constants module (it holds strings but cannot hold enablement,
+shortcut conflict detection, or generated UI, so the second authority reappears); fixing the two
+labels by hand (fixes today's instance, not the mechanism).
+
+**Consequences:** the action registry is also the seam for the `main_window.py` split that
+BLUEPRINT still lists as an open P2 maintainability item — the UX goal and the maintainability goal
+turn out to be the same work. D-051 governs how: composition, never Qt-slot mixins.
+
+## 2026-09 · D-093 · High-bit-depth video is windowed in the decode worker
+
+**Context:** the project explicitly supports 12-bit greyscale, and had no display control for it —
+no brightness, contrast, gamma, levels, histogram, or false colour anywhere in `ui/` or `engine/`.
+Most 12-bit scientific footage therefore displays as near-black or washed out. The obvious fix, a
+brightness slider on the pane, does not work: `engine/pyav_reader.py::to_rgb_array` calls
+`frame.to_ndarray(format="rgb24")`, and for 12-bit input swscale performs the 12→8 reduction
+*there*, with a fixed shift. **The dynamic range is gone before any UI code sees the frame.** A
+pane-level control would be stretching data that had already been discarded.
+
+**Decision:** display levels are a decode stage, in `engine/display_pipeline.py`, between decode
+and `QImage`. High-bit-depth sources convert at native depth (`gray16le`), pass through a
+65536-entry `uint8` LUT, and emit `QImage.Format_Grayscale8`. Eight-bit colour keeps the existing
+`rgb24` path, with an identity LUT short-circuiting the stage so ordinary footage pays nothing.
+
+**The LUT never runs on the UI thread.** Applying it in `paintEvent` would turn a 2 ms budget into
+a 3 ms violation on every frame. It runs in the decode worker, which already exists and already
+parallelises because PyAV releases the GIL.
+
+`PyAVReader._store` keeps caching `av.VideoFrame` **pre-conversion**, so a levels change costs a
+re-conversion rather than a re-decode. A second-level cache of converted 8-bit buffers is keyed by
+`(frame_index, levels_generation)`.
+
+**Expected cost, to be measured rather than assumed:** a 1.56 M-pixel LUT gather is roughly 1–3 ms.
+`Format_Grayscale8` writes one third the bytes of `Format_RGB888` on both conversion and upload,
+because swscale's gray→RGB triplication disappears — so for greyscale sources this path is
+plausibly *faster* than what ships today, and caching at 2 bytes/px against rgb24's 3 uses *less*
+memory. The one number that moves is cache-resident drag scrub, 3 ms → ~6 ms against a 50 ms
+budget. The genuine unknown is whether `to_ndarray("gray16le")` is as cheap as `rgb24` in PyAV's
+swscale path; if it is not, the fallback is indexing the native frame's planes directly.
+
+**Alternatives rejected:** a pane-level brightness filter (operates on already-destroyed data —
+this is the entire point of the entry); converting at native depth for all sources (pointless cost
+for 8-bit colour, which is most footage); applying the LUT on the UI thread (budget).
+
+**Consequences:** this package must not change *which* frame is shown, only how its pixels map —
+D-084 and the exact-frame golden tests are untouched by it. `tools/make_fixtures.py` gains a 12-bit
+fixture with known pixel values. Benchmarks are required before it ships, not after.
+
+## 2026-09 · D-094 · Categorical colour is validated in CVD space and never carries meaning alone
+
+**Context:** `ui/theme.py::marker_color` is carefully built — hues spread evenly for maximum
+separation, offset by half a step so no marker lands on the defect red, lightness derived from the
+live palette so the sequence stays legible on light and dark surfaces. The reasoning in its
+docstring is sound. It is nonetheless the wrong palette, for a reason the docstring does not
+consider: even spacing around the hue wheel is precisely the pattern that collapses under
+deuteranopia. In a seven-step wheel, the entries near hue 0.07 and 0.36 are a red/green pair that
+merge into a single colour for roughly 8 % of male viewers. `ui/tracking_colors.py::POINT_COLORS`
+is a hardcoded ten-colour Material list with several of the same confusions.
+
+**Separation in hue is not separation in perceptual space, and neither is separation under CVD.**
+In a scientific viewer where colour encodes channel identity, that is a correctness problem, not a
+matter of preference.
+
+**Decision:** categorical palettes are validated by simulating deuteranopia, protanopia, and
+tritanopia and asserting a minimum perceptual distance between every pair — `tests/test_palette_cvd.py`.
+Okabe–Ito is the default. Additionally, colour is never the sole carrier of meaning: pair it with
+dash pattern, marker glyph, or a direct label.
+
+**Scope note, because these are two different kinds of change.** Swapping the palette is an
+appearance change and therefore a legal theme change under the existing palette/font-only rule.
+Redundant encoding alters what a plot looks like structurally and needs its own DECISIONS entry
+before it ships. Do not fold the second into the first.
+
+**Alternatives rejected:** keeping the hue-wheel walk and adding a "colourblind mode" setting (the
+default should be correct; a mode most affected users never find is not a fix); relying on the
+existing defect-red avoidance (it solves a different problem — telling a defect from a marker, not
+telling two markers apart).
+
+**Consequences:** `marker_color`'s docstring reasoning is preserved for the properties it does get
+right (palette-derived lightness, defect-red avoidance) and its hue-spacing rationale is replaced.
+The test makes a future regression to an evenly spaced wheel fail CI.

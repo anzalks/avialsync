@@ -51,6 +51,23 @@ retain D-006 conversion hooks, and may be discovered through entry points or dro
 P5.4 has an initial implementation: cached TTL-channel extraction and video frame-event alignment
 with explicit user acceptance and session provenance. Native plugin event providers remain unfrozen.
 
+**Phase 7 (UX foundations) is planned and unstarted**, on branch `ux_foundations`. It adds seven
+pieces of shared infrastructure — command bus, settings registry, action registry, overlay
+registry, feedback surface, string/a11y layer, display pipeline — and wires the missing interaction
+behaviour onto them. **The executable plan is `UX_FOUNDATIONS_PLAN.md`**: twelve work packages with
+file lists, numbered steps, acceptance evidence, and a dependency graph, one package per session.
+Kickoff prompts are in PROMPTS.md §Phase 7; the binding rules it introduces are AGENTS.md
+architecture rules 10–17 and DECISIONS D-087 … D-094.
+
+Two product laws govern that phase and outrank convention:
+
+- **Law 1 — never block, always inform.** Opening a file is never refused or gated. The user is
+  told when the *document* is dirty (unsaved changes) and when the *data* is dirty (gaps, NaN runs,
+  missing metadata, unverified alignment). No modal "save your changes?" before Open, drop, Open
+  Recent, or quit — quitting writes a recovery snapshot unconditionally (D-088, D-089).
+- **Law 2 — nothing is drawn over video that the user cannot turn off.** Every overlay is a
+  registered layer with a checkbox in View → Overlays, plugin overlays included (D-090).
+
 ### Done (Phase 4)
 - Session save/load `.avv` schema v5, autosave 2 min, recent files, relink dialog
 - Sources → Open Files → Reset Session cancels pending loads and clears the current workspace without
@@ -549,6 +566,23 @@ _start_data_import(path)
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
 > traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
+
+### 0a. Three UI facts that look like features and are not (Phase 7)
+Verified against the tree, not inferred. Each has caused, or will cause, a wrong assumption.
+1. **`session_controller.autosave()` returns early when `window._session_path is None`.** The
+   two-minute autosave therefore protects only sessions that were already saved manually. A session
+   that has never been saved has no protection at all, and `closeEvent`'s "always close" contract
+   discards it silently. Do not describe the app as having autosave without this caveat. WP-1 and
+   D-089 fix it with a recovery snapshot.
+2. **`PaintCanvas.set_point_labels_visible()` and `set_legend_visible()` have no caller** anywhere
+   in `src/` or `tests/`. They are dead API — the toggles exist, the control surface does not. Wire
+   them through `ui/overlay_registry.py` (D-090); do not write new parallel toggles beside them.
+3. **`to_ndarray(format="rgb24")` performs the 12→8 bit reduction inside swscale**, so a 12-bit
+   greyscale frame has already lost its dynamic range before any UI code sees it. A brightness or
+   levels control on the pane would be stretching discarded data. Display levels must be a decode
+   stage (D-093). Related: `PyAVReader._store` caches `av.VideoFrame` *pre-conversion*, which is
+   what makes a levels change a re-conversion rather than a re-decode — do not "optimise" it into
+   caching converted output.
 
 ### 0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)
 Two variants, one cause. A worker `deleteLater`-ed from a signal its own thread emits is destroyed

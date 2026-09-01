@@ -15,6 +15,11 @@ formats, TTL/event semantics, and optional analysis through plugins. Open-source
 `DECISIONS.md` for settled choices. Do not re-litigate settled decisions; propose changes as a
 DECISIONS.md entry in the PR description instead of silently diverging.
 
+**If you are working on Phase 7 (UX foundations, branch `ux_foundations`), `UX_FOUNDATIONS_PLAN.md`
+is your executable plan** — twelve work packages with file lists, numbered steps, acceptance
+evidence, and a dependency graph. Read this file first, then that plan's §0–§4, then your one work
+package. Rules 10–17 below are new in that phase and binding everywhere.
+
 ## Naming & casing — BINDING (never invent variants)
 
 | Context | Exact form |
@@ -77,6 +82,45 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
    apply a proposed TimeMap without explicit user acceptance.
 9. Speed and timing accuracy are co-equal release criteria. Sync extraction is chunked; fitting is
    deterministic and benchmarked; any timing feature needs a ground-truth fixture before it ships.
+10. **Never block, always inform.** The application never refuses to open a file and never blocks
+    the user to tell them something. Two distinct dirtinesses, both informational, neither a gate:
+    *document dirty* (unsaved session changes → `[*]` in the title, a Save affordance) and *data
+    dirty* (source quality problems: gaps, NaN/sentinel runs, missing metadata, VFR declared as
+    CFR, dropped frames, no accepted TimeMap → a per-source quality badge). A damaged file loads as
+    far as it can and reports what it could not read; partial success beats refusal. Never a modal
+    "save your changes?" in front of Open, drag-and-drop, Open Recent, or quit — quitting writes a
+    recovery snapshot unconditionally and the user is informed on next launch (D-088, D-089).
+11. **Long work is never modal.** Anything that can exceed ~500 ms reports through the status-bar
+    activity area, the jobs panel, and the notification strip, with cancel where the worker
+    supports it. `QProgressDialog` is banned from `src/`. A modal is permitted only for a dialog
+    the user explicitly asked for, or an error offering named recovery actions (D-091).
+12. **Errors are presented, never dumped.** Typed exceptions from `core/errors.py` reach the user
+    as title + plain-language cause + named recovery actions, through the single presenter in
+    `ui/feedback/error_presenter.py`. Never `f"Could not do X:\n{exception}"` in a bare
+    `QMessageBox`. Raw text belongs behind "Show details".
+13. **Every graphic drawn over video is a registered overlay layer** with a stable id, a label, a
+    group, a default, and a checkbox in **View → Overlays** — including overlays contributed by a
+    plugin. Per-camera overrides go in the pane context menu. Visibility persists per session and
+    routes through the command bus. Drawing on a frame without registering is a rejected PR
+    (D-090). A layer that must stay visible for correctness (the D-010 "No Footage" placeholder) is
+    registered and locked, not omitted.
+14. **Every user-visible mutation goes through the command bus** in `core/document.py`, so that
+    dirty state, undo, and autosave derive from one fact rather than three. Commands carry inverse
+    operations, never state snapshots — a snapshot per edit would breach the idle-RAM budget.
+    `core/` stays headless: the bus is plain Python; `QUndoStack` lives in `ui/undo_adapter.py`
+    (D-087).
+15. **One authority per user-visible concept.** An action's label, category, default shortcut, and
+    enablement come from `ui/action_registry.py` — a menu item and the button that invokes the same
+    command may not carry independently written text. Settings come from `core/settings_schema.py`;
+    overlays from `ui/overlay_registry.py`. Adding a second place to define one of these is a
+    rejected PR (D-092).
+16. **High-bit-depth video is windowed in the worker, never in the pane.** `to_ndarray("rgb24")`
+    destroys 12-bit range inside swscale before any UI code runs, so display levels are a decode
+    stage, not a filter applied afterwards. The LUT never runs on the UI thread (D-093).
+17. **Accessibility and translatability are build gates, not a later phase.** New user-facing
+    strings are wrapped for translation; new interactive widgets carry an accessible name and
+    description. Categorical colour is validated in CVD-simulated space and never carries meaning
+    on its own — pair it with dash, glyph, or a direct label (D-094).
 
 ## Coding standards
 

@@ -20,6 +20,21 @@
    Ambiguous evidence is surfaced, never silently guessed.
 9. **Speed and timing accuracy are co-equal.** Synchronization extraction is chunked, matching is
    deterministic, and every new timing path requires a ground-truth fixture and benchmark.
+10. **Never block, always inform.** Opening a file is never refused and never gated. The user is
+    told when the *document* is dirty (unsaved changes) and when the *data* is dirty (gaps, NaN
+    runs, missing metadata, unverified alignment) — told, not stopped. A damaged file loads as far
+    as it can. Quitting always proceeds and always writes a recovery snapshot, so nothing is lost
+    and nothing prompts (P7, D-088/D-089).
+11. **Nothing is drawn over video that the user cannot turn off.** Every overlay is a registered
+    layer with a checkbox in View → Overlays, a persisted visibility, and a default — plugin
+    overlays included. The one locked layer is the D-010 "No Footage" placeholder, because hiding
+    it would let a blank pane read as black footage (P7, D-090).
+12. **One authority per user-visible concept.** Actions, settings, and overlays each have exactly
+    one registry that owns their label, default, and behaviour. Two places defining the same
+    user-facing string is how "Open Video(s)…" and "Open Videos" came to coexist (P7, D-092).
+13. **Accessibility and translatability are build gates.** Strings are translatable and interactive
+    widgets are described from the moment they are written, not in a cleanup phase. Categorical
+    colour is validated in CVD space and never the sole carrier of meaning (P7, D-094).
 
 ## Performance budgets (engineering-certified where marked ★)
 
@@ -295,6 +310,61 @@ Deliverables:
 - Optional stretch: MCAP read-only importer plugin (pulls in the robotics crowd).
 
 Exit criteria: v1.0.0 released on all channels; at least the sample-dataset happy path verified by someone who is not you.
+
+## Phase 7 — UX foundations
+
+**Goal:** close the gap between an engine that is correct and an interface a person can trust.
+Branch `ux_foundations`. **The executable plan is `UX_FOUNDATIONS_PLAN.md`** — that file carries the
+twelve work packages, their file lists, acceptance evidence, and sequencing. This section is the
+summary; do not duplicate the detail here.
+
+The engine keeps one master clock, decodes off the UI thread, and never invents a timestamp. The
+interface around it lacks the layers that let someone work confidently: nothing tracks unsaved
+changes, nothing can be undone, a 1 GB import freezes the window behind a modal, errors are raw
+exception strings, half the overlays drawn on video have no toggle (two have `set_*_visible`
+methods that no caller invokes), and 12-bit footage is crushed to 8 bits inside swscale before any
+control could act on it.
+
+**Seven foundations, not thirty-three fixes.** Building these one symptom at a time is how a
+codebase acquires a fifth `QSettings` call site and a sixth error-dialog dialect.
+
+| | Foundation | Delivers |
+|---|---|---|
+| F1 | Document + command bus (`core/document.py`) | dirty state, undo/redo, hot exit, autosave without a path |
+| F2 | Settings registry (`core/settings_schema.py`) | Preferences, defaults, reset, settings dump in Diagnostics |
+| F3 | Action registry (`ui/action_registry.py`) | command palette, remappable shortcuts, one label per command |
+| F4 | Overlay registry (`ui/overlay_registry.py`) | View → Overlays, per-camera override, plugin overlay extension point |
+| F5 | Feedback surface (`ui/feedback/`) | activity area, jobs panel, notifications, typed error presenter, data-quality badges |
+| F6 | Presentation/string layer | i18n, accessibility, CVD-validated colour, redundant encoding |
+| F7 | Display pipeline (`engine/display_pipeline.py`) | window/level/gamma/LUT for 12-bit greyscale |
+
+Deliverables, by work package (WP-1 … WP-12 in `UX_FOUNDATIONS_PLAN.md` §5):
+- Document, command bus, dirty title, hot exit with recovery snapshot (WP-1); undo/redo and an
+  Edit menu (WP-2).
+- Action registry, `Ctrl+Shift+P` command palette, editable shortcuts (WP-3).
+- Overlay registry and View → Overlays, migrating the seven existing overlays (WP-4).
+- Status-bar activity, jobs panel, non-modal notifications; `QProgressDialog` deleted (WP-5);
+  typed error presenter with recovery actions, per-source data-quality badges (WP-6).
+- Preferences generated from the settings schema (WP-7).
+- Empty state with a Try-the-demo button, Help links, a real About (WP-8).
+- High-bit-depth display levels in the decode worker (WP-9).
+- Align menu, sync evidence view, drag-to-align, persistent confidence badge (WP-10).
+- Sidebar search/sort/group/reorder, dock widgets, named workspaces (WP-11).
+- Accessibility, i18n, CVD palette, redundant encoding, transport iconography (WP-12).
+
+**Performance.** Additive and mostly off the hot path. One budget moves: cache-resident drag scrub
+goes 3 ms → ~6 ms because `PyAVReader._store` caches `av.VideoFrame` pre-conversion, so a levels
+LUT now runs on a cache hit that was previously free — still ~8× under the 50 ms budget. Idle RAM
+is net neutral to better (undo ≈ 16 KB; 12-bit frames cached at 2 bytes/px against rgb24's 3). UI
+responsiveness improves, because a 60-second modal import block disappears. Full table in
+`UX_FOUNDATIONS_PLAN.md` §6.
+
+Exit criteria: the two conformance tests pass (Law 1 — no modal gate in front of Open, drop, Open
+Recent, or quit; Law 2 — the overlay registry matches the drawn inventory, so an unregistered
+overlay fails CI); a v6 session loads and renders identically to today; no `QProgressDialog` and no
+`QMessageBox` outside the presenter; `ui_heartbeat` shows no UI callback above 30 ms under a
+simulated 1 GB import; all benchmarks within 20 % of pre-phase values except the documented
+drag-scrub change; golden sync tests untouched and passing.
 
 ---
 
