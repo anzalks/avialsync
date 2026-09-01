@@ -3,9 +3,15 @@
 > **Status:** in progress on branch `ux_foundations`, based on v0.1.6.
 > **WP-0 landed**: launch and teardown responsiveness — two pre-existing
 > architecture-rule-3 violations, construction 373 ms → 41 ms and zero UI stalls.
-> **WP-1 landed** (`dc5dc34`): the command bus, dirty state, the session-named
-> title, and hot exit. Its step 4 — routing live mutations through the bus — needs the
-> `MutationTarget` adapter and lands with WP-2. WP-2 … WP-12 are unstarted.
+> **WP-1 landed in full**: the command bus, dirty state, the session-named title,
+> hot exit, and step 4's routing of every listed mutation through the bus via
+> `ui/mutation_target.py`. WP-2 … WP-12 are unstarted.
+>
+> Step 4 was initially deferred and that was a mistake worth recording: without it
+> `document.is_dirty` was permanently False in the running application and the
+> `[*]` marker was dead code, so WP-1's entire user-visible half did nothing. The
+> lesson for later packages is to split a package at a boundary that still leaves
+> something observable working, not between the machinery and its only callers.
 > **Companion documents:** binding rules in AGENTS.md §Architecture rules 10–17; phase entry in
 > BLUEPRINT.md Phase 7; settled choices in DECISIONS.md D-087 … D-094; per-package kickoff prompts
 > in PROMPTS.md §Phase 7 prompts.
@@ -325,6 +331,26 @@ lossless.
 **Budget impact.** Undo log ≈ 80 bytes/command × 200 ≈ 16 KB. Recovery write is one small JSON on
 the existing off-thread `SessionSaveWorker` path (D-046). No hot path touched, **provided** step 6
 is honoured.
+
+**Notes from the implementation** (kept because they constrain WP-2 and WP-4):
+
+- `ui/mutation_target.py` holds the one `MutationTarget` implementation. It drives the *widget* the
+  user drove, not just the model behind it — a spin box still showing an undone value lies about the
+  session — and it holds `MainWindow._recording_suspended` down while replaying, or an undo re-emits
+  the signals that record commands and the stack never unwinds.
+- Mutations are logged with `Document.record`, not `execute`: the widget has already done the work
+  by the time its signal arrives.
+- Source add/remove is recorded when a source **lands**, not when it is requested. A file that fails
+  to open is not a change to the session, and undoing it would try to close a pane that never
+  appeared. `_session_restoring` suppresses this for the length of a session load, or a restored
+  session would come up dirty and offer to unload what the file said to load.
+- Deleting an annotation retains the `Marker` object itself, not just its `MarkerRecord`. Rebuilding
+  one from the record silently drops the colour index and the per-video frame snapshots.
+- `_reset_session` captures its snapshot inside a guard. Reset is the escape hatch a user reaches
+  for when the workspace is already in a state they want gone, which is exactly when a snapshot is
+  most likely to fail; losing undo is acceptable, refusing to clear is not.
+- `set_overlay_visible` raises `NotImplementedError` until WP-4 exists. It is declared rather than
+  omitted so the target still satisfies the protocol.
 
 ---
 

@@ -351,6 +351,27 @@ class VideoInfoWidget(QFrame):
     def _on_offset_changed(self, val: float) -> None:
         self.offset_changed.emit(self.path, val)
 
+    def set_offset(self, offset: float) -> None:
+        """Show *offset* without re-emitting it.
+
+        Blocked because the caller is undo or a session restore, which has
+        already applied the value everywhere else; letting the spin box echo it
+        back would record a second command for the same change.
+        """
+        blocked = self.offset_spin.blockSignals(True)
+        try:
+            self.offset_spin.setValue(offset)
+        finally:
+            self.offset_spin.blockSignals(blocked)
+
+    def set_visible(self, visible: bool) -> None:
+        """Set the visibility checkbox without re-emitting it, as above."""
+        blocked = self.visibility_cb.blockSignals(True)
+        try:
+            self.visibility_cb.setChecked(visible)
+        finally:
+            self.visibility_cb.blockSignals(blocked)
+
     def set_loader(self, loader: object) -> None:
         """Attach the VideoStandardLoader for metadata display."""
         self._loader = loader
@@ -563,6 +584,28 @@ class SidebarPane(QWidget):
         widget = self.sensor_widget(path)
         if widget is not None:
             widget.set_mapping(offset, drift_ppm)
+
+    def set_video_offset(self, path: str, offset: float) -> None:
+        """Show a restored or undone video offset, mirroring the sensor path.
+
+        Undo has to drive the control the user drove, not just the pane behind
+        it: leaving the spin box on the old value would show an offset the
+        session no longer has.
+        """
+        widget = self._video_widgets.get(path)
+        if widget is not None:
+            widget.set_offset(offset)
+
+    def video_offset(self, path: str) -> float:
+        """Return the displayed offset for *path*, or 0.0 when not loaded."""
+        widget = self._video_widgets.get(path)
+        return widget.offset_spin.value() if widget is not None else 0.0
+
+    def set_video_visible(self, path: str, visible: bool) -> None:
+        """Set a video's visibility checkbox without re-emitting it."""
+        widget = self._video_widgets.get(path)
+        if widget is not None:
+            widget.set_visible(visible)
 
     def sensor_mapping(self, path: str) -> tuple[float, float]:
         """Return the displayed ``(offset_s, drift_ppm)`` for *path*."""

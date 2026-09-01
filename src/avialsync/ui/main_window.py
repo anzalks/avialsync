@@ -35,7 +35,19 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.channel_reader import ChannelKey
-from avialsync.core.document import Document
+from avialsync.core.commands import (
+    AcceptSyncCommand,
+    AddMarkerCommand,
+    AddSourceCommand,
+    RelabelMarkerCommand,
+    RemoveMarkerCommand,
+    RemoveSourceCommand,
+    ResetSessionCommand,
+    SetChannelVisibleCommand,
+    SetSourceMappingCommand,
+    SetSourceVisibleCommand,
+)
+from avialsync.core.document import Document, SourceRecord
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.session import (
     SessionState,
@@ -45,7 +57,7 @@ from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
-from avialsync.ui.annotations import AnnotationPanel, AnnotationStore
+from avialsync.ui.annotations import AnnotationPanel, AnnotationStore, Marker
 from avialsync.ui.controllers import (
     drop_controller,
     export_controller,
@@ -54,6 +66,7 @@ from avialsync.ui.controllers import (
     video_controller,
 )
 from avialsync.ui.job_manager import JobManager
+from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
 from avialsync.ui.pane_proportions import PaneProportions
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.readout_panel import ReadoutPanel
@@ -194,6 +207,19 @@ class MainWindow(QMainWindow):
         # title was a constant string and closing preserved nothing before it.
         self.document = Document()
         self.document.observe_dirty(self._on_dirty_changed)
+        # Held down while undo/redo drives the widgets, so replaying a command
+        # does not record itself as a fresh edit and leave the stack unable to
+        # unwind. Set before `_mutations`, which reads it.
+        self._recording_suspended = False
+        self._mutations = WindowMutationTarget(self)
+        #: Last mapping recorded per source, so an offset command knows what to
+        #: return to. The signal carries only the new value.
+        self._recorded_mappings: dict[str, tuple[float, float]] = {}
+        #: True while a saved session is being restored. Sources land
+        #: asynchronously, so their arrival looks exactly like the user opening
+        #: them; without this a freshly-loaded session would come up dirty and
+        #: undo would offer to unload what the file said to load.
+        self._session_restoring = False
         self._update_window_title()
 
         # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
@@ -317,6 +343,9 @@ class MainWindow(QMainWindow):
         # Annotations
         self.annotation_store = AnnotationStore(self)
         self.annotation_store.changed.connect(self._update_timeline_annotations)
+        self.annotation_store.marker_added.connect(self._record_marker_added)
+        self.annotation_store.marker_removed.connect(self._record_marker_removed)
+        self.annotation_store.marker_relabelled.connect(self._record_marker_relabelled)
 
         # Layout
         central_widget = QWidget()
@@ -336,7 +365,7 @@ class MainWindow(QMainWindow):
         # teardown can fault on Windows, and mid-session it would otherwise
         # cost everything since the last autosave.
         self.video_grid.pane_detached.connect(self._write_session_snapshot)
-        self.sidebar.video_visibility_changed.connect(self.video_grid.set_pane_visible)
+        self.sidebar.video_visibility_changed.connect(self._on_video_visibility_changed)
         self.sidebar.sensor_remove_requested.connect(self._on_sensor_remove_requested)
         self.sidebar.sensor_mapping_changed.connect(self._on_sensor_mapping_changed)
         self.sidebar.channel_remove_requested.connect(self._on_channel_remove_requested)
@@ -788,6 +817,25 @@ class MainWindow(QMainWindow):
         session_controller.open_session(self)
 
     def _reset_session(self) -> None:
+        """Clear the workspace, reversibly.
+
+        Reset is one sidebar click that drops every pane, annotation, and
+        recorded message. It is the one command allowed a bulk snapshot,
+        because there is no compact way to describe "everything that was open"
+        (D-087) -- so it is captured here, before the clear.
+        """
+        if not self._recording_suspended:
+            try:
+                command = ResetSessionCommand()
+                command.snapshot = self._mutations.capture_workspace()
+            except Exception:
+                # Reset is the escape hatch: it is what a user reaches for when
+                # the workspace is already in a state they want gone, which is
+                # exactly when a snapshot is most likely to fail. Losing undo is
+                # an acceptable degradation; refusing to clear is not.
+                logger.exception("Could not capture the workspace; resetting without undo")
+            else:
+                self._record(command)
         session_controller.reset_session(self)
 
     def _start_session_load(self, path: Path) -> None:
@@ -1372,6 +1420,85 @@ class MainWindow(QMainWindow):
         act.setMenuRole(QAction.MenuRole.AboutRole)
         act.triggered.connect(self._show_about)
 
+    # ── Command bus: recording live mutations (WP-1 step 4) ──────────
+
+    def _record(self, command: object) -> None:
+        """Log an already-applied mutation, unless undo is replaying one.
+
+        `record` rather than `execute`: the widget has already done the work by
+        the time its signal arrives, and re-applying it here would double the
+        change. The Document coalesces continuous edits, so a spin-box drag
+        stays one undo step.
+        """
+        if self._recording_suspended:
+            return
+        self.document.record(command)  # type: ignore[arg-type]
+
+    def _record_mapping_change(self, source_id: str, offset: float, drift_ppm: float) -> None:
+        """Record an offset/drift change against whatever it was before."""
+        before = self._recorded_mappings.get(source_id, (0.0, 0.0))
+        after = (offset, drift_ppm)
+        if before == after:
+            return
+        self._recorded_mappings[source_id] = after
+        if self._recording_suspended:
+            return
+        self._record(
+            SetSourceMappingCommand(
+                source_id=source_id,
+                before=before,
+                after=after,
+                display_name=Path(source_id).name,
+            )
+        )
+
+    def _record_marker_added(self, index: int) -> None:
+        markers = self.annotation_store.markers
+        if not 0 <= index < len(markers):
+            return
+        self._record(AddMarkerCommand(marker_record(markers[index], index)))
+
+    def _record_marker_removed(self, index: int, marker: object) -> None:
+        if not isinstance(marker, Marker):
+            return
+        # Hold the marker itself, not just its description: undo must restore
+        # the same object, keeping its colour index and per-video frame
+        # snapshots rather than building a lookalike.
+        self._mutations.retain_removed(marker)
+        self._record(RemoveMarkerCommand(marker_record(marker, index)))
+
+    def _record_marker_relabelled(self, index: int, before: str, after: str) -> None:
+        self._record(RelabelMarkerCommand(index=index, before=before, after=after))
+
+    def _note_source_loaded(self, source_id: str, kind: str) -> None:
+        """Record a source the user opened, or finish a restore.
+
+        Called when a source actually lands, which is the only point that can
+        tell a successful open from a requested one: a file that failed to open
+        is not a change to the session, and undoing it would try to close a pane
+        that never appeared.
+        """
+        if not self._session_restoring:
+            self._record(AddSourceCommand(self._source_record(source_id, kind)))
+            return
+        if self._pending_video_loads or self._pending_imports:
+            return
+        # The restore has drained. Everything on the log describes the file that
+        # was just opened, so the session is clean by definition.
+        self._session_restoring = False
+        self.document.clear()
+        self._mark_session_saved()
+
+    def _source_record(self, source_id: str, kind: str) -> SourceRecord:
+        offset, drift_ppm = self._recorded_mappings.get(source_id, (0.0, 0.0))
+        return SourceRecord(
+            source_id=source_id,
+            path=source_id,
+            kind=kind,
+            offset=offset,
+            drift_ppm=drift_ppm,
+        )
+
     # ── Session identity and dirty state ─────────────────────────────
 
     def _update_window_title(self) -> None:
@@ -1723,6 +1850,7 @@ class MainWindow(QMainWindow):
     @Slot(str, object, str)
     def _on_video_opened(self, original_path: str, loader: object, media_path: str) -> None:
         video_controller.on_video_opened(self, original_path, loader, media_path)
+        self._note_source_loaded(original_path, "video")
 
     def _build_next_video_pane(self) -> None:
         video_controller.build_next_video_pane(self)
@@ -1743,6 +1871,8 @@ class MainWindow(QMainWindow):
         video_controller.on_video_pane_ready(self)
 
     def _on_video_offset_changed(self, path: str, offset: float) -> None:
+        _, drift = self._recorded_mappings.get(path, (0.0, 0.0))
+        self._record_mapping_change(path, offset, drift)
         self.video_grid.set_offset(path, offset)
         if path in self._video_source_bounds:
             _, drift_ppm = self._video_time_mappings.get(path, (0.0, 0.0))
@@ -1838,10 +1968,26 @@ class MainWindow(QMainWindow):
                 else []
             ),
         )
+        previous_provenance = next(
+            (item for item in self._sync_provenance if item.target_id == target_path), None
+        )
         self._sync_provenance = [
             item for item in self._sync_provenance if item.target_id != target_path
         ]
         self._sync_provenance.append(provenance)
+        # Acceptance stays explicit (architecture rule 8); recording it only
+        # makes the accepted result reversible, so a user who takes the wrong
+        # fit is not left reconstructing their previous mapping by hand.
+        self._record(
+            AcceptSyncCommand(
+                source_id=target_path,
+                before=self._recorded_mappings.get(target_path, (0.0, 0.0)),
+                after=(fit.offset, fit.drift_ppm),
+                evidence=provenance,
+                before_evidence=previous_provenance,
+            )
+        )
+        self._recorded_mappings[target_path] = (fit.offset, fit.drift_ppm)
         self.transport.set_status(
             f"TTL aligned · {fit.max_residual * 1000:.3f} ms residual", "info"
         )
@@ -1869,6 +2015,7 @@ class MainWindow(QMainWindow):
         )
 
     def _on_video_remove_requested(self, path: str) -> None:
+        self._record(RemoveSourceCommand(self._source_record(path, "video")))
         # Everything this window knows about the source is dropped before the
         # grid tears the pane down, because `remove_pane` writes the session on
         # the way past and that snapshot must describe the session the user
@@ -1882,6 +2029,7 @@ class MainWindow(QMainWindow):
         self.video_grid.remove_pane(path)
 
     def _on_sensor_remove_requested(self, path: str) -> None:
+        self._record(RemoveSourceCommand(self._source_record(path, "sensor")))
         cache_dir = self._sensor_cache_dirs.pop(path, None)
         if cache_dir is None:
             # Pre-import removal: fall back to the manager's derived location.
@@ -1902,6 +2050,7 @@ class MainWindow(QMainWindow):
         cache_dir = self._sensor_cache_dirs.get(path)
         if cache_dir is None:
             return
+        self._record_mapping_change(path, offset, drift_ppm)
         self.plot_pane.set_source_mapping(cache_dir, offset, drift_ppm)
         # A note moves with the samples it describes; leaving it behind would
         # put an experimenter's "stimulus on" beside the wrong trace.
@@ -1919,6 +2068,7 @@ class MainWindow(QMainWindow):
         self.plot_pane.remove_channel(ChannelKey(path, channel))
 
     def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
+        self._record(SetChannelVisibleCommand(source_id=path, channel=channel, visible=is_visible))
         self.plot_pane.set_channel_visible(ChannelKey(path, channel), is_visible)
 
     def _on_plot_channel_close_requested(self, source_id: str, channel: str) -> None:
@@ -1926,6 +2076,11 @@ class MainWindow(QMainWindow):
         self.sidebar.set_channel_visible(channel, False, source_id)
 
     def _on_video_visibility_changed(self, path: str, is_visible: bool) -> None:
+        self._record(
+            SetSourceVisibleCommand(
+                source_id=path, visible=is_visible, display_name=Path(path).name
+            )
+        )
         self.video_grid.set_pane_visible(path, is_visible)
 
     def _open_video(self) -> None:
@@ -1972,6 +2127,8 @@ class MainWindow(QMainWindow):
         inspection: object = None,
     ) -> None:
         import_controller.on_import_finished(self, path, cache_dir, channels, bounds, inspection)
+        # As with video, on success rather than on request.
+        self._note_source_loaded(path, "sensor")
 
     # ── Pose sources (overlay + 3D view, never plotted) ────
 

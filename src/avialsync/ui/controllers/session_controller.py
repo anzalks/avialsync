@@ -386,6 +386,9 @@ def on_session_load_error(window: MainWindow, error: str) -> None:
 
 def restore_session(window: MainWindow, state: SessionState) -> None:
     """Load all sources from a SessionState object."""
+    # Sources arrive asynchronously and are indistinguishable from the user
+    # opening them; `_note_source_loaded` clears this once they drain.
+    window._session_restoring = True
     # Collect missing files for relink
     missing: list[str] = []
     kind_labels: dict[str, str] = {}

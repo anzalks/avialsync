@@ -75,6 +75,13 @@ class AnnotationStore(QObject):
     """
 
     changed = Signal()
+    #: Emitted with the index of a newly inserted marker.
+    marker_added = Signal(int)
+    #: Emitted with the index it held and the marker itself, so a deletion can
+    #: be reversed without the observer having kept its own copy.
+    marker_removed = Signal(int, object)
+    #: index, previous label, new label.
+    marker_relabelled = Signal(int, str, str)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -95,6 +102,7 @@ class AnnotationStore(QObject):
             t_start=t, t_end=None, label=label, color_index=index, video_frames=video_frames or []
         )
         self._markers.append(m)
+        self.marker_added.emit(len(self._markers) - 1)
         self.changed.emit()
         return m
 
@@ -118,14 +126,44 @@ class AnnotationStore(QObject):
             video_frames=video_frames or [],
         )
         self._markers.append(m)
+        self.marker_added.emit(len(self._markers) - 1)
         self.changed.emit()
         return m
 
     def remove(self, index: int) -> None:
         """Remove a marker by index."""
         if 0 <= index < len(self._markers):
-            self._markers.pop(index)
+            removed = self._markers.pop(index)
+            self.marker_removed.emit(index, removed)
             self.changed.emit()
+
+    def insert(self, index: int, marker: Marker) -> None:
+        """Put *marker* back at *index*.
+
+        Undo of a deletion restores position, not just existence: markers are
+        listed and exported in order, and a restored marker appearing at the
+        end of the table would read as a different annotation.
+        """
+        index = max(0, min(index, len(self._markers)))
+        self._markers.insert(index, marker)
+        self.marker_added.emit(index)
+        self.changed.emit()
+
+    def set_label(self, index: int, label: str) -> None:
+        """Rename the marker at *index*.
+
+        The annotation panel used to assign straight into ``_markers`` from
+        outside the store, which meant a rename emitted nothing and no observer
+        could see it.
+        """
+        if not 0 <= index < len(self._markers):
+            return
+        before = self._markers[index].label
+        if before == label:
+            return
+        self._markers[index].label = label
+        self.marker_relabelled.emit(index, before, label)
+        self.changed.emit()
 
     def clear(self) -> None:
         self._markers.clear()
@@ -232,6 +270,4 @@ class AnnotationPanel(QGroupBox):
 
     def _on_label_edited(self, item: QTableWidgetItem) -> None:
         if item.column() == 2:
-            row = item.row()
-            if 0 <= row < len(self._store._markers):
-                self._store._markers[row].label = item.text()
+            self._store.set_label(item.row(), item.text())
