@@ -1588,6 +1588,13 @@ class MainWindow(QMainWindow):
         self._build_overlays_menu(_reg)
         view_menu.addSeparator()
 
+        # Workspaces: a session is looked at in more than one way, and
+        # rearranging the splitters each time is friction enough to stop
+        # people doing it (WP-11).
+        self._workspace_menu = view_menu.addMenu("Workspace")
+        self._rebuild_workspace_menu()
+        view_menu.addSeparator()
+
         self._act_reset_zoom = view_menu.addAction("Reset Plot Zoom")
         self._act_reset_zoom.setShortcut(QKeySequence("Ctrl+0"))
         self._act_reset_zoom.triggered.connect(self.plot_pane.reset_zoom)
@@ -1638,6 +1645,64 @@ class MainWindow(QMainWindow):
         act = help_menu.addAction("About AvialSync")
         act.setMenuRole(QAction.MenuRole.AboutRole)
         act.triggered.connect(self._show_about)
+
+    # ── Workspaces (WP-11) ───────────────────────────────────────────
+
+    def _rebuild_workspace_menu(self) -> None:
+        """Regenerate the Workspace menu from what is actually stored."""
+        from avialsync.ui import workspaces
+
+        self._workspace_menu.clear()
+        saved = workspaces.names()
+        if saved:
+            for name in saved:
+                act = self._workspace_menu.addAction(name)
+                act.triggered.connect(lambda _c, n=name: self._apply_workspace(n))
+        else:
+            act = self._workspace_menu.addAction("(no saved layouts)")
+            act.setEnabled(False)
+        self._workspace_menu.addSeparator()
+
+        act = self._workspace_menu.addAction("Save Current Layout…")
+        act.triggered.connect(self._save_workspace)
+        if saved:
+            act = self._workspace_menu.addAction("Delete Layout…")
+            act.triggered.connect(self._delete_workspace)
+
+    def _save_workspace(self) -> None:
+        from PySide6.QtWidgets import QInputDialog
+
+        from avialsync.ui import workspaces
+
+        name, accepted = QInputDialog.getText(self, "Save Layout", "Name this layout:")
+        if not accepted or not name.strip():
+            return
+        workspaces.save(name, workspaces.capture(self))
+        self._rebuild_workspace_menu()
+        self.notifications.show_success(f"Layout saved as “{name.strip()}”.")
+
+    def _apply_workspace(self, name: str) -> None:
+        from avialsync.ui import workspaces
+
+        workspace = workspaces.load(name)
+        if workspace is None:
+            self.notifications.show_warning(f"Layout “{name}” is no longer stored.")
+            self._rebuild_workspace_menu()
+            return
+        workspaces.apply(self, workspace)
+
+    def _delete_workspace(self) -> None:
+        from PySide6.QtWidgets import QInputDialog
+
+        from avialsync.ui import workspaces
+
+        saved = workspaces.names()
+        if not saved:
+            return
+        name, accepted = QInputDialog.getItem(self, "Delete Layout", "Layout:", saved, 0, False)
+        if accepted and name:
+            workspaces.remove(name)
+            self._rebuild_workspace_menu()
 
     # ── Alignment (WP-10) ────────────────────────────────────────────
 
