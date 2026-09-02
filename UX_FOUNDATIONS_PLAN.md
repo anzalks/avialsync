@@ -1,47 +1,33 @@
 # AvialSync — UX Foundations Plan (Phase 7)
 
-> **Status:** in progress on branch `ux_foundations`, based on v0.1.6.
-> **WP-0 landed**: launch and teardown responsiveness — two pre-existing
-> architecture-rule-3 violations, construction 373 ms → 41 ms and zero UI stalls.
-> **WP-1 landed in full**: the command bus, dirty state, the session-named title,
-> hot exit, and step 4's routing of every listed mutation through the bus via
-> `ui/mutation_target.py`.
-> **WP-2 landed**: the Edit menu, driven by the document rather than a second
-> `QUndoStack` (D-097).
-> **WP-4 landed**: the overlay registry and View → Overlays, six layers, session
-> schema v6 → v7 (D-090).
-> **WP-5 landed**: the activity bar, notification strip, and Tasks panel; the
-> modal `QProgressDialog` is gone from `src/` (D-091).
-> **WP-6 landed**: the typed error presenter and the data-quality findings.
-> **WP-7 landed**: the settings schema and a generated Preferences dialog.
-> **WP-8 landed**: the empty state, Help destinations, and a reportable About.
-> **WP-9 landed**: display levels driven by the depth the file declares (D-093
-> amended with the measurement, which contradicted its prediction).
-> **WP-11 landed in part**: the channel filter, adaptive prefix grouping, and
-> grouped visibility. Dock widgets and named workspaces remain.
-> **WP-12 landed in part**: the colour-vision-safe palette (D-094 amended; the
-> mechanism it originally stated was wrong). i18n and the accessibility sweep
-> remain.
-> **WP-3 landed in part**: the command palette. Remappable shortcuts and the
-> single-label authority remain, the latter wanting the `main_window` split
-> D-051 governs.
+> **Status: Phase 7 complete** on branch `ux_foundations`, based on v0.1.6.
+> Every work package has landed. Two carry a deliberate, recorded scope
+> boundary rather than a gap:
 >
-> **Remaining: WP-3 (shortcuts, labels), WP-10 (alignment evidence),
-> WP-11 (docks, workspaces), WP-12 (i18n, accessibility).**
+> - **WP-11** did the sidebar at scale, grouped visibility, and named
+>   workspaces. It did *not* convert the four nested splitters to
+>   `QDockWidget`: they carry `PaneProportions` tracking, a policy
+>   re-assertion and a collapsed-pane repair, and Â§3 protects the plot
+>   behaviour depending on them. That restructure is its own change with its
+>   own evidence.
+> - **WP-12** did accessibility, the colour-vision-safe palette, and the
+>   translation machinery, wrapping 106 of 166 user-facing literals. The
+>   remaining 60 are f-strings, which `lupdate` cannot extract and which need
+>   restructuring rather than wrapping. `translatable_ratio` measures this
+>   rather than a docstring claiming it.
 >
-> **Ordering note.** WP-4 was taken before WP-3 despite the graph. Its real
-> dependency on the action registry was only that overlay entries be registered
-> actions, which the existing `_reg` helper already provides, and the overlays
-> were the most visible defect in the running application — nine body-part names
-> painted across the animal with no way to turn them off. WP-3 remains worth
-> doing and still owns the command palette, shortcut remapping, and the
-> single-label authority.
+> Three predictions written into this plan were contradicted by measurement
+> and the entries are amended: D-093's claim that the windowed video path
+> would be faster than `rgb24` (it is 3.5Ã— slower, and still well inside
+> budget), D-094's account of *which* deficiency and *which* colours the hue
+> wheel fails on (protanopia and a blue/purple pair, not deuteranopia and
+> red/green), and WP-2's design, which would have created two undo stacks
+> that must agree (D-097).
 >
-> Step 4 was initially deferred and that was a mistake worth recording: without it
-> `document.is_dirty` was permanently False in the running application and the
-> `[*]` marker was dead code, so WP-1's entire user-visible half did nothing. The
-> lesson for later packages is to split a package at a boundary that still leaves
-> something observable working, not between the machinery and its only callers.
+> The lesson worth carrying forward is the one WP-1 taught: split a package
+> where something observable still works, never between the machinery and its
+> only callers.
+>
 > **Companion documents:** binding rules in AGENTS.md §Architecture rules 10–17; phase entry in
 > BLUEPRINT.md Phase 7; settled choices in DECISIONS.md D-087 … D-094; per-package kickoff prompts
 > in PROMPTS.md §Phase 7 prompts.
