@@ -298,3 +298,70 @@ def test_an_aligned_source_reports_its_evidence(window: MainWindow) -> None:
     text = window.alignment_confidence("/tmp/cam1.mp4")
     assert "47 events" in text
     assert "3.0 ms" in text
+
+
+# ── which camera a nudge moves (the multi-camera bug) ────────────────
+
+
+def test_a_single_camera_needs_no_selection(window: MainWindow) -> None:
+    path = _fake_video(window, "/tmp/only.mp4")
+    assert window._focused_video_path() == path
+
+
+def test_several_cameras_with_no_selection_pick_none(window: MainWindow) -> None:
+    """It used to return the first, so every nudge moved FaceCam silently."""
+    _fake_video(window, "/tmp/cam1.mp4")
+    _fake_video(window, "/tmp/cam2.mp4")
+    _fake_video(window, "/tmp/cam3.mp4")
+    assert window._focused_video_path() is None
+
+
+def test_nudging_several_cameras_asks_rather_than_guessing(window: MainWindow) -> None:
+    _fake_video(window, "/tmp/cam1.mp4")
+    _fake_video(window, "/tmp/cam2.mp4")
+
+    window._nudge_alignment(+1)
+
+    assert "click the camera" in window.notifications.message.lower()
+    assert window.sidebar.video_offset("/tmp/cam1.mp4") == pytest.approx(0.0)
+
+
+def test_selecting_a_camera_makes_the_nudge_target_it(window: MainWindow) -> None:
+    _fake_video(window, "/tmp/cam1.mp4")
+    second = _fake_video(window, "/tmp/cam2.mp4")
+
+    window._select_video(second)
+    window._nudge_alignment(+1)
+
+    assert window.sidebar.video_offset(second) > 0
+    assert window.sidebar.video_offset("/tmp/cam1.mp4") == pytest.approx(0.0)
+
+
+def test_touching_a_cameras_offset_selects_it(window: MainWindow) -> None:
+    """Changing an offset means "this one" as clearly as any selection gesture."""
+    _fake_video(window, "/tmp/cam1.mp4")
+    second = _fake_video(window, "/tmp/cam2.mp4")
+
+    window._select_video(second)
+    window._nudge_alignment(-1)
+
+    assert window.sidebar.video_offset(second) < 0
+
+
+def test_selecting_an_unloaded_camera_is_ignored(window: MainWindow) -> None:
+    _fake_video(window, "/tmp/cam1.mp4")
+    _fake_video(window, "/tmp/cam2.mp4")
+    window._select_video("/tmp/never_loaded.mp4")
+    assert window._focused_video_path() is None
+
+
+def test_a_removed_camera_stops_being_the_target(window: MainWindow) -> None:
+    """A stale selection must not silently redirect a later nudge."""
+    _fake_video(window, "/tmp/cam1.mp4")
+    second = _fake_video(window, "/tmp/cam2.mp4")
+    window._select_video(second)
+
+    window.video_grid._paths.remove(second)
+    window.video_grid.panes.pop()
+
+    assert window._focused_video_path() == "/tmp/cam1.mp4", "one left, so no ambiguity"

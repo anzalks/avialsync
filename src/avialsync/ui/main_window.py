@@ -231,6 +231,9 @@ class MainWindow(QMainWindow):
         #: them; without this a freshly-loaded session would come up dirty and
         #: undo would offer to unload what the file said to load.
         self._session_restoring = False
+        #: The camera the user last touched, so an action with no explicit
+        #: target acts on the one they meant rather than on the first pane.
+        self._selected_video_path: str | None = None
         #: Which overlay layers show, globally and per camera (D-090). Law 2:
         #: nothing is drawn over a frame that the user cannot turn off.
         self.overlay_state = OverlayState()
@@ -394,7 +397,9 @@ class MainWindow(QMainWindow):
         self.sidebar.open_video_requested.connect(self._open_video)
         self.sidebar.open_sensor_requested.connect(self._open_data)
         self.sidebar.reset_session_requested.connect(self._reset_session)
+        self.sidebar.video_offset_changed.connect(self._select_video)
         self.sidebar.video_offset_changed.connect(self._on_video_offset_changed)
+        self.sidebar.video_badge_clicked.connect(self._select_video)
         self.sidebar.video_remove_requested.connect(self._on_video_remove_requested)
         # Persist before a removed pane's media client is torn down: that
         # teardown can fault on Windows, and mid-session it would otherwise
@@ -578,6 +583,7 @@ class MainWindow(QMainWindow):
         self.transport.jump_requested.connect(self._on_jump_requested)
 
         # Video pane right-click context menu (D-022)
+        self.video_grid.pane_right_clicked.connect(lambda path, _pos: self._select_video(path))
         self.video_grid.pane_right_clicked.connect(self._on_pane_right_clicked)
 
         # Plot annotate-at (D-022)
@@ -1723,7 +1729,14 @@ class MainWindow(QMainWindow):
         """
         path = self._focused_video_path()
         if path is None:
-            self.notifications.show_warning("Load a video before nudging its alignment.")
+            if self.video_grid.pane_paths():
+                # Several cameras and none chosen. Guessing moved the wrong
+                # one silently, which is worse than saying so.
+                self.notifications.show_warning(
+                    "Click the camera you want to move first, or open one fullscreen."
+                )
+            else:
+                self.notifications.show_warning("Load a video before nudging its alignment.")
             return
 
         fps = self._video_fps.get(path, 0.0)
@@ -2600,16 +2613,49 @@ class MainWindow(QMainWindow):
     # ── Display levels (D-093) ───────────────────────────────────────
 
     def _focused_video_path(self) -> str | None:
-        """The camera the levels panel acts on: the only one, or the fullscreen one."""
+        """The camera an action without an explicit target should act on.
+
+        In order: the one shown fullscreen, then the one the user last touched,
+        then -- only when there is exactly one -- that one.
+
+        It deliberately does **not** fall back to the first of several. It used
+        to, and with three cameras loaded that meant every nudge moved FaceCam
+        whichever camera the user had in mind, silently. Returning None instead
+        lets the caller say what it needs rather than acting on a guess.
+        """
         paths = self.video_grid.pane_paths()
         if not paths:
             return None
-        focused = getattr(self.video_grid, "_fullscreen_pane", None)
-        if focused is not None:
+
+        fullscreen = getattr(self.video_grid, "_fullscreen_pane", None)
+        if fullscreen is not None:
             for path, pane in zip(paths, self.video_grid.panes, strict=False):
-                if pane is focused:
+                if pane is fullscreen:
                     return path
-        return paths[0]
+
+        if self._selected_video_path in paths:
+            return self._selected_video_path
+
+        return paths[0] if len(paths) == 1 else None
+
+    def _select_video(self, path: str) -> None:
+        """Remember the camera the user just interacted with.
+
+        Any interaction counts -- a click on the pane, its context menu, or a
+        change to its offset -- because all of them mean "this one" as clearly
+        as a selection gesture would, and none of them needed inventing.
+        """
+        if path in self.video_grid.pane_paths():
+            self._selected_video_path = path
+            self._on_source_format_detected(
+                path, getattr(self._pane_for(path), "source_format", None)
+            )
+
+    def _pane_for(self, path: str) -> object | None:
+        try:
+            return self.video_grid.panes[self.video_grid.pane_paths().index(path)]
+        except (ValueError, IndexError):
+            return None
 
     def _on_source_format_detected(self, path: str, source_format: object) -> None:
         """Show or hide the levels panel according to what this file turned out to be."""
