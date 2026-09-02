@@ -1410,14 +1410,17 @@ class MainWindow(QMainWindow):
         self._letter_shortcuts: set[str] = set()
 
         def _reg(act: QAction, category: str) -> QAction:
-            """Tag an action with its shortcuts-dialog category."""
+            """Tag an action with its category and add it to the registry."""
             act.setProperty("av_category", category)
             # No menu action is a hold-to-repeat gesture -- opening a file
             # dialog or cycling the theme once per key repeat is never what was
             # meant. See `_act` for why Qt's default is the wrong one here.
             act.setAutoRepeat(False)
-            if act.shortcuts():
-                self._all_actions.append(act)
+            # Registered whether or not it has a shortcut. The shortcuts dialog
+            # filters for bound ones itself; the command palette wants the rest
+            # too, since a command with no key is exactly the one somebody
+            # cannot find (WP-3).
+            self._all_actions.append(act)
             return act
 
         menu = self.menuBar()
@@ -1578,6 +1581,14 @@ class MainWindow(QMainWindow):
         help_menu = menu.addMenu("Help")
 
         # Shortcuts dialog: F1 primary (HelpContents); "?" alias added in _setup_shortcuts
+        # Commands — searchable by name. The menus are deep enough now that
+        # finding a command is the problem, not typing it (WP-3).
+        act = help_menu.addAction("Commands…")
+        act.setShortcut(QKeySequence("Ctrl+Shift+P"))
+        act.setToolTip("Search every command by name")
+        act.triggered.connect(self._show_command_palette)
+        _reg(act, "View")
+
         self._act_shortcuts = help_menu.addAction("Keyboard Shortcuts…")
         self._act_shortcuts.setShortcut(QKeySequence(QKeySequence.StandardKey.HelpContents))
         self._act_shortcuts.triggered.connect(self._show_shortcuts)
@@ -2031,6 +2042,19 @@ class MainWindow(QMainWindow):
                 clipboard.setText(version_report())
 
     # ── Shortcuts dialog ─────────────────────────────────────────────
+
+    def _show_command_palette(self) -> None:
+        """Search every registered command by name.
+
+        Built from the same live QActions the shortcuts dialog uses (D-022.6),
+        so it cannot list a command that does not exist or miss one that does.
+        Registered actions without a shortcut are included too -- the menus have
+        grown deep enough that finding a command is the problem, not typing it.
+        """
+        from avialsync.ui.command_palette import CommandPalette
+
+        palette = CommandPalette(list(self._all_actions), self)
+        palette.exec()
 
     def _show_shortcuts(self) -> None:
         from avialsync.ui.shortcuts_dialog import ShortcutsDialog
