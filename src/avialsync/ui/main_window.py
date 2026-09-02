@@ -1479,6 +1479,16 @@ class MainWindow(QMainWindow):
 
         file_menu.addSeparator()
 
+        # Preferences — macOS PreferencesRole moves this to the app menu, the
+        # same treatment About and Quit already get (D-022.3).
+        act = file_menu.addAction("Preferences…")
+        act.setShortcut(QKeySequence(QKeySequence.StandardKey.Preferences))
+        act.setMenuRole(QAction.MenuRole.PreferencesRole)
+        act.triggered.connect(self._show_preferences)
+        _reg(act, "File")
+
+        file_menu.addSeparator()
+
         # Quit — macOS QuitRole moves this to the app menu (D-022.3)
         act = file_menu.addAction("Quit")
         act.setShortcut(QKeySequence(QKeySequence.StandardKey.Quit))
@@ -1969,6 +1979,36 @@ class MainWindow(QMainWindow):
             clipboard = QApplication.clipboard()
             if clipboard is not None:
                 clipboard.setText(citation_text())
+
+    def _show_preferences(self) -> None:
+        """Open the generated Preferences dialog.
+
+        Non-modal: a setting is often changed to see its effect, and a modal
+        would hide the thing it changes.
+        """
+        from avialsync.ui.preferences_dialog import PreferencesDialog
+
+        if getattr(self, "_preferences_dialog", None) is None:
+            self._preferences_dialog = PreferencesDialog(self)
+            self._preferences_dialog.setting_changed.connect(self._on_setting_changed)
+        self._preferences_dialog.show()
+        self._preferences_dialog.raise_()
+
+    def _on_setting_changed(self, key: str) -> None:
+        """Apply a preference immediately rather than at close."""
+        from PySide6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        if not isinstance(app, QApplication):
+            return
+        if key == "theme/preference":
+            from avialsync.ui.theme import apply_theme, load_saved_theme
+
+            apply_theme(app, load_saved_theme(app))
+        elif key == "font/preference":
+            from avialsync.ui.theme import apply_font_size, load_saved_font_size
+
+            apply_font_size(app, load_saved_font_size(app))
 
     def _show_about(self) -> None:
         """Name the build, so a bug report can carry it."""
