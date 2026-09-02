@@ -12,7 +12,10 @@
 > schema v6 → v7 (D-090).
 > **WP-5 landed**: the activity bar, notification strip, and Tasks panel; the
 > modal `QProgressDialog` is gone from `src/` (D-091).
-> **Remaining: WP-3, WP-6, WP-7, WP-8, WP-9, WP-10, WP-11, WP-12.**
+> **WP-6 landed**: the typed error presenter and the data-quality findings.
+> **WP-11 landed in part**: the channel filter and adaptive prefix grouping. Dock
+> widgets and named workspaces remain, and wait on WP-7's settings registry.
+> **Remaining: WP-3, WP-7, WP-8, WP-9, WP-10, WP-11 (docks), WP-12.**
 >
 > **Ordering note.** WP-4 was taken before WP-3 despite the graph. Its real
 > dependency on the action registry was only that overlay entries be registered
