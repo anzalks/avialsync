@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -68,6 +69,11 @@ class _PropertiesBase(QGroupBox):
         self._toggle_btn = QPushButton("▶ " + title)
         self._toggle_btn.setFlat(True)
         self._toggle_btn.setStyleSheet("text-align:left;")
+        # A section header must not set the panel's minimum width. Its own
+        # sizeHint is the full title, which in a 180 px sidebar pushed every
+        # panel wider than the viewport; with the horizontal scrollbar off
+        # that surplus was not scrolled to, it was cut off.
+        self._toggle_btn.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self._toggle_btn.clicked.connect(self._toggle)
         hdr.addWidget(self._toggle_btn, stretch=1)
 
@@ -84,6 +90,10 @@ class _PropertiesBase(QGroupBox):
         self._form = QFormLayout(self._body)
         self._form.setContentsMargins(4, 2, 4, 2)
         self._form.setSpacing(2)
+        # Below the width where label and value both fit, put the value on
+        # its own line rather than letting the pair force the panel wider.
+        self._form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        self._form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self._body.setVisible(False)
         outer.addWidget(self._body)
 

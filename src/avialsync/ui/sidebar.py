@@ -8,6 +8,7 @@ from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
+    QFormLayout,
     QFrame,
     QGroupBox,
     QHBoxLayout,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -24,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.inspection import SourceInspection
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
+from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.source_properties import VideoPropertiesPanel
 from avialsync.ui.theme import follow_palette, status_color
@@ -92,7 +95,7 @@ class SensorInfoWidget(QFrame):
 
         # ── Header: filename + badge + remove whole source ──────────
         header = QHBoxLayout()
-        name_lbl = QLabel(Path(path).name)
+        name_lbl = ElidedLabel(Path(path).name)
         name_lbl.setToolTip(path)
         name_lbl.setStyleSheet("font-weight: bold;")
 
@@ -117,8 +120,10 @@ class SensorInfoWidget(QFrame):
         layout.addLayout(header)
 
         # ── Metadata: path + channel count ──────────────────────────
-        path_lbl = QLabel(path)
-        path_lbl.setWordWrap(True)
+        # A path is one unbreakable token, so wrapping it does nothing and it
+        # kept reporting its full width as the panel's minimum: 491 px for a
+        # real session path. Elided, its length no longer constrains anything.
+        path_lbl = ElidedLabel(path)
         layout.addWidget(path_lbl)
 
         n_ch = len(channels)
@@ -126,37 +131,60 @@ class SensorInfoWidget(QFrame):
         layout.addWidget(ch_count_lbl)
 
         # ── Sync controls: same offset/drift treatment as video (P3.5) ─
-        sync_layout = QHBoxLayout()
-        sync_layout.addWidget(QLabel("Offset:"))
+        #
+        # One control per row. Measured: "Offset:" plus its spin box plus
+        # "Drift:" plus its spin box want 564 px of width, in a sidebar whose
+        # minimum is 180 px. Side by side they were cramped before this phase
+        # and worse after raising the offset precision -- each was squeezed to
+        # a fraction of the digits it has to show. A form layout gives each
+        # its own line and lets the spin box use the width that is there.
+        sync_form = QFormLayout()
+        sync_form.setContentsMargins(0, 0, 0, 0)
+        sync_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        sync_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+
         self.offset_spin = QDoubleSpinBox()
         self.offset_spin.setRange(-_OFFSET_LIMIT_S, _OFFSET_LIMIT_S)
         # Six decimals, not three. At 230 fps one frame is 4.35 ms, which
         # millisecond precision cannot express -- a frame-accurate nudge
-        # silently rounded to 4 ms and the source drifted a frame every
-        # nudge. The sync fit already reports offsets to six places.
+        # silently rounded to 4 ms and the source drifted a fraction of a
+        # frame every nudge. The sync fit already reports offsets to six
+        # places, so this matches what the evidence view shows.
         self.offset_spin.setDecimals(6)
         self.offset_spin.setSingleStep(0.05)
         self.offset_spin.setSuffix(" s")
+        # Allowed to shrink. Six decimals over a full-day range asks for 192 px;
+        # a control that refuses to go below its ideal width drags the whole
+        # panel out of shape in a narrow sidebar. Widen the sidebar to read the
+        # full precision.
+        # `setMinimumWidth` alone does not let it shrink: Qt floors a widget at
+        # its own `minimumSizeHint`, which for six decimals over a full-day
+        # range is 192 px. `Ignored` tells the layout to disregard that hint and
+        # give it whatever width is going, which is what stops one control
+        # dragging the whole panel out of shape.
+        self.offset_spin.setMinimumWidth(90)
+        self.offset_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.offset_spin.setAccessibleName(f"Time offset for {Path(path).name}")
         self.offset_spin.setToolTip(
             tr("Shift this source against the master clock. Cached samples are never rewritten.")
         )
         self.offset_spin.valueChanged.connect(self._on_mapping_changed)
-        sync_layout.addWidget(self.offset_spin, stretch=1)
+        sync_form.addRow(tr("Offset:"), self.offset_spin)
 
-        sync_layout.addWidget(QLabel("Drift:"))
         self.drift_spin = QDoubleSpinBox()
         self.drift_spin.setRange(-100000.0, 100000.0)
         self.drift_spin.setDecimals(1)
         self.drift_spin.setSingleStep(10.0)
         self.drift_spin.setSuffix(" ppm")
+        self.drift_spin.setMinimumWidth(90)
+        self.drift_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.drift_spin.setAccessibleName(f"Clock drift for {Path(path).name}")
         self.drift_spin.setToolTip(
             tr("Rate difference between this source's clock and master time.")
         )
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
-        sync_layout.addWidget(self.drift_spin, stretch=1)
-        layout.addLayout(sync_layout)
+        sync_form.addRow(tr("Drift:"), self.drift_spin)
+        layout.addLayout(sync_form)
 
         # ── Separator ────────────────────────────────────────────────
         sep = QFrame()
@@ -252,6 +280,15 @@ class SensorInfoWidget(QFrame):
         hide_all_btn = QPushButton("Hide all")
         hide_all_btn.setToolTip(tr("Hide every channel of this source"))
         hide_all_btn.clicked.connect(lambda: self._on_bulk_visibility(False))
+        # A push button defaults to the `Minimum` policy, which floors it at its
+        # full sizeHint -- 110 px each here, so this pair alone demanded 223 px
+        # and became the widest row in the panel. `Preferred` is not enough,
+        # because a button reports the same minimumSizeHint as sizeHint; only
+        # `Ignored` lets the layout go below it. The explicit floor is what
+        # keeps them from collapsing to a sliver in the narrowest sidebar.
+        for button in (show_all_btn, hide_all_btn):
+            button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            button.setMinimumWidth(64)
         bulk_row.addWidget(show_all_btn)
         bulk_row.addWidget(hide_all_btn)
         bulk_row.addStretch()
@@ -436,7 +473,7 @@ class VideoInfoWidget(QFrame):
             lambda checked: self.visibility_changed.emit(self.path, checked)
         )
 
-        name_lbl = QLabel(Path(path).name)
+        name_lbl = ElidedLabel(Path(path).name)
         name_lbl.setToolTip(path)
         name_lbl.setStyleSheet("font-weight: bold;")
 
@@ -460,11 +497,19 @@ class VideoInfoWidget(QFrame):
         timing = f"VFR {measured_fps:.2f} avg (nominal {fps:.2f})" if is_vfr else f"CFR {fps:.2f}"
         size = f" | {file_size / 1_048_576:.1f} MB" if file_size else ""
         meta_lbl = QLabel(f"{codec.upper()} | {timing} | {duration:.1f}s{size}")
+        # Wrapped: unwrapped it wants 432 px on one line -- the widest thing in
+        # a sidebar whose minimum is 180 px -- and forced everything else out
+        # of alignment rather than folding.
+        meta_lbl.setWordWrap(True)
         layout.addWidget(meta_lbl)
 
-        # Sync controls
-        sync_layout = QHBoxLayout()
-        sync_lbl = QLabel("Offset:")
+        # Sync controls, in a form row for the same width reason as the sensor
+        # widget: label plus spin box want 300 px against a 180 px sidebar
+        # minimum, and a stretched QHBoxLayout squeezes the digits away.
+        sync_form = QFormLayout()
+        sync_form.setContentsMargins(0, 0, 0, 0)
+        sync_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        sync_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self.offset_spin = QDoubleSpinBox()
         self.offset_spin.setRange(-_OFFSET_LIMIT_S, _OFFSET_LIMIT_S)
         # Six decimals, not three. At 230 fps one frame is 4.35 ms, which
@@ -474,11 +519,20 @@ class VideoInfoWidget(QFrame):
         self.offset_spin.setDecimals(6)
         self.offset_spin.setSingleStep(0.05)
         self.offset_spin.setSuffix(" s")
+        # `setMinimumWidth` alone does not let it shrink: Qt floors a widget at
+        # its own `minimumSizeHint`, which for six decimals over a full-day
+        # range is 192 px. `Ignored` tells the layout to disregard that hint and
+        # give it whatever width is going, which is what stops one control
+        # dragging the whole panel out of shape.
+        self.offset_spin.setMinimumWidth(90)
+        self.offset_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.offset_spin.setAccessibleName(f"Time offset for {Path(path).name}")
+        self.offset_spin.setToolTip(
+            tr("Shift this camera against the master clock. The recording is never rewritten.")
+        )
         self.offset_spin.valueChanged.connect(self._on_offset_changed)
-
-        sync_layout.addWidget(sync_lbl)
-        sync_layout.addWidget(self.offset_spin, stretch=1)
-        layout.addLayout(sync_layout)
+        sync_form.addRow(tr("Offset:"), self.offset_spin)
+        layout.addLayout(sync_form)
 
         # Badge (hidden until inspection is available)
         self._badge_btn = QPushButton("⚠")
@@ -569,16 +623,27 @@ class SidebarPane(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        # Wide enough for the offset/drift row, narrow enough that the whole
-        # window can still be shrunk on a laptop display.
-        self.setMinimumWidth(180)
+        # Measured, not guessed. The widest thing the sidebar has to hold is a
+        # source panel, whose own minimum is 192 px once the header button and
+        # the offset/drift spins are allowed to shrink. 180 px was below that,
+        # and the 12 px difference is what pushed panel edges out of line.
+        self.setMinimumWidth(200)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
         self._scroll_area = QScrollArea()
         self._scroll_area.setWidgetResizable(True)
-        self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # `AlwaysOff` does not make content fit -- it makes content that does
+        # not fit unreachable, cut off at the viewport edge with no way to
+        # scroll to it. The minimum above is set so the bar stays hidden in
+        # normal use; this is the backstop for when something outgrows it.
+        self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # A scrollbar is an interactive control, so it needs a name like any
+        # other. Qt does not give one, and while the horizontal bar was forced
+        # off it never appeared for a screen reader to trip over.
+        self._scroll_area.horizontalScrollBar().setAccessibleName(tr("Scroll the sidebar sideways"))
+        self._scroll_area.verticalScrollBar().setAccessibleName(tr("Scroll the sidebar"))
 
         scroll_content = QWidget()
         self.content_layout = QVBoxLayout(scroll_content)
