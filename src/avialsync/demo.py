@@ -477,7 +477,10 @@ class DemoProgressDialog(QDialog):
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self.setWindowTitle("Preparing AvialSync Demo")
-        self.setModal(True)
+        # Not modal (D-091). Demo generation encodes four videos and can take
+        # minutes; the log below is worth watching, and the window behind it
+        # stays usable meanwhile.
+        self.setModal(False)
         self.setMinimumWidth(520)
         layout = QVBoxLayout(self)
         self._status = QLabel("Starting demo preparation…")

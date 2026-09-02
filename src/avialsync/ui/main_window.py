@@ -59,6 +59,7 @@ from avialsync.core.timeline import MasterClock
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
+from avialsync.ui.about import citation_text, project_urls, version_report
 from avialsync.ui.annotations import AnnotationPanel, AnnotationStore, Marker
 from avialsync.ui.controllers import (
     drop_controller,
@@ -67,6 +68,7 @@ from avialsync.ui.controllers import (
     session_controller,
     video_controller,
 )
+from avialsync.ui.empty_state import EmptyState
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
 from avialsync.ui.job_manager import JobManager
@@ -556,6 +558,9 @@ class MainWindow(QMainWindow):
         # Feedback surface: activity in the status bar, outcomes in the strip.
         self._install_feedback_surface()
 
+        # Empty state, over the video area until a recording is opened.
+        self._install_empty_state()
+
         # Drag and Drop
         self.setAcceptDrops(True)
 
@@ -608,6 +613,44 @@ class MainWindow(QMainWindow):
         emits into nothing (D-062, and the no-op drops this file's tests pin).
         """
         return self._job_manager.start(label, worker, configure=configure)
+
+    def _install_empty_state(self) -> None:
+        """Put the empty state over the video area until something is loaded."""
+        self.empty_state = EmptyState(self)
+        self.empty_state.open_videos_requested.connect(self._open_video)
+        self.empty_state.open_data_requested.connect(self._open_data)
+        self.empty_state.demo_requested.connect(self._launch_demo)
+        grid_layout = self.video_grid.layout()
+        if grid_layout is not None:
+            grid_layout.addWidget(self.empty_state)
+        self._refresh_empty_state()
+
+    def _refresh_empty_state(self) -> None:
+        """Show it only with nothing open, and never over real data."""
+        empty_state = getattr(self, "empty_state", None)
+        if empty_state is None:
+            return
+        nothing_loaded = not self.video_grid.pane_paths() and not self._sensor_cache_dirs
+        empty_state.setVisible(nothing_loaded)
+
+    def _launch_demo(self) -> None:
+        """Generate and open the sample session.
+
+        The generator already exists and is what `avialsync demo` runs; it was
+        simply unreachable from inside the application. It writes files and
+        encodes video, so it goes through the activity bar like any other long
+        job rather than blocking the window (D-091).
+        """
+        from avialsync.demo import DemoLaunch
+
+        try:
+            # DemoLaunch carries its own non-modal progress window with an
+            # activity log, which is more use here than a one-line status bar:
+            # generation encodes four videos and the log says which one.
+            self._demo_launch = DemoLaunch(self)
+            self._demo_launch.start()
+        except Exception as error:  # noqa: BLE001 - reported, not swallowed
+            self.report_failure(error, doing="The demo session could not be generated")
 
     def _install_feedback_surface(self) -> None:
         """Put the activity bar in the status bar and the strip above the transport.
@@ -1530,6 +1573,18 @@ class MainWindow(QMainWindow):
         self._act_shortcuts.triggered.connect(self._show_shortcuts)
         _reg(self._act_shortcuts, "View")
 
+        act = help_menu.addAction("Documentation")
+        act.triggered.connect(lambda: self._open_project_url("Documentation"))
+        act = help_menu.addAction("Report a Problem…")
+        act.triggered.connect(self._report_a_problem)
+        act = help_menu.addAction("Check for Updates")
+        act.setToolTip("The installers are not code-signed and do not update themselves")
+        act.triggered.connect(lambda: self._open_project_url("Changelog"))
+        help_menu.addSeparator()
+
+        act = help_menu.addAction("Cite AvialSync…")
+        act.triggered.connect(self._show_citation)
+
         act = help_menu.addAction("Diagnostics…")
         act.triggered.connect(self._show_diagnostics)
 
@@ -1869,14 +1924,71 @@ class MainWindow(QMainWindow):
 
     # ── About dialog ─────────────────────────────────────────────────
 
+    def _open_project_url(self, label: str) -> None:
+        """Open one of the project's declared URLs in the browser.
+
+        Read from the installed metadata, never hardcoded here: they were
+        repointed during the 0.1.6 cycle and a copy in this file would have
+        gone stale without anything failing.
+        """
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        url = project_urls().get(label)
+        if url:
+            QDesktopServices.openUrl(QUrl(url))
+        else:
+            self.notifications.show_warning(f"No {label} link is declared for this build.")
+
+    def _report_a_problem(self) -> None:
+        """Open the issue tracker with the version details already copied.
+
+        A report without a version costs a round trip, and asking someone to
+        find it themselves is how it gets left out.
+        """
+        from PySide6.QtWidgets import QApplication
+
+        clipboard = QApplication.clipboard()
+        if clipboard is not None:
+            clipboard.setText(version_report())
+            self.notifications.show_success("Version details copied — paste them into the report.")
+        self._open_project_url("Issues")
+
+    def _show_citation(self) -> None:
+        """Show the citation the release process maintains."""
+        box = QMessageBox(self)
+        box.setWindowTitle("Cite AvialSync")
+        box.setText("Citation metadata for this release:")
+        box.setDetailedText(citation_text())
+        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        copy = box.addButton("Copy", QMessageBox.ButtonRole.ActionRole)
+        box.exec()
+        if box.clickedButton() is copy:
+            from PySide6.QtWidgets import QApplication
+
+            clipboard = QApplication.clipboard()
+            if clipboard is not None:
+                clipboard.setText(citation_text())
+
     def _show_about(self) -> None:
-        QMessageBox.about(
-            self,
-            "About AvialSync",
+        """Name the build, so a bug report can carry it."""
+        from PySide6.QtWidgets import QApplication
+
+        box = QMessageBox(self)
+        box.setWindowTitle("About AvialSync")
+        box.setText(
             "AvialSync — The Advanced Video and Instrument Alignment Library.\n"
             "Multi-camera video and time-series inspection.\n"
-            "Free software under the GNU AGPL v3 or later.",
+            "Free software under the GNU AGPL v3 or later."
         )
+        box.setInformativeText(version_report())
+        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        copy = box.addButton("Copy details", QMessageBox.ButtonRole.ActionRole)
+        box.exec()
+        if box.clickedButton() is copy:
+            clipboard = QApplication.clipboard()
+            if clipboard is not None:
+                clipboard.setText(version_report())
 
     # ── Shortcuts dialog ─────────────────────────────────────────────
 
@@ -2054,6 +2166,7 @@ class MainWindow(QMainWindow):
     def _on_video_opened(self, original_path: str, loader: object, media_path: str) -> None:
         video_controller.on_video_opened(self, original_path, loader, media_path)
         self._note_source_loaded(original_path, "video")
+        self._refresh_empty_state()
 
     def _build_next_video_pane(self) -> None:
         video_controller.build_next_video_pane(self)
@@ -2235,6 +2348,7 @@ class MainWindow(QMainWindow):
             entry for entry in self._sync_provenance if entry.target_id != path
         ]
         self.video_grid.remove_pane(path)
+        self._refresh_empty_state()
 
     def _on_sensor_remove_requested(self, path: str) -> None:
         self._record(RemoveSourceCommand(self._source_record(path, "sensor")))
@@ -2401,6 +2515,7 @@ class MainWindow(QMainWindow):
         import_controller.on_import_finished(self, path, cache_dir, channels, bounds, inspection)
         # As with video, on success rather than on request.
         self._note_source_loaded(path, "sensor")
+        self._refresh_empty_state()
 
     # ── Pose sources (overlay + 3D view, never plotted) ────
 
