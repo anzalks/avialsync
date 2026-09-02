@@ -557,6 +557,17 @@ class PlotPane(QWidget):
         """Retain the legacy state flag without creating another navigation model."""
         self.follow_playhead = follow
 
+    def is_channel_visible(self, channel: ChannelKey | str) -> bool:
+        """Whether *channel* is currently shown.
+
+        Needed so a group toggle can record what it is replacing: undoing a
+        half-hidden group has to restore the mixture, not turn everything on.
+        Defaults to True for a channel this pane does not own, which is the
+        state an unknown row would have if it were added.
+        """
+        rows = self._matching(channel)
+        return all(row.visible for row in rows) if rows else True
+
     def set_channel_visible(self, channel: ChannelKey | str, visible: bool) -> None:
         """Show or hide the plot row(s) identified by *channel*."""
         for ch in self._matching(channel):

@@ -70,6 +70,10 @@ class SensorInfoWidget(QFrame):
     remove_requested = Signal(str)  # whole sensor removed
     channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
     channel_visibility_changed = Signal(str, str, bool)  # sensor_path, channel_name, is_visible
+    #: sensor_path, group label, list of channel ids, is_visible. One signal
+    #: for the whole group so the window can record a single undo step rather
+    #: than one per channel.
+    channel_group_visibility_changed = Signal(str, str, list, bool)
     badge_clicked = Signal(str)  # path
     report_requested = Signal(str)  # path
     # Source-to-master mapping, mirroring VideoInfoWidget.offset_changed (P3.5).
@@ -187,6 +191,9 @@ class SensorInfoWidget(QFrame):
 
         self._channel_items: dict[str, QTreeWidgetItem] = {}
         self._group_items: list[QTreeWidgetItem] = []
+        #: Held while a group toggle is being applied, so recomputing a parent
+        #: from its children does not report a second group action.
+        self._applying_group = False
         nodes = {"": self.tree.invisibleRootItem()}
 
         # Prefixes are decided across the whole source: whether "Jaw" is a
@@ -206,6 +213,15 @@ class SensorInfoWidget(QFrame):
                     font.setBold(True)
                     group_item.setFont(0, font)
                     group_item.setExpanded(True)
+                    # Checkable, so forty channels can be hidden in one click.
+                    # Tristate because a partly-hidden group must look partly
+                    # hidden rather than claim to be one or the other.
+                    group_item.setFlags(
+                        group_item.flags()
+                        | Qt.ItemFlag.ItemIsUserCheckable
+                        | Qt.ItemFlag.ItemIsAutoTristate
+                    )
+                    group_item.setCheckState(0, Qt.CheckState.Checked)
                     nodes[path_key] = group_item
                     self._group_items.append(group_item)
                 parent_path = path_key
@@ -220,6 +236,20 @@ class SensorInfoWidget(QFrame):
             self._channel_items[ch] = item
 
         self.tree.itemChanged.connect(self._on_item_changed)
+
+        # ── Show all / Hide all, for the whole source ────────────────
+        bulk_row = QHBoxLayout()
+        show_all_btn = QPushButton("Show all")
+        show_all_btn.setToolTip("Show every channel of this source")
+        show_all_btn.clicked.connect(lambda: self._on_bulk_visibility(True))
+        hide_all_btn = QPushButton("Hide all")
+        hide_all_btn.setToolTip("Hide every channel of this source")
+        hide_all_btn.clicked.connect(lambda: self._on_bulk_visibility(False))
+        bulk_row.addWidget(show_all_btn)
+        bulk_row.addWidget(hide_all_btn)
+        bulk_row.addStretch()
+        if len(channels) > 1:
+            layout.addLayout(bulk_row)
 
         # ── Report button + Properties panel ─────────────────────────
         report_row = QHBoxLayout()
@@ -260,11 +290,70 @@ class SensorInfoWidget(QFrame):
         """How many channels the filter currently shows."""
         return sum(1 for item in self._channel_items.values() if not item.isHidden())
 
+    def _on_bulk_visibility(self, visible: bool) -> None:
+        """Report Show all / Hide all as one action over every shown channel.
+
+        Only what the filter is showing: a Hide all that also hid the channels
+        the user had filtered out would be a surprise with no visible control
+        saying it happened.
+        """
+        channels = [
+            channel for channel, item in self._channel_items.items() if not item.isHidden()
+        ]
+        if channels:
+            self.channel_group_visibility_changed.emit(
+                self.path, Path(self.path).name, channels, visible
+            )
+
+    def _channels_under(self, group: QTreeWidgetItem) -> list[str]:
+        """Every channel id beneath *group*, however deeply nested."""
+        found: list[str] = []
+        stack = [group.child(index) for index in range(group.childCount())]
+        while stack:
+            node = stack.pop()
+            channel = node.toolTip(0)
+            if channel:
+                found.append(channel)
+            stack.extend(node.child(index) for index in range(node.childCount()))
+        return found
+
     def _on_item_changed(self, item: QTreeWidgetItem, column: int) -> None:
-        ch = item.toolTip(0)
-        if ch:
+        channel = item.toolTip(0)
+        if channel:
             is_visible = item.checkState(0) == Qt.CheckState.Checked
-            self.channel_visibility_changed.emit(self.path, ch, is_visible)
+            self.channel_visibility_changed.emit(self.path, channel, is_visible)
+            return
+
+        # A group. Qt's auto-tristate has already propagated the new state down
+        # and emitted itemChanged for each child, so this only reports the group
+        # as one action -- and only when the user drove it, not when a child
+        # change recomputed the parent.
+        if item not in self._group_items or self._applying_group:
+            return
+        state = item.checkState(0)
+        if state == Qt.CheckState.PartiallyChecked:
+            return
+        channels = self._channels_under(item)
+        if channels:
+            self.channel_group_visibility_changed.emit(
+                self.path, item.text(0), channels, state == Qt.CheckState.Checked
+            )
+
+    def set_group_visible(self, group_label: str, visible: bool) -> None:
+        """Set every channel under *group_label* without re-reporting the group.
+
+        Used by undo. The per-channel signals still fire, because the plot rows
+        are what they drive; the group signal does not, because replaying one
+        command must not record another.
+        """
+        self._applying_group = True
+        try:
+            state = Qt.CheckState.Checked if visible else Qt.CheckState.Unchecked
+            for group in self._group_items:
+                if group.text(0) == group_label:
+                    group.setCheckState(0, state)
+        finally:
+            self._applying_group = False
 
     def set_channel_visible(self, channel: str, visible: bool) -> bool:
         """Set a channel checkbox and return whether this source owns it."""
@@ -465,6 +554,7 @@ class SidebarPane(QWidget):
     sensor_report_requested = Signal(str)  # path
     channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
     channel_visibility_changed = Signal(str, str, bool)  # sensor_path, channel_name, is_visible
+    channel_group_visibility_changed = Signal(str, str, list, bool)
     grid_mode_changed = Signal(bool)  # True = NxN grid, False = strip
     reset_session_requested = Signal()
 
@@ -571,6 +661,7 @@ class SidebarPane(QWidget):
         widget.remove_requested.connect(self.sensor_remove_requested)
         widget.channel_remove_requested.connect(self.channel_remove_requested)
         widget.channel_visibility_changed.connect(self.channel_visibility_changed)
+        widget.channel_group_visibility_changed.connect(self.channel_group_visibility_changed)
         widget.badge_clicked.connect(self.sensor_badge_clicked)
         widget.report_requested.connect(self.sensor_report_requested)
         widget.mapping_changed.connect(self.sensor_mapping_changed)

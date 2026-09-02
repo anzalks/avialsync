@@ -27,6 +27,7 @@ __all__ = [
     "RelabelMarkerCommand",
     "SetSourceVisibleCommand",
     "SetChannelVisibleCommand",
+    "SetChannelGroupVisibleCommand",
     "SetOverlayVisibleCommand",
     "AcceptSyncCommand",
     "AddSourceCommand",
@@ -179,6 +180,40 @@ class SetChannelVisibleCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_channel_visible(self.source_id, self.channel, not self.visible)
+
+
+@dataclasses.dataclass
+class SetChannelGroupVisibleCommand:
+    """Show or hide a whole group of channels at once.
+
+    One command rather than one per channel. Hiding a group of forty is a
+    single decision, and an undo history that needed forty presses to reverse
+    one click would be worse than no undo for it.
+
+    ``before`` holds each channel's previous state rather than a single flag,
+    so undoing a mixed group restores the mixture instead of turning
+    everything on.
+    """
+
+    source_id: str
+    group_label: str
+    before: dict[str, bool]
+    visible: bool
+    command_id: str = "channel_group.visible"
+
+    @property
+    def label(self) -> str:
+        count = len(self.before)
+        verb = "Show" if self.visible else "Hide"
+        return f"{verb} {count} channels in {self.group_label}"
+
+    def apply(self, target: MutationTarget) -> None:
+        for channel in self.before:
+            target.set_channel_visible(self.source_id, channel, self.visible)
+
+    def revert(self, target: MutationTarget) -> None:
+        for channel, was_visible in self.before.items():
+            target.set_channel_visible(self.source_id, channel, was_visible)
 
 
 @dataclasses.dataclass

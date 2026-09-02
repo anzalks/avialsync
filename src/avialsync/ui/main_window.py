@@ -42,6 +42,7 @@ from avialsync.core.commands import (
     RemoveMarkerCommand,
     RemoveSourceCommand,
     ResetSessionCommand,
+    SetChannelGroupVisibleCommand,
     SetChannelVisibleCommand,
     SetOverlayVisibleCommand,
     SetSourceMappingCommand,
@@ -388,6 +389,9 @@ class MainWindow(QMainWindow):
         self.sidebar.sensor_mapping_changed.connect(self._on_sensor_mapping_changed)
         self.sidebar.channel_remove_requested.connect(self._on_channel_remove_requested)
         self.sidebar.channel_visibility_changed.connect(self._on_channel_visibility_changed)
+        self.sidebar.channel_group_visibility_changed.connect(
+            self._on_channel_group_visibility_changed
+        )
         self.plot_pane.channel_close_requested.connect(self._on_plot_channel_close_requested)
         self.sidebar.grid_mode_changed.connect(self.video_grid.set_grid_mode)
         self.sidebar.video_badge_clicked.connect(self._show_video_properties)
@@ -2260,6 +2264,30 @@ class MainWindow(QMainWindow):
     def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
         self._record(SetChannelVisibleCommand(source_id=path, channel=channel, visible=is_visible))
         self.plot_pane.set_channel_visible(ChannelKey(path, channel), is_visible)
+
+    def _on_channel_group_visibility_changed(
+        self, path: str, group_label: str, channels: list, visible: bool
+    ) -> None:
+        """Show or hide a whole group of channels as one undoable action.
+
+        One command, not one per channel: hiding a group of forty is a single
+        decision, and an undo history needing forty presses to reverse one
+        click would be worse than no undo for it.
+        """
+        before = {
+            str(channel): self.plot_pane.is_channel_visible(ChannelKey(path, str(channel)))
+            for channel in channels
+        }
+        self._record(
+            SetChannelGroupVisibleCommand(
+                source_id=path,
+                group_label=group_label,
+                before=before,
+                visible=visible,
+            )
+        )
+        for channel in channels:
+            self.plot_pane.set_channel_visible(ChannelKey(path, str(channel)), visible)
 
     def _on_plot_channel_close_requested(self, source_id: str, channel: str) -> None:
         """Route a plot-row close through the owning source's visibility checkbox."""
