@@ -24,6 +24,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.i18n import tr
+
 __all__ = ["CommandPalette", "fuzzy_score"]
 
 
@@ -74,7 +76,7 @@ class CommandPalette(QDialog):
 
     def __init__(self, actions: list[QAction], parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Commands")
+        self.setWindowTitle(tr("Commands"))
         self.setModal(True)
         self.setMinimumWidth(560)
 
@@ -84,15 +86,15 @@ class CommandPalette(QDialog):
 
         layout = QVBoxLayout(self)
         self._search = QLineEdit()
-        self._search.setPlaceholderText("Type a command…")
+        self._search.setPlaceholderText(tr("Type a command…"))
         self._search.setClearButtonEnabled(True)
-        self._search.setAccessibleName("Search commands")
+        self._search.setAccessibleName(tr("Search commands"))
         self._search.textChanged.connect(self._refresh)
         self._search.returnPressed.connect(self._run_selected)
         layout.addWidget(self._search)
 
         self._list = QListWidget()
-        self._list.setAccessibleName("Matching commands")
+        self._list.setAccessibleName(tr("Matching commands"))
         self._list.itemActivated.connect(lambda _item: self._run_selected())
         layout.addWidget(self._list)
 

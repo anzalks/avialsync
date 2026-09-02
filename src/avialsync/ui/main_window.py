@@ -60,6 +60,7 @@ from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.ui.about import citation_text, project_urls, version_report
+from avialsync.ui.accessibility import apply_accessibility
 from avialsync.ui.annotations import AnnotationPanel, AnnotationStore, Marker
 from avialsync.ui.controllers import (
     drop_controller,
@@ -71,6 +72,7 @@ from avialsync.ui.controllers import (
 from avialsync.ui.empty_state import EmptyState
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
+from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import JobManager
 from avialsync.ui.levels_panel import LevelsPanel
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
@@ -440,7 +442,7 @@ class MainWindow(QMainWindow):
         # of workspace height. Messages sit beside annotations because they
         # answer the same question — what happened here — from the rig's side.
         self._left_tabs = QTabWidget(self)
-        self._left_tabs.setAccessibleName("Inspector")
+        self._left_tabs.setAccessibleName(tr("Inspector"))
         self._left_tabs.addTab(self.sidebar, "Sources")
         self._left_tabs.addTab(self.readout_panel, "Values")
         self._left_tabs.addTab(self.message_panel, "Messages")
@@ -461,7 +463,7 @@ class MainWindow(QMainWindow):
         right_layout.setContentsMargins(0, 0, 0, 0)
 
         self._media_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self._media_splitter.setAccessibleName("Video and 3D tracking splitter")
+        self._media_splitter.setAccessibleName(tr("Video and 3D tracking splitter"))
         self._media_splitter.addWidget(self.video_grid)
         self._media_splitter.addWidget(self.tracking_3d_pane)
         self._media_splitter.setStretchFactor(0, 2)
@@ -478,7 +480,7 @@ class MainWindow(QMainWindow):
         self._v_splitter = v_splitter
 
         self._content_splitter = QSplitter(Qt.Orientation.Vertical)
-        self._content_splitter.setAccessibleName("Video, plots, and Data Streams splitter")
+        self._content_splitter.setAccessibleName(tr("Video, plots, and Data Streams splitter"))
         self._content_splitter.addWidget(v_splitter)
         self._content_splitter.addWidget(self.data_streams)
         self._content_splitter.setStretchFactor(0, 4)
@@ -599,6 +601,11 @@ class MainWindow(QMainWindow):
         # last so a stored choice wins, and after the defaults are recorded so
         # Reset has something to restore (WP-3).
         apply_overrides(list(self._all_actions))
+
+        # Name anything interactive that has not named itself. A sweep rather
+        # than ninety manual calls, because the ninety-first widget is the one
+        # that gets added without one (WP-12).
+        apply_accessibility(self)
 
     # ── Background job lifetime ──────────────────────────────────────
 
@@ -1522,7 +1529,7 @@ class MainWindow(QMainWindow):
         self._align_menu = menu.addMenu("Align")
 
         act = self._align_menu.addAction("Synchronize TTL / events…")
-        act.setToolTip("Fit an offset from events both recordings share")
+        act.setToolTip(tr("Fit an offset from events both recordings share"))
         act.triggered.connect(self._open_sync_wizard)
         _reg(act, "Align")
 
@@ -1617,7 +1624,7 @@ class MainWindow(QMainWindow):
         # finding a command is the problem, not typing it (WP-3).
         act = help_menu.addAction("Commands…")
         act.setShortcut(QKeySequence("Ctrl+Shift+P"))
-        act.setToolTip("Search every command by name")
+        act.setToolTip(tr("Search every command by name"))
         act.triggered.connect(self._show_command_palette)
         _reg(act, "View")
 
@@ -1631,7 +1638,7 @@ class MainWindow(QMainWindow):
         act = help_menu.addAction("Report a Problem…")
         act.triggered.connect(self._report_a_problem)
         act = help_menu.addAction("Check for Updates")
-        act.setToolTip("The installers are not code-signed and do not update themselves")
+        act.setToolTip(tr("The installers are not code-signed and do not update themselves"))
         act.triggered.connect(lambda: self._open_project_url("Changelog"))
         help_menu.addSeparator()
 
@@ -2109,8 +2116,8 @@ class MainWindow(QMainWindow):
     def _show_citation(self) -> None:
         """Show the citation the release process maintains."""
         box = QMessageBox(self)
-        box.setWindowTitle("Cite AvialSync")
-        box.setText("Citation metadata for this release:")
+        box.setWindowTitle(tr("Cite AvialSync"))
+        box.setText(tr("Citation metadata for this release:"))
         box.setDetailedText(citation_text())
         box.setStandardButtons(QMessageBox.StandardButton.Ok)
         copy = box.addButton("Copy", QMessageBox.ButtonRole.ActionRole)
@@ -2157,7 +2164,7 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QApplication
 
         box = QMessageBox(self)
-        box.setWindowTitle("About AvialSync")
+        box.setWindowTitle(tr("About AvialSync"))
         box.setText(
             "AvialSync — The Advanced Video and Instrument Alignment Library.\n"
             "Multi-camera video and time-series inspection.\n"
@@ -2215,7 +2222,7 @@ class MainWindow(QMainWindow):
         text = format_diagnostics(diag)
 
         msg = QMessageBox(self)
-        msg.setWindowTitle("Diagnostics")
+        msg.setWindowTitle(tr("Diagnostics"))
         msg.setText(text)
         msg.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         msg.exec()

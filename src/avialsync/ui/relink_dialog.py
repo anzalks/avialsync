@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from avialsync.ui.i18n import tr
+
 
 class RelinkDialog(QDialog):
     """Lets the user relocate missing files referenced by a session.
@@ -29,7 +31,7 @@ class RelinkDialog(QDialog):
         parent=None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Missing Files")
+        self.setWindowTitle(tr("Missing Files"))
         self.setMinimumWidth(600)
         self.setMinimumHeight(300)
 

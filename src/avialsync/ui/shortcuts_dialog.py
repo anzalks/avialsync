@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.i18n import tr
 from avialsync.ui.shortcut_overrides import (
     clear_override,
     conflicting_action,
@@ -52,7 +53,7 @@ class ShortcutsDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Keyboard Shortcuts")
+        self.setWindowTitle(tr("Keyboard Shortcuts"))
         self.setMinimumWidth(560)
 
         layout = QVBoxLayout(self)
@@ -104,7 +105,7 @@ class ShortcutsDialog(QDialog):
 
             key_item = QTableWidgetItem(key)
             key_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            key_item.setToolTip("Double-click to change this shortcut")
+            key_item.setToolTip(tr("Double-click to change this shortcut"))
             key_item.setData(Qt.ItemDataRole.UserRole, act)
             table.setItem(row, 1, key_item)
 

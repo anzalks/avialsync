@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.sync import SyncFit, SyncProposal
 from avialsync.engine.sync_worker import EvidenceSpec, SignalEvidenceSpec, SyncWorker
+from avialsync.ui.i18n import tr
 from avialsync.ui.sync_evidence_view import SyncEvidenceView
 
 
@@ -36,7 +37,7 @@ class SyncWizard(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Synchronize TTL / events")
+        self.setWindowTitle(tr("Synchronize TTL / events"))
         self._references = list(references)
         self._targets = list(targets)
         self._proposal: SyncProposal | None = None
@@ -65,7 +66,7 @@ class SyncWizard(QDialog):
         self._threshold.setRange(-1e12, 1e12)
         self._threshold.setDecimals(6)
         self._threshold.setValue(0.5)
-        self._threshold.setToolTip("Logical high threshold for a signal-channel TTL reference")
+        self._threshold.setToolTip(tr("Logical high threshold for a signal-channel TTL reference"))
         form.addRow("TTL high threshold:", self._threshold)
 
         self._use_all_times_chk = QCheckBox("Use all samples as events (ignore threshold)")
@@ -86,7 +87,7 @@ class SyncWizard(QDialog):
         self._index_offset = QSpinBox(self)
         self._index_offset.setRange(-1000000, 1000000)
         self._index_offset.setValue(0)
-        self._index_offset.setToolTip("Video Frame 0 maps to CSV Index N. Default is 0.")
+        self._index_offset.setToolTip(tr("Video Frame 0 maps to CSV Index N. Default is 0."))
         self._index_offset.setEnabled(False)
         self._strategy_combo.currentIndexChanged.connect(
             lambda: self._index_offset.setEnabled(
@@ -121,7 +122,7 @@ class SyncWizard(QDialog):
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok,
             self,
         )
-        self._buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Accept mapping")
+        self._buttons.button(QDialogButtonBox.StandardButton.Ok).setText(tr("Accept mapping"))
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         self._buttons.accepted.connect(self.accept)
         self._buttons.rejected.connect(self.reject)
@@ -151,7 +152,7 @@ class SyncWizard(QDialog):
         self._proposal = None
         self._preview_button.setEnabled(False)
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
-        self._summary.setText("Extracting event evidence and fitting alignment…")
+        self._summary.setText(tr("Extracting event evidence and fitting alignment…"))
 
         self._thread = QThread(self)
         mode = self._strategy_combo.currentData()
@@ -191,7 +192,7 @@ class SyncWizard(QDialog):
             tolerance=0.0,
             unmatched_references=(),
         )
-        self._summary.setText("Manual mapping selected. Accept it to apply and persist it.")
+        self._summary.setText(tr("Manual mapping selected. Accept it to apply and persist it."))
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
 
     @Slot(object)

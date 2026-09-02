@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.i18n import tr
+
 _COMMON_FORMATS = [
     ("Auto-detect", ""),
     ("ISO 8601 (2024-01-15T10:30:00)", "%Y-%m-%dT%H:%M:%S"),
@@ -238,7 +240,7 @@ class ImportWizard(QDialog):
 
         # Custom format input
         self._custom_fmt = QLineEdit()
-        self._custom_fmt.setPlaceholderText("e.g. %Y-%m-%d %H:%M:%S.%f")
+        self._custom_fmt.setPlaceholderText(tr("e.g. %Y-%m-%d %H:%M:%S.%f"))
         self._custom_fmt.setVisible(False)
         self._fmt_combo.currentIndexChanged.connect(self._on_format_changed)
         self._form.addRow("", self._custom_fmt)
@@ -259,7 +261,7 @@ class ImportWizard(QDialog):
         # Anchor date (for time-only formats)
         anchor_row = QHBoxLayout()
         self._anchor_date = QLineEdit()
-        self._anchor_date.setPlaceholderText("YYYY-MM-DD (for time-only data)")
+        self._anchor_date.setPlaceholderText(tr("YYYY-MM-DD (for time-only data)"))
         self._anchor_chk = QCheckBox("Use anchor date")
         self._anchor_chk.toggled.connect(self._anchor_date.setEnabled)
         self._anchor_date.setEnabled(False)
@@ -273,7 +275,7 @@ class ImportWizard(QDialog):
         for label, val in _SENTINEL_PRESETS:
             self._sentinel_combo.addItem(label, val)
         self._sentinel_custom = QLineEdit()
-        self._sentinel_custom.setPlaceholderText("value to treat as NaN")
+        self._sentinel_custom.setPlaceholderText(tr("value to treat as NaN"))
         self._sentinel_custom.setVisible(False)
         self._sentinel_combo.currentIndexChanged.connect(self._on_sentinel_changed)
         sentinel_row.addWidget(self._sentinel_combo)

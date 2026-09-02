@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.source import TimeSeriesSource, VideoSource
+from avialsync.ui.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class BatchImportDialog(QDialog):
         kinds: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Review Import Candidates")
+        self.setWindowTitle(tr("Review Import Candidates"))
         self.setMinimumSize(600, 400)
 
         #: Row names a session supplied, by path. A recording's streams are all

@@ -25,6 +25,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.i18n import tr
+
 #: Finished jobs kept for reference.
 _MAX_HISTORY = 20
 
@@ -58,7 +60,7 @@ class JobsPanel(QGroupBox):
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self._table.setAccessibleName("Background tasks, running and recently finished")
+        self._table.setAccessibleName(tr("Background tasks, running and recently finished"))
         layout.addWidget(self._table)
 
     # ── updating ─────────────────────────────────────────────────────

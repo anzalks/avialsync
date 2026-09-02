@@ -29,6 +29,7 @@ import pyqtgraph as pg
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from avialsync.core.sync import SyncProposal
+from avialsync.ui.i18n import tr
 from avialsync.ui.theme import status_color
 
 __all__ = ["SyncEvidenceView", "decimate_residuals"]
@@ -96,7 +97,7 @@ class SyncEvidenceView(QWidget):
         self._reading.setWordWrap(True)
         layout.addWidget(self._reading)
 
-        self.setAccessibleName("Alignment evidence")
+        self.setAccessibleName(tr("Alignment evidence"))
 
     # ── showing a proposal ───────────────────────────────────────────
 
@@ -104,7 +105,7 @@ class SyncEvidenceView(QWidget):
         """Draw the evidence behind *proposal*, or clear."""
         self._plot.clear()
         if proposal is None:
-            self._headline.setText("No alignment has been proposed.")
+            self._headline.setText(tr("No alignment has been proposed."))
             self._reading.setText("")
             return
 

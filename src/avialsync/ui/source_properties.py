@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import VideoMetadata
+from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
     pass
@@ -72,7 +73,7 @@ class _PropertiesBase(QGroupBox):
 
         self._copy_btn = QPushButton("Copy")
         self._copy_btn.setFixedWidth(44)
-        self._copy_btn.setToolTip("Copy properties as plain text")
+        self._copy_btn.setToolTip(tr("Copy properties as plain text"))
         self._copy_btn.clicked.connect(
             lambda: QApplication.clipboard().setText(self.as_plain_text())
         )

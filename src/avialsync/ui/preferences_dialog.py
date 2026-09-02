@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.settings_schema import SETTINGS, Setting, settings_by_group
+from avialsync.ui.i18n import tr
 
 __all__ = ["PreferencesDialog", "read_setting", "write_setting", "settings_report"]
 
@@ -88,7 +89,7 @@ class PreferencesDialog(QDialog):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Preferences")
+        self.setWindowTitle(tr("Preferences"))
         self.setMinimumWidth(520)
         self._editors: dict[str, QWidget] = {}
 

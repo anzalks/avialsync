@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
+from avialsync.ui.i18n import tr
 
 #: Slider resolution. Independent of the source's bit depth on purpose: the
 #: control is normalised, and a 65536-step slider would be unusable anyway.
@@ -55,12 +56,12 @@ class LevelsPanel(QGroupBox):
         self._gamma.setValue(_STEPS // 2)
 
         self._auto = QPushButton("Auto")
-        self._auto.setToolTip("Choose black and white from what this frame contains")
+        self._auto.setToolTip(tr("Choose black and white from what this frame contains"))
         self._auto.clicked.connect(self.auto_requested)
         layout.addWidget(self._auto, 3, 1)
 
         self._reset = QPushButton("Full range")
-        self._reset.setToolTip("Show the whole recorded range")
+        self._reset.setToolTip(tr("Show the whole recorded range"))
         self._reset.clicked.connect(self.reset)
         layout.addWidget(self._reset, 3, 2)
 

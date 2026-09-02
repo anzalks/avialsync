@@ -25,6 +25,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.i18n import tr
+
 #: Nobody can read a changing percentage faster than this, and every extra
 #: repaint is UI-thread time the worker's own progress signals compete for.
 _MAX_UPDATE_HZ = 20.0
@@ -76,13 +78,13 @@ class ActivityBar(QWidget):
         self._bar.setRange(0, 100)
         self._bar.setTextVisible(False)
         self._bar.setFixedWidth(140)
-        self._bar.setAccessibleName("Background task progress")
+        self._bar.setAccessibleName(tr("Background task progress"))
 
         self._eta = QLabel("")
-        self._eta.setAccessibleName("Estimated time remaining")
+        self._eta.setAccessibleName(tr("Estimated time remaining"))
 
         self._cancel = QPushButton("Cancel")
-        self._cancel.setAccessibleName("Cancel the running background task")
+        self._cancel.setAccessibleName(tr("Cancel the running background task"))
         self._cancel.clicked.connect(self.cancel_requested)
 
         layout.addWidget(self._label)

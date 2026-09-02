@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.i18n import tr
 from avialsync.ui.theme import (
     evidence_color,
     follow_palette,
@@ -126,10 +127,10 @@ class TimelineOverview(QWidget):
         self.setMaximumHeight(180)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMouseTracking(True)
-        self.setToolTip("Data Streams. Click to seek.")
-        self.setAccessibleName("Data Streams lanes")
+        self.setToolTip(tr("Data Streams. Click to seek."))
+        self.setAccessibleName(tr("Data Streams lanes"))
         self.setAccessibleDescription(
-            "Named data, synchronization, gap, and annotation evidence on the master timeline."
+            tr("Named data, synchronization, gap, and annotation evidence on the master timeline.")
         )
         self._bounds = (0.0, 0.0)
         self._cursor = 0.0
@@ -578,35 +579,35 @@ class TimelineEvidence(QWidget):
         header.setContentsMargins(2, 0, 2, 0)
         header.setSpacing(6)
         self.title = QLabel("Data Streams", self)
-        self.title.setAccessibleName("Data Streams title")
+        self.title.setAccessibleName(tr("Data Streams title"))
         header.addWidget(self.title)
         self.collapse_button = QPushButton("Hide", self)
-        self.collapse_button.setAccessibleName("Hide Data Streams")
-        self.collapse_button.setToolTip("Hide or show the Data Streams lanes")
+        self.collapse_button.setAccessibleName(tr("Hide Data Streams"))
+        self.collapse_button.setToolTip(tr("Hide or show the Data Streams lanes"))
         self.collapse_button.clicked.connect(self.toggle_collapsed)
         header.addWidget(self.collapse_button)
         self.flag_button = QPushButton("Flag Frame", self)
-        self.flag_button.setToolTip("Flag the current frame (M)")
+        self.flag_button.setToolTip(tr("Flag the current frame (M)"))
         self.flag_button.clicked.connect(self.flag_requested.emit)
         header.addWidget(self.flag_button)
         header.addStretch(1)
         self.snapshot_button = QPushButton("Snapshot", self)
-        self.snapshot_button.setToolTip("Export snapshot (Ctrl+E)")
+        self.snapshot_button.setToolTip(tr("Export snapshot (Ctrl+E)"))
         self.snapshot_button.clicked.connect(self.snapshot_requested.emit)
         header.addWidget(self.snapshot_button)
         self.fullscreen_button = QPushButton("Fullscreen Toggle", self)
-        self.fullscreen_button.setToolTip("Toggle the active video pane fullscreen (F11)")
+        self.fullscreen_button.setToolTip(tr("Toggle the active video pane fullscreen (F11)"))
         self.fullscreen_button.clicked.connect(self.fullscreen_requested.emit)
         header.addWidget(self.fullscreen_button)
         self.reset_zoom_button = QPushButton("Reset Zoom", self)
-        self.reset_zoom_button.setToolTip("Reset plot zoom to all loaded data (Ctrl+0)")
+        self.reset_zoom_button.setToolTip(tr("Reset plot zoom to all loaded data (Ctrl+0)"))
         self.reset_zoom_button.clicked.connect(self.reset_zoom_requested.emit)
         header.addWidget(self.reset_zoom_button)
         self._status_label = QLabel(self)
-        self._status_label.setAccessibleName("Application status")
+        self._status_label.setAccessibleName(tr("Application status"))
         self._status_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self._status_label.setToolTip("Non-blocking application status")
+        self._status_label.setToolTip(tr("Non-blocking application status"))
         self._status_label.hide()
         # The severity is state, so the builder reads it rather than closing over
         # one value: a theme switch must re-colour whatever severity is showing
@@ -755,7 +756,7 @@ class Transport(QWidget):
         self._time_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
         set_font_family(self._time_edit, mono_font)
         self._time_edit.setToolTip(
-            "Current time — click to edit.\nFormats: HH:MM:SS.fff, MM:SS, or seconds."
+            tr("Current time — click to edit.\nFormats: HH:MM:SS.fff, MM:SS, or seconds.")
         )
         self._time_edit.returnPressed.connect(self._on_jump)
         self._time_edit.editingFinished.connect(self._on_editing_done)
@@ -765,7 +766,7 @@ class Transport(QWidget):
 
         self.slider = JumpSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 10000)
-        self.slider.setToolTip("Master timeline — drag to scrub; release for an exact seek")
+        self.slider.setToolTip(tr("Master timeline — drag to scrub; release for an exact seek"))
         self.slider.sliderPressed.connect(self._on_slider_pressed)
         self.slider.sliderMoved.connect(self._on_slider_moved)
         self.slider.sliderReleased.connect(self._on_slider_released)
@@ -775,56 +776,56 @@ class Transport(QWidget):
         self._end_time_label.setMinimumWidth(110)
         self._end_time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         set_font_family(self._end_time_label, mono_font)
-        self._end_time_label.setToolTip("End of the loaded master timeline")
+        self._end_time_label.setToolTip(tr("End of the loaded master timeline"))
         self._timeline_layout.addWidget(self._end_time_label)
 
         # ── Jump back 1 s ─────────────────────────────────────────────
         self._jump_back_btn = QPushButton("–1s")
         self._jump_back_btn.setFixedWidth(36)
-        self._jump_back_btn.setToolTip("Jump back 1 second (J or Shift+←)")
+        self._jump_back_btn.setToolTip(tr("Jump back 1 second (J or Shift+←)"))
         self._jump_back_btn.clicked.connect(lambda: self.jump_requested.emit(-1.0))
 
         # ── Frame step back ───────────────────────────────────────────
         self._step_back_btn = QPushButton("◀")
         self._step_back_btn.setFixedWidth(28)
-        self._step_back_btn.setToolTip("Step back 1 frame (← or ,)")
+        self._step_back_btn.setToolTip(tr("Step back 1 frame (← or ,)"))
         self._step_back_btn.clicked.connect(lambda: self.frame_step_requested.emit(-1))
 
         # ── Play / Pause ──────────────────────────────────────────────
         self.play_btn = QPushButton("Play")
         self.play_btn.setFixedWidth(58)
         self.play_btn.setCheckable(True)
-        self.play_btn.setToolTip("Play / Pause (Space)")
+        self.play_btn.setToolTip(tr("Play / Pause (Space)"))
         self.play_btn.clicked.connect(self._on_play_clicked)
 
         # ── Frame step forward ────────────────────────────────────────
         self._step_fwd_btn = QPushButton("▶")
         self._step_fwd_btn.setFixedWidth(28)
-        self._step_fwd_btn.setToolTip("Step forward 1 frame (→ or .)")
+        self._step_fwd_btn.setToolTip(tr("Step forward 1 frame (→ or .)"))
         self._step_fwd_btn.clicked.connect(lambda: self.frame_step_requested.emit(1))
 
         # ── Jump forward 1 s ──────────────────────────────────────────
         self._jump_fwd_btn = QPushButton("+1s")
         self._jump_fwd_btn.setFixedWidth(36)
-        self._jump_fwd_btn.setToolTip("Jump forward 1 second (Shift+→)")
+        self._jump_fwd_btn.setToolTip(tr("Jump forward 1 second (Shift+→)"))
         self._jump_fwd_btn.clicked.connect(lambda: self.jump_requested.emit(1.0))
 
         # ── A/B loop buttons (checkable — D-022.5) ────────────────────
         self._ab_in_btn = QPushButton("[")
         self._ab_in_btn.setFixedWidth(28)
         self._ab_in_btn.setCheckable(True)
-        self._ab_in_btn.setToolTip("Set loop in-point here ([ or I)")
+        self._ab_in_btn.setToolTip(tr("Set loop in-point here ([ or I)"))
         self._ab_in_btn.clicked.connect(self._on_ab_in_clicked)
 
         self._ab_out_btn = QPushButton("]")
         self._ab_out_btn.setFixedWidth(28)
         self._ab_out_btn.setCheckable(True)
-        self._ab_out_btn.setToolTip("Set loop out-point here (] or O)")
+        self._ab_out_btn.setToolTip(tr("Set loop out-point here (] or O)"))
         self._ab_out_btn.clicked.connect(self._on_ab_out_clicked)
 
         self._ab_clear_btn = QPushButton("✕")
         self._ab_clear_btn.setFixedWidth(24)
-        self._ab_clear_btn.setToolTip("Clear A/B loop")
+        self._ab_clear_btn.setToolTip(tr("Clear A/B loop"))
         self._ab_clear_btn.clicked.connect(self._on_ab_clear)
 
         # ── Rate combo (0.01× – 10×) ──────────────────────────────────
@@ -833,10 +834,10 @@ class Transport(QWidget):
             label = f"{r}x" if r >= 0.1 else f"{r:.2f}x"
             self.rate_combo.addItem(label, r)
         self.rate_combo.setCurrentText("1.0x")
-        self.rate_combo.setToolTip("Playback rate (L = step up, K = pause)")
+        self.rate_combo.setToolTip(tr("Playback rate (L = step up, K = pause)"))
         self.rate_combo.currentIndexChanged.connect(self._on_rate_changed)
         self._speed_label = QLabel("Speed", self)
-        self._speed_label.setToolTip("Playback speed selector")
+        self._speed_label.setToolTip(tr("Playback speed selector"))
 
         playhead_buttons = (
             self._jump_back_btn,

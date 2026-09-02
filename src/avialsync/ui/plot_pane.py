@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.annotations import AnnotationStore
+from avialsync.ui.i18n import tr
 from avialsync.ui.plot_header import PlotHeader
 from avialsync.ui.plot_interactions import PlotInteractionController
 from avialsync.ui.plot_row import (
@@ -137,7 +138,7 @@ class PlotPane(QWidget):
         self._plot_scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._plot_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._plot_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self._plot_scroll.setAccessibleName("Channel plot stack")
+        self._plot_scroll.setAccessibleName(tr("Channel plot stack"))
         self._plot_scroll.setWidget(self.graphics_layout)
         _layout.addWidget(self._plot_scroll)
 

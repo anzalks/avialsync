@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skeleton
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.i18n import tr
 from avialsync.ui.tracking_colors import color_for_point, register_points
 from avialsync.ui.tracking_skeleton import (
     BoneMode,
@@ -217,7 +218,7 @@ class Tracking3DCanvas(QWidget):
         self.setMinimumHeight(140)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setAccessibleName("Interactive 3D tracking plot")
+        self.setAccessibleName(tr("Interactive 3D tracking plot"))
         self.setMouseTracking(True)
 
         self._sources: tuple[_SourceSamples, ...] = ()
@@ -683,7 +684,7 @@ class Tracking3DPane(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("tracking_3d_pane")
-        self.setAccessibleName("3D Tracking pane")
+        self.setAccessibleName(tr("3D Tracking pane"))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -699,7 +700,7 @@ class Tracking3DPane(QWidget):
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.status_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.up_axis_combo = QComboBox(header)
-        self.up_axis_combo.setAccessibleName("Vertical axis")
+        self.up_axis_combo.setAccessibleName(tr("Vertical axis"))
         self.up_axis_combo.setToolTip(
             "Which source axis points up. Detected from head/foot landmarks on load; "
             "choose one here to override it."
@@ -715,7 +716,7 @@ class Tracking3DPane(QWidget):
             self.up_axis_combo.addItem(label, (axis, inverted))
         self.up_axis_combo.activated.connect(self._on_up_axis_selected)
         self.bone_combo = QComboBox(header)
-        self.bone_combo.setAccessibleName("Skeleton")
+        self.bone_combo.setAccessibleName(tr("Skeleton"))
         self.bone_combo.setToolTip(
             "Which skeleton to draw. Auto uses the one the session declared and "
             "falls back to bones detected from how rigidly the points hold "
@@ -729,7 +730,7 @@ class Tracking3DPane(QWidget):
             self.bone_combo.addItem(label, mode)
         self.bone_combo.activated.connect(self._on_bone_mode_selected)
         self.fit_button = QPushButton("Fit View", header)
-        self.fit_button.setToolTip("Fit the 3D camera to the current tracked pose")
+        self.fit_button.setToolTip(tr("Fit the 3D camera to the current tracked pose"))
         self.fit_button.clicked.connect(self._fit_view)
         header_layout.addWidget(self.title_label, 0, 0, 1, 3)
         header_layout.addWidget(self.status_label, 1, 0, 1, 3)
@@ -761,7 +762,7 @@ class Tracking3DPane(QWidget):
         """
         count = self.canvas.point_count
         if not count:
-            self.status_label.setText("No XYZ tracking channels")
+            self.status_label.setText(tr("No XYZ tracking channels"))
             return
         suffix = "" if count == 1 else "s"
         text = f"{count} tracked point{suffix}"

@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
+from avialsync.ui.i18n import tr
 from avialsync.ui.theme import follow_palette, status_color
 
 #: How long a success stays up. Long enough to read six words, short enough not
@@ -39,12 +40,12 @@ class NotificationStrip(QWidget):
         self._label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
         self._details_button = QPushButton("Show details")
-        self._details_button.setAccessibleName("Show the full error text")
+        self._details_button.setAccessibleName(tr("Show the full error text"))
         self._details_button.clicked.connect(self._emit_details)
         self._details_button.setVisible(False)
 
         self._dismiss = QPushButton("Dismiss")
-        self._dismiss.setAccessibleName("Dismiss this message")
+        self._dismiss.setAccessibleName(tr("Dismiss this message"))
         self._dismiss.clicked.connect(self.clear)
 
         layout.addWidget(self._label)

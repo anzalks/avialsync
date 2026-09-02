@@ -46,12 +46,18 @@ def main() -> None:
     from PySide6.QtWidgets import QApplication
 
     from avialsync.demo import DEMO_CHANNEL_COUNT, DEMO_VIDEO_COUNT, DemoLaunch
+    from avialsync.ui.i18n import install_translator
     from avialsync.ui.main_window import MainWindow
     from avialsync.ui.theme import load_saved_font_size, load_saved_theme
 
     app = QApplication(sys.argv)
     app_icon = QIcon(str(files("avialsync.resources").joinpath("avialsync.png")))
     app.setWindowIcon(app_icon)
+
+    # Before any widget is built: a translator installed afterwards does not
+    # retranslate text already set. Silent when no catalogue matches the
+    # locale, which is the common case and not an error (WP-12).
+    install_translator(app)
 
     # Qt sets LC_NUMERIC from the user's locale, so "1.5" parses as 1 in a
     # decimal-comma locale. This existed for libmpv, whose option parser was

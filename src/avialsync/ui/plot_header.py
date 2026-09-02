@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QPushButton, QWidget
 
+from avialsync.ui.i18n import tr
 from avialsync.ui.plot_sweep import PlotPresentation
 
 
@@ -26,17 +27,17 @@ class PlotHeader(QWidget):
 
         self.presentation_combo = QComboBox(self)
         self.presentation_combo.addItem("Scope", PlotPresentation.SCOPE)
-        self.presentation_combo.setAccessibleName("Live plot presentation")
-        self.presentation_combo.setToolTip("Live plots clear and restart at each page")
+        self.presentation_combo.setAccessibleName(tr("Live plot presentation"))
+        self.presentation_combo.setToolTip(tr("Live plots clear and restart at each page"))
         self.presentation_combo.currentIndexChanged.connect(self._emit_presentation)
         layout.addWidget(self.presentation_combo)
 
         self.page_label = QLabel("", self)
-        self.page_label.setAccessibleName("Visible plot page")
+        self.page_label.setAccessibleName(tr("Visible plot page"))
         layout.addWidget(self.page_label, 1)
 
         self.fit_all_button = QPushButton("Fit all", self)
-        self.fit_all_button.setToolTip("Fit and freeze the visible Y range for every channel")
+        self.fit_all_button.setToolTip(tr("Fit and freeze the visible Y range for every channel"))
         self.fit_all_button.clicked.connect(self.fit_all_requested.emit)
         layout.addWidget(self.fit_all_button)
 
@@ -46,12 +47,14 @@ class PlotHeader(QWidget):
         self.row_height_combo.addItem("Comfortable", 110)
         self.row_height_combo.addItem("Large", 160)
         self.row_height_combo.setCurrentIndex(1)
-        self.row_height_combo.setToolTip("Shared visible channel row height")
+        self.row_height_combo.setToolTip(tr("Shared visible channel row height"))
         self.row_height_combo.currentIndexChanged.connect(self._emit_row_height)
         layout.addWidget(self.row_height_combo)
 
         self.reset_button = QPushButton("Reset", self)
-        self.reset_button.setToolTip("Reset shared time span and fit every visible plot (Ctrl+0)")
+        self.reset_button.setToolTip(
+            tr("Reset shared time span and fit every visible plot (Ctrl+0)")
+        )
         self.reset_button.clicked.connect(self.reset_requested.emit)
         layout.addWidget(self.reset_button)
 

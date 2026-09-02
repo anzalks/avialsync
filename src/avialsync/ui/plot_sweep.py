@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.i18n import tr
+
 
 class PlotPresentation(StrEnum):
     """The plot presentation selected from one authoritative master clock."""
@@ -113,8 +115,8 @@ class SweepWindowControl(QWidget):
         self.limit_spin.setRange(0.001, 999_999.0)
         self.limit_spin.setSingleStep(1.0)
         self.limit_spin.setKeyboardTracking(False)
-        self.limit_spin.setAccessibleName("Shared plot time span")
-        self.limit_spin.setToolTip("Time span shared by every visible plot")
+        self.limit_spin.setAccessibleName(tr("Shared plot time span"))
+        self.limit_spin.setToolTip(tr("Time span shared by every visible plot"))
         self.limit_spin.setValue(self._DEFAULT_WINDOW_SECONDS)
         self.limit_spin.valueChanged.connect(self._on_limit_value_changed)
         self.limit_spin.editingFinished.connect(self._release_editor_focus)
@@ -124,9 +126,9 @@ class SweepWindowControl(QWidget):
         for label, seconds in self._UNITS:
             self.unit_combo.addItem(label, seconds)
         self.unit_combo.setCurrentText("s")
-        self.unit_combo.setAccessibleName("Shared plot time span unit")
+        self.unit_combo.setAccessibleName(tr("Shared plot time span unit"))
         self.unit_combo.setToolTip(
-            "Choose the adjustment unit without changing the current duration"
+            tr("Choose the adjustment unit without changing the current duration")
         )
         self.unit_combo.currentIndexChanged.connect(self._on_unit_changed)
         self.unit_combo.activated.connect(self._release_editor_focus)
@@ -134,8 +136,8 @@ class SweepWindowControl(QWidget):
 
         self.slider = QSlider(Qt.Orientation.Horizontal, self)
         self.slider.setRange(1, self._SLIDER_STEPS)
-        self.slider.setAccessibleName("Shared plot window slider")
-        self.slider.setToolTip("Continuously adjust the time span shared by every visible plot")
+        self.slider.setAccessibleName(tr("Shared plot window slider"))
+        self.slider.setToolTip(tr("Continuously adjust the time span shared by every visible plot"))
         self.slider.sliderPressed.connect(self._on_slider_pressed)
         self.slider.sliderReleased.connect(self._on_slider_released)
         self.slider.valueChanged.connect(self._on_slider_changed)

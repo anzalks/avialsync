@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.channel_reader import ChannelKey, MappedChannelReader, disambiguate
+from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_font_family
 
 
@@ -55,7 +56,7 @@ class _ChannelReadout(QWidget):
 
     def set_value(self, v: float | None, sample_idx: int | None = None) -> None:
         if v is None or np.isnan(v):
-            self._val_lbl.setText("—")
+            self._val_lbl.setText(tr("—"))
         else:
             unit_str = f" {self._unit}" if self._unit else ""
             self._val_lbl.setText(f"{v:.4g}{unit_str}")
@@ -83,7 +84,7 @@ class _StatsRow(QWidget):
 
     def set_stats(self, stats: dict | None) -> None:
         if not stats or "min" not in stats:
-            self._stats_lbl.setText("—")
+            self._stats_lbl.setText(tr("—"))
             return
         self._stats_lbl.setText(
             f"min={stats['min']:.4g}  max={stats['max']:.4g}  "
@@ -143,7 +144,7 @@ class _DeltaRow(QWidget):
 
     def set_delta(self, dv: float | None) -> None:
         if dv is None or np.isnan(dv):
-            self._val_lbl.setText("—")
+            self._val_lbl.setText(tr("—"))
         else:
             unit_str = f" {self._unit}" if self._unit else ""
             self._val_lbl.setText(f"{dv:+.4g}{unit_str}")

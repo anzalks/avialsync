@@ -15,6 +15,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
+from avialsync.ui.i18n import tr
 from avialsync.ui.theme import follow_palette
 
 
@@ -57,8 +58,10 @@ class EmptyState(QWidget):
 
         demo = QPushButton("Try the demo session")
         demo.setToolTip(
-            "Generate and open a complete sample session: four cameras, sensor "
-            "and ephys traces, and tracking, all on one clock."
+            tr(
+                "Generate and open a complete sample session: four cameras, "
+                "sensor and ephys traces, and tracking, all on one clock."
+            )
         )
         demo.clicked.connect(self.demo_requested)
 
@@ -69,4 +72,4 @@ class EmptyState(QWidget):
             button.setMinimumWidth(240)
             layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        self.setAccessibleName("No recordings are open")
+        self.setAccessibleName(tr("No recordings are open"))

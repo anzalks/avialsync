@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.messages import Message
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.i18n import tr
 from avialsync.ui.time_format import TimeDisplayMode, format_time
 
 
@@ -160,9 +161,9 @@ class MessagePanel(QGroupBox):
         layout.setContentsMargins(4, 4, 4, 4)
 
         self._search = QLineEdit(self)
-        self._search.setPlaceholderText("Filter messages…")
+        self._search.setPlaceholderText(tr("Filter messages…"))
         self._search.setClearButtonEnabled(True)
-        self._search.setAccessibleName("Filter recorded messages")
+        self._search.setAccessibleName(tr("Filter recorded messages"))
         self._search.textChanged.connect(self._on_filter_changed)
         layout.addWidget(self._search)
 
@@ -172,7 +173,7 @@ class MessagePanel(QGroupBox):
         self._notes = QLabel(self)
         self._notes.setWordWrap(True)
         self._notes.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-        self._notes.setAccessibleName("Untimed source notes")
+        self._notes.setAccessibleName(tr("Untimed source notes"))
         self._notes.setVisible(False)
         layout.addWidget(self._notes)
 
@@ -184,7 +185,7 @@ class MessagePanel(QGroupBox):
         header.setSectionResizeMode(self._TEXT_COLUMN, QHeaderView.ResizeMode.Stretch)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._table.setAccessibleName("Recorded messages")
+        self._table.setAccessibleName(tr("Recorded messages"))
         self._table.itemSelectionChanged.connect(self._on_row_activated)
         layout.addWidget(self._table)
 

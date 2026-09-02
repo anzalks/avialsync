@@ -60,6 +60,7 @@ from avialsync.engine.display_pipeline import (
     to_display_array,
 )
 from avialsync.engine.pyav_reader import PyAVReader
+from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_font_family
 from avialsync.ui.video_overlay import PaintCanvas
 from avialsync.ui.video_timing import VideoTimingMixin, displayed_frame_rate, format_video_osd
@@ -904,20 +905,20 @@ class VideoPane(VideoTimingMixin, QWidget):
         zoom_layout.setSpacing(0)
 
         self.zoom_in_button = QPushButton(self.zoom_controls)
-        self.zoom_in_button.setText("+")
-        self.zoom_in_button.setToolTip("Zoom in")
+        self.zoom_in_button.setText(tr("+"))
+        self.zoom_in_button.setToolTip(tr("Zoom in"))
         self.zoom_in_button.clicked.connect(lambda: self.surface.zoom_by(1.25))
 
         self.zoom_out_button = QPushButton(self.zoom_controls)
-        self.zoom_out_button.setText("-")
-        self.zoom_out_button.setToolTip("Zoom out")
+        self.zoom_out_button.setText(tr("-"))
+        self.zoom_out_button.setToolTip(tr("Zoom out"))
         self.zoom_out_button.clicked.connect(lambda: self.surface.zoom_by(1.0 / 1.25))
 
         self.reset_zoom_button = QPushButton(self.zoom_controls)
         self.reset_zoom_button.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
         )
-        self.reset_zoom_button.setToolTip("Reset zoom")
+        self.reset_zoom_button.setToolTip(tr("Reset zoom"))
         self.reset_zoom_button.clicked.connect(self.surface.reset_view)
 
         for button in (self.zoom_in_button, self.zoom_out_button, self.reset_zoom_button):

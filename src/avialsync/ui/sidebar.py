@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.inspection import SourceInspection
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
+from avialsync.ui.i18n import tr
 from avialsync.ui.source_properties import VideoPropertiesPanel
 from avialsync.ui.theme import follow_palette, status_color
 
@@ -107,7 +108,7 @@ class SensorInfoWidget(QFrame):
 
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(20, 20)
-        close_btn.setToolTip("Remove entire sensor source")
+        close_btn.setToolTip(tr("Remove entire sensor source"))
         close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
 
         header.addWidget(name_lbl, stretch=1)
@@ -138,7 +139,7 @@ class SensorInfoWidget(QFrame):
         self.offset_spin.setSuffix(" s")
         self.offset_spin.setAccessibleName(f"Time offset for {Path(path).name}")
         self.offset_spin.setToolTip(
-            "Shift this source against the master clock. Cached samples are never rewritten."
+            tr("Shift this source against the master clock. Cached samples are never rewritten.")
         )
         self.offset_spin.valueChanged.connect(self._on_mapping_changed)
         sync_layout.addWidget(self.offset_spin, stretch=1)
@@ -150,7 +151,9 @@ class SensorInfoWidget(QFrame):
         self.drift_spin.setSingleStep(10.0)
         self.drift_spin.setSuffix(" ppm")
         self.drift_spin.setAccessibleName(f"Clock drift for {Path(path).name}")
-        self.drift_spin.setToolTip("Rate difference between this source's clock and master time.")
+        self.drift_spin.setToolTip(
+            tr("Rate difference between this source's clock and master time.")
+        )
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_layout.addWidget(self.drift_spin, stretch=1)
         layout.addLayout(sync_layout)
@@ -180,7 +183,7 @@ class SensorInfoWidget(QFrame):
         # Filter, above the tree. A seventy-channel source is a scrolling
         # column otherwise, and the spec targets 128 (WP-11).
         self._filter = QLineEdit()
-        self._filter.setPlaceholderText("Filter channels…")
+        self._filter.setPlaceholderText(tr("Filter channels…"))
         self._filter.setClearButtonEnabled(True)
         self._filter.setAccessibleName(f"Filter the channels of {Path(path).name}")
         self._filter.textChanged.connect(self._apply_filter)
@@ -244,10 +247,10 @@ class SensorInfoWidget(QFrame):
         # ── Show all / Hide all, for the whole source ────────────────
         bulk_row = QHBoxLayout()
         show_all_btn = QPushButton("Show all")
-        show_all_btn.setToolTip("Show every channel of this source")
+        show_all_btn.setToolTip(tr("Show every channel of this source"))
         show_all_btn.clicked.connect(lambda: self._on_bulk_visibility(True))
         hide_all_btn = QPushButton("Hide all")
-        hide_all_btn.setToolTip("Hide every channel of this source")
+        hide_all_btn.setToolTip(tr("Hide every channel of this source"))
         hide_all_btn.clicked.connect(lambda: self._on_bulk_visibility(False))
         bulk_row.addWidget(show_all_btn)
         bulk_row.addWidget(hide_all_btn)
@@ -428,7 +431,7 @@ class VideoInfoWidget(QFrame):
 
         self.visibility_cb = QCheckBox()
         self.visibility_cb.setChecked(True)
-        self.visibility_cb.setToolTip("Show/Hide video pane")
+        self.visibility_cb.setToolTip(tr("Show/Hide video pane"))
         self.visibility_cb.toggled.connect(
             lambda checked: self.visibility_changed.emit(self.path, checked)
         )
@@ -588,7 +591,7 @@ class SidebarPane(QWidget):
         self.btn_open_video = QPushButton("Open Videos")
         self.btn_open_sensor = QPushButton("Open Sensor/Ephys Data")
         self.btn_reset_session = QPushButton("Reset Session")
-        self.btn_reset_session.setToolTip("Close all loaded sources and start a fresh session")
+        self.btn_reset_session.setToolTip(tr("Close all loaded sources and start a fresh session"))
         self.btn_open_video.clicked.connect(self.open_video_requested)
         self.btn_open_sensor.clicked.connect(self.open_sensor_requested)
         self.btn_reset_session.clicked.connect(self.reset_session_requested)
@@ -605,7 +608,7 @@ class SidebarPane(QWidget):
         videos_title = QLabel("Videos")
         videos_title.setStyleSheet("font-weight: bold;")
         self._grid_chk = QCheckBox("⊞ Grid")
-        self._grid_chk.setToolTip("Arrange videos in an NxN grid instead of a horizontal strip")
+        self._grid_chk.setToolTip(tr("Arrange videos in an NxN grid instead of a horizontal strip"))
         self._grid_chk.toggled.connect(self.grid_mode_changed)
         videos_top.addWidget(videos_title)
         videos_top.addStretch()

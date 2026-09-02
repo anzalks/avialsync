@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QGraphicsProxyWidget, QToolButton
 from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.i18n import tr
 from avialsync.ui.plot_sweep import SweepCurveItem
 
 CHANNEL_COLORS = [(72, 169, 232), (87, 194, 143), (218, 160, 84), (174, 132, 222)]
@@ -209,7 +210,7 @@ def create_channel_plot(
     """
     reader = MappedChannelReader(PyramidReader(cache_dir, channel_name), time_map, source_id)
     close_button = QToolButton()
-    close_button.setText("×")
+    close_button.setText(tr("×"))
     close_button.setAutoRaise(True)
     close_button.setFixedSize(18, 18)
     close_button.setAccessibleName(f"Hide plot {channel_name}")
