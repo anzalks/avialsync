@@ -13,9 +13,21 @@
 > **WP-5 landed**: the activity bar, notification strip, and Tasks panel; the
 > modal `QProgressDialog` is gone from `src/` (D-091).
 > **WP-6 landed**: the typed error presenter and the data-quality findings.
-> **WP-11 landed in part**: the channel filter and adaptive prefix grouping. Dock
-> widgets and named workspaces remain, and wait on WP-7's settings registry.
-> **Remaining: WP-3, WP-7, WP-8, WP-9, WP-10, WP-11 (docks), WP-12.**
+> **WP-7 landed**: the settings schema and a generated Preferences dialog.
+> **WP-8 landed**: the empty state, Help destinations, and a reportable About.
+> **WP-9 landed**: display levels driven by the depth the file declares (D-093
+> amended with the measurement, which contradicted its prediction).
+> **WP-11 landed in part**: the channel filter, adaptive prefix grouping, and
+> grouped visibility. Dock widgets and named workspaces remain.
+> **WP-12 landed in part**: the colour-vision-safe palette (D-094 amended; the
+> mechanism it originally stated was wrong). i18n and the accessibility sweep
+> remain.
+> **WP-3 landed in part**: the command palette. Remappable shortcuts and the
+> single-label authority remain, the latter wanting the `main_window` split
+> D-051 governs.
+>
+> **Remaining: WP-3 (shortcuts, labels), WP-10 (alignment evidence),
+> WP-11 (docks, workspaces), WP-12 (i18n, accessibility).**
 >
 > **Ordering note.** WP-4 was taken before WP-3 despite the graph. Its real
 > dependency on the action registry was only that overlay entries be registered
