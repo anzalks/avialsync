@@ -190,6 +190,7 @@ class Document:
         self._clean_depth = 0
         self._evicted = False
         self._observers: list[Callable[[bool], None]] = []
+        self._log_observers: list[Callable[[], None]] = []
         self._session_path: str | None = None
         self._last_change: float = 0.0
 
@@ -222,6 +223,26 @@ class Document:
         """``time.time()`` of the most recent mutation, or 0.0 if untouched."""
         return self._last_change
 
+    def observe_log(self, callback: Callable[[], None]) -> Callable[[], None]:
+        """Register *callback*, called whenever the undo history changes.
+
+        Distinct from :meth:`observe_dirty`, which fires only on a clean/dirty
+        transition. An Edit menu needs more than that: recording a second
+        command while already dirty changes what Undo would reverse and what it
+        should be called, but crosses no transition at all.
+        """
+        self._log_observers.append(callback)
+
+        def _dispose() -> None:
+            if callback in self._log_observers:
+                self._log_observers.remove(callback)
+
+        return _dispose
+
+    def _notify_log(self) -> None:
+        for callback in list(self._log_observers):
+            callback()
+
     def observe_dirty(self, callback: Callable[[bool], None]) -> Callable[[], None]:
         """Register *callback*, called with the new dirty state on change.
 
@@ -243,6 +264,7 @@ class Document:
         self._clean_depth = len(self._done)
         self._evicted = False
         self._notify(was_dirty)
+        self._notify_log()
 
     def _notify(self, was_dirty: bool) -> None:
         now_dirty = self.is_dirty
@@ -269,12 +291,14 @@ class Document:
                 self._done[-1] = combined
                 self._last_change = time.time()
                 self._notify(was_dirty)
+                self._notify_log()
                 return
 
         self._done.append(command)
         self._trim()
         self._last_change = time.time()
         self._notify(was_dirty)
+        self._notify_log()
 
     def record(self, command: Command) -> None:
         """Record an already-applied *command* without re-applying it.
@@ -291,11 +315,13 @@ class Document:
                 self._done[-1] = combined
                 self._last_change = time.time()
                 self._notify(was_dirty)
+                self._notify_log()
                 return
         self._done.append(command)
         self._trim()
         self._last_change = time.time()
         self._notify(was_dirty)
+        self._notify_log()
 
     def _discard_redo(self) -> None:
         """Drop the redo stack after a new command diverges from it.
@@ -349,6 +375,7 @@ class Document:
         self._undone.append(command)
         self._last_change = time.time()
         self._notify(was_dirty)
+        self._notify_log()
         return True
 
     def redo(self, target: MutationTarget) -> bool:
@@ -361,6 +388,7 @@ class Document:
         self._done.append(command)
         self._last_change = time.time()
         self._notify(was_dirty)
+        self._notify_log()
         return True
 
     def clear(self) -> None:
@@ -378,6 +406,7 @@ class Document:
         self._clean_depth = 0
         self._evicted = False
         self._notify(was_dirty)
+        self._notify_log()
 
     def __len__(self) -> int:
         return len(self._done)

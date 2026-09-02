@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 # Preferred display order for categories
-_CATEGORY_ORDER = ["Playback", "Marking", "View", "File", "Other"]
+_CATEGORY_ORDER = ["Playback", "Marking", "Edit", "View", "File", "Other"]
 
 
 class ShortcutsDialog(QDialog):

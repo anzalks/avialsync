@@ -1344,6 +1344,19 @@ class MainWindow(QMainWindow):
         act.triggered.connect(self.close)
         _reg(act, "File")
 
+        # ── Edit ──────────────────────────────────────────────────────
+        # There was no Edit menu at all, which on macOS is a visible platform
+        # conventions violation and everywhere else means nothing is reversible.
+        from avialsync.ui.undo_adapter import install_edit_menu
+
+        # Retained: a QMenu reachable only through `menuBar().actions()` can
+        # have its C++ side collected while the Python wrapper survives, which
+        # surfaces as "Internal C++ object already deleted" on next access.
+        self._edit_menu = menu.addMenu("Edit")
+        self._undo_actions = install_edit_menu(self, self._edit_menu)
+        _reg(self._undo_actions.undo_action, "Edit")
+        _reg(self._undo_actions.redo_action, "Edit")
+
         # ── View ──────────────────────────────────────────────────────
         view_menu = menu.addMenu("View")
 

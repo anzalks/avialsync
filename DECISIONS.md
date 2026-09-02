@@ -3208,3 +3208,49 @@ the process on close. The trade-off is unchanged and still deliberate: the windo
 closes, and a decoder that will not stop is abandoned rather than waited for.
 `setParent(None)` is called from the UI thread, which owns the QThread *object* —
 that is what makes it legal while `run()` is still executing.
+
+## 2026-09 · D-097 · There is one undo stack, and it is the Document
+
+**Context:** `UX_FOUNDATIONS_PLAN.md` WP-2 specified wrapping each
+`core.document.Command` in a `QUndoCommand` and pushing it onto a `QUndoStack`
+owned by `MainWindow`. That is the conventional Qt shape and it is what the plan
+said to build.
+
+Implementing it exposed the problem. `Document` is already an undo stack: it
+holds the ordered history, coalesces continuous edits so a two-hundred-step
+spin-box drag stays one entry, bounds itself at `MAX_LOG_ENTRIES`, releases the
+bulk state a reset retains, and — the load-bearing part — derives *dirty state*
+from where the save point sits in that same history (D-087). A `QUndoStack`
+beside it would be a second history that has to agree with the first about
+depth, coalescing, eviction, and the clean index.
+
+They would not stay agreed. `QUndoStack` has its own `setClean`/`isClean`, its
+own `mergeWith`, and its own limit. The first divergence would be silent and
+would look like one of two bugs: the title claiming saved while edits remain, or
+Undo stepping to a state the document had already discarded.
+
+**Decision:** do not add a `QUndoStack`. `ui/undo_adapter.py` is the Edit menu
+rather than a second stack — two `QAction`s whose text and enablement follow the
+document through `Document.observe_log`, calling `undo`/`redo` against the live
+`WindowMutationTarget`. One history, one clean point, one authority.
+
+`observe_log` was added for this. `observe_dirty` fires only on a clean/dirty
+transition, which is the wrong granularity for a menu: recording a second
+command while already dirty changes what Undo would reverse and what it should
+be called, but crosses no transition at all.
+
+Undo labels are the command's own `label`, so an action is named in exactly one
+place — the same reasoning as D-092. "Undo" alone tells a user nothing; "Undo
+Set offset for cam2.mp4 to 1.240 s" tells them whether they want it.
+
+**Alternatives rejected:** the planned `QUndoStack` mirror (two histories, above);
+making `QUndoStack` the authority and reducing `Document` to a recorder (moves
+dirty state into Qt, breaking the headless guarantee D-087 exists to keep, since
+`core/` cannot import PySide6); a `QUndoView` panel (needs the Qt stack, and the
+Edit menu already answers "what will Undo do" through its label).
+
+**Consequences:** this deviates from a written plan step, which is why it is
+recorded here rather than left as a silent implementation choice. Anything later
+wanting Qt's undo widgets — `QUndoView` in particular — has to adapt them to
+`Document` rather than introducing a parallel stack. `tests/test_undo.py`
+asserts the menu and the document never disagree about enablement or label.
