@@ -234,6 +234,9 @@ def create_video_pane(
     window.sidebar.add_video(original_path, metadata)
     window.sidebar.set_video_loader(original_path, loader)
     window.sidebar.set_video_pane(original_path, pane)
+    # A camera opened after a layer was switched off must not come up showing
+    # it, and a restored session must not flash the defaults first (D-090).
+    window._apply_overlays_to_new_pane(original_path)
     if offset or drift_ppm or exact_mapping is not None:
         window.video_grid.set_sync_mapping(
             original_path,

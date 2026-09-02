@@ -151,6 +151,7 @@ def build_session_state(window: MainWindow) -> SessionState:
         t_end=bounds[1],
         plot_x0=plot_x0,
         plot_x1=plot_x1,
+        overlays=window.overlay_state.to_dict(),
     )
 
 
@@ -389,6 +390,10 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # Sources arrive asynchronously and are indistinguishable from the user
     # opening them; `_note_source_loaded` clears this once they drain.
     window._session_restoring = True
+    # Restored before the panes exist, so each one is built already showing the
+    # right layers rather than flashing the defaults first (D-090).
+    window.overlay_state.load(state.overlays)
+    window._apply_overlay_state()
     # Collect missing files for relink
     missing: list[str] = []
     kind_labels: dict[str, str] = {}

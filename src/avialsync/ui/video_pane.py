@@ -446,6 +446,12 @@ class VideoPane(VideoTimingMixin, QWidget):
         #: carries this id, so an older decode cannot answer for a newer seek.
         self._seek_id = 0
         self._target_pause = True
+        #: Resolved overlay visibility for this pane, global default merged
+        #: with any per-camera override by the window (D-090).
+        self._overlay_visible: dict[str, bool] = {}
+        #: Retained so a layer toggled back on can restore the label rather
+        #: than showing an empty box.
+        self._label_text = ""
         self._osd_lock = threading.Lock()
         self._pending_osd: tuple[float, float] = (0.0, 0.0)
         self._osd_event_pending = False
@@ -686,11 +692,30 @@ class VideoPane(VideoTimingMixin, QWidget):
         return super().eventFilter(obj, event)
 
     def set_label(self, text: str) -> None:
-        if text:
+        self._label_text = text
+        if text and self._overlay_visible.get("camera.name", True):
             self.lbl_name.setText(text)
             self.lbl_name.setVisible(True)
         else:
             self.lbl_name.setVisible(False)
+
+    def apply_overlay_visibility(self, visibility: dict[str, bool]) -> None:
+        """Show or hide each registered overlay layer on this pane (D-090).
+
+        Takes the already-resolved map rather than the registry itself: the
+        global default and any per-camera override are combined once, by the
+        window, so a pane never has to know which of the two it is following.
+        """
+        self._overlay_visible = dict(visibility)
+
+        self.paint_canvas.set_points_visible(visibility.get("tracking.points", True))
+        self.paint_canvas.set_point_labels_visible(visibility.get("tracking.point_labels", False))
+        self.paint_canvas.set_legend_visible(visibility.get("tracking.legend", True))
+
+        self.lbl_osd.setVisible(visibility.get("camera.osd", True))
+        # Through set_label so an empty name stays hidden either way: a pane
+        # with no label must not gain an empty box when the layer is enabled.
+        self.set_label(self._label_text)
 
     def set_has_footage(self, has_footage: bool) -> None:
         if has_footage == self._master_has_footage:

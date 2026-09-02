@@ -71,6 +71,32 @@ class VideoGrid(QWidget):
 
     # ── Public API ────────────────────────────────────────────────────
 
+    def set_overlay_visibility(self, resolver) -> None:
+        """Apply overlay visibility to every pane (D-090).
+
+        Takes a callable rather than a dict so a per-camera override is
+        resolved against the path each pane actually holds; the grid does not
+        need to know how that resolution works.
+        """
+        self._overlay_resolver = resolver
+        for path, pane in zip(self._paths, self.panes, strict=False):
+            pane.apply_overlay_visibility(resolver(path))
+
+    def apply_overlays_to(self, path: str) -> None:
+        """Apply the current overlay visibility to one pane.
+
+        Called when a pane is built: a camera opened after the user set a layer
+        must not come up showing it.
+        """
+        resolver = getattr(self, "_overlay_resolver", None)
+        if resolver is None:
+            return
+        try:
+            index = self._paths.index(path)
+        except ValueError:
+            return
+        self.panes[index].apply_overlay_visibility(resolver(path))
+
     def pane_paths(self) -> list[str]:
         """Return a copy of the loaded video paths, parallel to self.panes."""
         return list(self._paths)

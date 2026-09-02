@@ -50,14 +50,14 @@ def test_v1_session_loads_under_current_schema():
     assert state.sync_provenance == []
 
 
-def test_v1_session_roundtrips_as_v6(tmp_path: Path) -> None:
+def test_v1_session_roundtrips_as_v7(tmp_path: Path) -> None:
     """Loading a v1 session then saving it should produce a valid v5 file."""
     state = SessionState.load(FIXTURE_V1)
     out = tmp_path / "out.avv"
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 6
+    assert data["version"] == 7
     assert data["videos"][0]["offset"] == 0.5
     assert data["sensors"][0]["channels"] == ["ch1", "ch2"]
     assert data["sensors"][0]["import_report"] is None
@@ -116,7 +116,7 @@ def test_v3_session_roundtrips(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_v6_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
+def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
     """Inspection fields and accepted synchronization provenance survive a round trip."""
     state = SessionState(
         videos=[
@@ -166,7 +166,7 @@ def test_v6_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 6
+    assert data["version"] == 7
 
     loaded = SessionState.load(out)
     assert loaded.videos[0].integrity_flags == {"is_vfr": True, "has_gaps": False}

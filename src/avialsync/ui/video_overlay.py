@@ -66,6 +66,10 @@ class PaintCanvas(QWidget):
         self.t = 0.0
         self._show_legend = True
         self._point_labels_visible = True
+        #: The points themselves. Previously unconditional: there was no way to
+        #: see the raw footage under a prediction, which is exactly what someone
+        #: checking a track needs to do (D-090).
+        self._points_visible = True
 
     def set_readers(self, readers: list[Any]) -> None:
         """Draw a single unnamed track from loose ``*_x``/``*_y`` readers.
@@ -78,6 +82,11 @@ class PaintCanvas(QWidget):
     def set_tracks(self, tracks: list[OverlayTrack]) -> None:
         """Draw one or more named prediction sources over this camera."""
         self.tracks = list(tracks)
+        self.update()
+
+    def set_points_visible(self, visible: bool) -> None:
+        """Show or hide every tracked point drawn over this camera."""
+        self._points_visible = bool(visible)
         self.update()
 
     def set_point_labels_visible(self, visible: bool) -> None:
@@ -120,6 +129,8 @@ class PaintCanvas(QWidget):
     def paintEvent(self, event: QPaintEvent) -> None:
         """Draw every complete XY point of every track at the current source time."""
         del event
+        if not self._points_visible:
+            return
         if not self.readers and not self.tracks:
             return
         geometry = self._video_scale()

@@ -57,7 +57,7 @@ def test_save_worker_writes_the_session(qtbot, tmp_path: Path, state: SessionSta
     _run_in_thread(worker, qtbot)
 
     assert done == [True]
-    assert json.loads(path.read_text())["version"] == 6
+    assert json.loads(path.read_text())["version"] == 7
 
 
 def test_save_worker_reports_an_unwritable_path(qtbot, tmp_path: Path, state) -> None:

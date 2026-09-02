@@ -86,9 +86,13 @@ class SessionState:
     t_end: float = 0.0
     plot_x0: float | None = None
     plot_x1: float | None = None
+    #: Overlay visibility, schema v7 (D-090). Only differences from each
+    #: layer's default are written, so a later change of default still reaches
+    #: sessions that never expressed a preference.
+    overlays: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 6)."""
+        """Serialise to a JSON-compatible dict (always writes version 7)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -104,7 +108,7 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 6,
+            "version": 7,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
@@ -113,13 +117,19 @@ class SessionState:
             "t_end": self.t_end,
             "plot_x0": self.plot_x0,
             "plot_x1": self.plot_x1,
+            "overlays": self.overlays,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v6)."""
+        """Deserialise from a parsed JSON dict (accepts v1 through v7).
+
+        Every v7 field is optional with a default, so a v6 file loads and
+        renders exactly as it did before the bump -- that equivalence is the
+        migration test, not an aspiration.
+        """
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5, 6):
+        if version not in (1, 2, 3, 4, 5, 6, 7):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
@@ -188,6 +198,7 @@ class SessionState:
             t_end=data.get("t_end", 0.0),
             plot_x0=data.get("plot_x0"),
             plot_x1=data.get("plot_x1"),
+            overlays=data.get("overlays") or {},
         )
 
     def save(self, path: Path) -> None:

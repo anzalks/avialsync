@@ -148,15 +148,11 @@ class WindowMutationTarget:
             window.plot_pane.set_channel_visible(ChannelKey(source_id, channel), visible)
 
     def set_overlay_visible(self, overlay_id: str, camera: str | None, visible: bool) -> None:
-        """Reserved for WP-4's overlay registry, which does not exist yet.
-
-        Declared because the protocol declares it: a partial implementation
-        would fail an ``isinstance`` check against the protocol and make the
-        whole target look broken rather than this one operation unbuilt.
-        """
-        raise NotImplementedError(
-            "Overlay visibility is routed once WP-4 adds the overlay registry."
-        )
+        """Show or hide a registered overlay layer, globally or for one camera."""
+        window = self._window
+        with self.replaying():
+            window.overlay_state.set_visible(overlay_id, visible, camera)
+            window._apply_overlay_state()
 
     # ── sources ──────────────────────────────────────────────────────
 

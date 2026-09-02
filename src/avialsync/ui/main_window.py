@@ -44,6 +44,7 @@ from avialsync.core.commands import (
     RemoveSourceCommand,
     ResetSessionCommand,
     SetChannelVisibleCommand,
+    SetOverlayVisibleCommand,
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
 )
@@ -67,6 +68,7 @@ from avialsync.ui.controllers import (
 )
 from avialsync.ui.job_manager import JobManager
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
+from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_for
 from avialsync.ui.pane_proportions import PaneProportions
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.readout_panel import ReadoutPanel
@@ -220,6 +222,9 @@ class MainWindow(QMainWindow):
         #: them; without this a freshly-loaded session would come up dirty and
         #: undo would offer to unload what the file said to load.
         self._session_restoring = False
+        #: Which overlay layers show, globally and per camera (D-090). Law 2:
+        #: nothing is drawn over a frame that the user cannot turn off.
+        self.overlay_state = OverlayState()
         self._update_window_title()
 
         # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
@@ -1402,6 +1407,12 @@ class MainWindow(QMainWindow):
         view_menu.addSeparator()
 
         # Reset Plot Zoom — single authority (D-022.1); QShortcut removed from _setup_shortcuts
+        # Overlays: one checkbox per registered layer, generated from the
+        # registry so a new overlay cannot ship without one (D-090).
+        self._overlays_menu = view_menu.addMenu("Overlays")
+        self._build_overlays_menu(_reg)
+        view_menu.addSeparator()
+
         self._act_reset_zoom = view_menu.addAction("Reset Plot Zoom")
         self._act_reset_zoom.setShortcut(QKeySequence("Ctrl+0"))
         self._act_reset_zoom.triggered.connect(self.plot_pane.reset_zoom)
@@ -1432,6 +1443,76 @@ class MainWindow(QMainWindow):
         act = help_menu.addAction("About AvialSync")
         act.setMenuRole(QAction.MenuRole.AboutRole)
         act.triggered.connect(self._show_about)
+
+    # ── Overlays (D-090) ─────────────────────────────────────────────
+
+    def _build_overlays_menu(self, register) -> None:
+        """Generate View -> Overlays from the registry, grouped.
+
+        Generated rather than hand-written: a hand-written menu is how the next
+        overlay ships without a switch, which is the failure Law 2 exists to
+        prevent.
+        """
+        self._overlay_actions: dict[str, QAction] = {}
+        current_group = ""
+        for layer in OVERLAY_LAYERS:
+            if current_group and layer.group != current_group:
+                self._overlays_menu.addSeparator()
+            current_group = layer.group
+
+            action = self._overlays_menu.addAction(layer.label)
+            action.setCheckable(True)
+            action.setChecked(self.overlay_state.is_visible(layer.overlay_id))
+            action.setToolTip(layer.description)
+            if layer.locked:
+                # Registered and shown, but not switchable. Greyed with the
+                # reason in the tooltip, so the exception stays visible rather
+                # than becoming folklore.
+                action.setEnabled(False)
+            else:
+                action.toggled.connect(
+                    lambda checked, oid=layer.overlay_id: self._on_overlay_toggled(oid, checked)
+                )
+            register(action, "View")
+            self._overlay_actions[layer.overlay_id] = action
+
+        self._overlays_menu.addSeparator()
+        show_all = self._overlays_menu.addAction("Show All")
+        show_all.triggered.connect(lambda: self._set_all_overlays(True))
+        hide_all = self._overlays_menu.addAction("Hide All")
+        hide_all.triggered.connect(lambda: self._set_all_overlays(False))
+
+    def _on_overlay_toggled(
+        self, overlay_id: str, visible: bool, camera: str | None = None
+    ) -> None:
+        """Apply an overlay change and record it as undoable."""
+        if not self.overlay_state.set_visible(overlay_id, visible, camera):
+            return
+        layer = layer_for(overlay_id)
+        self._record(
+            SetOverlayVisibleCommand(
+                overlay_id=overlay_id,
+                visible=visible,
+                camera=camera,
+                display_name=layer.label if layer else overlay_id,
+            )
+        )
+        self._apply_overlay_state()
+
+    def _set_all_overlays(self, visible: bool) -> None:
+        for layer in OVERLAY_LAYERS:
+            if not layer.locked:
+                self._on_overlay_toggled(layer.overlay_id, visible)
+
+    def _apply_overlay_state(self) -> None:
+        """Push resolved visibility to every pane and re-check the menu."""
+        self.video_grid.set_overlay_visibility(self.overlay_state.visibility_for)
+        for overlay_id, action in getattr(self, "_overlay_actions", {}).items():
+            blocked = action.blockSignals(True)
+            try:
+                action.setChecked(self.overlay_state.is_visible(overlay_id))
+            finally:
+                action.blockSignals(blocked)
 
     # ── Command bus: recording live mutations (WP-1 step 4) ──────────
 
@@ -1623,11 +1704,36 @@ class MainWindow(QMainWindow):
 
         act_fs = menu.addAction("Fullscreen this camera")
         act_snap = menu.addAction("Snapshot this camera")
+
+        # Per-camera overrides, same labels as View -> Overlays. The menu sets
+        # the default for every camera; this overrides one (D-090).
+        menu.addSeparator()
+        overlays_menu = menu.addMenu("Overlays on this camera")
+        camera_actions: dict[QAction, str] = {}
+        for layer in OVERLAY_LAYERS:
+            if layer.locked or not layer.per_camera:
+                continue
+            act = overlays_menu.addAction(layer.label)
+            act.setCheckable(True)
+            act.setChecked(self.overlay_state.is_visible(layer.overlay_id, path))
+            camera_actions[act] = layer.overlay_id
+        overlays_menu.addSeparator()
+        act_follow = overlays_menu.addAction("Follow the View menu")
+
         menu.addSeparator()
         act_props = menu.addAction("Properties…")
         act_copy = menu.addAction("Copy frame info")
 
         chosen = menu.exec(pos)
+        if chosen in camera_actions:
+            overlay_id = camera_actions[chosen]
+            self._on_overlay_toggled(overlay_id, chosen.isChecked(), camera=path)
+            return
+        if chosen == act_follow:
+            for layer in OVERLAY_LAYERS:
+                self.overlay_state.clear_override(layer.overlay_id, path)
+            self._apply_overlay_state()
+            return
         if chosen == act_fs:
             self.video_grid.toggle_fullscreen(path)
         elif chosen == act_snap:
@@ -1868,6 +1974,10 @@ class MainWindow(QMainWindow):
     def _build_next_video_pane(self) -> None:
         video_controller.build_next_video_pane(self)
 
+    def _apply_overlays_to_new_pane(self, path: str) -> None:
+        """A camera opened after a layer was switched must not come up showing it."""
+        self.video_grid.apply_overlays_to(path)
+
     def _create_video_pane(self, original_path: str, loader: object, media_path: str) -> None:
         video_controller.create_video_pane(self, original_path, loader, media_path)
 
@@ -2036,6 +2146,7 @@ class MainWindow(QMainWindow):
         self.sidebar.remove_video(path)
         self._video_frame_times.pop(path, None)
         self._overlay_sources.pop(path, None)
+        self.overlay_state.forget_camera(path)
         self._sync_provenance = [
             entry for entry in self._sync_provenance if entry.target_id != path
         ]
