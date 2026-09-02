@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from PySide6.QtCore import Qt, QThread, QTimer
+from PySide6.QtCore import QThread, QTimer
 from PySide6.QtWidgets import QMessageBox
 
 from avialsync.core.channel_reader import ChannelKey
@@ -125,8 +125,6 @@ def enqueue_import(
 
 def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[str, Any]) -> None:
     """Start the next queued background import."""
-    from PySide6.QtWidgets import QProgressDialog
-
     from avialsync.engine.importer import ImportWorker
 
     window._import_thread = QThread()
@@ -134,16 +132,14 @@ def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[
     window._import_worker = ImportWorker(path, config, loader_cls)
     window._import_worker.moveToThread(window._import_thread)
 
-    window._progress_dialog = QProgressDialog("Importing…", "Cancel", 0, 100, window)
-    window._progress_dialog.setWindowTitle("Importing Data")
-    window._progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
-    window._progress_dialog.setAutoClose(True)
-    window._progress_dialog.setAutoReset(True)
-    window._progress_dialog.setValue(0)
+    # No modal dialog (D-091). The work was always on a worker; the modality
+    # was gratuitous, and the budget allows a 1 GB CSV sixty seconds -- a full
+    # minute during which the window could not be touched.
+    window.activity_bar.begin(f"Importing {path.name}")
+    window._active_cancel = window._import_worker.cancel
 
     window._import_thread.started.connect(window._import_worker.run)
-    window._import_worker.progress.connect(window._progress_dialog.setValue)
-    window._progress_dialog.canceled.connect(window._import_worker.cancel)
+    window._import_worker.progress.connect(window.activity_bar.set_progress)
 
     window._import_worker.finished.connect(window._on_import_finished)
     window._import_worker.finished.connect(window._import_thread.quit)
@@ -163,7 +159,6 @@ def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[
     window._import_worker.error.connect(window._on_import_error)
     window._import_worker.error.connect(window._import_thread.quit)
 
-    window._progress_dialog.show()
     window._import_thread.start()
 
 
@@ -201,9 +196,9 @@ def on_import_finished(
     bounds: tuple[float, float],
     inspection: object = None,
 ) -> None:
-    progress_dialog = getattr(window, "_progress_dialog", None)
-    if progress_dialog is not None:
-        progress_dialog.close()
+    window.activity_bar.end()
+    window._active_cancel = None
+    window.notifications.show_success(f"Imported {Path(path).name}")
     offset, drift_ppm = window._pending_sensor_mappings.pop(path, (0.0, 0.0))
 
     role = ""
@@ -454,9 +449,8 @@ def refresh_overlays(window: MainWindow, video: str) -> None:
 
 
 def on_import_error(window: MainWindow, err_msg: str) -> None:
-    progress_dialog = getattr(window, "_progress_dialog", None)
-    if progress_dialog is not None:
-        progress_dialog.close()
+    window.activity_bar.end()
+    window._active_cancel = None
     window.transport.set_status("Data import failed", "error")
 
     # Name the format that actually failed. This said "Failed to import CSV"

@@ -26,7 +26,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
-    QProgressDialog,
     QSizePolicy,
     QSplitter,
     QTabWidget,
@@ -66,6 +65,7 @@ from avialsync.ui.controllers import (
     session_controller,
     video_controller,
 )
+from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.job_manager import JobManager
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
 from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_for
@@ -225,6 +225,15 @@ class MainWindow(QMainWindow):
         #: Which overlay layers show, globally and per camera (D-090). Law 2:
         #: nothing is drawn over a frame that the user cannot turn off.
         self.overlay_state = OverlayState()
+
+        # The feedback surface (D-091). JobManager already knew all of this;
+        # none of it reached the user.
+        self.activity_bar = ActivityBar(self)
+        self.activity_bar.cancel_requested.connect(self._cancel_active_task)
+        self.notifications = NotificationStrip(self)
+        self.notifications.details_requested.connect(self._show_task_details)
+        self.jobs_panel = JobsPanel(self)
+
         self._update_window_title()
 
         # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
@@ -270,7 +279,10 @@ class MainWindow(QMainWindow):
         # Modal progress for the running import. Declared here rather than
         # created by the import starter: the finish and error handlers both
         # read it, and a window that has never imported must still answer.
-        self._progress_dialog: QProgressDialog | None = None
+        #: Cancel callback for whatever the activity bar is currently showing.
+        #: Legacy workers are not registered with JobManager, so the bar needs
+        #: its own handle to stop them (D-091).
+        self._active_cancel: Callable[[], None] | None = None
         self._data_export_jobs: dict[QThread, object] = {}
         self._region_stats_jobs: dict[QThread, object] = {}
         self._video_clip_jobs: dict[QThread, object] = {}
@@ -414,6 +426,9 @@ class MainWindow(QMainWindow):
         self._left_tabs.addTab(self.readout_panel, "Values")
         self._left_tabs.addTab(self.message_panel, "Messages")
         self._left_tabs.addTab(self.annotation_panel, "Annotations")
+        # Last tab: consulted when something is taking longer than expected,
+        # which is not most of the time.
+        self._left_tabs.addTab(self.jobs_panel, "Tasks")
 
         h_splitter = QSplitter(Qt.Orientation.Horizontal)
         h_splitter.addWidget(self._left_tabs)
@@ -447,6 +462,9 @@ class MainWindow(QMainWindow):
         self._content_splitter.setStretchFactor(0, 4)
         self._content_splitter.setStretchFactor(1, 1)
         right_layout.addWidget(self._content_splitter)
+        # Above the transport, inside the layout rather than floating: a
+        # notification must never cover the data it is reporting on.
+        right_layout.addWidget(self.notifications)
         right_layout.addWidget(self.transport)
 
         h_splitter.addWidget(right_widget)
@@ -516,6 +534,9 @@ class MainWindow(QMainWindow):
         # Menu
         self._setup_menu()
 
+        # Feedback surface: activity in the status bar, outcomes in the strip.
+        self._install_feedback_surface()
+
         # Drag and Drop
         self.setAcceptDrops(True)
 
@@ -569,6 +590,41 @@ class MainWindow(QMainWindow):
         """
         return self._job_manager.start(label, worker, configure=configure)
 
+    def _install_feedback_surface(self) -> None:
+        """Put the activity bar in the status bar and the strip above the transport.
+
+        The status bar is where a user already looks for "what is it doing";
+        the strip sits in the layout rather than floating so it never covers
+        the data it is reporting on.
+        """
+        self.statusBar().addPermanentWidget(self.activity_bar)
+
+    def _cancel_active_task(self) -> None:
+        """Stop whatever the activity bar is showing.
+
+        Two registries, because the legacy import and proxy workers predate
+        JobManager and are not registered with it. Both are asked; whichever
+        owns the running work responds.
+        """
+        cancel = self._active_cancel
+        if cancel is not None:
+            try:
+                cancel()
+            except RuntimeError:
+                # The worker's C++ side is already gone; nothing left to stop.
+                pass
+        self._job_manager.cancel_all()
+        self.activity_bar.end()
+        self._active_cancel = None
+
+    def _show_task_details(self, details: str) -> None:
+        """Show the full text behind a failure, on request only."""
+        QMessageBox.information(self, "Details", details)
+
+    def _refresh_jobs_panel(self) -> None:
+        running = [(job.label, job.state.value, job.elapsed) for job in self._job_manager.jobs()]
+        self.jobs_panel.refresh(running)
+
     def _on_jobs_changed(self) -> None:
         """Mirror background-job state into the transport status area."""
         text = self._job_manager.status_text()
@@ -577,6 +633,7 @@ class MainWindow(QMainWindow):
             return
         kind = "error" if self._job_manager.stalled_jobs() else "busy"
         self.transport.set_status(text, kind)
+        self._refresh_jobs_panel()
 
     def _on_ui_stalled(self, milliseconds: float) -> None:
         """Tell the user when the UI thread itself was blocked."""
@@ -1889,7 +1946,6 @@ class MainWindow(QMainWindow):
             return
 
         from PySide6.QtCore import QThread
-        from PySide6.QtWidgets import QProgressDialog
 
         from avialsync.engine.proxy import ProxyWorker
 
@@ -1900,20 +1956,14 @@ class MainWindow(QMainWindow):
         self._proxy_worker = ProxyWorker(video_path)
         self._proxy_worker.moveToThread(self._proxy_thread)
 
-        dlg = QProgressDialog(
-            f"Generating proxy for {video_path.name}…",
-            "Cancel",
-            0,
-            100,
-            self,
-        )
-        dlg.setWindowTitle("Proxy Generation")
-        dlg.setWindowModality(Qt.WindowModality.WindowModal)
-        self._proxy_dlg = dlg
+        # Proxy generation is minutes of transcoding. Behind a modal that was
+        # minutes of unusable application, for work the user started so they
+        # could keep looking at the session (D-091).
+        self.activity_bar.begin(f"Generating proxy for {video_path.name}")
+        self._active_cancel = self._proxy_worker.cancel
 
         self._proxy_thread.started.connect(self._proxy_worker.run)
-        self._proxy_worker.progress.connect(dlg.setValue)
-        dlg.canceled.connect(self._proxy_worker.cancel)
+        self._proxy_worker.progress.connect(self.activity_bar.set_progress)
 
         self._proxy_worker.finished.connect(self._on_proxy_finished)
         self._proxy_worker.finished.connect(self._proxy_thread.quit)
@@ -1921,20 +1971,17 @@ class MainWindow(QMainWindow):
         self._proxy_worker.error.connect(self._proxy_thread.quit)
         self._proxy_thread.finished.connect(self._proxy_thread.deleteLater)
 
-        dlg.show()
         self._proxy_thread.start()
 
     def _on_proxy_finished(self, orig: str, proxy: str) -> None:
-        self._proxy_dlg.close()
-        QMessageBox.information(
-            self,
-            "Proxy Ready",
-            f"Proxy saved:\n{proxy}",
-        )
+        self.activity_bar.end()
+        self._active_cancel = None
+        self.notifications.show_success(f"Proxy ready: {Path(proxy).name}")
 
     def _on_proxy_error(self, err: str) -> None:
-        self._proxy_dlg.close()
-        QMessageBox.critical(self, "Proxy Error", err)
+        self.activity_bar.end()
+        self._active_cancel = None
+        self.notifications.show_error("Could not generate the proxy", details=err)
 
     # ── Source loading ───────────────────────────────────────────────
 

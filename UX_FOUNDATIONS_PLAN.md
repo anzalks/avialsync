@@ -5,7 +5,22 @@
 > architecture-rule-3 violations, construction 373 ms → 41 ms and zero UI stalls.
 > **WP-1 landed in full**: the command bus, dirty state, the session-named title,
 > hot exit, and step 4's routing of every listed mutation through the bus via
-> `ui/mutation_target.py`. WP-2 … WP-12 are unstarted.
+> `ui/mutation_target.py`.
+> **WP-2 landed**: the Edit menu, driven by the document rather than a second
+> `QUndoStack` (D-097).
+> **WP-4 landed**: the overlay registry and View → Overlays, six layers, session
+> schema v6 → v7 (D-090).
+> **WP-5 landed**: the activity bar, notification strip, and Tasks panel; the
+> modal `QProgressDialog` is gone from `src/` (D-091).
+> **Remaining: WP-3, WP-6, WP-7, WP-8, WP-9, WP-10, WP-11, WP-12.**
+>
+> **Ordering note.** WP-4 was taken before WP-3 despite the graph. Its real
+> dependency on the action registry was only that overlay entries be registered
+> actions, which the existing `_reg` helper already provides, and the overlays
+> were the most visible defect in the running application — nine body-part names
+> painted across the animal with no way to turn them off. WP-3 remains worth
+> doing and still owns the command palette, shortcut remapping, and the
+> single-label authority.
 >
 > Step 4 was initially deferred and that was a mistake worth recording: without it
 > `document.is_dirty` was permanently False in the running application and the

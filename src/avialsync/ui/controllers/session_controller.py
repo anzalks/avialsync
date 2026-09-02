@@ -311,15 +311,17 @@ def reset_session(window: MainWindow) -> None:
 
     import_worker = window._import_worker
     if import_worker is not None:
-        if window._progress_dialog is not None:
-            _disconnect(getattr(import_worker, "progress", None), window._progress_dialog.setValue)
+        # The progress dialog this used to disconnect from is gone (D-091);
+        # the activity bar takes its place and is dismissed below. Cancelling
+        # the worker on reset is the behaviour that mattered and is unchanged.
+        _disconnect(getattr(import_worker, "progress", None), window.activity_bar.set_progress)
         _disconnect(getattr(import_worker, "finished", None), window._on_import_finished)
         _disconnect(getattr(import_worker, "error", None), window._on_import_error)
         cancel = getattr(import_worker, "cancel", None)
         if callable(cancel):
             cancel()
-    if window._progress_dialog is not None:
-        window._progress_dialog.close()
+    window.activity_bar.end()
+    window._active_cancel = None
     window._pending_imports.clear()
 
     for job in window._job_manager.jobs():
