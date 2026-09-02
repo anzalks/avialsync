@@ -16,6 +16,7 @@ import numpy as np
 from PySide6.QtCore import QSettings, QThread
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
+from avialsync.core.errors import CacheError, FileUnreadableError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.session import (
     MarkerEntry,
@@ -202,7 +203,7 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
     def on_error(msg: str):
         if not is_autosave:
             window.transport.set_status("")
-            QMessageBox.critical(window, "Save Error", f"Could not save session:\n{msg}")
+            window.report_failure(CacheError(msg), doing="The session could not be saved")
         else:
             logger.exception("Autosave failed for %s: %s", path, msg)
 
@@ -262,7 +263,7 @@ def start_session_load(window: MainWindow, path: Path) -> None:
 
     def on_error(msg: str):
         window.transport.set_status("")
-        QMessageBox.critical(window, "Session Error", f"Could not load session:\n{msg}")
+        window.report_failure(FileUnreadableError(msg), doing="That session could not be opened")
 
     # Wired before the thread starts: `_run_job` returns an already-running
     # thread, and a session that loads quickly can emit `finished` before a
@@ -384,7 +385,7 @@ def reset_session(window: MainWindow) -> None:
 def on_session_load_error(window: MainWindow, error: str) -> None:
     window.statusBar().clearMessage()
     logger.error("Session load failed: %s", error)
-    QMessageBox.critical(window, "Session Error", f"Could not load session:\n{error}")
+    window.report_failure(FileUnreadableError(error), doing="That session could not be opened")
 
 
 def restore_session(window: MainWindow, state: SessionState) -> None:

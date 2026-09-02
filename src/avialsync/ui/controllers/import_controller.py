@@ -17,6 +17,7 @@ from PySide6.QtCore import QThread, QTimer
 from PySide6.QtWidgets import QMessageBox
 
 from avialsync.core.channel_reader import ChannelKey
+from avialsync.core.errors import FileUnreadableError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import TimeSeriesSource
 
@@ -462,4 +463,4 @@ def on_import_error(window: MainWindow, err_msg: str) -> None:
     source = Path(worker.path).name if worker is not None else ""
     heading = f"Failed to import {source} as {fmt}" if source else f"Failed to import {fmt}"
 
-    QMessageBox.critical(window, "Import Error", f"{heading}:\n{err_msg}")
+    window.report_failure(FileUnreadableError(err_msg), doing=heading)

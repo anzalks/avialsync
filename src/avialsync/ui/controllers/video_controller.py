@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from PySide6.QtCore import QThread, QTimer
-from PySide6.QtWidgets import QMessageBox
 
+from avialsync.core.errors import SourceOpenError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import VideoSource
 from avialsync.core.timeline import TimeMap
@@ -288,7 +288,12 @@ def on_video_open_error(window: MainWindow, path: str, error: str) -> None:
     if path in window._video_request_order:
         window._video_request_order.remove(path)
     window.transport.set_status(f"Video failed: {Path(path).name}", "error")
-    QMessageBox.critical(window, "Video Error", f"Could not open video:\n{path}\n\n{error}")
+    # Not a modal: the rest of the session loaded and stays usable, which is
+    # the point of Law 1. The raw text goes behind Show details.
+    window.report_failure(
+        SourceOpenError(error),
+        doing=f"Could not open {Path(path).name}",
+    )
     window._build_next_video_pane()
 
 

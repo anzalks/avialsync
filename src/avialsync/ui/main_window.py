@@ -66,6 +66,7 @@ from avialsync.ui.controllers import (
     video_controller,
 )
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
+from avialsync.ui.feedback.error_presenter import present
 from avialsync.ui.job_manager import JobManager
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
 from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_for
@@ -620,6 +621,24 @@ class MainWindow(QMainWindow):
     def _show_task_details(self, details: str) -> None:
         """Show the full text behind a failure, on request only."""
         QMessageBox.information(self, "Details", details)
+
+    def report_failure(self, error: BaseException, *, doing: str = "") -> None:
+        """Present a failure without taking the session away (AGENTS rule 12).
+
+        The single route for anything that goes wrong on a load or save path.
+        It replaces the shape this codebase used in forty places -- an exception
+        string in a modal box with an OK button -- with a title in the user's
+        terms, a plain-language cause, and the raw text behind Show details.
+
+        Non-modal by design: whatever else is open still loaded and is still
+        usable, and Law 1 says the application informs rather than blocks.
+        """
+        presented = present(error, doing=doing)
+        message = f"{presented.title}. {presented.cause}"
+        if presented.recoverable:
+            self.notifications.show_error(message, details=presented.details)
+        else:  # pragma: no cover - no unrecoverable presenter exists yet
+            QMessageBox.critical(self, presented.title, message)
 
     def _refresh_jobs_panel(self) -> None:
         running = [(job.label, job.state.value, job.elapsed) for job in self._job_manager.jobs()]

@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
-from PySide6.QtWidgets import QMessageBox
 
+from avialsync.core.errors import FileUnreadableError
 from avialsync.core.source import SessionLayout, TimeSeriesSource, VideoSource
 from avialsync.ui.time_format import TimeDisplayMode
 
@@ -83,7 +83,9 @@ def on_drop_session_found(window: MainWindow, path: str) -> None:
 
 def on_drop_scan_error(window: MainWindow, error_msg: str) -> None:
     window.transport.set_status("")
-    QMessageBox.critical(window, "Import Error", f"Failed to scan dropped files:\n{error_msg}")
+    window.report_failure(
+        FileUnreadableError(error_msg), doing="Those dropped files could not be scanned"
+    )
 
 
 def apply_session_layout(window: MainWindow, layout: object) -> None:
