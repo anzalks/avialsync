@@ -237,6 +237,11 @@ def create_video_pane(
     # A camera opened after a layer was switched off must not come up showing
     # it, and a restored session must not flash the defaults first (D-090).
     window._apply_overlays_to_new_pane(original_path)
+    # The pane reports what the recording turned out to be once it has decoded
+    # a frame; the levels panel sizes itself from that rather than guessing.
+    pane.source_format_detected.connect(
+        lambda fmt, path=original_path: window._on_source_format_detected(path, fmt)
+    )
     if offset or drift_ppm or exact_mapping is not None:
         window.video_grid.set_sync_mapping(
             original_path,

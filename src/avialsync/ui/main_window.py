@@ -56,6 +56,7 @@ from avialsync.core.session import (
 )
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock
+from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.ui.annotations import AnnotationPanel, AnnotationStore, Marker
@@ -69,6 +70,7 @@ from avialsync.ui.controllers import (
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
 from avialsync.ui.job_manager import JobManager
+from avialsync.ui.levels_panel import LevelsPanel
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
 from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_for
 from avialsync.ui.pane_proportions import PaneProportions
@@ -235,6 +237,15 @@ class MainWindow(QMainWindow):
         self.notifications = NotificationStrip(self)
         self.notifications.details_requested.connect(self._show_task_details)
         self.jobs_panel = JobsPanel(self)
+
+        # Display levels, offered only for footage that has range to choose
+        # from -- the panel asks the decoder what the recording actually is
+        # rather than assuming a depth (D-093).
+        self.levels_panel = LevelsPanel(self)
+        self.levels_panel.levels_changed.connect(self._on_display_levels_changed)
+        self.levels_panel.auto_requested.connect(self._on_auto_levels_requested)
+        #: Per-source display window, keyed by path.
+        self._display_levels: dict[str, DisplayLevels] = {}
 
         self._update_window_title()
 
@@ -434,6 +445,9 @@ class MainWindow(QMainWindow):
         # Last tab: consulted when something is taking longer than expected,
         # which is not most of the time.
         self._left_tabs.addTab(self.jobs_panel, "Tasks")
+        # Display levels live under Sources, beside the camera they act on.
+        # Hidden until a recording that has range to choose from is opened.
+        self.sidebar.content_layout.addWidget(self.levels_panel)
 
         h_splitter = QSplitter(Qt.Orientation.Horizontal)
         h_splitter.addWidget(self._left_tabs)
@@ -2264,6 +2278,46 @@ class MainWindow(QMainWindow):
     def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
         self._record(SetChannelVisibleCommand(source_id=path, channel=channel, visible=is_visible))
         self.plot_pane.set_channel_visible(ChannelKey(path, channel), is_visible)
+
+    # ── Display levels (D-093) ───────────────────────────────────────
+
+    def _focused_video_path(self) -> str | None:
+        """The camera the levels panel acts on: the only one, or the fullscreen one."""
+        paths = self.video_grid.pane_paths()
+        if not paths:
+            return None
+        focused = getattr(self.video_grid, "_fullscreen_pane", None)
+        if focused is not None:
+            for path, pane in zip(paths, self.video_grid.panes, strict=False):
+                if pane is focused:
+                    return path
+        return paths[0]
+
+    def _on_source_format_detected(self, path: str, source_format: object) -> None:
+        """Show or hide the levels panel according to what this file turned out to be."""
+        if not isinstance(source_format, SourceFormat):
+            return
+        if path == self._focused_video_path():
+            self.levels_panel.set_source_format(source_format)
+
+    def _on_display_levels_changed(self, levels: object) -> None:
+        if not isinstance(levels, DisplayLevels):
+            return
+        path = self._focused_video_path()
+        if path is None:
+            return
+        self._display_levels[path] = levels
+        self.video_grid.set_display_levels(path, levels)
+
+    def _on_auto_levels_requested(self) -> None:
+        """Choose black and white from the frame currently on screen."""
+        path = self._focused_video_path()
+        if path is None:
+            return
+        levels = self.video_grid.auto_display_levels(path)
+        if levels is not None:
+            self.levels_panel.set_levels(levels)
+            self._on_display_levels_changed(levels)
 
     def _on_channel_group_visibility_changed(
         self, path: str, group_label: str, channels: list, visible: bool

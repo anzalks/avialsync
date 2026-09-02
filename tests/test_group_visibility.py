@@ -104,9 +104,7 @@ def test_toggling_a_group_reports_it_once(widget: SensorInfoWidget, qtbot) -> No
 def test_a_partial_state_reports_nothing(widget: SensorInfoWidget) -> None:
     """A group going partial because a child changed is not a group action."""
     reported: list[tuple] = []
-    widget.channel_group_visibility_changed.connect(
-        lambda *args: reported.append(args)
-    )
+    widget.channel_group_visibility_changed.connect(lambda *args: reported.append(args))
     widget._channel_items["Jaw_MI"].setCheckState(0, Qt.CheckState.Unchecked)
     assert reported == []
 

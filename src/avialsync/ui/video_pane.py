@@ -18,7 +18,18 @@ from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QMetaObject, QObject, QPointF, QRectF, Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtCore import (
+    Q_ARG,
+    QMetaObject,
+    QObject,
+    QPointF,
+    QRectF,
+    Qt,
+    QThread,
+    QTimer,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import (
     QCloseEvent,
     QFontDatabase,
@@ -41,7 +52,14 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.source import VideoMetadata
-from avialsync.engine.pyav_reader import PyAVReader, to_rgb_array
+from avialsync.engine.display_pipeline import (
+    DisplayLevels,
+    SourceFormat,
+    auto_levels,
+    probe_format,
+    to_display_array,
+)
+from avialsync.engine.pyav_reader import PyAVReader
 from avialsync.ui.theme import set_font_family
 from avialsync.ui.video_overlay import PaintCanvas
 from avialsync.ui.video_timing import VideoTimingMixin, displayed_frame_rate, format_video_osd
@@ -157,6 +175,9 @@ class DecodeWorker(QObject):
     failed = Signal(str)
     # request id, frame index, pts seconds, RGB array
     frame_ready = Signal(int, int, float, object)
+    #: The pixel format of the first decoded frame, so the UI can offer
+    #: controls sized to what the recording actually is (D-093).
+    format_detected = Signal(object)
 
     def __init__(self, path: str) -> None:
         super().__init__()
@@ -164,6 +185,13 @@ class DecodeWorker(QObject):
         self._reader: PyAVReader | None = None
         self._lock = threading.Lock()
         self._pending: tuple[int, float] | None = None
+        #: Display window, read on the decode thread and written from the UI
+        #: one, so it has its own lock rather than sharing the request lock.
+        self._levels_lock = threading.Lock()
+        self._levels = DisplayLevels()
+        #: Format of the last decoded frame, published so the UI can offer
+        #: controls sized to what the recording actually is.
+        self.source_format: SourceFormat | None = None
 
     @Slot()
     def open(self) -> None:
@@ -202,7 +230,19 @@ class DecodeWorker(QObject):
         try:
             index = self._reader.index_at_time(source_time)
             frame = self._reader.frame_at_index(index)
-            rgb = to_rgb_array(frame)
+            # Windowed here, on the decode thread. A lookup table applied in
+            # paintEvent would turn a 2 ms budget into a 3 ms violation on
+            # every frame (D-093). The reader still caches `av.VideoFrame`
+            # objects, so a levels change costs a re-conversion, not a
+            # re-decode.
+            with self._levels_lock:
+                levels = self._levels
+            if self.source_format is None:
+                # Read once, from the frame. Nothing here assumes a depth: a
+                # 10-, 12-, 14- or 8-bit recording all describe themselves.
+                self.source_format = probe_format(frame)
+                self.format_detected.emit(self.source_format)
+            rgb, _is_grey = to_display_array(frame, levels)
         except Exception as error:
             # A decode failure is one lost frame, not a lost session: the next
             # request re-seeks from scratch. Swallowing it here keeps a damaged
@@ -210,6 +250,13 @@ class DecodeWorker(QObject):
             logger.warning("Could not decode %s at %.6fs", self._path, source_time, exc_info=error)
             return
         self.frame_ready.emit(request_id, index, self._reader.time_at_index(index), rgb)
+
+    @Slot(object)
+    def set_levels(self, levels: object) -> None:
+        """Adopt a new display window, applied to the next decoded frame."""
+        if isinstance(levels, DisplayLevels):
+            with self._levels_lock:
+                self._levels = levels
 
     @Slot()
     def shutdown(self) -> None:
@@ -253,11 +300,24 @@ class VideoSurface(QWidget):
         self.view_changed.emit()
 
     def set_frame(self, rgb: np.ndarray) -> None:
-        """Show a decoded ``(H, W, 3)`` uint8 RGB frame."""
-        height, width, _ = rgb.shape
+        """Show a decoded frame, either ``(H, W, 3)`` RGB or ``(H, W)`` grey.
+
+        The shape decides the format rather than an assumption: a windowed
+        high-bit-depth source arrives as a single plane, which is one third the
+        bytes to upload because swscale's grey-to-RGB triplication never
+        happened.
+        """
+        if rgb.ndim == 2:
+            height, width = rgb.shape
+            image_format = QImage.Format.Format_Grayscale8
+        else:
+            height, width, _ = rgb.shape
+            image_format = QImage.Format.Format_RGB888
+
         self.set_video_size(width, height)
+        # Retained: QImage borrows this buffer rather than copying it.
         self._buffer = rgb
-        self._image = QImage(rgb.data, width, height, rgb.strides[0], QImage.Format.Format_RGB888)
+        self._image = QImage(rgb.data, width, height, rgb.strides[0], image_format)
         self.update()
 
     def clear(self) -> None:
@@ -427,6 +487,9 @@ class VideoPane(VideoTimingMixin, QWidget):
     right_clicked = Signal(object)  # emits QPoint (global position)
     _osd_update = Signal()
     frame_presented = Signal(float)  # delivered source timestamp
+    #: The recording's own pixel format, once a frame has been decoded. The
+    #: UI sizes its display controls from this rather than assuming a depth.
+    source_format_detected = Signal(object)
     file_loaded = Signal()
     open_failed = Signal(str)
 
@@ -448,6 +511,12 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._target_pause = True
         #: Resolved overlay visibility for this pane, global default merged
         #: with any per-camera override by the window (D-090).
+        #: What this recording actually is, read from a decoded frame.
+        self.source_format: SourceFormat | None = None
+        self._display_levels = DisplayLevels()
+        #: Last requested source time, so a levels change can re-show the same
+        #: frame rather than waiting for the next seek.
+        self._last_source_time: float | None = None
         self._overlay_visible: dict[str, bool] = {}
         #: Retained so a layer toggled back on can restore the label rather
         #: than showing an empty box.
@@ -512,8 +581,61 @@ class VideoPane(VideoTimingMixin, QWidget):
         worker.opened.connect(self._on_opened)
         worker.failed.connect(self._on_open_failed)
         worker.frame_ready.connect(self._on_frame_ready)
+        worker.format_detected.connect(self._on_format_detected)
         thread.started.connect(worker.open)
         thread.start()
+
+    @Slot(object)
+    def _on_format_detected(self, source_format: object) -> None:
+        """Publish what this recording actually is, once it has been decoded."""
+        if isinstance(source_format, SourceFormat):
+            self.source_format = source_format
+            self.source_format_detected.emit(source_format)
+
+    def set_display_levels(self, levels: DisplayLevels) -> None:
+        """Apply a display window to this camera.
+
+        Queued to the decode thread rather than applied here: the conversion
+        runs there, and a lookup table built on the UI thread would be work in
+        the wrong place even if the table itself is cheap.
+        """
+        self._display_levels = levels
+        worker = self._worker
+        if worker is not None:
+            QMetaObject.invokeMethod(
+                worker,
+                "set_levels",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, levels),
+            )
+            # Re-request the frame on screen so the change is visible while
+            # paused, which is when someone sets levels. The reader caches the
+            # decoded frame, so this is a re-conversion, not a re-decode.
+            if self._last_source_time is not None:
+                self.seek(self._last_source_time)
+
+    def display_levels(self) -> DisplayLevels:
+        return self._display_levels
+
+    def auto_display_levels(self) -> DisplayLevels | None:
+        """Levels chosen from the frame currently on screen.
+
+        Uses the displayed 8-bit buffer rather than re-decoding: it is what the
+        user is looking at when they press Auto, and re-reading the source frame
+        from the UI thread would be file work in the wrong place.
+
+        Returns ``None`` when this camera has no window to choose -- ordinary
+        8-bit colour already fills the screen's range.
+        """
+        if self.source_format is None or not self.source_format.needs_windowing:
+            return None
+        buffer = getattr(getattr(self, "surface", None), "_buffer", None)
+        if buffer is None:
+            return None
+        # The buffer is already mapped to 8 bits, so measure it on that scale
+        # and express the result against the source's own.
+        eight_bit = SourceFormat(pix_fmt="gray", bits=8, component_count=1)
+        return auto_levels(np.asarray(buffer), eight_bit)
 
     @Slot(object, int, int, str)
     def _on_opened(self, frame_times: np.ndarray, width: int, height: int, codec: str) -> None:
@@ -589,6 +711,7 @@ class VideoPane(VideoTimingMixin, QWidget):
             return
         self._seek_id += 1
         self.is_seeking = True
+        self._last_source_time = float(t)
         self._worker.request(self._seek_id, float(t))
         QMetaObject.invokeMethod(self._worker, "decode_pending", Qt.ConnectionType.QueuedConnection)
 

@@ -90,6 +90,9 @@ class SessionState:
     #: layer's default are written, so a later change of default still reaches
     #: sessions that never expressed a preference.
     overlays: dict[str, Any] = dataclasses.field(default_factory=dict)
+    #: Per-source display window, schema v7 (D-093). Normalised 0-1 so it keeps
+    #: its meaning if the same rig is later recorded at a different bit depth.
+    display_levels: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-compatible dict (always writes version 7)."""
@@ -118,6 +121,7 @@ class SessionState:
             "plot_x0": self.plot_x0,
             "plot_x1": self.plot_x1,
             "overlays": self.overlays,
+            "display_levels": self.display_levels,
         }
 
     @classmethod
@@ -199,6 +203,7 @@ class SessionState:
             plot_x0=data.get("plot_x0"),
             plot_x1=data.get("plot_x1"),
             overlays=data.get("overlays") or {},
+            display_levels=data.get("display_levels") or {},
         )
 
     def save(self, path: Path) -> None:

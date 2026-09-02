@@ -297,9 +297,7 @@ class SensorInfoWidget(QFrame):
         the user had filtered out would be a surprise with no visible control
         saying it happened.
         """
-        channels = [
-            channel for channel, item in self._channel_items.items() if not item.isHidden()
-        ]
+        channels = [channel for channel, item in self._channel_items.items() if not item.isHidden()]
         if channels:
             self.channel_group_visibility_changed.emit(
                 self.path, Path(self.path).name, channels, visible

@@ -71,6 +71,22 @@ class VideoGrid(QWidget):
 
     # ── Public API ────────────────────────────────────────────────────
 
+    def set_display_levels(self, path: str, levels) -> None:
+        """Apply a display window to one camera (D-093)."""
+        try:
+            index = self._paths.index(path)
+        except ValueError:
+            return
+        self.panes[index].set_display_levels(levels)
+
+    def auto_display_levels(self, path: str):
+        """Levels chosen from the frame that camera is currently showing."""
+        try:
+            index = self._paths.index(path)
+        except ValueError:
+            return None
+        return self.panes[index].auto_display_levels()
+
     def set_overlay_visibility(self, resolver) -> None:
         """Apply overlay visibility to every pane (D-090).
 

@@ -3254,3 +3254,41 @@ recorded here rather than left as a silent implementation choice. Anything later
 wanting Qt's undo widgets — `QUndoView` in particular — has to adapt them to
 `Document` rather than introducing a parallel stack. `tests/test_undo.py`
 asserts the menu and the document never disagree about enablement or label.
+
+**Amendment (2026-09, measured).** The performance prediction in this entry was
+wrong, and the benchmark it demanded is what caught it. Measured at 1440×1080 on
+the development machine, `tests/benchmarks/test_bench_display_pipeline.py`:
+
+| Path | Median |
+|---|---|
+| `to_ndarray("rgb24")` of a 12-bit frame | 0.96 ms |
+| native `to_ndarray` at the source's own format | ~0.00 ms (a view, not a conversion) |
+| windowed: native + lookup gather → `Format_Grayscale8` | 3.38 ms |
+
+So the windowed path is roughly **3.5× slower than the `rgb24` path it
+replaces**, not faster. The reasoning above — that emitting one plane instead of
+three saves two thirds of the bytes — was sound as far as it went and is
+irrelevant: the conversion is not where the time goes. Reading the frame at its
+native depth is essentially free, because it is a view over the plane the
+decoder already produced. The cost is entirely the lookup gather, ~3.3 ms for
+1.56 M samples, and it is memory-bound.
+
+Two things follow, and neither changes the decision.
+
+**It is still comfortably within budget.** The gather runs on the decode thread,
+inside operations that are already far more expensive: exact seek is measured at
+117 ms against a 250 ms budget, so 3.4 ms is noise, and the cache-resident drag
+scrub goes from 3 ms to roughly 6 ms against a 50 ms budget. Ordinary 8-bit
+colour is untouched — it never enters this path.
+
+**An `np.clip` before the gather cost 1.2 ms of the original 4.5 ms**, for a
+bounds check the index range can provide instead. The table is now sized to the
+sample's *storage container* (65536 entries for anything above 8 bits) while its
+*scale* still comes from the format's significant bits, so every value a decoded
+array can hold is a valid index and no per-frame clip is needed. Those two sizes
+are different and conflating them is the bug to watch for; both are asserted.
+
+The open question this entry flagged — whether native conversion costs more than
+`rgb24` — is answered: it costs nothing. The prediction that the whole path
+would therefore be faster did not follow, and should not have been written as
+though measurement were a formality.
