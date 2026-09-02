@@ -342,8 +342,34 @@ def marker_color(palette: QPalette, index: int) -> QColor:
     readable on a white plot background and on a black one. The literal list this
     replaces was tuned for a light background and washed out on a dark one.
     """
+    from avialsync.ui.cvd import palette_for_surface
+
+    if _colour_vision_safe():
+        # Used as designed, not re-solved through `on_surface`. Most of this
+        # palette's separation lives in the differences between its
+        # lightnesses; normalising them collapses the worst pair from 0.094 to
+        # 0.040, and normalising saturation too takes it to 0.004 -- measured
+        # (D-094).
+        colours = palette_for_surface(_surface(palette).lightnessF() < 0.5)
+        red, green, blue = colours[index % len(colours)]
+        return QColor(red, green, blue)
+
     hue = (index % MARKER_COLOR_COUNT + 0.5) / MARKER_COLOR_COUNT
     return on_surface(palette, hue, saturation=_MARKER_SATURATION)
+
+
+def _colour_vision_safe() -> bool:
+    """Whether the colour-vision-safe palette is selected.
+
+    Read here rather than passed in: every caller of `marker_color` would
+    otherwise have to thread a preference through, and this is a preference
+    about colour, which is what this module is for.
+    """
+    from avialsync.core.settings_schema import setting_for
+    from avialsync.ui.preferences_dialog import read_setting
+
+    setting = setting_for("palette/colour_vision_safe")
+    return bool(read_setting(setting)) if setting is not None else True
 
 
 def loop_pin_color(palette: QPalette, which: str) -> QColor:

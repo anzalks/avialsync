@@ -3292,3 +3292,49 @@ The open question this entry flagged — whether native conversion costs more th
 `rgb24` — is answered: it costs nothing. The prediction that the whole path
 would therefore be faster did not follow, and should not have been written as
 though measurement were a formality.
+
+**Amendment (2026-09, measured).** The mechanism this entry gave was wrong, and
+building the simulation is what exposed it. The claim was that even hue spacing
+collapses under **deuteranopia**, and that the confusable pair is a red and a
+green. Neither is true of the palette actually in use.
+
+Simulated at severity 1.0 over the seven-colour wheel, minimum separation:
+
+| | wheel | Okabe-Ito |
+|---|---|---|
+| deuteranopia | 0.080 | 0.094 |
+| **protanopia** | **0.025** | **0.084** |
+| tritanopia | 0.111 | 0.091 |
+
+The failure is under **protanopia**, and the pair is the wheel's blue
+`(48, 74, 232)` and its purple `(179, 48, 232)`, which both simulate to almost
+exactly `(34, 84, 240)`. Deuteranopia leaves the wheel tolerable. Even spacing
+guarantees *angular* distance and says nothing about where those angles land
+once two cone responses are gone — that part of the original reasoning stands,
+it simply named the wrong deficiency and the wrong pair.
+
+The decision is unchanged and the improvement is real: 3.3× under protanopia,
+removing a pair that was genuinely one colour. The honest cost is that
+Okabe-Ito is **1.2× worse under tritanopia** (0.091 against 0.111). That trade
+is deliberate — a palette is only as good as its worst pair, and 0.025 is a
+failure in a way that 0.091 is not.
+
+Two implementation findings, both measured, both now pinned by tests:
+
+**The palette cannot be fed through `on_surface`.** Solving each colour's
+lightness against the live surface, which is what every other mark in
+`theme.py` does, takes the worst pair from 0.094 to 0.040; normalising
+saturation too takes it to 0.004, which is one colour. Most of Okabe-Ito's
+separation lives in the *differences* between its lightnesses. It is therefore
+used as designed, with a uniform +0.08 lightness lift on dark surfaces that
+preserves those differences.
+
+**It is seven colours because seven is what stays distinguishable.** Okabe-Ito
+is eight including black, which is unusable here — black is the text colour on
+light and invisible on dark. A first draft invented a violet to keep the count
+at eight and that dropped protanopia to 0.048, below the floor. The palette is
+exactly `MARKER_COLOR_COUNT`, and a test asserts that adding a colour breaks it.
+
+Gated by `palette/colour_vision_safe`, default on. The old wheel remains
+reachable for anyone who prefers it, which is also what makes the two
+measurable side by side.
