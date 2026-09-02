@@ -165,3 +165,25 @@ def test_an_elided_label_still_reports_its_full_text(qapp: QApplication, qtbot) 
 
     assert label.text() == LONG_PATH
     assert label.toolTip() == LONG_PATH, "the full path has to stay reachable"
+
+
+def test_the_sidebars_own_chrome_fits_its_minimum(qapp: QApplication, qtbot) -> None:
+    """Otherwise the backstop scrollbar is on permanently, which is not a backstop.
+
+    The Open Files group was the offender: "Open Sensor/Ephys Data" wants 278px
+    on its own and 430px sitting beside "Open Videos", so the sidebar could not
+    show its own buttons without either cutting them off or carrying a
+    horizontal scrollbar at every width.
+    """
+    pane = SidebarPane()
+    qtbot.addWidget(pane)
+    pane.resize(pane.minimumWidth(), 800)
+    pane.show()
+    qapp.processEvents()
+
+    content = pane._scroll_area.widget()
+    needed = content.minimumSizeHint().width()
+    assert needed <= pane.minimumWidth(), (
+        f"sidebar contents need {needed}px inside a {pane.minimumWidth()}px "
+        f"minimum, so the horizontal scrollbar is always showing"
+    )

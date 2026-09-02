@@ -157,3 +157,52 @@ def test_the_demo_progress_window_is_not_modal() -> None:
     source = Path("src/avialsync/demo.py").read_text(encoding="utf-8")
     assert "self.setModal(False)" in source
     assert "self.setModal(True)" not in source
+
+
+# ── it has to be legible, not just present ───────────────────────────
+
+
+def test_every_control_gets_the_height_it_needs(window: MainWindow, qapp) -> None:
+    """The drop zone came up as a row of thin horizontal bars.
+
+    ``VideoGrid`` sets a deliberately low 72px floor so an empty video area
+    does not take height from the plots, and an explicit ``minimumHeight``
+    overrides the 173px its layout actually asks for. The old placeholder was
+    one label with ``Ignored`` vertical policy, which degrades quietly. The
+    empty state is five stacked controls, which does not: each was handed 2px
+    and drew as a sliver, with the headline clipped and the subtitle overlapping
+    the buttons.
+    """
+    from PySide6.QtWidgets import QLabel, QPushButton, QWidget
+
+    window.resize(1266, 810)
+    qapp.processEvents()
+
+    starved = [
+        f"{type(child).__name__}({child.text()[:24]!r}) got {child.height()}px, "
+        f"needs {child.minimumSizeHint().height()}px"
+        for child in window.empty_state.findChildren(QWidget)
+        if isinstance(child, (QLabel, QPushButton))
+        and child.isVisible()
+        and child.height() < child.minimumSizeHint().height()
+    ]
+    assert starved == [], f"squashed: {starved}"
+
+
+def test_the_grid_gives_the_height_back_once_data_arrives(
+    window: MainWindow, tmp_path, qapp
+) -> None:
+    """Raising the floor is a loan, not a claim.
+
+    With a recording open the plots need that height more than an invisible
+    placeholder does.
+    """
+    from avialsync.ui.video_grid import VideoGrid
+
+    qapp.processEvents()
+    assert window.video_grid.minimumHeight() > VideoGrid.BASE_MIN_HEIGHT
+
+    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor.avialcache"
+    window._refresh_empty_state()
+
+    assert window.video_grid.minimumHeight() == VideoGrid.BASE_MIN_HEIGHT

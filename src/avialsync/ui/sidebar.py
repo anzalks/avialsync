@@ -601,6 +601,17 @@ class VideoInfoWidget(QFrame):
             self._badge_btn.setVisible(False)
 
 
+def _wrapped_note(text: str) -> QLabel:
+    """A placeholder line that folds instead of setting the sidebar's width.
+
+    Unwrapped, "No sensor data loaded." reports 264 px as its minimum, which in
+    a 200 px sidebar is the difference between a scrollbar and none.
+    """
+    label = QLabel(text)
+    label.setWordWrap(True)
+    return label
+
+
 class SidebarPane(QWidget):
     """The left sidebar for file management and metadata."""
 
@@ -652,7 +663,6 @@ class SidebarPane(QWidget):
         # Row 1: Actions
         actions_group = QGroupBox("Open Files")
         actions_layout = QVBoxLayout(actions_group)
-        open_actions = QHBoxLayout()
         self.btn_open_video = QPushButton("Open Videos")
         self.btn_open_sensor = QPushButton("Open Sensor/Ephys Data")
         self.btn_reset_session = QPushButton("Reset Session")
@@ -660,10 +670,15 @@ class SidebarPane(QWidget):
         self.btn_open_video.clicked.connect(self.open_video_requested)
         self.btn_open_sensor.clicked.connect(self.open_sensor_requested)
         self.btn_reset_session.clicked.connect(self.reset_session_requested)
-        open_actions.addWidget(self.btn_open_video)
-        open_actions.addWidget(self.btn_open_sensor)
-        actions_layout.addLayout(open_actions)
-        actions_layout.addWidget(self.btn_reset_session)
+        # Stacked, not side by side. "Open Sensor/Ephys Data" alone wants 278 px
+        # and the pair wanted 430, which made this group the widest thing in the
+        # sidebar by a wide margin -- so either the labels were cut off or the
+        # sidebar had to carry a horizontal scrollbar to reach them. One button
+        # per row costs a little height, of which the sidebar has plenty.
+        for button in (self.btn_open_video, self.btn_open_sensor, self.btn_reset_session):
+            button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            button.setMinimumWidth(120)
+            actions_layout.addWidget(button)
         self.content_layout.addWidget(actions_group)
 
         # Row 2: Videos — header has an inline "Grid" checkbox
@@ -687,7 +702,7 @@ class SidebarPane(QWidget):
         # Row 3: Sensors
         self.sensors_group = QGroupBox("Sensor Data")
         self.sensors_layout = QVBoxLayout(self.sensors_group)
-        self.sensors_layout.addWidget(QLabel("No sensor data loaded."))
+        self.sensors_layout.addWidget(_wrapped_note("No sensor data loaded."))
         self.content_layout.addWidget(self.sensors_group)
 
         self.content_layout.addStretch(1)
@@ -767,7 +782,7 @@ class SidebarPane(QWidget):
                 break
 
         if self.sensors_layout.count() == 0:
-            self.sensors_layout.addWidget(QLabel("No sensor data loaded."))
+            self.sensors_layout.addWidget(_wrapped_note("No sensor data loaded."))
 
     def set_video_loader(self, path: str, loader: object) -> None:
         """Forward loader reference to VideoInfoWidget for properties panel."""

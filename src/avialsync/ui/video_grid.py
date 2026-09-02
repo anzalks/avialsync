@@ -22,6 +22,12 @@ class VideoGrid(QWidget):
     changes, avoiding the Qt limitation that prevents swapping layouts.
     """
 
+    #: Floor for an empty grid: tall enough to read as a pane and as a drop
+    #: target, low enough that it never dictates how window height is shared.
+    #: A widget placed over the grid that cannot survive this -- the empty
+    #: state, five stacked controls -- must raise the floor while it shows.
+    BASE_MIN_HEIGHT = 72
+
     # Emitted when the user right-clicks inside any video pane.
     # path = the pane's video path; pos = QPoint (global screen position).
     pane_right_clicked = Signal(str, object)
@@ -67,7 +73,7 @@ class VideoGrid(QWidget):
         self._layout.addWidget(self.lbl_empty, 0, 0)
         # Keep an empty grid readable as a pane and as a drop target, without
         # letting it dictate how the window's height is shared.
-        self.setMinimumHeight(72)
+        self.setMinimumHeight(self.BASE_MIN_HEIGHT)
 
     # ── Public API ────────────────────────────────────────────────────
 
