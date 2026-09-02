@@ -129,7 +129,11 @@ class SensorInfoWidget(QFrame):
         sync_layout.addWidget(QLabel("Offset:"))
         self.offset_spin = QDoubleSpinBox()
         self.offset_spin.setRange(-_OFFSET_LIMIT_S, _OFFSET_LIMIT_S)
-        self.offset_spin.setDecimals(3)
+        # Six decimals, not three. At 230 fps one frame is 4.35 ms, which
+        # millisecond precision cannot express -- a frame-accurate nudge
+        # silently rounded to 4 ms and the source drifted a frame every
+        # nudge. The sync fit already reports offsets to six places.
+        self.offset_spin.setDecimals(6)
         self.offset_spin.setSingleStep(0.05)
         self.offset_spin.setSuffix(" s")
         self.offset_spin.setAccessibleName(f"Time offset for {Path(path).name}")
@@ -460,7 +464,11 @@ class VideoInfoWidget(QFrame):
         sync_lbl = QLabel("Offset:")
         self.offset_spin = QDoubleSpinBox()
         self.offset_spin.setRange(-_OFFSET_LIMIT_S, _OFFSET_LIMIT_S)
-        self.offset_spin.setDecimals(3)
+        # Six decimals, not three. At 230 fps one frame is 4.35 ms, which
+        # millisecond precision cannot express -- a frame-accurate nudge
+        # silently rounded to 4 ms and the source drifted a frame every
+        # nudge. The sync fit already reports offsets to six places.
+        self.offset_spin.setDecimals(6)
         self.offset_spin.setSingleStep(0.05)
         self.offset_spin.setSuffix(" s")
         self.offset_spin.valueChanged.connect(self._on_offset_changed)

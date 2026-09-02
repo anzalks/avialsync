@@ -1440,9 +1440,6 @@ class MainWindow(QMainWindow):
         act.triggered.connect(self._open_data)
         _reg(act, "File")
 
-        act = file_menu.addAction("Synchronize TTL / events…")
-        act.triggered.connect(self._open_sync_wizard)
-
         file_menu.addSeparator()
 
         act = file_menu.addAction("Save Session…")
@@ -1511,6 +1508,28 @@ class MainWindow(QMainWindow):
         self._undo_actions = install_edit_menu(self, self._edit_menu)
         _reg(self._undo_actions.undo_action, "Edit")
         _reg(self._undo_actions.redo_action, "Edit")
+
+        # ── Align ─────────────────────────────────────────────────────
+        # Promoted out of File. Alignment is not a file operation -- it is the
+        # reason this application exists, and it sat between Open Sensor Data
+        # and Save Session (WP-10).
+        self._align_menu = menu.addMenu("Align")
+
+        act = self._align_menu.addAction("Synchronize TTL / events…")
+        act.setToolTip("Fit an offset from events both recordings share")
+        act.triggered.connect(self._open_sync_wizard)
+        _reg(act, "Align")
+
+        self._align_menu.addSeparator()
+        act = self._align_menu.addAction("Nudge selected source earlier")
+        act.setShortcut(QKeySequence("Ctrl+Shift+Left"))
+        act.triggered.connect(lambda: self._nudge_alignment(-1))
+        _reg(act, "Align")
+
+        act = self._align_menu.addAction("Nudge selected source later")
+        act.setShortcut(QKeySequence("Ctrl+Shift+Right"))
+        act.triggered.connect(lambda: self._nudge_alignment(+1))
+        _reg(act, "Align")
 
         # ── View ──────────────────────────────────────────────────────
         view_menu = menu.addMenu("View")
@@ -1613,6 +1632,47 @@ class MainWindow(QMainWindow):
         act = help_menu.addAction("About AvialSync")
         act.setMenuRole(QAction.MenuRole.AboutRole)
         act.triggered.connect(self._show_about)
+
+    # ── Alignment (WP-10) ────────────────────────────────────────────
+
+    def _nudge_alignment(self, direction: int) -> None:
+        """Shift the focused video by one frame against the master clock.
+
+        Aligning by eye is the most common real workflow and had no direct
+        path: the only control was a spin box with 0.05 s steps, which is more
+        than a frame at any rate this application targets. A frame is the unit
+        the user is actually judging.
+        """
+        path = self._focused_video_path()
+        if path is None:
+            self.notifications.show_warning("Load a video before nudging its alignment.")
+            return
+
+        fps = self._video_fps.get(path, 0.0)
+        step = (1.0 / fps) if fps > 0 else 0.001
+        offset, drift = self._recorded_mappings.get(path, (0.0, 0.0))
+        new_offset = offset + direction * step
+
+        self.sidebar.set_video_offset(path, new_offset)
+        self._on_video_offset_changed(path, new_offset)
+        self.transport.set_status(
+            f"{Path(path).name} offset {new_offset:+.4f} s ({direction:+d} frame)", "info"
+        )
+
+    def alignment_confidence(self, path: str) -> str:
+        """One line describing how this source is aligned, or that it is not.
+
+        Derived from the accepted provenance, which is the record of what was
+        actually agreed to. Event-driven: never sampled on the clock tick.
+        """
+        for entry in self._sync_provenance:
+            if entry.target_id != path:
+                continue
+            return (
+                f"aligned to {Path(entry.reference_id).name or entry.reference_id} "
+                f"± {entry.max_residual * 1000:.1f} ms from {entry.matched_count} events"
+            )
+        return "no accepted alignment"
 
     # ── Overlays (D-090) ─────────────────────────────────────────────
 

@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.sync import SyncFit, SyncProposal
 from avialsync.engine.sync_worker import EvidenceSpec, SignalEvidenceSpec, SyncWorker
+from avialsync.ui.sync_evidence_view import SyncEvidenceView
 
 
 class SyncWizard(QDialog):
@@ -49,6 +50,8 @@ class SyncWizard(QDialog):
                 "until you explicitly accept it."
             )
         )
+        self._evidence = SyncEvidenceView(self)
+        layout.addWidget(self._evidence)
         form = QFormLayout()
         self._reference_combo = QComboBox(self)
         self._target_combo = QComboBox(self)
@@ -198,6 +201,9 @@ class SyncWizard(QDialog):
             return
         self._proposal = proposal
         fit = proposal.fit
+        # The plot, not just the sentence. BLUEPRINT principle 8 asks for the
+        # matched evidence; four numbers are a summary of it (WP-10).
+        self._evidence.show_proposal(proposal)
         self._summary.setText(
             f"{fit.matched_count} matched events; {fit.rejected_count} unmatched; "
             f"offset {fit.offset:.6f} s; drift {fit.drift_ppm:.3f} ppm; "
