@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QTreeWidget,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.inspection import SourceInspection
+from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
 from avialsync.ui.source_properties import VideoPropertiesPanel
 from avialsync.ui.theme import follow_palette, status_color
 
@@ -45,6 +47,9 @@ def _widgets_of(layout: QVBoxLayout, kind: type[_W]) -> "list[_W]":
             found.append(widget)
     return found
 
+
+#: Channel count above which the per-source filter is worth its own row.
+_FILTER_THRESHOLD = 8
 
 #: Range of the per-source offset controls, in seconds. A full day either way.
 #:
@@ -164,14 +169,33 @@ class SensorInfoWidget(QFrame):
                 "; background: transparent; }"
             ),
         )
+        # Filter, above the tree. A seventy-channel source is a scrolling
+        # column otherwise, and the spec targets 128 (WP-11).
+        self._filter = QLineEdit()
+        self._filter.setPlaceholderText("Filter channels…")
+        self._filter.setClearButtonEnabled(True)
+        self._filter.setAccessibleName(f"Filter the channels of {Path(path).name}")
+        self._filter.textChanged.connect(self._apply_filter)
+        if len(channels) > _FILTER_THRESHOLD:
+            layout.addWidget(self._filter)
+        else:
+            # A filter over six channels is furniture. It still exists so the
+            # code path is uniform, it is simply not shown.
+            self._filter.setVisible(False)
+
         layout.addWidget(self.tree)
 
         self._channel_items: dict[str, QTreeWidgetItem] = {}
+        self._group_items: list[QTreeWidgetItem] = []
         nodes = {"": self.tree.invisibleRootItem()}
 
+        # Prefixes are decided across the whole source: whether "Jaw" is a
+        # group depends on how many other channels share it, which no single
+        # name can say.
+        groupable = group_prefixes(list(channels))
+
         for ch in channels:
-            # Grouping by '/' or '.'
-            parts = ch.replace(".", "/").split("/")
+            parts = split_channel(ch, groupable)
             parent_path = ""
             for part in parts[:-1]:
                 path_key = parent_path + "/" + part if parent_path else part
@@ -183,6 +207,7 @@ class SensorInfoWidget(QFrame):
                     group_item.setFont(0, font)
                     group_item.setExpanded(True)
                     nodes[path_key] = group_item
+                    self._group_items.append(group_item)
                 parent_path = path_key
 
             leaf_part = parts[-1]
@@ -209,6 +234,31 @@ class SensorInfoWidget(QFrame):
 
         self._props_panel = SensorPropertiesPanel(_make_empty_inspection(path), parent=self)
         layout.addWidget(self._props_panel)
+
+    def _apply_filter(self, needle: str) -> None:
+        """Show only channels matching *needle*, keeping their groups visible.
+
+        Hiding rather than rebuilding: the check state of every channel lives
+        on its item, and rebuilding the tree to filter it would either lose
+        that or need it mirrored somewhere else.
+        """
+        for channel, item in self._channel_items.items():
+            item.setHidden(not matches_filter(channel, needle))
+
+        # A group whose every child is filtered out is noise; one with a
+        # surviving child has to stay, and stay open, or the match is hidden
+        # inside a collapsed node.
+        for group in self._group_items:
+            visible_children = any(
+                not group.child(index).isHidden() for index in range(group.childCount())
+            )
+            group.setHidden(not visible_children)
+            if visible_children and needle:
+                group.setExpanded(True)
+
+    def visible_channel_count(self) -> int:
+        """How many channels the filter currently shows."""
+        return sum(1 for item in self._channel_items.values() if not item.isHidden())
 
     def _on_item_changed(self, item: QTreeWidgetItem, column: int) -> None:
         ch = item.toolTip(0)
