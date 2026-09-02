@@ -78,6 +78,7 @@ from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_fo
 from avialsync.ui.pane_proportions import PaneProportions
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.readout_panel import ReadoutPanel
+from avialsync.ui.shortcut_overrides import apply_overrides
 from avialsync.ui.time_format import TimeDisplayMode
 from avialsync.ui.tracking_3d_pane import Tracking3DPane
 from avialsync.ui.transport import Transport
@@ -593,6 +594,11 @@ class MainWindow(QMainWindow):
 
         # Setup global shortcuts (must come after _setup_menu so _all_actions exists)
         self._setup_shortcuts()
+
+        # User rebindings, layered over the defaults just established. Applied
+        # last so a stored choice wins, and after the defaults are recorded so
+        # Reset has something to restore (WP-3).
+        apply_overrides(list(self._all_actions))
 
     # ── Background job lifetime ──────────────────────────────────────
 
@@ -2119,10 +2125,12 @@ class MainWindow(QMainWindow):
     def _show_shortcuts(self) -> None:
         from avialsync.ui.shortcuts_dialog import ShortcutsDialog
 
-        # Group all registered QActions by category tag (D-022.6)
+        # Group all registered QActions by category tag (D-022.6). Unbound
+        # actions are included now that the dialog can assign a key: one with
+        # no shortcut is exactly the one somebody wants to give a shortcut.
         groups: dict[str, list[QAction]] = {}
         for act in getattr(self, "_all_actions", []):
-            if not act.shortcuts():
+            if not act.text():
                 continue
             cat = str(act.property("av_category") or "Other")
             groups.setdefault(cat, []).append(act)
