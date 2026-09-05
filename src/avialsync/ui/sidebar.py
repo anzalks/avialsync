@@ -52,6 +52,17 @@ def _widgets_of(layout: QVBoxLayout, kind: type[_W]) -> "list[_W]":
     return found
 
 
+def _children_of(item: QTreeWidgetItem) -> list[QTreeWidgetItem]:
+    """Return *item*'s direct children.
+
+    ``QTreeWidgetItem.child`` is typed as returning None for an out-of-range
+    index; walking ``range(childCount())`` never asks for one, so express that
+    once here rather than guarding at each call site.
+    """
+    children = [item.child(index) for index in range(item.childCount())]
+    return [child for child in children if child is not None]
+
+
 #: Channel count above which the per-source filter is worth its own row.
 _FILTER_THRESHOLD = 8
 
@@ -323,9 +334,7 @@ class SensorInfoWidget(QFrame):
         # surviving child has to stay, and stay open, or the match is hidden
         # inside a collapsed node.
         for group in self._group_items:
-            visible_children = any(
-                not group.child(index).isHidden() for index in range(group.childCount())
-            )
+            visible_children = any(not child.isHidden() for child in _children_of(group))
             group.setHidden(not visible_children)
             if visible_children and needle:
                 group.setExpanded(True)
@@ -350,13 +359,13 @@ class SensorInfoWidget(QFrame):
     def _channels_under(self, group: QTreeWidgetItem) -> list[str]:
         """Every channel id beneath *group*, however deeply nested."""
         found: list[str] = []
-        stack = [group.child(index) for index in range(group.childCount())]
+        stack = _children_of(group)
         while stack:
             node = stack.pop()
             channel = node.toolTip(0)
             if channel:
                 found.append(channel)
-            stack.extend(node.child(index) for index in range(node.childCount()))
+            stack.extend(_children_of(node))
         return found
 
     def _on_item_changed(self, item: QTreeWidgetItem, column: int) -> None:
