@@ -95,23 +95,43 @@ def test_warmup_completes_and_is_idempotent(tmp_path: Path) -> None:
     assert registry._discovered is True
 
 
-def test_main_window_construction_does_not_block_on_discovery(qapp: QApplication, qtbot) -> None:
+def test_main_window_construction_does_not_block_on_discovery(
+    qapp: QApplication, qtbot, monkeypatch
+) -> None:
     """The regression test for the four-second launch.
 
     Asserts the *shape* of the fix rather than a wall-clock budget: CI machines
-    are too variable for a timing assertion, but "the window was built without
-    discovery having run" is exact and cannot pass by accident.
+    are too variable for a timing assertion.
+
+    It asserts which thread the import work ran on, not whether it had finished.
+    "`_discovered` is still False when the window exists" reads as the stricter
+    check and is not: run after any test that has already imported neo, scipy
+    and h5py, the warm-up thread completes inside the constructor and the flag
+    is legitimately True. That made this test pass alone and fail in a full
+    run, which is a race in the test, not a defect in the window. What must
+    never happen is those imports landing on the UI thread.
     """
+    ran_on: list[threading.Thread] = []
+    original = LoaderRegistry._discover
+
+    def recording_discover(self: LoaderRegistry) -> None:
+        ran_on.append(threading.current_thread())
+        original(self)
+
+    monkeypatch.setattr(LoaderRegistry, "_discover", recording_discover)
+
     win = MainWindow()
     qtbot.addWidget(win)
     try:
-        discovered_during_construction = win._registry._discovered
+        warmup = win._registry._warmup
     finally:
         win.close()
 
-    assert discovered_during_construction is False, (
+    assert warmup is not None, "the constructor must hand discovery to a thread"
+    assert threading.main_thread() not in ran_on, (
         "MainWindow.__init__ must not wait for plugin discovery; "
-        "it imports neo, scipy, and h5py and blocks the UI thread"
+        "it imports neo, scipy, and h5py and blocks the UI thread "
+        f"(discovery ran on {[thread.name for thread in ran_on]})"
     )
 
 
