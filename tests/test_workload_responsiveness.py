@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from avialsync.core.pyramid import PyramidBuilder
 from avialsync.ui.main_window import MainWindow
@@ -49,7 +50,10 @@ def loaded_window(qapp: QApplication, qtbot, dense_source) -> MainWindow:
     )
     qapp.processEvents()
     yield window
-    window.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(window):
+        window.close()
 
 
 #: A stall shows up as a *tail*, not as a bad average: a hitch every twentieth
@@ -60,7 +64,15 @@ def loaded_window(qapp: QApplication, qtbot, dense_source) -> MainWindow:
 #: nothing, which is what `worst < 500 ms` alone was doing. A ratio scales with
 #: the machine: everything slows together, so the shape holds, while a periodic
 #: stall breaks it on any hardware.
-_MAX_TAIL_RATIO = 4.0
+#:
+#: 4.5 rather than 4.0, and the ratio is deliberately *not* what separates a
+#: real stall from a preempted iteration -- it cannot. Measured on macos-15 /
+#: Python 3.12 in CI, this suite, with nothing wrong: p50 53.0 ms (29.2 ms
+#: locally) and two samples at 4.2x and 5.0x that median. The regression shape
+#: this must catch, `grown tail` below, sits at 4.8x-5.5x. Those overlap. What
+#: separates them is how many there are, which is `_OUTLIERS_PER_SAMPLES`; the
+#: ratio's job is only to sit below a real tail so every sample in it counts.
+_MAX_TAIL_RATIO = 4.5
 
 #: Below this, p50 is small enough that the ratio is dominated by timer
 #: granularity rather than by anything real. Measured p50s on a 32-channel
@@ -79,15 +91,23 @@ def _percentile(samples: list[float], fraction: float) -> float:
     return ordered[lower] + (position - lower) * (ordered[upper] - ordered[lower])
 
 
-#: How many callbacks may exceed the budget before it counts as a stall.
-#: Exactly one, and that tolerance is the difference between a test that runs on
-#: shared CI and one that gets disabled. A hosted runner is preempted by other
-#: tenants; a single 80 ms scheduling gap in a 40-iteration loop says nothing
-#: about this application. What it cannot produce is the *same* gap over and
-#: over, so a repeated overrun is signal and a lone one is noise. Anything
-#: periodic enough for a user to perceive clears this easily: a hitch every
-#: twentieth frame appears three times in a 60-sample run.
-_ALLOWED_OUTLIERS = 1
+#: How many callbacks may exceed the budget before it counts as a stall, as a
+#: share of the run rather than a flat count.
+#:
+#: The tolerance is the difference between a test that runs on shared CI and one
+#: that gets disabled. A hosted runner is preempted by other tenants; a
+#: scheduling gap or two in a 60-iteration loop says nothing about this
+#: application. What preemption cannot produce is the *same* gap over and over,
+#: so repeated overruns are signal and scattered ones are noise.
+#:
+#: One in twenty-five keeps that distinction where it was drawn: anything
+#: periodic enough for a user to perceive still fails, because a hitch every
+#: twentieth frame appears three times in a 60-sample run and this allows two.
+#: A flat "exactly one" did not survive contact with a macOS runner, which
+#: produced two in a run with nothing wrong with it. The two shapes in
+#: `test_the_stall_detector_rejects_a_visible_stall` are what keep this
+#: honest: widen it further and they stop failing.
+_OUTLIERS_PER_SAMPLES = 25
 
 
 def _assert_no_stall_tail(samples: list[float], label: str) -> None:
@@ -102,9 +122,11 @@ def _assert_no_stall_tail(samples: list[float], label: str) -> None:
     p50 = _percentile(samples, 0.50)
     budget = max(_TAIL_FLOOR_MS, p50 * _MAX_TAIL_RATIO)
     over = [value for value in samples if value > budget]
+    allowed = max(1, len(samples) // _OUTLIERS_PER_SAMPLES)
 
-    assert len(over) <= _ALLOWED_OUTLIERS, (
-        f"{label}: {len(over)} of {len(samples)} callbacks exceeded {budget:.1f} ms "
+    assert len(over) <= allowed, (
+        f"{label}: {len(over)} of {len(samples)} callbacks (at most {allowed} allowed) "
+        f"exceeded {budget:.1f} ms "
         f"against a typical {p50:.1f} ms (p95 {_percentile(samples, 0.95):.1f} ms, "
         f"worst {max(samples):.1f} ms). Repeated overruns are a stall the user sees, "
         f"even though the mean stays fine."
