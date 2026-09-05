@@ -7,7 +7,7 @@ import logging
 import sys
 import threading
 from collections.abc import Iterable
-from importlib.metadata import entry_points
+from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
 from types import ModuleType
 from typing import Protocol, TypeVar
@@ -26,6 +26,9 @@ class _Capability(Protocol):
 
 #: Any capability-scored plugin class: a loader or a session scanner.
 _T = TypeVar("_T", bound=type[_Capability])
+
+#: The entry-point groups this application publishes and reads.
+_ENTRY_POINT_GROUPS: tuple[str, ...] = ("avialsync.loaders", "avialsync.sessions")
 
 #: The built-in loaders, as ``(module, class name)``, in discovery order.
 #: Named rather than imported at the top of ``_discover`` so each one can fail
@@ -80,6 +83,10 @@ class LoaderRegistry:
         self._discovered = False
         self._lock = threading.Lock()
         self._warmup: threading.Thread | None = None
+        #: Entry-point metadata, read on the thread that starts the warm-up.
+        #: See `_snapshot_entry_points` for why it is not read on the thread
+        #: that uses it.
+        self._entry_points: dict[str, list[EntryPoint]] | None = None
 
     @property
     def plugin_errors(self) -> list[tuple[str, str]]:
@@ -107,6 +114,7 @@ class LoaderRegistry:
         with self._lock:
             if self._discovered or self._warmup is not None:
                 return
+            self._snapshot_entry_points()
             self._warmup = threading.Thread(
                 target=self._warm,
                 name="avialsync-plugin-discovery",
@@ -114,6 +122,29 @@ class LoaderRegistry:
             )
             warmup = self._warmup
         warmup.start()
+
+    def _snapshot_entry_points(self) -> None:
+        """Read the installed entry-point metadata on the *calling* thread.
+
+        `importlib.metadata.entry_points()` parses every installed
+        distribution's metadata and builds an `EntryPoint` per line. Doing that
+        on the warm-up thread segfaulted CPython on a CI runner -- twice, at
+        different points in the suite, with the same two stacks: this thread
+        inside `entry_points`, the main thread garbage-collecting. Reading the
+        metadata here and handing the thread a plain list keeps the expensive
+        half -- importing each plugin module, which is the ~470 ms D-095 exists
+        to move off the UI thread -- where it belongs, and takes the cheap half
+        (measured at 1.5-5 ms per group) back onto the caller's thread.
+
+        Held under `_lock` by its caller. A registry whose warm-up never runs
+        (every test that builds one directly) reads the metadata inline in
+        `_load_entry_points` instead, as before.
+        """
+        if self._entry_points is not None:
+            return
+        self._entry_points = {
+            group: list(entry_points(group=group)) for group in _ENTRY_POINT_GROUPS
+        }
 
     def _warm(self) -> None:
         try:
@@ -189,8 +220,15 @@ class LoaderRegistry:
 
         Deduplicates by class identity, so a built-in that is also declared as
         an entry point is registered once.
+
+        Reads the snapshot `start_warmup` took when there is one, so this
+        thread never builds `EntryPoint` objects itself (`_snapshot_entry_points`).
         """
-        for ep in entry_points(group=group):
+        snapshot = self._entry_points
+        published = snapshot.get(group) if snapshot is not None else None
+        if published is None:
+            published = list(entry_points(group=group))
+        for ep in published:
             try:
                 plugin_cls = ep.load()
             except Exception as error:  # noqa: BLE001 - plugin boundary, as in _load_module

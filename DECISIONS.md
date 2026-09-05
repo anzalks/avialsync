@@ -3167,6 +3167,28 @@ method, always truthy — so they had been asserting nothing; both now call it.
 that `MainWindow.__init__` completes with `_discovered` still false, which cannot
 pass by accident the way a wall-clock budget could on a loaded CI machine.
 
+**Amendment (2026-09, from CI).** Two things in the paragraph above did not
+survive contact with the test matrix, which ran on this branch for the first
+time three weeks after the fix landed.
+
+*The metadata read moved back to the caller's thread.* macOS with Python 3.11
+segfaulted twice, at 17% and 82% of the suite, with the same two stacks: the
+warm-up thread inside `importlib.metadata.entry_points`, building an
+`EntryPoint` per line of every installed distribution, and the main thread
+garbage-collecting inside pytest-qt's setup hook. `start_warmup` now reads that
+metadata before the thread exists and hands it a plain list. The expensive half
+— importing neo, scipy and h5py — is what this decision is about and stays on
+the thread; the half moved back measures 1.5 ms per group on 3.11 and 5 ms on
+3.12. A suite that builds hundreds of windows starts hundreds of warm-ups,
+which is why CI found this and a developer machine does not.
+
+*The guard's assertion was a race.* "`MainWindow.__init__` completes with
+`_discovered` still false" is exact only when the imports are cold. Run after
+any test that already imported neo, scipy and h5py, the warm-up finishes inside
+the constructor and the flag is legitimately true — the test passed alone and
+failed in a full run. It now records the thread `_discover` runs on and asserts
+the main thread is never it, which is the contract this entry actually states.
+
 ## 2026-09 · D-096 · A decode thread that will not stop is detached, never destroyed
 
 **Context:** closing the window printed

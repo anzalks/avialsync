@@ -95,6 +95,36 @@ def test_warmup_completes_and_is_idempotent(tmp_path: Path) -> None:
     assert registry._discovered is True
 
 
+def test_the_warmup_thread_never_reads_entry_point_metadata(tmp_path: Path, monkeypatch) -> None:
+    """The metadata is read on the caller's thread; only the imports are not.
+
+    `entry_points()` parses every installed distribution and builds an
+    `EntryPoint` per line. Doing that on the warm-up thread segfaulted CPython
+    3.11 on a macOS CI runner twice, at 17% and 82% of this suite, with the
+    same two stacks both times: the warm-up thread inside `entry_points`, the
+    main thread garbage-collecting. The expensive half -- importing each plugin
+    module -- stays on the thread, which is what D-095 is about.
+    """
+    from avialsync.core import registry as registry_module
+
+    callers: list[threading.Thread] = []
+    real = registry_module.entry_points
+
+    def recording_entry_points(**kwargs: str):  # type: ignore[no-untyped-def]
+        callers.append(threading.current_thread())
+        return real(**kwargs)
+
+    monkeypatch.setattr(registry_module, "entry_points", recording_entry_points)
+
+    registry = LoaderRegistry(plugin_dirs=[tmp_path])
+    registry.start_warmup()
+    assert registry.loaders(), "the accessor waits for the warm-up to finish"
+
+    assert callers, "discovery has to read the metadata somewhere"
+    off_thread = [thread.name for thread in callers if thread is not threading.main_thread()]
+    assert off_thread == [], f"entry-point metadata was built on {off_thread}"
+
+
 def test_main_window_construction_does_not_block_on_discovery(
     qapp: QApplication, qtbot, monkeypatch
 ) -> None:
