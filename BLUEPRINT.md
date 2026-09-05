@@ -332,7 +332,7 @@ codebase acquires a fifth `QSettings` call site and a sixth error-dialog dialect
 |---|---|---|
 | F1 | Document + command bus (`core/document.py`) | dirty state, undo/redo, hot exit, autosave without a path |
 | F2 | Settings registry (`core/settings_schema.py`) | Preferences, defaults, reset, settings dump in Diagnostics |
-| F3 | Action registry (`ui/action_registry.py`) | command palette, remappable shortcuts, one label per command |
+| F3 | Action layer (the live `QAction`s, `ui/shortcut_overrides.py`) | command palette, remappable shortcuts, one label per command (D-092: no separate `action_registry.py`) |
 | F4 | Overlay registry (`ui/overlay_registry.py`) | View → Overlays, per-camera override, plugin overlay extension point |
 | F5 | Feedback surface (`ui/feedback/`) | activity area, jobs panel, notifications, typed error presenter, data-quality badges |
 | F6 | Presentation/string layer | i18n, accessibility, CVD-validated colour, redundant encoding |

@@ -51,13 +51,16 @@ retain D-006 conversion hooks, and may be discovered through entry points or dro
 P5.4 has an initial implementation: cached TTL-channel extraction and video frame-event alignment
 with explicit user acceptance and session provenance. Native plugin event providers remain unfrozen.
 
-**Phase 7 (UX foundations) is planned and unstarted**, on branch `ux_foundations`. It adds seven
-pieces of shared infrastructure — command bus, settings registry, action registry, overlay
-registry, feedback surface, string/a11y layer, display pipeline — and wires the missing interaction
-behaviour onto them. **The executable plan is `UX_FOUNDATIONS_PLAN.md`**: twelve work packages with
-file lists, numbered steps, acceptance evidence, and a dependency graph, one package per session.
-Kickoff prompts are in PROMPTS.md §Phase 7; the binding rules it introduces are AGENTS.md
-architecture rules 10–17 and DECISIONS D-087 … D-094.
+**Phase 7 (UX foundations) has landed** on branch `ux_foundations` — WP-0 … WP-12, all thirteen
+packages. It added seven pieces of shared infrastructure — command bus, settings registry, the
+action/shortcut layer (identity derived from the live `QAction`s rather than a second table, D-092,
+so there is no `ui/action_registry.py`), overlay registry, feedback surface, string/a11y layer,
+display pipeline — and wired the missing interaction behaviour onto them. **The executable plan is
+`UX_FOUNDATIONS_PLAN.md`**, whose header records the two deliberate scope boundaries: WP-11 left the
+four nested splitters as splitters rather than `QDockWidget`s, and WP-12 wrapped 106 of 166
+user-facing literals, the remainder being f-strings `lupdate` cannot extract (`translatable_ratio`
+measures it). Kickoff prompts are in PROMPTS.md §Phase 7; the binding rules are AGENTS.md
+architecture rules 10–17 and DECISIONS D-087 … D-097.
 
 Two product laws govern that phase and outrank convention:
 
@@ -569,16 +572,16 @@ _start_data_import(path)
 
 ### 0a. Three UI facts that look like features and are not (Phase 7)
 Verified against the tree, not inferred. Each has caused, or will cause, a wrong assumption.
-1. **`session_controller.autosave()` returns early when `window._session_path is None`.** The
-   two-minute autosave therefore protects only sessions that were already saved manually. A session
-   that has never been saved has no protection at all, and `closeEvent`'s "always close" contract
-   discards it silently. Do not describe the app as having autosave without this caveat. WP-1 and
-   D-089 fix it with a recovery snapshot.
-2. **`PaintCanvas.set_point_labels_visible()` and `set_legend_visible()` have no production
-   caller.** `set_legend_visible` has no caller at all; `set_point_labels_visible` has exactly one,
-   in `tests/test_video_pane_timing.py`. Nothing in `src/` invokes either — the toggles exist, the
-   control surface does not. Wire them through `ui/overlay_registry.py` (D-090); do not write new
-   parallel toggles beside them.
+1. **`session_controller.autosave()` writes a recovery snapshot when `window._session_path is
+   None`** (WP-1, D-089). It used to return early there, so the two-minute autosave protected only
+   sessions already saved by hand and `closeEvent`'s "always close" contract discarded an untitled
+   one silently. Both paths are covered now — the timer and the close — so do not add a "save your
+   changes?" gate in front of either; hot exit is what replaced it.
+2. **Every layer drawn over video is reachable from View → Overlays** (WP-4, D-090).
+   `PaintCanvas.set_point_labels_visible()` and `set_legend_visible()` were toggles with no
+   production caller; they are driven by `ui/overlay_registry.py` now. Adding a new overlay means
+   adding a registry entry — `tests/test_overlay_registry.py` enumerates the registry against the
+   drawn inventory and fails on an unregistered one. Do not write a parallel toggle beside it.
 4. **Never import a loader from the UI thread (D-095).** `LoaderRegistry` no longer discovers in
    its constructor — discovery is deferred behind `ensure_discovered()` and warmed by
    `start_warmup()` on a background thread. Constructing a registry therefore has *no* side
@@ -590,17 +593,20 @@ Verified against the tree, not inferred. Each has caused, or will cause, a wrong
    "QThread: Destroyed while thread '' is still running", which can abort the process.
    `video_pane._abandon_decoder` detaches and retains it instead, matching `job_manager`'s
    `_ABANDONED`. Do not "simplify" either one back into a plain wait.
-6. **`reset_session()` (0.1.6) clears every annotation with one sidebar click**, via
-   `annotation_store.clear()` and `message_store.clear()`, with no confirmation and no undo. It also
-   holds a reference to `window._progress_dialog`, which Phase 7 WP-5 deletes. Read the whole
-   function before touching it: it disconnects signals by name, and `_session_generation` is what
-   keeps a late async load from landing in the cleared workspace.
+6. **`reset_session()` clears every annotation with one sidebar click**, via
+   `annotation_store.clear()` and `message_store.clear()`, and still asks for no confirmation — but
+   it is undoable since WP-2: it goes through `ResetSessionCommand`, which snapshots the workspace
+   (`tests/test_document.py::test_reset_session_is_undoable`). The `window._progress_dialog` it used
+   to hold is gone with WP-5. Read the whole function before touching it: it disconnects signals by
+   name, and `_session_generation` is what keeps a late async load from landing in the cleared
+   workspace.
 3. **`to_ndarray(format="rgb24")` performs the 12→8 bit reduction inside swscale**, so a 12-bit
-   greyscale frame has already lost its dynamic range before any UI code sees it. A brightness or
-   levels control on the pane would be stretching discarded data. Display levels must be a decode
-   stage (D-093). Related: `PyAVReader._store` caches `av.VideoFrame` *pre-conversion*, which is
-   what makes a levels change a re-conversion rather than a re-decode — do not "optimise" it into
-   caching converted output.
+   greyscale frame loses its dynamic range before any UI code sees it. A brightness or levels
+   control on the pane would be stretching discarded data, which is why display levels are a decode
+   stage: `engine/display_pipeline.py` windows the declared bit depth before conversion (WP-9,
+   D-093). Related: `PyAVReader._store` caches `av.VideoFrame` *pre-conversion*, which is what makes
+   a levels change a re-conversion rather than a re-decode — do not "optimise" it into caching
+   converted output.
 
 ### 0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)
 Two variants, one cause. A worker `deleteLater`-ed from a signal its own thread emits is destroyed

@@ -110,8 +110,10 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
     `core/` stays headless: the bus is plain Python; `QUndoStack` lives in `ui/undo_adapter.py`
     (D-087).
 15. **One authority per user-visible concept.** An action's label, category, default shortcut, and
-    enablement come from `ui/action_registry.py` — a menu item and the button that invokes the same
-    command may not carry independently written text. Settings come from `core/settings_schema.py`;
+    enablement come from the live `QAction` itself — the shortcuts dialog, the command palette and
+    `ui/shortcut_overrides.py` all derive from those objects rather than from a table beside them,
+    which is why there is no `ui/action_registry.py` (D-092, D-022.6). A menu item and the button
+    that invokes the same command may not carry independently written text. Settings come from `core/settings_schema.py`;
     overlays from `ui/overlay_registry.py`. Adding a second place to define one of these is a
     rejected PR (D-092).
 16. **High-bit-depth video is windowed in the worker, never in the pane.** `to_ndarray("rgb24")`
