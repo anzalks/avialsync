@@ -9,8 +9,11 @@ WORKFLOW_PATHS = (
     Path(".github/workflows/ci.yml"),
     Path(".github/workflows/release.yml"),
 )
+#: Both workflows run the same headless contract, and stop at the first
+#: failure: with six matrix jobs, collecting four more failures costs minutes
+#: and tells you nothing the first one did not.
 TEST_COMMAND = (
-    "pytest --maxfail=5 -q --durations=20 --timeout=60 --timeout-method=thread"
+    "pytest --maxfail=1 -q --durations=20 --timeout=60 --timeout-method=thread"
     " --ignore=tests/benchmarks"
 )
 #: Bump deliberately, never incidentally — this is what release installers bundle.
