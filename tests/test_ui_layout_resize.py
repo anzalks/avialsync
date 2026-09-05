@@ -21,6 +21,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from avialsync.core.pyramid import PyramidBuilder
 from avialsync.ui.main_window import MainWindow
@@ -35,7 +36,14 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
     win.show()
     qapp.processEvents()
     yield win
-    win.close()
+    # Closing is worth doing -- `VideoGrid.shutdown` stops decode threads there
+    # -- but it cannot be assumed possible. pytest-qt runs `processEvents()`
+    # after the call phase, which executes whatever `deleteLater`s are pending,
+    # and a widget qtbot owns may already be gone by the time this line runs:
+    # "libshiboken: Internal C++ object (MainWindow) already deleted" turned one
+    # CI runner red and the next one green with no change in between.
+    if isValid(win):
+        win.close()
 
 
 def _splitters(window: MainWindow):
