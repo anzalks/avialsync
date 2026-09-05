@@ -3274,7 +3274,7 @@
       "label": "LoaderRegistry",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L54",
+      "source_location": "L57",
       "_origin": "ast"
     },
     {
@@ -3282,7 +3282,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L57",
+      "source_location": "L60",
       "_origin": "ast"
     },
     {
@@ -3290,7 +3290,7 @@
       "label": ".plugin_errors()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L85",
+      "source_location": "L92",
       "_origin": "ast"
     },
     {
@@ -3298,7 +3298,15 @@
       "label": ".start_warmup()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L95",
+      "source_location": "L102",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_registry_loaderregistry_snapshot_entry_points",
+      "label": "._snapshot_entry_points()",
+      "file_type": "code",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L126",
       "_origin": "ast"
     },
     {
@@ -3306,7 +3314,7 @@
       "label": "._warm()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L118",
+      "source_location": "L149",
       "_origin": "ast"
     },
     {
@@ -3314,7 +3322,7 @@
       "label": ".ensure_discovered()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L126",
+      "source_location": "L157",
       "_origin": "ast"
     },
     {
@@ -3322,7 +3330,7 @@
       "label": "._default_plugin_dirs()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L137",
+      "source_location": "L168",
       "_origin": "ast"
     },
     {
@@ -3330,7 +3338,7 @@
       "label": "._discover()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L158",
+      "source_location": "L189",
       "_origin": "ast"
     },
     {
@@ -3338,7 +3346,7 @@
       "label": "._load_builtins()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L172",
+      "source_location": "L203",
       "_origin": "ast"
     },
     {
@@ -3354,7 +3362,7 @@
       "label": "._load_entry_points()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L187",
+      "source_location": "L218",
       "_origin": "ast"
     },
     {
@@ -3362,7 +3370,7 @@
       "label": "._discover_directory()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L207",
+      "source_location": "L245",
       "_origin": "ast"
     },
     {
@@ -3370,7 +3378,7 @@
       "label": "._load_module()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L250",
+      "source_location": "L288",
       "_origin": "ast"
     },
     {
@@ -3386,7 +3394,7 @@
       "label": "._best_by_capability()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L285",
+      "source_location": "L323",
       "_origin": "ast"
     },
     {
@@ -3394,7 +3402,7 @@
       "label": ".find_best_loader()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L309",
+      "source_location": "L347",
       "_origin": "ast"
     },
     {
@@ -3402,7 +3410,7 @@
       "label": ".find_best_session()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L314",
+      "source_location": "L352",
       "_origin": "ast"
     },
     {
@@ -3410,7 +3418,7 @@
       "label": ".loaders()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L323",
+      "source_location": "L361",
       "_origin": "ast"
     },
     {
@@ -3418,7 +3426,7 @@
       "label": ".sessions()",
       "file_type": "code",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L328",
+      "source_location": "L366",
       "_origin": "ast"
     },
     {
@@ -3438,123 +3446,131 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_registry_rationale_55",
+      "id": "src_avialsync_core_registry_rationale_58",
       "label": "Discovers and loads source plugins.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L55",
+      "source_location": "L58",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_registry_rationale_86",
+      "id": "src_avialsync_core_registry_rationale_93",
       "label": "Plugins that were found but could not be used.          Reading this is a use of",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L86",
+      "source_location": "L93",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_registry_rationale_96",
+      "id": "src_avialsync_core_registry_rationale_103",
       "label": "Begin discovery on a background thread; return immediately.          Call once,",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L96",
+      "source_location": "L103",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_core_registry_rationale_127",
-      "label": "Run discovery once, blocking any caller that arrives mid-flight.",
+      "label": "Read the installed entry-point metadata on the *calling* thread.          `impor",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L127",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_registry_rationale_138",
+      "id": "src_avialsync_core_registry_rationale_158",
+      "label": "Run discovery once, blocking any caller that arrives mid-flight.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L158",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_registry_rationale_169",
       "label": "Return supported loose-plugin directories, in discovery order.          BLUEPRIN",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L138",
+      "source_location": "L169",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_registry_rationale_159",
+      "id": "src_avialsync_core_registry_rationale_190",
       "label": "Find loaders and session scanners in their entry point groups.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L159",
+      "source_location": "L190",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_registry_rationale_173",
+      "id": "src_avialsync_core_registry_rationale_204",
       "label": "Add each built-in class in *specs*, reporting any that will not import.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L173",
+      "source_location": "L204",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_registry_rationale_188",
+      "id": "src_avialsync_core_registry_rationale_219",
       "label": "Add every class published under *group*, skipping ones that fail.          Dedup",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L188",
+      "source_location": "L219",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_registry_rationale_208",
+      "id": "src_avialsync_core_registry_rationale_246",
       "label": "Load source classes exported by loose ``*.py`` plugin modules.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L208",
+      "source_location": "L246",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_registry_rationale_251",
+      "id": "src_avialsync_core_registry_rationale_289",
       "label": "Import one loose plugin module without adding its directory to ``sys.path``.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L251",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_core_registry_rationale_286",
-      "label": "Return the candidate scoring highest above zero on *path*.          ``can_open``",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L286",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_core_registry_rationale_310",
-      "label": "Return the loader with the highest can_open() score > 0.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L310",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_core_registry_rationale_315",
-      "label": "Return the session scanner claiming *path*, if any.          Asked before per-fi",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L315",
+      "source_location": "L289",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_core_registry_rationale_324",
-      "label": "Return all discovered source loaders.",
+      "label": "Return the candidate scoring highest above zero on *path*.          ``can_open``",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
       "source_location": "L324",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_registry_rationale_329",
+      "id": "src_avialsync_core_registry_rationale_348",
+      "label": "Return the loader with the highest can_open() score > 0.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L348",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_registry_rationale_353",
+      "label": "Return the session scanner claiming *path*, if any.          Asked before per-fi",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L353",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_registry_rationale_362",
+      "label": "Return all discovered source loaders.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L362",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_registry_rationale_367",
       "label": "Return all discovered session scanners.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L329",
+      "source_location": "L367",
       "_origin": "ast"
     },
     {
@@ -33162,7 +33178,7 @@
       "label": "test_cross_platform_quality_workflows_share_headless_media_contract()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L20",
+      "source_location": "L23",
       "_origin": "ast"
     },
     {
@@ -33170,7 +33186,7 @@
       "label": "test_release_bundles_stage_no_media_runtime()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L86",
+      "source_location": "L89",
       "_origin": "ast"
     },
     {
@@ -33178,7 +33194,7 @@
       "label": "test_windows_ffmpeg_is_pinned_everywhere_it_is_installed()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L101",
+      "source_location": "L104",
       "_origin": "ast"
     },
     {
@@ -33186,7 +33202,7 @@
       "label": "test_release_appimage_tool_has_ubuntu_fuse_2_compatibility()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L125",
+      "source_location": "L128",
       "_origin": "ast"
     },
     {
@@ -33194,7 +33210,7 @@
       "label": "test_release_tags_must_reference_main()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L132",
+      "source_location": "L135",
       "_origin": "ast"
     },
     {
@@ -33202,7 +33218,7 @@
       "label": "test_only_a_version_tag_starts_a_release()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L141",
+      "source_location": "L144",
       "_origin": "ast"
     },
     {
@@ -33210,7 +33226,7 @@
       "label": "test_every_release_job_is_gated_on_the_ref_check()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L154",
+      "source_location": "L157",
       "_origin": "ast"
     },
     {
@@ -33218,7 +33234,7 @@
       "label": "test_release_tag_must_agree_with_the_declared_version()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L171",
+      "source_location": "L174",
       "_origin": "ast"
     },
     {
@@ -33226,7 +33242,7 @@
       "label": "test_prerelease_tags_are_not_published_as_stable_releases()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L185",
+      "source_location": "L188",
       "_origin": "ast"
     },
     {
@@ -33234,7 +33250,7 @@
       "label": "test_macos_disk_image_ships_a_launchable_application()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L197",
+      "source_location": "L200",
       "_origin": "ast"
     },
     {
@@ -33242,7 +33258,7 @@
       "label": "test_signing_is_wired_but_optional()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L210",
+      "source_location": "L213",
       "_origin": "ast"
     },
     {
@@ -33250,7 +33266,7 @@
       "label": "test_macos_is_signed_before_the_image_is_built_and_notarized_after()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L230",
+      "source_location": "L233",
       "_origin": "ast"
     },
     {
@@ -33258,7 +33274,7 @@
       "label": "test_signing_scripts_refuse_to_run_without_credentials()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L245",
+      "source_location": "L248",
       "_origin": "ast"
     },
     {
@@ -33266,7 +33282,7 @@
       "label": "test_every_tracked_path_can_exist_on_windows()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L273",
+      "source_location": "L276",
       "_origin": "ast"
     },
     {
@@ -33274,7 +33290,7 @@
       "label": "test_no_python_in_the_repository_imports_mpv()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L311",
+      "source_location": "L314",
       "_origin": "ast"
     },
     {
@@ -33282,7 +33298,7 @@
       "label": "test_the_scrub_benchmark_measures_one_backend()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L346",
+      "source_location": "L349",
       "_origin": "ast"
     },
     {
@@ -33294,131 +33310,131 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_21",
+      "id": "tests_test_ci_platform_config_rationale_24",
       "label": "CI and tag quality runs must exercise the same supported media boundary.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L21",
+      "source_location": "L24",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_87",
+      "id": "tests_test_ci_platform_config_rationale_90",
       "label": "Installers carry no separately-staged media runtime (D-075).      Every media bi",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L87",
+      "source_location": "L90",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_102",
+      "id": "tests_test_ci_platform_config_rationale_105",
       "label": "An unpinned ffmpeg is both a CI flake and an unreproducible installer.      Choc",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L102",
+      "source_location": "L105",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_126",
+      "id": "tests_test_ci_platform_config_rationale_129",
       "label": "Ubuntu 24.04 must provide AppImageTool's libfuse.so.2 runtime ABI.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L126",
+      "source_location": "L129",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_133",
+      "id": "tests_test_ci_platform_config_rationale_136",
       "label": "A version tag must not release a side branch or detached commit.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L133",
+      "source_location": "L136",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_142",
+      "id": "tests_test_ci_platform_config_rationale_145",
       "label": "Pushing a branch must never publish, and neither must a non-version tag.      wo",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L142",
+      "source_location": "L145",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_155",
+      "id": "tests_test_ci_platform_config_rationale_158",
       "label": "No job may build or publish without the tag having been verified.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L155",
+      "source_location": "L158",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_172",
+      "id": "tests_test_ci_platform_config_rationale_175",
       "label": "PyPI and the GitHub release must not publish two different versions.      Nothin",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L172",
+      "source_location": "L175",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_186",
+      "id": "tests_test_ci_platform_config_rationale_189",
       "label": "A PEP 440 pre-release tag must be marked as one on the release page.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L186",
+      "source_location": "L189",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_198",
+      "id": "tests_test_ci_platform_config_rationale_201",
       "label": "A one-directory tree is not a macOS app; Finder opens it in Terminal.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L198",
+      "source_location": "L201",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_211",
+      "id": "tests_test_ci_platform_config_rationale_214",
       "label": "Signing must run when secrets exist and be skipped, not fail, when not.      BLU",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L211",
+      "source_location": "L214",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_231",
+      "id": "tests_test_ci_platform_config_rationale_234",
       "label": "Order is load-bearing: the image must carry the signed .app.      Notarization t",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L231",
+      "source_location": "L234",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_246",
+      "id": "tests_test_ci_platform_config_rationale_249",
       "label": "A half-configured secret must stop the release, not ship unsigned.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L246",
+      "source_location": "L249",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_274",
+      "id": "tests_test_ci_platform_config_rationale_277",
       "label": "A path Windows cannot create fails the job in checkout, before any test.      Th",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L274",
+      "source_location": "L277",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_312",
+      "id": "tests_test_ci_platform_config_rationale_315",
       "label": "libmpv is gone from the tests too, not only from the product (D-086).      The b",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L312",
+      "source_location": "L315",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_347",
+      "id": "tests_test_ci_platform_config_rationale_350",
       "label": "The seek benchmark must not grow a second backend back (D-086).      A compariso",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L347",
+      "source_location": "L350",
       "_origin": "ast"
     },
     {
@@ -48814,11 +48830,19 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_startup_responsiveness_test_the_warmup_thread_never_reads_entry_point_metadata",
+      "label": "test_the_warmup_thread_never_reads_entry_point_metadata()",
+      "file_type": "code",
+      "source_file": "tests/test_startup_responsiveness.py",
+      "source_location": "L98",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_startup_responsiveness_test_main_window_construction_does_not_block_on_discovery",
       "label": "test_main_window_construction_does_not_block_on_discovery()",
       "file_type": "code",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L98",
+      "source_location": "L128",
       "_origin": "ast"
     },
     {
@@ -48834,7 +48858,7 @@
       "label": "_StubThread",
       "file_type": "code",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L141",
+      "source_location": "L171",
       "_origin": "ast"
     },
     {
@@ -48850,7 +48874,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L149",
+      "source_location": "L179",
       "_origin": "ast"
     },
     {
@@ -48858,7 +48882,7 @@
       "label": ".run()",
       "file_type": "code",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L153",
+      "source_location": "L183",
       "_origin": "ast"
     },
     {
@@ -48866,7 +48890,7 @@
       "label": ".release()",
       "file_type": "code",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L156",
+      "source_location": "L186",
       "_origin": "ast"
     },
     {
@@ -48874,7 +48898,7 @@
       "label": "test_abandoning_a_decoder_detaches_it_from_its_parent()",
       "file_type": "code",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L160",
+      "source_location": "L190",
       "_origin": "ast"
     },
     {
@@ -48882,7 +48906,7 @@
       "label": "test_a_finished_abandoned_decoder_is_released()",
       "file_type": "code",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L180",
+      "source_location": "L210",
       "_origin": "ast"
     },
     {
@@ -48890,7 +48914,7 @@
       "label": "test_decode_threads_are_named()",
       "file_type": "code",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L198",
+      "source_location": "L228",
       "_origin": "ast"
     },
     {
@@ -48926,43 +48950,51 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_startup_responsiveness_rationale_101",
+      "id": "tests_test_startup_responsiveness_rationale_99",
+      "label": "The metadata is read on the caller's thread; only the imports are not.      `ent",
+      "file_type": "rationale",
+      "source_file": "tests/test_startup_responsiveness.py",
+      "source_location": "L99",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_startup_responsiveness_rationale_131",
       "label": "The regression test for the four-second launch.      Asserts the *shape* of the",
       "file_type": "rationale",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L101",
+      "source_location": "L131",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_startup_responsiveness_rationale_142",
+      "id": "tests_test_startup_responsiveness_rationale_172",
       "label": "A thread that ignores quit(), standing in for a wedged decoder.      The stop Ev",
       "file_type": "rationale",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L142",
+      "source_location": "L172",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_startup_responsiveness_rationale_161",
+      "id": "tests_test_startup_responsiveness_rationale_191",
       "label": "A running QThread destroyed with its parent aborts the process.",
       "file_type": "rationale",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L161",
+      "source_location": "L191",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_startup_responsiveness_rationale_181",
+      "id": "tests_test_startup_responsiveness_rationale_211",
       "label": "The retention must not become a leak.",
       "file_type": "rationale",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L181",
+      "source_location": "L211",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_startup_responsiveness_rationale_199",
+      "id": "tests_test_startup_responsiveness_rationale_229",
       "label": "An unnamed thread is why the Qt warning said '' and named no camera.",
       "file_type": "rationale",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L199",
+      "source_location": "L229",
       "_origin": "ast"
     },
     {
@@ -50826,7 +50858,7 @@
       "label": "window()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L31",
+      "source_location": "L32",
       "_origin": "ast"
     },
     {
@@ -50842,7 +50874,7 @@
       "label": "_splitters()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L41",
+      "source_location": "L49",
       "_origin": "ast"
     },
     {
@@ -50850,7 +50882,7 @@
       "label": "test_plot_area_starts_with_real_height()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L53",
+      "source_location": "L61",
       "_origin": "ast"
     },
     {
@@ -50858,7 +50890,7 @@
       "label": "test_every_visible_pane_starts_with_real_size()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L60",
+      "source_location": "L68",
       "_origin": "ast"
     },
     {
@@ -50866,7 +50898,7 @@
       "label": "test_no_splitter_allows_collapsing_a_pane()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L71",
+      "source_location": "L79",
       "_origin": "ast"
     },
     {
@@ -50874,7 +50906,7 @@
       "label": "test_policy_survives_restoring_a_permissive_saved_layout()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L76",
+      "source_location": "L84",
       "_origin": "ast"
     },
     {
@@ -50882,7 +50914,7 @@
       "label": "test_a_stale_zero_sized_pane_is_repaired()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L91",
+      "source_location": "L99",
       "_origin": "ast"
     },
     {
@@ -50890,7 +50922,7 @@
       "label": "test_shrinking_the_window_keeps_all_panes_visible()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L113",
+      "source_location": "L121",
       "_origin": "ast"
     },
     {
@@ -50898,7 +50930,7 @@
       "label": "test_compact_viewport_keeps_every_workspace_surface_available()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L126",
+      "source_location": "L134",
       "_origin": "ast"
     },
     {
@@ -50906,7 +50938,7 @@
       "label": "test_window_minimum_width_fits_a_laptop_display()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L171",
+      "source_location": "L179",
       "_origin": "ast"
     },
     {
@@ -50914,7 +50946,7 @@
       "label": "test_user_splitter_positions_are_honoured()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L176",
+      "source_location": "L184",
       "_origin": "ast"
     },
     {
@@ -50922,7 +50954,7 @@
       "label": "test_tracking_pane_is_hidden_without_xyz_channels()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L218",
+      "source_location": "L226",
       "_origin": "ast"
     },
     {
@@ -50930,7 +50962,7 @@
       "label": "test_tracking_pane_appears_once_a_source_has_triplets()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L223",
+      "source_location": "L231",
       "_origin": "ast"
     },
     {
@@ -50946,7 +50978,7 @@
       "label": "test_video_keeps_the_full_media_width_without_tracking_data()",
       "file_type": "code",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L255",
+      "source_location": "L263",
       "_origin": "ast"
     },
     {
@@ -50958,51 +50990,51 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_layout_resize_rationale_54",
+      "id": "tests_test_ui_layout_resize_rationale_62",
       "label": "The regression: plots used to be handed zero pixels on launch.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L54",
+      "source_location": "L62",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_layout_resize_rationale_79",
+      "id": "tests_test_ui_layout_resize_rationale_87",
       "label": "saveState stores the collapsible flag; restoring must not undo the policy.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L79",
+      "source_location": "L87",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_layout_resize_rationale_92",
+      "id": "tests_test_ui_layout_resize_rationale_100",
       "label": "A layout saved before this policy could carry a zero pane; repair it.      The z",
       "file_type": "rationale",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L92",
+      "source_location": "L100",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_layout_resize_rationale_129",
+      "id": "tests_test_ui_layout_resize_rationale_137",
       "label": "3D, videos, plots, and Data Streams all remain reachable on a small display.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L129",
+      "source_location": "L137",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_layout_resize_rationale_172",
+      "id": "tests_test_ui_layout_resize_rationale_180",
       "label": "A rigid minimum makes the window feel unresizable on a small screen.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L172",
+      "source_location": "L180",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_layout_resize_rationale_177",
+      "id": "tests_test_ui_layout_resize_rationale_185",
       "label": "Dragging a handle must actually move it, not snap back.      Two things made ear",
       "file_type": "rationale",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L177",
+      "source_location": "L185",
       "_origin": "ast"
     },
     {
@@ -58586,7 +58618,7 @@
       "label": "2026-09 · D-096 · A decode thread that will not stop is detached, never destroyed",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L3170",
+      "source_location": "L3192",
       "_origin": "ast"
     },
     {
@@ -58594,7 +58626,7 @@
       "label": "2026-09 · D-097 · There is one undo stack, and it is the Document",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L3212",
+      "source_location": "L3234",
       "_origin": "ast"
     },
     {
@@ -58602,7 +58634,7 @@
       "label": "2026-09 · D-098 · A pane's minimum height is the window's minimum height",
       "file_type": "document",
       "source_file": "DECISIONS.md",
-      "source_location": "L3343",
+      "source_location": "L3365",
       "_origin": "ast"
     },
     {
@@ -68444,7 +68476,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L54",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68454,7 +68486,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L57",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68465,7 +68497,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L57",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68475,7 +68507,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L85",
+      "source_location": "L92",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68485,23 +68517,13 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L95",
+      "source_location": "L102",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_warm",
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L118",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_core_registry_loaderregistry",
-      "target": "src_avialsync_core_registry_loaderregistry_ensure_discovered",
+      "target": "src_avialsync_core_registry_loaderregistry_snapshot_entry_points",
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
@@ -68511,11 +68533,31 @@
     },
     {
       "source": "src_avialsync_core_registry_loaderregistry",
+      "target": "src_avialsync_core_registry_loaderregistry_warm",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L149",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_registry_loaderregistry",
+      "target": "src_avialsync_core_registry_loaderregistry_ensure_discovered",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L157",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_registry_loaderregistry",
       "target": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs",
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L137",
+      "source_location": "L168",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68526,7 +68568,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L137",
+      "source_location": "L168",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68536,7 +68578,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L158",
+      "source_location": "L189",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68546,7 +68588,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L172",
+      "source_location": "L203",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68557,7 +68599,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L172",
+      "source_location": "L203",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68567,7 +68609,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L187",
+      "source_location": "L218",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68578,7 +68620,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L187",
+      "source_location": "L218",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68588,7 +68630,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L207",
+      "source_location": "L245",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68599,7 +68641,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L207",
+      "source_location": "L245",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68609,7 +68651,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L250",
+      "source_location": "L288",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68620,7 +68662,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L250",
+      "source_location": "L288",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68631,7 +68673,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L250",
+      "source_location": "L288",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68641,7 +68683,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L285",
+      "source_location": "L323",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68652,7 +68694,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L285",
+      "source_location": "L323",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68663,7 +68705,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L285",
+      "source_location": "L323",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68673,7 +68715,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L309",
+      "source_location": "L347",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68684,7 +68726,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L309",
+      "source_location": "L347",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68695,7 +68737,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L309",
+      "source_location": "L347",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68706,7 +68748,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L309",
+      "source_location": "L347",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68716,7 +68758,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L314",
+      "source_location": "L352",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68727,7 +68769,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L314",
+      "source_location": "L352",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68738,7 +68780,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L314",
+      "source_location": "L352",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68748,7 +68790,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L323",
+      "source_location": "L361",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68759,7 +68801,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L323",
+      "source_location": "L361",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68770,7 +68812,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L323",
+      "source_location": "L361",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68780,7 +68822,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L328",
+      "source_location": "L366",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68791,7 +68833,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L328",
+      "source_location": "L366",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68802,7 +68844,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L68",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68813,7 +68855,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L92",
+      "source_location": "L99",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_registry_loaderregistry_start_warmup",
+      "target": "src_avialsync_core_registry_loaderregistry_snapshot_entry_points",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L117",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68824,7 +68877,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L120",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68835,7 +68888,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L133",
+      "source_location": "L164",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68846,7 +68899,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L150",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68857,7 +68910,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L163",
+      "source_location": "L194",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68868,7 +68921,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L164",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68879,7 +68932,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L170",
+      "source_location": "L201",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68890,7 +68943,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L214",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68901,7 +68954,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L297",
+      "source_location": "L335",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68912,7 +68965,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L311",
+      "source_location": "L349",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68923,7 +68976,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L312",
+      "source_location": "L350",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68934,7 +68987,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L320",
+      "source_location": "L358",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68945,7 +68998,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L321",
+      "source_location": "L359",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68956,7 +69009,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L325",
+      "source_location": "L363",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68967,7 +69020,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L330",
+      "source_location": "L368",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -68992,38 +69045,38 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_registry_rationale_55",
+      "source": "src_avialsync_core_registry_rationale_58",
       "target": "src_avialsync_core_registry_loaderregistry",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L55",
+      "source_location": "L58",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_registry_rationale_86",
+      "source": "src_avialsync_core_registry_rationale_93",
       "target": "src_avialsync_core_registry_loaderregistry_plugin_errors",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L86",
+      "source_location": "L93",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_registry_rationale_96",
+      "source": "src_avialsync_core_registry_rationale_103",
       "target": "src_avialsync_core_registry_loaderregistry_start_warmup",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L96",
+      "source_location": "L103",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_core_registry_rationale_127",
-      "target": "src_avialsync_core_registry_loaderregistry_ensure_discovered",
+      "target": "src_avialsync_core_registry_loaderregistry_snapshot_entry_points",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
@@ -69032,98 +69085,78 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_registry_rationale_138",
+      "source": "src_avialsync_core_registry_rationale_158",
+      "target": "src_avialsync_core_registry_loaderregistry_ensure_discovered",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L158",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_registry_rationale_169",
       "target": "src_avialsync_core_registry_loaderregistry_default_plugin_dirs",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L138",
+      "source_location": "L169",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_registry_rationale_159",
+      "source": "src_avialsync_core_registry_rationale_190",
       "target": "src_avialsync_core_registry_loaderregistry_discover",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L159",
+      "source_location": "L190",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_registry_rationale_173",
+      "source": "src_avialsync_core_registry_rationale_204",
       "target": "src_avialsync_core_registry_loaderregistry_load_builtins",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L173",
+      "source_location": "L204",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_registry_rationale_188",
+      "source": "src_avialsync_core_registry_rationale_219",
       "target": "src_avialsync_core_registry_loaderregistry_load_entry_points",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L188",
+      "source_location": "L219",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_registry_rationale_208",
+      "source": "src_avialsync_core_registry_rationale_246",
       "target": "src_avialsync_core_registry_loaderregistry_discover_directory",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L208",
+      "source_location": "L246",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_registry_rationale_251",
+      "source": "src_avialsync_core_registry_rationale_289",
       "target": "src_avialsync_core_registry_loaderregistry_load_module",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L251",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_core_registry_rationale_286",
-      "target": "src_avialsync_core_registry_loaderregistry_best_by_capability",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L286",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_core_registry_rationale_310",
-      "target": "src_avialsync_core_registry_loaderregistry_find_best_loader",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L310",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_core_registry_rationale_315",
-      "target": "src_avialsync_core_registry_loaderregistry_find_best_session",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L315",
+      "source_location": "L289",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_core_registry_rationale_324",
-      "target": "src_avialsync_core_registry_loaderregistry_loaders",
+      "target": "src_avialsync_core_registry_loaderregistry_best_by_capability",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
@@ -69132,12 +69165,42 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_registry_rationale_329",
+      "source": "src_avialsync_core_registry_rationale_348",
+      "target": "src_avialsync_core_registry_loaderregistry_find_best_loader",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L348",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_registry_rationale_353",
+      "target": "src_avialsync_core_registry_loaderregistry_find_best_session",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L353",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_registry_rationale_362",
+      "target": "src_avialsync_core_registry_loaderregistry_loaders",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/registry.py",
+      "source_location": "L362",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_registry_rationale_367",
       "target": "src_avialsync_core_registry_loaderregistry_sessions",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L329",
+      "source_location": "L367",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137518,7 +137581,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L20",
+      "source_location": "L23",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137528,7 +137591,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L86",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137538,7 +137601,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L101",
+      "source_location": "L104",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137548,7 +137611,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L125",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137558,7 +137621,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L132",
+      "source_location": "L135",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137568,7 +137631,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L141",
+      "source_location": "L144",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137578,7 +137641,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L154",
+      "source_location": "L157",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137588,7 +137651,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L171",
+      "source_location": "L174",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137598,7 +137661,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L185",
+      "source_location": "L188",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137608,7 +137671,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L197",
+      "source_location": "L200",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137618,7 +137681,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L210",
+      "source_location": "L213",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137628,7 +137691,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L230",
+      "source_location": "L233",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137638,7 +137701,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L245",
+      "source_location": "L248",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137648,7 +137711,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L273",
+      "source_location": "L276",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137658,7 +137721,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L311",
+      "source_location": "L314",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137668,7 +137731,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L346",
+      "source_location": "L349",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -137683,162 +137746,162 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_21",
+      "source": "tests_test_ci_platform_config_rationale_24",
       "target": "tests_test_ci_platform_config_test_cross_platform_quality_workflows_share_headless_media_contract",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L21",
+      "source_location": "L24",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_87",
+      "source": "tests_test_ci_platform_config_rationale_90",
       "target": "tests_test_ci_platform_config_test_release_bundles_stage_no_media_runtime",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L87",
+      "source_location": "L90",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_102",
+      "source": "tests_test_ci_platform_config_rationale_105",
       "target": "tests_test_ci_platform_config_test_windows_ffmpeg_is_pinned_everywhere_it_is_installed",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L102",
+      "source_location": "L105",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_126",
+      "source": "tests_test_ci_platform_config_rationale_129",
       "target": "tests_test_ci_platform_config_test_release_appimage_tool_has_ubuntu_fuse_2_compatibility",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L126",
+      "source_location": "L129",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_133",
+      "source": "tests_test_ci_platform_config_rationale_136",
       "target": "tests_test_ci_platform_config_test_release_tags_must_reference_main",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L133",
+      "source_location": "L136",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_142",
+      "source": "tests_test_ci_platform_config_rationale_145",
       "target": "tests_test_ci_platform_config_test_only_a_version_tag_starts_a_release",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L142",
+      "source_location": "L145",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_155",
+      "source": "tests_test_ci_platform_config_rationale_158",
       "target": "tests_test_ci_platform_config_test_every_release_job_is_gated_on_the_ref_check",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L155",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_172",
+      "source": "tests_test_ci_platform_config_rationale_175",
       "target": "tests_test_ci_platform_config_test_release_tag_must_agree_with_the_declared_version",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L172",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_186",
+      "source": "tests_test_ci_platform_config_rationale_189",
       "target": "tests_test_ci_platform_config_test_prerelease_tags_are_not_published_as_stable_releases",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L186",
+      "source_location": "L189",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_198",
+      "source": "tests_test_ci_platform_config_rationale_201",
       "target": "tests_test_ci_platform_config_test_macos_disk_image_ships_a_launchable_application",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L198",
+      "source_location": "L201",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_211",
+      "source": "tests_test_ci_platform_config_rationale_214",
       "target": "tests_test_ci_platform_config_test_signing_is_wired_but_optional",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L211",
+      "source_location": "L214",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_231",
+      "source": "tests_test_ci_platform_config_rationale_234",
       "target": "tests_test_ci_platform_config_test_macos_is_signed_before_the_image_is_built_and_notarized_after",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L231",
+      "source_location": "L234",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_246",
+      "source": "tests_test_ci_platform_config_rationale_249",
       "target": "tests_test_ci_platform_config_test_signing_scripts_refuse_to_run_without_credentials",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L246",
+      "source_location": "L249",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_274",
+      "source": "tests_test_ci_platform_config_rationale_277",
       "target": "tests_test_ci_platform_config_test_every_tracked_path_can_exist_on_windows",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L274",
+      "source_location": "L277",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_312",
+      "source": "tests_test_ci_platform_config_rationale_315",
       "target": "tests_test_ci_platform_config_test_no_python_in_the_repository_imports_mpv",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L312",
+      "source_location": "L315",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_347",
+      "source": "tests_test_ci_platform_config_rationale_350",
       "target": "tests_test_ci_platform_config_test_the_scrub_benchmark_measures_one_backend",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L347",
+      "source_location": "L350",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -171975,11 +172038,32 @@
     },
     {
       "source": "tests_test_startup_responsiveness",
-      "target": "tests_test_startup_responsiveness_test_main_window_construction_does_not_block_on_discovery",
+      "target": "tests_test_startup_responsiveness_test_the_warmup_thread_never_reads_entry_point_metadata",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
       "source_location": "L98",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_startup_responsiveness_test_the_warmup_thread_never_reads_entry_point_metadata",
+      "target": "tests_test_startup_responsiveness_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_startup_responsiveness.py",
+      "source_location": "L98",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_startup_responsiveness",
+      "target": "tests_test_startup_responsiveness_test_main_window_construction_does_not_block_on_discovery",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_startup_responsiveness.py",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -171990,7 +172074,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L98",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172000,7 +172084,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L141",
+      "source_location": "L171",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172010,7 +172094,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L141",
+      "source_location": "L171",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172020,7 +172104,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L149",
+      "source_location": "L179",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172030,7 +172114,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L153",
+      "source_location": "L183",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172040,7 +172124,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L156",
+      "source_location": "L186",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172050,7 +172134,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L160",
+      "source_location": "L190",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172061,7 +172145,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L160",
+      "source_location": "L190",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172071,7 +172155,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L180",
+      "source_location": "L210",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172082,7 +172166,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L180",
+      "source_location": "L210",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172092,7 +172176,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L198",
+      "source_location": "L228",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172103,7 +172187,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L198",
+      "source_location": "L228",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172114,7 +172198,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L166",
+      "source_location": "L196",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172125,7 +172209,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L174",
+      "source_location": "L204",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172136,7 +172220,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L186",
+      "source_location": "L216",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172147,7 +172231,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L190",
+      "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172158,7 +172242,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L205",
+      "source_location": "L235",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -172203,52 +172287,62 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_startup_responsiveness_rationale_101",
+      "source": "tests_test_startup_responsiveness_rationale_99",
+      "target": "tests_test_startup_responsiveness_test_the_warmup_thread_never_reads_entry_point_metadata",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_startup_responsiveness.py",
+      "source_location": "L99",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_startup_responsiveness_rationale_131",
       "target": "tests_test_startup_responsiveness_test_main_window_construction_does_not_block_on_discovery",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L101",
+      "source_location": "L131",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_startup_responsiveness_rationale_142",
+      "source": "tests_test_startup_responsiveness_rationale_172",
       "target": "tests_test_startup_responsiveness_stubthread",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L142",
+      "source_location": "L172",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_startup_responsiveness_rationale_161",
+      "source": "tests_test_startup_responsiveness_rationale_191",
       "target": "tests_test_startup_responsiveness_test_abandoning_a_decoder_detaches_it_from_its_parent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L161",
+      "source_location": "L191",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_startup_responsiveness_rationale_181",
+      "source": "tests_test_startup_responsiveness_rationale_211",
       "target": "tests_test_startup_responsiveness_test_a_finished_abandoned_decoder_is_released",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L181",
+      "source_location": "L211",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_startup_responsiveness_rationale_199",
+      "source": "tests_test_startup_responsiveness_rationale_229",
       "target": "tests_test_startup_responsiveness_test_decode_threads_are_named",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L199",
+      "source_location": "L229",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176226,18 +176320,18 @@
     },
     {
       "source": "tests_test_ui_layout_resize",
-      "target": "src_avialsync_core_pyramid",
+      "target": "shiboken6",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L25",
+      "source_location": "L24",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_ui_layout_resize",
-      "target": "src_avialsync_ui_main_window",
+      "target": "src_avialsync_core_pyramid",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -176248,7 +176342,7 @@
     },
     {
       "source": "tests_test_ui_layout_resize",
-      "target": "src_avialsync_ui_video_pane",
+      "target": "src_avialsync_ui_main_window",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -176259,11 +176353,22 @@
     },
     {
       "source": "tests_test_ui_layout_resize",
+      "target": "src_avialsync_ui_video_pane",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_layout_resize.py",
+      "source_location": "L28",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_layout_resize",
       "target": "tests_test_ui_layout_resize_window",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L31",
+      "source_location": "L32",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176274,7 +176379,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L31",
+      "source_location": "L32",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176285,7 +176390,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L31",
+      "source_location": "L32",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176295,7 +176400,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L41",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176306,7 +176411,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L41",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176316,7 +176421,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L53",
+      "source_location": "L61",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176327,7 +176432,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L53",
+      "source_location": "L61",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176337,7 +176442,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L60",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176348,7 +176453,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L60",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176358,7 +176463,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L71",
+      "source_location": "L79",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176369,7 +176474,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L71",
+      "source_location": "L79",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176379,7 +176484,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L76",
+      "source_location": "L84",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176390,7 +176495,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L76",
+      "source_location": "L84",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176401,7 +176506,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L76",
+      "source_location": "L84",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176411,7 +176516,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L91",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176422,7 +176527,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L91",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176432,7 +176537,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L113",
+      "source_location": "L121",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176443,7 +176548,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L113",
+      "source_location": "L121",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176454,7 +176559,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L113",
+      "source_location": "L121",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176464,7 +176569,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L126",
+      "source_location": "L134",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176475,7 +176580,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L126",
+      "source_location": "L134",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176486,7 +176591,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L126",
+      "source_location": "L134",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176496,7 +176601,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L171",
+      "source_location": "L179",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176507,7 +176612,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L171",
+      "source_location": "L179",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176517,7 +176622,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L176",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176528,7 +176633,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L176",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176539,7 +176644,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L176",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176549,7 +176654,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L218",
+      "source_location": "L226",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176560,7 +176665,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L218",
+      "source_location": "L226",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176570,7 +176675,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L223",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176581,7 +176686,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L223",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176592,7 +176697,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L223",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176603,7 +176708,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L223",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176613,7 +176718,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L255",
+      "source_location": "L263",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176624,7 +176729,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L255",
+      "source_location": "L263",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176635,7 +176740,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L255",
+      "source_location": "L263",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176646,7 +176751,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L32",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176657,7 +176762,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L61",
+      "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176668,7 +176773,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L72",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176679,7 +176784,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L119",
+      "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -176694,62 +176799,62 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_layout_resize_rationale_54",
+      "source": "tests_test_ui_layout_resize_rationale_62",
       "target": "tests_test_ui_layout_resize_test_plot_area_starts_with_real_height",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L54",
+      "source_location": "L62",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_layout_resize_rationale_79",
+      "source": "tests_test_ui_layout_resize_rationale_87",
       "target": "tests_test_ui_layout_resize_test_policy_survives_restoring_a_permissive_saved_layout",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L79",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_layout_resize_rationale_92",
+      "source": "tests_test_ui_layout_resize_rationale_100",
       "target": "tests_test_ui_layout_resize_test_a_stale_zero_sized_pane_is_repaired",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L92",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_layout_resize_rationale_129",
+      "source": "tests_test_ui_layout_resize_rationale_137",
       "target": "tests_test_ui_layout_resize_test_compact_viewport_keeps_every_workspace_surface_available",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L129",
+      "source_location": "L137",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_layout_resize_rationale_172",
+      "source": "tests_test_ui_layout_resize_rationale_180",
       "target": "tests_test_ui_layout_resize_test_window_minimum_width_fits_a_laptop_display",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L172",
+      "source_location": "L180",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_layout_resize_rationale_177",
+      "source": "tests_test_ui_layout_resize_rationale_185",
       "target": "tests_test_ui_layout_resize_test_user_splitter_positions_are_honoured",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L177",
+      "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192784,7 +192889,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L3170",
+      "source_location": "L3192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192794,7 +192899,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L3212",
+      "source_location": "L3234",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192804,7 +192909,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "DECISIONS.md",
-      "source_location": "L3343",
+      "source_location": "L3365",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -211610,7 +211715,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L200",
+      "source_location": "L230",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -212180,7 +212285,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L223",
+      "source_location": "L261",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -212192,7 +212297,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L223",
+      "source_location": "L261",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -212204,7 +212309,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/core/registry.py",
-      "source_location": "L231",
+      "source_location": "L269",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229717,6 +229822,18 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_startup_responsiveness_test_the_warmup_thread_never_reads_entry_point_metadata",
+      "target": "src_avialsync_core_registry_loaderregistry",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_startup_responsiveness.py",
+      "source_location": "L119",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_startup_responsiveness_test_main_window_construction_does_not_block_on_discovery",
       "target": "src_avialsync_core_registry_loaderregistry",
       "relation": "indirect_call",
@@ -229724,7 +229841,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L121",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229736,7 +229853,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L123",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229748,7 +229865,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_startup_responsiveness.py",
-      "source_location": "L202",
+      "source_location": "L232",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -230924,7 +231041,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L232",
+      "source_location": "L240",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -230936,7 +231053,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_layout_resize.py",
-      "source_location": "L240",
+      "source_location": "L248",
       "weight": 1.0,
       "_origin": "ast"
     },
