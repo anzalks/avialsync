@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from avialsync.core.channel_reader import ChannelKey, MappedChannelReader, disambiguate
 from avialsync.core.pyramid import PyramidBuilder, PyramidReader
@@ -44,7 +45,10 @@ def window(qapp: QApplication, qtbot, two_sources: tuple[Path, Path]) -> MainWin
     win._on_import_finished(LEFT, str(left), [SHARED_NAME], (0.0, 9.99), None)
     win._on_import_finished(RIGHT, str(right), [SHARED_NAME], (0.0, 9.99), None)
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 # ── ChannelKey ────────────────────────────────────────────────────────

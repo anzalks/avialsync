@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QVBoxLayout,
 )
+from shiboken6 import isValid
 
 from avialsync.ui.main_window import MainWindow
 
@@ -55,7 +56,10 @@ def window(qtbot) -> MainWindow:
     win.show()
     qtbot.waitExposed(win)
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 def _playhead_events(window: MainWindow) -> list[str]:

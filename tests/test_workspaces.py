@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from avialsync.ui import recovery, workspaces
 from avialsync.ui.main_window import MainWindow
@@ -42,7 +43,10 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
     qtbot.addWidget(win)
     win.show()
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 # ── capture and apply ────────────────────────────────────────────────

@@ -20,6 +20,7 @@ import pytest
 from PySide6.QtCore import QMimeData, QPointF, Qt, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from avialsync.loaders.csv_loader import CSVLoader
 from avialsync.ui.controllers import export_controller
@@ -34,7 +35,10 @@ def main_window(qapp: QApplication, qtbot) -> MainWindow:
     qtbot.addWidget(win)
     win.show()
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 def _send_drop(target, path: Path) -> QDropEvent:

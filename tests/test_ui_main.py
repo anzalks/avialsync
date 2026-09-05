@@ -10,6 +10,7 @@ import pytest
 from PySide6.QtCore import QMimeData, QObject, QPointF, Qt, QThread, QUrl, Signal, Slot
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication, QMessageBox, QSplitter, QWidget
+from shiboken6 import isValid
 
 from avialsync.core.session import (
     SensorEntry,
@@ -32,7 +33,10 @@ def main_window(qapp: QApplication, qtbot) -> MainWindow:
     qtbot.addWidget(win)
     win.show()
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 # ── Bug a: _on_annotate_requested crash ──────────────────────────────

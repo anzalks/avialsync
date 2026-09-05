@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from avialsync.ui import recovery
 from avialsync.ui.controllers import session_controller
@@ -45,7 +46,10 @@ def main_window(qapp: QApplication, qtbot) -> MainWindow:
     qtbot.addWidget(win)
     win.show()
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 def _seed_workspace(window) -> None:

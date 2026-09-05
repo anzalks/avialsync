@@ -15,6 +15,7 @@ import inspect
 
 import pytest
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from avialsync.core import errors as errors_module
 from avialsync.core.errors import (
@@ -50,7 +51,10 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
     qtbot.addWidget(win)
     win.show()
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 def _all_error_types() -> list[type[BaseException]]:

@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton, QSlider, QWidget
+from shiboken6 import isValid
 
 from avialsync.ui import recovery
 from avialsync.ui.accessibility import (
@@ -42,7 +43,10 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
     qtbot.addWidget(win)
     win.show()
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 # ── deriving a name ──────────────────────────────────────────────────

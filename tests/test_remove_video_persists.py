@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtWidgets import QWidget
+from shiboken6 import isValid
 
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.video_grid import VideoGrid
@@ -78,7 +79,10 @@ def window(qtbot) -> MainWindow:
     win = MainWindow()
     qtbot.addWidget(win)
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 def test_removing_a_video_writes_the_session_first(window, tmp_path: Path, qtbot) -> None:

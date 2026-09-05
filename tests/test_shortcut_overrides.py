@@ -15,6 +15,7 @@ import pytest
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from avialsync.ui import recovery
 from avialsync.ui.main_window import MainWindow
@@ -250,7 +251,10 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
     qtbot.addWidget(win)
     win.show()
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 def test_the_window_applies_overrides_at_startup(qapp: QApplication, qtbot) -> None:

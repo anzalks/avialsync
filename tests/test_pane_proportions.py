@@ -2,6 +2,7 @@
 
 import pytest
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.pane_proportions import PaneProportions, distribute
@@ -83,7 +84,10 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
     win._apply_default_splitter_sizes()
     qapp.processEvents()
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 def _fractions(splitter) -> list[float]:

@@ -24,6 +24,7 @@ import pytest
 from PySide6.QtCore import QMimeData, QPointF, Qt, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
+from shiboken6 import isValid
 
 from avialsync.core.commands import AddMarkerCommand
 from avialsync.core.document import MarkerRecord
@@ -46,7 +47,10 @@ def main_window(qapp: QApplication, qtbot) -> MainWindow:
     qtbot.addWidget(win)
     win.show()
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 @pytest.fixture

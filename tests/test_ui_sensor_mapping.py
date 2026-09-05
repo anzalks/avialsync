@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from avialsync.core.pyramid import PyramidBuilder
 from avialsync.ui.main_window import MainWindow
@@ -37,7 +38,10 @@ def window(qapp: QApplication, qtbot, cache_dir: Path) -> MainWindow:
         None,
     )
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 def _sensor_widget(window: MainWindow) -> SensorInfoWidget:

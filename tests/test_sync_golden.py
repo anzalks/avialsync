@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 from util_framestrip import decode_frame_strip
 
 from avialsync.ui.main_window import MainWindow
@@ -41,7 +42,10 @@ def app_with_main_window(qapp: QApplication) -> MainWindow:
     win = MainWindow()
     win.show()
     yield win
-    win.close()
+    # Qt may already have deleted it: pytest-qt runs processEvents()
+    # after the call phase, which executes pending deleteLater()s.
+    if isValid(win):
+        win.close()
 
 
 def _capture_frame(pane) -> np.ndarray | None:
