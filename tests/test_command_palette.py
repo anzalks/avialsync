@@ -132,7 +132,11 @@ def test_the_shortcut_is_shown(qapp: QApplication, qtbot) -> None:
     action = QAction("Save Session")
     action.setShortcut(QKeySequence("Ctrl+S"))
     palette = _palette(qtbot, [action])
-    assert "Ctrl" in palette._list.item(0).text()
+    # Native text, not the literal "Ctrl": macOS renders that modifier as the
+    # Command glyph, so spelling the expectation out here would assert the
+    # platform rather than that the shortcut reached the row at all.
+    native = QKeySequence("Ctrl+S").toString(QKeySequence.SequenceFormat.NativeText)
+    assert native in palette._list.item(0).text()
 
 
 def test_running_triggers_the_action(qapp: QApplication, qtbot) -> None:
