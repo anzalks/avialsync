@@ -14,10 +14,9 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from PySide6.QtCore import QThread, QTimer
-from PySide6.QtWidgets import QMessageBox
 
 from avialsync.core.channel_reader import ChannelKey
-from avialsync.core.errors import FileUnreadableError
+from avialsync.core.errors import FileUnreadableError, LoaderContractError, SourceOpenError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import TimeSeriesSource
 
@@ -39,13 +38,22 @@ def start_data_import(
     if loader_cls is None:
         discovered_loader = window._registry.find_best_loader(path)
         if discovered_loader is None:
-            QMessageBox.warning(
-                window, "Unsupported File", "No suitable loader found for this file."
+            # Reported, not refused with a modal in the way (AGENTS rules 10 and
+            # 12): `SourceOpenError`'s presentation already names "a format
+            # AvialSync has no loader for" as one of its causes, and offers
+            # Locate and Copy diagnostics with it.
+            window.report_failure(
+                SourceOpenError(f"No installed loader claims {path.name}"),
+                doing=f"opening {path.name}",
             )
             return
         if not issubclass(discovered_loader, TimeSeriesSource):
-            QMessageBox.warning(
-                window, "Unsupported File", "The selected loader is not time-series data."
+            window.report_failure(
+                LoaderContractError(
+                    f"{discovered_loader.__name__} claimed {path.name} but is not a "
+                    "time-series source"
+                ),
+                doing=f"opening {path.name}",
             )
             return
         loader_cls = discovered_loader

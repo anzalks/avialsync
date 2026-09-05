@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from PySide6.QtCore import QSettings, QThread
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog
 
-from avialsync.core.errors import CacheError, FileUnreadableError
+from avialsync.core.errors import CacheError, FileUnreadableError, SourceOpenError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.session import (
     MarkerEntry,
@@ -579,10 +579,12 @@ def rebuild_recent_menu(window: MainWindow) -> None:
 def open_recent(window: MainWindow, path: str) -> None:
     p = Path(path)
     if not p.exists():
-        QMessageBox.warning(
-            window,
-            "File Not Found",
-            f"Session file no longer exists:\n{path}",
+        # Open Recent is one of the four paths rule 10 names: it may not put a
+        # modal in front of the user, not even to say the file is gone. The
+        # presenter's Locate action is the useful half of that message anyway.
+        window.report_failure(
+            SourceOpenError(f"Session file no longer exists: {path}"),
+            doing=f"opening {p.name}",
         )
         return
     window._start_session_load(p)
