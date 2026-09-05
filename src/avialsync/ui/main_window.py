@@ -651,16 +651,12 @@ class MainWindow(QMainWindow):
             return
         nothing_loaded = not self.video_grid.pane_paths() and not self._sensor_cache_dirs
         empty_state.setVisible(nothing_loaded)
-        # The grid's floor is set low on purpose, so an empty video area does
-        # not take height away from the plots. The empty state cannot live
-        # inside it: five stacked controls squashed into 70 px render as 2 px
-        # slivers, which is what the horizontal bars in an empty window were.
-        # Nothing is competing for the space while it shows, so it asks for
-        # what it needs and gives it straight back when a video arrives.
-        floor = VideoGrid.BASE_MIN_HEIGHT
-        if nothing_loaded:
-            floor = max(floor, empty_state.minimumSizeHint().height())
-        self.video_grid.setMinimumHeight(floor)
+        # The grid's floor stays where `VideoGrid` set it, in every state. It
+        # was raised to the empty state's own minimum here for one commit, so
+        # five stacked controls would stop drawing as 2 px slivers; that made
+        # the whole window unable to shrink below ~505 px tall and took the
+        # 640x480 workspace guarantee with it. `EmptyState` scrolls instead, so
+        # it survives a short video area without dictating a window minimum.
 
     def _launch_demo(self) -> None:
         """Generate and open the sample session.

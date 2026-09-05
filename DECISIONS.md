@@ -3338,3 +3338,45 @@ exactly `MARKER_COLOR_COUNT`, and a test asserts that adding a colour breaks it.
 Gated by `palette/colour_vision_safe`, default on. The old wheel remains
 reachable for anyone who prefers it, which is also what makes the two
 measurable side by side.
+
+
+## 2026-09 · D-098 · A pane's minimum height is the window's minimum height
+
+**Context:** three commits, each locally reasonable, walked the window's minimum
+height past what a small display can show. `628d8bf` established the guarantee —
+videos, 3D, plots, Data Streams and the transport all usable at 640×480, with
+every workspace surface set to an `Ignored` horizontal policy so nothing could
+widen the window from below. `64756f3` then rebuilt the 3D pane's header as a
+three-row grid to keep the pane narrow, which cost 36px of *height* nobody was
+watching. `484440f` raised the video grid's floor to the empty state's own
+minimum, so five stacked controls would stop drawing as 2px slivers. The result
+was a window that could not be resized below ~523px tall on macOS: the compact
+workspace test had been failing for three weeks.
+
+It failed only on a real window manager. CI runs Qt's `offscreen` platform,
+which announces "This plugin does not support propagateSizeHints()" and lets
+every resize succeed regardless of what the layout demands. A test that asserts
+only the achieved size is therefore green in CI on any machine and red on every
+developer's.
+
+**Decision:** chrome and placeholders degrade; they never raise a floor. The
+empty state scrolls (`QScrollArea`, `ui/empty_state.py`), so it keeps every
+control at its natural size when the video area is short instead of either
+squashing or growing the window. Floors belong on content that scales with the
+space it gets: `VideoGrid.BASE_MIN_HEIGHT` (72) and the 3D canvas (88, lowered
+from 140). A compact-viewport test asserts `minimumSizeHint()`, not just the
+size the window manager granted, so the guarantee is checked where CI can see
+it.
+
+**Alternatives rejected:** capping the raised floor at whatever still fits
+480px (a minimum computed from the current window size is a feedback loop, and
+the number is font- and platform-dependent); putting the empty state's controls
+behind an elide or a smaller font (it is the first thing a new user sees);
+relaxing the test to `height() <= 480` (that is the guarantee, not a detail).
+
+**Consequences:** any widget added over the video area has to survive
+`BASE_MIN_HEIGHT` on its own terms. Adding a row of chrome to the 3D header, or
+a fifth stacked surface to the workspace, now shows up as a failing compact
+test rather than as a window somebody cannot shrink. The 3D canvas floor is the
+budget's slack: if a future surface needs height, that number is where it comes
+from, and it is already close to the point where a pose stops being readable.

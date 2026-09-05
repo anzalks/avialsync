@@ -171,7 +171,7 @@ def test_every_control_gets_the_height_it_needs(window: MainWindow, qapp) -> Non
     one label with ``Ignored`` vertical policy, which degrades quietly. The
     empty state is five stacked controls, which does not: each was handed 2px
     and drew as a sliver, with the headline clipped and the subtitle overlapping
-    the buttons.
+    the buttons. It survives that now by scrolling, not by raising the floor.
     """
     from PySide6.QtWidgets import QLabel, QPushButton, QWidget
 
@@ -189,20 +189,53 @@ def test_every_control_gets_the_height_it_needs(window: MainWindow, qapp) -> Non
     assert starved == [], f"squashed: {starved}"
 
 
-def test_the_grid_gives_the_height_back_once_data_arrives(
+def test_the_empty_state_never_raises_the_window_minimum(
     window: MainWindow, tmp_path, qapp
 ) -> None:
-    """Raising the floor is a loan, not a claim.
+    """Legibility must not cost the small-display guarantee.
 
-    With a recording open the plots need that height more than an invisible
-    placeholder does.
+    The first fix for the slivers raised the grid's floor to the empty state's
+    own minimum while it showed. A pane minimum is the window's minimum by
+    proxy: the window could then not be shrunk below ~505px tall, and
+    ``test_ui_layout_resize.py::test_compact_viewport_keeps_every_workspace_surface_available``
+    -- 640x480, every surface still reachable -- went red. The floor now stays
+    where ``VideoGrid`` put it in both states.
     """
     from avialsync.ui.video_grid import VideoGrid
 
     qapp.processEvents()
-    assert window.video_grid.minimumHeight() > VideoGrid.BASE_MIN_HEIGHT
+    assert window.empty_state.isVisible(), "nothing is loaded; it should be showing"
+    assert window.video_grid.minimumHeight() == VideoGrid.BASE_MIN_HEIGHT
 
     window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor.avialcache"
     window._refresh_empty_state()
 
     assert window.video_grid.minimumHeight() == VideoGrid.BASE_MIN_HEIGHT
+
+
+def test_a_short_video_area_scrolls_rather_than_squashing(qapp: QApplication, qtbot) -> None:
+    """What replaces the raised floor, asserted where it is cheap to assert.
+
+    At the grid's 72px floor there is no arrangement that shows five stacked
+    controls at once. Scrolling keeps every one of them at its natural size and
+    shows as much as fits; squashing is what drew the slivers.
+    """
+    from PySide6.QtWidgets import QLabel, QPushButton, QScrollArea, QWidget
+
+    from avialsync.ui.video_grid import VideoGrid
+
+    state = EmptyState()
+    qtbot.addWidget(state)
+    state.resize(600, VideoGrid.BASE_MIN_HEIGHT)
+    state.show()
+    qapp.processEvents()
+
+    assert state.findChild(QScrollArea) is not None, "it has to degrade somehow"
+    squashed = [
+        f"{type(child).__name__}({child.text()[:24]!r}) got {child.height()}px, "
+        f"needs {child.minimumSizeHint().height()}px"
+        for child in state.findChildren(QWidget)
+        if isinstance(child, (QLabel, QPushButton))
+        and child.height() < child.minimumSizeHint().height()
+    ]
+    assert squashed == [], f"squashed at the floor: {squashed}"

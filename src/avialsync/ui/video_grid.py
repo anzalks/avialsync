@@ -24,8 +24,9 @@ class VideoGrid(QWidget):
 
     #: Floor for an empty grid: tall enough to read as a pane and as a drop
     #: target, low enough that it never dictates how window height is shared.
-    #: A widget placed over the grid that cannot survive this -- the empty
-    #: state, five stacked controls -- must raise the floor while it shows.
+    #: A widget placed over the grid must survive it by degrading -- the
+    #: placeholder label by eliding, the empty state by scrolling -- and never
+    #: by raising this floor, which is the window's minimum height by proxy.
     BASE_MIN_HEIGHT = 72
 
     # Emitted when the user right-clicks inside any video pane.

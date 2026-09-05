@@ -215,7 +215,14 @@ class Tracking3DCanvas(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setMinimumWidth(0)
-        self.setMinimumHeight(140)
+        # The canvas is the part of this pane that scales: a pose still reads
+        # at 88px, while the header below is fixed chrome that cannot shrink.
+        # The floor is what a compact workspace can afford -- videos, 3D, plots,
+        # Data Streams and the transport all have to fit a 640x480 window, which
+        # `test_ui_layout_resize.py` pins as
+        # `test_compact_viewport_keeps_every_workspace_surface_available`. A pane
+        # minimum is the window's minimum by proxy.
+        self.setMinimumHeight(88)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName(tr("Interactive 3D tracking plot"))

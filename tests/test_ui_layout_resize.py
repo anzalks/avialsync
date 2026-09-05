@@ -133,6 +133,15 @@ def test_compact_viewport_keeps_every_workspace_surface_available(
     window._pane_proportions.reapply()
     qapp.processEvents()
 
+    # The size hint, not just the achieved size: the offscreen platform Qt uses
+    # in CI ignores minimum sizes ("does not support propagateSizeHints()"), so
+    # a resize succeeds there no matter what the panes demand. Every macOS
+    # window manager honours them, which is where a pane minimum that outgrew
+    # 480px was caught -- three weeks after it landed, by hand.
+    assert window.minimumSizeHint().height() <= 480, (
+        "a pane minimum is the window's minimum by proxy; the workspace no "
+        "longer fits a 640x480 display"
+    )
     assert window.size().width() == 640
     assert window.size().height() == 480
     for name, pane in (
