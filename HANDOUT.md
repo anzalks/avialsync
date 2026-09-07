@@ -406,7 +406,8 @@ contradicts the runtime.
 | `core/pose_export.py` | A corrected copy of a pose file for analysis: streamed, scorer renamed, corrected likelihood forced to 1.0 (D-100) | `write_corrected_copy()`, `corrected_copy_path()`, `SCORER_SUFFIX` |
 | `core/dlc_export.py` | Corrected frames as DLC labeled data for retraining; whole pose per frame, blank never `0,0` (D-100) | `write_labeled_data()`, `LabeledFrame`, `collected_data_path()` |
 | `ui/changes_panel.py` | One list of flagged frames, ranges, and corrected points, in time order; selecting a row seeks, selects the camera, and rings the point (D-100) | `ChangesPanel`, `ChangeRow` |
-| `ui/export_dialog.py` | One row per artifact that has content, destination pre-filled beside its data and editable (D-100) | `ExportChangesDialog`, `ExportItem` |
+| `ui/export_dialog.py` | One row per artifact that has content, destination pre-filled beside its data and editable. Shaped like `relink_dialog` / `batch_import_dialog` (D-100) | `ExportChangesDialog`, `ExportItem` |
+| `ui/action_button.py` | A `QPushButton` bound to a `QAction`. Use it wherever a button duplicates a menu command — `QToolButton.setDefaultAction` is Qt's shortcut and does not look like a push button (D-100) | `ActionButton.set_action()` |
 | `ui/controllers/changes_export_controller.py` | The one channel the user's own work leaves by; builds the offer and the jobs (D-100) | `available_exports()`, `export_changes()` |
 | `engine/changes_export_worker.py` | Writes every selected artifact off the UI thread and reports one answer; decodes the retraining set's frames | `ChangesExportWorker`, `AnnotationJob`, `CorrectedPoseJob`, `RetrainingJob` |
 | `engine/pyav_reader.py` | Headless exact-frame reader: pts table, seek, index-keyed LRU (D-075). No Qt — safe on a worker thread | `PyAVReader.frame_at_time()`, `.frame_at_index()`, `.index_at_time()`, `.time_at_index()`, `.frame_times`, `to_rgb_array()` |
@@ -724,6 +725,15 @@ A missing parent directory means the path has a typo in it; creating it hides th
 reporting it, and the error path is what `tests/test_changes_export.py` pins. The single exception is
 the retraining set: `labeled-data/<video>/` is part of DLC's format rather than part of the path the
 user chose, so `dlc_export.write_labeled_data` creates it. Do not "fix" the others to match.
+
+### 0c-octies. Do not reach for `QToolButton.setDefaultAction` (D-100)
+It is Qt's one-line way to bind a button to a `QAction`, it is the reason rule 15 is easy to obey —
+and it exists only on `QToolButton`, which is flatter and differently proportioned than the
+`QPushButton`s it ends up sitting beside. The Data Streams header shipped one and it was visibly not
+one of its neighbours. `ui/action_button.py::ActionButton` is the replacement: an ordinary push
+button that follows the action's text, tooltip, enablement and checked state and triggers it. The
+follower is a **bound method** of the button, so Qt drops the connection when the button dies; a
+module-level closure over the widget would outlive it and fault on a dead C++ object.
 
 ### 0d. `"_eks.csv".split("_")[0]` is `""` — and `"" in name` matches everything
 The session-level 3D file names no camera, so substring-matching its leading token bound it to

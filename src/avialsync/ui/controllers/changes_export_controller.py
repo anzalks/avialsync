@@ -112,7 +112,10 @@ def _annotation_target(window: MainWindow) -> Path:
     videos = window.video_grid.pane_paths()
     if videos:
         return Path(videos[0]).with_name("annotations.csv")
-    return Path("annotations.csv")
+    # Home, not a bare name: a relative path in the field would be written
+    # wherever the process happens to have been started from, which is not
+    # somewhere the user can predict or find it again.
+    return Path.home() / "annotations.csv"
 
 
 def export_changes(window: MainWindow) -> None:

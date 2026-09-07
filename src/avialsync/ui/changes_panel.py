@@ -25,10 +25,12 @@ import dataclasses
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
+    QLabel,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -37,6 +39,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.point_edits import PointEditStore, PointKey
+from avialsync.ui.action_button import ActionButton
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.i18n import tr
 from avialsync.ui.time_format import TimeDisplayMode, format_time
@@ -52,7 +55,12 @@ class ChangeRow:
     """One line in the panel: what changed, when, and how to get back to it."""
 
     kind: str
-    t_master: float
+    #: ``None`` while the change cannot be placed on the master clock -- a
+    #: correction whose pose file has not finished importing. Not zero: a fake
+    #: time in a time-sorted column reads as a measurement rather than as an
+    #: absence, which is the same reason the Messages panel keeps untimed
+    #: records out of its table.
+    t_master: float | None
     where: str
     detail: str
     #: Set for an annotation row; its index in the annotation store.
@@ -74,8 +82,6 @@ class ChangesPanel(QGroupBox):
     #: Restoring a prediction is a mutation like any other and belongs on the
     #: undo stack, so the panel asks rather than writing the store (rule 14).
     delete_correction_requested = Signal(object)
-    #: Emitted when the user asks to export; the window opens the dialog.
-    export_requested = Signal()
 
     def __init__(
         self,
@@ -111,15 +117,21 @@ class ChangesPanel(QGroupBox):
         self._table.itemSelectionChanged.connect(self._on_selection_changed)
         layout.addWidget(self._table)
 
+        self._empty = QLabel(tr("Nothing has been changed in this session yet."), self)
+        self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._empty)
+
         buttons = QHBoxLayout()
         self._delete_button = QPushButton(tr("Delete"))
         self._delete_button.setToolTip(
             tr("Remove the selected annotation, or restore the predicted point")
         )
         self._delete_button.clicked.connect(self._on_delete)
-        self._export_button = QPushButton(tr("Export…"))
-        self._export_button.setToolTip(tr("Export annotations and corrected tracking data"))
-        self._export_button.clicked.connect(self.export_requested)
+        # The same QAction the File menu carries, not a second button with its
+        # own wording: rule 15 forbids a menu item and a button that invoke one
+        # command from being named independently. Set by the window once the
+        # menu exists.
+        self._export_button = ActionButton(self)
         buttons.addWidget(self._delete_button)
         buttons.addWidget(self._export_button)
         layout.addLayout(buttons)
@@ -130,6 +142,10 @@ class ChangesPanel(QGroupBox):
         self.refresh()
 
     # ── what it shows ────────────────────────────────────────────────
+
+    def set_export_action(self, action: QAction) -> None:
+        """Adopt the File menu's own Export Changes action for the panel button."""
+        self._export_button.set_action(action)
 
     def set_correction_resolver(self, resolver: Any) -> None:
         """Supply the callable that places a correction in time and on a camera.
@@ -156,7 +172,9 @@ class ChangesPanel(QGroupBox):
         """Rebuild the table from both stores."""
         self._rows = sorted(
             self._annotation_rows() + self._correction_rows(),
-            key=lambda row: (row.t_master, row.kind, row.where, row.detail),
+            # Unplaced rows sort last rather than to zero, where a fake time
+            # would put them before everything that really happened first.
+            key=lambda row: (row.t_master is None, row.t_master or 0.0, row.kind, row.where),
         )
         self._table.blockSignals(True)
         try:
@@ -164,20 +182,26 @@ class ChangesPanel(QGroupBox):
             for row in self._rows:
                 position = self._table.rowCount()
                 self._table.insertRow(position)
-                cells = (
-                    format_time(row.t_master, self._time_mode, self._t_epoch),
-                    row.kind,
-                    row.where,
-                    row.detail,
-                )
+                cells = (self._when(row), row.kind, row.where, row.detail)
                 for column, text in enumerate(cells):
                     item = QTableWidgetItem(text)
                     editable = column == 3 and row.marker_index is not None
                     if not editable:
                         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    if row.t_master is None:
+                        item.setToolTip(
+                            tr("Waiting for this recording's tracking data to finish loading.")
+                        )
                     self._table.setItem(position, column, item)
         finally:
             self._table.blockSignals(False)
+        self._empty.setVisible(not self._rows)
+        self._table.setVisible(bool(self._rows))
+
+    def _when(self, row: ChangeRow) -> str:
+        if row.t_master is None:
+            return "—"
+        return format_time(row.t_master, self._time_mode, self._t_epoch)
 
     def _annotation_rows(self) -> list[ChangeRow]:
         rows: list[ChangeRow] = []
@@ -207,11 +231,11 @@ class ChangesPanel(QGroupBox):
         rows: list[ChangeRow] = []
         for key, (x, y) in self._corrections.items():
             placed = self._resolver(key) if self._resolver is not None else None
-            t_master, camera, frame = placed if placed is not None else (0.0, None, key.index)
+            t_master, camera, frame = placed if placed is not None else (None, None, key.index)
             rows.append(
                 ChangeRow(
                     kind=tr("Correction"),
-                    t_master=float(t_master),
+                    t_master=None if t_master is None else float(t_master),
                     where=_short(key.source_id),
                     detail=tr("{part} moved to ({x:.1f}, {y:.1f}) px at frame {frame}").format(
                         part=key.point, x=x, y=y, frame=frame

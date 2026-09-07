@@ -458,7 +458,6 @@ class MainWindow(QMainWindow):
         self.changes_panel.set_correction_resolver(self._locate_correction)
         self.changes_panel.revisit_requested.connect(self._revisit_change)
         self.changes_panel.delete_correction_requested.connect(self._restore_predicted_point)
-        self.changes_panel.export_requested.connect(self._export_changes)
         self.plot_pane.set_annotation_store(self.annotation_store)
 
         # Messages the acquisition system recorded. A separate store from
@@ -1515,8 +1514,10 @@ class MainWindow(QMainWindow):
 
         file_menu.addSeparator()
 
-        act = file_menu.addAction("Export Changes…")
+        self._act_export_changes = file_menu.addAction("Export Changes…")
+        act = self._act_export_changes
         act.triggered.connect(self._export_changes)
+        self.changes_panel.set_export_action(act)
 
         self._recent_menu = file_menu.addMenu("Recent Sessions")
         self._rebuild_recent_menu()
@@ -1995,7 +1996,8 @@ class MainWindow(QMainWindow):
         """
         if not isinstance(row, ChangeRow):
             return
-        self.player.seek(row.t_master, exact=True)
+        if row.t_master is not None:
+            self.player.seek(row.t_master, exact=True)
         if row.camera:
             self._select_video(row.camera)
         self.video_grid.highlight_point(row.point)

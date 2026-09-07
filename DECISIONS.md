@@ -3582,6 +3582,26 @@ and corrections are already durable the moment they are made — D-099); a
 corrections export that only copies the sidecar (the sparse list is not what
 anything downstream reads).
 
+**Both new buttons are `ui/action_button.py::ActionButton`,** an ordinary
+`QPushButton` that follows a `QAction` and triggers it. Qt's own answer here is
+`QToolButton.setDefaultAction`, and using it is what put a tool button in a row
+of push buttons in the Data Streams header — flatter, differently proportioned,
+visibly not one of its neighbours. The action stays the single author of the
+label, tooltip, enablement and checked state (rule 15); only the widget class
+changes. Styling the tool button to match was not an option: application-level
+QSS to restyle controls is banned.
+
+The Export Changes dialog follows the shape `relink_dialog` and
+`batch_import_dialog` already use — an explanatory line, a table with a control
+per row, a standard button box, vertical header hidden — rather than the grid of
+check boxes and line edits it was first built as. A dialog that invents its own
+layout reads as a different application's. For the same reason the Changes panel
+carries an empty-state line like the Messages tab beside it, and a change that
+cannot yet be placed on the master clock shows `—` and sorts last instead of
+`00:00:00.000`: a fake time in a time-sorted column reads as a measurement
+rather than as an absence, which is the rule `message_panel.py` already states
+for its own untimed records.
+
 **Consequences:** `AnnotationExportWorker` and `AnnotationPanel` are gone, along
 with the third copy of the marker CSV layout — `annotations.marker_rows()` and
 `write_marker_rows()` are now the only definition, and the rows are resolved on

@@ -27,11 +27,11 @@ from PySide6.QtWidgets import (
     QSlider,
     QStyle,
     QStyleOptionSlider,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
+from avialsync.ui.action_button import ActionButton
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import (
     evidence_color,
@@ -594,10 +594,10 @@ class TimelineEvidence(QWidget):
         header.addWidget(self.flag_button)
         # Filled by install_fix_tracker_action once the window has built the
         # QAction; kept in the layout from the start so adding it later does
-        # not shuffle the row.
-        self.fix_tracker_button = QToolButton(self)
-        self.fix_tracker_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
-        self.fix_tracker_button.hide()
+        # not shuffle the row. A push button like the ones either side of it --
+        # a QToolButton with a default action is Qt's shortcut for this and does
+        # not look like its neighbours (see ui/action_button.py).
+        self.fix_tracker_button = ActionButton(self)
         header.addWidget(self.fix_tracker_button)
         header.addStretch(1)
         self.snapshot_button = QPushButton("Snapshot", self)
@@ -639,17 +639,14 @@ class TimelineEvidence(QWidget):
     def install_fix_tracker_action(self, action: QAction) -> None:
         """Show the Fix Tracker toggle, driven by the menu's own QAction.
 
-        ``setDefaultAction`` rather than a second ``QPushButton``: the label,
-        the tooltip, the shortcut hint, and the checked state then have one
-        author, and the button cannot drift out of step with the menu entry
-        that does the same thing (architecture rule 15).
+        The label, tooltip and checked state come from the action, so the button
+        cannot drift out of step with the menu entry that does the same thing
+        (architecture rule 15).
         """
-        self.fix_tracker_button.setDefaultAction(action)
-        self.fix_tracker_button.setAccessibleName(tr("Fix Tracker"))
+        self.fix_tracker_button.set_action(action)
         self.fix_tracker_button.setAccessibleDescription(
             tr("Toggle dragging of tracked points in every video pane")
         )
-        self.fix_tracker_button.show()
 
     def toggle_collapsed(self) -> None:
         self.set_collapsed(not self.overview.isHidden())

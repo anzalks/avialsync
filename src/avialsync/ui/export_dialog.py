@@ -7,10 +7,15 @@ who had flagged frames *and* corrected points had no single place that said what
 they had produced or where it would go.
 
 This lists one row per artifact that actually has content, with the destination
-already filled in beside each recording it came from.  Nothing is offered for a
+already filled in beside the recording it came from.  Nothing is offered for a
 source with nothing to export, so what is on screen is exactly what there is to
-save.  The paths are editable and each has a Browse button, so "beside the data"
-is a default rather than a rule.
+save.  Every destination is editable and has a Browse button, so "beside the
+data" is a default rather than a rule.
+
+The shape is the one :mod:`avialsync.ui.relink_dialog` and
+:mod:`avialsync.ui.batch_import_dialog` already use — an explanatory line, a
+table with a control per row, and a standard button box — because a dialog that
+invents its own layout reads as a different application's.
 
 Writing happens off the UI thread (architecture rule 3): a corrected copy of a
 pose file is a full pass over hundreds of thousands of rows, and a retraining
@@ -24,14 +29,14 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
-    QGridLayout,
+    QHeaderView,
     QLabel,
-    QLineEdit,
     QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -44,6 +49,8 @@ __all__ = ["ExportItem", "ExportChangesDialog"]
 ANNOTATIONS = "annotations"
 CORRECTED_POSE = "corrected_pose"
 RETRAINING_SET = "retraining_set"
+
+_COLUMNS = ("Export", "Destination", "")
 
 
 @dataclasses.dataclass
@@ -67,53 +74,60 @@ class ExportChangesDialog(QDialog):
     def __init__(self, items: list[ExportItem], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Export Changes"))
+        self.setMinimumSize(680, 320)
         self._items = items
-        self._checks: list[QCheckBox] = []
-        self._fields: list[QLineEdit] = []
 
         layout = QVBoxLayout(self)
+
         intro = QLabel(
             tr(
                 "Only recordings with something to export are listed. Each "
-                "destination defaults to the folder its data came from."
+                "destination defaults to the folder its data came from; edit it "
+                "or use Browse to put the file somewhere else."
             )
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
-        grid = QGridLayout()
-        grid.setColumnStretch(1, 1)
+        self._table = QTableWidget(len(items), len(_COLUMNS))
+        self._table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
+        header = self._table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.verticalHeader().hide()
+        self._table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self._table.setAccessibleName(tr("Artifacts to export"))
+        self._table.setAccessibleDescription(
+            tr("Tick what to write, and where each file should go")
+        )
+
         for row, item in enumerate(items):
-            check = QCheckBox(item.title, self)
-            check.setChecked(item.selected)
-            check.setToolTip(item.detail)
-            check.setAccessibleDescription(item.detail)
-            self._checks.append(check)
+            title = QTableWidgetItem(item.title)
+            title.setFlags(
+                (title.flags() & ~Qt.ItemFlag.ItemIsEditable) | Qt.ItemFlag.ItemIsUserCheckable
+            )
+            title.setCheckState(Qt.CheckState.Checked if item.selected else Qt.CheckState.Unchecked)
+            # The explanation rides on the row rather than under it: a second
+            # line of grey text per artifact turns a four-row dialog into a wall.
+            title.setToolTip(item.detail)
+            self._table.setItem(row, 0, title)
 
-            field = QLineEdit(str(item.target), self)
-            field.setAccessibleName(tr("Destination for {title}").format(title=item.title))
-            self._fields.append(field)
+            destination = QTableWidgetItem(str(item.target))
+            destination.setToolTip(str(item.target))
+            self._table.setItem(row, 1, destination)
 
-            browse = QPushButton(tr("Browse…"), self)
+            browse = QPushButton(tr("Browse…"))
             browse.setAccessibleName(
                 tr("Choose a destination for {title}").format(title=item.title)
             )
             browse.clicked.connect(lambda _checked=False, index=row: self._browse(index))
+            self._table.setCellWidget(row, 2, browse)
 
-            detail = QLabel(item.detail, self)
-            detail.setWordWrap(True)
-            detail.setEnabled(False)
-
-            grid.addWidget(check, row * 2, 0)
-            grid.addWidget(field, row * 2, 1)
-            grid.addWidget(browse, row * 2, 2)
-            grid.addWidget(detail, row * 2 + 1, 1, 1, 2)
-        layout.addLayout(grid)
+        layout.addWidget(self._table)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
-            Qt.Orientation.Horizontal,
-            self,
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.button(QDialogButtonBox.StandardButton.Ok).setText(tr("Export"))
         buttons.accepted.connect(self.accept)
@@ -121,20 +135,27 @@ class ExportChangesDialog(QDialog):
         layout.addWidget(buttons)
 
     def _browse(self, index: int) -> None:
-        current = Path(self._fields[index].text())
+        item = self._table.item(index, 1)
+        if item is None:
+            return
         chosen, _ = QFileDialog.getSaveFileName(
-            self, tr("Export To"), str(current), tr("CSV files (*.csv);;All files (*)")
+            self, tr("Export To"), item.text(), tr("CSV files (*.csv);;All files (*)")
         )
         if chosen:
-            self._fields[index].setText(chosen)
+            item.setText(chosen)
+            item.setToolTip(chosen)
 
     def selected_items(self) -> list[ExportItem]:
-        """Return the checked artifacts, each with the destination as edited."""
+        """Return the ticked artifacts, each with the destination as edited."""
         chosen: list[ExportItem] = []
-        for item, check, field in zip(self._items, self._checks, self._fields, strict=True):
-            if not check.isChecked():
+        for row, item in enumerate(self._items):
+            title = self._table.item(row, 0)
+            destination = self._table.item(row, 1)
+            if title is None or destination is None:
                 continue
-            text = field.text().strip()
+            if title.checkState() != Qt.CheckState.Checked:
+                continue
+            text = destination.text().strip()
             if not text:
                 continue
             chosen.append(dataclasses.replace(item, target=Path(text), selected=True))

@@ -269,3 +269,80 @@ def test_corrections_are_grouped_by_the_frame_they_sit_on(
     grouped = corrections_controller.corrections_by_frame(window, str(pose))
 
     assert grouped == {101: {"nose": (99.0, 88.0)}}, "keyed by video frame, not sample index"
+
+
+# ── the dialog ───────────────────────────────────────────────────────
+
+
+def _dialog(qtbot, tmp_path: Path):
+    from avialsync.ui.export_dialog import ExportChangesDialog, ExportItem
+
+    items = [
+        ExportItem(
+            kind=ANNOTATIONS,
+            title="Annotations",
+            detail="2 flags",
+            target=tmp_path / "annotations.csv",
+        ),
+        ExportItem(
+            kind=RETRAINING_SET,
+            title="Retraining set",
+            detail="3 frames",
+            target=tmp_path / "CollectedData.csv",
+            selected=False,
+        ),
+    ]
+    dialog = ExportChangesDialog(items)
+    qtbot.addWidget(dialog)
+    return dialog
+
+
+def test_only_ticked_artifacts_are_written(qtbot, tmp_path: Path) -> None:
+    """The retraining set is offered unticked; leaving it so must mean no."""
+    dialog = _dialog(qtbot, tmp_path)
+
+    chosen = dialog.selected_items()
+
+    assert [item.kind for item in chosen] == [ANNOTATIONS]
+
+
+def test_ticking_one_adds_it(qtbot, tmp_path: Path) -> None:
+    from PySide6.QtCore import Qt
+
+    dialog = _dialog(qtbot, tmp_path)
+    dialog._table.item(1, 0).setCheckState(Qt.CheckState.Checked)
+
+    assert [item.kind for item in dialog.selected_items()] == [ANNOTATIONS, RETRAINING_SET]
+
+
+def test_an_edited_destination_is_the_one_used(qtbot, tmp_path: Path) -> None:
+    """ "Beside the data" is a default, not a rule."""
+    dialog = _dialog(qtbot, tmp_path)
+    dialog._table.item(0, 1).setText(str(tmp_path / "elsewhere" / "flags.csv"))
+
+    assert dialog.selected_items()[0].target == tmp_path / "elsewhere" / "flags.csv"
+
+
+def test_an_emptied_destination_writes_nothing(qtbot, tmp_path: Path) -> None:
+    """A blank path is not a request to write to the working directory."""
+    dialog = _dialog(qtbot, tmp_path)
+    dialog._table.item(0, 1).setText("   ")
+
+    assert dialog.selected_items() == []
+
+
+def test_the_dialog_is_shaped_like_the_others(qtbot, tmp_path: Path) -> None:
+    """Relink and Review Import Candidates set the house style; this follows it.
+
+    A dialog that invents its own layout reads as a different application's,
+    which is what a hand-rolled grid of check boxes and line edits looked like
+    beside them.
+    """
+    from PySide6.QtWidgets import QDialogButtonBox, QTableWidget
+
+    dialog = _dialog(qtbot, tmp_path)
+
+    assert dialog.findChild(QTableWidget) is not None
+    assert dialog.findChild(QDialogButtonBox) is not None
+    assert dialog._table.verticalHeader().isHidden()
+    assert dialog.minimumWidth() >= 600

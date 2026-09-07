@@ -117,6 +117,50 @@ def test_a_correction_still_lists_before_its_source_has_loaded(window: MainWindo
     assert rows[0].where == "loaded.csv"
 
 
+def test_an_unplaced_change_has_no_time_rather_than_time_zero(window: MainWindow) -> None:
+    """A fake time in a time-sorted column reads as a measurement, not a gap.
+
+    The Messages panel keeps untimed records out of its table for the same
+    reason; here the time is not absent but not yet known, so the row stays and
+    says so.
+    """
+    window.point_edits.set(PointKey("/not/loaded.csv", "nose", 7), (1.0, 2.0))
+
+    assert window.changes_panel.rows[0].t_master is None
+    assert window.changes_panel._when(window.changes_panel.rows[0]) == "—"
+
+
+def test_an_unplaced_change_sorts_after_everything_that_has_a_time(
+    window: MainWindow,
+) -> None:
+    window.annotation_store.add_point(5.0, label="late")
+    window.point_edits.set(PointKey("/not/loaded.csv", "nose", 7), (1.0, 2.0))
+
+    assert [row.t_master for row in window.changes_panel.rows] == [5.0, None]
+
+
+def test_revisiting_an_unplaced_change_does_not_seek_to_the_start(
+    window: MainWindow,
+) -> None:
+    """Seeking to zero would move the playhead somewhere the user did not ask."""
+    window.clock.set_bounds(0.0, 10.0)
+    window.player.seek(4.0, exact=True)
+    window.point_edits.set(PointKey("/not/loaded.csv", "nose", 7), (1.0, 2.0))
+
+    window._revisit_change(window.changes_panel.rows[0])
+
+    assert window.clock.state.t == pytest.approx(4.0)
+
+
+def test_an_empty_panel_says_so(window: MainWindow) -> None:
+    """The Messages tab beside it does the same rather than showing a blank grid."""
+    assert window.changes_panel._empty.isVisible() or not window.changes_panel.isVisible()
+
+    window.annotation_store.add_point(1.0, label="stance")
+
+    assert not window.changes_panel._empty.isVisibleTo(window.changes_panel)
+
+
 def test_the_list_follows_the_stores(window: MainWindow, tmp_path: Path) -> None:
     window.annotation_store.add_point(1.0, label="stance")
     assert len(window.changes_panel.rows) == 1

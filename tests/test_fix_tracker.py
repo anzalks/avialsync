@@ -436,9 +436,44 @@ def test_the_menu_entry_and_the_button_are_the_same_action(window: MainWindow) -
     action = window._act_fix_tracker
     button = window.transport.evidence.fix_tracker_button
 
-    assert button.defaultAction() is action
+    assert button.action is action
     assert button.text() == action.text()
-    assert action.isCheckable()
+    assert button.toolTip() == action.toolTip()
+    assert action.isCheckable() and button.isCheckable()
+
+
+def test_the_button_looks_like_the_ones_beside_it(window: MainWindow) -> None:
+    """A QToolButton in a row of push buttons is visibly not one of them.
+
+    ``setDefaultAction`` is Qt's shortcut for binding a button to an action and
+    it is only available on QToolButton, which is how the mismatch got in.
+    """
+    from PySide6.QtWidgets import QPushButton
+
+    header = window.transport.evidence
+    assert isinstance(header.fix_tracker_button, QPushButton)
+    assert isinstance(header.flag_button, QPushButton)
+
+
+def test_the_button_and_the_menu_stay_in_step(window: MainWindow) -> None:
+    """Either one may be used; neither may end up showing the other's state."""
+    button = window.transport.evidence.fix_tracker_button
+
+    window._act_fix_tracker.setChecked(True)
+    assert button.isChecked() is True
+
+    button.click()
+    assert window._act_fix_tracker.isChecked() is False
+    assert button.isChecked() is False
+    assert window.video_grid.point_edit_mode is False
+
+
+def test_the_panel_export_button_is_the_menu_action(window: MainWindow) -> None:
+    """The same command, so it may not carry independently written text."""
+    button = window.changes_panel._export_button
+
+    assert button.action is window._act_export_changes
+    assert button.text() == window._act_export_changes.text()
 
 
 def test_the_toggle_reaches_every_pane(window: MainWindow) -> None:
