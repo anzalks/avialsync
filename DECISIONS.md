@@ -3751,3 +3751,40 @@ typed failures reach people through `ui/feedback/error_presenter.py` and source
 quality problems through the per-source quality badge (rules 10 and 12).
 Routing a unit-string warning to that badge, where it belongs, is a separate
 change; this one stops the console lying about who said what.
+
+## 2026-09 · D-104 · `Player.stop` is teardown; a reset uses `Player.reset`
+
+**Context.** After clearing the session and dropping a new set of files,
+pressing Space did nothing. Neither did clicking. The transport showed a
+playing state and `MasterClock.state.playing` was `True` — the playhead simply
+never moved, which is why it read as an unresponsive control rather than as a
+crash.
+
+`Player.start` is called exactly once, from `MainWindow.__init__`. `Player.stop`
+halts the 60 Hz `QTimer` whose `_on_tick` is the only caller of
+`MasterClock.advance`, and nothing ever restarts it. `reset_session` called
+`stop`. So the first session reset ended playback for the rest of the process,
+whatever was loaded afterwards. `WindowMutationTarget.clear_workspace` routes to
+the same function, so an undo that cleared the workspace did it too.
+
+Measured, before and after:
+
+    at startup   : tick timer active = True
+    after reset  : tick timer active = False
+    after play   : tick timer active = False | clock.playing = True
+
+**Decision.** Two methods, because there are two intentions.
+`stop` stays teardown — one-way, for `closeEvent`, and its docstring now says
+so. `reset` returns the playhead to paused and idle while the tick keeps
+running, and is what `reset_session` calls.
+
+`reset` also clears `_is_scrubbing`, which `stop` never did: a reset in the
+middle of a slider drag stranded it true, and it gates `advance` exactly as
+effectively as a stopped timer. `plot_pane`'s scrubbing flag is cleared with
+it, since the two are set together everywhere else.
+
+**Why no test caught it.** Every playback test either drove `_on_tick` directly
+or never reset a session first, and driving the tick by hand reproduces nothing
+when the defect *is* a stopped timer. The tests added with this decision run
+the pane's own timer through `qtbot.waitUntil`, and were confirmed to fail
+against the previous code.

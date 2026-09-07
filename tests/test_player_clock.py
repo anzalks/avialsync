@@ -361,3 +361,89 @@ def test_a_coarse_clock_loses_a_real_stall_entirely(qapp) -> None:
 
     assert count == 0, "the coarse clock is supposed to miss this stall"
     assert lateness_ms < ui_heartbeat_module.STALL_THRESHOLD_MS
+
+
+# ── A reset must not end playback for the life of the process ────────
+#
+# `Player.start` is called once, by `MainWindow.__init__`. `Player.stop` is
+# teardown: it halts the 60 Hz QTimer that is the only caller of
+# `MasterClock.advance`, and nothing restarts it. `reset_session` called it, so
+# after clearing a session the playhead never moved again — while
+# `set_playing(True)` still marked the clock playing and the transport still
+# showed a playing state, which is why it read as "Space does nothing" rather
+# than as a crash. `MutationTarget.clear_workspace` reached the same code, so
+# an undo that cleared the workspace did it too.
+
+
+@pytest.fixture
+def window(qapp, qtbot, monkeypatch):
+    from shiboken6 import isValid
+
+    from avialsync.ui.main_window import MainWindow
+
+    del qapp
+    monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
+    monkeypatch.setattr(diagnostics_module, "_STARTUP_DIAGNOSTICS", None)
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    yield win
+    if isValid(win):
+        win.close()
+
+
+def test_the_tick_survives_a_session_reset(window) -> None:
+    """The only thing that advances the clock must still be running after."""
+    assert window.player._timer.isActive()
+
+    window._reset_session()
+
+    assert window.player._timer.isActive(), (
+        "the session reset stopped the 60 Hz tick; the playhead can never move again"
+    )
+
+
+def test_playing_after_a_reset_actually_advances_the_clock(window, qtbot) -> None:
+    """The behaviour the user reported: press Space after clearing, nothing moves.
+
+    Driven by the pane's own timer, never by calling `_on_tick` by hand: the
+    defect *was* a stopped timer, so a test that ticks manually reproduces
+    nothing and passes against the broken code.
+    """
+    window._reset_session()
+    window.clock.set_bounds(0.0, 10.0)
+
+    window.player.set_playing(True)
+
+    qtbot.waitUntil(lambda: window.clock.state.t > 0.0, timeout=2000)
+    assert window.clock.state.playing
+
+
+def test_a_reset_clears_a_scrub_left_in_flight(window) -> None:
+    """A drag interrupted by a reset must not gate `advance` afterwards.
+
+    `_is_scrubbing` blocks the clock just as effectively as a stopped timer,
+    and a reset in the middle of a slider drag is exactly how it gets stranded.
+    """
+    window.player.seek(1.0, exact=False)
+    assert window.player._is_scrubbing
+
+    window._reset_session()
+
+    assert not window.player._is_scrubbing
+    assert window.player._pending_scrub_t is None
+
+
+def test_clearing_the_workspace_through_the_command_bus_keeps_the_tick(window) -> None:
+    """Undo reaches the same reset, so it must not stop playback either."""
+    window._mutations.clear_workspace()
+
+    assert window.player._timer.isActive()
+
+
+def test_stop_is_still_teardown(window) -> None:
+    """`stop` must keep halting the tick — closing a window depends on it."""
+    window.player.stop()
+
+    assert not window.player._timer.isActive()
+    assert not window.clock.state.playing

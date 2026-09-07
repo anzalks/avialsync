@@ -116,11 +116,34 @@ class Player(QObject):
         self._timer.start()
 
     def stop(self) -> None:
-        """Stop UI ticks before the owning window tears down its panes."""
+        """Stop UI ticks before the owning window tears down its panes.
+
+        Teardown only, and one-way: ``start`` is called once, by
+        ``MainWindow.__init__``. Anything that means "stop playing but stay
+        usable" wants :meth:`reset` instead.
+        """
         self._timer.stop()
+        self.reset()
+
+    def reset(self) -> None:
+        """Return to a paused, idle playhead while staying live.
+
+        The 60 Hz tick is the only caller of ``MasterClock.advance``, so a
+        session reset that used :meth:`stop` killed playback for the rest of
+        the process: `set_playing` still marked the clock playing and the
+        transport still showed a playing state, but nothing ever moved the
+        playhead again. Pressing Space after clearing a session and dropping
+        new files did nothing at all, and neither did clicking.
+
+        ``_is_scrubbing`` is cleared for the same reason it would be after a
+        drag ends: left true through a reset it gates ``advance`` just as
+        effectively as a stopped timer.
+        """
         self.clock.pause()
         self._pending_scrub_t = None
         self._playing_pane_ids.clear()
+        self._is_scrubbing = False
+        self.plot_pane.set_scrubbing(False)
 
     def set_playing(self, playing: bool) -> None:
         self.plot_pane.set_playing(playing)

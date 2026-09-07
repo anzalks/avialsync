@@ -341,7 +341,10 @@ def reset_session(window: MainWindow) -> None:
     for path in source_paths:
         window.transport.set_source_coverage(path, 0.0, 0.0, "data")
 
-    window.player.stop()
+    # `reset`, never `stop`: stop is teardown and halts the 60 Hz tick that is
+    # the only caller of MasterClock.advance. Nothing restarts it, so a reset
+    # that used it left the playhead dead for the rest of the process.
+    window.player.reset()
     for path in list(window.video_grid.pane_paths()):
         window.video_grid.remove_pane(path)
     window.sidebar.clear_sources()

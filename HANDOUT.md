@@ -458,6 +458,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/point_edit_tool.py` | The "Fix Tracker" drag: hit test, grab, clamp, handles. `set_edit_mode()` makes markers draggable and emits `point_moved(PointMove)` — **it never writes the store itself** (D-099) | `PointEditMixin`, `point_at()`, `set_edit_mode()` |
 | `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown | `JobManager`, `Job`, `JobState` |
 | `ui/ui_heartbeat.py` | Measures UI-thread stalls and reports them | `UiHeartbeat` |
+| `engine/player.py` | Playback loop, seek coalescing, A/B. **`stop()` is teardown and halts the only tick that advances the clock; anything meaning "stop but stay usable" calls `reset()`** (D-104) | `set_playing()`, `seek()`, `start()`, `stop()`, `reset()` |
 | `engine/display_pipeline.py` | Windows the declared bit depth on the decode thread (WP-9, D-093). **`to_display_array` guarantees a C-contiguous array** — PyAV returns a strided view into a padded plane, which `QImage` cannot borrow (D-102) | `to_display_array()`, `probe_format()`, `build_lut()`, `DisplayLevels`, `SourceFormat` |
 | `logging_setup.py` | The one console-logging configuration: level + logger prefix, and each distinct message once (D-103). `AVIALSYNC_LOG_LEVEL`, `AVIALSYNC_LOG_ALL` | `configure_logging()`, `DedupeFilter` |
 | `ui/pane_proportions.py` | Holds each splitter pane's share of the window across a resize; first-run defaults are ratios, not pixels | `PaneProportions`, `distribute()` |
