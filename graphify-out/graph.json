@@ -60110,6 +60110,14 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_video_pane_test_a_decoded_frame_settles_the_seek_it_answers",
+      "label": "test_a_decoded_frame_settles_the_seek_it_answers()",
+      "file_type": "code",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L519",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_video_pane_rationale_1",
       "label": "Video-pane construction, decoding, and teardown tests.  Everything here used to",
       "file_type": "rationale",
@@ -60275,6 +60283,14 @@
       "file_type": "rationale",
       "source_file": "tests/test_video_pane.py",
       "source_location": "L481",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_video_pane_rationale_520",
+      "label": "Whatever the width, delivering the awaited frame must end the seek.",
+      "file_type": "rationale",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L520",
       "_origin": "ast"
     },
     {
@@ -205811,6 +205827,16 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_video_pane",
+      "target": "tests_test_video_pane_test_a_decoded_frame_settles_the_seek_it_answers",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L519",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_video_pane_opened_pane",
       "target": "src_avialsync_ui_video_pane_videopane",
       "relation": "calls",
@@ -205983,6 +206009,17 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
       "source_location": "L482",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_video_pane_test_a_decoded_frame_settles_the_seek_it_answers",
+      "target": "src_avialsync_ui_video_pane_videopane",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L526",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -206193,6 +206230,16 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_video_pane.py",
       "source_location": "L481",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_video_pane_rationale_520",
+      "target": "tests_test_video_pane_test_a_decoded_frame_settles_the_seek_it_answers",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L520",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -258435,6 +258482,30 @@
       "confidence_score": 0.8,
       "source_file": "tests/test_video_pane.py",
       "source_location": "L263",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_video_pane_test_a_decoded_frame_settles_the_seek_it_answers",
+      "target": "src_avialsync_engine_display_pipeline_to_display_array",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L531",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_video_pane_test_a_decoded_frame_settles_the_seek_it_answers",
+      "target": "src_avialsync_engine_seeker_seekgroup",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tests/test_video_pane.py",
+      "source_location": "L538",
       "weight": 1.0,
       "_origin": "ast"
     },
