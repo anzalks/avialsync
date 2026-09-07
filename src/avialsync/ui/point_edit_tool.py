@@ -27,7 +27,13 @@ from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
 if TYPE_CHECKING:
     from avialsync.ui.video_overlay import OverlayTrack, ResolvedPoint
 
-__all__ = ["PointEditMixin", "CORRECTION_RADIUS", "HANDLE_RADIUS", "HIT_RADIUS"]
+__all__ = [
+    "PointEditMixin",
+    "CORRECTION_RADIUS",
+    "HANDLE_RADIUS",
+    "HIT_RADIUS",
+    "REVISIT_RADIUS",
+]
 
 #: Ring drawn around a coordinate the user has corrected by hand. Sized outside
 #: the ensemble marker so both remain readable at once.
@@ -38,6 +44,9 @@ CORRECTION_RADIUS = 8
 #: where the handle itself is hard to see.
 HANDLE_RADIUS = 9
 HIT_RADIUS = 14
+#: Ring drawn around a point the Changes panel has navigated to. Wider than
+#: both, so it reads as "this one" rather than as another marker.
+REVISIT_RADIUS = 14
 
 
 @dataclass
@@ -82,6 +91,11 @@ class PointEditMixin(QWidget):
         self._edit_mode = False
         self._drag: _Drag | None = None
         self._hover: PointKey | None = None
+        #: A point the Changes panel has just sent the user back to. Drawn
+        #: whether or not the mode is on: revisiting a correction is a review
+        #: gesture, and with nine markers on screen landing on the right frame
+        #: is only half the answer.
+        self._highlight: PointKey | None = None
 
     def set_point_edits(self, edits: PointEditStore | None) -> None:
         """Adopt the session's correction store, or drop it."""
@@ -115,6 +129,18 @@ class PointEditMixin(QWidget):
         """Whether this pane is currently accepting point corrections."""
         return self._edit_mode
 
+    def set_highlighted_point(self, key: PointKey | None) -> None:
+        """Ring one coordinate until something else is highlighted."""
+        if key == self._highlight:
+            return
+        self._highlight = key
+        self.update()
+
+    @property
+    def highlighted_point(self) -> PointKey | None:
+        """The coordinate currently being pointed out, if any."""
+        return self._highlight
+
     # ── what the drag draws ──────────────────────────────────────────
 
     @staticmethod
@@ -130,6 +156,19 @@ class PointEditMixin(QWidget):
         )
         painter.setPen(QPen(color, 1))
         painter.setBrush(color)
+
+    @staticmethod
+    def draw_revisit_ring(painter: QPainter, x: float, y: float) -> None:
+        """Ring the point the Changes panel sent the user back to."""
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(QColor(0, 0, 0, 170), 5))
+        painter.drawEllipse(
+            int(x) - REVISIT_RADIUS, int(y) - REVISIT_RADIUS, REVISIT_RADIUS * 2, REVISIT_RADIUS * 2
+        )
+        painter.setPen(QPen(QColor(255, 255, 255), 2))
+        painter.drawEllipse(
+            int(x) - REVISIT_RADIUS, int(y) - REVISIT_RADIUS, REVISIT_RADIUS * 2, REVISIT_RADIUS * 2
+        )
 
     @staticmethod
     def draw_handle(painter: QPainter, color: QColor, x: float, y: float, *, held: bool) -> None:

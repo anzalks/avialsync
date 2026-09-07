@@ -3525,3 +3525,69 @@ and context-menu events to the video surface — the two widgets share a grid
 cell and therefore a coordinate system, which
 `tests/test_fix_tracker.py::test_the_pane_hands_the_pointer_over_only_in_edit_mode`
 pins rather than assumes.
+
+## 2026-09 · D-100 · One panel for what a person changed, one channel for what leaves
+
+**Context:** the application had two answers to "what have I done to this
+session" and neither was complete. Annotations had a table of their own;
+corrections had nothing — the only way to find one was to spot its ring on the
+video and remember the frame. Neither table was clickable, so "go back and look
+at that again" meant scrubbing for it by hand.
+
+Export was worse. Four menu items (annotations, snapshot, trimmed clip, data
+slice) each with its own `QFileDialog` and its own modal completion box, plus a
+**fifth** path — the annotation panel's own "Export CSV…" button, which
+duplicated the menu item and wrote the file *synchronously on the UI thread*
+while the menu path used a worker. The marker CSV layout was written out in
+three separate places. A user who had flagged frames and corrected points had no
+single place that said what they had produced or where it would go.
+
+**Decision, part one: one review panel.** `ui/changes_panel.py` lists flagged
+frames, labelled ranges, and corrected tracking points together, in time order.
+They are the same kind of thing — a human judgement laid over a recording — and
+a reviewer wants them in one place. Selecting a row **goes there**: it seeks,
+selects the camera the change belongs to, and for a correction rings the body
+part for a few seconds, because landing on the right frame with nine markers on
+screen is only half of "show me that again". Deleting is one gesture for both
+and both go through the command bus: an annotation is removed, a correction
+restores the model's prediction (rule 14).
+
+**Decision, part two: one export channel for the user's own work.**
+`ui/controllers/changes_export_controller.py` and `ui/export_dialog.py` replace
+the annotation export and its duplicate button. The dialog lists **one row per
+artifact that actually has content** — nothing is offered for a recording nobody
+corrected — with the destination pre-filled beside the data it came from and
+editable, plus Browse. Everything selected is written by one worker
+(`engine/changes_export_worker.py`) and reported in one line through the
+notification strip, not a modal nobody asked for (D-091).
+
+Snapshot, trimmed clip and data slice stay where they are. They render *a range
+of the recording*; this renders *what a person did to it*. Folding them together
+would put two different operations behind one verb.
+
+Three artifacts, and the boundary between them is the question each answers:
+
+- **Annotations CSV** — what happened, and when.
+- **Corrected pose data** (`core/pose_export.py`) — what the analysis should
+  use. A full copy with corrections substituted in, streamed row by row.
+- **Retraining set** (`core/dlc_export.py`) — what the network should learn
+  from. The corrected frames in DLC's `labeled-data` layout, with their images
+  decoded from the video. Off by default: it decodes a frame per label, which is
+  a choice rather than a default.
+
+**Alternatives rejected:** one dialog absorbing every export including snapshot
+and clip (mixes "render this range" with "here is my work" under one verb);
+prompting per file at quit (a save-changes gate, which D-088 forbids outright,
+and corrections are already durable the moment they are made — D-099); a
+corrections export that only copies the sidecar (the sparse list is not what
+anything downstream reads).
+
+**Consequences:** `AnnotationExportWorker` and `AnnotationPanel` are gone, along
+with the third copy of the marker CSV layout — `annotations.marker_rows()` and
+`write_marker_rows()` are now the only definition, and the rows are resolved on
+the UI thread so the export worker holds no reference to the store at all. The
+three properties the removed worker's tests pinned are carried over in
+`tests/test_changes_export.py`. Writers do **not** create a missing parent
+directory: a path that is not there means a typo, and inventing the folder hides
+it. The one exception is the retraining set, because `labeled-data/<video>/` is
+part of the format rather than part of the path the user chose.

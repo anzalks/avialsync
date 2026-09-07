@@ -18,9 +18,7 @@ import pytest
 from PySide6.QtCore import QThread, QTimer
 
 from avialsync.core.session import SessionState, SyncProvenance, VideoEntry
-from avialsync.engine.export_worker import AnnotationExportWorker
 from avialsync.engine.session_worker import SessionLoadWorker, SessionSaveWorker
-from avialsync.ui.annotations import AnnotationStore, VideoFrame
 from avialsync.ui.main_window import MainWindow
 
 
@@ -128,61 +126,6 @@ def test_load_worker_reports_an_unsupported_version(qtbot, tmp_path: Path) -> No
     _run_in_thread(worker, qtbot)
 
     assert errors and "version" in errors[0].lower()
-
-
-# ── Annotation export ─────────────────────────────────────────────────
-
-
-def test_annotation_export_worker_writes_one_row_per_marker_video_pair(
-    qtbot, tmp_path: Path
-) -> None:
-    store = AnnotationStore()
-    store.add_point(
-        1.0,
-        label="stance",
-        video_frames=[
-            VideoFrame(path="/cam/a.mp4", frame_index=30, media_timestamp=1.0),
-            VideoFrame(path="/cam/b.mp4", frame_index=31, media_timestamp=1.01),
-        ],
-    )
-    store.add_point(2.0, label="swing")
-    path = tmp_path / "ann.csv"
-    worker = AnnotationExportWorker(store.markers, path)
-    done: list[tuple[Path, int]] = []
-    worker.finished.connect(lambda p, n: done.append((p, n)))
-
-    _run_in_thread(worker, qtbot)
-
-    assert done == [(path, 2)]
-    lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[0].split(",")[:3] == ["label", "comment", "t_master"]
-    # Two video frames on the first marker, none on the second.
-    assert len(lines) == 4
-
-
-def test_annotation_export_snapshot_is_detached_from_the_store(qtbot, tmp_path: Path) -> None:
-    """The worker deep-copies at construction, so later edits cannot leak in."""
-    store = AnnotationStore()
-    store.add_point(1.0, label="original")
-    path = tmp_path / "ann.csv"
-    worker = AnnotationExportWorker(store.markers, path)
-
-    store.clear()
-    store.add_point(9.0, label="changed")
-    _run_in_thread(worker, qtbot)
-
-    assert "original" in path.read_text(encoding="utf-8")
-    assert "changed" not in path.read_text(encoding="utf-8")
-
-
-def test_annotation_export_worker_reports_an_unwritable_path(qtbot, tmp_path: Path) -> None:
-    worker = AnnotationExportWorker([], tmp_path / "nope" / "ann.csv")
-    errors: list[str] = []
-    worker.error.connect(errors.append)
-
-    _run_in_thread(worker, qtbot)
-
-    assert errors
 
 
 # ── UI thread stays responsive ────────────────────────────────────────

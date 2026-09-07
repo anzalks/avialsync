@@ -25,7 +25,9 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from avialsync.core import point_edit_sidecar
+from avialsync.core.dlc_export import LabeledFrame
 from avialsync.core.point_edit_sidecar import Correction
+from avialsync.core.point_edits import PointKey
 from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
@@ -284,3 +286,77 @@ def remap(window: MainWindow, old_id: str, new_id: str) -> None:
     storage = window._point_edit_storage.pop(old_id, None)
     if storage is not None:
         window._point_edit_storage[new_id] = storage
+
+
+# ── what an export needs to know about a corrected source ────────────
+
+
+def video_for(window: MainWindow, source_id: str) -> str:
+    """Return the camera a pose source overlays, or "" if it is not registered."""
+    for video, sources in window._overlay_sources.items():
+        if source_id in sources:
+            return video
+    return ""
+
+
+def points_for(window: MainWindow, source_id: str) -> dict[str, tuple[Any, Any]]:
+    """Return a pose source's body-part readers, keyed by name."""
+    for sources in window._overlay_sources.values():
+        entry = sources.get(source_id)
+        if entry is not None:
+            return dict(entry.get("points") or {})
+    return {}
+
+
+def corrections_by_frame(
+    window: MainWindow, source_id: str
+) -> dict[int, dict[str, tuple[float, float]]]:
+    """Group one source's corrections by the video frame they sit on.
+
+    This is the shape the corrected-copy writer wants: it streams the pose file
+    row by row and asks each frame whether anything on it changed.
+    """
+    grouped: dict[int, dict[str, tuple[float, float]]] = {}
+    for index, point, x, y in window.point_edits.for_source(source_id):
+        grouped.setdefault(frame_for(window, source_id, index), {})[point] = (x, y)
+    return grouped
+
+
+def labeled_frames(window: MainWindow, source_id: str) -> tuple[list[str], list[LabeledFrame]]:
+    """Return ``(body parts, frames)`` for a retraining export.
+
+    Every body part on a corrected frame is read, not only the corrected one: a
+    training label is a whole pose, and a network taught that the other parts
+    are absent from the frame has learned the opposite of what the correction
+    meant. The model's own prediction supplies the rest, with the corrections
+    substituted in.
+    """
+    points = points_for(window, source_id)
+    if not points:
+        return [], []
+    bodyparts = sorted(points)
+    columns = {
+        part: (axes[0].source_reader.mapped_columns()[1], axes[1].source_reader.mapped_columns()[1])
+        for part, axes in points.items()
+    }
+
+    indices = sorted({index for index, _point, _x, _y in window.point_edits.for_source(source_id)})
+    frames: list[LabeledFrame] = []
+    for index in indices:
+        positions: dict[str, tuple[float, float]] = {}
+        for part in bodyparts:
+            xs, ys = columns[part]
+            if not 0 <= index < len(xs) or not 0 <= index < len(ys):
+                continue
+            x = float(xs[index])
+            y = float(ys[index])
+            override = window.point_edits.get(PointKey(source_id, part, index))
+            if override is not None:
+                x, y = override
+            if np.isnan(x) or np.isnan(y):
+                # Absent from this frame. Written as an empty cell by the DLC
+                # writer, never as 0,0 -- see avialsync.core.dlc_export.
+                continue
+            positions[part] = (x, y)
+        frames.append(LabeledFrame(frame=frame_for(window, source_id, index), positions=positions))
+    return bodyparts, frames

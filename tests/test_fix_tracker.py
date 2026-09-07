@@ -488,11 +488,14 @@ def _register_pose_source(window, source_id: str, times: list[float], rate: floa
 
 
 class _Sourced:
-    """A MappedChannelReader stand-in exposing ``source_reader``."""
+    """A MappedChannelReader stand-in: a source reader plus its mapping."""
 
     def __init__(self, reader: _PoseReader) -> None:
+        from avialsync.core.timeline import TimeMap
+
         self.source_reader = reader
         self.source_id = reader.source_id
+        self.time_map = TimeMap()
 
 
 def test_a_contiguous_pose_file_indexes_by_frame(window: MainWindow) -> None:
@@ -530,9 +533,7 @@ def test_an_unregistered_source_falls_back_to_the_index(window: MainWindow) -> N
     assert corrections_controller.index_for(window, "/nowhere.csv", 7) == 7
 
 
-def test_a_correction_is_written_at_the_video_frame_it_names(
-    window: MainWindow, tmp_path
-) -> None:
+def test_a_correction_is_written_at_the_video_frame_it_names(window: MainWindow, tmp_path) -> None:
     pose = _pose_file(tmp_path)
     _register_pose_source(window, str(pose), [10.0, 10.1, 10.2, 10.3], rate=10.0)
 

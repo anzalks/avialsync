@@ -231,6 +231,11 @@ class VideoGrid(QWidget):
         for pane in self.panes:
             pane.paint_canvas.update()
 
+    def highlight_point(self, key: object) -> None:
+        """Ring one coordinate on whichever pane holds it, clearing the rest."""
+        for pane in self.panes:
+            pane.set_highlighted_point(key)
+
     def set_grid_mode(self, enabled: bool) -> None:
         """Switch between horizontal-strip and NxN grid layout."""
         if enabled == self._grid_mode:

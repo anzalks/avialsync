@@ -88,6 +88,9 @@ def write_labeled_data(
     same layout whether or not it has a coordinate for each part.
     """
     target_path = Path(target)
+    # The one export that creates directories, because ``labeled-data/<video>/``
+    # is part of the format rather than part of the path the user chose: DLC
+    # will not read a labelled set that is not nested this way.
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     scorer_row = ["scorer"]

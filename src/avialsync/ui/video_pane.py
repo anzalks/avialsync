@@ -769,6 +769,10 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Whether this pane is currently accepting point corrections."""
         return bool(self.paint_canvas.edit_mode)
 
+    def set_highlighted_point(self, key: object) -> None:
+        """Ring one tracked coordinate, or clear the ring when *key* is None."""
+        self.paint_canvas.set_highlighted_point(key)
+
     def _queue_osd_update(self, t: float, fps: float) -> None:
         """Queue at most one UI-thread OSD/overlay update, retaining the newest frame."""
         with self._osd_lock:

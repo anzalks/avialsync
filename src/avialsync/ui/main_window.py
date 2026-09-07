@@ -51,7 +51,7 @@ from avialsync.core.commands import (
 )
 from avialsync.core.document import Document, SourceRecord
 from avialsync.core.inspection import SourceInspection
-from avialsync.core.point_edits import PointEditStore, PointMove
+from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
 from avialsync.core.session import (
     SessionState,
     SyncProvenance,
@@ -63,8 +63,10 @@ from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.ui.about import citation_text, project_urls, version_report
 from avialsync.ui.accessibility import apply_accessibility
-from avialsync.ui.annotations import AnnotationPanel, AnnotationStore, Marker
+from avialsync.ui.annotations import AnnotationStore, Marker
+from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
 from avialsync.ui.controllers import (
+    changes_export_controller,
     corrections_controller,
     drop_controller,
     export_controller,
@@ -93,6 +95,10 @@ from avialsync.ui.video_grid import VideoGrid
 logger = logging.getLogger(__name__)
 
 _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
+#: How long the revisit ring stays on a point the Changes panel navigated to.
+#: Long enough to find it, short enough not to be mistaken for a state the
+#: correction is in.
+_HIGHLIGHT_MS = 4000
 
 #: How long to let window-resize events pile up before rescaling the panes.
 #: A drag-resize delivers one event per pixel of mouse travel; at this interval
@@ -448,7 +454,11 @@ class MainWindow(QMainWindow):
         self.player._readout_panel = self.readout_panel
 
         # Annotation panel
-        self.annotation_panel = AnnotationPanel(self.annotation_store, self)
+        self.changes_panel = ChangesPanel(self.annotation_store, self.point_edits, self)
+        self.changes_panel.set_correction_resolver(self._locate_correction)
+        self.changes_panel.revisit_requested.connect(self._revisit_change)
+        self.changes_panel.delete_correction_requested.connect(self._restore_predicted_point)
+        self.changes_panel.export_requested.connect(self._export_changes)
         self.plot_pane.set_annotation_store(self.annotation_store)
 
         # Messages the acquisition system recorded. A separate store from
@@ -470,7 +480,7 @@ class MainWindow(QMainWindow):
         self._left_tabs.addTab(self.sidebar, "Sources")
         self._left_tabs.addTab(self.readout_panel, "Values")
         self._left_tabs.addTab(self.message_panel, "Messages")
-        self._left_tabs.addTab(self.annotation_panel, "Annotations")
+        self._left_tabs.addTab(self.changes_panel, "Changes")
         # Last tab: consulted when something is taking longer than expected,
         # which is not most of the time.
         self._left_tabs.addTab(self.jobs_panel, "Tasks")
@@ -607,6 +617,13 @@ class MainWindow(QMainWindow):
 
         # Plot annotate-at (D-022)
         self.plot_pane.annotate_at_requested.connect(self._on_annotate_at_requested)
+
+        # One window-owned timer clears the revisit ring. Owned here, not by a
+        # pane: a timer that outlives the widget it repaints is a SIGSEGV with
+        # no traceback (HANDOUT.md), and the window outlives every pane.
+        self._highlight_timer = QTimer(self)
+        self._highlight_timer.setSingleShot(True)
+        self._highlight_timer.timeout.connect(self._clear_point_highlight)
 
         # Autosave timer
         self._autosave_timer = QTimer(self)
@@ -1088,8 +1105,8 @@ class MainWindow(QMainWindow):
         self.annotation_store.add_point(t_master, video_frames=video_frames)
         self.statusBar().showMessage(f"Marked frame at {t_master:.3f}s", 2000)
 
-    def _export_annotations(self) -> None:
-        export_controller.export_annotations(self)
+    def _export_changes(self) -> None:
+        changes_export_controller.export_changes(self)
 
     # ── Keyboard shortcuts ───────────────────────────────────────────
 
@@ -1498,8 +1515,8 @@ class MainWindow(QMainWindow):
 
         file_menu.addSeparator()
 
-        act = file_menu.addAction("Export Annotations (CSV)…")
-        act.triggered.connect(self._export_annotations)
+        act = file_menu.addAction("Export Changes…")
+        act.triggered.connect(self._export_changes)
 
         self._recent_menu = file_menu.addMenu("Recent Sessions")
         self._rebuild_recent_menu()
@@ -1940,6 +1957,73 @@ class MainWindow(QMainWindow):
         grid = getattr(self, "video_grid", None)
         if grid is not None:
             grid.refresh_point_edits()
+        panel = getattr(self, "changes_panel", None)
+        if panel is not None:
+            panel.refresh()
+
+    def _locate_correction(self, key: object) -> tuple[float, str, int] | None:
+        """Place a correction on the master clock, a camera, and a frame.
+
+        The Changes panel cannot work this out: it needs the pose source's own
+        time column and the video that source overlays, and both live here.
+        """
+        if not isinstance(key, PointKey):
+            return None
+        for video, sources in self._overlay_sources.items():
+            entry = sources.get(key.source_id)
+            if entry is None:
+                continue
+            points = entry.get("points") or {}
+            axes = points.get(key.point) or next(iter(points.values()), None)
+            if axes is None:
+                return None
+            reader = axes[0]
+            times = reader.source_reader.mapped_columns()[0]
+            if not 0 <= key.index < len(times):
+                return None
+            t_master = float(reader.time_map.to_master(float(times[key.index])))
+            frame = corrections_controller.frame_for(self, key.source_id, key.index)
+            return t_master, video, frame
+        return None
+
+    def _revisit_change(self, row: object) -> None:
+        """Go to a change the user selected in the panel.
+
+        Seek, select the camera it belongs to, and -- for a correction -- ring
+        the body part, because landing on the right frame with nine markers on
+        screen is only half of "show me that again".
+        """
+        if not isinstance(row, ChangeRow):
+            return
+        self.player.seek(row.t_master, exact=True)
+        if row.camera:
+            self._select_video(row.camera)
+        self.video_grid.highlight_point(row.point)
+        if row.point is not None:
+            self._highlight_timer.start(_HIGHLIGHT_MS)
+
+    def _clear_point_highlight(self) -> None:
+        """Drop the revisit ring once it has done its job."""
+        self.video_grid.highlight_point(None)
+
+    def _restore_predicted_point(self, key: object) -> None:
+        """Undo one correction from the panel, through the command bus."""
+        if not isinstance(key, PointKey):
+            return
+        before = self.point_edits.get(key)
+        if before is None:
+            return
+        self.document.execute(
+            SetTrackedPointCommand(
+                source_id=key.source_id,
+                point=key.point,
+                index=key.index,
+                before=before,
+                after=None,
+                display_frame=corrections_controller.frame_for(self, key.source_id, key.index),
+            ),
+            self._mutations,
+        )
 
     def _persist_point_edits(self, source_id: str) -> None:
         """Write one pose source's corrections beside it, immediately."""

@@ -402,7 +402,13 @@ contradicts the runtime.
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
 | `core/point_edits.py` | Hand corrections to tracked points, in memory — sparse overrides keyed by `(source, body part, sample index)`. HEADLESS. **Never writes the pose file or its cache** (D-099) | `PointEditStore`, `PointKey`, `PointMove` |
 | `core/point_edit_sidecar.py` | Where those corrections live: `<pose file>.avialfix.csv` beside the source, written on every edit. Commented header, atomic replace, emptied never deleted (D-099) | `sidecar_path()`, `is_correction_path()`, `read()`, `write()` |
-| `ui/controllers/corrections_controller.py` | Sidecar first, session as the fallback; adopts a pose file's corrections on import and reports a count that does not match | `persist()`, `adopt()`, `build_manifest()`, `restore_manifest()`, `remap()` |
+| `ui/controllers/corrections_controller.py` | Sidecar first, session as the fallback; adopts a pose file's corrections on import and reports a count that does not match. **Also the sample-index ↔ video-frame conversion** (D-099) | `persist()`, `adopt()`, `frame_for()`, `index_for()`, `corrections_by_frame()`, `labeled_frames()` |
+| `core/pose_export.py` | A corrected copy of a pose file for analysis: streamed, scorer renamed, corrected likelihood forced to 1.0 (D-100) | `write_corrected_copy()`, `corrected_copy_path()`, `SCORER_SUFFIX` |
+| `core/dlc_export.py` | Corrected frames as DLC labeled data for retraining; whole pose per frame, blank never `0,0` (D-100) | `write_labeled_data()`, `LabeledFrame`, `collected_data_path()` |
+| `ui/changes_panel.py` | One list of flagged frames, ranges, and corrected points, in time order; selecting a row seeks, selects the camera, and rings the point (D-100) | `ChangesPanel`, `ChangeRow` |
+| `ui/export_dialog.py` | One row per artifact that has content, destination pre-filled beside its data and editable (D-100) | `ExportChangesDialog`, `ExportItem` |
+| `ui/controllers/changes_export_controller.py` | The one channel the user's own work leaves by; builds the offer and the jobs (D-100) | `available_exports()`, `export_changes()` |
+| `engine/changes_export_worker.py` | Writes every selected artifact off the UI thread and reports one answer; decodes the retraining set's frames | `ChangesExportWorker`, `AnnotationJob`, `CorrectedPoseJob`, `RetrainingJob` |
 | `engine/pyav_reader.py` | Headless exact-frame reader: pts table, seek, index-keyed LRU (D-075). No Qt — safe on a worker thread | `PyAVReader.frame_at_time()`, `.frame_at_index()`, `.index_at_time()`, `.time_at_index()`, `.frame_times`, `to_rgb_array()` |
 | `engine/player.py` | precise 60 Hz tick; MasterClock ↔ panes ↔ UI. Owns the clock, so no drift correction (D-075) | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
 | `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
@@ -436,6 +442,7 @@ contradicts the runtime.
 | `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status | `set_time()`, `set_bounds()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
+| `ui/annotations.py` | Markers, and **the** definition of their CSV layout — three copies existed (D-100) | `AnnotationStore`, `Marker`, `marker_rows()`, `write_marker_rows()`, `MARKER_COLUMNS` |
 | `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |
 | `ui/time_format.py` | TimeDisplayMode enum + format_time() — single formatting authority (D-020) | `TimeDisplayMode`, `format_time()` |
 | `engine/drop_worker.py` | Off-thread drop scanning and AOL session candidate collection | `DropScanWorker` |
@@ -699,6 +706,24 @@ change and writes nothing. Moving the write onto a plain observer re-saves every
 is read, which looks harmless until a partially-read sidecar is written back over the whole one.
 The `.avv` holds a count per source, never a second copy of the coordinates: two copies that must
 agree have no rule for which wins when they do not.
+
+### 0c-sexies. A correction is keyed by sample index, written as a video frame (D-099)
+`PointEditStore` keys by **sample index**, because that is what stays put when an offset or an
+accepted TimeMap changes *when* a sample is shown. Everything outside the application speaks **video
+frame numbers**: the `.avialfix.csv` a person reads, the corrected pose CSV, DLC's labeled data. For
+a pose file written contiguously from frame 0 the two are the same number, which is why the
+difference stays invisible until someone hands you a file covering only the frames they labelled —
+and then every correction lands a hundred frames early. `corrections_controller.frame_for()` and
+`index_for()` are the only conversion, and they read the source's own time column, so `adopt()` must
+run **after** the source is registered in `_overlay_sources`. `index_for()` returns `None` for a
+frame the file does not cover rather than snapping to the nearest row, which would move the point to
+another moment entirely.
+
+### 0c-septies. Export writers do not create the folder you typed (D-100)
+A missing parent directory means the path has a typo in it; creating it hides the mistake instead of
+reporting it, and the error path is what `tests/test_changes_export.py` pins. The single exception is
+the retraining set: `labeled-data/<video>/` is part of DLC's format rather than part of the path the
+user chose, so `dlc_export.write_labeled_data` creates it. Do not "fix" the others to match.
 
 ### 0d. `"_eks.csv".split("_")[0]` is `""` — and `"" in name` matches everything
 The session-level 3D file names no camera, so substring-matching its leading token bound it to

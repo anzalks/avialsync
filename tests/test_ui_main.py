@@ -78,11 +78,11 @@ def test_inspector_uses_compact_tabs_for_sources_values_messages_and_annotations
     assert main_window._left_tabs.tabText(0) == "Sources"
     assert main_window._left_tabs.tabText(1) == "Values"
     assert main_window._left_tabs.tabText(2) == "Messages"
-    assert main_window._left_tabs.tabText(3) == "Annotations"
+    assert main_window._left_tabs.tabText(3) == "Changes"
     assert main_window._left_tabs.widget(0) is main_window.sidebar
     assert main_window._left_tabs.widget(1) is main_window.readout_panel
     assert main_window._left_tabs.widget(2) is main_window.message_panel
-    assert main_window._left_tabs.widget(3) is main_window.annotation_panel
+    assert main_window._left_tabs.widget(3) is main_window.changes_panel
 
 
 def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow, qtbot) -> None:

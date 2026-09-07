@@ -23,7 +23,7 @@ from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.loaders.csv_loader import CSVLoader
-from avialsync.ui.controllers import export_controller
+from avialsync.ui.controllers import changes_export_controller
 from avialsync.ui.main_window import MainWindow
 
 FIXTURE_SESSION = Path(__file__).parent / "fixtures" / "session_v1.avv"
@@ -133,16 +133,6 @@ def test_second_save_is_allowed(main_window: MainWindow, tmp_path: Path, qtbot) 
     qtbot.waitUntil(lambda: not main_window._save_in_progress, timeout=10_000)
 
 
-class _FakeFileDialog:
-    """Answers the save prompt without showing one."""
-
-    target: Path
-
-    @staticmethod
-    def getSaveFileName(*_args: object, **_kwargs: object) -> tuple[str, str]:
-        return str(_FakeFileDialog.target), "CSV Files (*.csv)"
-
-
 class _StubThread:
     """What ``_run_job`` hands back, minus every QThread lifetime hazard.
 
@@ -157,47 +147,55 @@ class _StubThread:
         pass
 
 
-class _RecordingMessageBox:
-    """Records the dialogs the export would have shown."""
+class _AcceptingExportDialog:
+    """Stands in for the Export Changes dialog, accepting every artifact.
 
-    shown: list[tuple[str, str]] = []
+    Replaces the QFileDialog + QMessageBox pair the annotation-only export used:
+    the unified export asks once, in a dialog of its own, and reports through the
+    notification strip rather than a modal nobody asked for (D-091).
+    """
 
-    @staticmethod
-    def information(_parent: object, title: str, text: str) -> None:
-        _RecordingMessageBox.shown.append((title, text))
+    target: Path = Path()
 
-    @staticmethod
-    def critical(_parent: object, title: str, text: str) -> None:
-        _RecordingMessageBox.shown.append((title, text))
+    def __init__(self, items: list, _parent: object = None) -> None:
+        self._items = items
+
+    def exec(self) -> int:
+        from PySide6.QtWidgets import QDialog
+
+        return int(QDialog.DialogCode.Accepted)
+
+    def selected_items(self) -> list:
+        import dataclasses
+
+        return [
+            dataclasses.replace(item, target=_AcceptingExportDialog.target) for item in self._items
+        ]
 
 
-def test_export_annotations_reports_completion(
+def test_export_changes_reports_completion(
     main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot
 ) -> None:
     """An export must run its worker and tell the user it finished.
 
     Coverage for the controller path, which was previously exercised only as far
-    as ``AnnotationExportWorker`` itself. This does not pin the wiring order —
-    a real export is slow enough relative to thread start-up that the racy form
-    passes it 10 times out of 10;
-    ``test_export_reports_even_if_the_worker_finishes_first`` is what pins that.
+    as the worker itself. This does not pin the wiring order -- a real export is
+    slow enough relative to thread start-up that the racy form passes it 10
+    times out of 10; ``test_export_reports_even_if_the_worker_finishes_first``
+    is what pins that.
     """
-    _FakeFileDialog.target = tmp_path / "annotations.csv"
-    _RecordingMessageBox.shown = []
-    monkeypatch.setattr(export_controller, "QFileDialog", _FakeFileDialog)
-    monkeypatch.setattr(export_controller, "QMessageBox", _RecordingMessageBox)
+    _AcceptingExportDialog.target = tmp_path / "annotations.csv"
+    monkeypatch.setattr(changes_export_controller, "ExportChangesDialog", _AcceptingExportDialog)
 
     main_window.annotation_store.add_point(1.0, label="stance")
     main_window.annotation_store.add_point(2.0, label="swing")
 
-    main_window._export_annotations()
+    main_window._export_changes()
 
-    qtbot.waitUntil(lambda: _FakeFileDialog.target.exists(), timeout=10_000)
-    qtbot.waitUntil(lambda: bool(_RecordingMessageBox.shown), timeout=10_000)
+    qtbot.waitUntil(lambda: _AcceptingExportDialog.target.exists(), timeout=10_000)
+    qtbot.waitUntil(lambda: "Exported" in main_window.notifications.message, timeout=10_000)
 
-    title, text = _RecordingMessageBox.shown[0]
-    assert title == "Export Complete", f"export reported {title!r}: {text}"
-    assert "2 markers" in text
+    assert "2 annotation row(s)" in main_window.notifications.message
 
 
 def test_export_reports_even_if_the_worker_finishes_first(
@@ -209,22 +207,20 @@ def test_export_reports_even_if_the_worker_finishes_first(
     hands back a thread whose worker is already running. Connecting afterwards
     is therefore a race, and one that real timings hide: the export is slow
     enough that the broken form still passes the end-to-end test above. This
-    collapses the window instead of waiting for it — the stand-in runs the
+    collapses the window instead of waiting for it -- the stand-in runs the
     worker at exactly the point the real one starts the thread, so a caller that
-    wires afterwards observes the emit it missed and no dialog is recorded.
+    wires afterwards observes the emit it missed and nothing is reported.
 
     Generalises to any ``_run_job`` caller; the other three are pinned by their
     own effects above (HANDOUT.md trap 31).
     """
-    _FakeFileDialog.target = tmp_path / "annotations.csv"
-    _RecordingMessageBox.shown = []
-    monkeypatch.setattr(export_controller, "QFileDialog", _FakeFileDialog)
-    monkeypatch.setattr(export_controller, "QMessageBox", _RecordingMessageBox)
+    _AcceptingExportDialog.target = tmp_path / "annotations.csv"
+    monkeypatch.setattr(changes_export_controller, "ExportChangesDialog", _AcceptingExportDialog)
 
     def fake_run_job(worker, label="Working", configure=None):
         # A stand-in, not a real QThread: a caller wired the wrong way also calls
         # `thread.start()` on whatever this returns, and abandoning a started
-        # QThread aborts the process — which would replace a clean assertion
+        # QThread aborts the process -- which would replace a clean assertion
         # failure with a crash and no message.
         thread = _StubThread()
         if configure is not None:
@@ -236,10 +232,9 @@ def test_export_reports_even_if_the_worker_finishes_first(
 
     main_window.annotation_store.add_point(1.0, label="stance")
 
-    main_window._export_annotations()
+    main_window._export_changes()
 
-    assert _RecordingMessageBox.shown, (
+    assert "Exported" in main_window.notifications.message, (
         "the export finished before its result signal was connected, so the user "
-        "was never told — connect in the `configure` callback, not after _run_job"
+        "was never told -- connect in the `configure` callback, not after _run_job"
     )
-    assert _RecordingMessageBox.shown[0][0] == "Export Complete"

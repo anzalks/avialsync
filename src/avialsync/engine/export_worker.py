@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtGui import QImage
@@ -13,11 +12,6 @@ from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.errors import AvialSyncError
 from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
-
-if TYPE_CHECKING:
-    # ARCHITECTURE §1: engine must not depend on ui/ at module scope.
-    from avialsync.ui.annotations import Marker
-
 from avialsync.engine.export import (
     compute_region_stats,
     export_data_slice_csv,
@@ -25,49 +19,6 @@ from avialsync.engine.export import (
     save_snapshot_images,
     trim_video_clip,
 )
-
-
-class AnnotationExportWorker(QObject):
-    """Export annotation markers to CSV off the UI thread."""
-
-    finished = Signal(Path, int)  # path, count
-    error = Signal(str)
-
-    def __init__(self, markers: list[Marker], path: Path) -> None:
-        super().__init__()
-        import copy
-
-        self._markers = copy.deepcopy(markers)
-        self._path = path
-
-    @Slot()
-    def run(self) -> None:
-        import csv
-
-        try:
-            with open(self._path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(
-                    ["label", "comment", "t_master", "video_path", "frame_index", "media_timestamp"]
-                )
-                for m in self._markers:
-                    if m.video_frames:
-                        for vf in m.video_frames:
-                            writer.writerow(
-                                [
-                                    m.label,
-                                    "",
-                                    m.t_start,
-                                    vf.path,
-                                    vf.frame_index,
-                                    vf.media_timestamp,
-                                ]
-                            )
-                    else:
-                        writer.writerow([m.label, "", m.t_start, "", "", ""])
-            self.finished.emit(self._path, len(self._markers))
-        except Exception as e:
-            self.error.emit(str(e))
 
 
 @dataclass(frozen=True)

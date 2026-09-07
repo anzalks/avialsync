@@ -80,7 +80,8 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 
 ## Useful controls
 
-- **Flag Frame** creates an annotation at the current time.
+- **Flag Frame** creates an annotation at the current time. It appears in the **Changes** tab
+  alongside any tracking corrections you have made.
 - **Snapshot** saves the current visual view for notes or reports.
 - **Fullscreen Toggle** expands the selected video view.
 - Set **Window limit** and choose `ms`, `s`, `min`, or `h`, then drag the single slider below the
@@ -113,6 +114,35 @@ two animals. Select **Fix Tracker** in the Data Streams header, or **Edit → Fi
   see the result plainly.
 - **Edit → Undo** (`Ctrl+Z`) reverses corrections one drag at a time.
 - Zooming with the wheel and panning with the middle mouse button keep working while the mode is on.
+
+### Reviewing and exporting what you changed
+
+The **Changes** tab lists everything you have done to the session in one place and in time order:
+flagged frames, labelled ranges, and corrected tracking points. Each row says when it happened,
+which recording it belongs to, and what it was — a correction names the body part, the coordinate,
+and the video frame.
+
+- Select a row to go back to it. AvialSync seeks there, selects the camera it belongs to, and rings
+  the corrected point for a few seconds so you can see which one is meant.
+- Double-click an annotation's detail to rename it.
+- **Delete** removes the selected annotation, or restores a corrected point to what the model
+  predicted. Both are undoable with `Ctrl+Z`.
+
+**Export…** in that tab, or **File → Export Changes…**, writes your work out. Only recordings with
+something to export are listed, each with a destination already filled in beside the data it came
+from, which you can edit or choose with **Browse**. Three things can be written:
+
+- **Annotations** — one CSV row per flag and camera.
+- **Corrected pose data** — a full copy of the pose file with your corrections applied, for
+  analysis. The scorer name is marked so the file never reads as raw model output, and a corrected
+  point's likelihood is set to 1.0 so that code filtering on likelihood does not throw your
+  correction away.
+- **Retraining set (DeepLabCut)** — the corrected frames as `labeled-data`, with their images, ready
+  to merge into a training set and retrain the network on its own mistakes. Every body part on a
+  corrected frame is written, not just the one you moved, because a training label is a whole pose.
+  Off by default: it decodes a video frame for each label.
+
+Nothing is written until you choose it, and your original pose files are never modified.
 
 ### Where corrections are kept
 

@@ -1,24 +1,21 @@
-"""Annotation markers: point and range, with list panel and CSV export."""
+"""Annotation markers: point and range, and the one definition of their CSV.
+
+The list of markers is presented by :mod:`avialsync.ui.changes_panel`, together
+with hand corrections to tracked points -- both are human judgements laid over a
+recording, and a reviewer wants them in one place (D-099).
+"""
 
 from __future__ import annotations
 
 import csv
 import dataclasses
 from pathlib import Path
+from typing import Any
 
-from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
     QApplication,
-    QFileDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QHeaderView,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-    QWidget,
 )
 
 from avialsync.ui.theme import marker_color
@@ -170,104 +167,51 @@ class AnnotationStore(QObject):
         self.changed.emit()
 
     def export_csv(self, path: Path) -> None:
-        """Write one row per (marker, video) — format for DLC/LightningPose retraining.
+        """Write this store's markers to *path*.
 
-        Columns: label, comment, t_master, video_path, frame_index, media_timestamp.
-        Markers with no video_frames produce one row with empty video columns.
-
-        Synchronous; the application uses
-        :class:`~avialsync.engine.export_worker.AnnotationExportWorker` so the
-        UI thread never writes this file itself.
+        Synchronous; the application exports through
+        :class:`~avialsync.engine.changes_export_worker.ChangesExportWorker` so
+        the UI thread never writes this file itself.
         """
-        with open(path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                ["label", "comment", "t_master", "video_path", "frame_index", "media_timestamp"]
-            )
-            for m in self._markers:
-                if m.video_frames:
-                    for vf in m.video_frames:
-                        writer.writerow(
-                            [m.label, "", m.t_start, vf.path, vf.frame_index, vf.media_timestamp]
-                        )
-                else:
-                    writer.writerow([m.label, "", m.t_start, "", "", ""])
+        write_marker_rows(path, marker_rows(self._markers))
 
 
-class AnnotationPanel(QGroupBox):
-    """Widget that lists annotations and provides add/delete/export controls."""
+#: Columns of the annotation export. One authority: the store's own
+#: ``export_csv`` and the off-thread worker both build rows through
+#: :func:`marker_rows`, so the layout cannot drift between them. It used to be
+#: written out in both places and in the panel's export button besides.
+MARKER_COLUMNS = ("label", "comment", "t_master", "video_path", "frame_index", "media_timestamp")
 
-    def __init__(self, store: AnnotationStore, parent: QWidget | None = None) -> None:
-        super().__init__("Annotations", parent)
-        self._store = store
-        self._store.changed.connect(self._refresh)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+def marker_rows(markers: list[Marker]) -> list[list[Any]]:
+    """Return one row per ``(marker, video)``, in export order.
 
-        # Table
-        self._table = QTableWidget(0, 4)
-        self._table.setHorizontalHeaderLabels(["Start", "End", "Label", "Cameras"])
-        hdr = self._table.horizontalHeader()
-        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self._table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
-        self._table.itemChanged.connect(self._on_label_edited)
-        layout.addWidget(self._table)
+    A marker with no video frames produces a single row with the video columns
+    empty, rather than being dropped: a flag placed on the timeline before any
+    footage loaded is still something the user made.
+    """
+    rows: list[list[Any]] = []
+    for marker in markers:
+        if marker.video_frames:
+            for frame in marker.video_frames:
+                rows.append(
+                    [
+                        marker.label,
+                        "",
+                        marker.t_start,
+                        frame.path,
+                        frame.frame_index,
+                        frame.media_timestamp,
+                    ]
+                )
+        else:
+            rows.append([marker.label, "", marker.t_start, "", "", ""])
+    return rows
 
-        # Buttons
-        btn_row = QHBoxLayout()
-        del_btn = QPushButton("Delete")
-        del_btn.clicked.connect(self._on_delete)
-        export_btn = QPushButton("Export CSV…")
-        export_btn.clicked.connect(self._on_export)
-        btn_row.addWidget(del_btn)
-        btn_row.addWidget(export_btn)
-        layout.addLayout(btn_row)
 
-    def _refresh(self) -> None:
-        """Rebuild the table from the store."""
-        self._table.blockSignals(True)
-        self._table.setRowCount(0)
-        for m in self._store.markers:
-            row = self._table.rowCount()
-            self._table.insertRow(row)
-
-            def _fmt(t: float) -> str:
-                h, rem = divmod(t, 3600)
-                mins, s = divmod(rem, 60)
-                return f"{int(h):02d}:{int(mins):02d}:{s:05.2f}"
-
-            t_start_item = QTableWidgetItem(_fmt(m.t_start))
-            t_start_item.setFlags(t_start_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            t_end_item = QTableWidgetItem(_fmt(m.t_end) if m.t_end is not None else "—")
-            t_end_item.setFlags(t_end_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            label_item = QTableWidgetItem(m.label)
-            cameras_str = "  ".join(
-                f"{Path(vf.path).stem}:f{vf.frame_index}" for vf in m.video_frames
-            )
-            cameras_item = QTableWidgetItem(cameras_str)
-            cameras_item.setFlags(cameras_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-
-            self._table.setItem(row, 0, t_start_item)
-            self._table.setItem(row, 1, t_end_item)
-            self._table.setItem(row, 2, label_item)
-            self._table.setItem(row, 3, cameras_item)
-        self._table.blockSignals(False)
-
-    def _on_delete(self) -> None:
-        rows = sorted({idx.row() for idx in self._table.selectedIndexes()}, reverse=True)
-        for row in rows:
-            self._store.remove(row)
-
-    def _on_export(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(self, "Export Annotations", "", "CSV files (*.csv)")
-        if path:
-            self._store.export_csv(Path(path))
-
-    def _on_label_edited(self, item: QTableWidgetItem) -> None:
-        if item.column() == 2:
-            self._store.set_label(item.row(), item.text())
+def write_marker_rows(path: Path, rows: list[list[Any]]) -> None:
+    """Write annotation *rows* to *path* with the standard header."""
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(list(MARKER_COLUMNS))
+        writer.writerows(rows)

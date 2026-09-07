@@ -315,6 +315,8 @@ class PaintCanvas(PointEditMixin):
             painter.setBrush(color)
 
             painter.drawEllipse(int(x) - radius, int(y) - radius, radius * 2, radius * 2)
+            if point.key is not None and point.key == self._highlight:
+                self.draw_revisit_ring(painter, x, y)
             if point.corrected and self._corrections_visible:
                 self.draw_correction_ring(painter, color, x, y)
             if self._edit_mode and point.key is not None:
