@@ -13,7 +13,6 @@ from PySide6.QtGui import (
     QCloseEvent,
     QDragEnterEvent,
     QDropEvent,
-    QImage,
     QKeyEvent,
     QResizeEvent,
     QValidator,
@@ -61,6 +60,7 @@ from avialsync.core.timeline import MasterClock
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
+from avialsync.engine.snapshot import SnapshotFigure
 from avialsync.ui.about import citation_text, project_urls, version_report
 from avialsync.ui.accessibility import apply_accessibility
 from avialsync.ui.annotations import AnnotationStore, Marker
@@ -2445,10 +2445,8 @@ class MainWindow(QMainWindow):
     def _export_snapshot(self) -> None:
         export_controller.export_snapshot(self)
 
-    def _start_snapshot_export(
-        self, video_image: QImage | None, plot_image: QImage | None, path: Path
-    ) -> None:
-        export_controller.start_snapshot_export(self, video_image, plot_image, path)
+    def _start_snapshot_export(self, figure: SnapshotFigure, path: Path) -> None:
+        export_controller.start_snapshot_export(self, figure, path)
 
     @Slot(str)
     def _on_snapshot_finished(self, path: str) -> None:

@@ -1,4 +1,8 @@
-"""Export utilities: snapshot PNG, data slice CSV/Parquet, video clip."""
+"""Export utilities: data slice CSV/Parquet, region statistics, video clip.
+
+Snapshot export lives in :mod:`avialsync.engine.snapshot`, which composes a
+figure rather than saving a widget grab.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +11,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PySide6.QtGui import QImage, QPainter, QPixmap
-from PySide6.QtWidgets import QWidget
 
 from avialsync.engine.transcode import remux_clip
 
@@ -23,57 +25,6 @@ def _source_label(reader: Any) -> str:
     """Identify the owning source so equal channel names stay distinguishable."""
     source_id = getattr(reader, "source_id", "")
     return Path(source_id).name if source_id else reader.cache_dir.name
-
-
-def snapshot_widget(widget: QWidget) -> QPixmap:
-    """Grab a widget's current visual content as a QPixmap."""
-    return widget.grab()
-
-
-def save_snapshot(
-    video_pixmap: QPixmap | None,
-    plot_pixmap: QPixmap | None,
-    path: Path,
-) -> None:
-    """Stack video and plot snapshots vertically and save as PNG."""
-    save_snapshot_images(
-        video_pixmap.toImage() if video_pixmap and not video_pixmap.isNull() else None,
-        plot_pixmap.toImage() if plot_pixmap and not plot_pixmap.isNull() else None,
-        path,
-    )
-
-
-def save_snapshot_images(
-    video_image: QImage | None,
-    plot_image: QImage | None,
-    path: Path,
-) -> None:
-    """Encode widget-grab images to disk without requiring a GUI-thread QPixmap."""
-    images = [image for image in (video_image, plot_image) if image and not image.isNull()]
-    if not images:
-        return
-
-    total_w = max(image.width() for image in images)
-    total_h = sum(image.height() for image in images)
-
-    combined = QImage(total_w, total_h, QImage.Format.Format_ARGB32_Premultiplied)
-    combined.fill(0)
-
-    painter = QPainter(combined)
-    y = 0
-    for image in images:
-        painter.drawImage(0, y, image)
-        y += image.height()
-    painter.end()
-
-    # PySide6's stub declares QImage.save's `format` as bytes, but the runtime
-    # rejects bytes and accepts str:
-    #   QImage.save(path, b"PNG") -> ValueError: called with wrong argument values
-    #   QImage.save(path, "PNG")  -> True
-    # (QPixmap.save's stub correctly says str; QImage's does not.) Matching the
-    # stub would break snapshot export, so the stub is what is wrong here.
-    if not combined.save(str(path), "PNG"):  # type: ignore[call-overload]
-        raise OSError(f"Could not write snapshot: {path}")
 
 
 def export_data_slice_csv(

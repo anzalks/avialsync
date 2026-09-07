@@ -14,10 +14,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread
-from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from avialsync.engine.export_worker import ReaderReference
+from avialsync.engine.snapshot import SnapshotFigure
+from avialsync.ui.snapshot_capture import capture_figure, capture_pane_figure
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -92,15 +93,21 @@ def on_region_stats_thread_finished(window: MainWindow) -> None:
 
 
 def export_snapshot_for_pane(window: MainWindow, path: str) -> None:
-    """Export a snapshot of a single video pane."""
+    """Export a snapshot of a single video pane.
+
+    Captured before the file dialog, as in :func:`export_snapshot`: the figure
+    records the frame the user was looking at when they asked, not whatever the
+    pane had decoded by the time they finished naming a file.
+    """
     try:
         idx = window.video_grid._paths.index(path)
     except ValueError:
         return
     pane = window.video_grid.panes[idx]
-    from avialsync.engine.export import snapshot_widget
-
-    px = snapshot_widget(pane)
+    figure = capture_pane_figure(window, pane, Path(path).name)
+    if figure.is_empty:
+        window.transport.set_status(f"Nothing to snapshot in {Path(path).name}", "error")
+        return
     out_path, _ = QFileDialog.getSaveFileName(
         window,
         f"Snapshot — {Path(path).name}",
@@ -109,11 +116,20 @@ def export_snapshot_for_pane(window: MainWindow, path: str) -> None:
     )
     if not out_path:
         return
-    window._start_snapshot_export(px.toImage().copy(), None, Path(out_path))
+    window._start_snapshot_export(figure, Path(out_path))
 
 
 def export_snapshot(window: MainWindow) -> None:
-    from avialsync.engine.export import snapshot_widget
+    """Compose the displayed cameras, 3D pose, and channel stack into one figure.
+
+    The capture happens before the file dialog is raised, so the figure records
+    the instant the user asked for rather than whatever the window drifted to
+    while they picked a filename.
+    """
+    figure = capture_figure(window)
+    if figure.is_empty:
+        window.transport.set_status("Nothing to snapshot: load a video or a data file", "error")
+        return
 
     path, _ = QFileDialog.getSaveFileName(
         window,
@@ -124,19 +140,15 @@ def export_snapshot(window: MainWindow) -> None:
     if not path:
         return
 
-    video_px = snapshot_widget(window._media_splitter)
-    plot_px = snapshot_widget(window.plot_pane)
-    window._start_snapshot_export(video_px.toImage().copy(), plot_px.toImage().copy(), Path(path))
+    window._start_snapshot_export(figure, Path(path))
 
 
-def start_snapshot_export(
-    window: MainWindow, video_image: QImage | None, plot_image: QImage | None, path: Path
-) -> None:
-    """Hand immutable UI captures to a background PNG encoder."""
+def start_snapshot_export(window: MainWindow, figure: SnapshotFigure, path: Path) -> None:
+    """Hand an immutable captured figure to a background composer and encoder."""
     from avialsync.engine.export_worker import SnapshotWorker
 
     thread = QThread(window)
-    worker = SnapshotWorker(video_image, plot_image, path)
+    worker = SnapshotWorker(figure, path)
     window._snapshot_jobs[thread] = worker
     worker.moveToThread(thread)
     thread.started.connect(worker.run)

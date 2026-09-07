@@ -941,6 +941,17 @@ class Transport(QWidget):
         self._t_epoch = epoch
         self._end_time_label.setText(format_time(self._bounds[1], self._time_mode, self._t_epoch))
 
+    def format_master_time(self, t: float) -> str:
+        """Format *t* exactly as the seek row displays it.
+
+        The transport owns the displayed time mode and epoch, so anything that
+        has to write a master time in the same words asks here rather than
+        keeping a second copy of either (D-020, AGENTS rule 15).  It formats a
+        given time rather than returning the field's text, which is the user's
+        own keystrokes while they are typing a jump.
+        """
+        return format_time(t, self._time_mode, self._t_epoch)
+
     def status_text(self) -> str:
         """The currently displayed status message."""
         return self.evidence.status_text()

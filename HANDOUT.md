@@ -381,9 +381,10 @@ quantities, pyarrow) — that silences the *absence of stubs*, not errors in our
 
 Do not add an `ignore_errors` block to make a change land. Removing the previous 11 uncovered two
 real crashes: `_CameraRow.update()` shadowed `QWidget.update()` (so the widget could not be
-repainted) and `SidebarPane` assigned a `QScrollArea` over `QWidget.scroll`. There is exactly one
-`# type: ignore` in the tree, in `engine/export.py`, and it documents a PySide6 stub that
-contradicts the runtime.
+repainted) and `SidebarPane` assigned a `QScrollArea` over `QWidget.scroll`. The handful of
+`# type: ignore` comments in the tree each name a specific stub or typing limitation and say why —
+`engine/snapshot.py`'s documents a PySide6 stub that contradicts the runtime. A bare `# type:
+ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding standards).
 
 ---
 
@@ -415,7 +416,7 @@ contradicts the runtime.
 | `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
 | `engine/drop_worker.py` | Off-thread drop classification; AOL session fan-out, pose `role` tagging (D-046) | `DropScanWorker` — signals: `finished(candidates, is_aol)`, `session_found`, `error` |
 | `engine/session_worker.py` | Off-thread `.avv` save/load | `SessionSaveWorker`, `SessionLoadWorker` |
-| `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `ReaderReference` |
+| `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `SnapshotWorker` (takes a `SnapshotFigure`), `ReaderReference` |
 | `engine/video_worker.py` | Off-thread video probe before native pane creation | `VideoOpenWorker` |
 | `loaders/aol_session_loader.py` | AOL folder detection + manifest (videos, 2D/3D pose, encoder, timing) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |
 | `loaders/aol_eks_loader.py` | AOL 3D EKS CSV; frame-indexed x/y/z triplets | `AOLEksLoader` (`read_all_chunks` is the bulk API) |
@@ -426,9 +427,10 @@ contradicts the runtime.
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
 | `engine/sync_worker.py` | Chunked event extraction and deterministic alignment fit (D-026) | `SyncWorker`, evidence specs |
 | `engine/session_worker.py` | Off-UI-thread session save/load and annotation export (D-046) | `SessionSaveWorker`, `SessionLoadWorker`, `AnnotationExportWorker` |
-| `engine/export.py` | Snapshot, data slice, video clip, region stats | `save_snapshot()`, `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
+| `engine/export.py` | Data slice, video clip, region stats | `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
+| `engine/snapshot.py` | Snapshot figure: tiles, negotiated page width, opaque composition (D-101). Layout is planned once and both the capture and the render use that plan | `SnapshotFigure`, `SnapshotTile`, `plan_media_layout()`, `content_width_for()`, `figure_size()`, `render_figure()`, `save_figure()` |
 | `ui/main_window.py` | Widget construction, menu/shortcut table, controller wiring; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066) | `MainWindow` |
-| `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075). Seeks are id-tagged so `is_seeking` answers only the newest one (D-084): `DecodeWorker.request(request_id, source_time)`, `frame_ready(request_id, index, pts, rgb)` | `VideoPane`, `set_sync_correction()`, `video_size` |
+| `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075). Seeks are id-tagged so `is_seeking` answers only the newest one (D-084): `DecodeWorker.request(request_id, source_time)`, `frame_ready(request_id, index, pts, rgb)`. `video_size` is a property over `VideoSurface`, not a second copy (D-101) | `VideoPane`, `set_sync_correction()`, `video_size`, `shows_footage`, `VideoSurface.video_size` |
 | `core/video_timing.py` | **The** frame-selection authority — last frame with `pts <= t`. Headless so `engine/` can share it (D-075) | `frame_index_at()`, `adjacent_frame_time()`, `PTS_EPSILON_S` |
 | `ui/video_timing.py` | Timestamp rate/readout helpers and pane timing mixin; re-exports the two `core/video_timing.py` selectors | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
 | `ui/video_overlay.py` | Transparent current-frame tracking paint layer; also the "Fix Tracker" drag surface (D-099) | `PaintCanvas`, `OverlayTrack`, `ResolvedPoint` |
@@ -439,8 +441,8 @@ contradicts the runtime.
 | `ui/plot_sweep.py` | Review/Sweep/Scope state and shared unit-converting logarithmic time-span control | `PlotPresentation`, `SweepWindowControl`, `SweepCurveItem` |
 | `ui/plot_interactions.py` | Plot context actions, measurement, annotation, and gap interaction state | `PlotInteractionController` |
 | `ui/plot_overlays.py` | Bounded page-local overlay drawing and plot context menu helpers | `redraw_annotations()`, `redraw_measure_lines()` |
-| `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit | `Tracking3DPane.set_readers()`, `set_cursor()` |
-| `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status | `set_time()`, `set_bounds()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
+| `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit. `Tracking3DCanvas.render_scene(painter, w, h)` is the one painting authority — `paintEvent` calls it at the widget's size, a snapshot at its tile's (D-101) | `Tracking3DPane.set_readers()`, `set_cursor()`, `Tracking3DCanvas.render_scene()` |
+| `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status. Owns the displayed time mode and epoch: anything writing a master time in the same words calls `format_master_time()` rather than keeping a second copy (D-020, D-101) | `set_time()`, `set_bounds()`, `format_master_time()`, `status_text()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/annotations.py` | Markers, and **the** definition of their CSV layout — three copies existed (D-100) | `AnnotationStore`, `Marker`, `marker_rows()`, `write_marker_rows()`, `MARKER_COLUMNS` |
@@ -469,6 +471,7 @@ contradicts the runtime.
 | `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable`. `SessionLayout.warnings` carries what a scan could not lay out, so a dropped recording is never silent (D-085) | `SessionSource`, `SessionLayout` (incl. `warnings`), `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
+| `ui/snapshot_capture.py` | UI-thread capture for the snapshot figure (D-101): each camera re-rendered at its decoded resolution and cropped free of letterbox, the 3D pose re-projected, the whole channel stack rather than the scroll viewport | `capture_figure()`, `capture_pane_figure()`, `capture_video_tile()`, `capture_plot_image()`, `plot_aspect()` |
 | `ui/controllers/video_controller.py` | Bounded concurrent probes; serialized pane build (D-040); validates and installs loader-declared per-frame mappings (D-072) | `load_video()`, `create_video_pane()`, `_declared_exact_mapping()`, `MAX_VIDEO_PROBES` |
 | `ui/controllers/import_controller.py` | Time-series import queue; pose → overlay/3D routing (D-046) | `start_data_import()`, `on_import_finished()`, `register_tracking_source()` |
 | `loaders/csv_loader.py` | polars CSV ingest; epoch/time-of-day/datetime, euro-decimal, sentinel, BOM | `CSVLoader` |

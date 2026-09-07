@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtGui import QColor, QImage
 
 from avialsync.core.pyramid import PyramidBuilder, PyramidReader
 from avialsync.engine.export import compute_region_stats, export_data_slice_csv
@@ -11,7 +10,6 @@ from avialsync.engine.export_worker import (
     DataExportWorker,
     ReaderReference,
     RegionStatsWorker,
-    SnapshotWorker,
     VideoClipWorker,
 )
 
@@ -84,19 +82,5 @@ def test_video_clip_worker_runs_ffmpeg_jobs_off_the_ui_path(tmp_path: Path, monk
     assert results == [(1, 2)]
 
 
-def test_snapshot_worker_encodes_ui_captures_in_the_background(tmp_path: Path) -> None:
-    video = QImage(3, 2, QImage.Format.Format_ARGB32_Premultiplied)
-    video.fill(QColor("red"))
-    plot = QImage(3, 1, QImage.Format.Format_ARGB32_Premultiplied)
-    plot.fill(QColor("blue"))
-    path = tmp_path / "snapshot.png"
-    results: list[str] = []
-    worker = SnapshotWorker(video, plot, path)
-    worker.finished.connect(results.append)
-
-    worker.run()
-
-    assert results == [str(path)]
-    image = QImage(path)
-    assert image.size().width() == 3
-    assert image.size().height() == 3
+# Snapshot composition and capture live in tests/test_snapshot_figure.py, which
+# owns the figure that replaced the old stacked widget grabs.

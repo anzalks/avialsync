@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
-from PySide6.QtGui import QImage
 
 from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.errors import AvialSyncError
@@ -16,9 +15,9 @@ from avialsync.engine.export import (
     compute_region_stats,
     export_data_slice_csv,
     export_data_slice_parquet,
-    save_snapshot_images,
     trim_video_clip,
 )
+from avialsync.engine.snapshot import SnapshotFigure, save_figure
 
 
 @dataclass(frozen=True)
@@ -130,22 +129,26 @@ class VideoClipWorker(QObject):
 
 
 class SnapshotWorker(QObject):
-    """Encode UI-captured images without blocking the Qt event loop."""
+    """Compose and encode a captured snapshot figure off the Qt event loop.
+
+    The figure arrives fully captured: laying it out and painting it can cost
+    tens of milliseconds at a multi-camera figure's size, which is well past
+    what the UI thread may spend (AGENTS rule 3).
+    """
 
     finished = Signal(str)
     error = Signal(str)
 
-    def __init__(self, video_image: QImage | None, plot_image: QImage | None, path: Path) -> None:
+    def __init__(self, figure: SnapshotFigure, path: Path) -> None:
         super().__init__()
-        self._video_image = video_image
-        self._plot_image = plot_image
+        self._figure = figure
         self._path = path
 
     @Slot()
     def run(self) -> None:
         """Compose and save the immutable image copies on this worker thread."""
         try:
-            save_snapshot_images(self._video_image, self._plot_image, self._path)
+            save_figure(self._figure, self._path)
             self.finished.emit(str(self._path))
         except OSError as error:
             self.error.emit(str(error))

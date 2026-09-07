@@ -3611,3 +3611,76 @@ three properties the removed worker's tests pinned are carried over in
 directory: a path that is not there means a typo, and inventing the folder hides
 it. The one exception is the retraining set, because `labeled-data/<video>/` is
 part of the format rather than part of the path the user chose.
+
+## 2026-09 · D-101 · A snapshot is a composed figure, never a widget grab
+
+**Context.** "Export Snapshot" grabbed `_media_splitter` and `plot_pane`,
+stacked the two pixmaps, and saved the result. On any display with a device
+pixel ratio above 1 the file came out three quarters transparent: the canvas
+was sized in device pixels while `QPainter.drawImage` places a captured image
+at its *device-independent* size, so a 1986×966 export carried its content in
+the top-left 993×744 and nothing anywhere else. The quarter that did land was
+whatever had fitted on the monitor — an OSD elided to "Time: 00:0", a 3D label
+cut at the pane edge, and thirty-nine of forty-two channel rows missing because
+they were below the scroll fold.
+
+**Decision.** The snapshot is composed, not captured. Each surface is
+re-rendered offscreen at the resolution its own content justifies, and the
+pieces are laid out into one opaque figure with a header, per-tile captions,
+and a footer:
+
+- **A camera** is rendered at the scale that reproduces its decoded frame's own
+  pixels (`ui/snapshot_capture.py::_frame_render_scale`), then cropped to the
+  frame rectangle so the tile carries no letterbox. Both the scale and the crop
+  come from `VideoSurface.frame_geometry`, which is also what drew the frame
+  and what the tracking overlay projects through, so the three cannot disagree.
+- **The 3D pose** is re-projected into its tile through
+  `Tracking3DCanvas.render_scene(painter, width, height)`. `paintEvent` is now a
+  call to the same method at the widget's size: one painting authority, at two
+  sizes, never two drawings (rule 15).
+- **The channel stack** is rendered from `plot_pane.graphics_layout` — the
+  widget that carries the full stack height — rather than the scroll area
+  around it, so every visible row is exported.
+- **Captions** carry the pane's own OSD text, flattened onto one line.
+  `format_video_osd` stays the only place that decides how a frame number or a
+  rate is written; the caption just has room the pane does not.
+- **The subtitle's time** is written by `Transport.format_master_time`, added
+  for this. The transport owns the displayed time mode and the epoch, so a
+  figure exported while the window shows UTC says UTC. The first draft
+  re-derived it from a `_t_epoch` `MainWindow` does not have, and `format_time`
+  falls back to relative on a zero epoch — so the caption silently disagreed
+  with the clock directly above it, which is the failure rule 15 exists to
+  prevent.
+
+**Both entry points capture before the file dialog.** Naming a file takes
+seconds and a playing pane decodes many frames in that time, so the figure is
+composed from the instant the user asked about, not from whatever the window
+had drifted to. Where there is nothing to capture — no cameras, no channels, a
+pane with no drawable surface — the export reports on the transport's status
+line and writes nothing, rather than producing a file containing only a header
+and a footer (rule 10: never block, always inform).
+
+**Scaling is done by device pixel ratio, not by a painter transform.** Rendering
+a widget into a `QImage` whose ratio is *s* runs that widget's real `paintEvent`
+at *s*×. This is why a snapshot is sharper than the window rather than a
+magnified copy of it. The ratio is reset to 1 on the way out: the figure works
+in real pixels end to end, and mixing the two units is the original bug.
+
+**The figure's width is negotiated, never assumed.** Tiles ask for a width from
+their own aspect ratios; a tall channel stack argues it down through
+`content_width_for`, because the stack is drawn whole and its height follows
+from the width it is given. A forty-two-row session therefore produces a
+narrower, taller page instead of a stack stretched to four times its on-screen
+height — and never a cropped one. `_MIN_CONTENT_WIDTH` floors it so a long
+stack cannot make an illegible page.
+
+**Consequences.** `engine/export.py` no longer knows about snapshots;
+`engine/snapshot.py` owns the figure and its layout, `ui/snapshot_capture.py`
+owns the UI-thread capture, and `SnapshotWorker` takes a `SnapshotFigure`
+instead of two images. Composition runs on the worker, because painting a
+multi-camera figure costs well past the UI thread's budget (rule 3).
+`VideoPane.video_size` is now a property delegating to `VideoSurface`, which had
+been holding the same numbers: the pane's copy could only ever disagree with the
+geometry the frame was actually drawn through. Export Snapshot with nothing
+loaded reports through the transport status line rather than silently writing
+nothing.

@@ -82,7 +82,10 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 
 - **Flag Frame** creates an annotation at the current time. It appears in the **Changes** tab
   alongside any tracking corrections you have made.
-- **Snapshot** saves the current visual view for notes or reports.
+- **Snapshot** writes a figure of the current moment for notes or reports: every displayed camera
+  at the resolution it decoded at, the 3D pose, and the whole channel stack including rows you
+  would have to scroll to see. It is composed rather than captured, so nothing is cut off at the
+  edge of a pane and each camera is captioned with its own frame number, timecode, and format.
 - **Fullscreen Toggle** expands the selected video view.
 - Set **Window limit** and choose `ms`, `s`, `min`, or `h`, then drag the single slider below the
   plots. The slider is linear within that limit and controls every row; rows do not have separate

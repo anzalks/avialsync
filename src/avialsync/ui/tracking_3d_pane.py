@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtCore import QPoint, QPointF, QRect, Qt
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QWheelEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -492,28 +492,56 @@ class Tracking3DCanvas(QWidget):
         up = np.cross(direction, right)
         return right, up, direction
 
-    def _project(self, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Project world points to screen; the anatomical vertical maps to screen up."""
-        return self._project_view(self._to_view(points))
+    def _target_size(self, width: int | None, height: int | None) -> tuple[int, int]:
+        """Resolve a render target, defaulting to the widget's own size."""
+        return (
+            self.width() if width is None else width,
+            self.height() if height is None else height,
+        )
 
-    def _project_view(self, view_points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Project points already expressed in view space (see :meth:`_to_view`)."""
+    def _project(
+        self, points: np.ndarray, width: int | None = None, height: int | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Project world points to screen; the anatomical vertical maps to screen up."""
+        return self._project_view(self._to_view(points), width, height)
+
+    def _project_view(
+        self, view_points: np.ndarray, width: int | None = None, height: int | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Project points already expressed in view space (see :meth:`_to_view`).
+
+        The target size is a parameter rather than the widget's own, so an
+        export can re-project the same pose into a differently shaped tile
+        instead of magnifying a capture of this one.
+        """
+        target_width, target_height = self._target_size(width, height)
         right, up, direction = self._camera_basis()
         relative = np.asarray(view_points, dtype=np.float64) - self._center
-        scale = 0.38 * min(self.width(), self.height()) * self._zoom / self._radius
+        scale = 0.38 * min(target_width, target_height) * self._zoom / self._radius
         screen = np.column_stack((relative @ right, relative @ up))
         screen *= scale
-        screen[:, 0] += self.width() / 2.0
-        screen[:, 1] = self.height() / 2.0 - screen[:, 1]
+        screen[:, 0] += target_width / 2.0
+        screen[:, 1] = target_height / 2.0 - screen[:, 1]
         return screen, relative @ direction
 
     def paintEvent(self, event: QPaintEvent) -> None:
         """Draw a bounded current pose; trajectory history is never rendered here."""
         del event
         painter = QPainter(self)
+        self.render_scene(painter, self.width(), self.height())
+
+    def render_scene(self, painter: QPainter, width: int, height: int) -> None:
+        """Draw the current pose into a target of arbitrary size.
+
+        The single painting authority for this view: :meth:`paintEvent` is a
+        call to it at the widget's own size, and a snapshot export is the same
+        call at the size its tile wants.  Nothing draws a second version of the
+        pose (AGENTS rule 15).
+        """
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.fillRect(self.rect(), Qt.GlobalColor.white)
-        self._draw_grid(painter)
+        bounds = QRect(0, 0, width, height)
+        painter.fillRect(bounds, Qt.GlobalColor.white)
+        self._draw_grid(painter, width, height)
 
         valid_indices = np.flatnonzero(self._valid)
         if len(valid_indices) == 0:
@@ -523,12 +551,12 @@ class Tracking3DCanvas(QWidget):
                 if self.point_count == 0
                 else "No 3D tracking at the current time"
             )
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, message)
-            self._draw_corner_axes(painter)
+            painter.drawText(bounds, Qt.AlignmentFlag.AlignCenter, message)
+            self._draw_corner_axes(painter, width, height)
             return
 
         # Build a name→screen-position map for skeleton drawing.
-        screen, depth = self._project(self._positions[valid_indices])
+        screen, depth = self._project(self._positions[valid_indices], width, height)
         name_to_screen: dict[str, tuple[float, float]] = {}
         for i, vi in enumerate(valid_indices):
             name_to_screen[self._names[int(vi)]] = (float(screen[i, 0]), float(screen[i, 1]))
@@ -549,7 +577,7 @@ class Tracking3DCanvas(QWidget):
                 painter.setPen(QColor(40, 40, 40))
                 painter.drawText(round(float(x)) + 7, round(float(y)) - 5, self._names[point_index])
 
-        self._draw_corner_axes(painter)
+        self._draw_corner_axes(painter, width, height)
 
     def _draw_skeleton(
         self,
@@ -583,7 +611,7 @@ class Tracking3DCanvas(QWidget):
             return 2.0
         return max(1.0, 3.0 - 0.5 * self._depths.get(parent, 0))
 
-    def _draw_grid(self, painter: QPainter) -> None:
+    def _draw_grid(self, painter: QPainter, width: int, height: int) -> None:
         """Draw a light ground-plane grid behind the pose."""
         if not self._has_scene_bounds:
             return
@@ -602,7 +630,7 @@ class Tracking3DCanvas(QWidget):
                 ]
             )
         # Grid points are constructed around the view-space centre already.
-        grid_screen, _ = self._project_view(np.asarray(grid_points))
+        grid_screen, _ = self._project_view(np.asarray(grid_points), width, height)
         for index in range(0, len(grid_screen), 2):
             start = grid_screen[index]
             end = grid_screen[index + 1]
@@ -613,13 +641,14 @@ class Tracking3DCanvas(QWidget):
                 round(float(end[1])),
             )
 
-    def _draw_corner_axes(self, painter: QPainter) -> None:
+    def _draw_corner_axes(self, painter: QPainter, width: int, height: int) -> None:
         """Draw a compact orientation indicator in the bottom-left corner."""
+        del width  # anchored to the left edge; only the height positions it
         right, up, _direction = self._camera_basis()
         ax_len = 28  # pixels
         margin = 40
         cx = margin
-        cy = self.height() - margin
+        cy = height - margin
 
         # Unit world axes carried into view space, so the labels keep naming the
         # source coordinate system even when a different axis renders upward.

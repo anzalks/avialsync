@@ -290,6 +290,16 @@ class VideoSurface(QWidget):
         self._pan = QPointF()
         self._pan_origin: QPointF | None = None
 
+    @property
+    def video_size(self) -> tuple[int, int] | None:
+        """Decoded frame dimensions this surface is drawing, or None before one.
+
+        The same numbers :meth:`frame_geometry` transforms, read from the widget
+        that does the drawing — so anything cropping or overlaying a render is
+        working from the geometry that produced it.
+        """
+        return self._video_size if all(self._video_size) else None
+
     def set_video_size(self, width: int, height: int) -> None:
         """Publish the decoded video dimensions before its first frame arrives."""
         size = (width, height)
@@ -531,9 +541,6 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._osd_event_pending = False
         self._osd_flush_timer: QTimer | None = None
         self._last_osd_flush = 0.0
-        #: Decoded video dimensions, published once at open.  The overlay reads
-        #: this to map track coordinates onto the widget.
-        self.video_size: tuple[int, int] | None = None
 
         self._thread: QThread | None = None
         self._worker: DecodeWorker | None = None
@@ -646,7 +653,6 @@ class VideoPane(VideoTimingMixin, QWidget):
     def _on_opened(self, frame_times: np.ndarray, width: int, height: int, codec: str) -> None:
         """Adopt the decoder's timestamp table and show the first wanted frame."""
         self._frame_times = frame_times
-        self.video_size = (width, height)
         self.surface.set_video_size(width, height)
         if not self._metadata.codec or self._metadata.codec == "unknown":
             self._metadata = replace(self._metadata, codec=codec, width=width, height=height)
@@ -862,6 +868,26 @@ class VideoPane(VideoTimingMixin, QWidget):
         # Through set_label so an empty name stays hidden either way: a pane
         # with no label must not gain an empty box when the layer is enabled.
         self.set_label(self._label_text)
+
+    @property
+    def video_size(self) -> tuple[int, int] | None:
+        """Decoded video dimensions, or None before a frame has arrived.
+
+        Delegated to the surface rather than mirrored here.  The surface is what
+        draws the frame and what :meth:`VideoSurface.frame_geometry` transforms,
+        so a second copy on the pane could only ever disagree with the geometry
+        the overlay and the snapshot crop both project through (AGENTS rule 15).
+        """
+        return self.surface.video_size
+
+    @property
+    def shows_footage(self) -> bool:
+        """Whether the pane is showing frames rather than the D-010 placeholder.
+
+        Unknown counts as showing: a pane that has never been told otherwise is
+        displaying whatever it decoded, not a placeholder.
+        """
+        return self._master_has_footage is not False
 
     def set_has_footage(self, has_footage: bool) -> None:
         if has_footage == self._master_has_footage:
