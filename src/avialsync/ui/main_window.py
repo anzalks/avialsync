@@ -1918,6 +1918,9 @@ class MainWindow(QMainWindow):
                 index=move.key.index,
                 before=move.before,
                 after=move.after,
+                display_frame=corrections_controller.frame_for(
+                    self, move.key.source_id, move.key.index
+                ),
             ),
             self._mutations,
         )

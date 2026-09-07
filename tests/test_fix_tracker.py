@@ -472,6 +472,110 @@ def test_a_drag_becomes_one_undoable_correction(window: MainWindow) -> None:
     assert window.point_edits.get(key) is None
 
 
+# ── sample index versus video frame ──────────────────────────────────
+
+
+def _register_pose_source(window, source_id: str, times: list[float], rate: float) -> None:
+    """Register a 2D pose source the way the import path does."""
+    reader = _PoseReader(times, [0.0] * len(times))
+    reader.source_id = source_id
+    window._overlay_sources.setdefault("cam.mp4", {})[source_id] = {
+        "label": "eks",
+        "is_ensemble": True,
+        "points": {"nose": (_Sourced(reader), _Sourced(reader))},
+        "frame_rate": rate,
+    }
+
+
+class _Sourced:
+    """A MappedChannelReader stand-in exposing ``source_reader``."""
+
+    def __init__(self, reader: _PoseReader) -> None:
+        self.source_reader = reader
+        self.source_id = reader.source_id
+
+
+def test_a_contiguous_pose_file_indexes_by_frame(window: MainWindow) -> None:
+    """The common case, and the reason the difference stays invisible."""
+    _register_pose_source(window, SOURCE, [0.0, 0.1, 0.2, 0.3], rate=10.0)
+
+    assert corrections_controller.frame_for(window, SOURCE, 2) == 2
+    assert corrections_controller.index_for(window, SOURCE, 2) == 2
+
+
+def test_a_pose_file_that_starts_later_does_not(window: MainWindow) -> None:
+    """A file covering only frames 100-103: sample 0 is frame 100, not frame 0.
+
+    The sidecar, the corrected CSV and DLC's labeled data all speak video frame
+    numbers, so writing the sample index into them would put every correction a
+    hundred frames early.
+    """
+    _register_pose_source(window, SOURCE, [10.0, 10.1, 10.2, 10.3], rate=10.0)
+
+    assert corrections_controller.frame_for(window, SOURCE, 0) == 100
+    assert corrections_controller.frame_for(window, SOURCE, 3) == 103
+    assert corrections_controller.index_for(window, SOURCE, 103) == 3
+
+
+def test_a_frame_the_pose_file_does_not_cover_is_refused(window: MainWindow) -> None:
+    """Landing it on the nearest row would move the point to another moment."""
+    _register_pose_source(window, SOURCE, [10.0, 10.1, 10.2], rate=10.0)
+
+    assert corrections_controller.index_for(window, SOURCE, 500) is None
+
+
+def test_an_unregistered_source_falls_back_to_the_index(window: MainWindow) -> None:
+    """The right answer for a contiguous file, and the only one available."""
+    assert corrections_controller.frame_for(window, "/nowhere.csv", 7) == 7
+    assert corrections_controller.index_for(window, "/nowhere.csv", 7) == 7
+
+
+def test_a_correction_is_written_at_the_video_frame_it_names(
+    window: MainWindow, tmp_path
+) -> None:
+    pose = _pose_file(tmp_path)
+    _register_pose_source(window, str(pose), [10.0, 10.1, 10.2, 10.3], rate=10.0)
+
+    window.video_grid.point_moved.emit(
+        PointMove(key=PointKey(str(pose), "nose", 1), before=None, after=(5.0, 6.0))
+    )
+
+    written = point_edit_sidecar.read(pose)
+    assert written is not None
+    assert [entry.frame for entry in written.entries] == [101]
+    assert window.document.undo_label() == "Move nose to (5.0, 6.0) px at frame 101"
+
+
+def test_reopening_puts_the_correction_back_on_the_same_sample(
+    window: MainWindow, tmp_path
+) -> None:
+    """Frame on disk, sample index in memory -- the round trip has to close."""
+    pose = _pose_file(tmp_path)
+    _register_pose_source(window, str(pose), [10.0, 10.1, 10.2, 10.3], rate=10.0)
+    point_edit_sidecar.write(
+        pose, [point_edit_sidecar.Correction(frame=101, bodypart="nose", x=5.0, y=6.0)]
+    )
+
+    window._adopt_point_edits(str(pose))
+
+    assert window.point_edits.get(PointKey(str(pose), "nose", 1)) == (5.0, 6.0)
+
+
+def test_a_correction_naming_an_absent_frame_is_left_out_and_reported(
+    window: MainWindow, tmp_path
+) -> None:
+    pose = _pose_file(tmp_path)
+    _register_pose_source(window, str(pose), [10.0, 10.1, 10.2], rate=10.0)
+    point_edit_sidecar.write(
+        pose, [point_edit_sidecar.Correction(frame=9000, bodypart="nose", x=5.0, y=6.0)]
+    )
+
+    window._adopt_point_edits(str(pose))
+
+    assert window.point_edits.count_for(str(pose)) == 0
+    assert "not in" in window.notifications.message
+
+
 # ── where a correction is kept ───────────────────────────────────────
 
 

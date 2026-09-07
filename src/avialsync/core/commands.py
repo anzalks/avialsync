@@ -265,14 +265,21 @@ class SetTrackedPointCommand:
     index: int
     before: tuple[float, float] | None
     after: tuple[float, float] | None
+    #: The video frame ``index`` names, for the menu text only. ``index`` is a
+    #: sample index within the pose source and the two differ for a file that
+    #: does not start at frame 0; resolving that needs the source's own time
+    #: column, which ``core/`` has no business reaching for (the caller passes
+    #: it, as ``display_name`` is passed elsewhere here).
+    display_frame: int | None = None
     command_id: str = "tracking.point"
 
     @property
     def label(self) -> str:
+        frame = self.index if self.display_frame is None else self.display_frame
         if self.after is None:
-            return f"Restore predicted {self.point} at frame {self.index}"
+            return f"Restore predicted {self.point} at frame {frame}"
         x, y = self.after
-        return f"Move {self.point} to ({x:.1f}, {y:.1f}) px at frame {self.index}"
+        return f"Move {self.point} to ({x:.1f}, {y:.1f}) px at frame {frame}"
 
     def apply(self, target: MutationTarget) -> None:
         target.set_tracked_point(self.source_id, self.point, self.index, self.after)

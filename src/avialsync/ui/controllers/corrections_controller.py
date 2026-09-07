@@ -22,6 +22,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from avialsync.core import point_edit_sidecar
 from avialsync.core.point_edit_sidecar import Correction
 from avialsync.ui.i18n import tr
@@ -37,6 +39,70 @@ SIDECAR = "sidecar"
 SESSION = "session"
 
 
+def frame_axis(window: MainWindow, source_id: str) -> tuple[np.ndarray, float] | None:
+    """Return a pose source's own sample times and frame rate, if it has them.
+
+    The store keys a correction by **sample index**, because that is what stays
+    put when an offset or an accepted TimeMap changes *when* a sample is shown.
+    Everything outside the application speaks **video frame numbers**: the
+    sidecar a person reads, the corrected pose CSV, DLC's labeled data. For a
+    pose file written contiguously from frame 0 the two are the same number,
+    which is why the difference stays invisible until someone hands you a file
+    covering only the frames they labelled.
+
+    Returns ``None`` when the source is not a registered 2D pose source or
+    declares no frame rate; callers then treat the index as the frame, which is
+    the right answer for the contiguous case and the only one available.
+    """
+    for sources in window._overlay_sources.values():
+        entry = sources.get(source_id)
+        if entry is None:
+            continue
+        rate = float(entry.get("frame_rate", 0.0))
+        points = entry.get("points") or {}
+        if rate <= 0.0 or not points:
+            return None
+        reader = next(iter(points.values()))[0]
+        times = reader.source_reader.mapped_columns()[0]
+        if len(times) == 0:
+            return None
+        return times, rate
+    return None
+
+
+def frame_for(window: MainWindow, source_id: str, index: int) -> int:
+    """Convert a sample index to the video frame number it names."""
+    axis = frame_axis(window, source_id)
+    if axis is None:
+        return int(index)
+    times, rate = axis
+    if not 0 <= index < len(times):
+        return int(index)
+    return int(round(float(times[index]) * rate))
+
+
+def index_for(window: MainWindow, source_id: str, frame: int) -> int | None:
+    """Convert a video frame number back to this source's sample index.
+
+    ``None`` when the file has no sample within half a frame of *frame* — a
+    pose file re-exported over a different range, where landing the correction
+    on the nearest row would silently move it to the wrong animal.
+    """
+    axis = frame_axis(window, source_id)
+    if axis is None:
+        return int(frame)
+    times, rate = axis
+    target = float(frame) / rate
+    position = int(np.searchsorted(times, target, side="left"))
+    candidates = [i for i in (position - 1, position) if 0 <= i < len(times)]
+    if not candidates:
+        return None
+    nearest = min(candidates, key=lambda i: abs(float(times[i]) - target))
+    if abs(float(times[nearest]) - target) > 0.5 / rate:
+        return None
+    return nearest
+
+
 def persist(window: MainWindow, source_id: str) -> None:
     """Write one source's corrections beside its pose file, now.
 
@@ -48,7 +114,7 @@ def persist(window: MainWindow, source_id: str) -> None:
     if not source_id:
         return
     rows = [
-        Correction(frame=index, bodypart=point, x=x, y=y)
+        Correction(frame=frame_for(window, source_id, index), bodypart=point, x=x, y=y)
         for index, point, x, y in window.point_edits.for_source(source_id)
     ]
     try:
@@ -103,13 +169,25 @@ def adopt(window: MainWindow, source_id: str) -> None:
             _report_missing(window, source_id, expected)
         return
 
-    window.point_edits.load_source(
-        source_id,
-        [(entry.frame, entry.bodypart, entry.x, entry.y) for entry in corrections.entries],
-    )
+    rows: list[tuple[int, str, float, float]] = []
+    unplaceable = 0
+    for entry in corrections.entries:
+        index = index_for(window, source_id, entry.frame)
+        if index is None:
+            unplaceable += 1
+            continue
+        rows.append((index, entry.bodypart, entry.x, entry.y))
+    window.point_edits.load_source(source_id, rows)
     window._point_edit_storage[source_id] = SIDECAR
 
     name = Path(source_id).name
+    if unplaceable:
+        window.notifications.show_warning(
+            tr(
+                "{n} correction(s) name frames that are not in {source}. They "
+                "have been left out rather than moved to the nearest row."
+            ).format(n=unplaceable, source=name)
+        )
     if corrections.skipped:
         window.notifications.show_warning(
             tr("{n} correction(s) in {file} could not be read and were skipped.").format(
