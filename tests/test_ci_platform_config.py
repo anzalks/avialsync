@@ -359,3 +359,33 @@ def test_the_scrub_benchmark_measures_one_backend() -> None:
     )
     assert "AVIALSYNC_BENCH_LIBMPV" not in instructions
     assert "find_library" not in instructions
+
+
+def test_every_committed_git_hook_carries_its_executable_bit() -> None:
+    """A hook without the mode bit is skipped, and it is skipped silently enough.
+
+    `.githooks/commit-msg` sat in the index at 100644 beside two siblings at
+    100755. git prints one grey hint and commits anyway, so the attribution
+    backstop AGENTS.md documents had never stripped a trailer on any machine
+    that had run `git config core.hooksPath .githooks` — the safety net was
+    there, executable by nobody.
+
+    The mode lives in the index rather than in the checkout, which is also why
+    this reads `git ls-files -s`: a working tree that lost the bit locally is a
+    local problem, one that was committed is everyone's.
+    """
+    import subprocess
+
+    entries = subprocess.run(
+        ["git", "ls-files", "-s", "--", ".githooks"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.splitlines()
+
+    assert entries, "no hooks are tracked under .githooks/ — did they move?"
+    offenders = [line.split("\t", 1)[-1] for line in entries if not line.startswith("100755")]
+    assert not offenders, (
+        "These hooks are committed without the executable bit, so git ignores "
+        "them: " + ", ".join(offenders)
+    )
