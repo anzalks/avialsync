@@ -237,3 +237,79 @@ def test_no_bit_depth_is_hardcoded_in_the_module() -> None:
     code = "\n".join(line for line in source.splitlines() if not line.strip().startswith("#"))
     for literal in ("4095", "65535", "1023", "gray12", "gray16"):
         assert literal not in code, f"{literal!r} is hardcoded; read it from the frame"
+
+
+# ── the array must be usable as a QImage buffer ──────────────────────
+#
+# Every fixture video is 640x360, whose rgb24 row is 1920 bytes and therefore
+# already aligned, so the whole suite and all six CI matrix jobs went green
+# while real footage showed nothing at all. These widths are chosen for the
+# padding they force, which is the only thing that reproduces it.
+
+#: (width, height) whose rgb24 rows FFmpeg pads, and one that it does not.
+PADDED_SIZES = [(1290, 720), (1918, 1080), (322, 240), (1442, 1080)]
+ALIGNED_SIZES = [(640, 360), (1440, 1080)]
+
+
+@pytest.mark.parametrize(("width", "height"), PADDED_SIZES)
+def test_pyav_really_does_hand_back_a_strided_view(width: int, height: int) -> None:
+    """Guard the guard: without this, the test below could pass vacuously.
+
+    If a future PyAV stops padding, these sizes stop reproducing the bug and
+    the contiguity test would be asserting something that was already true.
+    """
+    raw = av.VideoFrame(width, height, "yuv420p").to_ndarray(format="rgb24")
+
+    assert not raw.flags["C_CONTIGUOUS"], (
+        f"{width}x{height} no longer reproduces the padded-row case; "
+        "pick a width whose rgb24 row is not a multiple of the alignment"
+    )
+
+
+@pytest.mark.parametrize(("width", "height"), PADDED_SIZES + ALIGNED_SIZES)
+def test_display_array_can_be_borrowed_by_a_qimage(width: int, height: int) -> None:
+    """The array must expose a buffer, at every width — not just aligned ones.
+
+    `VideoSurface.set_frame` wraps this array with `QImage(rgb.data, ...)`, and
+    `ndarray.data` raises BufferError on a strided view. That exception escaped
+    the frame-ready slot on every frame: nothing was painted, `time_pos` never
+    advanced, and `frame_presented` never fired, so seeks never settled either.
+    """
+    frame = av.VideoFrame(width, height, "yuv420p")
+
+    rgb, is_grey = to_display_array(frame)
+
+    assert not is_grey
+    assert rgb.shape == (height, width, 3)
+    assert rgb.flags["C_CONTIGUOUS"]
+    # The operation that used to raise. memoryview is what QImage takes.
+    assert memoryview(rgb.data).nbytes == height * rgb.strides[0]
+
+
+@pytest.mark.parametrize(("width", "height"), PADDED_SIZES)
+def test_a_padded_frame_survives_the_pane_that_paints_it(qtbot, width: int, height: int) -> None:
+    """End to end: the real slot, on a width the fixtures never exercise."""
+    from avialsync.ui.video_pane import VideoSurface
+
+    surface = VideoSurface()
+    qtbot.addWidget(surface)
+    surface.resize(200, 150)
+    rgb, _ = to_display_array(av.VideoFrame(width, height, "yuv420p"))
+
+    surface.set_frame(rgb)
+
+    assert surface.video_size == (width, height)
+
+
+@pytest.mark.parametrize(("width", "height"), PADDED_SIZES)
+def test_a_windowed_high_bit_depth_frame_is_contiguous_too(width: int, height: int) -> None:
+    """The 12-bit path builds fresh arrays, but say so rather than assume it."""
+    peak = (1 << 12) - 1
+    data = np.linspace(0, peak, width * height, dtype=np.uint16).reshape(height, width)
+    frame = av.VideoFrame.from_ndarray(data, format="gray12le")
+
+    identity, _ = to_display_array(frame)
+    windowed, _ = to_display_array(frame, DisplayLevels(black=0.05, white=0.75))
+
+    assert identity.flags["C_CONTIGUOUS"]
+    assert windowed.flags["C_CONTIGUOUS"]

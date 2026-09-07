@@ -253,6 +253,12 @@ conda run -n <env> ruff check --fix . && conda run -n <env> ruff format .
   re-seek costs ~125; that alone took the 3-cam jump case from 106 ms to 293 ms, over budget.
 - B-frame content demuxes in *decode* order. A pts table built by iterating packets must be sorted
   into display order, or every frame lookup is quietly scrambled.
+- PyAV's `to_ndarray` returns a **view into a padded plane**, so it is C-contiguous only when the
+  row lands on the alignment. 1440x1080 and 640x360 rgb24 rows are; 1290x720, 1918x1080 and
+  322x240 are not, and `QImage(array.data, ...)` raises `BufferError` on the strided ones — every
+  frame, silently killing playback (D-102). **Every fixture video is 640x360**, so the whole suite
+  and all six CI jobs pass while real footage shows nothing. When a bug reproduces only outside the
+  fixtures, ask what the fixtures cannot express before adding assertions to them.
 - CI does **not** run benchmarks: both workflows pass `--ignore=tests/benchmarks`. Seeing
   `pytest-benchmark` in a CI log means `pip install -e ".[dev]"` installed it, not that it ran.
   Speed is certified locally with `pytest --benchmark-only` (BLUEPRINT.md "Performance budgets").

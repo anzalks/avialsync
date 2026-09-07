@@ -193,6 +193,25 @@ def auto_levels(
     return DisplayLevels(black=low / full_scale, white=high / full_scale).normalised()
 
 
+def _contiguous(array: np.ndarray) -> np.ndarray:
+    """Return *array* in C-contiguous memory, copying only when it is not.
+
+    PyAV's ``to_ndarray`` hands back a *view* into the padded plane FFmpeg
+    decoded into, so it is contiguous only when the row happens to land on the
+    alignment: 1440x1080 rgb24 rows are 4320 bytes and contiguous, 1290x720
+    rows are 3870 bytes inside a 3888-byte stride and are not.  ``QImage``
+    borrows the buffer through ``ndarray.data``, which raises ``BufferError``
+    on a strided view — so every frame of an unaligned recording raised inside
+    the frame-ready slot and nothing was ever painted.
+
+    The copy is here, on the decode thread, rather than in the pane: it costs
+    about 0.24 ms for a 1290x720 frame, and the UI thread does not spend that
+    (AGENTS rule 3).  Aligned footage — which is what every test fixture is,
+    which is why the suite never saw this — pays one flag read.
+    """
+    return array if array.flags["C_CONTIGUOUS"] else np.ascontiguousarray(array)
+
+
 def to_display_array(frame: Any, levels: DisplayLevels | None = None) -> tuple[np.ndarray, bool]:
     """Convert *frame* for display. Returns ``(array, is_greyscale)``.
 
@@ -204,11 +223,14 @@ def to_display_array(frame: Any, levels: DisplayLevels | None = None) -> tuple[n
     Everything else takes the ``rgb24`` path unchanged. An identity window
     short-circuits the table entirely, so ordinary 8-bit footage pays nothing
     for this module existing.
+
+    The returned array is always C-contiguous, so a caller can hand it
+    straight to ``QImage`` — see :func:`_contiguous`.
     """
     source = probe_format(frame)
 
     if not source.needs_windowing:
-        return frame.to_ndarray(format="rgb24"), False
+        return _contiguous(frame.to_ndarray(format="rgb24")), False
 
     # The source's own format, not gray16le: converting up to 16 bits rescales
     # the values, and a table indexed by the result would be indexed by a

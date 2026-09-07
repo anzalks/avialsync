@@ -317,6 +317,11 @@ class VideoSurface(QWidget):
         high-bit-depth source arrives as a single plane, which is one third the
         bytes to upload because swscale's grey-to-RGB triplication never
         happened.
+
+        *rgb* must be C-contiguous, because the ``QImage`` below borrows its
+        buffer.  ``engine.display_pipeline.to_display_array`` guarantees that,
+        on the decode thread where the copy is free of the UI budget; the check
+        is not repeated here, so that the guarantee has one owner and not two.
         """
         if rgb.ndim == 2:
             height, width = rgb.shape

@@ -3684,3 +3684,38 @@ been holding the same numbers: the pane's copy could only ever disagree with the
 geometry the frame was actually drawn through. Export Snapshot with nothing
 loaded reports through the transport status line rather than silently writing
 nothing.
+
+## 2026-09 · D-102 · A display array is C-contiguous before it leaves the decode thread
+
+**Context.** Every frame of an ordinary 8-bit recording raised
+`BufferError: memoryview: underlying buffer is not C-contiguous` inside
+`VideoPane._on_frame_ready`. PyAV's `to_ndarray(format="rgb24")` returns a
+*view* into the padded plane FFmpeg decoded into, so it is C-contiguous only
+when the row happens to land on the alignment: 1440×1080 rgb24 rows are 4320
+bytes and contiguous; 1290×720 rows are 3870 bytes inside a 3888-byte stride
+and are not. `VideoSurface.set_frame` wraps the array with
+`QImage(rgb.data, …)`, and `ndarray.data` refuses to export a buffer for a
+strided view.
+
+The exception escaped the slot, so nothing was painted, `time_pos` never
+advanced, and `frame_presented` never fired — which also means `Seeker`
+never settled. The pane looked frozen rather than broken.
+
+**Every test fixture is 640×360.** That is a 1920-byte rgb24 row, aligned, and
+therefore contiguous on every platform — which is why 1790 tests and six CI
+matrix jobs stayed green through the whole of D-075 while real footage showed
+nothing. A bug the fixtures *cannot* express is not a gap in the assertions; it
+is a gap in the inputs.
+
+**Decision.** `engine/display_pipeline.py::to_display_array` guarantees a
+C-contiguous array, and says so in its docstring. The copy happens there, on
+the decode thread, and costs ~0.24 ms for a 1290×720 frame; aligned footage
+pays one flag read. It is *not* repeated in `set_frame`: the pane documents the
+precondition and trusts the one producer, because a second copy in the pane
+would put that cost on the UI thread (rule 3) and give the guarantee two owners
+(rule 15).
+
+`tests/test_display_pipeline.py` covers four padded sizes and two aligned ones,
+end to end through the real `VideoSurface.set_frame`. It also asserts that the
+padded sizes *are still padded* under the installed PyAV, so the regression
+test cannot quietly become vacuous if a future release changes its alignment.
