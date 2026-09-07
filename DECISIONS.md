@@ -3719,3 +3719,35 @@ would put that cost on the UI thread (rule 3) and give the guarantee two owners
 end to end through the real `VideoSurface.set_frame`. It also asserts that the
 padded sizes *are still padded* under the installed PyAV, so the regression
 test cannot quietly become vacuous if a future release changes its alignment.
+
+## 2026-09 · D-103 · The terminal names its sources, and says each thing once
+
+**Context.** The application configured `logging` nowhere, so every record fell
+through to the stdlib's last-resort handler: level WARNING, stderr, format
+`"%(message)s"`. Launching from a shell produced bare lines with no way to tell
+AvialSync reporting on itself from a dependency reporting on the user's data:
+
+    UI thread blocked for 361 ms
+    Units "Deg." can not be converted to a quantity. Using dimensionless instead
+
+The first is `ui/ui_heartbeat.py` doing its job. The second is
+`neo.io.proxyobjects`, once per channel carrying a unit string `quantities`
+cannot parse — four identical lines for one fact about the recording.
+
+**Decision.** `logging_setup.py::configure_logging`, called first in `main()`,
+installs one named console handler that prefixes every line with its level and
+logger, and drops records whose *formatted* message has already been seen.
+
+Formatted, never the format string: keying on the template would collapse
+"UI thread blocked for 361 ms" and "… 2031 ms" into one event, and those are
+two stalls. The logger name is part of the key, so two libraries saying the
+same words are both heard, and a record carrying a traceback is never dropped —
+a repeat with an exception is the detail worth seeing twice. `AVIALSYNC_LOG_ALL`
+restores every repeat and `AVIALSYNC_LOG_LEVEL` moves the threshold, because a
+filter that drops records without an escape hatch makes a count unmeasurable.
+
+**This is the terminal, and nothing else.** It is not a user-facing error path:
+typed failures reach people through `ui/feedback/error_presenter.py` and source
+quality problems through the per-source quality badge (rules 10 and 12).
+Routing a unit-string warning to that badge, where it belongs, is a separate
+change; this one stops the console lying about who said what.

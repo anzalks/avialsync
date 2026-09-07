@@ -41,6 +41,14 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args(sys.argv[1:])
+
+    # Before anything can log. Without this the stdlib's last-resort handler
+    # prints bare messages, so AvialSync's own reports and a dependency's are
+    # indistinguishable on the terminal.
+    from avialsync.logging_setup import configure_logging
+
+    configure_logging()
+
     from PySide6.QtCore import QTimer
     from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import QApplication

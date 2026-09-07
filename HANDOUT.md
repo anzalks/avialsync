@@ -459,6 +459,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown | `JobManager`, `Job`, `JobState` |
 | `ui/ui_heartbeat.py` | Measures UI-thread stalls and reports them | `UiHeartbeat` |
 | `engine/display_pipeline.py` | Windows the declared bit depth on the decode thread (WP-9, D-093). **`to_display_array` guarantees a C-contiguous array** — PyAV returns a strided view into a padded plane, which `QImage` cannot borrow (D-102) | `to_display_array()`, `probe_format()`, `build_lut()`, `DisplayLevels`, `SourceFormat` |
+| `logging_setup.py` | The one console-logging configuration: level + logger prefix, and each distinct message once (D-103). `AVIALSYNC_LOG_LEVEL`, `AVIALSYNC_LOG_ALL` | `configure_logging()`, `DedupeFilter` |
 | `ui/pane_proportions.py` | Holds each splitter pane's share of the window across a resize; first-run defaults are ratios, not pixels | `PaneProportions`, `distribute()` |
 | `ui/recent_files.py` | Recent-session list in QSettings — kept out of `core/` (rule 2) | `add_recent()`, `get_recent()`, `clear_recent()` |
 | `ui/offsets_panel.py` | Stub — offset editing stays in `VideoInfoWidget.offset_spin`; not filled by D-020 | — |
