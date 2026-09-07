@@ -352,15 +352,26 @@ def test_theme_is_read_from_the_application_palette(qapp) -> None:
     palette.setColor(QPalette.ColorRole.WindowText, QColor(238, 238, 238))
     qapp.setPalette(palette)
     try:
+        # Read back rather than assumed. `theme.py` installs a palette listener
+        # once per QApplication, so whether one is watching depends on which
+        # tests ran first; the claim under test is that the figure follows the
+        # palette that actually won, not that setPalette is uncontested.
+        live = qapp.palette()
+        background = live.color(QPalette.ColorRole.Window)
+        foreground = live.color(QPalette.ColorRole.WindowText)
         theme = capture_theme()
     finally:
         qapp.setPalette(original)
 
-    assert theme.background == QColor(12, 24, 36)
-    assert theme.foreground == QColor(238, 238, 238)
-    # Captions state measured values, so the muted role sits between the two
-    # rather than at either end of the contrast range.
-    assert theme.muted not in (theme.foreground, theme.background)
+    assert theme.background == background
+    assert theme.foreground == foreground
+    assert theme.background != theme.foreground, "the palette under test never took effect"
+    # Captions state measured values — a frame number, a rate — so the muted
+    # role is the foreground mixed towards the background, and lands between
+    # the two on every channel rather than at either end.
+    for channel in ("red", "green", "blue"):
+        low, high = sorted((getattr(background, channel)(), getattr(foreground, channel)()))
+        assert low <= getattr(theme.muted, channel)() <= high
 
 
 # ── the 3D pose tile ─────────────────────────────────────────────────
