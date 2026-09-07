@@ -202,6 +202,7 @@ class Document:
         self._undone: list[Command] = []
         self._clean_depth = 0
         self._evicted = False
+        self._forced_dirty = False
         self._observers: list[Callable[[bool], None]] = []
         self._log_observers: list[Callable[[], None]] = []
         self._session_path: str | None = None
@@ -218,6 +219,8 @@ class Document:
         Reporting clean on a document whose evidence has been discarded is the
         one failure mode here that silently loses a user's work.
         """
+        if self._forced_dirty:
+            return True
         if self._evicted and self._clean_depth > 0:
             return True
         return len(self._done) != self._clean_depth
@@ -276,6 +279,23 @@ class Document:
         was_dirty = self.is_dirty
         self._clean_depth = len(self._done)
         self._evicted = False
+        self._forced_dirty = False
+        self._notify(was_dirty)
+        self._notify_log()
+
+    def mark_dirty(self) -> None:
+        """Record that the workspace holds state no file has.
+
+        Dirtiness is otherwise derived from the log, which cannot express this
+        one case: restoring a recovery snapshot puts a whole workspace back
+        without recording a single command, so the log is empty, the depth
+        matches, and the document would call itself clean while holding work
+        that exists in no file the user chose. Cleared by
+        :meth:`mark_saved` and by :meth:`clear`, so it never outlives the state
+        that justified it.
+        """
+        was_dirty = self.is_dirty
+        self._forced_dirty = True
         self._notify(was_dirty)
         self._notify_log()
 
@@ -418,6 +438,7 @@ class Document:
         self._undone.clear()
         self._clean_depth = 0
         self._evicted = False
+        self._forced_dirty = False
         self._notify(was_dirty)
         self._notify_log()
 

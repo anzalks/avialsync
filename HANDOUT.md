@@ -268,15 +268,6 @@ Two product laws govern that phase and outrank convention:
   AppImageTool, so malformed desktop metadata fails before artifact construction.
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
-- **Hot exit writes a recovery snapshot that nothing offers back (D-089, half-built).**
-  `session_controller` calls `recovery.write_recovery` on autosave-without-a-path and unconditionally
-  at close, and `recovery.pending_recovery()` implements exactly the "is there unsaved work worth
-  offering" rule the decision asks for — but **no caller in `src/` invokes it**, only
-  `tests/test_hot_exit.py`. So the snapshot is written and then unreachable: the payload nests the
-  session under a `"state"` key, so it is not an `.avv` file either and Open Session cannot read it.
-  The half that exists is the half that cannot lose data; the missing half is the notification strip
-  entry at launch that restores it. Until it lands, do not describe recovery as a user-facing feature
-  — `docs/user-guide/sessions-and-media.md` deliberately says so.
 - Native synchronization plugin API (D-026).
 - **Windows: intermittent native fault around libmpv client lifetime — CLOSED by removal (D-075).**
   Two faults were chased for weeks on `windows-2022`: an access violation inside python-mpv's
@@ -603,7 +594,11 @@ Verified against the tree, not inferred. Each has caused, or will cause, a wrong
    None`** (WP-1, D-089). It used to return early there, so the two-minute autosave protected only
    sessions already saved by hand and `closeEvent`'s "always close" contract discarded an untitled
    one silently. Both paths are covered now — the timer and the close — so do not add a "save your
-   changes?" gate in front of either; hot exit is what replaced it.
+   changes?" gate in front of either; hot exit is what replaced it. The launch half took longer:
+   `pending_recovery()` was written with the rest and had **no caller in `src/`** for the whole life
+   of the feature, so the snapshot was written faithfully and was unreachable. `MainWindow.__init__`
+   calls `session_controller.offer_pending_recovery` now, and there is no Discard button — Dismiss
+   declines without deleting the only copy of unsaved work (D-105).
 2. **Every layer drawn over video is reachable from View → Overlays** (WP-4, D-090).
    `PaintCanvas.set_point_labels_visible()` and `set_legend_visible()` were toggles with no
    production caller; they are driven by `ui/overlay_registry.py` now. Adding a new overlay means

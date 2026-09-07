@@ -103,11 +103,12 @@ something else.
   could not read rather than refusing the whole thing.
 - **Quitting always quits.** There is no "save your changes?" prompt in front of Open, a drag and
   drop, Open Recent, or the close button, and a wedged import cannot trap you in a window that
-  refuses to close. A recovery snapshot is written to the application's own data folder on quit and
-  on each autosave, so a session you never saved is not erased from disk — but **restoring one is
-  not yet offered in the interface**, so treat **File → Save Session…** as the thing that keeps your
-  work, not the snapshot. The autosave interval and whether a snapshot is kept at all are under
-  **Preferences → Storage**.
+  refuses to close. A recovery snapshot is written on quit and on each autosave instead, and the
+  next launch offers it back: a line in the notification strip naming when the work is from, with a
+  **Restore** button beside it. Restoring loads it as an unsaved session, so the title keeps its
+  `[*]` until you save it somewhere you chose. **Dismissing the offer declines it without deleting
+  anything** — the snapshot stays until a later quit replaces it in the ordinary way. The autosave
+  interval and whether a snapshot is kept at all are under **Preferences → Storage**.
 - **Long work is never modal.** Imports, proxy generation, and exports report in the status area and
   the **Tasks** tab, with a cancel where the work supports one, and you can keep using the window
   while they run.

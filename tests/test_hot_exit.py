@@ -282,3 +282,116 @@ def test_a_long_drag_updates_the_title_at_most_twice(main_window):
 
     assert len(updates) <= 2, f"expected at most 2 title updates, got {len(updates)}"
     assert len(main_window.document) == 1, "the drag is one undo step"
+
+
+# ── offering it back (the half that was missing) ──────────────────────
+
+
+def test_a_fresh_launch_offers_unsaved_work(main_window, isolated_recovery_dir):
+    """The snapshot was written on every quit and nothing ever offered it back.
+
+    ``pending_recovery()`` implemented the "is this worth offering" rule from
+    the day D-089 landed, but no caller in ``src/`` invoked it -- only this
+    file did. Work was preserved on disk and unreachable from the interface,
+    and because the payload nests the session under a ``state`` key, Open
+    Session could not read it either.
+    """
+    recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
+
+    assert session_controller.offer_pending_recovery(main_window) is True
+    strip = main_window.notifications
+    assert strip.isVisible()
+    assert strip.action_label == "Restore"
+    assert strip.is_sticky, "an offer that fades before it is read is not an offer"
+
+
+def test_nothing_pending_offers_nothing(main_window, isolated_recovery_dir):
+    assert session_controller.offer_pending_recovery(main_window) is False
+    assert main_window.notifications.isVisible() is False
+
+
+def test_declining_the_offer_leaves_the_snapshot_alone(main_window, isolated_recovery_dir):
+    """Dismiss is not discard.
+
+    The snapshot is the only copy of that work. A stray click on Dismiss must
+    not be what deletes it -- the next quit overwrites it in the ordinary way,
+    so nothing accumulates by leaving it.
+    """
+    recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
+    session_controller.offer_pending_recovery(main_window)
+
+    main_window.notifications.clear()
+
+    assert recovery.read_recovery() is not None, "declining must not delete the work"
+    assert main_window.notifications.isVisible() is False
+
+
+def test_restoring_loads_the_work_and_marks_it_unsaved(main_window, isolated_recovery_dir):
+    _seed_workspace(main_window)
+    main_window._session_path = None
+    session_controller.autosave(main_window)
+    main_window.annotation_store.clear()
+
+    session_controller.offer_pending_recovery(main_window)
+    main_window.notifications.action_button.click()
+
+    assert main_window.document.is_dirty, "restored work lives in no file yet"
+    assert recovery.read_recovery() is None, "the snapshot is consumed by a restore"
+
+
+def test_a_snapshot_that_cannot_be_decoded_is_reported_not_deleted(
+    main_window, isolated_recovery_dir
+):
+    """Clearing before the restore succeeds would be the loss it guards against."""
+    recovery.write_recovery({"videos": "not a list of entries"}, None)
+    session_controller.offer_pending_recovery(main_window)
+
+    main_window.notifications.action_button.click()
+
+    assert recovery.read_recovery() is not None, "an undecodable snapshot is kept"
+    assert "could not be restored" in main_window.notifications.message
+
+
+def test_the_offer_names_when_the_work_is_from(main_window, isolated_recovery_dir):
+    recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
+    session_controller.offer_pending_recovery(main_window)
+    assert "Unsaved work from" in main_window.notifications.message
+
+
+def test_a_message_without_an_action_does_not_inherit_the_last_one(
+    main_window, isolated_recovery_dir
+):
+    """The button is one widget reused by every message posted to the strip."""
+    recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
+    session_controller.offer_pending_recovery(main_window)
+    assert main_window.notifications.action_button.isVisible()
+
+    main_window.notifications.show_error("Something else failed")
+
+    assert main_window.notifications.action_button.isVisible() is False
+    assert main_window.notifications.action_label == ""
+
+
+def test_constructing_the_window_is_what_makes_the_offer(qapp, qtbot, isolated_recovery_dir):
+    """The regression that matters: the function existing is not the fix.
+
+    ``pending_recovery()`` was correct and tested from the day it landed. What
+    was missing was any caller, so this asserts the wiring rather than the
+    rule -- a window that comes up with unsaved work on disk must say so
+    without anyone calling the controller by hand.
+    """
+    from shiboken6 import isValid
+
+    recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
+
+    win = MainWindow()
+    qtbot.addWidget(win)
+    # Shown, because a child of a hidden parent reports itself hidden however
+    # the strip was posted; the question here is whether anything posted it.
+    win.show()
+    try:
+        assert win.notifications.isVisible(), "a fresh launch never mentioned the snapshot"
+        assert win.notifications.action_label == "Restore"
+    finally:
+        if isValid(win):
+            win.close()

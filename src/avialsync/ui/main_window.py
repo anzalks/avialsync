@@ -632,6 +632,11 @@ class MainWindow(QMainWindow):
         # Startup diagnostics (deferred so window shows first)
         QTimer.singleShot(500, self._run_diagnostics)
 
+        # Unsaved work from a previous run, offered rather than imposed. Posting
+        # is cheap -- one line in the notification strip; the restore itself
+        # only happens if the user asks for it (D-089).
+        session_controller.offer_pending_recovery(self)
+
         # Start player tick
         self.player.start()
 

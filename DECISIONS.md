@@ -3788,3 +3788,38 @@ or never reset a session first, and driving the tick by hand reproduces nothing
 when the defect *is* a stopped timer. The tests added with this decision run
 the pane's own timer through `qtbot.waitUntil`, and were confirmed to fail
 against the previous code.
+
+## 2026-09 · D-105 · Declining a recovery offer never deletes the snapshot
+
+**Context:** D-089 specified the launch-time bar as "offering Restore or Discard", and then only
+half of it was built. `recovery.write_recovery` ran on every quit and `recovery.pending_recovery()`
+implemented the is-this-worth-offering rule exactly as decided — but nothing in `src/` ever called
+`pending_recovery`; the only callers were in `tests/test_hot_exit.py`. So for the whole life of the
+feature the snapshot was written faithfully and was unreachable from the interface, and because the
+payload nests the session under a `"state"` key it is not an `.avv` file either, so Open Session
+could not read it. The half that shipped was the half that cannot lose data; the half that was
+missing was the only half a user can see.
+
+**Decision:** the bar is completed as D-089 describes, with one deliberate difference: there is no
+Discard. The message offers **Restore**, and Dismiss declines it **without touching the snapshot**.
+
+A Discard button deletes the only copy of work the user did not save, from a bar that appears
+unbidden at launch, next to a Dismiss button, in the reading position where people click to make a
+notification go away. The upside it buys is nothing: the snapshot is not a document, it is replaced
+by the next quit's write in the ordinary way, and an emptied workspace clears it via
+`is_empty_state`. So the button's only reachable outcome is the irreversible one.
+
+**Alternatives rejected:** Discard as specified (above); clearing the snapshot on Dismiss without a
+button, which is the same deletion with less warning; leaving the snapshot after a *successful*
+Restore, which would re-offer work that is now live in the window and train the user to dismiss the
+bar unread — the clear happens after the restore, never before, so a snapshot that cannot be
+decoded is reported and kept rather than consumed.
+
+**Consequences:** `Document.mark_dirty()` is new and exists for this one caller. Dirtiness is
+otherwise derived from the command log, which cannot express a restore: a whole workspace comes back
+without a single command being recorded, so the log is empty, the depth matches, and the document
+would call itself clean while holding work that is in no file. `mark_saved` and `clear` both reset
+it, so it cannot outlive the state that justified it. `NotificationStrip` grows one optional named
+action, whose callback is replaced on every post so a message cannot inherit the previous message's
+button. `tests/test_hot_exit.py` guards the wiring specifically — that constructing a window is what
+makes the offer — because the defect this fixes was never a wrong rule, it was an uncalled function.

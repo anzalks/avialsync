@@ -64,8 +64,15 @@ def pin_layout(window: QWidget) -> None:
     Call it *after* ``show()`` and a :func:`settle`: a splitter redistributes
     sizes on its first real resize, so seeding before the window has its final
     size seeds nothing.
+
+    It also takes down the launch-time recovery offer. ``MainWindow.__init__``
+    asks whether this machine has unsaved work from a previous run, so whoever
+    last quit the real application mid-session decides whether the docs get a
+    notification bar across them. Dismissing declines without deleting (D-105),
+    so this reads the operator's snapshot and leaves it exactly where it was.
     """
     window._apply_default_splitter_sizes()
+    window.notifications.clear()
 
 
 def capture(

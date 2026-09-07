@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -26,6 +27,7 @@ from avialsync.core.session import (
 )
 from avialsync.ui import recovery
 from avialsync.ui.controllers import corrections_controller
+from avialsync.ui.i18n import tr
 from avialsync.ui.recent_files import add_recent, get_recent
 
 if TYPE_CHECKING:
@@ -524,6 +526,65 @@ def autosave(window: MainWindow) -> None:
         _write_recovery_snapshot(window)
         return
     window._start_session_save(window._session_path, is_autosave=True)
+
+
+def offer_pending_recovery(window: MainWindow) -> bool:
+    """Offer unsaved work from a previous run, if there is any. Non-modal.
+
+    The other half of D-089. The snapshot has been written on every quit since
+    that decision landed, but nothing ever offered it back, so the work was
+    preserved on disk and unreachable from the interface -- and the payload
+    nests the session under a ``state`` key, so Open Session could not read it
+    either.
+
+    An offer, never a gate: it is one line in the notification strip with a
+    Restore button beside it, and dismissing it declines without touching the
+    snapshot. Law 1 forbids blocking the user to tell them something, and a
+    launch-time "restore your work?" modal is exactly that.
+    """
+    snapshot = recovery.pending_recovery()
+    if snapshot is None:
+        return False
+
+    when = time.strftime("%H:%M on %d %b", time.localtime(snapshot.recovered_at))
+    if snapshot.describes_untitled_session:
+        message = tr("Unsaved work from {when} is available.").format(when=when)
+    else:
+        message = tr("Work from {when} is newer than {name}.").format(
+            when=when, name=Path(str(snapshot.session_path)).name
+        )
+    window.notifications.show_warning(
+        message,
+        action_label=tr("Restore"),
+        on_action=lambda: restore_pending_recovery(window, snapshot),
+    )
+    return True
+
+
+def restore_pending_recovery(window: MainWindow, snapshot: recovery.RecoverySnapshot) -> None:
+    """Load a recovery snapshot into the window, as an ordinary session restore.
+
+    The snapshot is cleared only once the restore has actually gone through.
+    Clearing first would turn a failure to decode into the data loss the
+    snapshot exists to prevent, and there is no second copy.
+    """
+    try:
+        state = SessionState.from_dict(snapshot.state)
+    except Exception as error:
+        logger.exception("Could not decode the recovery snapshot")
+        window.notifications.show_error(
+            tr("That unsaved work could not be restored."), details=str(error)
+        )
+        return
+
+    window._session_path = Path(snapshot.session_path) if snapshot.session_path else None
+    window._restore_session(state)
+    recovery.clear_recovery()
+    # Restored work is unsaved work: it went back to the window, not to a file.
+    window.document.mark_dirty()
+    window.notifications.show_warning(
+        tr("Restored. Save the session to keep it."),
+    )
 
 
 def _write_recovery_snapshot(window: MainWindow) -> bool:
