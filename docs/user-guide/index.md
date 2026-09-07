@@ -15,9 +15,10 @@
 - **Data Streams** shows when every loaded file is available. A coloured span means the source has
   data; an empty span means it does not.
 - **Shared time bar** moves every view together.
-- **Left panel** has four tabs: **Sources** (files, visibility, offsets, properties),
-  **Values**, **Messages** (prose the recording itself carries), and **Annotations**
-  (the frames you flagged).
+- **Left panel** has five tabs: **Sources** (files, visibility, offsets, properties),
+  **Values**, **Messages** (prose the recording itself carries), **Changes** (everything you
+  flagged, labelled, or corrected), and **Tasks** (what is loading, with a cancel where the work
+  supports one — worth opening when something is taking longer than you expected).
 
 ## Where the detail lives
 
@@ -34,9 +35,11 @@ Three routes, in the order to try them — all covered field by field, with anno
 [Tutorial: align recordings](../tutorials/synchronization.md):
 
 - **Offset** (left panel, per source) shifts a recording along the shared timeline in seconds.
+  **Align → Nudge selected source earlier / later** (`Ctrl+Shift+Left` / `Right`) does the same by
+  one step without leaving the keyboard, on whichever source is selected.
 - **Drift** (left panel, per source) corrects a clock running fast or slow, in ppm. Reach for it
   when recordings agree at the start and separate by the end — a fixed offset cannot express that.
-- **Synchronize…** fits the mapping from TTL pulses or frame triggers. Choose reference and target
+- **Align → Synchronize TTL / events…** fits the mapping from TTL pulses or frame triggers. Choose reference and target
   evidence, set the **TTL high threshold** (or tick **Use all samples as events** when the reference
   is already a list of event times), pick **Affine Fit** for two independent clocks or **Exact
   Index** when the reference triggered each exposure, then **Preview alignment** and read the match
@@ -50,9 +53,9 @@ the loaded files carry, placed on the shared timeline, and the shared time bar s
 own lane.
 
 - **Messages are read-only.** They belong to the file and cannot be written back to it, so no cell
-  in this tab can be edited. This is the difference from **Annotations**, which are yours: authored,
-  editable, and exported as your own work. The two never mix, so an exported annotation always says
-  a person wrote it.
+  in this tab can be edited. This is the difference from what the **Changes** tab holds, which is
+  yours: authored, editable, and exported as your own work. The two never mix, so an exported
+  annotation always says a person wrote it.
 - **Selecting a row seeks the timeline** to that moment, the same as clicking a plot.
 - **The filter box** narrows the list by message text, source, or stream name.
 - **Notes with no time appear above the table**, not in it. A file header or a comment appended
@@ -73,8 +76,8 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
   frame index and presentation timestamp — which is what makes the export usable as a pose-model
   corrections list.
 - Right-click a plot to add a marker at that moment without moving the playhead first.
-- The **Annotations** tab lists what you flagged; double-click a label to name it.
-- **File → Export Annotations (CSV)** writes one row per (marker, camera).
+- The **Changes** tab lists what you flagged; double-click a label to name it.
+- **File → Export Changes…** writes your annotations, and any corrected pose data, out.
 - **File → Export Snapshot / Trimmed Video Clip / Data Slice** cover images, media, and signals.
   Clips are copied rather than re-encoded, so they keep the original pixels.
 

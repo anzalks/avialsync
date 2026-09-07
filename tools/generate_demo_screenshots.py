@@ -25,54 +25,40 @@ from PySide6.QtWidgets import QApplication
 from avialsync.engine.importer import ImportWorker
 from avialsync.loaders.csv_loader import CSVLoader
 from avialsync.loaders.video_standard import VideoStandardLoader
-from avialsync.ui import theme
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.sync_wizard import SyncWizard
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from screenshot_kit import pin_appearance, pin_layout, settle  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"
 
-
-def _pin_appearance(app: QApplication) -> None:
-    """Force the documented appearance without touching saved preferences.
-
-    ``apply_theme`` persists, which would silently rewrite the preference of
-    whoever runs this. The private ``_apply`` is used deliberately for its
-    ``persist=False``: a screenshot run must not be a settings change. The font
-    is left alone for the same reason — ``apply_font_size`` also persists, and
-    its default factor is 1.0, so pinning it would buy nothing and cost the
-    developer their preference.
-    """
-    theme._apply(app, theme.THEME_DARK, persist=False)
+#: Wide enough for the Data Streams header to lay its buttons out at their full
+#: width. Below roughly 1200 px that row overflows and Qt clips "Fullscreen
+#: Toggle" to "ullscreen Togg", which reads as a rendering fault rather than as
+#: the window simply being narrow.
+WINDOW_SIZE = (1280, 860)
 
 
 def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     app = QApplication.instance() or QApplication(sys.argv)
     out_dir.mkdir(parents=True, exist_ok=True)
-    _pin_appearance(app)
+    pin_appearance(app)
 
     window = MainWindow()
-    window.resize(1024, 768)
-    # Give it a nice layout
+    window.resize(*WINDOW_SIZE)
     window.show()
-
-    def settle(rounds: int = 40) -> None:
-        """Drain the event loop without blocking it.
-
-        Sleeping here would be detected by the UI heartbeat as a stall and
-        latched into the status bar, so the screenshot would advertise a
-        freeze this harness itself caused.
-        """
-        for _ in range(rounds):
-            app.processEvents()
+    settle(app)
+    pin_layout(window)
 
     def save_shot(name):
-        settle()
+        settle(app)
         # The status line latches until something replaces it, and driving the
         # UI synchronously from a script trips the stall detector. Reset it so
         # the capture shows the state a user reaches, not the harness's.
         window.transport.set_status("Ready")
-        app.processEvents()
+        settle(app)
         window.grab().save(str(out_dir / name))
         print(f"Saved {name}")
 
@@ -85,8 +71,7 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     window._on_video_opened(str(video_path), video_loader, str(video_path))
 
     # Needs to process events so it loads in the UI
-    for _ in range(10):
-        app.processEvents()
+    settle(app)
     save_shot("demo_step2_video_loaded.png")
 
     # 2. Load CSV synchronously!
@@ -99,8 +84,7 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     worker.finished.connect(on_finished)
     worker.run()
 
-    for _ in range(10):
-        app.processEvents()
+    settle(app)
     save_shot("demo_step3_csv_loaded.png")
 
     # 3. Open Sync Wizard
@@ -110,15 +94,13 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
 
     wizards = window.findChildren(SyncWizard)
     wizard = wizards[0]
-    for _ in range(10):
-        app.processEvents()
+    settle(app)
     wizard.grab().save(str(out_dir / "demo_step4_wizard_open.png"))
 
     # 4. Select Exact Index
     wizard._strategy_combo.setCurrentIndex(1)
     wizard._use_all_times_chk.setChecked(True)
-    for _ in range(10):
-        app.processEvents()
+    settle(app)
     wizard.grab().save(str(out_dir / "demo_step5_wizard_configured.png"))
 
     # Click Preview
@@ -130,16 +112,14 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
         app.processEvents()
         time.sleep(0.05)
 
-    for _ in range(10):
-        app.processEvents()
+    settle(app)
     wizard.grab().save(str(out_dir / "demo_step6_wizard_previewed.png"))
 
     # 5. Accept Mapping
     wizard.accept()
     # accept normally closes it
 
-    for _ in range(10):
-        app.processEvents()
+    settle(app)
     save_shot("demo_step7_mapping_applied.png")
 
     # Close explicitly rather than letting the interpreter drop the window.
@@ -147,8 +127,7 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     # still running when its QThread is destroyed (AGENTS.md: shutdown
     # ownership is explicit, never left to garbage collection).
     window.close()
-    for _ in range(10):
-        app.processEvents()
+    settle(app)
 
 
 def main() -> None:

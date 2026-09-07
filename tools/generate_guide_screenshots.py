@@ -27,7 +27,7 @@ from avialsync.ui.sync_wizard import SyncWizard
 from avialsync.ui.transport import TimelineEvidence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from screenshot_kit import capture, pin_appearance, settle  # noqa: E402
+from screenshot_kit import capture, pin_appearance, pin_layout, settle  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"
@@ -61,6 +61,8 @@ def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
     window = MainWindow()
     window.resize(1280, 860)
     window.show()
+    settle(app)
+    pin_layout(window)
     settle(app)
     _load_session(window, app)
     window.transport.set_status("Ready")

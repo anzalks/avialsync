@@ -268,6 +268,15 @@ Two product laws govern that phase and outrank convention:
   AppImageTool, so malformed desktop metadata fails before artifact construction.
 - P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
   documentation warnings as errors.
+- **Hot exit writes a recovery snapshot that nothing offers back (D-089, half-built).**
+  `session_controller` calls `recovery.write_recovery` on autosave-without-a-path and unconditionally
+  at close, and `recovery.pending_recovery()` implements exactly the "is there unsaved work worth
+  offering" rule the decision asks for — but **no caller in `src/` invokes it**, only
+  `tests/test_hot_exit.py`. So the snapshot is written and then unreachable: the payload nests the
+  session under a `"state"` key, so it is not an `.avv` file either and Open Session cannot read it.
+  The half that exists is the half that cannot lose data; the missing half is the notification strip
+  entry at launch that restores it. Until it lands, do not describe recovery as a user-facing feature
+  — `docs/user-guide/sessions-and-media.md` deliberately says so.
 - Native synchronization plugin API (D-026).
 - **Windows: intermittent native fault around libmpv client lifetime — CLOSED by removal (D-075).**
   Two faults were chased for weeks on `windows-2022`: an access violation inside python-mpv's

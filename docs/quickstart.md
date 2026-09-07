@@ -55,9 +55,10 @@ old frame.
 ## Align recordings
 
 Begin with the visible event that is easiest to recognize, and adjust that camera's offset in the
-left panel. For recordings with TTL pulses or frame triggers, the synchronization wizard fits the
-mapping from that evidence and shows you the proposed match count and residual error before you
-accept it. Acceptance is always explicit, and your original timestamps are never changed.
+left panel. For recordings with TTL pulses or frame triggers, **Align → Synchronize TTL / events…**
+fits the mapping from that evidence and shows you the proposed match count, the residual error, and
+a plot of the residuals themselves before you accept it. Acceptance is always explicit, and your
+original timestamps are never changed.
 
 [Tutorial: align recordings](tutorials/synchronization.md) covers every field in that wizard.
 
@@ -69,4 +70,6 @@ accept it. Acceptance is always explicit, and your original timestamps are never
 | Import a table correctly the first time | [Import sensor and recording data](tutorials/importing-data.md) |
 | Align cameras to TTL or frame triggers | [Align recordings](tutorials/synchronization.md) |
 | Mark frames and get data out | [Flag frames and export](tutorials/annotating-and-exporting.md) |
+| Fix a pose estimate that landed in the wrong place | [Correcting a tracked point](user-guide/index.md#correcting-a-tracked-point) |
+| Rebind a shortcut, save a layout, or change a setting | [Sessions, proxies, and the 3D view](user-guide/sessions-and-media.md) |
 | Know every control in the window | [User Guide](user-guide/index.md) |

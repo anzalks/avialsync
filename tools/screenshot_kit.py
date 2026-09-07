@@ -22,7 +22,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QRect, Qt
+from PySide6.QtCore import QEvent, QPoint, QRect, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QApplication, QWidget
 
@@ -48,6 +48,24 @@ def pin_appearance(app: QApplication) -> None:
     ``persist=False``: taking a screenshot must not be a settings change.
     """
     theme._apply(app, theme.THEME_DARK, persist=False)
+
+
+def pin_layout(window: QWidget) -> None:
+    """Put the panes back where a first run puts them.
+
+    ``MainWindow.__init__`` restores saved geometry, so a developer who has
+    ever dragged a splitter photographs their own arrangement: one run left the
+    video pane 85 px tall with a blank band under the plots, which reads as a
+    layout bug in the application rather than as the personal setting it was.
+    Re-seeding the documented ratios is the same guarantee
+    :func:`pin_appearance` gives for the theme, and like it, it writes nothing
+    back -- the proportion store this touches lives on the window, not on disk.
+
+    Call it *after* ``show()`` and a :func:`settle`: a splitter redistributes
+    sizes on its first real resize, so seeding before the window has its final
+    size seeds nothing.
+    """
+    window._apply_default_splitter_sizes()
 
 
 def capture(
@@ -121,6 +139,16 @@ def settle(app: QApplication, rounds: int = 40) -> None:
     Sleeping here would be detected by the UI heartbeat as a stall and latched
     into the status bar, so the screenshot would advertise a freeze this harness
     itself caused.
+
+    ``processEvents`` deliberately does not deliver ``DeferredDelete``: Qt holds
+    those until the event loop that posted them returns, which never happens in
+    a script that drives the UI by hand. A widget replaced during capture --
+    the sidebar's "No sensor data loaded." note, once a file loads -- is then
+    only *removed from its layout* and keeps painting at its last geometry, so
+    the screenshot shows the placeholder overlapping the card that replaced it.
+    A real user never sees that frame. Flushing them here makes the capture
+    agree with the running application.
     """
     for _ in range(rounds):
         app.processEvents()
+        app.sendPostedEvents(None, QEvent.Type.DeferredDelete)

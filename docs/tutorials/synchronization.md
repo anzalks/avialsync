@@ -30,11 +30,16 @@ Scrub to your shared event, adjust **Offset** until the views agree, then check 
 the *end* of the recording. If the two events need different offsets, the clocks are drifting and
 you want **Drift** as well, or better still the evidence-based route below, which measures both.
 
+For the last fraction of a frame, select the source and use **Align → Nudge selected source
+earlier** / **later** (`Ctrl+Shift+Left` / `Ctrl+Shift+Right`). It steps the offset of the source
+you selected — not whichever camera happens to be first — so you can keep your eyes on the video
+while you adjust it.
+
 ## 2. Evidence-based alignment from TTL or frame triggers
 
 When a recording carries repeated pulses — a TTL line, a camera exposure trigger, a frame-timestamp
 log — AvialSync can fit the alignment from that evidence instead of you eyeballing it. Open
-**Synchronize…** from the toolbar or menu.
+**Align → Synchronize TTL / events…**.
 
 ### Choose what to compare
 

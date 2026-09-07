@@ -22,17 +22,17 @@ changes a scientific timestamp. Your lab can add support for its own file types 
 through plugins.
 
 ![A one-second loop of three synchronised camera views of a head-fixed mouse with 2D pose overlays,
-a triangulated 3D pose drawn as a skeleton, and per-ROI motion traces measured from the video, all
+a triangulated 3D pose drawn as a skeleton, and a running-wheel encoder velocity trace, all
 advancing together on one master
 timeline.](https://raw.githubusercontent.com/anzalks/avialsync/main/docs/_static/screenshots/aol_session_overview.gif)
 
 *A real recording session: three cameras at 230 fps with per-camera 2D pose drawn over each view,
-triangulated 3D pose in a fourth column no wider than one camera view, and per-ROI motion traces
-below — one second of it, at the speed it was recorded, every source moving on one master clock. The
-whole folder was opened by dropping it
+triangulated 3D pose in a fourth column no wider than one camera view, and the running-wheel encoder
+velocity below — one second of it, at the speed it was recorded, every source moving on one master
+clock. The whole folder was opened by dropping it
 on the window; a [session plugin](https://avialsync.readthedocs.io/en/latest/plugin-guide.html)
-recognised the layout and placed each file, including the shared time base. Nothing in AvialSync
-knows this lab's format.*
+recognised the layout and placed each file, including the shared time base and the skeleton the 3D
+pane draws. Nothing in AvialSync knows this lab's format.*
 
 ## What it gives you
 
@@ -42,6 +42,10 @@ knows this lab's format.*
 - Notes the acquisition system itself recorded — read out of the file, placed on the same clock,
   and kept read-only so they never mix with your own marks.
 - Event marks, A/B time ranges, and exports of snapshots or selected spans for analysis elsewhere.
+- Correction of a wrong pose estimate by hand, saved beside the pose file and exportable either as
+  corrected data or as a DeepLabCut retraining set.
+- Undo on every edit you make, a recovery snapshot written on quit, and no modal dialog standing
+  between you and a file: a damaged recording opens as far as it can and reports the rest.
 
 ## Install
 

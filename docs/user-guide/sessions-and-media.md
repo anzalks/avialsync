@@ -84,19 +84,84 @@ Everything drawn goes through a decimation pyramid, so a 180-million-sample chan
 column per pixel instead of attempting every point. Gaps in the data are drawn as breaks, and NaN
 is skipped, never plotted as zero.
 
-## Appearance
+## Undoing what you did
 
-**View → Theme** offers System, Dark, or Light. **View → Font Size** offers a system-relative size.
+**Edit → Undo** (`Ctrl+Z`) and **Redo** (`Ctrl+Shift+Z`) cover every change you make to a session:
+an offset, an accepted mapping, a flagged frame, a channel you hid, a tracking correction. The Edit
+menu names the specific thing it is about to reverse, so you can tell what `Ctrl+Z` will take back
+before pressing it.
 
-These change colours and text only. They do not reset or reinterpret your shared time, seek bar,
-plot navigation, playback state, layout, or loaded data — an appearance change is never allowed to
-disturb what you are looking at.
+Loading a file is not an edit and does not enter the undo history. Neither does anything that only
+affects appearance.
+
+## Nothing blocks you, and nothing is lost on quit
+
+AvialSync never puts a dialog between you and a file, and never asks you to save before doing
+something else.
+
+- **A damaged or partly-unreadable file still opens**, as far as it can be read, and reports what it
+  could not read rather than refusing the whole thing.
+- **Quitting always quits.** There is no "save your changes?" prompt in front of Open, a drag and
+  drop, Open Recent, or the close button, and a wedged import cannot trap you in a window that
+  refuses to close. A recovery snapshot is written to the application's own data folder on quit and
+  on each autosave, so a session you never saved is not erased from disk — but **restoring one is
+  not yet offered in the interface**, so treat **File → Save Session…** as the thing that keeps your
+  work, not the snapshot. The autosave interval and whether a snapshot is kept at all are under
+  **Preferences → Storage**.
+- **Long work is never modal.** Imports, proxy generation, and exports report in the status area and
+  the **Tasks** tab, with a cancel where the work supports one, and you can keep using the window
+  while they run.
+
+## Preferences
+
+**File → Preferences…** collects everything configurable in one dialog, generated from the
+application's own settings list, so each entry carries its explanation and its own **Reset to
+default**. It holds the theme and font size, the colour-vision-safe trace palette, whether the A–B
+range loops, live plot presentation, whether body-part names are drawn by default, whether display
+levels for high-bit-depth video are chosen automatically, the autosave interval, and whether a
+recovery snapshot is kept.
+
+The View menu still offers theme, font size, and time display directly; they are the same settings,
+not a second copy.
+
+## Overlays on the video
+
+**View → Overlays** switches every graphic drawn over a camera view: tracking points, body-part
+names, the track legend, hand-corrected marks, the camera name, and the timecode and format
+readout. Anything a plugin draws appears here too — nothing is drawn over your video that you
+cannot account for.
+
+Right-click a video pane and use **Overlays on this camera** to override one camera without changing
+the others; **Follow the View menu** puts it back. Overlay choices are remembered with the session.
+
+Two are listed but cannot be switched off, and say why when you ask: the **No Footage** placeholder,
+because hiding it would leave an empty pane looking like a camera that simply had nothing to show,
+and the **Fix Tracker handles**, because hiding them would leave that mode nothing to grab.
+
+## Named layouts
+
+**View → Workspace → Save Current Layout…** stores the window geometry, every splitter position, and
+the selected inspector tab under a name; picking that name later restores it. Aligning two
+recordings wants tall plots and small video, and checking a tracking overlay wants the opposite —
+this is so you do not rearrange the splitters each time.
+
+A layout belongs to you and your screen, not to the recording, so workspaces are kept with your
+application settings rather than in the `.avv` file. **Delete Layout…** removes one.
+
+## Finding a command
+
+**Help → Commands…** opens a searchable list of everything the application can do, with each entry's
+current shortcut beside it. Type part of a name to filter. It is built from the live menu actions,
+so it cannot list a command that does not exist or miss one that does — useful for the overlay
+switches in particular, which are otherwise three levels into a menu.
 
 ## Keyboard shortcuts
 
 **Help → Keyboard Shortcuts** lists every registered shortcut, grouped by category, read from the
 actions themselves — so it is accurate for the version you are running, unlike a list in a
-document that drifts.
+document that drifts. **Shortcuts can be rebound there**: your choice is stored per action and
+layered over the default, so a later release that changes a default still reaches you if you never
+expressed a preference for that one.
 
 The ones worth knowing without looking:
 
@@ -107,7 +172,22 @@ The ones worth knowing without looking:
 | `[` and `]` | Mark the start and end of a range |
 | `F11` (`Ctrl+Cmd+F` on macOS) | Toggle fullscreen on the active video |
 | `J` / `K` / `L` | Shuttle back, pause, shuttle forward |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | Undo, redo |
+| `Ctrl+Shift+T` | Fix Tracker |
+| `Ctrl+Shift+←` / `→` | Nudge the selected source earlier or later |
 
 `Ctrl+V` and `Ctrl+D` are deliberately *not* bound to opening files — those belong to paste and
 duplicate everywhere else, and rebinding them would be a trap. Opening uses `Ctrl+Shift+V` for video
 and `Ctrl+Shift+D` for data.
+
+## Appearance
+
+**View → Theme** offers System, Dark, or Light. **View → Font Size** offers a system-relative size.
+
+These change colours and text only. They do not reset or reinterpret your shared time, seek bar,
+plot navigation, playback state, layout, or loaded data — an appearance change is never allowed to
+disturb what you are looking at.
+
+Trace colours come from a palette checked in colour-blindness-simulated space, and colour never
+carries meaning on its own — a trace is always identified by its label as well. If you prefer the
+older colours, turn off **Colour-vision-safe trace palette** in Preferences.

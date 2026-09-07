@@ -12,7 +12,7 @@ DeepLabCut or LightningPose needs to be told what to fix.
 ![The Flag Frame and Snapshot buttons on the Data Streams strip](../_static/screenshots/guide_flag_and_snapshot.png)
 
 1. **Flag Frame** (shortcut `M`) records an annotation at the current time.
-2. **Snapshot** (`Ctrl+E`) saves the current visual view as an image.
+2. **Snapshot** (`Ctrl+E`) writes a composed figure of the current moment.
 
 You can also click directly on a plot at the moment you care about, which adds a marker there
 without moving the playhead first.
@@ -35,9 +35,10 @@ A/B loop playback for reviewing the same span repeatedly.
 
 ## Review and label what you flagged
 
-The **Annotations** tab in the left panel lists everything you have marked. Double-click a row's
-label to name it — `occluded`, `bad_paw`, `stim_onset`, whatever your analysis needs. **Delete**
-removes the selected row.
+The **Changes** tab in the left panel lists everything you have marked, in time order, alongside any
+tracking corrections you have made. Double-click a row's label to name it — `occluded`, `bad_paw`,
+`stim_onset`, whatever your analysis needs. **Delete** removes the selected row, and `Ctrl+Z` puts
+it back.
 
 ## Export
 
@@ -45,10 +46,20 @@ Everything is under **File**, and each export is a distinct job:
 
 | Export | What you get | Use it for |
 |---|---|---|
-| **Export Annotations (CSV)…** | One row per (marker, camera): `label`, `comment`, `t_master`, `video_path`, `frame_index`, `media_timestamp` | A corrections list for pose-model retraining |
-| **Export Snapshot…** | The current composed view as an image | Figures, notes, lab reports |
+| **Export Changes…** | One row per (marker, camera): `label`, `comment`, `t_master`, `video_path`, `frame_index`, `media_timestamp` — and, where you corrected tracking, the corrected pose data and a DeepLabCut retraining set | A corrections list for pose-model retraining |
+| **Export Snapshot…** | A composed figure of the current moment | Figures, notes, lab reports |
 | **Export Trimmed Video Clip…** | The marked range, copied out of the source | Sharing a moment without re-encoding it |
 | **Export Data Slice…** | The marked range of the loaded signals | Analysis in another tool |
+
+**Export Changes…** is also the **Export…** button in the Changes tab; it is one action, so the two
+cannot offer different things. It lists only the recordings that actually have something to export,
+and nothing is written until you choose it. [Correcting a tracked
+point](../user-guide/index.md#correcting-a-tracked-point) covers the pose outputs in full.
+
+**A snapshot is composed, not grabbed.** Every displayed camera goes in at the resolution it decoded
+at, with the 3D pose and the whole channel stack including rows you would have to scroll to reach —
+so nothing is cut off at a pane edge, and each camera is captioned with its own frame number,
+timecode, and format.
 
 A marker with no video loaded still exports, with the video columns left empty — so a flag is never
 silently dropped for lack of a camera.
@@ -63,3 +74,7 @@ frame to decode from.
 AvialSync does not write your analysis, and it never modifies a source recording. Offsets, drift,
 accepted mappings, and annotations live in the session file (`.avv`) beside your data — so the
 alignment a colleague sees is the one you accepted, with the evidence behind it.
+
+Tracking corrections are the one thing kept outside the session, in `<pose file>.avialfix.csv` next
+to the pose file, so they travel with the recording rather than with the session. Your pose files
+themselves are still never modified.

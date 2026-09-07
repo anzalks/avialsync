@@ -65,13 +65,20 @@ sentinel values are counted in the import report; the original input stays untou
 
 A `.avv` session stores references to sources, visual layout, offsets/drift, annotations, and accepted
 synchronization provenance. It does not copy or alter the original recordings. Local window geometry
-and presentation preferences remain local to each user. When a source has moved, the session can ask
-the user to relink it instead of guessing a replacement.
+and presentation preferences remain local to each user — named workspace layouts likewise, because a
+layout belongs to the person and their screen rather than to the recording. When a source has moved,
+the session can ask the user to relink it instead of guessing a replacement.
 
-Exact per-frame mappings can contain millions of timestamp pairs. Large accepted mappings now live
+Hand corrections to pose data are the one edit kept *outside* the session, in a `.avialfix.csv`
+sidecar beside the pose file, so they travel with the recording rather than with the session. The
+session records only how many corrections each source had; if that count and the sidecar disagree, or
+the sidecar has gone, the discrepancy is reported rather than absorbed.
+
+Exact per-frame mappings can contain millions of timestamp pairs. Large accepted mappings live
 in a compact, checksum-validated compressed session sidecar while session JSON retains its summary
-and bounded evidence sample. The remaining work is to move session serialization and IO itself to
-workers. Converting the full arrays to Python lists and indented JSON is prohibited because it causes
+and bounded evidence sample. Serialization and IO run on a worker (`engine/session_worker.py`); only
+the close-time autosave is synchronous, deliberately, because the window is being destroyed.
+Converting the full arrays to Python lists and indented JSON is prohibited because it causes
 avoidable pauses, memory amplification, and very large autosaves.
 
 ## Identity and export correctness

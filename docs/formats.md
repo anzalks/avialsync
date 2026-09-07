@@ -39,6 +39,21 @@ Delimited text data can be imported through the guided importer. It lets you ide
 column, time units, units for channels, missing-value sentinels, and timestamp details. Tracking CSV
 files can be treated as frame-indexed when that is how the source was produced.
 
+### Pose estimates
+
+**DeepLabCut and LightningPose** multi-index CSVs are recognised by their own header — a `scorer`
+row above a `bodyparts` row — rather than by their file name, and are read as frame-indexed. Each
+body part becomes a channel; any complete `name_x` / `name_y` / `name_z` triplet also becomes a
+point in the 3D pane.
+
+Correcting a point by hand writes `<pose file>.avialfix.csv` beside the original — a plain
+`frame,bodypart,x,y` table with a commented header, readable with
+`pd.read_csv(path, comment="#")`. **The pose file itself is never modified**, so deleting the
+corrections file restores exactly what the model predicted. Corrections can be exported either as a
+corrected copy of the pose CSV, which anything that read the original will read unchanged, or as a
+DeepLabCut `labeled-data` retraining set. See [Correcting a tracked
+point](user-guide/index.md#correcting-a-tracked-point).
+
 ## Acquisition recordings
 
 Electrophysiology and instrument recordings are read through [neo](https://neo.readthedocs.io), so

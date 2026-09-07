@@ -20,10 +20,10 @@ recording on disk.
 
 | Part | Responsibility |
 | --- | --- |
-| `core/` | Headless timeline, cache, session, synchronization, and plugin contracts. It does not import the Qt interface. |
+| `core/` | Headless timeline, cache, session, synchronization, command bus, settings schema, and plugin contracts. It does not import the Qt interface. |
 | `loaders/` | Built-in readers for CSV, tracking, video, and optional scientific formats. Third-party readers use the same plugin contracts. |
 | `engine/` | Background imports, cache construction, playback coordination, exports, and synchronization workers. |
-| `ui/` | The desktop window, video panes, plots, sidebar, transport controls, and dialogs. |
+| `ui/` | The desktop window, video panes, plots, sidebar, transport controls, dialogs, and the registries that keep actions, overlays, and feedback single-authored. |
 
 ## Loading and viewing a source
 
@@ -60,8 +60,43 @@ left to garbage collection or Qt child destruction.
 
 Synchronization is evidence-based. The system stores raw event times, proposed matched event pairs,
 an offset/drift fit, residual timing error, and confidence. The user previews that evidence in the
-Sync Wizard and explicitly accepts a proposal before a `TimeMap` changes. The architecture never
-silently invents a match or rewrites a source file.
+Sync Wizard — as a residual plot against the tolerance band that decided it, not only as a summary
+line — and explicitly accepts a proposal before a `TimeMap` changes. The architecture never silently
+invents a match or rewrites a source file.
+
+## One authority per user-visible concept
+
+Interaction state that used to be defined in several places is defined once, and everything that
+presents it derives from that one definition rather than from a table kept beside it.
+
+| Concept | Sole authority | What derives from it |
+| --- | --- | --- |
+| Every user-visible mutation | the command bus in `core/document.py` | dirty state, undo/redo, autosave |
+| An action's label, category, shortcut, and enablement | the live `QAction` | the shortcuts dialog, the command palette, user shortcut overrides |
+| Configurable values | `core/settings_schema.py` | the generated Preferences dialog, the View-menu radio groups |
+| Graphics drawn over video | `ui/overlay_registry.py` | View → Overlays, the per-camera context menu, plugin overlays |
+
+Commands carry inverse operations rather than state snapshots — a snapshot per edit would breach the
+idle-memory budget. `core/` stays headless, so the bus is plain Python and the `QUndoStack` lives in
+`ui/undo_adapter.py`.
+
+## Never block, always inform
+
+Two dirtinesses are tracked and neither is a gate. *Document dirty* — unsaved session changes — shows
+as `[*]` in the title with a Save affordance. *Data dirty* — gaps, NaN or sentinel runs, missing
+metadata, VFR declared as CFR, dropped frames, no accepted mapping — shows as a per-source quality
+badge. A damaged file loads as far as it can and reports the rest; partial success beats refusal.
+
+Work that can exceed roughly 500 ms reports through the status-bar activity area, the jobs panel, and
+the notification strip, with cancel where the worker supports it; `QProgressDialog` is banned from
+`src/`. Typed exceptions from `core/errors.py` reach the user through the single presenter in
+`ui/feedback/error_presenter.py` as title, plain-language cause, and named recovery actions, with raw
+text behind "Show details". Quitting is never gated on saving: a recovery snapshot is written
+unconditionally to the platform's app-data location and the next launch says so, non-modally.
+
+High-bit-depth video is windowed in the decode worker, never in the pane: `to_ndarray("rgb24")`
+destroys 12-bit range inside swscale before any UI code runs, so display levels are a decode stage
+rather than a filter applied afterwards, and the lookup table never runs on the UI thread.
 
 ## Session and extension boundaries
 

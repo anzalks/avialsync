@@ -40,10 +40,10 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from PySide6.QtCore import QPointF, Qt
+from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
-from screenshot_kit import pin_appearance
+from screenshot_kit import pin_appearance, pin_layout
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "_static" / "screenshots" / "aol_session_overview.gif"
@@ -268,17 +268,24 @@ def capture(
     # two runs of this same command produced three visible trace rows and then
     # one. A documentation image has to be a property of the recording, not of
     # the operator's window. Applied before loading so the relayout it causes
-    # settles during the import rather than under the capture.
-    window._apply_default_splitter_sizes()
+    # settles during the import rather than under the capture. The stills
+    # harness needed the same guarantee, so the call lives in the kit now.
+    pin_layout(window)
 
     def settle(rounds: int = 60) -> None:
         """Drain the event loop without blocking it.
 
         Sleeping would be caught by the UI heartbeat and latched into the status
         bar, so the capture would advertise a freeze this harness caused.
+
+        ``DeferredDelete`` is flushed for the reason ``screenshot_kit.settle``
+        gives: Qt holds those until an event loop returns, and this script never
+        runs one, so a replaced widget would keep painting over the one that
+        replaced it.
         """
         for _ in range(rounds):
             app.processEvents()
+            app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
     def settle_for(seconds: float) -> None:
         deadline = time.monotonic() + seconds

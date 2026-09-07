@@ -59,10 +59,42 @@ conda run -n avialsync python tools/generate_guide_screenshots.py
 ```
 
 The second writes the annotated guide images, where a red box marks the control each step refers to.
-Both share `tools/screenshot_kit.py`, which pins the appearance so the images do not follow whoever
-last changed their theme preference. **Do not run either under `QT_QPA_PLATFORM=offscreen`:** the
-offscreen plugin has no native menu bar, so Qt draws one inside the window and every capture gains a
-File/View/Help strip a real macOS user never sees.
+
+The looping GIF on the front page is the third, and it is the only one that needs data:
+
+```bash
+conda run -n avialsync python tools/generate_session_screenshot.py <recording folder>
+```
+
+It photographs whatever recording folder you point it at, through the real drop-and-open path, so
+the layout in the image is the one a session plugin produced rather than a staged arrangement. The
+path is an argument and never hardcoded: field data lives outside the repository and differs per
+lab. It writes only `docs/_static/screenshots/aol_session_overview.gif` and reads the recording.
+
+All three share `tools/screenshot_kit.py`, which pins the two things that otherwise make an image a
+photograph of the developer's machine:
+
+- **`pin_appearance`** forces the documented theme without persisting it, so the images do not
+  follow whoever last changed their preference.
+- **`pin_layout`** re-seeds the first-run splitter ratios. `MainWindow` restores saved geometry, so
+  a developer who has ever dragged a splitter photographs their own arrangement — one run produced
+  an 85px video pane with a blank band under the plots, which reads as a layout bug rather than as
+  the personal setting it was. Call it after `show()` and a `settle()`; a splitter redistributes on
+  its first real resize, so seeding earlier seeds nothing.
+
+`settle()` also flushes `DeferredDelete`, which `processEvents` deliberately does not deliver. Qt
+holds those until an event loop returns, and these scripts never run one, so a replaced widget is
+only removed from its layout and keeps painting at its last geometry — the sidebar's "No sensor data
+loaded." note used to appear on top of the source card that replaced it, in an image where a real
+user sees no such frame.
+
+**Do not run any of them under `QT_QPA_PLATFORM=offscreen`:** the offscreen plugin has no native
+menu bar, so Qt draws one inside the window and every capture gains a File/View/Help strip a real
+macOS user never sees.
+
+Capture at 1280x860 or wider. Below roughly 1200px the Data Streams header overflows and Qt clips
+"Fullscreen Toggle" to "ullscreen Togg", which reads as a rendering fault rather than as the window
+being narrow.
 
 ## Building the documentation
 
