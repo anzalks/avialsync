@@ -187,3 +187,37 @@ def test_the_sidebars_own_chrome_fits_its_minimum(qapp: QApplication, qtbot) -> 
         f"sidebar contents need {needed}px inside a {pane.minimumWidth()}px "
         f"minimum, so the horizontal scrollbar is always showing"
     )
+
+
+@pytest.mark.parametrize("width", [200, 240, 320, 500])
+def test_the_bulk_visibility_buttons_do_not_sit_on_each_other(
+    width: int, qapp: QApplication, qtbot
+) -> None:
+    """Show all and Hide all are two buttons and have to look like two.
+
+    Both carry the ``Ignored`` size policy so the pair can shrink below the
+    223px its two size hints add up to. ``Ignored`` also reports a *preferred*
+    width of zero, so when the trailing stretch was the only item in the row
+    with a stretch factor it claimed all the free width and left each button a
+    few pixels. Each still painted at its own 64px floor, from a position the
+    layout had computed for those few pixels, so the two overlapped by 54px and
+    rendered as a single unreadable "SHide all" -- at every width, not only a
+    narrow one, which is why a fits-the-sidebar test never caught it.
+    """
+    from PySide6.QtWidgets import QPushButton
+
+    widget = _panel("sensor", qtbot)
+    widget.resize(width, 700)
+    widget.layout().activate()
+    qapp.processEvents()
+
+    show, hide = (
+        b
+        for b in widget.findChildren(QPushButton)
+        if b.text() in ("Show all", "Hide all") and b.isVisible()
+    )
+    gap = hide.x() - (show.x() + show.width())
+    assert gap >= 0, (
+        f"at {width}px the buttons overlap by {-gap}px: "
+        f"Show all ends at {show.x() + show.width()}, Hide all starts at {hide.x()}"
+    )

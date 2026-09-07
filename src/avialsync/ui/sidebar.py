@@ -297,12 +297,21 @@ class SensorInfoWidget(QFrame):
         # because a button reports the same minimumSizeHint as sizeHint; only
         # `Ignored` lets the layout go below it. The explicit floor is what
         # keeps them from collapsing to a sliver in the narrowest sidebar.
+        #
+        # `Ignored` also drops the *preferred* width to zero, so the trailing
+        # stretch -- the only item the row gave a stretch factor -- claimed all
+        # the free width and left both buttons a few pixels each. Each then
+        # painted at its own 64 px floor from a position computed for those few
+        # pixels, so "Show all" and "Hide all" landed on top of each other and
+        # rendered as one unreadable "SHide all" at every sidebar width. Giving
+        # the buttons a stretch factor of their own is what makes the layout
+        # allocate the width they are going to paint at.
         for button in (show_all_btn, hide_all_btn):
             button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
             button.setMinimumWidth(64)
-        bulk_row.addWidget(show_all_btn)
-        bulk_row.addWidget(hide_all_btn)
-        bulk_row.addStretch()
+        bulk_row.addWidget(show_all_btn, 1)
+        bulk_row.addWidget(hide_all_btn, 1)
+        bulk_row.addStretch(1)
         if len(channels) > 1:
             layout.addLayout(bulk_row)
 
