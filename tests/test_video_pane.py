@@ -492,3 +492,49 @@ def test_losing_footage_clears_the_frame_instead_of_freezing_it(clip: Path, qtbo
         assert pane.lbl_no_footage.isVisible() or pane.lbl_no_footage.text()
     finally:
         pane.close()
+
+
+# ── A padded recording must settle its seeks (D-102) ──────────────────
+#
+# The contiguity guarantee is pinned in tests/test_display_pipeline.py. What is
+# pinned here is the consequence of losing it, because that is what the user
+# actually reported: not "an exception in the log" but "it blinks and nothing
+# plays, and navigation stopped being seamless".
+#
+# `_on_frame_ready` paints before it clears `is_seeking`, updates `time_pos`,
+# and emits `frame_presented`. A raise on the first line loses all three:
+#   * `SeekGroup.is_settled()` never becomes true again, so `Player.seek`
+#     coalesces every non-exact (drag) seek into `_pending_scrub_t` and
+#     `_on_tick` never flushes it — scrubbing dies while exact seeks still work,
+#     which is what "not seamless" feels like from the outside;
+#   * the master clock is deliberately not gated on settling, so the playhead,
+#     plots and readout keep moving over a picture that never changes.
+
+#: A width whose rgb24 rows FFmpeg pads, and one it does not.
+PADDED_FRAME_SIZE = (1290, 720)
+ALIGNED_FRAME_SIZE = (640, 360)
+
+
+@pytest.mark.parametrize("size", [PADDED_FRAME_SIZE, ALIGNED_FRAME_SIZE])
+def test_a_decoded_frame_settles_the_seek_it_answers(size, qtbot) -> None:
+    """Whatever the width, delivering the awaited frame must end the seek."""
+    import av
+
+    from avialsync.engine.display_pipeline import to_display_array
+    from avialsync.engine.seeker import SeekGroup
+
+    pane = video_pane.VideoPane()
+    qtbot.addWidget(pane)
+    pane.resize(400, 300)
+    pane.is_seeking = True
+    pane._seek_id = 7
+    rgb, _ = to_display_array(av.VideoFrame(*size, "yuv420p"))
+    presented: list[float] = []
+    pane.frame_presented.connect(presented.append)
+
+    pane._on_frame_ready(7, 0, 1.25, rgb)
+
+    assert not pane.is_seeking, "the pane never stopped waiting for its own frame"
+    assert SeekGroup([pane]).is_settled(), "Player would coalesce every drag seek forever"
+    assert pane.time_pos == 1.25
+    assert presented == [1.25]
