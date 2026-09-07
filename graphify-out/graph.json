@@ -6910,11 +6910,19 @@
       "_origin": "ast"
     },
     {
+      "id": "src_avialsync_engine_display_pipeline_contiguous",
+      "label": "_contiguous()",
+      "file_type": "code",
+      "source_file": "src/avialsync/engine/display_pipeline.py",
+      "source_location": "L196",
+      "_origin": "ast"
+    },
+    {
       "id": "src_avialsync_engine_display_pipeline_to_display_array",
       "label": "to_display_array()",
       "file_type": "code",
       "source_file": "src/avialsync/engine/display_pipeline.py",
-      "source_location": "L196",
+      "source_location": "L215",
       "_origin": "ast"
     },
     {
@@ -7031,10 +7039,18 @@
     },
     {
       "id": "src_avialsync_engine_display_pipeline_rationale_197",
-      "label": "Convert *frame* for display. Returns ``(array, is_greyscale)``.      High-bit-de",
+      "label": "Return *array* in C-contiguous memory, copying only when it is not.      PyAV's",
       "file_type": "rationale",
       "source_file": "src/avialsync/engine/display_pipeline.py",
       "source_location": "L197",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_engine_display_pipeline_rationale_216",
+      "label": "Convert *frame* for display. Returns ``(array, is_greyscale)``.      High-bit-de",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/engine/display_pipeline.py",
+      "source_location": "L216",
       "_origin": "ast"
     },
     {
@@ -12859,6 +12875,110 @@
       "file_type": "rationale",
       "source_file": "src/avialsync/loaders/video_standard.py",
       "source_location": "L522",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup",
+      "label": "logging_setup.py",
+      "file_type": "code",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup_dedupefilter",
+      "label": "DedupeFilter",
+      "file_type": "code",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L48",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup_dedupefilter_init",
+      "label": ".__init__()",
+      "file_type": "code",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L57",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup_dedupefilter_filter",
+      "label": ".filter()",
+      "file_type": "code",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L61",
+      "_origin": "ast"
+    },
+    {
+      "id": "logrecord",
+      "label": "LogRecord",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup_configured_level",
+      "label": "_configured_level()",
+      "file_type": "code",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L77",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup_configure_logging",
+      "label": "configure_logging()",
+      "file_type": "code",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L86",
+      "_origin": "ast"
+    },
+    {
+      "id": "handler",
+      "label": "Handler",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup_rationale_1",
+      "label": "One place that decides what reaches the terminal, and how it reads.  The applica",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup_rationale_49",
+      "label": "Pass each distinct formatted message once.      Keyed on the *formatted* message",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L49",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup_rationale_62",
+      "label": "Return whether *record* is the first of its exact message.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L62",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup_rationale_78",
+      "label": "Resolve the console level from the environment, or the default.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L78",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_logging_setup_rationale_87",
+      "label": "Install the console handler, replacing one from an earlier call.      Returns th",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L87",
       "_origin": "ast"
     },
     {
@@ -30682,7 +30802,7 @@
       "label": ".clear()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L334",
+      "source_location": "L339",
       "_origin": "ast"
     },
     {
@@ -30690,7 +30810,7 @@
       "label": ".frame_geometry()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L340",
+      "source_location": "L345",
       "_origin": "ast"
     },
     {
@@ -30698,7 +30818,7 @@
       "label": ".zoom_by()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L352",
+      "source_location": "L357",
       "_origin": "ast"
     },
     {
@@ -30714,7 +30834,7 @@
       "label": ".pan_by()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L378",
+      "source_location": "L383",
       "_origin": "ast"
     },
     {
@@ -30722,7 +30842,7 @@
       "label": ".reset_view()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L387",
+      "source_location": "L392",
       "_origin": "ast"
     },
     {
@@ -30730,7 +30850,7 @@
       "label": "._base_geometry()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L396",
+      "source_location": "L401",
       "_origin": "ast"
     },
     {
@@ -30738,7 +30858,7 @@
       "label": "._clamp_pan()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L407",
+      "source_location": "L412",
       "_origin": "ast"
     },
     {
@@ -30746,7 +30866,7 @@
       "label": ".resizeEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L422",
+      "source_location": "L427",
       "_origin": "ast"
     },
     {
@@ -30762,7 +30882,7 @@
       "label": ".wheelEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L428",
+      "source_location": "L433",
       "_origin": "ast"
     },
     {
@@ -30778,7 +30898,7 @@
       "label": ".mousePressEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L437",
+      "source_location": "L442",
       "_origin": "ast"
     },
     {
@@ -30794,7 +30914,7 @@
       "label": ".mouseMoveEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L445",
+      "source_location": "L450",
       "_origin": "ast"
     },
     {
@@ -30802,7 +30922,7 @@
       "label": ".mouseReleaseEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L456",
+      "source_location": "L461",
       "_origin": "ast"
     },
     {
@@ -30810,7 +30930,7 @@
       "label": ".paintEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L464",
+      "source_location": "L469",
       "_origin": "ast"
     },
     {
@@ -30826,7 +30946,7 @@
       "label": "VideoPane",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L488",
+      "source_location": "L493",
       "_origin": "ast"
     },
     {
@@ -30834,7 +30954,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L511",
+      "source_location": "L516",
       "_origin": "ast"
     },
     {
@@ -30842,7 +30962,7 @@
       "label": ".has_media()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L571",
+      "source_location": "L576",
       "_origin": "ast"
     },
     {
@@ -30850,7 +30970,7 @@
       "label": ".open()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L575",
+      "source_location": "L580",
       "_origin": "ast"
     },
     {
@@ -30858,7 +30978,7 @@
       "label": "._on_format_detected()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L601",
+      "source_location": "L606",
       "_origin": "ast"
     },
     {
@@ -30866,7 +30986,7 @@
       "label": ".set_display_levels()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L607",
+      "source_location": "L612",
       "_origin": "ast"
     },
     {
@@ -30874,7 +30994,7 @@
       "label": ".display_levels()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L629",
+      "source_location": "L634",
       "_origin": "ast"
     },
     {
@@ -30882,7 +31002,7 @@
       "label": ".auto_display_levels()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L632",
+      "source_location": "L637",
       "_origin": "ast"
     },
     {
@@ -30890,7 +31010,7 @@
       "label": "._on_opened()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L653",
+      "source_location": "L658",
       "_origin": "ast"
     },
     {
@@ -30898,7 +31018,7 @@
       "label": "._on_open_failed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L667",
+      "source_location": "L672",
       "_origin": "ast"
     },
     {
@@ -30906,7 +31026,7 @@
       "label": "._on_frame_ready()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L675",
+      "source_location": "L680",
       "_origin": "ast"
     },
     {
@@ -30914,7 +31034,7 @@
       "label": ".displayed_frame_rate_now()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L696",
+      "source_location": "L701",
       "_origin": "ast"
     },
     {
@@ -30922,7 +31042,7 @@
       "label": "._displayed_rate()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L700",
+      "source_location": "L705",
       "_origin": "ast"
     },
     {
@@ -30930,7 +31050,7 @@
       "label": ".seek()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L710",
+      "source_location": "L715",
       "_origin": "ast"
     },
     {
@@ -30938,7 +31058,7 @@
       "label": ".play()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L729",
+      "source_location": "L734",
       "_origin": "ast"
     },
     {
@@ -30946,7 +31066,7 @@
       "label": ".pause()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L737",
+      "source_location": "L742",
       "_origin": "ast"
     },
     {
@@ -30954,7 +31074,7 @@
       "label": ".set_source_bounds()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L743",
+      "source_location": "L748",
       "_origin": "ast"
     },
     {
@@ -30962,7 +31082,7 @@
       "label": ".has_footage_at_master()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L748",
+      "source_location": "L753",
       "_origin": "ast"
     },
     {
@@ -30970,7 +31090,7 @@
       "label": ".set_tracking_readers()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L758",
+      "source_location": "L763",
       "_origin": "ast"
     },
     {
@@ -30978,7 +31098,7 @@
       "label": ".set_overlay_tracks()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L761",
+      "source_location": "L766",
       "_origin": "ast"
     },
     {
@@ -30986,7 +31106,7 @@
       "label": ".set_point_edits()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L765",
+      "source_location": "L770",
       "_origin": "ast"
     },
     {
@@ -30994,7 +31114,7 @@
       "label": ".set_point_edit_mode()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L769",
+      "source_location": "L774",
       "_origin": "ast"
     },
     {
@@ -31002,7 +31122,7 @@
       "label": ".point_edit_mode()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L774",
+      "source_location": "L779",
       "_origin": "ast"
     },
     {
@@ -31010,7 +31130,7 @@
       "label": ".set_highlighted_point()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L778",
+      "source_location": "L783",
       "_origin": "ast"
     },
     {
@@ -31018,7 +31138,7 @@
       "label": "._queue_osd_update()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L782",
+      "source_location": "L787",
       "_origin": "ast"
     },
     {
@@ -31026,7 +31146,7 @@
       "label": "._flush_osd_update()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L792",
+      "source_location": "L797",
       "_origin": "ast"
     },
     {
@@ -31034,7 +31154,7 @@
       "label": "._arm_osd_flush_timer()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L819",
+      "source_location": "L824",
       "_origin": "ast"
     },
     {
@@ -31042,7 +31162,7 @@
       "label": ".eventFilter()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L831",
+      "source_location": "L836",
       "_origin": "ast"
     },
     {
@@ -31050,7 +31170,7 @@
       "label": ".set_label()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L845",
+      "source_location": "L850",
       "_origin": "ast"
     },
     {
@@ -31058,7 +31178,7 @@
       "label": ".apply_overlay_visibility()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L853",
+      "source_location": "L858",
       "_origin": "ast"
     },
     {
@@ -31066,7 +31186,7 @@
       "label": ".video_size()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L873",
+      "source_location": "L878",
       "_origin": "ast"
     },
     {
@@ -31074,7 +31194,7 @@
       "label": ".shows_footage()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L884",
+      "source_location": "L889",
       "_origin": "ast"
     },
     {
@@ -31082,7 +31202,7 @@
       "label": ".set_has_footage()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L892",
+      "source_location": "L897",
       "_origin": "ast"
     },
     {
@@ -31090,7 +31210,7 @@
       "label": ".time_map()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L903",
+      "source_location": "L908",
       "_origin": "ast"
     },
     {
@@ -31098,7 +31218,7 @@
       "label": "._build_overlay_chrome()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L911",
+      "source_location": "L916",
       "_origin": "ast"
     },
     {
@@ -31106,7 +31226,7 @@
       "label": "._shutdown_decoder()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L996",
+      "source_location": "L1001",
       "_origin": "ast"
     },
     {
@@ -31114,7 +31234,7 @@
       "label": "._stop_everything()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1029",
+      "source_location": "L1034",
       "_origin": "ast"
     },
     {
@@ -31122,7 +31242,7 @@
       "label": ".close()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1042",
+      "source_location": "L1047",
       "_origin": "ast"
     },
     {
@@ -31130,7 +31250,7 @@
       "label": ".closeEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1051",
+      "source_location": "L1056",
       "_origin": "ast"
     },
     {
@@ -31246,347 +31366,347 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_335",
+      "id": "src_avialsync_ui_video_pane_rationale_340",
       "label": "Drop the displayed frame.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L335",
+      "source_location": "L340",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_343",
+      "id": "src_avialsync_ui_video_pane_rationale_348",
       "label": "Return ``(scale, offset_x, offset_y)`` for a target widget size.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L343",
+      "source_location": "L348",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_353",
+      "id": "src_avialsync_ui_video_pane_rationale_358",
       "label": "Scale the view around ``anchor`` while preserving the sampled pixel.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L353",
+      "source_location": "L358",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_379",
+      "id": "src_avialsync_ui_video_pane_rationale_384",
       "label": "Shift the magnified frame by ``delta`` widget pixels, clamped to its edges.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L379",
+      "source_location": "L384",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_388",
+      "id": "src_avialsync_ui_video_pane_rationale_393",
       "label": "Restore the fitted, centred video view.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L388",
+      "source_location": "L393",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_408",
+      "id": "src_avialsync_ui_video_pane_rationale_413",
       "label": "Keep a panned image from revealing empty space beyond its edges.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L408",
+      "source_location": "L413",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_423",
+      "id": "src_avialsync_ui_video_pane_rationale_428",
       "label": "Constrain the retained pan when the pane changes size.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L423",
+      "source_location": "L428",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_429",
+      "id": "src_avialsync_ui_video_pane_rationale_434",
       "label": "Zoom around the mouse cursor with the scroll wheel.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L429",
+      "source_location": "L434",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_438",
+      "id": "src_avialsync_ui_video_pane_rationale_443",
       "label": "Start a middle-button pan when the view is magnified.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L438",
+      "source_location": "L443",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_446",
+      "id": "src_avialsync_ui_video_pane_rationale_451",
       "label": "Pan the magnified frame with the held middle button.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L446",
+      "source_location": "L451",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_457",
+      "id": "src_avialsync_ui_video_pane_rationale_462",
       "label": "Finish a middle-button pan gesture.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L457",
+      "source_location": "L462",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_465",
+      "id": "src_avialsync_ui_video_pane_rationale_470",
       "label": "Blit the frame using the current view transform.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L465",
+      "source_location": "L470",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_489",
+      "id": "src_avialsync_ui_video_pane_rationale_494",
       "label": "Video rendering pane.      Decodes with PyAV on a per-pane worker thread and bli",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L489",
+      "source_location": "L494",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_572",
+      "id": "src_avialsync_ui_video_pane_rationale_577",
       "label": "Whether this pane holds an opened decoder.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L572",
+      "source_location": "L577",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_576",
+      "id": "src_avialsync_ui_video_pane_rationale_581",
       "label": "Open a video file on this pane's decode thread.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L576",
+      "source_location": "L581",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_602",
+      "id": "src_avialsync_ui_video_pane_rationale_607",
       "label": "Publish what this recording actually is, once it has been decoded.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L602",
+      "source_location": "L607",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_608",
+      "id": "src_avialsync_ui_video_pane_rationale_613",
       "label": "Apply a display window to this camera.          Queued to the decode thread rath",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L608",
+      "source_location": "L613",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_633",
+      "id": "src_avialsync_ui_video_pane_rationale_638",
       "label": "Levels chosen from the frame currently on screen.          Uses the displayed 8-",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L633",
+      "source_location": "L638",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_654",
+      "id": "src_avialsync_ui_video_pane_rationale_659",
       "label": "Adopt the decoder's timestamp table and show the first wanted frame.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L654",
+      "source_location": "L659",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_668",
+      "id": "src_avialsync_ui_video_pane_rationale_673",
       "label": "Leave a pane that says why it is empty rather than one that lies.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L668",
+      "source_location": "L673",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_676",
+      "id": "src_avialsync_ui_video_pane_rationale_681",
       "label": "Show a decoded frame and report the timestamp it actually carries.          Ever",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L676",
+      "source_location": "L681",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_697",
+      "id": "src_avialsync_ui_video_pane_rationale_702",
       "label": "Return the frame rate of the frame currently on screen.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L697",
+      "source_location": "L702",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_711",
+      "id": "src_avialsync_ui_video_pane_rationale_716",
       "label": "Show the frame whose presentation interval contains source time ``t``.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L711",
+      "source_location": "L716",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_730",
+      "id": "src_avialsync_ui_video_pane_rationale_735",
       "label": "Note that the transport is running.          The pane does not run a clock of it",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L730",
+      "source_location": "L735",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_738",
+      "id": "src_avialsync_ui_video_pane_rationale_743",
       "label": "Note that the transport is paused.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L738",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_video_pane_rationale_744",
-      "label": "Set the source-time interval that contains decodable media.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L744",
+      "source_location": "L743",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_video_pane_rationale_749",
-      "label": "Return whether this pane has media at the supplied master time.",
+      "label": "Set the source-time interval that contains decodable media.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
       "source_location": "L749",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_762",
+      "id": "src_avialsync_ui_video_pane_rationale_754",
+      "label": "Return whether this pane has media at the supplied master time.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L754",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_video_pane_rationale_767",
       "label": "Draw named 2D prediction sources (ensemble + models) over this pane.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L762",
+      "source_location": "L767",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_766",
+      "id": "src_avialsync_ui_video_pane_rationale_771",
       "label": "Adopt the session's hand-correction store (D-099).",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L766",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_video_pane_rationale_770",
-      "label": "Turn \"Fix Tracker\" on or off for this pane.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L770",
+      "source_location": "L771",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_video_pane_rationale_775",
-      "label": "Whether this pane is currently accepting point corrections.",
+      "label": "Turn \"Fix Tracker\" on or off for this pane.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
       "source_location": "L775",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_779",
+      "id": "src_avialsync_ui_video_pane_rationale_780",
+      "label": "Whether this pane is currently accepting point corrections.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L780",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_video_pane_rationale_784",
       "label": "Ring one tracked coordinate, or clear the ring when *key* is None.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L779",
+      "source_location": "L784",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_783",
+      "id": "src_avialsync_ui_video_pane_rationale_788",
       "label": "Queue at most one UI-thread OSD/overlay update, retaining the newest frame.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L783",
+      "source_location": "L788",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_793",
+      "id": "src_avialsync_ui_video_pane_rationale_798",
       "label": "Repaint the OSD and overlay, but never faster than a person can read.          T",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L793",
+      "source_location": "L798",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_820",
+      "id": "src_avialsync_ui_video_pane_rationale_825",
       "label": "Schedule the deferred trailing OSD paint, at most one outstanding.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L820",
+      "source_location": "L825",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_854",
+      "id": "src_avialsync_ui_video_pane_rationale_859",
       "label": "Show or hide each registered overlay layer on this pane (D-090).          Takes",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L854",
+      "source_location": "L859",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_874",
+      "id": "src_avialsync_ui_video_pane_rationale_879",
       "label": "Decoded video dimensions, or None before a frame has arrived.          Delegated",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L874",
+      "source_location": "L879",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_885",
+      "id": "src_avialsync_ui_video_pane_rationale_890",
       "label": "Whether the pane is showing frames rather than the D-010 placeholder.          U",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L885",
+      "source_location": "L890",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_912",
+      "id": "src_avialsync_ui_video_pane_rationale_917",
       "label": "Create the paint canvas, name/OSD labels, and placeholder overlay.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L912",
+      "source_location": "L917",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_997",
+      "id": "src_avialsync_ui_video_pane_rationale_1002",
       "label": "Stop the decode thread and close its reader.          Ownership is explicit, as",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L997",
+      "source_location": "L1002",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_1030",
+      "id": "src_avialsync_ui_video_pane_rationale_1035",
       "label": "Stop the deferred paint and the decode thread, in that order.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1030",
+      "source_location": "L1035",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_1043",
+      "id": "src_avialsync_ui_video_pane_rationale_1048",
       "label": "Stop decoding before closing the widget.          Returns whatever ``QWidget.clo",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1043",
+      "source_location": "L1048",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_video_pane_rationale_1052",
+      "id": "src_avialsync_ui_video_pane_rationale_1057",
       "label": "Stop the decode thread when Qt closes the pane by any other route.          ``cl",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1052",
+      "source_location": "L1057",
       "_origin": "ast"
     },
     {
@@ -41494,6 +41614,38 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_display_pipeline_test_pyav_really_does_hand_back_a_strided_view",
+      "label": "test_pyav_really_does_hand_back_a_strided_view()",
+      "file_type": "code",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L255",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_display_pipeline_test_display_array_can_be_borrowed_by_a_qimage",
+      "label": "test_display_array_can_be_borrowed_by_a_qimage()",
+      "file_type": "code",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L270",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_display_pipeline_test_a_padded_frame_survives_the_pane_that_paints_it",
+      "label": "test_a_padded_frame_survives_the_pane_that_paints_it()",
+      "file_type": "code",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L290",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_display_pipeline_test_a_windowed_high_bit_depth_frame_is_contiguous_too",
+      "label": "test_a_windowed_high_bit_depth_frame_is_contiguous_too()",
+      "file_type": "code",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L305",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_display_pipeline_rationale_1",
       "label": "Display levels, sized by the recording's own bit depth (WP-9, D-093).  ``to_ndar",
       "file_type": "rationale",
@@ -41603,6 +41755,38 @@
       "file_type": "rationale",
       "source_file": "tests/test_display_pipeline.py",
       "source_location": "L233",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_display_pipeline_rationale_256",
+      "label": "Guard the guard: without this, the test below could pass vacuously.      If a fu",
+      "file_type": "rationale",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L256",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_display_pipeline_rationale_271",
+      "label": "The array must expose a buffer, at every width — not just aligned ones.      `Vi",
+      "file_type": "rationale",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L271",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_display_pipeline_rationale_291",
+      "label": "End to end: the real slot, on a width the fixtures never exercise.",
+      "file_type": "rationale",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L291",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_display_pipeline_rationale_306",
+      "label": "The 12-bit path builds fresh arrays, but say so rather than assume it.",
+      "file_type": "rationale",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L306",
       "_origin": "ast"
     },
     {
@@ -48227,6 +48411,190 @@
       "file_type": "rationale",
       "source_file": "tests/test_loaders_video.py",
       "source_location": "L253",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup",
+      "label": "test_logging_setup.py",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_console",
+      "label": "console()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L25",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_emit",
+      "label": "_emit()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L38",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_test_a_line_names_the_logger_that_wrote_it",
+      "label": "test_a_line_names_the_logger_that_wrote_it()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L48",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_test_one_fact_about_a_recording_is_reported_once",
+      "label": "test_one_fact_about_a_recording_is_reported_once()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L62",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_test_distinct_messages_all_get_through",
+      "label": "test_distinct_messages_all_get_through()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L70",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_test_the_same_words_from_two_libraries_are_two_messages",
+      "label": "test_the_same_words_from_two_libraries_are_two_messages()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L89",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_test_a_traceback_is_never_deduplicated",
+      "label": "test_a_traceback_is_never_deduplicated()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L97",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_test_the_repeats_can_be_asked_for_back",
+      "label": "test_the_repeats_can_be_asked_for_back()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L114",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_test_the_level_comes_from_the_environment",
+      "label": "test_the_level_comes_from_the_environment()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L128",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_test_an_unreadable_level_falls_back_rather_than_crashing_the_launch",
+      "label": "test_an_unreadable_level_falls_back_rather_than_crashing_the_launch()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L143",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_test_configuring_twice_does_not_double_every_line",
+      "label": "test_configuring_twice_does_not_double_every_line()",
+      "file_type": "code",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L156",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_1",
+      "label": "The terminal says who is speaking, and says each thing once.  The app configured",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_26",
+      "label": "Install the handler against a clean environment, and take it out after.",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L26",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_39",
+      "label": "Push (logger name, message) pairs through the handler's own filters.",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L39",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_49",
+      "label": "\"Units ... dimensionless\" must be visibly neo's opinion, not ours.",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L49",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_63",
+      "label": "Four channels carrying \"Deg.\" is one fact about the file, not four.",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L63",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_71",
+      "label": "Two stalls of different lengths are two events, not a repeat.      Deduplication",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L71",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_90",
+      "label": "The logger name is part of the key: nobody is silenced by a coincidence.",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L90",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_98",
+      "label": "A repeat carrying an exception is the detail worth seeing again.",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L98",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_115",
+      "label": "Dropping records needs an escape hatch, or a count becomes unmeasurable.",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L115",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_144",
+      "label": "A typo in an env var must not stop the application starting.",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L144",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_logging_setup_rationale_157",
+      "label": "A second call replaces our handler instead of stacking another.",
+      "file_type": "rationale",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L157",
       "_origin": "ast"
     },
     {
@@ -64526,6 +64894,22 @@
       "_origin": "ast"
     },
     {
+      "id": "decisions_2026_09_d_102_a_display_array_is_c_contiguous_before_it_leaves_the_decode_thread",
+      "label": "2026-09 · D-102 · A display array is C-contiguous before it leaves the decode thread",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L3688",
+      "_origin": "ast"
+    },
+    {
+      "id": "decisions_2026_09_d_103_the_terminal_names_its_sources_and_says_each_thing_once",
+      "label": "2026-09 · D-103 · The terminal names its sources, and says each thing once",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L3723",
+      "_origin": "ast"
+    },
+    {
       "id": "gemini",
       "label": "GEMINI.md",
       "file_type": "document",
@@ -64658,7 +65042,7 @@
       "label": "Architecture Rules (violations = rejected PR)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L487",
+      "source_location": "L489",
       "_origin": "ast"
     },
     {
@@ -64666,7 +65050,7 @@
       "label": "Signal Wiring Map",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L501",
+      "source_location": "L503",
       "_origin": "ast"
     },
     {
@@ -64674,7 +65058,7 @@
       "label": "Sidebar → MainWindow → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L505",
+      "source_location": "L507",
       "_origin": "ast"
     },
     {
@@ -64682,7 +65066,7 @@
       "label": "Transport → Player → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L519",
+      "source_location": "L521",
       "_origin": "ast"
     },
     {
@@ -64690,7 +65074,7 @@
       "label": "PlotPane / Player → downstream",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L536",
+      "source_location": "L538",
       "_origin": "ast"
     },
     {
@@ -64698,7 +65082,7 @@
       "label": "Time display mode (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L547",
+      "source_location": "L549",
       "_origin": "ast"
     },
     {
@@ -64706,7 +65090,7 @@
       "label": "Source properties + integrity (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L554",
+      "source_location": "L556",
       "_origin": "ast"
     },
     {
@@ -64714,7 +65098,7 @@
       "label": "Import pipeline (updated, D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L564",
+      "source_location": "L566",
       "_origin": "ast"
     },
     {
@@ -64722,7 +65106,7 @@
       "label": "Known Traps",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L580",
+      "source_location": "L582",
       "_origin": "ast"
     },
     {
@@ -64730,7 +65114,7 @@
       "label": "0a. Three UI facts that look like features and are not (Phase 7)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L588",
+      "source_location": "L590",
       "_origin": "ast"
     },
     {
@@ -64738,7 +65122,7 @@
       "label": "0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L626",
+      "source_location": "L628",
       "_origin": "ast"
     },
     {
@@ -64746,7 +65130,7 @@
       "label": "0b. Building a widget list can free the widgets in it (D-065)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L639",
+      "source_location": "L641",
       "_origin": "ast"
     },
     {
@@ -64754,7 +65138,7 @@
       "label": "0a. A `QObject` moved to a `QThread` needs an owning Python reference",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L651",
+      "source_location": "L653",
       "_origin": "ast"
     },
     {
@@ -64762,7 +65146,7 @@
       "label": "0b. Do NOT add the anchor date to AOL encoder timestamps (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L658",
+      "source_location": "L660",
       "_origin": "ast"
     },
     {
@@ -64770,7 +65154,7 @@
       "label": "0c. AOL pose data must not become plot rows (D-046)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L665",
+      "source_location": "L667",
       "_origin": "ast"
     },
     {
@@ -64778,7 +65162,7 @@
       "label": "0c-bis. Overlay data reaches the grid before most panes exist (D-077)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L672",
+      "source_location": "L674",
       "_origin": "ast"
     },
     {
@@ -64786,7 +65170,7 @@
       "label": "0c-ter. The overlay reads `sample_at`, not `value_at` (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L684",
+      "source_location": "L686",
       "_origin": "ast"
     },
     {
@@ -64794,7 +65178,7 @@
       "label": "0c-quater. A correction never touches the pose file or its cache (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L694",
+      "source_location": "L696",
       "_origin": "ast"
     },
     {
@@ -64802,7 +65186,7 @@
       "label": "0c-quinquies. Persistence hangs off the mutation, not off the store's observers (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L704",
+      "source_location": "L706",
       "_origin": "ast"
     },
     {
@@ -64810,7 +65194,7 @@
       "label": "0c-sexies. A correction is keyed by sample index, written as a video frame (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L714",
+      "source_location": "L716",
       "_origin": "ast"
     },
     {
@@ -64818,7 +65202,7 @@
       "label": "0c-septies. Export writers do not create the folder you typed (D-100)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L726",
+      "source_location": "L728",
       "_origin": "ast"
     },
     {
@@ -64826,7 +65210,7 @@
       "label": "0c-octies. Do not reach for `QToolButton.setDefaultAction` (D-100)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L732",
+      "source_location": "L734",
       "_origin": "ast"
     },
     {
@@ -64834,7 +65218,7 @@
       "label": "0d. `\"_eks.csv\".split(\"_\")[0]` is `\"\"` — and `\"\" in name` matches everything",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L741",
+      "source_location": "L743",
       "_origin": "ast"
     },
     {
@@ -64842,7 +65226,7 @@
       "label": "0e. A container's declared frame rate is a claim, not evidence (D-072)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L746",
+      "source_location": "L748",
       "_origin": "ast"
     },
     {
@@ -64850,7 +65234,7 @@
       "label": "0f. `*.xml` matches `settings.xml`, two levels above the samples (D-070)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L754",
+      "source_location": "L756",
       "_origin": "ast"
     },
     {
@@ -64858,7 +65242,7 @@
       "label": "0g. A sidecar cache is named after its source path *alone*",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L760",
+      "source_location": "L762",
       "_origin": "ast"
     },
     {
@@ -64866,7 +65250,7 @@
       "label": "0h. Cache files are shared inodes — never write to one in place (D-071)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L767",
+      "source_location": "L769",
       "_origin": "ast"
     },
     {
@@ -64874,7 +65258,7 @@
       "label": "0i. A drop must step over our own sidecar caches",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L774",
+      "source_location": "L776",
       "_origin": "ast"
     },
     {
@@ -64882,7 +65266,7 @@
       "label": "0j. Only the first session of a multi-path drop owns the timeline",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L781",
+      "source_location": "L783",
       "_origin": "ast"
     },
     {
@@ -64890,7 +65274,7 @@
       "label": "0k. A plugin's display name is the kind of data, never the rig",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L787",
+      "source_location": "L789",
       "_origin": "ast"
     },
     {
@@ -64898,7 +65282,7 @@
       "label": "0l. A `SessionItem` label is never part of `config`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L802",
+      "source_location": "L804",
       "_origin": "ast"
     },
     {
@@ -64906,7 +65290,7 @@
       "label": "0m. \"Failed to import CSV\" was hardcoded for every loader",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L809",
+      "source_location": "L811",
       "_origin": "ast"
     },
     {
@@ -64914,7 +65298,7 @@
       "label": "0n. Combo index 0 is \"Skip\" — never leave a resolved row on it",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L820",
+      "source_location": "L822",
       "_origin": "ast"
     },
     {
@@ -64922,7 +65306,7 @@
       "label": "0o. Dropped frames are invisible to the gap mask, by arithmetic (D-074)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L826",
+      "source_location": "L828",
       "_origin": "ast"
     },
     {
@@ -64930,7 +65314,7 @@
       "label": "0p. A shortcut only reaches the playhead if no focused widget claims it (D-059)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L835",
+      "source_location": "L837",
       "_origin": "ast"
     },
     {
@@ -64938,7 +65322,7 @@
       "label": "1. No bare `QWidget { }` QSS selector — blacks out video panes",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L852",
+      "source_location": "L854",
       "_origin": "ast"
     },
     {
@@ -64946,7 +65330,7 @@
       "label": "2. `setParent(None)` makes a widget a popup window",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L857",
+      "source_location": "L859",
       "_origin": "ast"
     },
     {
@@ -64954,7 +65338,7 @@
       "label": "3. `setLayout()` silently fails if layout already exists",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L861",
+      "source_location": "L863",
       "_origin": "ast"
     },
     {
@@ -64962,7 +65346,7 @@
       "label": "4. A pts table built by walking packets is in *decode* order",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L865",
+      "source_location": "L867",
       "_origin": "ast"
     },
     {
@@ -64970,7 +65354,7 @@
       "label": "5. The forward-decode-vs-reseek crossover is measured in frames, never seconds",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L871",
+      "source_location": "L873",
       "_origin": "ast"
     },
     {
@@ -64978,7 +65362,7 @@
       "label": "6. Video pane needs `WA_StyledBackground = False`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L877",
+      "source_location": "L879",
       "_origin": "ast"
     },
     {
@@ -64986,7 +65370,7 @@
       "label": "7. Drive MasterClock from `time.monotonic()` — never accumulate timer intervals",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L881",
+      "source_location": "L883",
       "_origin": "ast"
     },
     {
@@ -64994,7 +65378,7 @@
       "label": "8. Drift correction needs hysteresis (5 consecutive ticks)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L885",
+      "source_location": "L887",
       "_origin": "ast"
     },
     {
@@ -65002,7 +65386,7 @@
       "label": "8b. Playback commands a frame, never a rate — do not reintroduce drift correction",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L892",
+      "source_location": "L894",
       "_origin": "ast"
     },
     {
@@ -65010,7 +65394,7 @@
       "label": "8c. Per-frame UI work must not scale with the decoded frame rate",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L901",
+      "source_location": "L903",
       "_origin": "ast"
     },
     {
@@ -65018,7 +65402,7 @@
       "label": "8e. The plot scene must not repaint at the tick rate, and stays visually plain",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L910",
+      "source_location": "L912",
       "_origin": "ast"
     },
     {
@@ -65026,7 +65410,7 @@
       "label": "8d. `paintEvent` must never query a decoder",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L922",
+      "source_location": "L924",
       "_origin": "ast"
     },
     {
@@ -65034,7 +65418,7 @@
       "label": "9. polars `read_csv` type inference flips per-chunk",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L931",
+      "source_location": "L933",
       "_origin": "ast"
     },
     {
@@ -65042,7 +65426,7 @@
       "label": "10. `QImage` does not copy the array it wraps",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L937",
+      "source_location": "L939",
       "_origin": "ast"
     },
     {
@@ -65050,7 +65434,7 @@
       "label": "12. ruff `line-length = 100` — IDE diagnostics at 79 chars are false positives",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L942",
+      "source_location": "L944",
       "_origin": "ast"
     },
     {
@@ -65058,7 +65442,7 @@
       "label": "13. `_load_level()` is private — use the bounded read API (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L946",
+      "source_location": "L948",
       "_origin": "ast"
     },
     {
@@ -65066,7 +65450,7 @@
       "label": "14. Session v1 → v2 migration: SensorEntry / VideoEntry gain new optional fields",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L957",
+      "source_location": "L959",
       "_origin": "ast"
     },
     {
@@ -65074,7 +65458,7 @@
       "label": "15. Never cache time→pixel positions; map from current geometry at paint time",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L963",
+      "source_location": "L965",
       "_origin": "ast"
     },
     {
@@ -65082,7 +65466,7 @@
       "label": "18. System-key collisions — Ctrl+V and Ctrl+D are reserved (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L973",
+      "source_location": "L975",
       "_origin": "ast"
     },
     {
@@ -65090,7 +65474,7 @@
       "label": "19. VideoPane right-click: eventFilter, NOT CustomContextMenu policy (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L984",
+      "source_location": "L986",
       "_origin": "ast"
     },
     {
@@ -65098,7 +65482,7 @@
       "label": "11. Annotation label edits via `markers` property are silently discarded",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L997",
+      "source_location": "L999",
       "_origin": "ast"
     },
     {
@@ -65106,7 +65490,7 @@
       "label": "16. `type: ignore` is never a shipping mechanism",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1001",
+      "source_location": "L1003",
       "_origin": "ast"
     },
     {
@@ -65114,7 +65498,7 @@
       "label": "20. mypy silently ignores malformed override sections",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1018",
+      "source_location": "L1020",
       "_origin": "ast"
     },
     {
@@ -65122,7 +65506,7 @@
       "label": "21. QSplitter.restoreState also restores `childrenCollapsible` (D-049)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1021",
+      "source_location": "L1023",
       "_origin": "ast"
     },
     {
@@ -65130,7 +65514,7 @@
       "label": "21a. `setSizes` is not a drag — `PaneProportions` only adopts on `splitterMoved` (D-061)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1030",
+      "source_location": "L1032",
       "_origin": "ast"
     },
     {
@@ -65138,7 +65522,7 @@
       "label": "22. Presentation refresh is 20 Hz, not 60 Hz (D-047)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1044",
+      "source_location": "L1046",
       "_origin": "ast"
     },
     {
@@ -65146,7 +65530,7 @@
       "label": "23. Channel names are not unique — key by `ChannelKey` (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1052",
+      "source_location": "L1054",
       "_origin": "ast"
     },
     {
@@ -65154,7 +65538,7 @@
       "label": "24. Media subprocesses must splat `no_window_kwargs()` (V-14, D-050)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1059",
+      "source_location": "L1061",
       "_origin": "ast"
     },
     {
@@ -65162,7 +65546,7 @@
       "label": "25. `VideoPane.__init__` must build its chrome on every path (V-11, D-013)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1069",
+      "source_location": "L1071",
       "_origin": "ast"
     },
     {
@@ -65170,7 +65554,7 @@
       "label": "26. AOL sessions load raw video + one fused EKS track per camera",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1080",
+      "source_location": "L1082",
       "_origin": "ast"
     },
     {
@@ -65178,7 +65562,7 @@
       "label": "26b. AOL extracted-metric MAT files are found by filename, never a fixed folder name",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1089",
+      "source_location": "L1091",
       "_origin": "ast"
     },
     {
@@ -65186,7 +65570,7 @@
       "label": "26c. Video-extraction exports are v7.3/HDF5 and need the JSON sidecar",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1108",
+      "source_location": "L1110",
       "_origin": "ast"
     },
     {
@@ -65194,7 +65578,7 @@
       "label": "27. The window must always close; jobs are owned by JobManager (V-09)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1137",
+      "source_location": "L1139",
       "_origin": "ast"
     },
     {
@@ -65202,7 +65586,7 @@
       "label": "28. UI-thread stalls are measured, not guessed (`ui/ui_heartbeat.py`)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1161",
+      "source_location": "L1163",
       "_origin": "ast"
     },
     {
@@ -65210,7 +65594,7 @@
       "label": "17. Annotation schema (v3) — per-video frame records",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1174",
+      "source_location": "L1176",
       "_origin": "ast"
     },
     {
@@ -65218,7 +65602,7 @@
       "label": "Run Commands",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1219",
+      "source_location": "L1221",
       "_origin": "ast"
     },
     {
@@ -65226,7 +65610,7 @@
       "label": "Shortcuts Reference (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1253",
+      "source_location": "L1255",
       "_origin": "ast"
     },
     {
@@ -65234,7 +65618,7 @@
       "label": "Playback",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1255",
+      "source_location": "L1257",
       "_origin": "ast"
     },
     {
@@ -65242,7 +65626,7 @@
       "label": "Marking",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1275",
+      "source_location": "L1277",
       "_origin": "ast"
     },
     {
@@ -65250,7 +65634,7 @@
       "label": "View",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1285",
+      "source_location": "L1287",
       "_origin": "ast"
     },
     {
@@ -65258,7 +65642,7 @@
       "label": "File",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1297",
+      "source_location": "L1299",
       "_origin": "ast"
     },
     {
@@ -65266,7 +65650,7 @@
       "label": "Performance Budgets (engineering-certified where ★)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1311",
+      "source_location": "L1313",
       "_origin": "ast"
     },
     {
@@ -65274,7 +65658,7 @@
       "label": "8f. The pyramid query must fill the point budget, not merely fit under it",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1337",
+      "source_location": "L1339",
       "_origin": "ast"
     },
     {
@@ -65282,7 +65666,7 @@
       "label": "8g. Shutdown steps are isolated and ordered; never let one raise skip the rest",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1347",
+      "source_location": "L1349",
       "_origin": "ast"
     },
     {
@@ -65290,7 +65674,7 @@
       "label": "8h. Text editors steal the playhead keys unless they are explicitly reserved",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1357",
+      "source_location": "L1359",
       "_origin": "ast"
     },
     {
@@ -65298,7 +65682,7 @@
       "label": "8i. Never build all plot rows in one call",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1367",
+      "source_location": "L1369",
       "_origin": "ast"
     },
     {
@@ -65306,7 +65690,7 @@
       "label": "29. A built-in loader's dependencies can fail, and that must not be fatal",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1385",
+      "source_location": "L1387",
       "_origin": "ast"
     },
     {
@@ -65314,7 +65698,7 @@
       "label": "30. The Windows `0xC0000005` was inside faulthandler — trigger removed with libmpv",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1404",
+      "source_location": "L1406",
       "_origin": "ast"
     },
     {
@@ -65322,7 +65706,7 @@
       "label": "31. Connect a job's result signals in `configure`, never after `_run_job` returns",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1444",
+      "source_location": "L1446",
       "_origin": "ast"
     },
     {
@@ -82350,11 +82734,32 @@
     },
     {
       "source": "src_avialsync_engine_display_pipeline",
-      "target": "src_avialsync_engine_display_pipeline_to_display_array",
+      "target": "src_avialsync_engine_display_pipeline_contiguous",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/display_pipeline.py",
       "source_location": "L196",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_display_pipeline_contiguous",
+      "target": "src_avialsync_engine_display_pipeline_py_ndarray",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/display_pipeline.py",
+      "source_location": "L196",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_display_pipeline",
+      "target": "src_avialsync_engine_display_pipeline_to_display_array",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/display_pipeline.py",
+      "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -82365,7 +82770,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/display_pipeline.py",
-      "source_location": "L196",
+      "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -82376,7 +82781,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/display_pipeline.py",
-      "source_location": "L196",
+      "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -82387,7 +82792,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/display_pipeline.py",
-      "source_location": "L196",
+      "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -82453,7 +82858,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/display_pipeline.py",
-      "source_location": "L208",
+      "source_location": "L230",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_display_pipeline_to_display_array",
+      "target": "src_avialsync_engine_display_pipeline_contiguous",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/display_pipeline.py",
+      "source_location": "L233",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -82464,7 +82880,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/display_pipeline.py",
-      "source_location": "L218",
+      "source_location": "L240",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -82475,7 +82891,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/display_pipeline.py",
-      "source_location": "L229",
+      "source_location": "L251",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -82621,11 +83037,21 @@
     },
     {
       "source": "src_avialsync_engine_display_pipeline_rationale_197",
-      "target": "src_avialsync_engine_display_pipeline_to_display_array",
+      "target": "src_avialsync_engine_display_pipeline_contiguous",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/display_pipeline.py",
       "source_location": "L197",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_display_pipeline_rationale_216",
+      "target": "src_avialsync_engine_display_pipeline_to_display_array",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/display_pipeline.py",
+      "source_location": "L216",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -97146,6 +97572,183 @@
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/loaders/video_standard.py",
       "source_location": "L522",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup",
+      "target": "logging",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L32",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup",
+      "target": "os",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L33",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup",
+      "target": "sys",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup",
+      "target": "src_avialsync_logging_setup_dedupefilter",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L48",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_dedupefilter",
+      "target": "src_avialsync_logging_setup_dedupefilter_init",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L57",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_dedupefilter",
+      "target": "src_avialsync_logging_setup_dedupefilter_filter",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L61",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_dedupefilter_filter",
+      "target": "logrecord",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L61",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup",
+      "target": "src_avialsync_logging_setup_configured_level",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L77",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup",
+      "target": "src_avialsync_logging_setup_configure_logging",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L86",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_configure_logging",
+      "target": "handler",
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L86",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_configure_logging",
+      "target": "src_avialsync_logging_setup_dedupefilter",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L100",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_configure_logging",
+      "target": "src_avialsync_logging_setup_configured_level",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L102",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_rationale_1",
+      "target": "src_avialsync_logging_setup",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_rationale_49",
+      "target": "src_avialsync_logging_setup_dedupefilter",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L49",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_rationale_62",
+      "target": "src_avialsync_logging_setup_dedupefilter_filter",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_rationale_78",
+      "target": "src_avialsync_logging_setup_configured_level",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L78",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_logging_setup_rationale_87",
+      "target": "src_avialsync_logging_setup_configure_logging",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/logging_setup.py",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138226,7 +138829,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L334",
+      "source_location": "L339",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138236,7 +138839,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L340",
+      "source_location": "L345",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138246,7 +138849,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L352",
+      "source_location": "L357",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138257,7 +138860,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L352",
+      "source_location": "L357",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138267,7 +138870,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L378",
+      "source_location": "L383",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138278,7 +138881,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L378",
+      "source_location": "L383",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138288,7 +138891,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L387",
+      "source_location": "L392",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138298,7 +138901,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L396",
+      "source_location": "L401",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138308,7 +138911,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L407",
+      "source_location": "L412",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138318,7 +138921,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L422",
+      "source_location": "L427",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138329,7 +138932,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L422",
+      "source_location": "L427",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138339,7 +138942,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L428",
+      "source_location": "L433",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138350,7 +138953,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L428",
+      "source_location": "L433",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138360,7 +138963,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L437",
+      "source_location": "L442",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138371,7 +138974,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L437",
+      "source_location": "L442",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138381,7 +138984,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L445",
+      "source_location": "L450",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138392,7 +138995,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L445",
+      "source_location": "L450",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138402,7 +139005,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L456",
+      "source_location": "L461",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138413,7 +139016,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L456",
+      "source_location": "L461",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138423,7 +139026,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L464",
+      "source_location": "L469",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138434,7 +139037,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L464",
+      "source_location": "L469",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138444,7 +139047,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L488",
+      "source_location": "L493",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138454,7 +139057,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L488",
+      "source_location": "L493",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138464,7 +139067,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L488",
+      "source_location": "L493",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138474,7 +139077,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L511",
+      "source_location": "L516",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138485,7 +139088,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L511",
+      "source_location": "L516",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138495,7 +139098,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L571",
+      "source_location": "L576",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138505,7 +139108,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L575",
+      "source_location": "L580",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138515,7 +139118,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L601",
+      "source_location": "L606",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138525,7 +139128,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L607",
+      "source_location": "L612",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138536,7 +139139,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L607",
+      "source_location": "L612",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138546,7 +139149,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L629",
+      "source_location": "L634",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138557,7 +139160,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L629",
+      "source_location": "L634",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138567,7 +139170,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L632",
+      "source_location": "L637",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138578,7 +139181,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L632",
+      "source_location": "L637",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138588,7 +139191,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L653",
+      "source_location": "L658",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138599,7 +139202,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L653",
+      "source_location": "L658",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138609,7 +139212,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L667",
+      "source_location": "L672",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138619,7 +139222,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L675",
+      "source_location": "L680",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138630,7 +139233,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L675",
+      "source_location": "L680",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138640,7 +139243,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L696",
+      "source_location": "L701",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138650,7 +139253,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L700",
+      "source_location": "L705",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138660,7 +139263,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L710",
+      "source_location": "L715",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138670,7 +139273,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L729",
+      "source_location": "L734",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138680,7 +139283,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L737",
+      "source_location": "L742",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138690,7 +139293,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L743",
+      "source_location": "L748",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138700,7 +139303,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L748",
+      "source_location": "L753",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138710,7 +139313,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L758",
+      "source_location": "L763",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138720,7 +139323,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L761",
+      "source_location": "L766",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138730,7 +139333,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L765",
+      "source_location": "L770",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138740,7 +139343,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L769",
+      "source_location": "L774",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138750,7 +139353,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L774",
+      "source_location": "L779",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138760,7 +139363,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L778",
+      "source_location": "L783",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138770,7 +139373,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L782",
+      "source_location": "L787",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138780,7 +139383,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L792",
+      "source_location": "L797",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138790,7 +139393,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L819",
+      "source_location": "L824",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138800,7 +139403,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L831",
+      "source_location": "L836",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138810,7 +139413,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L845",
+      "source_location": "L850",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138820,7 +139423,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L853",
+      "source_location": "L858",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138830,7 +139433,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L873",
+      "source_location": "L878",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138840,7 +139443,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L884",
+      "source_location": "L889",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138850,7 +139453,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L892",
+      "source_location": "L897",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138860,7 +139463,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L903",
+      "source_location": "L908",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138870,7 +139473,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L911",
+      "source_location": "L916",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138880,7 +139483,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L996",
+      "source_location": "L1001",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138890,7 +139493,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1029",
+      "source_location": "L1034",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138900,7 +139503,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1042",
+      "source_location": "L1047",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138910,7 +139513,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1051",
+      "source_location": "L1056",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138921,7 +139524,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1051",
+      "source_location": "L1056",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -138998,7 +139601,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L328",
+      "source_location": "L333",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139009,24 +139612,13 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L346",
+      "source_location": "L351",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_video_pane_videosurface_zoom_by",
       "target": "src_avialsync_ui_video_pane_videosurface_frame_geometry",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L356",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_video_pane_videosurface_zoom_by",
-      "target": "src_avialsync_ui_video_pane_py_qpointf",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -139037,12 +139629,23 @@
     },
     {
       "source": "src_avialsync_ui_video_pane_videosurface_zoom_by",
+      "target": "src_avialsync_ui_video_pane_py_qpointf",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L366",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_video_pane_videosurface_zoom_by",
       "target": "src_avialsync_ui_video_pane_videosurface_base_geometry",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L367",
+      "source_location": "L372",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139053,7 +139656,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L374",
+      "source_location": "L379",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139064,7 +139667,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L383",
+      "source_location": "L388",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139075,7 +139678,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L392",
+      "source_location": "L397",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139086,7 +139689,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L409",
+      "source_location": "L414",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139097,7 +139700,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L411",
+      "source_location": "L416",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139108,7 +139711,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L425",
+      "source_location": "L430",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139119,7 +139722,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L432",
+      "source_location": "L437",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139130,7 +139733,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L453",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139141,7 +139744,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L472",
+      "source_location": "L477",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139152,7 +139755,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L531",
+      "source_location": "L536",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139163,7 +139766,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L559",
+      "source_location": "L564",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139174,7 +139777,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L563",
+      "source_location": "L568",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139185,7 +139788,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L577",
+      "source_location": "L582",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139196,7 +139799,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L580",
+      "source_location": "L585",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139207,7 +139810,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L581",
+      "source_location": "L586",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139218,7 +139821,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L627",
+      "source_location": "L632",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139229,7 +139832,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L656",
+      "source_location": "L661",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139240,7 +139843,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L663",
+      "source_location": "L668",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139251,7 +139854,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L689",
+      "source_location": "L694",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139262,7 +139865,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L694",
+      "source_location": "L699",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139273,7 +139876,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L694",
+      "source_location": "L699",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139284,7 +139887,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L698",
+      "source_location": "L703",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139295,7 +139898,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L726",
+      "source_location": "L731",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139306,7 +139909,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L810",
+      "source_location": "L815",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139317,7 +139920,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L870",
+      "source_location": "L875",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139328,7 +139931,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L900",
+      "source_location": "L905",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139339,7 +139942,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L918",
+      "source_location": "L923",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139350,7 +139953,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L968",
+      "source_location": "L973",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139361,7 +139964,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1016",
+      "source_location": "L1021",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139372,7 +139975,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1026",
+      "source_location": "L1031",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139383,7 +139986,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1040",
+      "source_location": "L1045",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139394,7 +139997,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1048",
+      "source_location": "L1053",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139405,7 +140008,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1065",
+      "source_location": "L1070",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139540,268 +140143,258 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_335",
+      "source": "src_avialsync_ui_video_pane_rationale_340",
       "target": "src_avialsync_ui_video_pane_videosurface_clear",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L335",
+      "source_location": "L340",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_343",
+      "source": "src_avialsync_ui_video_pane_rationale_348",
       "target": "src_avialsync_ui_video_pane_videosurface_frame_geometry",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L343",
+      "source_location": "L348",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_353",
+      "source": "src_avialsync_ui_video_pane_rationale_358",
       "target": "src_avialsync_ui_video_pane_videosurface_zoom_by",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L353",
+      "source_location": "L358",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_379",
+      "source": "src_avialsync_ui_video_pane_rationale_384",
       "target": "src_avialsync_ui_video_pane_videosurface_pan_by",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L379",
+      "source_location": "L384",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_388",
+      "source": "src_avialsync_ui_video_pane_rationale_393",
       "target": "src_avialsync_ui_video_pane_videosurface_reset_view",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L388",
+      "source_location": "L393",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_408",
+      "source": "src_avialsync_ui_video_pane_rationale_413",
       "target": "src_avialsync_ui_video_pane_videosurface_clamp_pan",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L408",
+      "source_location": "L413",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_423",
+      "source": "src_avialsync_ui_video_pane_rationale_428",
       "target": "src_avialsync_ui_video_pane_videosurface_resizeevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L423",
+      "source_location": "L428",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_429",
+      "source": "src_avialsync_ui_video_pane_rationale_434",
       "target": "src_avialsync_ui_video_pane_videosurface_wheelevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L429",
+      "source_location": "L434",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_438",
+      "source": "src_avialsync_ui_video_pane_rationale_443",
       "target": "src_avialsync_ui_video_pane_videosurface_mousepressevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L438",
+      "source_location": "L443",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_446",
+      "source": "src_avialsync_ui_video_pane_rationale_451",
       "target": "src_avialsync_ui_video_pane_videosurface_mousemoveevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L446",
+      "source_location": "L451",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_457",
+      "source": "src_avialsync_ui_video_pane_rationale_462",
       "target": "src_avialsync_ui_video_pane_videosurface_mousereleaseevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L457",
+      "source_location": "L462",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_465",
+      "source": "src_avialsync_ui_video_pane_rationale_470",
       "target": "src_avialsync_ui_video_pane_videosurface_paintevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L465",
+      "source_location": "L470",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_489",
+      "source": "src_avialsync_ui_video_pane_rationale_494",
       "target": "src_avialsync_ui_video_pane_videopane",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L489",
+      "source_location": "L494",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_572",
+      "source": "src_avialsync_ui_video_pane_rationale_577",
       "target": "src_avialsync_ui_video_pane_videopane_has_media",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L572",
+      "source_location": "L577",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_576",
+      "source": "src_avialsync_ui_video_pane_rationale_581",
       "target": "src_avialsync_ui_video_pane_videopane_open",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L576",
+      "source_location": "L581",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_602",
+      "source": "src_avialsync_ui_video_pane_rationale_607",
       "target": "src_avialsync_ui_video_pane_videopane_on_format_detected",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L602",
+      "source_location": "L607",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_608",
+      "source": "src_avialsync_ui_video_pane_rationale_613",
       "target": "src_avialsync_ui_video_pane_videopane_set_display_levels",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L608",
+      "source_location": "L613",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_633",
+      "source": "src_avialsync_ui_video_pane_rationale_638",
       "target": "src_avialsync_ui_video_pane_videopane_auto_display_levels",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L633",
+      "source_location": "L638",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_654",
+      "source": "src_avialsync_ui_video_pane_rationale_659",
       "target": "src_avialsync_ui_video_pane_videopane_on_opened",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L654",
+      "source_location": "L659",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_668",
+      "source": "src_avialsync_ui_video_pane_rationale_673",
       "target": "src_avialsync_ui_video_pane_videopane_on_open_failed",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L668",
+      "source_location": "L673",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_676",
+      "source": "src_avialsync_ui_video_pane_rationale_681",
       "target": "src_avialsync_ui_video_pane_videopane_on_frame_ready",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L676",
+      "source_location": "L681",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_697",
+      "source": "src_avialsync_ui_video_pane_rationale_702",
       "target": "src_avialsync_ui_video_pane_videopane_displayed_frame_rate_now",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L697",
+      "source_location": "L702",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_711",
+      "source": "src_avialsync_ui_video_pane_rationale_716",
       "target": "src_avialsync_ui_video_pane_videopane_seek",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L711",
+      "source_location": "L716",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_730",
+      "source": "src_avialsync_ui_video_pane_rationale_735",
       "target": "src_avialsync_ui_video_pane_videopane_play",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L730",
+      "source_location": "L735",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_738",
+      "source": "src_avialsync_ui_video_pane_rationale_743",
       "target": "src_avialsync_ui_video_pane_videopane_pause",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L738",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_video_pane_rationale_744",
-      "target": "src_avialsync_ui_video_pane_videopane_set_source_bounds",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L744",
+      "source_location": "L743",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_video_pane_rationale_749",
-      "target": "src_avialsync_ui_video_pane_videopane_has_footage_at_master",
+      "target": "src_avialsync_ui_video_pane_videopane_set_source_bounds",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
@@ -139810,38 +140403,38 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_762",
+      "source": "src_avialsync_ui_video_pane_rationale_754",
+      "target": "src_avialsync_ui_video_pane_videopane_has_footage_at_master",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L754",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_video_pane_rationale_767",
       "target": "src_avialsync_ui_video_pane_videopane_set_overlay_tracks",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L762",
+      "source_location": "L767",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_766",
+      "source": "src_avialsync_ui_video_pane_rationale_771",
       "target": "src_avialsync_ui_video_pane_videopane_set_point_edits",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L766",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_video_pane_rationale_770",
-      "target": "src_avialsync_ui_video_pane_videopane_set_point_edit_mode",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L770",
+      "source_location": "L771",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_video_pane_rationale_775",
-      "target": "src_avialsync_ui_video_pane_videopane_point_edit_mode",
+      "target": "src_avialsync_ui_video_pane_videopane_set_point_edit_mode",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
@@ -139850,122 +140443,132 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_779",
+      "source": "src_avialsync_ui_video_pane_rationale_780",
+      "target": "src_avialsync_ui_video_pane_videopane_point_edit_mode",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/video_pane.py",
+      "source_location": "L780",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_video_pane_rationale_784",
       "target": "src_avialsync_ui_video_pane_videopane_set_highlighted_point",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L779",
+      "source_location": "L784",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_783",
+      "source": "src_avialsync_ui_video_pane_rationale_788",
       "target": "src_avialsync_ui_video_pane_videopane_queue_osd_update",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L783",
+      "source_location": "L788",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_793",
+      "source": "src_avialsync_ui_video_pane_rationale_798",
       "target": "src_avialsync_ui_video_pane_videopane_flush_osd_update",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L793",
+      "source_location": "L798",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_820",
+      "source": "src_avialsync_ui_video_pane_rationale_825",
       "target": "src_avialsync_ui_video_pane_videopane_arm_osd_flush_timer",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L820",
+      "source_location": "L825",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_854",
+      "source": "src_avialsync_ui_video_pane_rationale_859",
       "target": "src_avialsync_ui_video_pane_videopane_apply_overlay_visibility",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L854",
+      "source_location": "L859",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_874",
+      "source": "src_avialsync_ui_video_pane_rationale_879",
       "target": "src_avialsync_ui_video_pane_videopane_video_size",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L874",
+      "source_location": "L879",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_885",
+      "source": "src_avialsync_ui_video_pane_rationale_890",
       "target": "src_avialsync_ui_video_pane_videopane_shows_footage",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L885",
+      "source_location": "L890",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_912",
+      "source": "src_avialsync_ui_video_pane_rationale_917",
       "target": "src_avialsync_ui_video_pane_videopane_build_overlay_chrome",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L912",
+      "source_location": "L917",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_997",
+      "source": "src_avialsync_ui_video_pane_rationale_1002",
       "target": "src_avialsync_ui_video_pane_videopane_shutdown_decoder",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L997",
+      "source_location": "L1002",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_1030",
+      "source": "src_avialsync_ui_video_pane_rationale_1035",
       "target": "src_avialsync_ui_video_pane_videopane_stop_everything",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1030",
+      "source_location": "L1035",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_1043",
+      "source": "src_avialsync_ui_video_pane_rationale_1048",
       "target": "src_avialsync_ui_video_pane_videopane_close",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1043",
+      "source_location": "L1048",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_video_pane_rationale_1052",
+      "source": "src_avialsync_ui_video_pane_rationale_1057",
       "target": "src_avialsync_ui_video_pane_videopane_closeevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L1052",
+      "source_location": "L1057",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -162123,6 +162726,46 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_display_pipeline",
+      "target": "tests_test_display_pipeline_test_pyav_really_does_hand_back_a_strided_view",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L255",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline",
+      "target": "tests_test_display_pipeline_test_display_array_can_be_borrowed_by_a_qimage",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L270",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline",
+      "target": "tests_test_display_pipeline_test_a_padded_frame_survives_the_pane_that_paints_it",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L290",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline",
+      "target": "tests_test_display_pipeline_test_a_windowed_high_bit_depth_frame_is_contiguous_too",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L305",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_display_pipeline_test_the_depth_is_read_from_the_frame",
       "target": "tests_test_display_pipeline_grey_frame",
       "relation": "calls",
@@ -162391,6 +163034,46 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_display_pipeline.py",
       "source_location": "L233",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline_rationale_256",
+      "target": "tests_test_display_pipeline_test_pyav_really_does_hand_back_a_strided_view",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L256",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline_rationale_271",
+      "target": "tests_test_display_pipeline_test_display_array_can_be_borrowed_by_a_qimage",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L271",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline_rationale_291",
+      "target": "tests_test_display_pipeline_test_a_padded_frame_survives_the_pane_that_paints_it",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L291",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline_rationale_306",
+      "target": "tests_test_display_pipeline_test_a_windowed_high_bit_depth_frame_is_contiguous_too",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -178159,6 +178842,314 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_loaders_video.py",
       "source_location": "L253",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "logging",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L17",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "pytest",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L19",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "src_avialsync_logging_setup",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L21",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_console",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_emit",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L38",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_test_a_line_names_the_logger_that_wrote_it",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L48",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_test_one_fact_about_a_recording_is_reported_once",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_test_distinct_messages_all_get_through",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L70",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_test_the_same_words_from_two_libraries_are_two_messages",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L89",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_test_a_traceback_is_never_deduplicated",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L97",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_test_the_repeats_can_be_asked_for_back",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L114",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_test_the_level_comes_from_the_environment",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L128",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_test_an_unreadable_level_falls_back_rather_than_crashing_the_launch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L143",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup",
+      "target": "tests_test_logging_setup_test_configuring_twice_does_not_double_every_line",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L156",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_test_a_line_names_the_logger_that_wrote_it",
+      "target": "tests_test_logging_setup_emit",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L50",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_test_one_fact_about_a_recording_is_reported_once",
+      "target": "tests_test_logging_setup_emit",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L65",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_test_distinct_messages_all_get_through",
+      "target": "tests_test_logging_setup_emit",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L77",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_test_the_same_words_from_two_libraries_are_two_messages",
+      "target": "tests_test_logging_setup_emit",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L92",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_test_the_repeats_can_be_asked_for_back",
+      "target": "tests_test_logging_setup_emit",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L122",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_1",
+      "target": "tests_test_logging_setup",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_26",
+      "target": "tests_test_logging_setup_console",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L26",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_39",
+      "target": "tests_test_logging_setup_emit",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L39",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_49",
+      "target": "tests_test_logging_setup_test_a_line_names_the_logger_that_wrote_it",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L49",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_63",
+      "target": "tests_test_logging_setup_test_one_fact_about_a_recording_is_reported_once",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L63",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_71",
+      "target": "tests_test_logging_setup_test_distinct_messages_all_get_through",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_90",
+      "target": "tests_test_logging_setup_test_the_same_words_from_two_libraries_are_two_messages",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L90",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_98",
+      "target": "tests_test_logging_setup_test_a_traceback_is_never_deduplicated",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L98",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_115",
+      "target": "tests_test_logging_setup_test_the_repeats_can_be_asked_for_back",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L115",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_144",
+      "target": "tests_test_logging_setup_test_an_unreadable_level_falls_back_rather_than_crashing_the_launch",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L144",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_rationale_157",
+      "target": "tests_test_logging_setup_test_configuring_twice_does_not_double_every_line",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L157",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214118,6 +215109,26 @@
       "_origin": "ast"
     },
     {
+      "source": "decisions_decisions_md_lightweight_adr_log",
+      "target": "decisions_2026_09_d_102_a_display_array_is_c_contiguous_before_it_leaves_the_decode_thread",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L3688",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "decisions_decisions_md_lightweight_adr_log",
+      "target": "decisions_2026_09_d_103_the_terminal_names_its_sources_and_says_each_thing_once",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L3723",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "gemini",
       "target": "gemini_gemini_md",
       "relation": "contains",
@@ -214263,7 +215274,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L487",
+      "source_location": "L489",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214273,7 +215284,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L501",
+      "source_location": "L503",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214283,7 +215294,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L505",
+      "source_location": "L507",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214293,7 +215304,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L519",
+      "source_location": "L521",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214303,7 +215314,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L536",
+      "source_location": "L538",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214313,7 +215324,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L547",
+      "source_location": "L549",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214323,7 +215334,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L554",
+      "source_location": "L556",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214333,7 +215344,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L564",
+      "source_location": "L566",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214343,7 +215354,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L580",
+      "source_location": "L582",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214353,7 +215364,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L588",
+      "source_location": "L590",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214363,7 +215374,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L626",
+      "source_location": "L628",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214373,7 +215384,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L639",
+      "source_location": "L641",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214383,7 +215394,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L651",
+      "source_location": "L653",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214393,7 +215404,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L658",
+      "source_location": "L660",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214403,7 +215414,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L665",
+      "source_location": "L667",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214413,7 +215424,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L672",
+      "source_location": "L674",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214423,7 +215434,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L684",
+      "source_location": "L686",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214433,7 +215444,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L694",
+      "source_location": "L696",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214443,7 +215454,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L704",
+      "source_location": "L706",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214453,7 +215464,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L714",
+      "source_location": "L716",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214463,7 +215474,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L726",
+      "source_location": "L728",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214473,7 +215484,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L732",
+      "source_location": "L734",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214483,7 +215494,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L741",
+      "source_location": "L743",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214493,7 +215504,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L746",
+      "source_location": "L748",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214503,7 +215514,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L754",
+      "source_location": "L756",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214513,7 +215524,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L760",
+      "source_location": "L762",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214523,7 +215534,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L767",
+      "source_location": "L769",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214533,7 +215544,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L774",
+      "source_location": "L776",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214543,7 +215554,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L781",
+      "source_location": "L783",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214553,7 +215564,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L787",
+      "source_location": "L789",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214563,7 +215574,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L802",
+      "source_location": "L804",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214573,7 +215584,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L809",
+      "source_location": "L811",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214583,7 +215594,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L820",
+      "source_location": "L822",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214593,7 +215604,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L826",
+      "source_location": "L828",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214603,7 +215614,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L835",
+      "source_location": "L837",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214613,7 +215624,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L852",
+      "source_location": "L854",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214623,7 +215634,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L857",
+      "source_location": "L859",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214633,7 +215644,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L861",
+      "source_location": "L863",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214643,7 +215654,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L865",
+      "source_location": "L867",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214653,7 +215664,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L871",
+      "source_location": "L873",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214663,7 +215674,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L877",
+      "source_location": "L879",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214673,7 +215684,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L881",
+      "source_location": "L883",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214683,7 +215694,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L885",
+      "source_location": "L887",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214693,7 +215704,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L892",
+      "source_location": "L894",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214703,7 +215714,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L901",
+      "source_location": "L903",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214713,7 +215724,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L910",
+      "source_location": "L912",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214723,7 +215734,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L922",
+      "source_location": "L924",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214733,7 +215744,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L931",
+      "source_location": "L933",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214743,7 +215754,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L937",
+      "source_location": "L939",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214753,7 +215764,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L942",
+      "source_location": "L944",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214763,7 +215774,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L946",
+      "source_location": "L948",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214773,7 +215784,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L957",
+      "source_location": "L959",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214783,7 +215794,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L963",
+      "source_location": "L965",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214793,7 +215804,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L973",
+      "source_location": "L975",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214803,7 +215814,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L984",
+      "source_location": "L986",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214813,7 +215824,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L997",
+      "source_location": "L999",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214823,7 +215834,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1001",
+      "source_location": "L1003",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214833,7 +215844,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1018",
+      "source_location": "L1020",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214843,7 +215854,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1021",
+      "source_location": "L1023",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214853,7 +215864,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1030",
+      "source_location": "L1032",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214863,7 +215874,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1044",
+      "source_location": "L1046",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214873,7 +215884,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1052",
+      "source_location": "L1054",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214883,7 +215894,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1059",
+      "source_location": "L1061",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214893,7 +215904,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1069",
+      "source_location": "L1071",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214903,7 +215914,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1080",
+      "source_location": "L1082",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214913,7 +215924,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1089",
+      "source_location": "L1091",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214923,7 +215934,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1108",
+      "source_location": "L1110",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214933,7 +215944,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1137",
+      "source_location": "L1139",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214943,7 +215954,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1161",
+      "source_location": "L1163",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214953,7 +215964,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1174",
+      "source_location": "L1176",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214963,7 +215974,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1219",
+      "source_location": "L1221",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214973,7 +215984,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1253",
+      "source_location": "L1255",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214983,7 +215994,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1255",
+      "source_location": "L1257",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -214993,7 +216004,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1275",
+      "source_location": "L1277",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -215003,7 +216014,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1285",
+      "source_location": "L1287",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -215013,7 +216024,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1297",
+      "source_location": "L1299",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -215023,7 +216034,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1311",
+      "source_location": "L1313",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -215033,7 +216044,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1337",
+      "source_location": "L1339",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -215043,7 +216054,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1347",
+      "source_location": "L1349",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -215053,7 +216064,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1357",
+      "source_location": "L1359",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -215063,7 +216074,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1367",
+      "source_location": "L1369",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -215073,7 +216084,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1385",
+      "source_location": "L1387",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -215083,7 +216094,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1404",
+      "source_location": "L1406",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -215093,7 +216104,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1444",
+      "source_location": "L1446",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -218102,7 +219113,7 @@
     },
     {
       "source": "src_avialsync_main",
-      "target": "src_avialsync_demo_demolaunch",
+      "target": "src_avialsync_logging_setup_configure_logging",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -218113,12 +219124,23 @@
     },
     {
       "source": "src_avialsync_main",
+      "target": "src_avialsync_demo_demolaunch",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/__main__.py",
+      "source_location": "L56",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_main",
       "target": "src_avialsync_ui_i18n_install_translator",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/__main__.py",
-      "source_location": "L49",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -218129,7 +219151,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/__main__.py",
-      "source_location": "L50",
+      "source_location": "L58",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -218140,7 +219162,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/__main__.py",
-      "source_location": "L51",
+      "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -218151,7 +219173,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/__main__.py",
-      "source_location": "L51",
+      "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -223431,7 +224453,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L548",
+      "source_location": "L553",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -224053,12 +225075,23 @@
     },
     {
       "source": "src_avialsync_main_main",
+      "target": "src_avialsync_logging_setup_configure_logging",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/__main__.py",
+      "source_location": "L50",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_main_main",
       "target": "src_avialsync_ui_i18n_install_translator",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/__main__.py",
-      "source_location": "L60",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -224069,7 +225102,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/__main__.py",
-      "source_location": "L69",
+      "source_location": "L77",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -224080,7 +225113,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/__main__.py",
-      "source_location": "L70",
+      "source_location": "L78",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -224091,7 +225124,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/__main__.py",
-      "source_location": "L72",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -224102,7 +225135,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/__main__.py",
-      "source_location": "L75",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231493,7 +232526,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L548",
+      "source_location": "L553",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -231503,7 +232536,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L548",
+      "source_location": "L553",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -231513,7 +232546,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L548",
+      "source_location": "L553",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -240301,7 +241334,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L519",
+      "source_location": "L524",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240313,7 +241346,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L550",
+      "source_location": "L555",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240325,7 +241358,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L554",
+      "source_location": "L559",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240337,7 +241370,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L603",
+      "source_location": "L608",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240349,7 +241382,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L649",
+      "source_location": "L654",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240361,7 +241394,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L650",
+      "source_location": "L655",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240373,7 +241406,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L701",
+      "source_location": "L706",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240385,7 +241418,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L913",
+      "source_location": "L918",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240397,7 +241430,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L921",
+      "source_location": "L926",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240409,7 +241442,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L937",
+      "source_location": "L942",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240421,7 +241454,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L941",
+      "source_location": "L946",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240433,7 +241466,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L965",
+      "source_location": "L970",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240445,7 +241478,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/video_pane.py",
-      "source_location": "L966",
+      "source_location": "L971",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -247074,6 +248107,66 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_display_pipeline_test_display_array_can_be_borrowed_by_a_qimage",
+      "target": "src_avialsync_engine_display_pipeline_to_display_array",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L280",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline_test_a_padded_frame_survives_the_pane_that_paints_it",
+      "target": "src_avialsync_ui_video_pane_videosurface",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L294",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline_test_a_padded_frame_survives_the_pane_that_paints_it",
+      "target": "src_avialsync_engine_display_pipeline_to_display_array",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L297",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline_test_a_windowed_high_bit_depth_frame_is_contiguous_too",
+      "target": "src_avialsync_engine_display_pipeline_to_display_array",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L311",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_display_pipeline_test_a_windowed_high_bit_depth_frame_is_contiguous_too",
+      "target": "src_avialsync_engine_display_pipeline_displaylevels",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_display_pipeline.py",
+      "source_location": "L312",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_document_all_commands",
       "target": "src_avialsync_core_commands_setsourcemappingcommand",
       "relation": "calls",
@@ -250922,6 +252015,78 @@
       "confidence_score": 1.0,
       "source_file": "tests/test_loaders_video.py",
       "source_location": "L213",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_console",
+      "target": "src_avialsync_logging_setup_configure_logging",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L32",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_test_a_traceback_is_never_deduplicated",
+      "target": "src_avialsync_logging_setup_dedupefilter",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L99",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_test_the_repeats_can_be_asked_for_back",
+      "target": "src_avialsync_logging_setup_configure_logging",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L121",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_test_the_level_comes_from_the_environment",
+      "target": "src_avialsync_logging_setup_configure_logging",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L134",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_test_an_unreadable_level_falls_back_rather_than_crashing_the_launch",
+      "target": "src_avialsync_logging_setup_configure_logging",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L150",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_logging_setup_test_configuring_twice_does_not_double_every_line",
+      "target": "src_avialsync_logging_setup_configure_logging",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_logging_setup.py",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
