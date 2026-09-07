@@ -395,11 +395,12 @@ contradicts the runtime.
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
 | `core/source.py` | Plugin ABCs — frozen API plus additive optional hooks (`messages()`, `exact_time_mapping()`, `video_metadata()`) | `TimeSeriesSource`, `VideoSource`, `VideoMetadata` |
-| `core/session.py` | `.avv` session JSON, schema v5 | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
+| `core/session.py` | `.avv` session JSON, schema v8 (v8 adds `point_edits`, D-099) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020); carries recorded messages into the sidecar manifest (D-078) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/messages.py` | Headless record for free text the rig stored with the data (D-078) | `Message`, `clean()`, `bounded()`, `MAX_MESSAGES` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
+| `core/point_edits.py` | Hand corrections to tracked points — sparse overrides keyed by `(source, body part, sample index)`. HEADLESS. **Never writes the pose file or its cache** (D-099) | `PointEditStore`, `PointKey`, `PointMove` |
 | `engine/pyav_reader.py` | Headless exact-frame reader: pts table, seek, index-keyed LRU (D-075). No Qt — safe on a worker thread | `PyAVReader.frame_at_time()`, `.frame_at_index()`, `.index_at_time()`, `.time_at_index()`, `.frame_times`, `to_rgb_array()` |
 | `engine/player.py` | precise 60 Hz tick; MasterClock ↔ panes ↔ UI. Owns the clock, so no drift correction (D-075) | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
 | `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
@@ -421,8 +422,8 @@ contradicts the runtime.
 | `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075). Seeks are id-tagged so `is_seeking` answers only the newest one (D-084): `DecodeWorker.request(request_id, source_time)`, `frame_ready(request_id, index, pts, rgb)` | `VideoPane`, `set_sync_correction()`, `video_size` |
 | `core/video_timing.py` | **The** frame-selection authority — last frame with `pts <= t`. Headless so `engine/` can share it (D-075) | `frame_index_at()`, `adjacent_frame_time()`, `PTS_EPSILON_S` |
 | `ui/video_timing.py` | Timestamp rate/readout helpers and pane timing mixin; re-exports the two `core/video_timing.py` selectors | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
-| `ui/video_overlay.py` | Transparent current-frame tracking paint layer | `PaintCanvas` |
-| `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()` | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()` |
+| `ui/video_overlay.py` | Transparent current-frame tracking paint layer; also the "Fix Tracker" drag surface (D-099) | `PaintCanvas`, `OverlayTrack`, `ResolvedPoint` |
+| `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()`. Fix Tracker is the grid's mode, so a pane built later joins it (D-099) | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()`, `set_point_edit_mode()`, `set_point_edits()` |
 | `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal. The row stack lives in a `QScrollArea` (`_plot_scroll`): pyqtgraph pins its scene rect to the viewport, so a scrollbar on the graphics view itself can never have a range | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
 | `ui/plot_header.py` | Compact plot presentation, page, Y-fit, row-height, and reset controls | `PlotHeader` |
 | `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control | `ChannelPlot`, `create_channel_plot()`, `fit_channel_y()` |
@@ -441,7 +442,8 @@ contradicts the runtime.
 | `loaders/aol_encoder_loader.py` | AOL encoder log ingest | `AOLEncoderLoader` |
 | `loaders/aol_metric_loader.py` | Extracted optical-flow/MI per-ROI MAT ingest | `AOLMetricLoader` |
 | `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera ROI metric ingest | `AOLVideoExtractionLoader` |
-| `ui/video_overlay.py` | Live pose overlay with named markers | `PaintCanvas`, `OverlayTrack` |
+| `ui/video_overlay.py` | Live pose overlay with named markers; resolves each point once for both painting and hit-testing (D-099) | `PaintCanvas`, `OverlayTrack`, `ResolvedPoint` |
+| `ui/point_edit_tool.py` | The "Fix Tracker" drag: hit test, grab, clamp, handles. `set_edit_mode()` makes markers draggable and emits `point_moved(PointMove)` — **it never writes the store itself** (D-099) | `PointEditMixin`, `point_at()`, `set_edit_mode()` |
 | `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown | `JobManager`, `Job`, `JobState` |
 | `ui/ui_heartbeat.py` | Measures UI-thread stalls and reports them | `UiHeartbeat` |
 | `ui/pane_proportions.py` | Holds each splitter pane's share of the window across a resize; first-run defaults are ratios, not pixels | `PaneProportions`, `distribute()` |
@@ -665,6 +667,26 @@ the routing, and `MainWindow._overlay_sources` were all right, which is why the 
 never saw it. The grid now retains the tracks per path and applies them in `add_pane`. Do not
 collapse that back to a direct lookup — the direct form only works when the data loses the race,
 which it always does on a single-camera session.
+
+### 0c-ter. The overlay reads `sample_at`, not `value_at` (D-099)
+`PyramidReader.value_at` returns the **nearest** sample; the pane shows the last frame whose pts is
+at or before *t* (rule 6, `core/video_timing.py`). Between two frames those disagree, so the overlay
+could draw the coordinate belonging to a frame that is not on screen — invisible while it only drew,
+wrong the moment "Fix Tracker" has to record *which frame* a drag corrected.
+`PaintCanvas._sample()` therefore goes through `sample_at`. It is not a drop-in swap: `sample_at`
+clamps into range and ignores the gap mask, both of which `value_at` handled internally, so the
+coverage and gap checks are written out explicitly beside it. Deleting either one puts a stale
+coordinate on screen at the ends of a recording or across a missing stretch.
+
+### 0c-quater. A correction never touches the pose file or its cache (D-099)
+"Fix Tracker" is a sparse override in `core/point_edits.py`, saved into the `.avv` and applied when
+the overlay reads a coordinate. Nothing writes the imported CSV or its `.avialcache/` sidecar, and
+nothing may start: the recording cannot be regenerated, the cache is content-hash keyed and would
+discard a hand edit on the next import, and undo would stop being a reversal. `PaintCanvas` emits
+`point_moved` and does **not** apply it — `MainWindow._on_tracked_point_moved` puts it through the
+command bus (rule 14). If you find a canvas writing to `PointEditStore`, that is the bug.
+Corollary: plots and the 3D view still show the model's own prediction, deliberately. The readers
+are not wrapped.
 
 ### 0d. `"_eks.csv".split("_")[0]` is `""` — and `"" in name` matches everything
 The session-level 3D file names no camera, so substring-matching its leading token bound it to

@@ -1,4 +1,11 @@
-"""Transparent tracking overlay used by :mod:`avialsync.ui.video_pane`."""
+"""Transparent tracking overlay used by :mod:`avialsync.ui.video_pane`.
+
+Two jobs: draw the current tracking points over the frame, and — while "Fix
+Tracker" is on — let them be dragged to where they belong.  The drag never
+writes to the pose file or its cache; it emits a :class:`PointMove` that the
+window turns into a reversible command against
+:class:`~avialsync.core.point_edits.PointEditStore` (D-099).
+"""
 
 from __future__ import annotations
 
@@ -10,6 +17,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
+from avialsync.core.point_edits import PointKey
+from avialsync.ui.point_edit_tool import PointEditMixin
 from avialsync.ui.tracking_colors import color_for_point
 
 _ENSEMBLE_COLOR = (0, 255, 255)
@@ -27,6 +36,10 @@ _MODEL_RADIUS = 2
 _LABEL_POINT_SIZE = 8
 _LABEL_DX = 6
 _LABEL_DY = -6
+#: How far outside a pose source's coverage a time may fall and still show its
+#: last sample.  Mirrors the tolerance in ``PyramidReader.value_at`` so the
+#: overlay does not start pinning a stale coordinate at the ends of a recording.
+_COVERAGE_SLACK_S = 0.1
 
 
 @dataclass(frozen=True)
@@ -45,6 +58,26 @@ class OverlayTrack:
     likelihood: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class ResolvedPoint:
+    """Where one body part is right now, and what identifies it.
+
+    Painting and hit-testing both go through this, so the handle the user
+    grabs is by construction the marker they can see — there is no second
+    place that decides where a point is.
+    """
+
+    name: str
+    x: float
+    y: float
+    color: tuple[int, int, int]
+    #: ``None`` when the reader carries no source identity, which is the loose
+    #: ``set_readers`` path.  Such a point is drawn but cannot be corrected,
+    #: because there would be nothing stable to key the correction to.
+    key: PointKey | None
+    corrected: bool
+
+
 def track_color(index: int, *, is_ensemble: bool) -> tuple[int, int, int]:
     """Return a stable colour for an overlaid prediction source."""
     if is_ensemble:
@@ -52,8 +85,13 @@ def track_color(index: int, *, is_ensemble: bool) -> tuple[int, int, int]:
     return _MODEL_COLORS[index % len(_MODEL_COLORS)]
 
 
-class PaintCanvas(QWidget):
-    """Paint the current tracking points without obscuring video."""
+class PaintCanvas(PointEditMixin):
+    """Paint the current tracking points without obscuring video.
+
+    The "Fix Tracker" gesture lives in :class:`PointEditMixin`; this class owns
+    what is drawn and where each point resolves to, which is what the mixin
+    hit-tests against.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -70,6 +108,8 @@ class PaintCanvas(QWidget):
         #: see the raw footage under a prediction, which is exactly what someone
         #: checking a track needs to do (D-090).
         self._points_visible = True
+        self._corrections_visible = True
+        self._init_point_editing()
 
     def set_readers(self, readers: list[Any]) -> None:
         """Draw a single unnamed track from loose ``*_x``/``*_y`` readers.
@@ -92,6 +132,11 @@ class PaintCanvas(QWidget):
     def set_point_labels_visible(self, visible: bool) -> None:
         """Show or hide the per-body-part name drawn beside each marker."""
         self._point_labels_visible = bool(visible)
+        self.update()
+
+    def set_corrections_visible(self, visible: bool) -> None:
+        """Show or hide the ring marking hand-corrected coordinates."""
+        self._corrections_visible = bool(visible)
         self.update()
 
     def set_legend_visible(self, visible: bool) -> None:
@@ -126,10 +171,95 @@ class PaintCanvas(QWidget):
         offset_y = (self.height() - video_height * scale) / 2.0
         return scale, offset_x, offset_y
 
+    # ── where the points are ─────────────────────────────────────────
+
+    def _sample(self, reader: Any) -> tuple[int, float] | None:
+        """Return the ``(index, value)`` shown at the current time, or None.
+
+        ``sample_at`` is the authority, not ``value_at``: it answers with the
+        last sample at or before *t*, which is the same rule the pane uses to
+        pick the frame it is showing (architecture rule 6).  ``value_at``
+        rounds to the nearest sample, so between two frames it can name the
+        coordinate belonging to a frame that is not on screen — harmless while
+        the overlay only drew, wrong once a drag has to say which frame it
+        corrected.  ``sample_at`` clamps into range and does not consult the gap
+        mask, so both are checked here: without that, a pose source with a
+        genuinely missing stretch would show its last known coordinate pinned
+        in place rather than nothing, which ``value_at`` never did.
+        """
+        sample_at = getattr(reader, "sample_at", None)
+        if sample_at is None:
+            value = float(reader.value_at(self.t))
+            return (0, value)
+        sample = sample_at(self.t)
+        if sample is None:
+            return None
+        coverage = getattr(reader, "coverage", None)
+        bounds = coverage() if coverage is not None else None
+        if bounds is not None:
+            start, end = bounds
+            if not (start - _COVERAGE_SLACK_S <= self.t <= end + _COVERAGE_SLACK_S):
+                return None
+        index, value = sample
+        columns = getattr(reader, "mapped_columns", None)
+        if columns is not None:
+            # An mmap view indexed once -- the access this method is documented
+            # for -- never a reduction over the recording on the UI thread.
+            _, _, gap = columns()
+            if 0 <= index < len(gap) and bool(gap[index]):
+                return None
+        return int(index), float(value)
+
+    def _resolve(self, track: OverlayTrack) -> list[ResolvedPoint]:
+        """Return every body part of *track* that has a position right now.
+
+        Sorted by name for deterministic paint order only; colour is name-keyed
+        and does not depend on this ordering.
+        """
+        resolved: list[ResolvedPoint] = []
+        for name, (reader_x, reader_y) in sorted(track.points.items()):
+            sample_x = self._sample(reader_x)
+            sample_y = self._sample(reader_y)
+            if sample_x is None or sample_y is None:
+                continue
+            index, x_value = sample_x
+            _, y_value = sample_y
+
+            source_id = str(getattr(reader_x, "source_id", "") or "")
+            key = PointKey(source_id, name, index) if source_id else None
+            corrected = False
+            if key is not None:
+                if self._drag is not None and self._drag.key == key:
+                    x_value, y_value = self._drag.position
+                    corrected = True
+                elif self._edits is not None:
+                    override = self._edits.get(key)
+                    if override is not None:
+                        x_value, y_value = override
+                        corrected = True
+
+            if np.isnan(x_value) or np.isnan(y_value):
+                continue
+            resolved.append(
+                ResolvedPoint(
+                    name=name,
+                    x=float(x_value),
+                    y=float(y_value),
+                    color=color_for_point(name),
+                    key=key,
+                    corrected=corrected,
+                )
+            )
+        return resolved
+
+    # ── painting ─────────────────────────────────────────────────────
+
     def paintEvent(self, event: QPaintEvent) -> None:
         """Draw every complete XY point of every track at the current source time."""
         del event
-        if not self._points_visible:
+        # Edit mode overrides a hidden points layer: a mode whose whole purpose
+        # is grabbing markers must not start with nothing on screen to grab.
+        if not self._points_visible and not self._edit_mode:
             return
         if not self.readers and not self.tracks:
             return
@@ -175,24 +305,22 @@ class PaintCanvas(QWidget):
         label_font.setBold(track.is_ensemble)
 
         any_drawn = False
-        # Sorted for deterministic paint order only; colour is name-keyed and
-        # does not depend on this ordering (see tracking_colors.color_for_point).
-        for name, (reader_x, reader_y) in sorted(track.points.items()):
-            x_value = reader_x.value_at(self.t)
-            y_value = reader_y.value_at(self.t)
-            if np.isnan(x_value) or np.isnan(y_value):
-                continue
-            x = offset_x + x_value * scale
-            y = offset_y + y_value * scale
+        for point in self._resolve(track):
+            x = offset_x + point.x * scale
+            y = offset_y + point.y * scale
 
-            color = QColor(*color_for_point(name))
+            color = QColor(*point.color)
             pen = QPen(color, 2 if track.is_ensemble else 1)
             painter.setPen(pen)
             painter.setBrush(color)
 
             painter.drawEllipse(int(x) - radius, int(y) - radius, radius * 2, radius * 2)
-            if self._point_labels_visible and name:
-                self._draw_point_label(painter, label_font, color, name, x, y)
+            if point.corrected and self._corrections_visible:
+                self.draw_correction_ring(painter, color, x, y)
+            if self._edit_mode and point.key is not None:
+                self.draw_handle(painter, color, x, y, held=point.key == self._hover)
+            if self._point_labels_visible and point.name:
+                self._draw_point_label(painter, label_font, color, point.name, x, y)
             any_drawn = True
         return any_drawn
 

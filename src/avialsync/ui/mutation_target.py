@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.document import MarkerRecord, SourceRecord
+from avialsync.core.point_edits import PointKey
 from avialsync.ui.annotations import Marker
 
 if TYPE_CHECKING:
@@ -153,6 +154,20 @@ class WindowMutationTarget:
         with self.replaying():
             window.overlay_state.set_visible(overlay_id, visible, camera)
             window._apply_overlay_state()
+
+    def set_tracked_point(
+        self, source_id: str, point: str, index: int, position: tuple[float, float] | None
+    ) -> None:
+        """Override one tracked coordinate, or restore the prediction (D-099).
+
+        Writes only to the session's correction store; the imported pose file
+        and its sidecar cache are never touched. The store notifies the window,
+        which repaints the panes -- so undo and redo travel the same path a
+        drag does.
+        """
+        window = self._window
+        with self.replaying():
+            window.point_edits.set(PointKey(source_id, point, index), position)
 
     # ── sources ──────────────────────────────────────────────────────
 

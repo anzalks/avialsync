@@ -3402,3 +3402,77 @@ a fifth stacked surface to the workspace, now shows up as a failing compact
 test rather than as a window somebody cannot shrink. The 3D canvas floor is the
 budget's slack: if a future surface needs height, that number is where it comes
 from, and it is already close to the point where a pose stops being readable.
+
+## 2026-09 · D-099 · A corrected tracking point is an overlay on the data, never a rewrite
+
+**Context:** pose estimators are wrong sometimes — an occluded nose lands on the
+wall, a paw jumps to the shadow of a paw, a marker swaps between two animals.
+Until now the only remedy was to leave the session, edit the CSV, re-import it,
+and rebuild the sidecar cache. The error is visible in the pane; the fix was
+not available there. "Fix Tracker" makes the marker draggable in every video
+pane at once.
+
+The obvious implementation is the wrong one. Writing the corrected coordinate
+into the pose CSV, or into the pyramid cache derived from it, would destroy the
+model's own output in the act of disagreeing with it — and the recording is the
+one thing in this application that cannot be regenerated. It would also make
+the edit unundoable in any honest sense: an undo that rewrites a file is not a
+reversal, it is a second edit that happens to arrive at the old number.
+
+**Decision:** a correction is a **sparse override**, held in
+`core/point_edits.py::PointEditStore` and keyed by
+`(source_id, body part, sample index)`. The overlay consults the store when it
+reads a coordinate; the pose file and its `.avialcache/` sidecar are never
+opened for writing. The override is written into the `.avv` session (schema
+**v8**, `point_edits`), so deleting the session file restores exactly the
+model's predictions. Every drag goes through the command bus as a
+`SetTrackedPointCommand` carrying the *previous override or its absence* — so
+undoing the first correction of a point restores the prediction rather than
+pinning the old coordinate as a correction of itself (rule 14, D-087).
+
+Keyed by **sample index, not by time**: an offset or a newly accepted TimeMap
+changes when a sample is shown without changing which sample it is, and a
+correction has to survive that. Relinking a moved pose file remaps the keys, or
+the corrections would open silently orphaned.
+
+Two consequences follow for what is drawn. A hand-moved coordinate is ringed
+(`tracking.corrections`) so a correction is never mistaken for model output —
+this is a scientific-provenance requirement, not decoration. And the grab
+handles are a registered, *locked* overlay layer (`tracking.edit_handles`,
+D-090): registered because everything drawn over a frame is, locked because
+hiding them would leave the mode nothing to grab.
+
+**The overlay's sampling authority changed with it.** It read `value_at`, which
+returns the *nearest* sample; the pane shows the last frame at or before *t*
+(rule 6). Between two frames the overlay could therefore name a coordinate
+belonging to a frame that is not on screen. Harmless while it only drew;
+wrong the moment a drag has to say which frame it corrected. `_sample()` now
+goes through `sample_at`, with the coverage and gap checks `value_at` performed
+internally added back explicitly.
+
+**Alternatives rejected:** writing corrected values back to the CSV (destroys
+the prediction, and the CSV is often shared between analyses); a corrected copy
+of the sidecar cache (the cache is derived state and is rebuilt from a content
+hash — a hand edit in it would vanish on the next import); wrapping the reader
+so corrections also reach the plots and the 3D view (a `query` over a pyramid
+with sparse overrides is a much larger change, and the pane is where the error
+is seen and judged — the readers are unwrapped, so a plotted `nose_x` still
+shows what the model wrote); interpolating a correction across neighbouring
+frames (the user asserted one frame; spreading it invents data they did not
+give).
+
+The gesture lives in `ui/point_edit_tool.py::PointEditMixin`, not in
+`PaintCanvas`: painting a marker and dragging one are separate concerns and the
+combined module ran past the 500-line rule. The mixin derives from `QWidget`
+rather than being a bare mixin, so the Qt calls it makes are declared where they
+are used instead of being asserted about a host it cannot see.
+
+**Consequences:** plots and the 3D view still show the imported prediction, and
+that divergence is deliberate but must be documented wherever corrections are.
+Exporting corrected pose data to a file does not exist yet; the store is the
+single place it would read from when it does. `PaintCanvas` becomes opaque to
+the mouse while the mode is on, so it forwards wheel, middle-drag, double-click
+and context-menu events to the video surface — the two widgets share a grid
+cell and therefore a coordinate system, which
+`tests/test_fix_tracker.py::test_the_pane_hands_the_pointer_over_only_in_edit_mode`
+pins rather than assumes.

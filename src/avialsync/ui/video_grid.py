@@ -41,6 +41,9 @@ class VideoGrid(QWidget):
     #: would cost everything since the last autosave. Persisting here costs one
     #: small write and keeps that cheap insurance.
     pane_detached = Signal(str)
+    #: A finished "Fix Tracker" drag in any pane, as a
+    #: :class:`~avialsync.core.point_edits.PointMove`.
+    point_moved = Signal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -55,6 +58,12 @@ class VideoGrid(QWidget):
         #: tracking data routinely resolves while later cameras have no pane.
         self._overlay_tracks: dict[str, list] = {}
         self._tracking_readers: list = []
+        #: The session's hand-correction store, and whether the panes are
+        #: currently accepting corrections. Held here for the same reason the
+        #: overlay tracks are: a pane built later must open already in the
+        #: state the rest of the grid is in, not in the default one.
+        self._point_edits: object | None = None
+        self._point_edit_mode = False
 
         self._layout = QGridLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
@@ -194,6 +203,34 @@ class VideoGrid(QWidget):
             return
         self.panes[index].set_overlay_tracks(self._overlay_tracks[path])
 
+    def set_point_edits(self, edits: object) -> None:
+        """Share one hand-correction store with every pane, now and later."""
+        self._point_edits = edits
+        for pane in self.panes:
+            pane.set_point_edits(edits)
+
+    def set_point_edit_mode(self, enabled: bool) -> None:
+        """Turn "Fix Tracker" on or off across every video pane at once.
+
+        The mode is the grid's, not a pane's: a correction made on one camera
+        while another is still read-only would make the interaction depend on
+        which pane happened to be focused.
+        """
+        enabled = bool(enabled)
+        self._point_edit_mode = enabled
+        for pane in self.panes:
+            pane.set_point_edit_mode(enabled)
+
+    @property
+    def point_edit_mode(self) -> bool:
+        """Whether the panes are currently accepting point corrections."""
+        return self._point_edit_mode
+
+    def refresh_point_edits(self) -> None:
+        """Repaint every overlay after the correction store changed."""
+        for pane in self.panes:
+            pane.paint_canvas.update()
+
     def set_grid_mode(self, enabled: bool) -> None:
         """Switch between horizontal-strip and NxN grid layout."""
         if enabled == self._grid_mode:
@@ -211,6 +248,7 @@ class VideoGrid(QWidget):
         """Add a pane identified by original *path*, playing *media_path* if supplied."""
         pane = VideoPane(self)
         pane.double_clicked.connect(self._on_pane_double_clicked)
+        pane.point_moved.connect(self.point_moved)
         # Forward right-click with path so MainWindow can build a context menu.
         if on_file_loaded is not None:
             pane.file_loaded.connect(on_file_loaded)
@@ -225,6 +263,10 @@ class VideoGrid(QWidget):
         held = self._overlay_tracks.get(path)
         if held:
             pane.set_overlay_tracks(list(held))
+        if self._point_edits is not None:
+            pane.set_point_edits(self._point_edits)
+        if self._point_edit_mode:
+            pane.set_point_edit_mode(True)
         pane.open(media_path or path)
         if self._batch_depth == 0:
             self._relayout()

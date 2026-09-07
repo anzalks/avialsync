@@ -47,9 +47,11 @@ from avialsync.core.commands import (
     SetOverlayVisibleCommand,
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
+    SetTrackedPointCommand,
 )
 from avialsync.core.document import Document, SourceRecord
 from avialsync.core.inspection import SourceInspection
+from avialsync.core.point_edits import PointEditStore, PointMove
 from avialsync.core.session import (
     SessionState,
     SyncProvenance,
@@ -237,6 +239,10 @@ class MainWindow(QMainWindow):
         #: Which overlay layers show, globally and per camera (D-090). Law 2:
         #: nothing is drawn over a frame that the user cannot turn off.
         self.overlay_state = OverlayState()
+        #: Hand corrections to tracked points (D-099). Session-scoped and
+        #: sparse; the imported pose files and their caches are never written.
+        self.point_edits = PointEditStore()
+        self.point_edits.observe(self._on_point_edits_changed)
 
         # The feedback surface (D-091). JobManager already knew all of this;
         # none of it reached the user.
@@ -348,6 +354,8 @@ class MainWindow(QMainWindow):
 
         # UI Components
         self.video_grid = VideoGrid(self)
+        self.video_grid.set_point_edits(self.point_edits)
+        self.video_grid.point_moved.connect(self._on_tracked_point_moved)
         self.tracking_3d_pane = Tracking3DPane(self)
         self.plot_pane = PlotPane(self)
         self.transport = Transport(self)
@@ -1534,6 +1542,20 @@ class MainWindow(QMainWindow):
         _reg(self._undo_actions.undo_action, "Edit")
         _reg(self._undo_actions.redo_action, "Edit")
 
+        # Fix Tracker. One QAction drives both the menu entry and the button in
+        # the Data Streams header, so the label, the shortcut, and the checked
+        # state have a single author (D-092, architecture rule 15).
+        self._edit_menu.addSeparator()
+        self._act_fix_tracker = self._edit_menu.addAction(tr("Fix Tracker"))
+        self._act_fix_tracker.setCheckable(True)
+        self._act_fix_tracker.setShortcut(QKeySequence("Ctrl+Shift+T"))
+        self._act_fix_tracker.setToolTip(
+            tr("Drag a tracked point where it belongs, in every video pane")
+        )
+        self._act_fix_tracker.toggled.connect(self._toggle_point_edit_mode)
+        _reg(self._act_fix_tracker, "Edit")
+        self.transport.install_fix_tracker_action(self._act_fix_tracker)
+
         # ── Align ─────────────────────────────────────────────────────
         # Promoted out of File. Alignment is not a file operation -- it is the
         # reason this application exists, and it sat between Open Sensor Data
@@ -1840,6 +1862,65 @@ class MainWindow(QMainWindow):
                 action.setChecked(self.overlay_state.is_visible(overlay_id))
             finally:
                 action.blockSignals(blocked)
+
+    # ── Fix Tracker: correcting a predicted point by hand (D-099) ────
+
+    def _toggle_point_edit_mode(self, enabled: bool) -> None:
+        """Turn point correction on or off across every video pane.
+
+        Playback stops on the way in.  A moving frame makes the gesture
+        impossible -- the marker being aimed at is somewhere else by the time
+        the button goes down -- and stopping is what the user is about to do by
+        hand anyway.  This is presentation state, not a document mutation, so
+        it is deliberately not on the undo stack: undo reverses corrections,
+        not the mode you made them in.
+        """
+        enabled = bool(enabled)
+        if enabled and self.clock.state.playing:
+            # Same route the K shortcut takes, so the transport button, the
+            # player, and the clock stay in agreement.
+            self.transport.play_toggled.emit(False)
+        self.video_grid.set_point_edit_mode(enabled)
+        if enabled:
+            self.transport.set_status(
+                tr("Fix Tracker on — drag a point to correct it. Playback paused."), "info"
+            )
+        else:
+            corrections = len(self.point_edits)
+            self.transport.set_status(
+                tr("Fix Tracker off — {n} corrected point(s) in this session.").format(
+                    n=corrections
+                )
+                if corrections
+                else tr("Fix Tracker off."),
+                "info",
+            )
+
+    def _on_tracked_point_moved(self, move: object) -> None:
+        """Route a finished drag through the command bus so it can be undone."""
+        if not isinstance(move, PointMove):
+            return
+        self.document.execute(
+            SetTrackedPointCommand(
+                source_id=move.key.source_id,
+                point=move.key.point,
+                index=move.key.index,
+                before=move.before,
+                after=move.after,
+            ),
+            self._mutations,
+        )
+
+    def _on_point_edits_changed(self) -> None:
+        """Repaint every overlay after a correction is applied, undone, or loaded.
+
+        The window observes the store, not each pane: a callback held by a
+        widget outlives it, and a repaint scheduled onto a freed pane is a
+        SIGSEGV with no traceback (HANDOUT.md).  The window outlives them all.
+        """
+        grid = getattr(self, "video_grid", None)
+        if grid is not None:
+            grid.refresh_point_edits()
 
     # ── Command bus: recording live mutations (WP-1 step 4) ──────────
 

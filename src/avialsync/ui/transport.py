@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, QRegularExpression, QSettings, Qt, QTimer, Signal
 from PySide6.QtGui import (
+    QAction,
     QColor,
     QFontDatabase,
     QKeyEvent,
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
     QSlider,
     QStyle,
     QStyleOptionSlider,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -590,6 +592,13 @@ class TimelineEvidence(QWidget):
         self.flag_button.setToolTip(tr("Flag the current frame (M)"))
         self.flag_button.clicked.connect(self.flag_requested.emit)
         header.addWidget(self.flag_button)
+        # Filled by install_fix_tracker_action once the window has built the
+        # QAction; kept in the layout from the start so adding it later does
+        # not shuffle the row.
+        self.fix_tracker_button = QToolButton(self)
+        self.fix_tracker_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.fix_tracker_button.hide()
+        header.addWidget(self.fix_tracker_button)
         header.addStretch(1)
         self.snapshot_button = QPushButton("Snapshot", self)
         self.snapshot_button.setToolTip(tr("Export snapshot (Ctrl+E)"))
@@ -626,6 +635,21 @@ class TimelineEvidence(QWidget):
         layout.addWidget(self.overview)
         collapsed = bool(self._settings.value("timeline_evidence/collapsed", False, type=bool))
         self.set_collapsed(collapsed, persist=False)
+
+    def install_fix_tracker_action(self, action: QAction) -> None:
+        """Show the Fix Tracker toggle, driven by the menu's own QAction.
+
+        ``setDefaultAction`` rather than a second ``QPushButton``: the label,
+        the tooltip, the shortcut hint, and the checked state then have one
+        author, and the button cannot drift out of step with the menu entry
+        that does the same thing (architecture rule 15).
+        """
+        self.fix_tracker_button.setDefaultAction(action)
+        self.fix_tracker_button.setAccessibleName(tr("Fix Tracker"))
+        self.fix_tracker_button.setAccessibleDescription(
+            tr("Toggle dragging of tracked points in every video pane")
+        )
+        self.fix_tracker_button.show()
 
     def toggle_collapsed(self) -> None:
         self.set_collapsed(not self.overview.isHidden())
@@ -880,6 +904,10 @@ class Transport(QWidget):
     def ab_in(self) -> None:
         """Set the A/B loop in-point at the current slider position (public, D-022.1)."""
         self._on_ab_in()
+
+    def install_fix_tracker_action(self, action: QAction) -> None:
+        """Expose the Fix Tracker toggle in the Data Streams header."""
+        self.evidence.install_fix_tracker_action(action)
 
     def detach_data_streams(self) -> TimelineEvidence:
         """Detach Data Streams so the main workspace splitter can own its height."""

@@ -93,9 +93,14 @@ class SessionState:
     #: Per-source display window, schema v7 (D-093). Normalised 0-1 so it keeps
     #: its meaning if the same rig is later recorded at a different bit depth.
     display_levels: dict[str, Any] = dataclasses.field(default_factory=dict)
+    #: Hand corrections to tracked points, schema v8 (D-099). Sparse: one entry
+    #: per coordinate the user moved, in the pose source's own video pixels. The
+    #: imported CSV and its cache are never rewritten, so removing this list
+    #: restores exactly the model's own predictions.
+    point_edits: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 7)."""
+        """Serialise to a JSON-compatible dict (always writes version 8)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -111,7 +116,7 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 7,
+            "version": 8,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
@@ -122,18 +127,19 @@ class SessionState:
             "plot_x1": self.plot_x1,
             "overlays": self.overlays,
             "display_levels": self.display_levels,
+            "point_edits": self.point_edits,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v7).
+        """Deserialise from a parsed JSON dict (accepts v1 through v8).
 
-        Every v7 field is optional with a default, so a v6 file loads and
+        Every v8 field is optional with a default, so a v7 file loads and
         renders exactly as it did before the bump -- that equivalence is the
         migration test, not an aspiration.
         """
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5, 6, 7):
+        if version not in (1, 2, 3, 4, 5, 6, 7, 8):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
@@ -204,6 +210,7 @@ class SessionState:
             plot_x1=data.get("plot_x1"),
             overlays=data.get("overlays") or {},
             display_levels=data.get("display_levels") or {},
+            point_edits=list(data.get("point_edits") or []),
         )
 
     def save(self, path: Path) -> None:

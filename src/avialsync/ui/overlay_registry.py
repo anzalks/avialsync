@@ -77,6 +77,28 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         description="Key naming each prediction source, when more than one is drawn.",
     ),
     OverlayLayer(
+        overlay_id="tracking.corrections",
+        label="Hand-corrected marks",
+        group="Tracking",
+        default_visible=True,
+        description=(
+            "A ring around every point you moved with Fix Tracker, so a "
+            "correction is never mistaken for the model's own output."
+        ),
+    ),
+    OverlayLayer(
+        overlay_id="tracking.edit_handles",
+        label="Fix Tracker handles",
+        group="Tracking",
+        default_visible=True,
+        locked=True,
+        per_camera=False,
+        description=(
+            "Shown only while Fix Tracker is on, and not switchable then: "
+            "hiding the handles would leave the mode nothing to grab."
+        ),
+    ),
+    OverlayLayer(
         overlay_id="camera.name",
         label="Camera name",
         group="Camera chrome",

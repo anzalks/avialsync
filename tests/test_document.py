@@ -43,6 +43,7 @@ class FakeTarget:
         self.source_visible: dict[str, bool] = {}
         self.channel_visible: dict[tuple[str, str], bool] = {}
         self.overlay_visible: dict[tuple[str, str | None], bool] = {}
+        self.tracked_points: dict[tuple[str, str, int], tuple[float, float] | None] = {}
         self.sources: dict[str, SourceRecord] = {}
         self.sync_evidence: dict[str, Any] = {}
         self.cleared = 0
@@ -71,6 +72,15 @@ class FakeTarget:
 
     def set_overlay_visible(self, overlay_id: str, camera: str | None, visible: bool) -> None:
         self.overlay_visible[(overlay_id, camera)] = visible
+
+    def set_tracked_point(
+        self, source_id: str, point: str, index: int, position: tuple[float, float] | None
+    ) -> None:
+        key = (source_id, point, index)
+        if position is None:
+            self.tracked_points.pop(key, None)
+        else:
+            self.tracked_points[key] = position
 
     def add_source(self, record: SourceRecord) -> None:
         self.sources[record.source_id] = record

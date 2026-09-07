@@ -98,6 +98,26 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 
 Use tooltips by resting the pointer over any button if you are unsure what it does.
 
+## Correcting a tracked point
+
+Pose estimates are sometimes wrong: an occluded nose lands on the wall, or a marker swaps between
+two animals. Select **Fix Tracker** in the Data Streams header, or **Edit → Fix Tracker**
+(`Ctrl+Shift+T`), to correct one by hand.
+
+- Every video view accepts corrections while the mode is on, and playback stops so the frame you
+  are aiming at stays still.
+- Drag a marker to where the body part really is. The correction applies to that one frame of that
+  one point; every other frame keeps the prediction it had.
+- A corrected coordinate is drawn with a dotted ring, so a hand correction is never mistaken for
+  model output. Turn the ring off under **View → Overlays → Hand-corrected marks** if you want to
+  see the result plainly.
+- **Edit → Undo** (`Ctrl+Z`) reverses corrections one drag at a time.
+- Zooming with the wheel and panning with the middle mouse button keep working while the mode is on.
+
+Corrections are stored in the session file, never in your pose data. The imported CSV and its cache
+are not written to, so removing the session restores exactly what the model predicted. Plots and the
+3D pane continue to show the imported prediction; the correction applies to the video overlay.
+
 ## 3D tracking controls
 
 Tracking files use the existing import path. Every complete channel triplet named `point_x`,

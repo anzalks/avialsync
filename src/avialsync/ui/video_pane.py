@@ -493,6 +493,10 @@ class VideoPane(VideoTimingMixin, QWidget):
     source_format_detected = Signal(object)
     file_loaded = Signal()
     open_failed = Signal(str)
+    #: A finished "Fix Tracker" drag, as a
+    #: :class:`~avialsync.core.point_edits.PointMove`. Forwarded from the paint
+    #: canvas so callers wire to the pane rather than reaching into its chrome.
+    point_moved = Signal(object)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -752,6 +756,19 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Draw named 2D prediction sources (ensemble + models) over this pane."""
         self.paint_canvas.set_tracks(tracks)
 
+    def set_point_edits(self, edits: object) -> None:
+        """Adopt the session's hand-correction store (D-099)."""
+        self.paint_canvas.set_point_edits(edits)
+
+    def set_point_edit_mode(self, enabled: bool) -> None:
+        """Turn "Fix Tracker" on or off for this pane."""
+        self.paint_canvas.set_edit_mode(enabled)
+
+    @property
+    def point_edit_mode(self) -> bool:
+        """Whether this pane is currently accepting point corrections."""
+        return bool(self.paint_canvas.edit_mode)
+
     def _queue_osd_update(self, t: float, fps: float) -> None:
         """Queue at most one UI-thread OSD/overlay update, retaining the newest frame."""
         with self._osd_lock:
@@ -834,6 +851,7 @@ class VideoPane(VideoTimingMixin, QWidget):
 
         self.paint_canvas.set_points_visible(visibility.get("tracking.points", True))
         self.paint_canvas.set_point_labels_visible(visibility.get("tracking.point_labels", False))
+        self.paint_canvas.set_corrections_visible(visibility.get("tracking.corrections", True))
         self.paint_canvas.set_legend_visible(visibility.get("tracking.legend", True))
 
         self.lbl_osd.setVisible(visibility.get("camera.osd", True))
@@ -863,6 +881,7 @@ class VideoPane(VideoTimingMixin, QWidget):
     def _build_overlay_chrome(self) -> None:
         """Create the paint canvas, name/OSD labels, and placeholder overlay."""
         self.paint_canvas = PaintCanvas(self)
+        self.paint_canvas.point_moved.connect(self.point_moved)
         self._grid.addWidget(self.paint_canvas, 0, 0)
 
         # Set up overlay
@@ -877,10 +896,18 @@ class VideoPane(VideoTimingMixin, QWidget):
             "color: white; background-color: rgba(0,0,0,128); padding: 4px;"
         )
         self.lbl_name.setVisible(False)
+        # The chrome labels are readouts, not controls. Their container is
+        # already transparent to the mouse but the attribute is per widget, so
+        # without this each label is its own dead zone: a click over the
+        # timecode reached neither the video surface (no fullscreen on
+        # double-click) nor the tracking overlay (no grabbing a marker that
+        # happens to sit under it).
+        self.lbl_name.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self.lbl_osd = QLabel(format_video_osd(0.0, 0.0, self._metadata))
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self.lbl_osd.setStyleSheet("color: white; background-color: rgba(0,0,0,128); padding: 4px;")
+        self.lbl_osd.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         set_font_family(self.lbl_osd, mono_font)
 
         top_layout = QHBoxLayout()
@@ -894,6 +921,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.lbl_no_footage = QLabel("No Footage")
         self.lbl_no_footage.setStyleSheet("color: white; background-color: rgb(0,0,0);")
         self.lbl_no_footage.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_no_footage.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.lbl_no_footage.setVisible(False)
         olayout.addWidget(self.lbl_no_footage, 1)  # stretch
 

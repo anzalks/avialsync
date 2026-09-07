@@ -24,6 +24,8 @@ EXPECTED_INVENTORY = {
     "tracking.points",
     "tracking.point_labels",
     "tracking.legend",
+    "tracking.corrections",
+    "tracking.edit_handles",
     "camera.name",
     "camera.osd",
     "camera.no_footage",
@@ -205,8 +207,8 @@ def test_a_v6_session_loads_with_default_overlays() -> None:
         assert overlays.is_visible(layer.overlay_id) is layer.default_visible
 
 
-def test_the_session_writes_version_7() -> None:
-    assert SessionState().to_dict()["version"] == 7
+def test_the_session_writes_version_8() -> None:
+    assert SessionState().to_dict()["version"] == 8
 
 
 # ── the window wiring ────────────────────────────────────────────────

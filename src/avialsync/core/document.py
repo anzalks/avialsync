@@ -120,6 +120,16 @@ class MutationTarget(Protocol):
     def set_overlay_visible(self, overlay_id: str, camera: str | None, visible: bool) -> None:
         """Show or hide a registered overlay layer, globally or for one camera."""
 
+    def set_tracked_point(
+        self, source_id: str, point: str, index: int, position: tuple[float, float] | None
+    ) -> None:
+        """Override one tracked coordinate, or clear it when *position* is None.
+
+        ``index`` is the sample index within *source_id*; ``position`` is in
+        that recording's own video pixels.  The imported file and its cache are
+        never written -- see :mod:`avialsync.core.point_edits`.
+        """
+
     def add_source(self, record: SourceRecord) -> None:
         """Load a source back into the workspace."""
 
@@ -151,7 +161,10 @@ class Command(Protocol):
     """
 
     command_id: str
-    label: str
+
+    @property
+    def label(self) -> str:
+        """What the Edit menu shows for this mutation."""
 
     def apply(self, target: MutationTarget) -> None:
         """Perform the mutation."""

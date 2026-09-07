@@ -29,6 +29,7 @@ __all__ = [
     "SetChannelVisibleCommand",
     "SetChannelGroupVisibleCommand",
     "SetOverlayVisibleCommand",
+    "SetTrackedPointCommand",
     "AcceptSyncCommand",
     "AddSourceCommand",
     "RemoveSourceCommand",
@@ -241,6 +242,43 @@ class SetOverlayVisibleCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_overlay_visible(self.overlay_id, self.camera, not self.visible)
+
+
+@dataclasses.dataclass
+class SetTrackedPointCommand:
+    """Move one tracked body part to where the user says it really was.
+
+    ``before`` and ``after`` are the *override* on either side of the drag, not
+    the model's prediction: ``None`` means "no correction here", so undoing the
+    first correction of a point restores the prediction rather than pinning it
+    as a correction of itself.  Nothing about the imported file or its cache is
+    carried -- see :mod:`avialsync.core.point_edits` for why an edit is an
+    overlay rather than a rewrite.
+
+    Deliberately does not merge.  A drag commits once, on release, so each
+    entry is already one gesture; coalescing successive corrections of the same
+    point would make one Undo jump back past a deliberate second judgement.
+    """
+
+    source_id: str
+    point: str
+    index: int
+    before: tuple[float, float] | None
+    after: tuple[float, float] | None
+    command_id: str = "tracking.point"
+
+    @property
+    def label(self) -> str:
+        if self.after is None:
+            return f"Restore predicted {self.point} at frame {self.index}"
+        x, y = self.after
+        return f"Move {self.point} to ({x:.1f}, {y:.1f}) px at frame {self.index}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_tracked_point(self.source_id, self.point, self.index, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_tracked_point(self.source_id, self.point, self.index, self.before)
 
 
 @dataclasses.dataclass

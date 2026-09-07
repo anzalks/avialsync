@@ -14,6 +14,7 @@ def test_file_loaded_callback_is_connected_before_playback(monkeypatch, qapp) ->
         double_clicked = Signal(object)
         right_clicked = Signal(object)
         file_loaded = Signal()
+        point_moved = Signal(object)
 
         def __init__(self, parent: QWidget) -> None:
             super().__init__(parent)
@@ -44,6 +45,7 @@ def test_unchecked_video_stays_hidden_through_relayout(monkeypatch, qtbot) -> No
         double_clicked = Signal(object)
         right_clicked = Signal(object)
         file_loaded = Signal()
+        point_moved = Signal(object)
 
         def __init__(self, parent: QWidget) -> None:
             super().__init__(parent)
@@ -76,11 +78,14 @@ class _RecordingPane(QWidget):
     double_clicked = Signal(object)
     right_clicked = Signal(object)
     file_loaded = Signal()
+    point_moved = Signal(object)
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self.overlay_tracks: list = []
         self.tracking_readers: list = []
+        self.point_edits: object | None = None
+        self.point_edit_mode = False
 
     def open(self, _path: str) -> None:
         self.file_loaded.emit()
@@ -93,6 +98,12 @@ class _RecordingPane(QWidget):
 
     def set_tracking_readers(self, readers: list) -> None:
         self.tracking_readers = readers
+
+    def set_point_edits(self, edits: object) -> None:
+        self.point_edits = edits
+
+    def set_point_edit_mode(self, enabled: bool) -> None:
+        self.point_edit_mode = enabled
 
 
 def test_overlay_tracks_wait_for_a_pane_that_does_not_exist_yet(monkeypatch, qtbot) -> None:
@@ -159,3 +170,41 @@ def test_removing_a_camera_releases_its_held_tracks(monkeypatch, qtbot) -> None:
     grid.remove_pane("FaceCam.mp4")
 
     assert grid.add_pane("FaceCam.mp4").overlay_tracks == []
+
+
+def test_a_pane_built_later_opens_in_the_grid_s_edit_state(monkeypatch, qtbot) -> None:
+    """Fix Tracker is the grid's mode, so a camera that arrives late joins it.
+
+    Panes are built one at a time and each demuxes its whole file first, so on a
+    multi-camera session the later cameras appear well after the user turned the
+    mode on. Without this they would come up read-only and the same drag would
+    work on one pane and do nothing on the next.
+    """
+    from avialsync.core.point_edits import PointEditStore
+
+    monkeypatch.setattr(video_grid, "VideoPane", _RecordingPane)
+    grid = video_grid.VideoGrid()
+    qtbot.addWidget(grid)
+
+    store = PointEditStore()
+    grid.set_point_edits(store)
+    grid.set_point_edit_mode(True)
+
+    late = grid.add_pane("SideCam.mp4")
+
+    assert late.point_edits is store
+    assert late.point_edit_mode is True
+
+
+def test_leaving_edit_mode_reaches_every_pane(monkeypatch, qtbot) -> None:
+    monkeypatch.setattr(video_grid, "VideoPane", _RecordingPane)
+    grid = video_grid.VideoGrid()
+    qtbot.addWidget(grid)
+
+    first = grid.add_pane("FaceCam.mp4")
+    second = grid.add_pane("SideCam.mp4")
+    grid.set_point_edit_mode(True)
+    grid.set_point_edit_mode(False)
+
+    assert grid.point_edit_mode is False
+    assert [first.point_edit_mode, second.point_edit_mode] == [False, False]

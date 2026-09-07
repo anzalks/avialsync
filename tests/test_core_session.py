@@ -57,7 +57,7 @@ def test_v1_session_roundtrips_as_v7(tmp_path: Path) -> None:
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 7
+    assert data["version"] == 8
     assert data["videos"][0]["offset"] == 0.5
     assert data["sensors"][0]["channels"] == ["ch1", "ch2"]
     assert data["sensors"][0]["import_report"] is None
@@ -166,7 +166,7 @@ def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 7
+    assert data["version"] == 8
 
     loaded = SessionState.load(out)
     assert loaded.videos[0].integrity_flags == {"is_vfr": True, "has_gaps": False}

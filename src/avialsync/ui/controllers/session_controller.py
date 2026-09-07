@@ -153,6 +153,7 @@ def build_session_state(window: MainWindow) -> SessionState:
         plot_x0=plot_x0,
         plot_x1=plot_x1,
         overlays=window.overlay_state.to_dict(),
+        point_edits=window.point_edits.to_list(),
     )
 
 
@@ -358,6 +359,7 @@ def reset_session(window: MainWindow) -> None:
     window._frame_indexed_sources.clear()
     window._overlay_sources.clear()
     window._pose_3d_sources.clear()
+    window.point_edits.clear()
     window._plotted_readers.clear()
     window._inspections.clear()
     window._channel_units.clear()
@@ -397,6 +399,9 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # right layers rather than flashing the defaults first (D-090).
     window.overlay_state.load(state.overlays)
     window._apply_overlay_state()
+    # Same reason: a pane built later reads the store on its first paint, so a
+    # restored correction never flashes as the raw prediction first (D-099).
+    window.point_edits.load(state.point_edits)
     # Collect missing files for relink
     missing: list[str] = []
     kind_labels: dict[str, str] = {}
@@ -419,6 +424,11 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
         if dlg.exec() == RelinkDialog.DialogCode.Rejected:
             return
         relink_map = dlg.resolved_mapping()
+
+    for old_path, new_path in relink_map.items():
+        # Corrections are keyed by the pose file's path; without this a session
+        # whose CSV moved would open with every correction silently inactive.
+        window.point_edits.remap_source(str(old_path), str(new_path))
 
     window._sync_provenance = list(state.sync_provenance)
     window._pending_exact_mappings.clear()
