@@ -54130,7 +54130,7 @@
       "label": "_tracking_readers()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L369",
+      "source_location": "L380",
       "_origin": "ast"
     },
     {
@@ -54138,7 +54138,7 @@
       "label": "test_no_pose_means_no_tracking_tile()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L387",
+      "source_location": "L398",
       "_origin": "ast"
     },
     {
@@ -54146,7 +54146,7 @@
       "label": "test_tracking_tile_is_rendered_at_the_tile_size_and_captioned()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L397",
+      "source_location": "L408",
       "_origin": "ast"
     },
     {
@@ -54154,7 +54154,7 @@
       "label": "main_window()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L421",
+      "source_location": "L432",
       "_origin": "ast"
     },
     {
@@ -54162,7 +54162,7 @@
       "label": "test_a_window_with_nothing_loaded_captures_an_empty_figure()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L436",
+      "source_location": "L447",
       "_origin": "ast"
     },
     {
@@ -54170,7 +54170,7 @@
       "label": "test_export_snapshot_reports_instead_of_asking_where_to_write_nothing()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L445",
+      "source_location": "L456",
       "_origin": "ast"
     },
     {
@@ -54178,7 +54178,7 @@
       "label": "test_the_subtitle_writes_the_time_the_transport_is_showing()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L464",
+      "source_location": "L475",
       "_origin": "ast"
     },
     {
@@ -54186,7 +54186,7 @@
       "label": "_stub_window()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L485",
+      "source_location": "L496",
       "_origin": "ast"
     },
     {
@@ -54202,7 +54202,7 @@
       "label": "test_a_pane_snapshot_is_captured_before_the_filename_is_chosen()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L505",
+      "source_location": "L516",
       "_origin": "ast"
     },
     {
@@ -54210,7 +54210,7 @@
       "label": "test_a_pane_with_no_drawable_surface_reports_rather_than_writing_a_blank()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L543",
+      "source_location": "L554",
       "_origin": "ast"
     },
     {
@@ -54218,7 +54218,7 @@
       "label": "test_snapshot_worker_reports_a_write_failure_instead_of_raising()",
       "file_type": "code",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L577",
+      "source_location": "L588",
       "_origin": "ast"
     },
     {
@@ -54334,75 +54334,75 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_snapshot_figure_rationale_388",
+      "id": "tests_test_snapshot_figure_rationale_399",
       "label": "A session without 3D tracking must not gain an empty tile.",
       "file_type": "rationale",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L388",
+      "source_location": "L399",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_snapshot_figure_rationale_398",
+      "id": "tests_test_snapshot_figure_rationale_409",
       "label": "The pose is re-projected into its own tile, opaque and fully covered.",
       "file_type": "rationale",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L398",
-      "_origin": "ast"
-    },
-    {
-      "id": "tests_test_snapshot_figure_rationale_437",
-      "label": "`is_empty` is what stops Export Snapshot writing a header and a footer.",
-      "file_type": "rationale",
-      "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L437",
+      "source_location": "L409",
       "_origin": "ast"
     },
     {
       "id": "tests_test_snapshot_figure_rationale_448",
-      "label": "Never block, always inform (AGENTS rule 10): a status line, not a modal.",
+      "label": "`is_empty` is what stops Export Snapshot writing a header and a footer.",
       "file_type": "rationale",
       "source_file": "tests/test_snapshot_figure.py",
       "source_location": "L448",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_snapshot_figure_rationale_465",
+      "id": "tests_test_snapshot_figure_rationale_459",
+      "label": "Never block, always inform (AGENTS rule 10): a status line, not a modal.",
+      "file_type": "rationale",
+      "source_file": "tests/test_snapshot_figure.py",
+      "source_location": "L459",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_snapshot_figure_rationale_476",
       "label": "One authority for how a master time reads (D-020, AGENTS rule 15).      The subt",
       "file_type": "rationale",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L465",
+      "source_location": "L476",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_snapshot_figure_rationale_486",
+      "id": "tests_test_snapshot_figure_rationale_497",
       "label": "The attributes `export_snapshot_for_pane` and the capture actually touch.      A",
       "file_type": "rationale",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L486",
+      "source_location": "L497",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_snapshot_figure_rationale_508",
+      "id": "tests_test_snapshot_figure_rationale_519",
       "label": "The figure records the frame the user asked about, not a later one.      Naming",
       "file_type": "rationale",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L508",
+      "source_location": "L519",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_snapshot_figure_rationale_546",
+      "id": "tests_test_snapshot_figure_rationale_557",
       "label": "A pane with nothing to draw into has nothing to export; say so.      Never block",
       "file_type": "rationale",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L546",
+      "source_location": "L557",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_snapshot_figure_rationale_578",
+      "id": "tests_test_snapshot_figure_rationale_589",
       "label": "`SnapshotWorker.run` is a thread entry point: it must not let OSError out.",
       "file_type": "rationale",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L578",
+      "source_location": "L589",
       "_origin": "ast"
     },
     {
@@ -191643,7 +191643,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L369",
+      "source_location": "L380",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191654,7 +191654,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L369",
+      "source_location": "L380",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191664,7 +191664,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L387",
+      "source_location": "L398",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191674,7 +191674,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L397",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191685,7 +191685,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L397",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191695,7 +191695,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L421",
+      "source_location": "L432",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191705,7 +191705,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L436",
+      "source_location": "L447",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191715,7 +191715,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L445",
+      "source_location": "L456",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191725,7 +191725,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L464",
+      "source_location": "L475",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191735,7 +191735,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L485",
+      "source_location": "L496",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191746,7 +191746,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L485",
+      "source_location": "L496",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191756,7 +191756,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L505",
+      "source_location": "L516",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191767,7 +191767,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L505",
+      "source_location": "L516",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191777,7 +191777,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L543",
+      "source_location": "L554",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191787,7 +191787,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L577",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191798,7 +191798,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L577",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192040,7 +192040,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L404",
+      "source_location": "L415",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192051,7 +192051,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L414",
+      "source_location": "L425",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192062,7 +192062,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L495",
+      "source_location": "L506",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192073,7 +192073,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L533",
+      "source_location": "L544",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192084,7 +192084,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L567",
+      "source_location": "L578",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192095,7 +192095,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L582",
+      "source_location": "L593",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192240,38 +192240,28 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_snapshot_figure_rationale_388",
+      "source": "tests_test_snapshot_figure_rationale_399",
       "target": "tests_test_snapshot_figure_test_no_pose_means_no_tracking_tile",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L388",
+      "source_location": "L399",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_snapshot_figure_rationale_398",
+      "source": "tests_test_snapshot_figure_rationale_409",
       "target": "tests_test_snapshot_figure_test_tracking_tile_is_rendered_at_the_tile_size_and_captioned",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L398",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "tests_test_snapshot_figure_rationale_437",
-      "target": "tests_test_snapshot_figure_test_a_window_with_nothing_loaded_captures_an_empty_figure",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L437",
+      "source_location": "L409",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_snapshot_figure_rationale_448",
-      "target": "tests_test_snapshot_figure_test_export_snapshot_reports_instead_of_asking_where_to_write_nothing",
+      "target": "tests_test_snapshot_figure_test_a_window_with_nothing_loaded_captures_an_empty_figure",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
@@ -192280,52 +192270,62 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_snapshot_figure_rationale_465",
+      "source": "tests_test_snapshot_figure_rationale_459",
+      "target": "tests_test_snapshot_figure_test_export_snapshot_reports_instead_of_asking_where_to_write_nothing",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_snapshot_figure.py",
+      "source_location": "L459",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_snapshot_figure_rationale_476",
       "target": "tests_test_snapshot_figure_test_the_subtitle_writes_the_time_the_transport_is_showing",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L465",
+      "source_location": "L476",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_snapshot_figure_rationale_486",
+      "source": "tests_test_snapshot_figure_rationale_497",
       "target": "tests_test_snapshot_figure_stub_window",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L486",
+      "source_location": "L497",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_snapshot_figure_rationale_508",
+      "source": "tests_test_snapshot_figure_rationale_519",
       "target": "tests_test_snapshot_figure_test_a_pane_snapshot_is_captured_before_the_filename_is_chosen",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L508",
+      "source_location": "L519",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_snapshot_figure_rationale_546",
+      "source": "tests_test_snapshot_figure_rationale_557",
       "target": "tests_test_snapshot_figure_test_a_pane_with_no_drawable_surface_reports_rather_than_writing_a_blank",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L546",
+      "source_location": "L557",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_snapshot_figure_rationale_578",
+      "source": "tests_test_snapshot_figure_rationale_589",
       "target": "tests_test_snapshot_figure_test_snapshot_worker_reports_a_write_failure_instead_of_raising",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L578",
+      "source_location": "L589",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254305,7 +254305,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L355",
+      "source_location": "L362",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254317,7 +254317,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L383",
+      "source_location": "L394",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254329,7 +254329,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L384",
+      "source_location": "L395",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254341,7 +254341,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L391",
+      "source_location": "L402",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254353,7 +254353,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L394",
+      "source_location": "L405",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254365,7 +254365,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L401",
+      "source_location": "L412",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254377,7 +254377,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L407",
+      "source_location": "L418",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254389,7 +254389,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L427",
+      "source_location": "L438",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254401,7 +254401,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L438",
+      "source_location": "L449",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254413,7 +254413,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L475",
+      "source_location": "L486",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254425,7 +254425,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L493",
+      "source_location": "L504",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254437,7 +254437,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L555",
+      "source_location": "L566",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254449,7 +254449,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_snapshot_figure.py",
-      "source_location": "L582",
+      "source_location": "L593",
       "weight": 1.0,
       "_origin": "ast"
     },
