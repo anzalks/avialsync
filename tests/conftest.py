@@ -3,9 +3,12 @@
 import faulthandler
 import sys
 from collections.abc import Iterator
+from pathlib import Path
 from typing import TextIO
 
 import pytest
+
+from avialsync.ui import recovery
 
 
 @pytest.hookimpl(trylast=True)
@@ -75,3 +78,25 @@ def no_startup_diagnostics(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
     monkeypatch.setattr(diagnostics, "_STARTUP_DIAGNOSTICS", None)
     yield
+
+
+@pytest.fixture(autouse=True)
+def isolated_recovery_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+    """Keep every window's recovery snapshot inside the test's own tmp_path.
+
+    Two directions, both of which cross tests. Closing a ``MainWindow`` that
+    holds anything writes a recovery snapshot, and ``MainWindow.__init__`` now
+    reads one back to offer it (D-105) -- so without this redirect a window
+    built in one test surfaces a notification bar left by an entirely different
+    test that happened to run first, and the whole suite writes into the
+    developer's real app-data directory and offers them a restore on their next
+    genuine launch.
+
+    Autouse and session-wide, because the construction that reads it is in
+    ``MainWindow.__init__``: any test that builds a window is exposed, not only
+    the ones that mean to exercise recovery.
+    """
+    target = tmp_path / "appdata"
+    target.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(recovery, "recovery_dir", lambda: target)
+    yield target
