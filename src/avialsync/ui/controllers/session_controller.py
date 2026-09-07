@@ -25,6 +25,7 @@ from avialsync.core.session import (
     VideoEntry,
 )
 from avialsync.ui import recovery
+from avialsync.ui.controllers import corrections_controller
 from avialsync.ui.recent_files import add_recent, get_recent
 
 if TYPE_CHECKING:
@@ -153,7 +154,7 @@ def build_session_state(window: MainWindow) -> SessionState:
         plot_x0=plot_x0,
         plot_x1=plot_x1,
         overlays=window.overlay_state.to_dict(),
-        point_edits=window.point_edits.to_list(),
+        point_edits=corrections_controller.build_manifest(window),
     )
 
 
@@ -360,6 +361,9 @@ def reset_session(window: MainWindow) -> None:
     window._overlay_sources.clear()
     window._pose_3d_sources.clear()
     window.point_edits.clear()
+    window._point_edit_storage.clear()
+    window._expected_correction_counts.clear()
+    window._announced_correction_files.clear()
     window._plotted_readers.clear()
     window._inspections.clear()
     window._channel_units.clear()
@@ -399,9 +403,12 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # right layers rather than flashing the defaults first (D-090).
     window.overlay_state.load(state.overlays)
     window._apply_overlay_state()
-    # Same reason: a pane built later reads the store on its first paint, so a
-    # restored correction never flashes as the raw prediction first (D-099).
-    window.point_edits.load(state.point_edits)
+    # Corrections live beside their pose files, so this only takes up what the
+    # session claims: the counts to check each source against as it imports, and
+    # the coordinates for any source that had to fall back to session storage
+    # because its folder could not be written (D-099).
+    window.point_edits.clear()
+    corrections_controller.restore_manifest(window, state.point_edits)
     # Collect missing files for relink
     missing: list[str] = []
     kind_labels: dict[str, str] = {}
@@ -427,8 +434,9 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
 
     for old_path, new_path in relink_map.items():
         # Corrections are keyed by the pose file's path; without this a session
-        # whose CSV moved would open with every correction silently inactive.
-        window.point_edits.remap_source(str(old_path), str(new_path))
+        # whose CSV moved would open with every correction silently inactive,
+        # and its expected count would be checked against a file that is gone.
+        corrections_controller.remap(window, str(old_path), str(new_path))
 
     window._sync_provenance = list(state.sync_provenance)
     window._pending_exact_mappings.clear()

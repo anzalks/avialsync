@@ -349,6 +349,11 @@ def register_tracking_source(
 
     register_points(points)
 
+    # Whatever the user already corrected on this recording, wherever the
+    # session it was corrected in has got to (D-099). Before the tracks are
+    # published, so the pane's first paint is already the corrected one.
+    window._adopt_point_edits(path)
+
     window._overlay_sources.setdefault(video, {})[path] = {
         "label": str(config.get("overlay_label", Path(path).stem)),
         "is_ensemble": bool(config.get("overlay_is_ensemble", False)),

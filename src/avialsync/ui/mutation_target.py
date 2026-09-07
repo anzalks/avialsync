@@ -160,14 +160,17 @@ class WindowMutationTarget:
     ) -> None:
         """Override one tracked coordinate, or restore the prediction (D-099).
 
-        Writes only to the session's correction store; the imported pose file
-        and its sidecar cache are never touched. The store notifies the window,
-        which repaints the panes -- so undo and redo travel the same path a
-        drag does.
+        Writes the correction store and then the corrections file beside the
+        pose source; the pose file itself and its sidecar cache are never
+        touched. This is the one funnel every correction passes through -- drag,
+        undo, and redo alike -- which is why persistence hangs off it rather
+        than off the store's observers: reading a sidecar in must not echo it
+        straight back out (D-099).
         """
         window = self._window
         with self.replaying():
-            window.point_edits.set(PointKey(source_id, point, index), position)
+            if window.point_edits.set(PointKey(source_id, point, index), position):
+                window._persist_point_edits(source_id)
 
     # ── sources ──────────────────────────────────────────────────────
 

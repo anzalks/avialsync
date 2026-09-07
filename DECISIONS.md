@@ -3423,12 +3423,53 @@ reversal, it is a second edit that happens to arrive at the old number.
 `core/point_edits.py::PointEditStore` and keyed by
 `(source_id, body part, sample index)`. The overlay consults the store when it
 reads a coordinate; the pose file and its `.avialcache/` sidecar are never
-opened for writing. The override is written into the `.avv` session (schema
-**v8**, `point_edits`), so deleting the session file restores exactly the
-model's predictions. Every drag goes through the command bus as a
+opened for writing. Every drag goes through the command bus as a
 `SetTrackedPointCommand` carrying the *previous override or its absence* — so
 undoing the first correction of a point restores the prediction rather than
 pinning the old coordinate as a correction of itself (rule 14, D-087).
+
+**A correction lives beside the pose file, not in the session.**
+`core/point_edit_sidecar.py` writes `<pose file>.avialfix.csv` — a
+`#`-commented header plus `frame,bodypart,x,y` — in the source's own directory,
+the moment the correction is made rather than when the session is saved. Three
+reasons, in order of weight:
+
+1. *A correction is a fact about the recording, not about a viewing
+   arrangement.* Reopening the same pose file in a new session showed none of
+   them, and a collaborator handed the data folder got none either. That is the
+   wrong binding for an assertion about where a body part was.
+2. *Hand corrections are collected data.* Two hundred careful drags sitting in
+   RAM until somebody remembers Ctrl+S is the wrong default for work that
+   cannot be regenerated. The single funnel every correction passes through
+   (`WindowMutationTarget.set_tracked_point`) persists it — drag, undo, and redo
+   alike.
+3. *A scientist has to be able to check it.* CSV over JSON so it opens in pandas
+   or a spreadsheet with no parser of ours; the provenance header is comment-
+   prefixed, which both `polars.read_csv(comment_prefix=)` and
+   `pandas.read_csv(comment=)` skip.
+
+The `.avv` (schema **v8**, `point_edits`) then records a **count per source**,
+not the coordinates. One authority for the corrections themselves, while still
+making a missing or emptied sidecar *reportable* — "this session recorded 47
+corrections for eks.csv and its corrections file holds 12" — instead of
+silently showing fewer points than the user left behind. The one exception is a
+source whose folder cannot be written (an archived acquisition on read-only
+media): those corrections go into the session, the record says
+`"storage": "session"`, and the user is told which they got. Losing the work is
+not among the options.
+
+Not in `.avialcache/`: that directory is derived state, rebuilt from a content
+hash and safe to delete. Corrections are irreplaceable human work, and a cache
+clear must not eat an afternoon of it. And when the last correction for a source
+is undone the sidecar is rewritten *empty* rather than removed — an inode is
+cheaper than any rule that lets this application delete a file in a data
+directory.
+
+**Considered and reversed:** the first implementation stored corrections in the
+`.avv` alone. It is simpler, it needs no write into the user's data directory,
+and it is wrong for reason 1 above — which only becomes visible the second time
+someone opens the same recording. Recorded here so it is not reintroduced as a
+simplification.
 
 Keyed by **sample index, not by time**: an offset or a newly accepted TimeMap
 changes when a sample is shown without changing which sample it is, and a
@@ -3453,7 +3494,10 @@ internally added back explicitly.
 **Alternatives rejected:** writing corrected values back to the CSV (destroys
 the prediction, and the CSV is often shared between analyses); a corrected copy
 of the sidecar cache (the cache is derived state and is rebuilt from a content
-hash — a hand edit in it would vanish on the next import); wrapping the reader
+hash — a hand edit in it would vanish on the next import); mirroring the
+corrections in both the sidecar and the `.avv` (two copies that must agree, and
+the first time they disagree there is no rule for which wins — the count is a
+check, not a second copy); wrapping the reader
 so corrections also reach the plots and the 3D view (a `query` over a pyramid
 with sparse overrides is a much larger change, and the pane is where the error
 is seen and judged — the readers are unwrapped, so a plotted `nose_x` still
@@ -3469,8 +3513,13 @@ are used instead of being asserted about a host it cannot see.
 
 **Consequences:** plots and the 3D view still show the imported prediction, and
 that divergence is deliberate but must be documented wherever corrections are.
-Exporting corrected pose data to a file does not exist yet; the store is the
-single place it would read from when it does. `PaintCanvas` becomes opaque to
+Exporting corrected pose data — a full corrected copy for analysis, or the
+corrected frames alone in DLC's labeled-data layout for a retraining loop — does
+not exist yet; the sidecar is the single place it would read from when it does.
+`.avialfix.csv` is a well-formed CSV, so `LoaderRegistry.find_best_loader`
+excludes it centrally: without that the generic CSV loader claims it on
+extension alone and offers to import the user's own corrections back as a time
+series beside the pose file they belong to. `PaintCanvas` becomes opaque to
 the mouse while the mode is on, so it forwards wheel, middle-drag, double-click
 and context-menu events to the video surface — the two widgets share a grid
 cell and therefore a coordinate system, which

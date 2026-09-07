@@ -12,6 +12,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Protocol, TypeVar
 
+from avialsync.core.point_edit_sidecar import is_correction_path
 from avialsync.core.source import SessionSource, TimeSeriesSource, VideoSource
 
 logger = logging.getLogger(__name__)
@@ -345,8 +346,17 @@ class LoaderRegistry:
         return best
 
     def find_best_loader(self, path: Path) -> type[TimeSeriesSource | VideoSource] | None:
-        """Return the loader with the highest can_open() score > 0."""
+        """Return the loader with the highest can_open() score > 0.
+
+        Our own corrections sidecars are excluded here rather than in each
+        loader: a ``.avialfix.csv`` is a perfectly well-formed CSV, so the
+        generic CSV loader claims it on extension alone and offers to import
+        the user's hand corrections back as a time series beside the pose file
+        they belong to (D-099). One place, so a plugin cannot reintroduce it.
+        """
         self.ensure_discovered()
+        if is_correction_path(path):
+            return None
         return self._best_by_capability(self._loaders, path, "loader")
 
     def find_best_session(self, path: Path) -> type[SessionSource] | None:

@@ -65,6 +65,7 @@ from avialsync.ui.about import citation_text, project_urls, version_report
 from avialsync.ui.accessibility import apply_accessibility
 from avialsync.ui.annotations import AnnotationPanel, AnnotationStore, Marker
 from avialsync.ui.controllers import (
+    corrections_controller,
     drop_controller,
     export_controller,
     import_controller,
@@ -239,10 +240,20 @@ class MainWindow(QMainWindow):
         #: Which overlay layers show, globally and per camera (D-090). Law 2:
         #: nothing is drawn over a frame that the user cannot turn off.
         self.overlay_state = OverlayState()
-        #: Hand corrections to tracked points (D-099). Session-scoped and
-        #: sparse; the imported pose files and their caches are never written.
+        #: Hand corrections to tracked points (D-099). Sparse, and written
+        #: beside each pose file the moment they are made; the pose files
+        #: themselves and their caches are never written.
         self.point_edits = PointEditStore()
         self.point_edits.observe(self._on_point_edits_changed)
+        #: Where each source's corrections went. "session" only ever means
+        #: writing beside the pose file failed, never a preference.
+        self._point_edit_storage: dict[str, str] = {}
+        #: What a restored session said each source should have, checked as that
+        #: source imports so a missing sidecar is reported rather than silent.
+        self._expected_correction_counts: dict[str, int] = {}
+        #: Sources whose storage has already been reported, so a read-only
+        #: volume does not raise the same strip on every drag.
+        self._announced_correction_files: set[str] = set()
 
         # The feedback surface (D-091). JobManager already knew all of this;
         # none of it reached the user.
@@ -1911,16 +1922,29 @@ class MainWindow(QMainWindow):
             self._mutations,
         )
 
-    def _on_point_edits_changed(self) -> None:
+    def _on_point_edits_changed(self, source_id: str | None) -> None:
         """Repaint every overlay after a correction is applied, undone, or loaded.
 
         The window observes the store, not each pane: a callback held by a
         widget outlives it, and a repaint scheduled onto a freed pane is a
         SIGSEGV with no traceback (HANDOUT.md).  The window outlives them all.
+
+        *source_id* is unused here -- every pane repaints either way -- but it is
+        what tells the persistence path a change came from the user rather than
+        from reading a sidecar back in.
         """
+        del source_id
         grid = getattr(self, "video_grid", None)
         if grid is not None:
             grid.refresh_point_edits()
+
+    def _persist_point_edits(self, source_id: str) -> None:
+        """Write one pose source's corrections beside it, immediately."""
+        corrections_controller.persist(self, source_id)
+
+    def _adopt_point_edits(self, source_id: str) -> None:
+        """Load the corrections that live beside a pose file being imported."""
+        corrections_controller.adopt(self, source_id)
 
     # ── Command bus: recording live mutations (WP-1 step 4) ──────────
 

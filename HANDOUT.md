@@ -395,12 +395,14 @@ contradicts the runtime.
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
 | `core/source.py` | Plugin ABCs — frozen API plus additive optional hooks (`messages()`, `exact_time_mapping()`, `video_metadata()`) | `TimeSeriesSource`, `VideoSource`, `VideoMetadata` |
-| `core/session.py` | `.avv` session JSON, schema v8 (v8 adds `point_edits`, D-099) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
+| `core/session.py` | `.avv` session JSON, schema v8 (v8 adds `point_edits` — a **count per source**, not the coordinates, D-099) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020); carries recorded messages into the sidecar manifest (D-078) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/messages.py` | Headless record for free text the rig stored with the data (D-078) | `Message`, `clean()`, `bounded()`, `MAX_MESSAGES` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
-| `core/point_edits.py` | Hand corrections to tracked points — sparse overrides keyed by `(source, body part, sample index)`. HEADLESS. **Never writes the pose file or its cache** (D-099) | `PointEditStore`, `PointKey`, `PointMove` |
+| `core/point_edits.py` | Hand corrections to tracked points, in memory — sparse overrides keyed by `(source, body part, sample index)`. HEADLESS. **Never writes the pose file or its cache** (D-099) | `PointEditStore`, `PointKey`, `PointMove` |
+| `core/point_edit_sidecar.py` | Where those corrections live: `<pose file>.avialfix.csv` beside the source, written on every edit. Commented header, atomic replace, emptied never deleted (D-099) | `sidecar_path()`, `is_correction_path()`, `read()`, `write()` |
+| `ui/controllers/corrections_controller.py` | Sidecar first, session as the fallback; adopts a pose file's corrections on import and reports a count that does not match | `persist()`, `adopt()`, `build_manifest()`, `restore_manifest()`, `remap()` |
 | `engine/pyav_reader.py` | Headless exact-frame reader: pts table, seek, index-keyed LRU (D-075). No Qt — safe on a worker thread | `PyAVReader.frame_at_time()`, `.frame_at_index()`, `.index_at_time()`, `.time_at_index()`, `.frame_times`, `to_rgb_array()` |
 | `engine/player.py` | precise 60 Hz tick; MasterClock ↔ panes ↔ UI. Owns the clock, so no drift correction (D-075) | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
 | `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
@@ -679,14 +681,24 @@ coverage and gap checks are written out explicitly beside it. Deleting either on
 coordinate on screen at the ends of a recording or across a missing stretch.
 
 ### 0c-quater. A correction never touches the pose file or its cache (D-099)
-"Fix Tracker" is a sparse override in `core/point_edits.py`, saved into the `.avv` and applied when
-the overlay reads a coordinate. Nothing writes the imported CSV or its `.avialcache/` sidecar, and
-nothing may start: the recording cannot be regenerated, the cache is content-hash keyed and would
-discard a hand edit on the next import, and undo would stop being a reversal. `PaintCanvas` emits
-`point_moved` and does **not** apply it — `MainWindow._on_tracked_point_moved` puts it through the
-command bus (rule 14). If you find a canvas writing to `PointEditStore`, that is the bug.
-Corollary: plots and the 3D view still show the model's own prediction, deliberately. The readers
-are not wrapped.
+"Fix Tracker" is a sparse override in `core/point_edits.py`, written to `<pose file>.avialfix.csv`
+beside the source and applied when the overlay reads a coordinate. Nothing writes the imported CSV
+or its `.avialcache/` sidecar, and nothing may start: the recording cannot be regenerated, the cache
+is content-hash keyed and would discard a hand edit on the next import, and undo would stop being a
+reversal. `PaintCanvas` emits `point_moved` and does **not** apply it —
+`MainWindow._on_tracked_point_moved` puts it through the command bus (rule 14). If you find a canvas
+writing to `PointEditStore`, that is the bug. Corollary: plots and the 3D view still show the
+model's own prediction, deliberately. The readers are not wrapped.
+
+### 0c-quinquies. Persistence hangs off the mutation, not off the store's observers (D-099)
+`PointEditStore` observers are told *which* source changed, and `None` for a bulk replacement, for
+one reason: the write path must not echo the read path. Corrections are persisted from
+`WindowMutationTarget.set_tracked_point` — the single funnel a drag, an undo, and a redo all pass
+through — while `load_source()` (adopting a sidecar as its pose file imports) notifies as a bulk
+change and writes nothing. Moving the write onto a plain observer re-saves every file the moment it
+is read, which looks harmless until a partially-read sidecar is written back over the whole one.
+The `.avv` holds a count per source, never a second copy of the coordinates: two copies that must
+agree have no rule for which wins when they do not.
 
 ### 0d. `"_eks.csv".split("_")[0]` is `""` — and `"" in name` matches everything
 The session-level 3D file names no camera, so substring-matching its leading token bound it to

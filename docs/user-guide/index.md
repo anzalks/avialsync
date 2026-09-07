@@ -114,9 +114,26 @@ two animals. Select **Fix Tracker** in the Data Streams header, or **Edit → Fi
 - **Edit → Undo** (`Ctrl+Z`) reverses corrections one drag at a time.
 - Zooming with the wheel and panning with the middle mouse button keep working while the mode is on.
 
-Corrections are stored in the session file, never in your pose data. The imported CSV and its cache
-are not written to, so removing the session restores exactly what the model predicted. Plots and the
-3D pane continue to show the imported prediction; the correction applies to the video overlay.
+### Where corrections are kept
+
+Corrections are saved **next to the pose file**, in `<pose file>.avialfix.csv`, as soon as you make
+them — there is no separate save step, and closing without saving the session does not lose them.
+The file is an ordinary CSV of `frame,bodypart,x,y` with a commented header, so you can read it in
+pandas (`pd.read_csv(path, comment="#")`) or a spreadsheet and see exactly what was changed by hand.
+
+Your pose data is never modified. The imported CSV and its cache are not written to, so deleting the
+corrections file restores exactly what the model predicted. Because the corrections live with the
+recording rather than with the session, opening the same pose file in a different session — or on a
+colleague's machine, if they have the data folder — brings them along.
+
+The session file records only how many corrections each source had. If that number and the
+corrections file disagree, or the file has gone missing, AvialSync says so instead of quietly
+showing fewer points. If the recording sits somewhere that cannot be written — an archived
+acquisition on read-only media — the corrections are kept in the session instead and you are told
+so; save the session to keep them.
+
+Plots and the 3D pane continue to show the imported prediction; the correction applies to the video
+overlay.
 
 ## 3D tracking controls
 

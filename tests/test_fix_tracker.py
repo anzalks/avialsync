@@ -8,6 +8,8 @@ the moment the gesture is not a grab.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
@@ -15,8 +17,10 @@ from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QApplication, QWidget
 from shiboken6 import isValid
 
+from avialsync.core import point_edit_sidecar
 from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
 from avialsync.ui import recovery
+from avialsync.ui.controllers import corrections_controller
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.video_overlay import OverlayTrack, PaintCanvas
 
@@ -468,16 +472,114 @@ def test_a_drag_becomes_one_undoable_correction(window: MainWindow) -> None:
     assert window.point_edits.get(key) is None
 
 
-def test_a_correction_is_written_into_the_session(window: MainWindow) -> None:
-    """Without this the dirty flag would promise work the save silently drops."""
-    key = PointKey(SOURCE, "nose", 120)
-    window.video_grid.point_moved.emit(PointMove(key=key, before=None, after=(12.0, 34.0)))
+# ── where a correction is kept ───────────────────────────────────────
+
+
+def _pose_file(tmp_path) -> Path:
+    path = tmp_path / "eks.csv"
+    path.write_text("scorer,a,b\nbodyparts,nose,nose\ncoords,x,y\n0,1.0,2.0\n")
+    return path
+
+
+def test_a_correction_is_written_beside_its_pose_file(window: MainWindow, tmp_path) -> None:
+    """A correction is a fact about the recording, so it lives with it (D-099).
+
+    Not on Ctrl+S: two hundred careful drags are collected data, and leaving
+    them in RAM until somebody remembers to save is the wrong default for work
+    that cannot be regenerated.
+    """
+    pose = _pose_file(tmp_path)
+    key = PointKey(str(pose), "nose", 120)
+
+    window.video_grid.point_moved.emit(PointMove(key=key, before=None, after=(12.5, 34.5)))
+
+    written = point_edit_sidecar.read(pose)
+    assert written is not None
+    assert [(e.frame, e.bodypart, e.x, e.y) for e in written.entries] == [(120, "nose", 12.5, 34.5)]
+    assert "eks.csv" in window.notifications.message
+
+
+def test_undoing_a_correction_reaches_the_file_too(window: MainWindow, tmp_path) -> None:
+    """Undo is a correction like any other, and takes the same route to disk."""
+    pose = _pose_file(tmp_path)
+    key = PointKey(str(pose), "nose", 120)
+    window.video_grid.point_moved.emit(PointMove(key=key, before=None, after=(12.5, 34.5)))
+
+    window.document.undo(window._mutations)
+
+    written = point_edit_sidecar.read(pose)
+    assert written is not None
+    assert written.entries == [], "the file is emptied, never deleted"
+    assert point_edit_sidecar.sidecar_path(pose).exists()
+
+
+def test_the_session_records_a_count_not_the_coordinates(window: MainWindow, tmp_path) -> None:
+    """One authority. The count is what makes a lost sidecar reportable."""
+    pose = _pose_file(tmp_path)
+    key = PointKey(str(pose), "nose", 120)
+    window.video_grid.point_moved.emit(PointMove(key=key, before=None, after=(12.5, 34.5)))
 
     state = window._build_session_state()
 
-    assert state.point_edits == [
-        {"source": SOURCE, "point": "nose", "index": 120, "x": 12.0, "y": 34.0}
+    assert state.point_edits == [{"source": str(pose), "count": 1, "storage": "sidecar"}]
+
+
+def test_a_folder_that_cannot_be_written_keeps_the_work_in_the_session(
+    window: MainWindow, tmp_path
+) -> None:
+    """An archived acquisition on read-only media is the ordinary case."""
+    missing = tmp_path / "not-a-folder" / "eks.csv"
+    key = PointKey(str(missing), "nose", 120)
+
+    window.video_grid.point_moved.emit(PointMove(key=key, before=None, after=(12.5, 34.5)))
+
+    state = window._build_session_state()
+    assert state.point_edits[0]["storage"] == "session"
+    assert state.point_edits[0]["edits"] == [
+        {"source": str(missing), "point": "nose", "index": 120, "x": 12.5, "y": 34.5}
     ]
+    assert "could not be written" in window.notifications.message
+
+
+def test_opening_the_pose_file_again_brings_its_corrections(window: MainWindow, tmp_path) -> None:
+    """The whole point of the sidecar: corrections outlive the session."""
+    pose = _pose_file(tmp_path)
+    point_edit_sidecar.write(
+        pose, [point_edit_sidecar.Correction(frame=120, bodypart="nose", x=12.5, y=34.5)]
+    )
+
+    window._adopt_point_edits(str(pose))
+
+    assert window.point_edits.get(PointKey(str(pose), "nose", 120)) == (12.5, 34.5)
+
+
+def test_a_session_expecting_more_corrections_than_it_finds_says_so(
+    window: MainWindow, tmp_path
+) -> None:
+    """Silently showing fewer points than the user left behind is the failure."""
+    pose = _pose_file(tmp_path)
+    point_edit_sidecar.write(
+        pose, [point_edit_sidecar.Correction(frame=120, bodypart="nose", x=12.5, y=34.5)]
+    )
+    corrections_controller.restore_manifest(
+        window, [{"source": str(pose), "count": 47, "storage": "sidecar"}]
+    )
+
+    window._adopt_point_edits(str(pose))
+
+    assert "47" in window.notifications.message
+    assert window.point_edits.count_for(str(pose)) == 1, "what survives is still shown"
+
+
+def test_a_session_whose_corrections_file_is_gone_says_so(window: MainWindow, tmp_path) -> None:
+    pose = _pose_file(tmp_path)
+    corrections_controller.restore_manifest(
+        window, [{"source": str(pose), "count": 47, "storage": "sidecar"}]
+    )
+
+    window._adopt_point_edits(str(pose))
+
+    assert "no corrections file" in window.notifications.message
 
 
 if __name__ == "__main__":  # pragma: no cover

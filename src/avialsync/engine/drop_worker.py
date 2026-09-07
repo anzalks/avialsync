@@ -13,6 +13,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Slot
 
 from avialsync.core.cache import is_cache_path
+from avialsync.core.point_edit_sidecar import is_correction_path
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.source import SessionLayout, TimeSeriesSource
 
@@ -93,6 +94,12 @@ class DropScanWorker(QObject):
                     # and none of them is an importable source. Descending into
                     # one turned "drop the folder you imported last week" into a
                     # dialog of several hundred unrecognised rows.
+                    continue
+                if is_correction_path(child):
+                    # Also ours: a corrections file is a CSV, so without this a
+                    # folder the user has corrected offers to import the
+                    # corrections back as a data source beside the pose file
+                    # they belong to (D-099).
                     continue
                 candidates.extend(self._collect_drop_candidates(child))
         else:
