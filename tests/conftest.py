@@ -81,8 +81,10 @@ def no_startup_diagnostics(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def isolated_recovery_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    """Keep every window's recovery snapshot inside the test's own tmp_path.
+def isolated_recovery_dir(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[Path]:
+    """Keep every window's recovery snapshot out of the real app-data directory.
 
     Two directions, both of which cross tests. Closing a ``MainWindow`` that
     holds anything writes a recovery snapshot, and ``MainWindow.__init__`` now
@@ -92,11 +94,18 @@ def isolated_recovery_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> It
     developer's real app-data directory and offers them a restore on their next
     genuine launch.
 
-    Autouse and session-wide, because the construction that reads it is in
-    ``MainWindow.__init__``: any test that builds a window is exposed, not only
-    the ones that mean to exercise recovery.
+    Autouse, because the read is in ``MainWindow.__init__``: any test that
+    builds a window is exposed, not only the ones that mean to exercise
+    recovery.
+
+    ``tmp_path_factory``, deliberately, and not ``tmp_path``. This fixture runs
+    for every test including the ones that make assertions about their own
+    ``tmp_path``, and an ``appdata`` directory created there is indistinguishable
+    from the thing under test leaving a file behind --
+    ``test_disk_probe_uses_unique_file_and_cleans_it`` asserts its ``tmp_path``
+    is empty and went red on two runners for exactly that reason. A directory of
+    its own belongs to this fixture and to nothing else.
     """
-    target = tmp_path / "appdata"
-    target.mkdir(parents=True, exist_ok=True)
+    target = tmp_path_factory.mktemp("recovery-appdata")
     monkeypatch.setattr(recovery, "recovery_dir", lambda: target)
     yield target
