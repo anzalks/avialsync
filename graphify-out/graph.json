@@ -32958,6 +32958,14 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_conftest_py_temppathfactory",
+      "label": "TempPathFactory",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_conftest_py_path",
       "label": "Path",
       "file_type": "code",
@@ -32990,11 +32998,11 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_conftest_rationale_85",
-      "label": "Keep every window's recovery snapshot inside the test's own tmp_path.      Two d",
+      "id": "tests_conftest_rationale_87",
+      "label": "Keep every window's recovery snapshot out of the real app-data directory.      T",
       "file_type": "rationale",
       "source_file": "tests/conftest.py",
-      "source_location": "L85",
+      "source_location": "L87",
       "_origin": "ast"
     },
     {
@@ -143929,7 +143937,7 @@
     },
     {
       "source": "tests_conftest_isolated_recovery_dir",
-      "target": "tests_conftest_py_path",
+      "target": "tests_conftest_py_temppathfactory",
       "relation": "references",
       "context": "parameter_type",
       "confidence": "EXTRACTED",
@@ -143943,6 +143951,17 @@
       "target": "tests_conftest_py_monkeypatch",
       "relation": "references",
       "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/conftest.py",
+      "source_location": "L84",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_conftest_isolated_recovery_dir",
+      "target": "tests_conftest_py_path",
+      "relation": "references",
+      "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tests/conftest.py",
       "source_location": "L84",
@@ -143980,12 +143999,12 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_conftest_rationale_85",
+      "source": "tests_conftest_rationale_87",
       "target": "tests_conftest_isolated_recovery_dir",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/conftest.py",
-      "source_location": "L85",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast"
     },
