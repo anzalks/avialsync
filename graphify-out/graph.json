@@ -506,7 +506,7 @@
       "ecosystem": "python",
       "source_file": "pyproject.toml",
       "source_location": "L1",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "_origin": "ast"
     },
     {
@@ -32922,7 +32922,7 @@
       "label": "pytest_configure()",
       "file_type": "code",
       "source_file": "tests/conftest.py",
-      "source_location": "L12",
+      "source_location": "L15",
       "_origin": "ast"
     },
     {
@@ -32938,12 +32938,28 @@
       "label": "no_startup_diagnostics()",
       "file_type": "code",
       "source_file": "tests/conftest.py",
-      "source_location": "L55",
+      "source_location": "L58",
       "_origin": "ast"
     },
     {
       "id": "tests_conftest_py_monkeypatch",
       "label": "MonkeyPatch",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_conftest_isolated_recovery_dir",
+      "label": "isolated_recovery_dir()",
+      "file_type": "code",
+      "source_file": "tests/conftest.py",
+      "source_location": "L84",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_conftest_py_path",
+      "label": "Path",
       "file_type": "code",
       "source_file": "",
       "source_location": "",
@@ -32958,19 +32974,27 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_conftest_rationale_13",
+      "id": "tests_conftest_rationale_16",
       "label": "Re-arm faulthandler without its all-threads walk on Windows.      pytest enables",
       "file_type": "rationale",
       "source_file": "tests/conftest.py",
-      "source_location": "L13",
+      "source_location": "L16",
       "_origin": "ast"
     },
     {
-      "id": "tests_conftest_rationale_56",
+      "id": "tests_conftest_rationale_59",
       "label": "Keep the startup diagnostics off the suite's background threads.      ``MainWind",
       "file_type": "rationale",
       "source_file": "tests/conftest.py",
-      "source_location": "L56",
+      "source_location": "L59",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_conftest_rationale_85",
+      "label": "Keep every window's recovery snapshot inside the test's own tmp_path.      Two d",
+      "file_type": "rationale",
+      "source_file": "tests/conftest.py",
+      "source_location": "L85",
       "_origin": "ast"
     },
     {
@@ -143809,7 +143833,7 @@
     },
     {
       "source": "tests_conftest",
-      "target": "typing",
+      "target": "pathlib",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -143820,12 +143844,34 @@
     },
     {
       "source": "tests_conftest",
+      "target": "typing",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/conftest.py",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_conftest",
       "target": "pytest",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/conftest.py",
-      "source_location": "L8",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_conftest",
+      "target": "src_avialsync_ui_init",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/conftest.py",
+      "source_location": "L11",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -143835,7 +143881,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/conftest.py",
-      "source_location": "L12",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -143846,7 +143892,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/conftest.py",
-      "source_location": "L12",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -143856,7 +143902,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/conftest.py",
-      "source_location": "L55",
+      "source_location": "L58",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -143867,7 +143913,39 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/conftest.py",
-      "source_location": "L55",
+      "source_location": "L58",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_conftest",
+      "target": "tests_conftest_isolated_recovery_dir",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/conftest.py",
+      "source_location": "L84",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_conftest_isolated_recovery_dir",
+      "target": "tests_conftest_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/conftest.py",
+      "source_location": "L84",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_conftest_isolated_recovery_dir",
+      "target": "tests_conftest_py_monkeypatch",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/conftest.py",
+      "source_location": "L84",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -143882,22 +143960,32 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_conftest_rationale_13",
+      "source": "tests_conftest_rationale_16",
       "target": "tests_conftest_pytest_configure",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/conftest.py",
-      "source_location": "L13",
+      "source_location": "L16",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_conftest_rationale_56",
+      "source": "tests_conftest_rationale_59",
       "target": "tests_conftest_no_startup_diagnostics",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/conftest.py",
-      "source_location": "L56",
+      "source_location": "L59",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_conftest_rationale_85",
+      "target": "tests_conftest_isolated_recovery_dir",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/conftest.py",
+      "source_location": "L85",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243107,7 +243195,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/conftest.py",
-      "source_location": "L75",
+      "source_location": "L78",
       "weight": 1.0,
       "_origin": "ast"
     },
