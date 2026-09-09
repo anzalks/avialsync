@@ -86,6 +86,7 @@ from avialsync.ui.pane_proportions import PaneProportions
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.readout_panel import ReadoutPanel
 from avialsync.ui.shortcut_overrides import apply_overrides
+from avialsync.ui.splitter import PaneSplitter
 from avialsync.ui.time_format import TimeDisplayMode
 from avialsync.ui.tracking_3d_pane import Tracking3DPane
 from avialsync.ui.transport import Transport
@@ -487,7 +488,7 @@ class MainWindow(QMainWindow):
         # Hidden until a recording that has range to choose from is opened.
         self.sidebar.content_layout.addWidget(self.levels_panel)
 
-        h_splitter = QSplitter(Qt.Orientation.Horizontal)
+        h_splitter = PaneSplitter(Qt.Orientation.Horizontal)
         h_splitter.addWidget(self._left_tabs)
         self._h_splitter = h_splitter
 
@@ -495,7 +496,7 @@ class MainWindow(QMainWindow):
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        self._media_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._media_splitter = PaneSplitter(Qt.Orientation.Horizontal)
         self._media_splitter.setAccessibleName(tr("Video and 3D tracking splitter"))
         self._media_splitter.addWidget(self.video_grid)
         self._media_splitter.addWidget(self.tracking_3d_pane)
@@ -505,14 +506,14 @@ class MainWindow(QMainWindow):
         # triplets; otherwise an empty pane holds width the video needs.
         self.tracking_3d_pane.setVisible(False)
 
-        v_splitter = QSplitter(Qt.Orientation.Vertical)
+        v_splitter = PaneSplitter(Qt.Orientation.Vertical)
         v_splitter.addWidget(self._media_splitter)
         v_splitter.addWidget(self.plot_pane)
         v_splitter.setStretchFactor(0, 3)
         v_splitter.setStretchFactor(1, 1)
         self._v_splitter = v_splitter
 
-        self._content_splitter = QSplitter(Qt.Orientation.Vertical)
+        self._content_splitter = PaneSplitter(Qt.Orientation.Vertical)
         self._content_splitter.setAccessibleName(tr("Video, plots, and Data Streams splitter"))
         self._content_splitter.addWidget(v_splitter)
         self._content_splitter.addWidget(self.data_streams)

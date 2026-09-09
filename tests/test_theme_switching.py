@@ -39,6 +39,7 @@ from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.theme import (
     THEME_DARK,
     THEME_LIGHT,
+    THEME_SYSTEM,
     apply_theme,
     coverage_color,
     neutral_on_canvas,
@@ -512,3 +513,164 @@ def test_emphasis_survives_a_font_size_change(qtbot, monkeypatch) -> None:
         assert label.font().bold(), "a text-size change dropped the emphasis"
     finally:
         apply_font_size(app, FONT_SYSTEM)
+
+
+def test_returning_to_system_gives_the_palette_back_to_the_platform(monkeypatch) -> None:
+    """Dark→System and Light→System must actually leave the explicit appearance.
+
+    Reported from a running build: switching *to* System did nothing, while a
+    fresh launch into System was correct.
+
+    The cause is that ``QPalette`` carries a resolve mask of which roles were
+    set explicitly, and once any explicit palette has been applied Qt stops
+    re-deriving ``app.palette()`` from the platform theme. Re-applying a palette
+    captured at that moment therefore re-applied the *outgoing* appearance and
+    called it the desktop's. Handing back a default-constructed palette — empty
+    mask, overriding nothing — is what puts the platform back in charge.
+
+    Asserted against whatever this platform's palette actually is rather than a
+    colour, so it holds on a dark desktop, a light one, and the offscreen
+    plugin CI runs under.
+    """
+    from avialsync.ui import theme
+
+    app = QApplication.instance()
+    assert app is not None
+
+    stored: dict[str, object] = {}
+
+    class Settings:
+        def __init__(self, *_args: object) -> None:
+            pass
+
+        def value(self, key: str, default: object = None) -> object:
+            return stored.get(key, default)
+
+        def setValue(self, key: str, value: object) -> None:
+            stored[key] = value
+
+    monkeypatch.setattr(theme, "QSettings", Settings)
+
+    entry = QPalette(app.palette())
+    try:
+        apply_theme(app, THEME_SYSTEM)
+        platform_window = app.palette().color(QPalette.ColorRole.Window)
+
+        for explicit in (THEME_DARK, THEME_LIGHT):
+            apply_theme(app, explicit)
+            assert app.palette().color(QPalette.ColorRole.Window) != platform_window, (
+                f"{explicit} did not change the window surface, so the next "
+                "assertion would pass without proving anything"
+            )
+            apply_theme(app, THEME_SYSTEM)
+            assert app.palette().color(QPalette.ColorRole.Window) == platform_window, (
+                f"{explicit} → System kept the explicit appearance"
+            )
+            assert bool(app.property("avialsync_theme_native")) is True
+    finally:
+        app.setPalette(entry)
+
+
+# ── The boundary you are meant to be able to drag ────────────────────────
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_a_pane_boundary_is_visible_against_its_window(palette: QPalette) -> None:
+    """A rule nobody can see is not a boundary."""
+    from avialsync.ui.theme import separator_color
+
+    window = palette.color(QPalette.ColorRole.Window)
+    rule = separator_color(palette)
+    assert abs(rule.lightnessF() - window.lightnessF()) > 0.08, (
+        "the pane boundary blends into the window it sits on"
+    )
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_a_pane_boundary_answers_the_pointer(palette: QPalette) -> None:
+    """Hovering has to say "you can drag this", so the rule steps forward."""
+    from avialsync.ui.theme import separator_color
+
+    window = palette.color(QPalette.ColorRole.Window).lightnessF()
+    resting = abs(separator_color(palette).lightnessF() - window)
+    hovered = abs(separator_color(palette, active=True).lightnessF() - window)
+    assert hovered > resting
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_the_boundary_is_marked_along_its_whole_length(qtbot, palette: QPalette) -> None:
+    """The actual complaint, and the actual property.
+
+    Qt's handle is not faint â€” its centre grip reaches 0.31 contrast on Dark and
+    0.22 on Light. It is *short*: measured on a 600 px boundary it marks 12
+    columns and 6 columns respectively, a ~16 px speck in the middle of an edge
+    as wide as the window, which reads as a smudge rather than as a boundary.
+
+    So the assertion is about extent, not intensity. Asserting contrast alone
+    would pass on the very handle being replaced.
+
+    The handle is rendered *alone* rather than sampled out of the whole
+    splitter: the panes on either side draw their own frames hard against it,
+    and an earlier version of this test passed on a neighbouring ``QTextEdit``
+    border while the handle itself drew nothing.
+    """
+    from PySide6.QtGui import QImage
+    from PySide6.QtWidgets import QTextEdit
+
+    from avialsync.ui.splitter import PaneSplitter
+
+    splitter = PaneSplitter(Qt.Orientation.Vertical)
+    qtbot.addWidget(splitter)
+    splitter.addWidget(QTextEdit())
+    splitter.addWidget(QTextEdit())
+    splitter.setPalette(palette)
+    splitter.resize(600, 200)
+    splitter.show()
+    qtbot.waitExposed(splitter)
+
+    handle = splitter.handle(1)
+    assert handle.width() > 400, "the splitter never laid out, so nothing is proved"
+
+    image = QImage(handle.size(), QImage.Format.Format_ARGB32)
+    image.fill(0)
+    handle.render(image)
+
+    window = palette.color(QPalette.ColorRole.Window).lightnessF()
+    marked = [
+        x
+        for x in range(image.width())
+        if any(
+            abs(image.pixelColor(x, y).lightnessF() - window) > 0.08 for y in range(image.height())
+        )
+    ]
+    assert len(marked) > 0.9 * image.width(), (
+        f"only {len(marked)} of {image.width()} columns carry the boundary; "
+        "a mark in the middle is a smudge, not an edge"
+    )
+
+
+def test_a_visible_boundary_does_not_change_how_the_splitter_behaves(qtbot) -> None:
+    """Appearance only â€” the same rule that governs every other theme change.
+
+    Drawing inside the handle Qt already lays out must not move the handle, the
+    hit area, or any pane's geometry.
+    """
+    from PySide6.QtWidgets import QSplitter, QTextEdit
+
+    from avialsync.ui.splitter import PaneSplitter
+
+    def build(cls: type[QSplitter]) -> QSplitter:
+        splitter = cls(Qt.Orientation.Vertical)
+        qtbot.addWidget(splitter)
+        splitter.addWidget(QTextEdit())
+        splitter.addWidget(QTextEdit())
+        splitter.resize(300, 200)
+        splitter.show()
+        return splitter
+
+    plain = build(QSplitter)
+    drawn = build(PaneSplitter)
+
+    assert drawn.handleWidth() == plain.handleWidth()
+    assert drawn.handle(1).geometry() == plain.handle(1).geometry()
+    assert drawn.sizes() == plain.sizes()

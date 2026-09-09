@@ -2,6 +2,7 @@
 
 import faulthandler
 import sys
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 from typing import TextIO
@@ -13,6 +14,39 @@ from avialsync.ui import recovery
 
 @pytest.hookimpl(trylast=True)
 def pytest_configure(config: pytest.Config) -> None:
+    """Set up the settings sandbox, then re-arm faulthandler on Windows."""
+    _sandbox_settings(config)
+    _rearm_faulthandler(config)
+
+
+def _sandbox_settings(config: pytest.Config) -> None:
+    """Point every ``QSettings`` in the process at a throwaway directory.
+
+    The suite drives real application code, and thirteen places in it construct
+    ``QSettings("AvialSync", "AvialSync")`` and write to it — the theme and font
+    preferences, window and splitter geometry, recent files, shortcut overrides,
+    the plot presentation. Unsandboxed, running the tests silently edits the
+    developer's own installed application: a run that exercised the appearance
+    menu left ``theme/preference = light`` behind, and the next real launch came
+    up light on a dark desktop, looking exactly like a broken theme.
+
+    Individual tests had been monkeypatching ``QSettings`` one module at a time,
+    which only ever covers the module somebody remembered. This covers the
+    process: ``setDefaultFormat`` moves storage off the Windows registry and the
+    macOS preference store onto an ini file, and ``setPath`` puts that file
+    under a temporary directory. Done here rather than in a fixture because
+    collection imports test modules, and an import is early enough to construct
+    a ``QSettings``.
+    """
+    del config
+    from PySide6.QtCore import QSettings
+
+    sandbox = tempfile.mkdtemp(prefix="avialsync-settings-")
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, sandbox)
+
+
+def _rearm_faulthandler(config: pytest.Config) -> None:
     """Re-arm faulthandler without its all-threads walk on Windows.
 
     pytest enables faulthandler with ``all_threads=True``. On Windows that

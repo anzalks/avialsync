@@ -469,6 +469,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/message_panel.py` | Read-only messages the rig recorded, mapped to master time (D-078). Never merge with `annotations.py`. Filtering hides rows; rebuilding them cost 51-87 ms per keystroke at `MAX_MESSAGES`. `_display_names` extends a source label with parent directories only when two sources share a file name, as two record nodes of one session do (D-085) | `MessageStore`, `MessagePanel`, `MappedMessage` |
 | `ui/theme.py` | QPalette + system/dark/light appearance, and the **only** home for a colour literal (D-079, D-106). Imports no pyqtgraph | `apply_theme()`, `load_saved_theme()`, `current_preference()`, `THEME_SYSTEM/DARK/LIGHT`, `system_is_dark()`, `system_accent()`, `on_surface()`, `neutral_on_canvas()`, `evidence_color()`, `status_color()`, `marker_color()`, `loop_pin_color()`, `plot_colors()`, `playhead_color()`, `trace_color()`, `coverage_color()`, `follow_palette()`, `set_bold()`, `set_font_family()` |
 | `ui/plot_theme.py` | Applies the live palette to pyqtgraph objects, which do not participate in Qt's palette system (D-106) | `apply_canvas_palette()`, `apply_plot_item_palette()`, `gap_marker_pen()`, `measure_pen()` |
+| `ui/splitter.py` | Pane splitter whose boundary is marked along its whole length, not by a 16 px grip in the middle (D-106). Paints inside Qt's handle; no metric changes | `PaneSplitter` |
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
 | `ui/diagnostics.py` | Startup probe (hardware-decode support, disk speed) — async daemon thread | `run_startup_diagnostics()`, `probe_hwdec()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
@@ -660,6 +661,22 @@ why they survived for a phase apiece.
    CI rather than dead code — and `setColorScheme` is inert there too, so never assert on its
    effect in a test. On a real platform it replaces the application palette *synchronously* and
    emits `paletteChanged` from inside itself.
+5. **`app.setPalette()` is a one-way door.** `QPalette` carries a resolve mask of which roles were
+   set explicitly, and `setPalette` overrides exactly those — so after any explicit palette, Qt
+   stops re-deriving `app.palette()` from the platform theme for the life of the process. To go
+   back to System you hand the palette back (`app.setPalette(QPalette())` — empty mask, overrides
+   nothing), you do **not** re-apply a captured one: a capture taken at that moment *is* your own
+   outgoing appearance. That bug shipped and was reported from a running build — Dark→System and
+   Light→System did nothing while a fresh launch into System was correct. Refresh
+   `_system_palettes` only *after* handing back, never before.
+
+### 0a-ter. A test that writes real `QSettings` edits the developer's application (D-106)
+Thirteen places in `src/` construct `QSettings("AvialSync", "AvialSync")`. A run that exercised the
+appearance menu left `theme/preference = light` in the real registry, and the next genuine launch
+came up light on a dark desktop — indistinguishable from a broken theme. `tests/conftest.py`
+sandboxes storage for the whole process in `pytest_configure` (an ini under a temp dir); do not
+remove it, and do not rely on per-module `monkeypatch` of `QSettings`, which only covers the module
+somebody remembered. Same family as `isolated_recovery_dir` below.
 
 ### 0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)
 Two variants, one cause. A worker `deleteLater`-ed from a signal its own thread emits is destroyed

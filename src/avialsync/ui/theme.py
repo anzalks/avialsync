@@ -550,6 +550,13 @@ def _canvas_is_dark(palette: QPalette) -> bool:
     return palette.color(QPalette.ColorRole.Base).lightnessF() < 0.5
 
 
+def _neutral_against(palette: QPalette, role: QPalette.ColorRole, weight: float) -> QColor:
+    """Return an achromatic mark *weight* of the way from *role* to its opposite."""
+    surface = palette.color(role).lightnessF()
+    opposite = 1.0 if surface < 0.5 else 0.0
+    return QColor.fromHslF(0.0, 0.0, surface + (opposite - surface) * max(0.0, min(1.0, weight)))
+
+
 def neutral_on_canvas(palette: QPalette, weight: float) -> QColor:
     """Return an achromatic mark *weight* of the way from the canvas to its opposite.
 
@@ -561,9 +568,33 @@ def neutral_on_canvas(palette: QPalette, weight: float) -> QColor:
     a faint rule whether the canvas is white or near-black, where a literal
     ``#c8c8c8`` is a faint rule on one and a bright line on the other.
     """
-    canvas = palette.color(QPalette.ColorRole.Base).lightnessF()
-    opposite = 1.0 if _canvas_is_dark(palette) else 0.0
-    return QColor.fromHslF(0.0, 0.0, canvas + (opposite - canvas) * max(0.0, min(1.0, weight)))
+    return _neutral_against(palette, QPalette.ColorRole.Base, weight)
+
+
+#: The rule marking a draggable pane boundary, and the same rule under the
+#: pointer.  Quiet enough to read as structure rather than as content, and far
+#: enough apart that the boundary answers when you approach it.
+_SEPARATOR_WEIGHT = 0.20
+_SEPARATOR_WEIGHT_ACTIVE = 0.48
+
+
+def separator_color(palette: QPalette, *, active: bool = False) -> QColor:
+    """Return the colour of the rule marking a boundary the user can drag.
+
+    Solved against ``Window`` rather than ``Base``: a splitter handle sits on
+    the window surface, between panes, not on a data surface.
+
+    Deliberately quieter than the grip it replaces. Qt's own splitter handle is
+    not faint — measured, its centre grip reaches a lightness contrast of 0.31
+    on the Dark appearance and 0.22 on Light — it is *short*: 12 of 600 columns
+    dark, 6 of 600 light, a ~16 px speck in the middle of a boundary the width
+    of the window. That reads as a smudge rather than as an edge, which is why
+    the workspace looked like it had no separators at all. A rule that runs the
+    whole length says "this is a boundary" with far less contrast than a mark
+    that has to be noticed on its own, so this trades intensity for extent.
+    """
+    weight = _SEPARATOR_WEIGHT_ACTIVE if active else _SEPARATOR_WEIGHT
+    return _neutral_against(palette, QPalette.ColorRole.Window, weight)
 
 
 def playhead_color(palette: QPalette) -> QColor:
@@ -751,28 +782,41 @@ def _apply(app: QApplication, pref: str, *, persist: bool) -> None:
         # anyone asks, and the "system" palette would have been recorded as
         # Qt's dark one — which is where the platform accent is read from.
         system_palette = _system_palette(app)
-        # Then the scheme, because it replaces the application palette
-        # synchronously and our own surfaces have to be the last word. Under
-        # the System preference it also hands the platform back control, so
-        # what we re-capture next is the appearance the desktop has *now*
-        # rather than whichever one it had at launch.
+        # Then the scheme, which the explicit appearances need so that Qt's own
+        # style renders its native chrome to match.
         _request_color_scheme(app, None if native else pref == THEME_DARK)
-        if native:
-            _system_palettes[app_id] = QPalette(app.palette())
-            system_palette = _system_palette(app)
         dark = system_is_dark(app) if native else pref == THEME_DARK
-        palette = (
-            system_palette
-            if native
-            else _palette_with_surfaces(dark, system_accent(system_palette))
-        )
         # Before the palette, not after: `setPalette` delivers the change to
         # every widget, and a widget repainting from it asks `is_dark()` what
         # appearance it is repainting *into*. Setting these afterwards answered
         # with the outgoing theme for the length of one repaint.
         app.setProperty("avialsync_theme_dark", dark)
         app.setProperty("avialsync_theme_native", native)
-        app.setPalette(palette)
+        if native:
+            # A *default-constructed* palette, not the one we captured.
+            #
+            # `QPalette` carries a resolve mask of which roles were set
+            # explicitly, and `setPalette` overrides exactly those. An empty
+            # mask therefore means "I override nothing", and Qt goes back to
+            # resolving the application palette from the platform theme — live,
+            # so a later desktop switch moves it.
+            #
+            # Re-applying the captured palette instead is what broke returning
+            # to System. Once any explicit palette has been set, Qt stops
+            # re-deriving `app.palette()` from the platform, so the capture
+            # taken here read back our *own* outgoing appearance and was then
+            # re-applied as though it were the desktop's: Dark→System and
+            # Light→System both left the window exactly as it was, while a
+            # fresh launch into System was correct because nothing had
+            # overridden the palette yet. Measured: on a dark desktop, after an
+            # explicit Light, `app.palette()` still answered `#f5f5f5` and
+            # `setColorScheme(Unknown)` did not move it.
+            app.setPalette(QPalette())
+            # Now that Qt owns it again, this is genuinely the platform's, and
+            # it is where the accent for the explicit appearances comes from.
+            _system_palettes[app_id] = QPalette(app.palette())
+        else:
+            app.setPalette(_palette_with_surfaces(dark, system_accent(system_palette)))
         # A QApplication stylesheet wraps Qt's native style and selector rules can alter
         # control metrics and interaction affordances.  Palette roles cover all allowed
         # theme variation (surfaces, text, selection, accent, and tooltips) without

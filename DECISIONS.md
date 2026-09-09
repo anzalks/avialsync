@@ -3917,3 +3917,45 @@ The one deliberate exception is text drawn over video — the pane's name badge,
 the OSD, and the "No Footage" placeholder. Those sit on decoded frames, not on a
 theme surface, so they stay white on a dark scrim in every appearance. A video
 frame does not get lighter because the application did.
+
+**Returning to System hands the palette back, it does not re-apply one.** A
+``QPalette`` carries a resolve mask of the roles that were set explicitly, and
+``QApplication.setPalette`` overrides exactly those. The consequence is that
+once *any* explicit palette has been applied, Qt stops re-deriving
+``app.palette()`` from the platform theme — permanently, for the life of the
+process. Capturing ``app.palette()` at that point and re-applying it as "the
+system palette" therefore re-applies the *outgoing* appearance: Dark→System and
+Light→System both left the window exactly as it was, while a fresh launch into
+System was correct because nothing had overridden the palette yet. Measured on a
+dark desktop, after an explicit Light, ``app.palette()`` still answered
+``#f5f5f5`` and ``setColorScheme(Unknown)`` did not move it — the scheme flipped
+back to Dark while the palette stayed light. The System branch therefore applies
+a *default-constructed* ``QPalette``: an empty resolve mask means "I override
+nothing", Qt resolves from the platform again, and it keeps tracking a later
+desktop switch. Only after that is the capture refreshed, so what
+``_system_palettes`` holds is the platform's and not our own.
+
+**A pane boundary is marked along its whole length.** Qt's splitter handle is
+not faint, it is short: measured on a 600 px boundary, the style's centre grip
+reaches a lightness contrast of 0.31 against the window on Dark and 0.22 on
+Light — plenty — but marks 12 and 6 columns respectively, a ~16 px speck in the
+middle of an edge as wide as the window. That is why the workspace read as
+having no separators at all. ``ui/splitter.py`` paints a quieter rule across
+100 % of the handle instead, trading intensity for extent, and brightens it
+under the pointer. It paints *inside* the handle Qt already lays out: handle
+width, hit area, drag behaviour and pane geometry are untouched, and a test
+asserts that against a plain ``QSplitter``. This is not the banned application
+stylesheet — that is banned because it wraps Qt's style engine and can move
+control metrics, which drawing inside an existing handle cannot.
+
+**The test suite writes no real settings.** Thirteen places in the application
+construct ``QSettings("AvialSync", "AvialSync")``, so an unsandboxed run edits
+the developer's own installed copy. This was not theoretical: a run that
+exercised the appearance menu left ``theme/preference = light`` behind, and the
+next genuine launch came up light on a dark desktop — indistinguishable, from
+the outside, from the theme bug this work was fixing. ``tests/conftest.py``
+moves storage to an ini file under a temporary directory for the whole process,
+in ``pytest_configure`` rather than a fixture because collection imports test
+modules and an import is early enough to construct a ``QSettings``. Per-module
+``monkeypatch`` of ``QSettings`` only ever covered the module somebody
+remembered.
