@@ -69824,7 +69824,7 @@
       "label": "2. Runtime dataflow",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L151",
+      "source_location": "L153",
       "_origin": "ast"
     },
     {
@@ -69832,7 +69832,7 @@
       "label": "2b. Timeline Evidence overview (D-027)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L181",
+      "source_location": "L183",
       "_origin": "ast"
     },
     {
@@ -69840,7 +69840,7 @@
       "label": "2a. Synchronization dataflow (D-026)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L234",
+      "source_location": "L238",
       "_origin": "ast"
     },
     {
@@ -69848,7 +69848,7 @@
       "label": "3. Threading model",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L252",
+      "source_location": "L256",
       "_origin": "ast"
     },
     {
@@ -69856,7 +69856,7 @@
       "label": "Appearance boundary",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L264",
+      "source_location": "L268",
       "_origin": "ast"
     },
     {
@@ -69864,7 +69864,7 @@
       "label": "Playback ownership and proof of exact frames",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L273",
+      "source_location": "L292",
       "_origin": "ast"
     },
     {
@@ -69872,7 +69872,7 @@
       "label": "CI video boundary",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L306",
+      "source_location": "L325",
       "_origin": "ast"
     },
     {
@@ -69880,7 +69880,7 @@
       "label": "4. Plugin contract (frozen at Phase 5 as API v1)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L315",
+      "source_location": "L334",
       "_origin": "ast"
     },
     {
@@ -69888,7 +69888,7 @@
       "label": "Synchronization plugin extension (D-026; not frozen API v1)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L422",
+      "source_location": "L441",
       "_origin": "ast"
     },
     {
@@ -69896,7 +69896,7 @@
       "label": "5. Session file (.avv, JSON, schema_version field)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L436",
+      "source_location": "L455",
       "_origin": "ast"
     },
     {
@@ -69904,7 +69904,7 @@
       "label": "5b. Cache invalidation key (updates D-004)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L454",
+      "source_location": "L473",
       "_origin": "ast"
     },
     {
@@ -69912,7 +69912,7 @@
       "label": "5c. Channel scaling (32+ channels)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L462",
+      "source_location": "L481",
       "_origin": "ast"
     },
     {
@@ -69920,7 +69920,7 @@
       "label": "6. Packaging & shipping (D-012..D-017)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L471",
+      "source_location": "L490",
       "_origin": "ast"
     },
     {
@@ -73192,7 +73192,7 @@
       "label": "5a. Plot UX refinement gates (P4.6 / D-044)",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L95",
+      "source_location": "L119",
       "_origin": "ast"
     },
     {
@@ -73200,7 +73200,7 @@
       "label": "6. Manual smoke checklist (human, end of each phase, on YOUR real field data)",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L116",
+      "source_location": "L140",
       "_origin": "ast"
     },
     {
@@ -73208,7 +73208,7 @@
       "label": "7. Edge-case test matrix (each row = at least one automated test + a fixture variant)",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L137",
+      "source_location": "L165",
       "_origin": "ast"
     },
     {
@@ -73216,7 +73216,7 @@
       "label": "Time & timestamps",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L139",
+      "source_location": "L167",
       "_origin": "ast"
     },
     {
@@ -73224,7 +73224,7 @@
       "label": "Video",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L150",
+      "source_location": "L178",
       "_origin": "ast"
     },
     {
@@ -73232,7 +73232,7 @@
       "label": "Data content",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L162",
+      "source_location": "L190",
       "_origin": "ast"
     },
     {
@@ -73240,7 +73240,7 @@
       "label": "Synchronization evidence (planned, D-026)",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L172",
+      "source_location": "L200",
       "_origin": "ast"
     },
     {
@@ -73248,7 +73248,7 @@
       "label": "Sessions & environment",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L182",
+      "source_location": "L210",
       "_origin": "ast"
     },
     {
@@ -73256,7 +73256,7 @@
       "label": "8. CI matrix (see .github/workflows/ci.yml)",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L197",
+      "source_location": "L225",
       "_origin": "ast"
     },
     {
@@ -73984,7 +73984,7 @@
       "label": "Synchronization design",
       "file_type": "document",
       "source_file": "docs/technical/architecture.md",
-      "source_location": "L59",
+      "source_location": "L61",
       "_origin": "ast"
     },
     {
@@ -73992,7 +73992,7 @@
       "label": "One authority per user-visible concept",
       "file_type": "document",
       "source_file": "docs/technical/architecture.md",
-      "source_location": "L67",
+      "source_location": "L69",
       "_origin": "ast"
     },
     {
@@ -74000,7 +74000,7 @@
       "label": "Never block, always inform",
       "file_type": "document",
       "source_file": "docs/technical/architecture.md",
-      "source_location": "L83",
+      "source_location": "L86",
       "_origin": "ast"
     },
     {
@@ -74008,7 +74008,7 @@
       "label": "Session and extension boundaries",
       "file_type": "document",
       "source_file": "docs/technical/architecture.md",
-      "source_location": "L101",
+      "source_location": "L104",
       "_origin": "ast"
     },
     {
@@ -74305,6 +74305,14 @@
       "file_type": "document",
       "source_file": "docs/troubleshooting.md",
       "source_location": "L121",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_troubleshooting_avialsync_does_not_follow_my_system_s_dark_or_light_appearance",
+      "label": "AvialSync does not follow my system's dark or light appearance",
+      "file_type": "document",
+      "source_file": "docs/troubleshooting.md",
+      "source_location": "L126",
       "_origin": "ast"
     },
     {
@@ -225363,7 +225371,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L151",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225373,7 +225381,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L181",
+      "source_location": "L183",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225383,7 +225391,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L234",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225393,7 +225401,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L252",
+      "source_location": "L256",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225403,7 +225411,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L264",
+      "source_location": "L268",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225413,7 +225421,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L273",
+      "source_location": "L292",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225423,7 +225431,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L306",
+      "source_location": "L325",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225433,7 +225441,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L315",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225443,7 +225451,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L422",
+      "source_location": "L441",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225453,7 +225461,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L436",
+      "source_location": "L455",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225463,7 +225471,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L454",
+      "source_location": "L473",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225473,7 +225481,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L462",
+      "source_location": "L481",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -225483,7 +225491,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L471",
+      "source_location": "L490",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229513,7 +229521,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L95",
+      "source_location": "L119",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229523,7 +229531,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L116",
+      "source_location": "L140",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229533,7 +229541,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L137",
+      "source_location": "L165",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229543,7 +229551,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L139",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229553,7 +229561,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L150",
+      "source_location": "L178",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229563,7 +229571,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L162",
+      "source_location": "L190",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229573,7 +229581,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L172",
+      "source_location": "L200",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229583,7 +229591,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L182",
+      "source_location": "L210",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -229593,7 +229601,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L197",
+      "source_location": "L225",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -230543,7 +230551,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/architecture.md",
-      "source_location": "L59",
+      "source_location": "L61",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -230553,7 +230561,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/architecture.md",
-      "source_location": "L67",
+      "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -230563,7 +230571,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/architecture.md",
-      "source_location": "L83",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -230573,7 +230581,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/architecture.md",
-      "source_location": "L101",
+      "source_location": "L104",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -230954,6 +230962,16 @@
       "confidence": "EXTRACTED",
       "source_file": "docs/troubleshooting.md",
       "source_location": "L121",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_troubleshooting_troubleshooting",
+      "target": "docs_troubleshooting_avialsync_does_not_follow_my_system_s_dark_or_light_appearance",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/troubleshooting.md",
+      "source_location": "L126",
       "weight": 1.0,
       "_origin": "ast"
     },
