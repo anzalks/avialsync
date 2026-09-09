@@ -122,3 +122,14 @@ See [Import sensor and recording data](tutorials/importing-data.md).
 
 AvialSync draws a compact representation of dense signals while you navigate. Zoom into the part
 you need; it will show the available detail without trying to draw every sample at once.
+
+## AvialSync does not follow my system's dark or light appearance
+
+Open **View → Theme**. If **Dark** or **Light** is selected, that is an explicit choice and
+AvialSync remembers it across launches — it will keep that appearance on a desktop set to the
+other one. Choose **System** and the window follows your desktop again, including a change you
+make while AvialSync is running.
+
+The preference is stored per user, so a copy that starts in the "wrong" appearance is usually one
+where **Dark** or **Light** was picked at some point, not one that is failing to read your
+desktop.

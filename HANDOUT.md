@@ -348,7 +348,7 @@ Two product laws govern that phase and outrank convention:
   Auto / Detected / Off (D-082). Names never imply topology.
 - Reset Zoom: wired to View → Reset Plot Zoom (Ctrl+0), timeline-row button, and shortcuts dialog
 - Transport UX: the full-width **Data Streams** section is distinct from both plots and the
-  seek/transport section with the native splitter handles used for video/plot resizing. Its header owns Hide, Flag Frame, Snapshot,
+  seek/transport section with the same splitter handles used for video/plot resizing (drawn end to end, D-106). Its header owns Hide, Flag Frame, Snapshot,
   Fullscreen Toggle, Reset Zoom, and compact status; busy work remains visible while ordinary messages clear shortly.
   Playhead controls precede master time and the seek bar; end time, A/B controls, and the labelled Speed selector follow it.
   Evidence renders source coverage, annotations, data

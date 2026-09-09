@@ -184,6 +184,13 @@ time-series plots. The 3D pane does not guess connections between points.
 ## Appearance and font size
 
 Use **View → Theme** to choose System, Dark, or Light, and **View → Font Size** to select a
-system-relative text size. These choices change colours, accent, and text presentation only. They do
+system-relative text size. System follows your desktop, including a change made while AvialSync is
+running, and returning to System from Dark or Light gives the appearance back to your desktop.
+
+A switch reaches the plots — background, axis lines, tick numbers, axis titles and playhead — the
+3D pose view, the pane boundaries you drag, and the controls the operating system draws, such as
+scroll bars and drop-down lists.
+
+These choices change colours, accent, and text presentation only. They do
 not reset or reinterpret your shared time, seek bar, plot navigation, playback, layout, or loaded
 data. A larger font may naturally reflow labels to remain readable.

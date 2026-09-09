@@ -72,7 +72,22 @@ not speed: shared CI hardware is not a valid stand-in for the machines scientist
 
 - `QT_QPA_PLATFORM=offscreen`; use `qtbot.waitSignal` — never `time.sleep`.
 - `pytest-timeout` stops any individual test after 60 seconds in CI. A timeout is a bug report with
-  a stack trace, never a reason to raise the job timeout or silently skip the test.
+  a stack trace, never a reason to raise the job timeout or silently skip the test. **Run the suite
+  with the CI flags** (`pytest --maxfail=1 -q --timeout=60 --timeout-method=thread
+  --ignore=tests/benchmarks`) before pushing: without `--timeout`, a test that stalls simply passes
+  slowly on a developer machine and fails only on a runner.
+- **The suite writes no real settings or app data.** Thirteen places in `src/` construct
+  `QSettings("AvialSync", "AvialSync")`, so an unsandboxed run edits the developer's own installed
+  application — a run that exercised the appearance menu once left `theme/preference = light`
+  behind and the next genuine launch came up light on a dark desktop (D-106). `conftest.py`
+  redirects all settings storage to a temporary ini for the whole process, in `pytest_configure`
+  rather than a fixture, because collection imports test modules and an import is early enough to
+  construct a `QSettings`. `isolated_recovery_dir` does the same for recovery snapshots. Do not
+  rely on per-module `monkeypatch` of `QSettings`: it only ever covers the module somebody
+  remembered.
+- A test that mutates process-global Qt state — the application palette, font, or a module-level
+  helper — restores it. What it leaves behind is inherited by every widget built after it, so the
+  cost lands on whichever test runs next.
 - Every bug fix adds a regression test reproducing the bug first.
 - Error-path tests: corrupt CSV, missing file at session load, unsupported codec → assert the
   actionable dialog text appears and app stays alive.
@@ -83,11 +98,20 @@ not speed: shared CI hardware is not a valid stand-in for the machines scientist
   transient/busy status; and A/B pins after resize.
   Timeline Evidence tests cover source coverage, accepted TTL events, gaps, annotations, and
   click-to-seek; they require named conditional lanes, accessible names, event hover/focus details,
-  empty-lane suppression, native splitter handles, label-gutter coverage clipping, collapse/restore, and
+  empty-lane suppression, splitter handles, label-gutter coverage clipping, collapse/restore, and
   persisted view preference. Tests assert that a master-clock update repaints only the playhead and
   stays inside the ≤2 ms cursor path. Theme tests require readable tooltip colours, platform-accent
   retention in explicit appearances, native-control behavior in System mode, and a Light → System
   palette-toggle path.
+  `test_theme_switching.py` covers the surfaces a palette change does *not* reach on its own
+  (D-106): the pyqtgraph canvas, axis lines, tick numbers and axis titles repainting for a new
+  palette; the playhead, traces and coverage wash being re-penned; the 3D pose view repainting and
+  not forcing a white canvas; emphasised text still following the palette; a pane boundary being
+  marked along its whole length with the splitter's metrics unchanged; and Dark→System and
+  Light→System actually handing the palette back to the platform. Every assertion is a *property* —
+  contrast against the surface, a change across a switch, a relationship between two marks — never
+  a hex literal, which would need editing whenever the palette moves and would prove nothing about
+  legibility. Each regression test was checked against a reintroduced bug.
   Video timing tests verify that VFR OSD rates come from adjacent decoded timestamps rather than an
   average frame rate, while CFR OSD rates remain stable; overview tests also cover header resizing
   for dense evidence. Theme tests cover persisted system-relative font scaling.
@@ -117,7 +141,11 @@ tests but cannot replace time, signal, accessibility, and performance assertions
 
 - [ ] Open real 3-camera folder + real 50 kHz CSVs; import wizard handles your timestamp format.
 - [ ] Check System, Dark, and Light in View → Theme: System retains the OS accent/font; tooltips,
-  plots, transport, and sidebars remain legible after each switch.
+  plots, transport, and sidebars remain legible after each switch. Switch *back* to System from
+  each explicit appearance and confirm the window returns to the desktop's — that path had a real
+  bug (D-106) and a fresh launch into System is not evidence for it. Confirm the plot background,
+  tick numbers, axis titles and playhead move with each switch, that bold headings do not stay
+  dark on a dark surface, and that every pane boundary is visible along its whole length.
 - [ ] Scrub feels ≤ ~200 ms; playback 1× smooth ≥ 60 s; 4× speed doesn't desync.
 - [ ] Align offsets against a real physical event visible in both video and data.
 - [ ] With Timeline Evidence expanded, identify each populated lane without consulting documentation;

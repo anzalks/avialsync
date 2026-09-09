@@ -185,9 +185,22 @@ and `Ctrl+Shift+D` for data.
 
 **View → Theme** offers System, Dark, or Light. **View → Font Size** offers a system-relative size.
 
+System follows your desktop, including a change you make while AvialSync is running, and switching
+back to System from Dark or Light hands the appearance to your desktop again.
+
+A switch reaches everything on screen: the plot background, axis lines, tick numbers and axis
+titles, the playhead, trace and marker colours, the 3D pose view, the pane boundaries you drag, and
+the controls the operating system draws for us — scroll bars, check boxes, drop-down lists, and the
+window frame.
+
 These change colours and text only. They do not reset or reinterpret your shared time, seek bar,
 plot navigation, playback state, layout, or loaded data — an appearance change is never allowed to
 disturb what you are looking at.
+
+Text drawn over video is the one deliberate exception: the camera label, the on-screen readout and
+the "No Footage" placeholder stay light on a dark backing in every appearance, because they sit on
+your footage rather than on an application surface. A video frame does not get lighter because the
+application did.
 
 Trace colours come from a palette checked in colour-blindness-simulated space, and colour never
 carries meaning on its own — a trace is always identified by its label as well. If you prefer the

@@ -90,7 +90,9 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── relink_dialog.py          # missing session files → browse/search (§5)
 │   │   ├── shortcuts_dialog.py       # keyboard shortcuts reference dialog (? key)
 │   │   ├── diagnostics.py            # startup probes: decoder/disk (D-075 dropped the libmpv probe+guide)
-│   │   └── theme.py                  # native-aware system/dark/light appearance
+│   │   ├── theme.py                  # system/dark/light appearance; sole colour authority (D-106)
+│   │   ├── plot_theme.py             # applies the live palette to pyqtgraph canvases (D-106)
+│   │   └── splitter.py               # pane splitter whose boundary is drawn end to end (D-106)
 │   └── resources/                    # icons, .qss themes, sample-session manifest (packaged data)
 │
 ├── tools/
@@ -191,7 +193,7 @@ Sync / TTL     │ accepted paired-event ticks only
 Data gaps      │ imported discontinuities only
 Annotations    │ point and range markers only
 Navigator      │ full-session overview · visible-window rectangle · playhead
-══════════════ native splitter handle ══════════════
+═══════════ drawn splitter handle (full width) ═══════════
 playhead controls · time ───── master seek bar ───── end · A/B · Speed [selector]
 ```
 
@@ -218,8 +220,10 @@ playhead controls · time ───── master seek bar ───── end ·
   the existing approximate/coalesced path with one exact release while preserving playhead phase
   within the page. Rectangle width is display-only and has no separate duration state. This is the
   only horizontal plot navigation surface; rows never gain individual scrollbars or X ranges.
-- Native vertical splitter handles, matching the video/plot boundary, distinguish plots from Data
-  Streams and Data Streams from the seek/transport section. Those handles resize the overview; a
+- Vertical splitter handles, matching the video/plot boundary, distinguish plots from Data
+  Streams and Data Streams from the seek/transport section. They are real `QSplitter` handles with
+  native metrics and drag behaviour; only their *painting* is ours — a palette-derived rule across
+  the whole boundary rather than the style's ~16 px centre grip (D-106). Those handles resize the overview; a
   collapse button preserves a minimal title row. Expanded/collapsed state is a QSettings view preference,
   not scientific session data.
 - The view consumes existing UI-side inspection/synchronization/annotation state. `core/` stays
@@ -263,12 +267,27 @@ encodings remain plugins.
 
 ### Appearance boundary
 
-`ui/theme.py` owns appearance preferences only: Qt palette roles, the operating-system accent, and
-the selected application font scale. Theme changes must preserve the platform widget style and all
-interaction state: seek-slider geometry/value/semantics, splitter and scrollbar behavior, plot
-range/follow state, playback, shortcuts, and view layout. Application-level QSS is prohibited for
-theme controls because it replaces native style metrics; custom-painted views read colours from the
-active palette and never infer or reset state from a palette change.
+`ui/theme.py` is the single authority for what a colour *means*: Qt palette roles, the
+operating-system accent, the application font scale, and every derived colour the palette has no
+role for — evidence lanes, severities, categorical markers, the plot canvas and playhead, and the
+achromatic structure (`neutral_on_canvas`, `separator_color`) that rules, outlines and boundaries
+are drawn from. It imports no pyqtgraph. Two modules apply what it decides: `ui/plot_theme.py` to
+live pyqtgraph objects, and `ui/splitter.py` to pane boundaries (D-106).
+
+Theme changes must preserve the platform widget style and all interaction state:
+seek-slider geometry/value/semantics, splitter and scrollbar behavior, plot range/follow state,
+playback, shortcuts, and view layout. Application-level QSS is prohibited for theme controls
+because it replaces native style metrics. `QStyleHints.setColorScheme()` is the one sanctioned
+exception: it asks the *same* style to render in the other scheme rather than wrapping it, and is
+what carries native-drawn chrome — scrollbars, check indicators, combo popups, the window frame —
+that palette roles alone never reach.
+
+Custom-painted views read colours from the active palette and never infer or reset state from a
+palette change. Three kinds of surface do not hear a palette change at all and must be moved
+explicitly: pyqtgraph canvases (config options are read once, at construction), graphics items
+holding a pen, and any widget carrying a stylesheet — including one that sets only a font weight,
+which silently pins its text colour. See HANDOUT.md "Four ways a theme change silently fails to
+arrive".
 
 ### Playback ownership and proof of exact frames
 

@@ -42,8 +42,10 @@ without reducing the precision used for readouts and exports.
 The 3D pane is a view over the same cache, not a new loader or source type. It groups complete
 `name_x`, `name_y`, and `name_z` triplets, performs one nearest-timestamp lookup per source, and
 custom-paints only the current pose. It does not scan or render a full trajectory on a clock tick.
-The 3D pane and video grid sit in a native side-by-side splitter, whose size is a local view
-preference. Point names do not imply scientific topology, so the viewer never derives connections
+The 3D pane and video grid sit in a side-by-side splitter, whose size is a local view
+preference. The splitter is a real `QSplitter` with native metrics and drag behaviour; only its
+handle's painting is ours, so the boundary is marked along its whole length rather than by the
+style's small centre grip. Point names do not imply scientific topology, so the viewer never derives connections
 from them. It does derive them from the trajectories: pairs whose separation holds steady across a
 strided sample of the recording are joined by a minimum spanning tree, rooted at the topmost point
 so the bones have a direction. A skeleton the session declared always wins, and a derived one is
@@ -75,6 +77,7 @@ presents it derives from that one definition rather than from a table kept besid
 | An action's label, category, shortcut, and enablement | the live `QAction` | the shortcuts dialog, the command palette, user shortcut overrides |
 | Configurable values | `core/settings_schema.py` | the generated Preferences dialog, the View-menu radio groups |
 | Graphics drawn over video | `ui/overlay_registry.py` | View → Overlays, the per-camera context menu, plugin overlays |
+| What a colour means | `ui/theme.py` | palette roles, evidence lanes, severities, marker and trace colours, the plot canvas and playhead, pane boundaries |
 
 Commands carry inverse operations rather than state snapshots — a snapshot per edit would breach the
 idle-memory budget. `core/` stays headless, so the bus is plain Python and the `QUndoStack` lives in
