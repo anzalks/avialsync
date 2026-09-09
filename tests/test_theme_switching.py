@@ -346,13 +346,17 @@ def test_the_3d_view_does_not_force_a_white_canvas(qtbot) -> None:
 # ── Reading the platform's own appearance ────────────────────────────────
 
 
-def test_system_appearance_prefers_the_platform_hint_over_the_palette() -> None:
+def test_system_appearance_prefers_the_platform_hint_over_the_palette(monkeypatch) -> None:
     """``colorScheme`` is authoritative; palette lightness is the fallback.
 
     A style whose palette does not track the desktop — Fusion on a dark Linux
     session — paints light whatever the session's preference is, so inferring
     the appearance from ``Window`` lightness reports "light" on a dark desktop
     and the System preference silently follows nothing.
+
+    Everything this touches is process-global, so it is all patched rather than
+    assigned: an appearance left behind here is inherited by every widget every
+    later test builds.
     """
     from avialsync.ui import theme
 
@@ -361,41 +365,67 @@ def test_system_appearance_prefers_the_platform_hint_over_the_palette() -> None:
 
     light_palette = QPalette()
     light_palette.setColor(QPalette.ColorRole.Window, QColor("#ffffff"))
-    theme._system_palettes[id(app)] = light_palette
+    monkeypatch.setitem(theme._system_palettes, id(app), light_palette)
 
     for scheme, expected in ((Qt.ColorScheme.Dark, True), (Qt.ColorScheme.Light, False)):
-        theme._color_scheme_hint = lambda _app, _s=scheme: _s  # type: ignore[assignment]
+        monkeypatch.setattr(theme, "_color_scheme_hint", lambda _app, _s=scheme: _s)
         assert theme.system_is_dark(app) is expected
 
     # Unknown is what the offscreen plugin reports, and what every platform
     # reports before Qt 6.5 — the palette has to answer for it.
-    theme._color_scheme_hint = lambda _app: Qt.ColorScheme.Unknown  # type: ignore[assignment]
+    monkeypatch.setattr(theme, "_color_scheme_hint", lambda _app: Qt.ColorScheme.Unknown)
     assert theme.system_is_dark(app) is False
+
     dark_palette = QPalette()
     dark_palette.setColor(QPalette.ColorRole.Window, QColor("#1e1e1e"))
-    theme._system_palettes[id(app)] = dark_palette
+    monkeypatch.setitem(theme._system_palettes, id(app), dark_palette)
     assert theme.system_is_dark(app) is True
 
 
-def test_an_explicit_theme_reports_itself_before_the_palette_lands(qtbot) -> None:
+def test_an_explicit_theme_reports_itself_before_the_palette_lands(monkeypatch) -> None:
     """``is_dark`` must answer with the appearance being repainted *into*.
 
     A widget repainting from the palette change asks what theme it is now, and
     the property used to be set after ``setPalette`` — so for the length of one
     repaint it answered with the outgoing theme.
+
+    This is the one test here that drives the real ``apply_theme``, so it is
+    also the one that has to put everything back: the preference is redirected
+    away from the user's own settings, the connection is dropped on the way
+    out, and the application palette is restored. Left alone, every later test
+    in the process would build its widgets under this test's theme — which is
+    how a suite acquires a failure that depends on what ran before it.
     """
     from avialsync.ui import theme
 
     app = QApplication.instance()
     assert app is not None
 
-    seen: list[bool] = []
-    app.paletteChanged.connect(lambda _p: seen.append(theme.is_dark()))
+    stored: dict[str, object] = {}
 
-    apply_theme(app, THEME_DARK)
-    assert theme.is_dark() is True
-    apply_theme(app, THEME_LIGHT)
-    assert theme.is_dark() is False
+    class Settings:
+        def __init__(self, *_args: object) -> None:
+            pass
+
+        def value(self, key: str, default: object = None) -> object:
+            return stored.get(key, default)
+
+        def setValue(self, key: str, value: object) -> None:
+            stored[key] = value
+
+    monkeypatch.setattr(theme, "QSettings", Settings)
+
+    seen: list[bool] = []
+    before = QPalette(app.palette())
+    connection = app.paletteChanged.connect(lambda _p: seen.append(theme.is_dark()))
+    try:
+        apply_theme(app, THEME_DARK)
+        assert theme.is_dark() is True
+        apply_theme(app, THEME_LIGHT)
+        assert theme.is_dark() is False
+    finally:
+        app.paletteChanged.disconnect(connection)
+        app.setPalette(before)
 
     assert seen, "no palette change was delivered, so nothing was proved"
     assert seen[0] is True, "a widget repainting into Dark was told it was Light"
@@ -441,19 +471,38 @@ def test_bold_text_still_follows_the_palette(qtbot) -> None:
         assert plain.palette().color(QPalette.ColorRole.WindowText) == expected
 
 
-def test_emphasis_survives_a_font_size_change(qtbot) -> None:
+def test_emphasis_survives_a_font_size_change(qtbot, monkeypatch) -> None:
     """The font-size preference rebuilds each widget's font from a captured base.
 
     Anything not re-applied during that walk is lost the first time the user
     changes text size — which is why ``set_bold`` records a property rather than
     only setting the font, exactly as ``set_font_family`` does.
+
+    ``apply_font_size`` persists a preference and walks every live widget in the
+    process, so the settings are redirected and the size is put back whatever
+    the assertion does.
     """
     from PySide6.QtWidgets import QLabel
 
+    from avialsync.ui import theme
     from avialsync.ui.theme import FONT_LARGE, FONT_SYSTEM, apply_font_size, set_bold
 
     app = QApplication.instance()
     assert app is not None
+
+    stored: dict[str, object] = {}
+
+    class Settings:
+        def __init__(self, *_args: object) -> None:
+            pass
+
+        def value(self, key: str, default: object = None) -> object:
+            return stored.get(key, default)
+
+        def setValue(self, key: str, value: object) -> None:
+            stored[key] = value
+
+    monkeypatch.setattr(theme, "QSettings", Settings)
 
     label = QLabel("Hg")
     qtbot.addWidget(label)
