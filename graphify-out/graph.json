@@ -61495,7 +61495,7 @@
       "label": "test_an_explicit_theme_reports_itself_before_the_palette_lands()",
       "file_type": "code",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L380",
+      "source_location": "L385",
       "_callable": true,
       "_origin": "ast"
     },
@@ -61504,7 +61504,7 @@
       "label": "test_bold_text_still_follows_the_palette()",
       "file_type": "code",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L407",
+      "source_location": "L437",
       "_callable": true,
       "_origin": "ast"
     },
@@ -61513,7 +61513,7 @@
       "label": "test_emphasis_survives_a_font_size_change()",
       "file_type": "code",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L444",
+      "source_location": "L474",
       "_callable": true,
       "_origin": "ast"
     },
@@ -61686,27 +61686,27 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_theme_switching_rationale_381",
+      "id": "tests_test_theme_switching_rationale_386",
       "label": "``is_dark`` must answer with the appearance being repainted *into*. A widget…",
       "file_type": "rationale",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L381",
+      "source_location": "L386",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_theme_switching_rationale_408",
+      "id": "tests_test_theme_switching_rationale_438",
       "label": "The quiet half of \"the fonts don't change with the theme\". Applying any…",
       "file_type": "rationale",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L408",
+      "source_location": "L438",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_theme_switching_rationale_445",
+      "id": "tests_test_theme_switching_rationale_475",
       "label": "The font-size preference rebuilds each widget's font from a captured base.…",
       "file_type": "rationale",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L445",
+      "source_location": "L475",
       "_origin": "ast"
     },
     {
@@ -206668,7 +206668,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L380",
+      "source_location": "L385",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -206678,7 +206678,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L407",
+      "source_location": "L437",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -206688,7 +206688,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L444",
+      "source_location": "L474",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -206875,7 +206875,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L362",
+      "source_location": "L366",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -206886,7 +206886,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L363",
+      "source_location": "L367",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_theme_switching_test_an_explicit_theme_reports_itself_before_the_palette_lands",
+      "target": "tests_test_theme_switching_py_qpalette",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_theme_switching.py",
+      "source_location": "L419",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -207101,32 +207112,32 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_theme_switching_rationale_381",
+      "source": "tests_test_theme_switching_rationale_386",
       "target": "tests_test_theme_switching_test_an_explicit_theme_reports_itself_before_the_palette_lands",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L381",
+      "source_location": "L386",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_theme_switching_rationale_408",
+      "source": "tests_test_theme_switching_rationale_438",
       "target": "tests_test_theme_switching_test_bold_text_still_follows_the_palette",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L408",
+      "source_location": "L438",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_theme_switching_rationale_445",
+      "source": "tests_test_theme_switching_rationale_475",
       "target": "tests_test_theme_switching_test_emphasis_survives_a_font_size_change",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L445",
+      "source_location": "L475",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -267226,7 +267237,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L395",
+      "source_location": "L422",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -267238,7 +267249,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L429",
+      "source_location": "L459",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -267250,7 +267261,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L460",
+      "source_location": "L509",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -267262,7 +267273,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L462",
+      "source_location": "L511",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -271126,7 +271137,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L368",
+      "source_location": "L372",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -271138,7 +271149,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_theme_switching.py",
-      "source_location": "L393",
+      "source_location": "L420",
       "weight": 1.0,
       "_origin": "ast"
     }
