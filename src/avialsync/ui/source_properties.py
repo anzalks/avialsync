@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import VideoMetadata
 from avialsync.ui.i18n import tr
+from avialsync.ui.theme import follow_palette
 
 if TYPE_CHECKING:
     pass
@@ -68,7 +69,19 @@ class _PropertiesBase(QGroupBox):
         hdr = QHBoxLayout()
         self._toggle_btn = QPushButton("▶ " + title)
         self._toggle_btn.setFlat(True)
-        self._toggle_btn.setStyleSheet("text-align:left;")
+        # Left alignment on a push button has no palette-safe equivalent — it
+        # genuinely needs a stylesheet. But any stylesheet hands the widget to
+        # Qt's stylesheet style, which stops resolving unmentioned properties
+        # from the application palette and pins them to the style's defaults;
+        # the text colour goes with it, and this header stayed dark through a
+        # switch to a dark theme. So the sheet names the colour too, and
+        # `follow_palette` re-runs it on every appearance change.
+        follow_palette(
+            self._toggle_btn,
+            lambda palette: (
+                f"text-align:left;color: {palette.color(QPalette.ColorRole.ButtonText).name()};"
+            ),
+        )
         # A section header must not set the panel's minimum width. Its own
         # sizeHint is the full title, which in a 180 px sidebar pushed every
         # panel wider than the viewport; with the horizontal scrollbar off

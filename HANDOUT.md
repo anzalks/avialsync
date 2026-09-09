@@ -437,7 +437,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()`. Fix Tracker is the grid's mode, so a pane built later joins it (D-099) | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()`, `set_point_edit_mode()`, `set_point_edits()` |
 | `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal. The row stack lives in a `QScrollArea` (`_plot_scroll`): pyqtgraph pins its scene rect to the viewport, so a scrollbar on the graphics view itself can never have a range | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
 | `ui/plot_header.py` | Compact plot presentation, page, Y-fit, row-height, and reset controls | `PlotHeader` |
-| `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control | `ChannelPlot`, `create_channel_plot()`, `fit_channel_y()` |
+| `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control | `ChannelPlot`, `create_channel_plot()`, `apply_channel_palette()`, `fit_channel_y()` |
 | `ui/plot_sweep.py` | Review/Sweep/Scope state and shared unit-converting logarithmic time-span control | `PlotPresentation`, `SweepWindowControl`, `SweepCurveItem` |
 | `ui/plot_interactions.py` | Plot context actions, measurement, annotation, and gap interaction state | `PlotInteractionController` |
 | `ui/plot_overlays.py` | Bounded page-local overlay drawing and plot context menu helpers | `redraw_annotations()`, `redraw_measure_lines()` |
@@ -467,7 +467,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/readout_panel.py` | Live per-channel values + units + sample index + Δ section | `update_sources()`, `set_cursor()`, `show_region_stats()`, `show_delta()` |
 | `ui/annotations.py` | Annotation store + list panel — the *user's* editable, exported markers | `AnnotationStore`, `AnnotationPanel` |
 | `ui/message_panel.py` | Read-only messages the rig recorded, mapped to master time (D-078). Never merge with `annotations.py`. Filtering hides rows; rebuilding them cost 51-87 ms per keystroke at `MAX_MESSAGES`. `_display_names` extends a source label with parent directories only when two sources share a file name, as two record nodes of one session do (D-085) | `MessageStore`, `MessagePanel`, `MappedMessage` |
-| `ui/theme.py` | QPalette + system/dark/light appearance, and the **only** home for a colour literal (D-079) | `apply_theme()`, `load_saved_theme()`, `current_preference()`, `THEME_SYSTEM/DARK/LIGHT`, `system_accent()`, `on_surface()`, `evidence_color()`, `status_color()`, `marker_color()`, `loop_pin_color()`, `follow_palette()` |
+| `ui/theme.py` | QPalette + system/dark/light appearance, and the **only** home for a colour literal (D-079, D-106). Imports no pyqtgraph | `apply_theme()`, `load_saved_theme()`, `current_preference()`, `THEME_SYSTEM/DARK/LIGHT`, `system_is_dark()`, `system_accent()`, `on_surface()`, `neutral_on_canvas()`, `evidence_color()`, `status_color()`, `marker_color()`, `loop_pin_color()`, `plot_colors()`, `playhead_color()`, `trace_color()`, `coverage_color()`, `follow_palette()`, `set_bold()`, `set_font_family()` |
+| `ui/plot_theme.py` | Applies the live palette to pyqtgraph objects, which do not participate in Qt's palette system (D-106) | `apply_canvas_palette()`, `apply_plot_item_palette()`, `gap_marker_pen()`, `measure_pen()` |
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
 | `ui/diagnostics.py` | Startup probe (hardware-decode support, disk speed) — async daemon thread | `run_startup_diagnostics()`, `probe_hwdec()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
@@ -629,6 +630,36 @@ Verified against the tree, not inferred. Each has caused, or will cause, a wrong
    D-093). Related: `PyAVReader._store` caches `av.VideoFrame` *pre-conversion*, which is what makes
    a levels change a re-conversion rather than a re-decode — do not "optimise" it into caching
    converted output.
+
+### 0a-bis. Four ways a theme change silently fails to arrive (D-106)
+None of these raise. Each just leaves one surface on the previous appearance, which is
+why they survived for a phase apiece.
+1. **`pg.setConfigOption` moves nothing that already exists.** pyqtgraph reads those globals
+   when an item is *constructed*. Measured: flipping background and foreground left a live
+   view's background on `#ffffff` and its axis pens on `#000000`. Any pyqtgraph view must call
+   `plot_theme.apply_canvas_palette()` from a `PaletteChange`/`ApplicationPaletteChange`
+   `changeEvent`. Three separately-coloured things per axis — `setPen` (axis line, ticks, grid),
+   `setTextPen` (tick numbers), and `labelStyle["color"]` (the axis title, which pyqtgraph
+   defaults to a literal mid-grey). Setting one and assuming the rest follow is the usual miss.
+2. **A pen handed to a graphics item is a literal from that moment on.** Curves, `InfiniteLine`s
+   and `LinearRegionItem`s hear nothing about a palette change; re-pen them explicitly
+   (`plot_row.apply_channel_palette`). A `paintEvent` that names a colour is the same problem in
+   a different shape, and a self-painting widget must also `update()` on the change — Qt only
+   repaints its own.
+3. **Any stylesheet on a widget detaches it from the palette.** Qt's stylesheet style resolves
+   every property the sheet does not mention from the style's defaults, not from the application
+   palette. Measured: a label carrying only `font-weight: bold;` resolves `WindowText` to
+   `#000000` and renders black ink under a dark palette, while the plain label beside it follows
+   both. Use `theme.set_bold()`; where a sheet is genuinely unavoidable (`text-align` on a push
+   button has no palette-safe equivalent), name the colour in the sheet and go through
+   `theme.follow_palette` so it re-derives.
+4. **Palette lightness is not the system appearance.** A style whose palette does not track the
+   desktop reports the scheme change and no palette change at all. Ask
+   `QStyleHints.colorScheme()` first and fall back to lightness only for `Unknown`. Note that
+   `Unknown` is exactly what the **offscreen** plugin answers, so the fallback is load-bearing in
+   CI rather than dead code — and `setColorScheme` is inert there too, so never assert on its
+   effect in a test. On a real platform it replaces the application palette *synchronously* and
+   emits `paletteChanged` from inside itself.
 
 ### 0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)
 Two variants, one cause. A worker `deleteLater`-ed from a signal its own thread emits is destroyed
@@ -860,6 +891,11 @@ refused focus and passed while checking nothing.
 `QWidget { background-color: ... }` in QSS applies to `QOpenGLWidget` too, painting over the GL surface.  
 **Fix:** Use QPalette for all theme colours. Application-level QSS changes native control metrics and
 can change seek/scrollbar/splitter behavior, so `ui/theme.py` sets no theme stylesheet at all.
+The sanctioned way to move what a palette cannot reach — native-drawn scrollbars, check
+indicators, combo popups, the window frame — is `QStyleHints.setColorScheme()`, which asks the
+same style to render in the other scheme rather than wrapping it in a selector engine (D-106).
+It changes colours, not metrics: `tests/test_theme_tooltips.py` pins slider geometry, groove and
+handle rects, playback state and plot ranges across a switch.
 
 ### 2. `setParent(None)` makes a widget a popup window
 Detaches the widget from its parent, promoting it to a standalone window with its own frame.  

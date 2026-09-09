@@ -3823,3 +3823,97 @@ it, so it cannot outlive the state that justified it. `NotificationStrip` grows 
 action, whose callback is replaced on every post so a message cannot inherit the previous message's
 button. `tests/test_hot_exit.py` guards the wiring specifically — that constructing a window is what
 makes the offer — because the defect this fixes was never a wrong rule, it was an uncalled function.
+## 2026-09 · D-106 · A theme reaches every surface, including the ones Qt does not repaint
+
+**Context:** the appearance menu moved palette roles and stopped there. Three
+kinds of surface never heard about it, and each had failed differently.
+
+*pyqtgraph canvases.* `PlotPane._apply_palette` set `pg.setConfigOption` for
+background and foreground on every palette change. Those globals are read when
+an item is *constructed* and never consulted again — measured: flipping both
+options left a live view's background on `#ffffff` and its axis pens on
+`#000000`. So the graph background, the tick numbers and the axis titles all sat
+on whichever theme was current when the rows happened to be built.
+`SyncEvidenceView` was worse: it built a `PlotWidget` and never mentioned the
+palette at all, inheriting whichever global the last-constructed plot pane left
+behind.
+
+*Graphics items.* A pen handed to an `InfiniteLine` or a curve is a literal from
+that moment on. The playhead was `mkPen("y")` — a yellow chosen against a dark
+canvas that washed out on a white one. Channel traces came from a four-colour
+literal list tuned for a light canvas, the coverage wash was white at alpha 15
+(invisible on light), and the A/B pins and gap markers were hardcoded green and
+red that matched nothing else in the application.
+
+*Self-painting widgets.* `Tracking3DCanvas` filled with `Qt.GlobalColor.white`
+whatever the theme said, then drew literal greys on top tuned for that one
+surface, and did not repaint on a palette change at all.
+
+Two further causes were found by measurement rather than by reading. Applying
+*any* stylesheet to a widget hands it to Qt's stylesheet style, which resolves
+every property the sheet does not mention from the style's defaults instead of
+from the application palette: a label carrying only `font-weight: bold;`
+resolves `WindowText` to `#000000` and renders black ink under a dark palette,
+while the plain label beside it follows. Every bold heading in the sidebar and
+the readout panel was built that way. And the System preference inferred the
+platform's appearance from `Window` lightness, which is wrong under any style
+whose palette does not track the desktop.
+
+**Decision:** `ui/theme.py` is the single authority for what a colour means,
+including the plot canvas (`plot_colors`, `playhead_color`, `trace_color`,
+`coverage_color`) and achromatic structure (`neutral_on_canvas`). It imports no
+pyqtgraph. `ui/plot_theme.py` is the application step: it walks a live
+`GraphicsView`'s scene and re-pens background, axis lines, tick text and axis
+titles, and it builds the overlay pens. Config options are still set, for what
+pyqtgraph constructs internally, but nothing depends on them any more.
+
+Structural marks are stated as a *weight* — how far from the canvas toward its
+opposite — never as a literal grey. A literal grey is a fixed distance from
+white and an arbitrary one from anything else, which is exactly how a faint grid
+rule became the brightest mark in the 3D view once its canvas stopped being
+forced white.
+
+The playhead is achromatic. Every colour this application gives a trace, a lane
+or a marker carries a hue, so neutral is the one choice that cannot collide with
+a data colour however many channels are loaded, and it takes the strongest
+contrast against the canvas while it is there.
+
+Emphasis goes through `theme.set_bold`, never
+`setStyleSheet("font-weight: bold;")`. Where a stylesheet is genuinely
+unavoidable — `text-align` on a push button has no palette-safe equivalent — the
+sheet names its colour too and goes through `follow_palette`.
+
+System appearance is read from `QStyleHints.colorScheme()` and followed through
+`colorSchemeChanged`, falling back to palette lightness only where the platform
+answers `Unknown` (the offscreen plugin, and anything before Qt 6.5). An
+explicit Dark or Light also calls `setColorScheme`, because the Windows and
+macOS styles draw scrollbars, check indicators, combo popups and the window
+frame from native theme data that ignores palette roles.
+
+**Alternatives rejected:** a global `QSS` (it wraps Qt's native style and can
+alter control metrics and interaction — the standing prohibition, unchanged);
+re-creating plot rows on a theme change (throws away view state, which a theme
+may not touch); giving the plot its own colour table (a second authority, which
+D-092 exists to prevent); leaving `setColorScheme` alone and accepting light
+scrollbars on a dark palette (that *is* the reported bug, seen from outside).
+
+**Consequences:** `setColorScheme` replaces the application palette
+*synchronously* and emits `paletteChanged` from inside itself, so it runs under
+the existing `_applying_palette` guard and before our own surfaces go on; the
+pristine platform palette is captured before it, or the platform accent would be
+read from Qt's dark palette on a first launch into Dark. It is inert under the
+offscreen plugin, which is why the lightness fallback is load-bearing rather
+than dead code and why CI stays deterministic.
+
+Any new pyqtgraph view must call `apply_canvas_palette` and repaint on
+`PaletteChange`; any new self-painting widget must `update()` on it. Neither is
+something Qt will do for you, and neither fails loudly — it just leaves a
+surface on last month's theme. `tests/test_theme_switching.py` asserts these as
+properties (contrast against the surface, change across a switch, relationships
+between marks), never as hex literals: a test that pins a literal has to be
+edited every time the palette moves and proves nothing about legibility.
+
+The one deliberate exception is text drawn over video — the pane's name badge,
+the OSD, and the "No Footage" placeholder. Those sit on decoded frames, not on a
+theme surface, so they stay white on a dark scrim in every appearance. A video
+frame does not get lighter because the application did.

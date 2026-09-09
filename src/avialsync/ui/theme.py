@@ -10,15 +10,19 @@ selection never changes widget geometry, input behaviour, view state, or playbac
 from __future__ import annotations
 
 import gc
+import logging
 import subprocess
 import sys
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 
-from PySide6.QtCore import QEvent, QObject, QSettings
+from PySide6.QtCore import QEvent, QObject, QSettings, Qt
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 from shiboken6 import isValid
+
+logger = logging.getLogger(__name__)
 
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
@@ -36,11 +40,81 @@ _system_fonts: dict[int, QFont] = {}
 _font_scales: dict[int, float] = {}
 _BASE_FONT_PROPERTY = "avialsync_base_font"
 _FONT_FAMILY_PROPERTY = "avialsync_font_family"
+_FONT_BOLD_PROPERTY = "avialsync_font_bold"
 
 
 def _is_dark_palette(palette: QPalette) -> bool:
     """Return whether a palette has a dark window surface."""
     return palette.color(QPalette.ColorRole.Window).lightnessF() < 0.5
+
+
+def _color_scheme_hint(app: QApplication) -> Qt.ColorScheme:
+    """Return what the platform itself says its appearance is.
+
+    ``QStyleHints.colorScheme`` is the authoritative answer, and the only one
+    that survives a style whose palette does not track the desktop: Fusion
+    paints a light palette whatever a Linux session's preference is, so reading
+    the scheme off ``Window`` lightness reports "light" on a dark desktop and
+    the System preference silently follows nothing.
+
+    It answers ``Unknown`` wherever no platform theme is reachable — the
+    offscreen plugin CI runs under, notably — and there the palette is the only
+    evidence available, which is why the lightness test below is a fallback
+    rather than dead code.
+    """
+    try:
+        scheme = app.styleHints().colorScheme()
+    except (AttributeError, RuntimeError):
+        return Qt.ColorScheme.Unknown
+    return scheme if isinstance(scheme, Qt.ColorScheme) else Qt.ColorScheme.Unknown
+
+
+def system_is_dark(app: QApplication) -> bool:
+    """Return whether the platform's own appearance is currently dark."""
+    scheme = _color_scheme_hint(app)
+    if scheme == Qt.ColorScheme.Dark:
+        return True
+    if scheme == Qt.ColorScheme.Light:
+        return False
+    return _is_dark_palette(_system_palette(app))
+
+
+def _request_color_scheme(app: QApplication, dark: bool | None) -> None:
+    """Ask Qt's own style to render dark, light, or whatever the platform says.
+
+    A ``QPalette`` does not reach everything on screen. The Windows and macOS
+    styles draw scrollbars, check indicators, combo popups and the window frame
+    from native theme data that ignores palette roles, so an explicit dark
+    palette under a style still rendering light left all of those light — which
+    is precisely what "the colours only change in some places" looks like from
+    the outside. ``setColorScheme`` is the supported way to move them, and it
+    carries the title bar with it.
+
+    ``None`` means "hand the decision back to the platform", which is what the
+    System preference wants.
+
+    Two properties of the call matter to the caller. It replaces the
+    application palette *synchronously* and emits ``paletteChanged`` from
+    inside itself, so it has to run under the ``_applying_palette`` guard and
+    before our own surfaces go on. And it is absent before Qt 6.8 and inert
+    under the offscreen plugin, so nothing may depend on it having worked —
+    the palette we set afterwards is what actually carries the appearance.
+    """
+    hints = app.styleHints()
+    setter = getattr(hints, "setColorScheme", None)
+    if setter is None:
+        return
+    scheme = Qt.ColorScheme.Unknown
+    if dark is True:
+        scheme = Qt.ColorScheme.Dark
+    elif dark is False:
+        scheme = Qt.ColorScheme.Light
+    try:
+        setter(scheme)
+    except (RuntimeError, TypeError):
+        # An older Qt, or a platform theme that refuses the request. The
+        # palette below still applies; only native-drawn chrome is left behind.
+        logger.debug("Platform refused a colour-scheme request", exc_info=True)
 
 
 def _system_palette(app: QApplication) -> QPalette:
@@ -64,6 +138,32 @@ def set_font_family(widget: QWidget, family: str) -> None:
     widget.setProperty(_FONT_FAMILY_PROPERTY, family)
     font = QFont(widget.font())
     font.setFamily(family)
+    widget.setFont(font)
+
+
+def set_bold(widget: QWidget, bold: bool = True) -> None:
+    """Emphasise *widget*'s text without cutting it off from the palette.
+
+    Use this, never ``setStyleSheet("font-weight: bold;")``.
+
+    Applying *any* stylesheet to a widget hands it to Qt's stylesheet style,
+    which resolves every property the sheet does not mention from the style's
+    own defaults rather than by inheriting the application palette. A sheet that
+    sets only a font weight therefore also, silently, pins the text colour:
+    measured, such a label resolves ``WindowText`` to ``#000000`` and renders
+    black ink under a dark palette and a light one alike, while the plain label
+    beside it follows both. That is most of what "the fonts don't change with
+    the theme" looked like — bold headings staying black on a dark surface.
+
+    Boldness is a font property, so it is set on the font, where it costs
+    nothing and leaves the palette alone. The property is recorded for the same
+    reason :func:`set_font_family` records its own: the font-size preference
+    rebuilds each widget's font from a captured unscaled base, and anything not
+    re-applied there is lost the first time the user changes text size.
+    """
+    widget.setProperty(_FONT_BOLD_PROPERTY, bold)
+    font = QFont(widget.font())
+    font.setBold(bold)
     widget.setFont(font)
 
 
@@ -151,6 +251,12 @@ def _apply_font_to_existing_widgets(app: QApplication, factor: float) -> None:
         family = widget.property(_FONT_FAMILY_PROPERTY)
         if isinstance(family, str) and family:
             target.setFamily(family)
+        # Re-applied for the same reason as the family: the base font was
+        # captured before either was asked for, so neither survives being
+        # rebuilt from it.
+        emphasis = widget.property(_FONT_BOLD_PROPERTY)
+        if isinstance(emphasis, bool):
+            target.setBold(emphasis)
         widget.setFont(target)
     _font_scales[id(app)] = factor
 
@@ -384,6 +490,132 @@ def loop_pin_color(palette: QPalette, which: str) -> QColor:
     return on_surface(palette, _separated(base + offset, _DEFECT_HUE))
 
 
+# ── The plot canvas ──────────────────────────────────────────────────────
+#
+# pyqtgraph draws onto its own canvas rather than onto a Qt widget surface, so
+# none of it is reached by a palette change: `setConfigOption` is read once when
+# an item is constructed and never again.  That is why the graph background and
+# the axis ticks stayed on whichever theme was current when the rows were built.
+#
+# The colours themselves are defined here, with every other colour in the
+# application, and applied to live pyqtgraph objects by `ui/plot_theme.py`.
+# Splitting it that way keeps pyqtgraph out of this module and keeps one
+# authority for what a colour *means* (D-092).
+
+#: How far the playhead is pushed from its canvas, as a fraction of the distance
+#: to the opposite pole.  Further than any evidence mark: this is the one line
+#: the eye has to find first.  Short of 1.0 because pure white and pure black
+#: make a thin line shimmer on sub-pixel-rendered displays.
+_PLAYHEAD_WEIGHT = 0.91
+
+#: Weight and opacity of the wash marking where a source actually has data.
+#: Low enough to read as a change of surface rather than as a drawn object.
+_COVERAGE_WEIGHT = 0.83
+_COVERAGE_ALPHA = 28
+
+#: Grid opacity.  pyqtgraph strokes the grid in the axis colour, so this is the
+#: whole of what keeps it a background rule instead of a second set of traces.
+_GRID_ALPHA = 0.18
+
+
+@dataclass(frozen=True)
+class PlotColors:
+    """Every colour one pyqtgraph canvas needs, solved against a live palette."""
+
+    canvas: QColor
+    """Graph background."""
+
+    axis: QColor
+    """Axis lines, tick marks, tick numbers, and axis titles."""
+
+    playhead: QColor
+    """The vertical line marking the current master time."""
+
+    coverage: QColor
+    """Translucent wash over the span a source has data for."""
+
+    grid_alpha: float
+    """Opacity for the background rules, as pyqtgraph's ``showGrid`` takes it."""
+
+
+def _canvas_is_dark(palette: QPalette) -> bool:
+    """Return the polarity of the surface a plot is drawn on.
+
+    ``Base`` rather than ``AlternateBase``: a plot canvas is a data surface, the
+    same role a text view or a table gets, and it is what pyqtgraph is told to
+    paint.  The two roles share a polarity in every theme here, so marks solved
+    against either agree — but the one a mark actually sits on is the honest
+    thing to solve against.
+    """
+    return palette.color(QPalette.ColorRole.Base).lightnessF() < 0.5
+
+
+def neutral_on_canvas(palette: QPalette, weight: float) -> QColor:
+    """Return an achromatic mark *weight* of the way from the canvas to its opposite.
+
+    The counterpart to :func:`on_surface` for marks that must carry no hue:
+    structure rather than meaning — a rule, an outline, a bone, the playhead.
+
+    ``weight`` is stated relative to the canvas rather than as an absolute
+    lightness, which is what makes one constant correct on both surfaces: 0.2 is
+    a faint rule whether the canvas is white or near-black, where a literal
+    ``#c8c8c8`` is a faint rule on one and a bright line on the other.
+    """
+    canvas = palette.color(QPalette.ColorRole.Base).lightnessF()
+    opposite = 1.0 if _canvas_is_dark(palette) else 0.0
+    return QColor.fromHslF(0.0, 0.0, canvas + (opposite - canvas) * max(0.0, min(1.0, weight)))
+
+
+def playhead_color(palette: QPalette) -> QColor:
+    """Return the colour of the vertical line marking the current time.
+
+    Achromatic, and deliberately: the playhead is the one mark on a plot that
+    must never be mistaken for data, and every colour this application gives a
+    trace, a lane, or a marker is chromatic.  Neutral is therefore the only
+    choice that cannot collide with a channel colour however many channels are
+    loaded, and it takes the strongest contrast against the canvas while it is
+    there.
+
+    This replaces a literal yellow, which was legible on the dark canvas it was
+    chosen against and washed out to near-invisible on a white one.
+    """
+    return neutral_on_canvas(palette, _PLAYHEAD_WEIGHT)
+
+
+def coverage_color(palette: QPalette) -> QColor:
+    """Return the translucent wash marking where a source has data.
+
+    Lighter than a dark canvas and darker than a light one; the literal white it
+    replaces did the first and vanished into the second.
+    """
+    wash = neutral_on_canvas(palette, _COVERAGE_WEIGHT)
+    wash.setAlpha(_COVERAGE_ALPHA)
+    return wash
+
+
+def trace_color(palette: QPalette, index: int) -> QColor:
+    """Return the *index*-th channel trace colour for this palette.
+
+    A trace is a categorical mark on a canvas, which is exactly what
+    :func:`marker_color` already solves — including the colour-vision-safe
+    palette and the lightness flip between surfaces.  Routing through it is what
+    stops the plot growing a second, quietly diverging colour sequence; the
+    literal four-colour list this replaces was tuned for a light canvas.
+    """
+    return marker_color(palette, index)
+
+
+def plot_colors(palette: QPalette) -> PlotColors:
+    """Return the full canvas colour set derived from *palette*."""
+    return PlotColors(
+        canvas=palette.color(QPalette.ColorRole.Base),
+        axis=palette.color(QPalette.ColorRole.Text),
+        playhead=playhead_color(palette),
+        coverage=coverage_color(palette),
+        grid_alpha=_GRID_ALPHA,
+    )
+
+
 class _PaletteStyleFollower(QObject):
     """Re-runs a widget's stylesheet builder whenever its palette changes."""
 
@@ -487,20 +719,59 @@ def _install_system_appearance_listener(app: QApplication) -> None:
         _system_palettes[app_id] = QPalette(palette)
         _apply(app, THEME_SYSTEM, persist=False)
 
+    def on_scheme_changed(_scheme: Qt.ColorScheme) -> None:
+        """Follow a desktop switching between light and dark.
+
+        Distinct from ``paletteChanged`` and not redundant with it: a style
+        whose palette does not track the desktop reports the scheme change and
+        no palette change at all, so following only the palette meant the System
+        preference sat on whichever appearance was current at launch.
+        """
+        if app_id in _applying_palette or current_preference() != THEME_SYSTEM:
+            return
+        _macos_accent = None
+        _system_palettes[app_id] = QPalette(app.palette())
+        _apply(app, THEME_SYSTEM, persist=False)
+
     app.paletteChanged.connect(on_palette_changed)  # type: ignore[arg-type]
+    scheme_changed = getattr(app.styleHints(), "colorSchemeChanged", None)
+    if scheme_changed is not None:
+        scheme_changed.connect(on_scheme_changed)
 
 
 def _apply(app: QApplication, pref: str, *, persist: bool) -> None:
     """Apply *pref* without duplicating preference persistence logic."""
-    system_palette = _system_palette(app)
     native = pref == THEME_SYSTEM
-    dark = _is_dark_palette(system_palette) if native else pref == THEME_DARK
-    palette = (
-        system_palette if native else _palette_with_surfaces(dark, system_accent(system_palette))
-    )
     app_id = id(app)
     _applying_palette.add(app_id)
     try:
+        # Before anything else, so that the first capture of the platform
+        # palette is the pristine one. On a first launch straight into Dark the
+        # scheme request below has already replaced `app.palette()` by the time
+        # anyone asks, and the "system" palette would have been recorded as
+        # Qt's dark one — which is where the platform accent is read from.
+        system_palette = _system_palette(app)
+        # Then the scheme, because it replaces the application palette
+        # synchronously and our own surfaces have to be the last word. Under
+        # the System preference it also hands the platform back control, so
+        # what we re-capture next is the appearance the desktop has *now*
+        # rather than whichever one it had at launch.
+        _request_color_scheme(app, None if native else pref == THEME_DARK)
+        if native:
+            _system_palettes[app_id] = QPalette(app.palette())
+            system_palette = _system_palette(app)
+        dark = system_is_dark(app) if native else pref == THEME_DARK
+        palette = (
+            system_palette
+            if native
+            else _palette_with_surfaces(dark, system_accent(system_palette))
+        )
+        # Before the palette, not after: `setPalette` delivers the change to
+        # every widget, and a widget repainting from it asks `is_dark()` what
+        # appearance it is repainting *into*. Setting these afterwards answered
+        # with the outgoing theme for the length of one repaint.
+        app.setProperty("avialsync_theme_dark", dark)
+        app.setProperty("avialsync_theme_native", native)
         app.setPalette(palette)
         # A QApplication stylesheet wraps Qt's native style and selector rules can alter
         # control metrics and interaction affordances.  Palette roles cover all allowed
@@ -510,8 +781,6 @@ def _apply(app: QApplication, pref: str, *, persist: bool) -> None:
     finally:
         _applying_palette.discard(app_id)
 
-    app.setProperty("avialsync_theme_dark", dark)
-    app.setProperty("avialsync_theme_native", native)
     if persist:
         QSettings("AvialSync", "AvialSync").setValue("theme/preference", pref)
 

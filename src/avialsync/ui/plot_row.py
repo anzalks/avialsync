@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QGraphicsProxyWidget, QToolButton
 
 from avialsync.core.channel_reader import MappedChannelReader
@@ -18,8 +18,8 @@ from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_sweep import SweepCurveItem
-
-CHANNEL_COLORS = [(72, 169, 232), (87, 194, 143), (218, 160, 84), (174, 132, 222)]
+from avialsync.ui.plot_theme import gap_marker_pen
+from avialsync.ui.theme import coverage_color, playhead_color, trace_color
 
 # Every row's left axis is pinned to one width so the gutters line up down the
 # stack (PLOT_UX_PLAN.md "aligned channel gutters"); it is not derived from
@@ -47,6 +47,10 @@ class ChannelPlot:
     close_proxy: QGraphicsProxyWidget
     coverage_region: pg.LinearRegionItem | None = None
     coverage_bounds: tuple[float, float] | None = None
+    #: Position in the categorical trace sequence.  Retained because a theme
+    #: switch has to re-derive this row's colour, and the sequence is only
+    #: meaningful by index — without it a re-themed stack would have to guess.
+    color_index: int = 0
     gap_markers: list[pg.InfiniteLine] = field(default_factory=list)
     gap_times: tuple[float, ...] = ()
     unit: str = ""
@@ -241,14 +245,18 @@ def create_channel_plot(
     plot_item.enableAutoRange(axis="y", enable=False)
     plot_item.enableAutoRange(axis="x", enable=False)
 
-    color = QColor(*CHANNEL_COLORS[color_index % len(CHANNEL_COLORS)])
-    pen = pg.mkPen(color=color, width=1.4)
+    # Solved against the palette the row is actually being built into, so a row
+    # added after a theme switch matches the rows already on screen.
+    palette = graphics_layout.palette()
+    pen = pg.mkPen(color=trace_color(palette, color_index), width=1.4)
     # One curve carrying interleaved per-column min/max — see refresh_channel_plot.
-    # A row is a bright trace, a yellow cursor, and nothing else (D-054, D-057).
+    # A row is a bright trace, a playhead, and nothing else (D-054, D-057).
     curve = SweepCurveItem(pen=pen, connect="finite")
     curve.setZValue(2)
     plot_item.addItem(curve)
-    cursor_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen("y", width=2))
+    cursor_line = pg.InfiniteLine(
+        angle=90, movable=False, pen=pg.mkPen(playhead_color(palette), width=2)
+    )
     plot_item.addItem(cursor_line)
 
     coverage_region = None
@@ -257,7 +265,7 @@ def create_channel_plot(
         coverage_region = pg.LinearRegionItem(
             values=list(coverage_bounds),
             movable=False,
-            brush=pg.mkBrush(255, 255, 255, 15),
+            brush=pg.mkBrush(coverage_color(palette)),
         )
         coverage_region.setZValue(-10)
         plot_item.addItem(coverage_region)
@@ -272,4 +280,24 @@ def create_channel_plot(
         close_proxy=close_proxy,
         coverage_region=coverage_region,
         coverage_bounds=coverage_bounds,
+        color_index=color_index,
     )
+
+
+def apply_channel_palette(channel: ChannelPlot, palette: QPalette) -> None:
+    """Re-derive one row's own graphics for *palette*.
+
+    The axes and the canvas belong to the view and are handled by
+    :func:`avialsync.ui.plot_theme.apply_canvas_palette`; what is left is
+    everything this row drew for itself — the trace, the playhead, the coverage
+    wash, and any retained gap evidence. None of it is a Qt widget, so none of
+    it hears a palette change; each one is a literal from the moment it was
+    constructed until something re-pens it.
+    """
+    channel.curve.setPen(pg.mkPen(color=trace_color(palette, channel.color_index), width=1.4))
+    channel.cursor_line.setPen(pg.mkPen(playhead_color(palette), width=2))
+    if channel.coverage_region is not None:
+        channel.coverage_region.setBrush(pg.mkBrush(coverage_color(palette)))
+    gap_pen = gap_marker_pen(palette)
+    for marker in channel.gap_markers:
+        marker.setPen(gap_pen)

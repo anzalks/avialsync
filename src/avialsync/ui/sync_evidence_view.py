@@ -26,11 +26,13 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
+from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from avialsync.core.sync import SyncProposal
 from avialsync.ui.i18n import tr
-from avialsync.ui.theme import status_color
+from avialsync.ui.plot_theme import apply_canvas_palette
+from avialsync.ui.theme import coverage_color, status_color
 
 __all__ = ["SyncEvidenceView", "decimate_residuals"]
 
@@ -91,6 +93,7 @@ class SyncEvidenceView(QWidget):
         self._plot.setLabel("left", "Residual", units="ms")
         self._plot.showGrid(x=True, y=True, alpha=0.2)
         self._plot.setMinimumHeight(180)
+        self._apply_palette()
         layout.addWidget(self._plot)
 
         self._reading = QLabel("")
@@ -98,12 +101,38 @@ class SyncEvidenceView(QWidget):
         layout.addWidget(self._reading)
 
         self.setAccessibleName(tr("Alignment evidence"))
+        self._proposal: SyncProposal | None = None
+
+    # ── following the appearance ─────────────────────────────────────
+
+    def changeEvent(self, event: QEvent) -> None:
+        """Re-theme the canvas, and redraw the evidence already drawn on it."""
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange):
+            self._apply_palette()
+            # The scatter and the tolerance band are pyqtgraph items built from
+            # colours fixed when they were plotted, so re-penning the axes does
+            # not reach them. Redrawing from the retained proposal does, and
+            # costs nothing — the points are already decimated.
+            if self._proposal is not None:
+                self.show_proposal(self._proposal)
+
+    def _apply_palette(self) -> None:
+        """Point the canvas at the live palette.
+
+        This view built a ``PlotWidget`` and never told it anything about the
+        appearance at all, so it inherited whichever global pyqtgraph config
+        option the last-constructed plot pane happened to leave behind — a
+        theme chosen somewhere else, at an unrelated time.
+        """
+        apply_canvas_palette(self._plot, self.palette())
 
     # ── showing a proposal ───────────────────────────────────────────
 
     def show_proposal(self, proposal: SyncProposal | None) -> None:
         """Draw the evidence behind *proposal*, or clear."""
         self._plot.clear()
+        self._proposal = proposal
         if proposal is None:
             self._headline.setText(tr("No alignment has been proposed."))
             self._reading.setText("")
@@ -135,7 +164,7 @@ class SyncEvidenceView(QWidget):
                 values=(-tolerance_ms, tolerance_ms),
                 orientation="horizontal",
                 movable=False,
-                brush=pg.mkBrush(128, 128, 128, 40),
+                brush=pg.mkBrush(coverage_color(self.palette())),
             )
             band.setZValue(-10)
             self._plot.addItem(band)

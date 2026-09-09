@@ -21,6 +21,7 @@ from avialsync.ui.plot_row import (
     Y_FIT_ONCE,
     Y_MANUAL,
     ChannelPlot,
+    apply_channel_palette,
     apply_channel_visibility,
     create_channel_plot,
     enforce_channel_visibility,
@@ -31,6 +32,7 @@ from avialsync.ui.plot_row import (
     update_channel_coverage,
 )
 from avialsync.ui.plot_sweep import PlotPresentation, SweepWindowControl
+from avialsync.ui.plot_theme import apply_canvas_palette
 from avialsync.ui.time_format import TimeDisplayMode, format_time
 
 logger = logging.getLogger(__name__)
@@ -201,10 +203,41 @@ class PlotPane(QWidget):
             self._resize_refresh_timer.start()
 
     def _apply_palette(self) -> None:
-        """Apply the active Qt palette to pyqtgraph's global canvas settings."""
+        """Repaint the canvas, the axes, and every row's graphics for this palette.
+
+        ``setConfigOption`` alone is what this used to be, and it is why the
+        graph kept its old background and black tick numbers through a
+        light/dark switch: pyqtgraph reads those globals when an item is
+        *constructed* and never looks at them again. Measured — flipping both
+        options left a live view's background on ``#ffffff`` and its axis pens
+        on ``#000000``.
+
+        So the globals are still set, for anything pyqtgraph builds internally
+        before we can reach it, and then every object already on screen is
+        re-penned explicitly. The two are not redundant: the first covers
+        construction, the second covers everything already constructed.
+        """
         palette = self.palette()
         pg.setConfigOption("background", palette.color(palette.ColorRole.Base).name())
         pg.setConfigOption("foreground", palette.color(palette.ColorRole.Text).name())
+        # This runs from `__init__` before the view exists — deliberately, so
+        # the config options above are in place for its construction — and Qt
+        # can also deliver a palette change part-way through the rest of it.
+        # Each piece is therefore checked for rather than assumed: reaching for
+        # `_interactions` from a change event that landed between building the
+        # view and building the controller is an AttributeError during startup.
+        view = getattr(self, "graphics_layout", None)
+        if view is None:
+            return
+        apply_canvas_palette(view, palette)
+        for channel in getattr(self, "channels", ()):
+            apply_channel_palette(channel, palette)
+        # Page-local overlays are rebuilt rather than re-penned: they are
+        # replaced wholesale on every page change anyway, so rebuilding keeps
+        # one code path for their geometry.
+        interactions = getattr(self, "_interactions", None)
+        if interactions is not None:
+            interactions.redraw_measure_lines()
 
     def load_channels(
         self,

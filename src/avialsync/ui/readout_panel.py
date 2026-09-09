@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.channel_reader import ChannelKey, MappedChannelReader, disambiguate
 from avialsync.ui.i18n import tr
-from avialsync.ui.theme import set_font_family
+from avialsync.ui.theme import set_bold, set_font_family
 
 
 def _set_monospace(widget: QWidget) -> None:
@@ -182,17 +182,17 @@ class ReadoutPanel(QGroupBox):
 
         # Section labels + rows for optional sections
         self._cam_label = QLabel("Camera Positions")
-        self._cam_label.setStyleSheet("font-weight: bold;")
+        set_bold(self._cam_label)
         self._cam_label.setVisible(False)
         self._cam_rows: list[_CameraRow] = []
 
         self._stats_label = QLabel("Region Stats")
-        self._stats_label.setStyleSheet("font-weight: bold;")
+        set_bold(self._stats_label)
         self._stats_label.setVisible(False)
         self._stats_rows: dict[str, _StatsRow] = {}
 
         self._delta_label = QLabel("Δ Measurement")
-        self._delta_label.setStyleSheet("font-weight: bold;")
+        set_bold(self._delta_label)
         self._delta_label.setVisible(False)
         self._delta_rows: dict[ChannelKey, _DeltaRow] = {}
         self._delta_t_lbl = QLabel("Δt = —")
@@ -307,7 +307,7 @@ class ReadoutPanel(QGroupBox):
 
         if camera_states:
             fps_row = QLabel("Frames between:")
-            fps_row.setStyleSheet("font-weight: bold;")
+            set_bold(fps_row)
             self._layout.insertWidget(self._layout.count() - 1, fps_row)
             for label, _tp, fps in camera_states:
                 n = int(round(dt * fps)) if fps > 0 else "—"

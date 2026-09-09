@@ -29,7 +29,7 @@ from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_chan
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.source_properties import VideoPropertiesPanel
-from avialsync.ui.theme import follow_palette, status_color
+from avialsync.ui.theme import follow_palette, set_bold, status_color
 
 _W = TypeVar("_W", bound=QWidget)
 
@@ -108,7 +108,7 @@ class SensorInfoWidget(QFrame):
         header = QHBoxLayout()
         name_lbl = ElidedLabel(Path(path).name)
         name_lbl.setToolTip(path)
-        name_lbl.setStyleSheet("font-weight: bold;")
+        set_bold(name_lbl)
 
         self._badge_btn = QPushButton("⚠")
         self._badge_btn.setFixedSize(18, 18)
@@ -493,7 +493,7 @@ class VideoInfoWidget(QFrame):
 
         name_lbl = ElidedLabel(Path(path).name)
         name_lbl.setToolTip(path)
-        name_lbl.setStyleSheet("font-weight: bold;")
+        set_bold(name_lbl)
 
         close_btn = QPushButton("X")
         close_btn.setFixedSize(20, 20)
@@ -704,7 +704,7 @@ class SidebarPane(QWidget):
         videos_top = QHBoxLayout()
         videos_top.setContentsMargins(0, 0, 0, 0)
         videos_title = QLabel("Videos")
-        videos_title.setStyleSheet("font-weight: bold;")
+        set_bold(videos_title)
         self._grid_chk = QCheckBox("⊞ Grid")
         self._grid_chk.setToolTip(tr("Arrange videos in an NxN grid instead of a horizontal strip"))
         self._grid_chk.toggled.connect(self.grid_mode_changed)

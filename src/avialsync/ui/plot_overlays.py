@@ -9,11 +9,12 @@ from typing import Any, Literal
 
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QColor
+from PySide6.QtGui import QAction, QColor, QPalette
 from PySide6.QtWidgets import QMenu
 
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.plot_row import ChannelPlot
+from avialsync.ui.plot_theme import gap_marker_pen, measure_pen
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,7 @@ def redraw_measure_lines(
     display_x: Callable[[float], float | None],
     old_a: list[pg.InfiniteLine],
     old_b: list[pg.InfiniteLine],
+    palette: QPalette,
 ) -> tuple[list[pg.InfiniteLine], list[pg.InfiniteLine]]:
     """Replace A/B measurement pins without retaining stale plot items."""
     for line in old_a + old_b:
@@ -87,8 +89,8 @@ def redraw_measure_lines(
                 channel.plot_item.removeItem(line)
             except RuntimeError:
                 logger.debug("Plot item was already deleted", exc_info=True)
-    pen_a = pg.mkPen(color=(0, 255, 100), width=2, style=Qt.PenStyle.DashLine)
-    pen_b = pg.mkPen(color=(255, 80, 80), width=2, style=Qt.PenStyle.DashLine)
+    pen_a = measure_pen(palette, "in")
+    pen_b = measure_pen(palette, "out")
     new_a: list[pg.InfiniteLine] = []
     new_b: list[pg.InfiniteLine] = []
     for channel in channels:
@@ -109,10 +111,12 @@ def redraw_measure_lines(
 
 
 def redraw_gap_markers(
-    channels: list[ChannelPlot], display_x: Callable[[float], float | None]
+    channels: list[ChannelPlot],
+    display_x: Callable[[float], float | None],
+    palette: QPalette,
 ) -> None:
     """Draw retained gap evidence only where it intersects the visible page."""
-    pen = pg.mkPen(color=(255, 60, 60), width=1, style=Qt.PenStyle.DotLine)
+    pen = gap_marker_pen(palette)
     for channel in channels:
         for line in channel.gap_markers:
             channel.plot_item.removeItem(line)

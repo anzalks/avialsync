@@ -322,7 +322,14 @@ conda run -n avialsync python tools/generate_session_screenshot.py <recording fo
   must never accidentally package the current working directory.
 - Theme changes must not restyle sliders, splitters, scrollbars, plot interaction, or layout. A
   global QSS changes Qt's style engine and can alter those controls; use `QPalette` only for theme
-  colours and verify seek/plot state survives a theme switch.
+  colours and verify seek/plot state survives a theme switch. `QStyleHints.setColorScheme()` is the
+  one sanctioned exception — it asks the same style to render in the other scheme instead of
+  wrapping it, and is what moves native-drawn chrome a palette cannot reach (D-106).
+- A palette change does not reach pyqtgraph canvases, graphics items, or a widget that paints
+  itself, and does not reach *any* widget carrying a stylesheet — including one that sets only a
+  font weight. Colours are defined in `ui/theme.py` and applied through `ui/plot_theme.py`;
+  emphasis goes through `theme.set_bold()`, never `setStyleSheet("font-weight: bold;")`. See
+  HANDOUT.md "Four ways a theme change silently fails to arrive" before adding a drawn surface.
 - Playback drift correction needs hysteresis: re-seek only after N consecutive off-target ticks,
   or late Qt timers cause re-seek/stutter cascades under UI load.
 - Frame stepping: always the decoded presentation timestamps; never `t += 1/fps` (breaks on VFR and

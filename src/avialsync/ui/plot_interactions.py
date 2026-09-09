@@ -67,6 +67,7 @@ class PlotInteractionController:
             self._pane._display_x,
             self._measure_a_lines,
             self._measure_b_lines,
+            self._pane.palette(),
         )
 
     def set_gap_markers(self, channel_id: str, gap_times: list[float]) -> None:
@@ -79,7 +80,7 @@ class PlotInteractionController:
 
     def redraw_gap_markers(self) -> None:
         """Refresh all visible gap evidence."""
-        redraw_gap_markers(self._pane.channels, self._pane._display_x)
+        redraw_gap_markers(self._pane.channels, self._pane._display_x, self._pane.palette())
 
     def set_annotation_store(self, store: AnnotationStore) -> None:
         """Subscribe to authoritative annotation changes once."""

@@ -8,8 +8,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QPoint, QPointF, QRect, Qt
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPen, QWheelEvent
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt
+from PySide6.QtGui import (
+    QColor,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPalette,
+    QPen,
+    QWheelEvent,
+)
 from PySide6.QtWidgets import (
     QComboBox,
     QGridLayout,
@@ -24,6 +32,7 @@ from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skeleton
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.i18n import tr
+from avialsync.ui.theme import neutral_on_canvas
 from avialsync.ui.tracking_colors import color_for_point, register_points
 from avialsync.ui.tracking_skeleton import (
     BoneMode,
@@ -34,6 +43,25 @@ from avialsync.ui.tracking_skeleton import (
 
 _MAX_LABELS = 24
 _SAMPLE_TOLERANCE_S = 0.1
+
+# ── Achromatic structure, stated as distance from the canvas ─────────────
+#
+# Every one of these was a literal grey, which is a fixed distance from white
+# and therefore an arbitrary one from anything else: the same value that read
+# as a faint rule on the white canvas this view used to force became the
+# brightest mark in the view once the canvas followed the theme.  As a weight
+# they mean what they are for on both surfaces (see `theme.neutral_on_canvas`).
+
+#: Outline around a marker, separating it from the canvas and from its neighbours.
+_POINT_OUTLINE_WEIGHT = 0.55
+
+#: Bones. A derived skeleton sits one step further back than a declared one.
+_DECLARED_BONE_WEIGHT = 0.62
+_DERIVED_BONE_WEIGHT = 0.48
+
+#: The ground-plane grid: present, never competing with the pose on top of it.
+_GRID_WEIGHT = 0.30
+_GRID_ALPHA = 90
 
 # Landmark name fragments used to orient the view anatomically (D-046).
 # Matching is substring-based and case-insensitive; unmatched data keeps the
@@ -524,6 +552,18 @@ class Tracking3DCanvas(QWidget):
         screen[:, 1] = target_height / 2.0 - screen[:, 1]
         return screen, relative @ direction
 
+    def changeEvent(self, event: QEvent) -> None:
+        """Repaint when the appearance changes.
+
+        Qt repaints its own widgets on a palette change; a widget that paints
+        itself has to ask. Without this the pose kept the previous theme's
+        canvas until something else happened to invalidate it — a resize, a
+        rotate, or the next tracking sample.
+        """
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange):
+            self.update()
+
     def paintEvent(self, event: QPaintEvent) -> None:
         """Draw a bounded current pose; trajectory history is never rendered here."""
         del event
@@ -540,12 +580,13 @@ class Tracking3DCanvas(QWidget):
         """
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         bounds = QRect(0, 0, width, height)
-        painter.fillRect(bounds, Qt.GlobalColor.white)
-        self._draw_grid(painter, width, height)
+        palette = self.palette()
+        painter.fillRect(bounds, palette.color(QPalette.ColorRole.Base))
+        self._draw_grid(painter, width, height, palette)
 
         valid_indices = np.flatnonzero(self._valid)
         if len(valid_indices) == 0:
-            painter.setPen(QColor(120, 120, 120))
+            painter.setPen(palette.color(QPalette.ColorRole.PlaceholderText))
             message = (
                 "Load tracking channels ending in _x, _y, and _z"
                 if self.point_count == 0
@@ -562,19 +603,23 @@ class Tracking3DCanvas(QWidget):
             name_to_screen[self._names[int(vi)]] = (float(screen[i, 0]), float(screen[i, 1]))
 
         # Draw skeleton edges behind the points.
-        self._draw_skeleton(painter, name_to_screen)
+        self._draw_skeleton(painter, name_to_screen, palette)
 
         # Draw points depth-sorted (back to front).
+        # Solved once rather than per point: it is the same colour for every
+        # marker and this loop runs on the paint path.
+        outline = QPen(neutral_on_canvas(palette, _POINT_OUTLINE_WEIGHT), 1)
+        label_color = palette.color(QPalette.ColorRole.Text)
         order = np.argsort(depth)
         for draw_order in order:
             point_index = int(valid_indices[draw_order])
             x, y = screen[draw_order]
             color = color_for_point(self._names[point_index])
-            painter.setPen(QPen(QColor(80, 80, 80), 1))
+            painter.setPen(outline)
             painter.setBrush(_qcolor(color))
             painter.drawEllipse(QPoint(round(float(x)), round(float(y))), 5, 5)
             if len(valid_indices) <= _MAX_LABELS:
-                painter.setPen(QColor(40, 40, 40))
+                painter.setPen(label_color)
                 painter.drawText(round(float(x)) + 7, round(float(y)) - 5, self._names[point_index])
 
         self._draw_corner_axes(painter, width, height)
@@ -583,6 +628,7 @@ class Tracking3DCanvas(QWidget):
         self,
         painter: QPainter,
         name_to_screen: dict[str, tuple[float, float]],
+        palette: QPalette,
     ) -> None:
         """Draw the bones in force, tapering a derived skeleton along its flow.
 
@@ -590,10 +636,16 @@ class Tracking3DCanvas(QWidget):
         so it never passes for topology the recording declared: the reader can
         see at a glance that these bones are AvialSync's reading of the
         geometry, and which way that reading runs (D-082).
+
+        Achromatic on purpose, so the bones never compete with the marker
+        colours the points carry — and a derived skeleton sits one step back
+        from a declared one, which is a second, quieter way of saying the same
+        thing the dashes say.
         """
         if not self._active_edges:
             return
-        color = QColor(120, 120, 120) if self._skeleton_is_derived else QColor(100, 100, 100)
+        weight = _DERIVED_BONE_WEIGHT if self._skeleton_is_derived else _DECLARED_BONE_WEIGHT
+        color = neutral_on_canvas(palette, weight)
         for name_a, name_b in self._active_edges:
             pos_a = name_to_screen.get(name_a)
             pos_b = name_to_screen.get(name_b)
@@ -611,11 +663,17 @@ class Tracking3DCanvas(QWidget):
             return 2.0
         return max(1.0, 3.0 - 0.5 * self._depths.get(parent, 0))
 
-    def _draw_grid(self, painter: QPainter, width: int, height: int) -> None:
-        """Draw a light ground-plane grid behind the pose."""
+    def _draw_grid(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
+        """Draw a faint ground-plane grid behind the pose.
+
+        Faint *relative to its canvas*, which a literal light grey is not: on a
+        dark canvas the same ``#c8c8c8`` stopped being a background rule and
+        became the brightest thing in the view.
+        """
         if not self._has_scene_bounds:
             return
-        grid_color = QColor(200, 200, 200, 80)
+        grid_color = neutral_on_canvas(palette, _GRID_WEIGHT)
+        grid_color.setAlpha(_GRID_ALPHA)
         painter.setPen(QPen(grid_color, 1))
 
         radius = self._radius
