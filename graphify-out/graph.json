@@ -37135,7 +37135,7 @@
       "label": "test_a_source_change_refreshes_availability()",
       "file_type": "code",
       "source_file": "tests/test_action_availability.py",
-      "source_location": "L203",
+      "source_location": "L207",
       "_callable": true,
       "_origin": "ast"
     },
@@ -37212,11 +37212,11 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_action_availability_rationale_204",
+      "id": "tests_test_action_availability_rationale_208",
       "label": "`_refresh_empty_state` is the hook every load and unload already runs.",
       "file_type": "rationale",
       "source_file": "tests/test_action_availability.py",
-      "source_location": "L204",
+      "source_location": "L208",
       "_origin": "ast"
     },
     {
@@ -156623,7 +156623,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_action_availability.py",
-      "source_location": "L203",
+      "source_location": "L207",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -156634,7 +156634,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_action_availability.py",
-      "source_location": "L203",
+      "source_location": "L207",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -156744,7 +156744,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_action_availability.py",
-      "source_location": "L189",
+      "source_location": "L191",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -156755,7 +156755,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_action_availability.py",
-      "source_location": "L205",
+      "source_location": "L209",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -156850,12 +156850,12 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_action_availability_rationale_204",
+      "source": "tests_test_action_availability_rationale_208",
       "target": "tests_test_action_availability_test_a_source_change_refreshes_availability",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_action_availability.py",
-      "source_location": "L204",
+      "source_location": "L208",
       "weight": 1.0,
       "_origin": "ast"
     },
