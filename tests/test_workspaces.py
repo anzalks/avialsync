@@ -185,3 +185,72 @@ def test_layouts_are_not_written_to_the_session(window: MainWindow) -> None:
     state = window._build_session_state().to_dict()
     assert "workspaces" not in state
     assert "geometry" not in state
+
+
+# ── deleting a layout is reversible, and says so (D-107) ─────────────
+
+
+def _accept_deleting(monkeypatch, name: str) -> None:
+    """Answer the "which layout?" prompt with *name*."""
+    from PySide6.QtWidgets import QInputDialog
+
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(lambda *a, **k: (name, True)))
+
+
+def test_deleting_a_layout_says_it_happened(window: MainWindow, monkeypatch) -> None:
+    """Saving a layout reported; deleting one said nothing at all.
+
+    That is the wrong way round -- the destructive half is the one that needs
+    an answer.
+    """
+    workspaces.save("Rig A", workspaces.capture(window))
+    window._rebuild_workspace_menu()
+    _accept_deleting(monkeypatch, "Rig A")
+
+    window._delete_workspace()
+
+    assert "Rig A" in window.notifications.message
+    assert workspaces.load("Rig A") is None
+
+
+def test_deleting_a_layout_offers_it_back(window: MainWindow, monkeypatch) -> None:
+    """An Undo offer rather than an "are you sure?" gate in front of it.
+
+    Never block, always inform: the deletion happens, and the layout is held
+    until the message is dismissed. The same shape as the recovery offer, for
+    the same reason.
+    """
+    workspaces.save("Rig A", workspaces.capture(window))
+    window._rebuild_workspace_menu()
+    _accept_deleting(monkeypatch, "Rig A")
+    window._delete_workspace()
+    assert window.notifications.action_label == "Undo"
+
+    window.notifications.action_button.click()
+
+    assert workspaces.load("Rig A") is not None, "Undo did not put the layout back"
+    assert "Rig A" in workspaces.names()
+
+
+def test_declining_the_undo_leaves_it_deleted(window: MainWindow, monkeypatch) -> None:
+    """Dismiss declines the offer; it does not re-delete or restore anything."""
+    workspaces.save("Rig A", workspaces.capture(window))
+    window._rebuild_workspace_menu()
+    _accept_deleting(monkeypatch, "Rig A")
+    window._delete_workspace()
+
+    window.notifications.clear()
+
+    assert workspaces.load("Rig A") is None
+
+
+def test_cancelling_the_prompt_deletes_nothing(window: MainWindow, monkeypatch) -> None:
+    from PySide6.QtWidgets import QInputDialog
+
+    workspaces.save("Rig A", workspaces.capture(window))
+    window._rebuild_workspace_menu()
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(lambda *a, **k: ("Rig A", False)))
+
+    window._delete_workspace()
+
+    assert workspaces.load("Rig A") is not None

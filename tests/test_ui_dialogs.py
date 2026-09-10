@@ -102,6 +102,78 @@ def test_wizard_euro_decimal_flag_round_trips(qapp: QApplication, qtbot, csv_fil
     assert wizard.config()["euro_decimal"] is True
 
 
+# ── inline validation, not a modal on top of a modal (D-107) ──────────
+
+
+def test_the_wizard_accepts_a_valid_file(qapp: QApplication, qtbot, csv_file: Path) -> None:
+    """A guessed time column means the form is ready as soon as it opens."""
+    wizard = ImportWizard(csv_file)
+    qtbot.addWidget(wizard)
+
+    assert wizard._blocking_reason() == ""
+    assert wizard._ok_button.isEnabled() is True
+    # `isVisibleTo`, not `isVisible`: a child of a dialog nobody showed is
+    # never visible, so `isVisible()` here would pass whatever the code did.
+    assert wizard._validation_label.isVisibleTo(wizard) is False
+
+
+def test_a_missing_time_column_is_said_in_place(qapp: QApplication, qtbot, csv_file: Path) -> None:
+    """This raised "Import Error" in a box on top of the wizard, three times over.
+
+    The user then clicked OK to get back to the very field they had to fix, and
+    was told nothing at all until after they had pressed Import.
+    """
+    wizard = ImportWizard(csv_file)
+    qtbot.addWidget(wizard)
+    # `clear()`, not `setCurrentText("")`: the combo is not editable, so
+    # setting text that is not one of its items silently does nothing and the
+    # form would still be valid. This is the state a file with no usable
+    # header actually produces.
+    wizard._time_col_combo.clear()
+
+    assert wizard._ok_button.isEnabled() is False
+    assert wizard._validation_label.isVisibleTo(wizard) is True
+    assert "column" in wizard._validation_label.text().lower()
+
+
+def test_an_anchor_date_left_empty_blocks_and_explains(
+    qapp: QApplication, qtbot, csv_file: Path
+) -> None:
+    wizard = ImportWizard(csv_file)
+    qtbot.addWidget(wizard)
+
+    wizard._anchor_chk.setChecked(True)
+
+    assert wizard._ok_button.isEnabled() is False
+    assert "anchor" in wizard._validation_label.text().lower()
+
+    wizard._anchor_date.setText("2026-01-15")
+
+    assert wizard._ok_button.isEnabled() is True
+    # `isVisibleTo`, not `isVisible`: a child of a dialog nobody showed is
+    # never visible, so `isVisible()` here would pass whatever the code did.
+    assert wizard._validation_label.isVisibleTo(wizard) is False
+
+
+def test_returning_on_an_invalid_form_does_not_accept(
+    qapp: QApplication, qtbot, csv_file: Path
+) -> None:
+    """The button is the ordinary route; a dialog can also be accepted by Return."""
+    wizard = ImportWizard(csv_file)
+    qtbot.addWidget(wizard)
+    # `clear()`, not `setCurrentText("")`: the combo is not editable, so
+    # setting text that is not one of its items silently does nothing and the
+    # form would still be valid. This is the state a file with no usable
+    # header actually produces.
+    wizard._time_col_combo.clear()
+    accepted: list[bool] = []
+    wizard.accepted.connect(lambda: accepted.append(True))
+
+    wizard._validate_and_accept()
+
+    assert accepted == []
+
+
 # ── RelinkDialog ──────────────────────────────────────────────────────
 
 

@@ -185,3 +185,40 @@ def test_the_report_marks_what_was_changed() -> None:
     """Worth its weight when reported behaviour is a forgotten preference."""
     write_setting(setting_for("storage/autosave_minutes"), 30)
     assert "(changed)" in settings_report()
+
+
+def test_the_report_also_lists_what_is_remembered_but_not_declared() -> None:
+    """Nine declared settings were the whole report, and are not the whole story (D-107).
+
+    The application also persists window geometry, four splitter positions, the
+    inspector tab, recent files, every shortcut override and every saved
+    workspace. A bug report that omits them is the wrong shape for its job: the
+    thing causing reported behaviour is more likely to be remembered state
+    nobody declared than a preference somebody did.
+    """
+    from PySide6.QtCore import QSettings
+
+    store = QSettings("AvialSync", "AvialSync")
+    store.setValue("splitter/content", b"stand-in for a saved layout")
+    store.sync()
+
+    report = settings_report()
+
+    assert "[preferences]" in report
+    assert "[remembered state]" in report
+    assert "splitter/content" in report, "an undeclared stored key is missing from the report"
+
+
+def test_an_opaque_blob_is_named_rather_than_dumped() -> None:
+    """A QByteArray geometry printed in full buries every key around it."""
+    from PySide6.QtCore import QSettings
+
+    store = QSettings("AvialSync", "AvialSync")
+    store.setValue("window/geometry", b"\x00\x01\x02" * 200)
+    store.sync()
+
+    report = settings_report()
+
+    line = next(line for line in report.splitlines() if line.startswith("window/geometry"))
+    assert len(line) < 120, f"the report dumped the blob: {line[:80]}…"
+    assert "stored" in line

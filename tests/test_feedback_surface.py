@@ -381,3 +381,172 @@ def test_cancel_survives_a_dead_worker(window: MainWindow) -> None:
     window.activity_bar.begin("Importing")
     window._cancel_active_task()  # must not raise
     assert window.activity_bar.isVisible() is False
+
+
+# ── the notification queue (D-107) ───────────────────────────────────
+
+
+def test_a_success_does_not_evict_an_unread_failure(qapp: QApplication, qtbot) -> None:
+    """The strip's docstring promised this and the code did the opposite.
+
+    "Failure stays until it is dismissed, because the one thing worse than a
+    modal error is an error that disappears before it is read" -- while `_post`
+    replaced the current message unconditionally, so the next success did
+    exactly that.
+    """
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_error("Could not import sensor.csv", details="OSError")
+
+    strip.show_success("Exported slice.csv")
+
+    assert strip.message == "Could not import sensor.csv"
+    assert strip.pending_count == 1
+
+
+def test_a_failure_does_not_wait_out_a_success(qapp: QApplication, qtbot) -> None:
+    """The other half of the rule: a transient success never holds up a failure."""
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_success("Exported slice.csv")
+
+    strip.show_error("Could not generate the proxy")
+
+    assert strip.message == "Could not generate the proxy"
+    assert strip.is_sticky is True
+    assert strip.pending_count == 0, "the success is dropped, not queued behind the error"
+
+
+def test_dismissing_reveals_the_next_message(qapp: QApplication, qtbot) -> None:
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_error("First failure")
+    strip.show_error("Second failure")
+    assert strip.pending_count == 1
+
+    strip.clear()
+
+    assert strip.message == "Second failure"
+    assert strip.isVisible() is True
+    assert strip.pending_count == 0
+
+
+def test_the_last_dismissal_hides_the_strip(qapp: QApplication, qtbot) -> None:
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_error("Only failure")
+
+    strip.clear()
+
+    assert strip.isVisible() is False
+
+
+def test_the_same_message_twice_is_said_once(qapp: QApplication, qtbot) -> None:
+    """Two panes failing the same way is one thing worth saying."""
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_error("Could not open cam1.mp4")
+    strip.show_error("Could not open cam1.mp4")
+
+    assert strip.pending_count == 0
+
+
+def test_the_waiting_count_is_visible(qapp: QApplication, qtbot) -> None:
+    """A queue nobody can see is a queue that looks like a lost message."""
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show()
+    strip.show_error("First")
+    strip.show_error("Second")
+    strip.show_error("Third")
+
+    assert strip._pending_label.isVisible() is True
+    assert "2" in strip._pending_label.text()
+
+
+def test_the_queue_is_bounded(qapp: QApplication, qtbot) -> None:
+    """A looping producer must not grow the queue without limit."""
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    for index in range(200):
+        strip.show_error(f"Failure {index}")
+
+    assert strip.pending_count <= 32
+
+
+def test_clear_all_drops_the_queue_too(qapp: QApplication, qtbot) -> None:
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_error("First")
+    strip.show_error("Second")
+
+    strip.clear_all()
+
+    assert strip.isVisible() is False
+    assert strip.pending_count == 0
+
+
+def test_details_follow_the_message_on_show(qapp: QApplication, qtbot) -> None:
+    """Each message carries its own details; the promoted one must not inherit."""
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_error("First", details="first traceback")
+    strip.show_error("Second", details="second traceback")
+
+    strip.clear()
+
+    assert strip.details == "second traceback"
+
+
+# ── the one dialog for text the user asked to see (D-107) ────────────
+
+
+def test_the_text_dialog_shows_the_whole_body(qapp: QApplication, qtbot) -> None:
+    """A QMessageBox label could not scroll; this is a text view that can."""
+    from avialsync.ui.feedback.text_dialog import TextDialog
+
+    body = "\n".join(f"line {index}" for index in range(500))
+    dialog = TextDialog("Diagnostics", body)
+    qtbot.addWidget(dialog)
+
+    assert dialog.body.toPlainText() == body
+
+
+def test_the_text_dialog_copies(qapp: QApplication, qtbot) -> None:
+    """About and the citation had a Copy button; Diagnostics and details did not."""
+    from avialsync.ui.feedback.text_dialog import TextDialog
+
+    dialog = TextDialog("Details", "OSError: no space left on device")
+    qtbot.addWidget(dialog)
+
+    dialog.copy_button.click()
+
+    clipboard = QApplication.clipboard()
+    assert clipboard is not None
+    assert clipboard.text() == "OSError: no space left on device"
+
+
+def test_the_text_dialog_names_its_body_for_a_screen_reader(qapp: QApplication, qtbot) -> None:
+    from avialsync.ui.feedback.text_dialog import TextDialog
+
+    dialog = TextDialog("Diagnostics", "content")
+    qtbot.addWidget(dialog)
+
+    assert dialog.body.accessibleName().strip() != ""
+
+
+def test_show_details_opens_the_text_dialog(window: MainWindow, monkeypatch) -> None:
+    """The window's Show details route, not a message box."""
+    from avialsync.ui import main_window as main_window_module
+
+    shown: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        main_window_module,
+        "show_text",
+        lambda parent, title, body, **kwargs: shown.append((title, body)),
+    )
+
+    window._show_task_details("Traceback (most recent call last): ...")
+
+    assert len(shown) == 1
+    assert "Traceback" in shown[0][1]
