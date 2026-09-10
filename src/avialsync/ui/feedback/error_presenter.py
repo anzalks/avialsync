@@ -31,6 +31,7 @@ from avialsync.core.errors import (
     AvialSyncError,
     CacheError,
     CodecUnsupportedError,
+    ExportError,
     FileUnreadableError,
     LoaderContractError,
     MissingColumnError,
@@ -221,6 +222,20 @@ def _sync_evidence(error: BaseException) -> PresentedError:
             "shared events to match."
         ),
         recoveries=(RETRY,),
+        details=str(error),
+    )
+
+
+@_register(ExportError)
+def _export(error: BaseException) -> PresentedError:
+    return PresentedError(
+        title="That export was not written",
+        cause=(
+            "The file you asked for could not be produced. Nothing in the open "
+            "session changed, and no recording was touched — check free space, "
+            "folder permissions, and that the destination is still reachable."
+        ),
+        recoveries=(RETRY, OPEN_LOG, COPY_DIAGNOSTICS),
         details=str(error),
     )
 

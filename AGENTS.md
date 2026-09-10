@@ -90,14 +90,23 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
     far as it can and reports what it could not read; partial success beats refusal. Never a modal
     "save your changes?" in front of Open, drag-and-drop, Open Recent, or quit — quitting writes a
     recovery snapshot unconditionally and the user is informed on next launch (D-088, D-089).
-11. **Long work is never modal.** Anything that can exceed ~500 ms reports through the status-bar
-    activity area, the jobs panel, and the notification strip, with cancel where the worker
-    supports it. `QProgressDialog` is banned from `src/`. A modal is permitted only for a dialog
-    the user explicitly asked for, or an error offering named recovery actions (D-091).
+11. **Long work is never modal, and every job is registered.** Anything that can exceed ~500 ms
+    reports through the status-bar activity area, the jobs panel, and the notification strip, with
+    cancel where the worker supports it. `QProgressDialog` is banned from `src/`. A modal is
+    permitted only for a dialog the user explicitly asked for, or an error offering named recovery
+    actions (D-091). **Start background work with `MainWindow._run_job` and nothing else** — that
+    registration is what gives a job its name in the Tasks panel, its stall watchdog, and its
+    orderly abandonment at shutdown. A raw `QThread` in `src/` fails
+    `tests/test_feedback_surface.py`; the three permitted exceptions are listed there with their
+    reasons, and adding a fourth means arguing for it in that list (D-107).
 12. **Errors are presented, never dumped.** Typed exceptions from `core/errors.py` reach the user
     as title + plain-language cause + named recovery actions, through the single presenter in
     `ui/feedback/error_presenter.py`. Never `f"Could not do X:\n{exception}"` in a bare
-    `QMessageBox`. Raw text belongs behind "Show details".
+    `QMessageBox`. Raw text belongs behind "Show details". **`QMessageBox` is banned from `src/`
+    outside `ui/feedback/`** — outcomes go to `window.notifications`, failures to
+    `window.report_failure`, and text the user asked to see to `ui/feedback/text_dialog.py`. A
+    modal that reports *success* is the specific thing this forbids: the user was already told the
+    work was running (D-107).
 13. **Every graphic drawn over video is a registered overlay layer** with a stable id, a label, a
     group, a default, and a checkbox in **View → Overlays** — including overlays contributed by a
     plugin. Per-camera overrides go in the pane context menu. Visibility persists per session and
@@ -115,14 +124,20 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
     which is why there is no `ui/action_registry.py` (D-092, D-022.6). A menu item and the button
     that invokes the same command may not carry independently written text. Settings come from `core/settings_schema.py`;
     overlays from `ui/overlay_registry.py`. Adding a second place to define one of these is a
-    rejected PR (D-092).
+    rejected PR (D-092). **Enablement is part of that identity, not an afterthought:** a command
+    that needs something loaded registers its precondition with `MainWindow._require`, so it greys
+    out with the reason in its tooltip instead of accepting a click and then refusing it. Telling
+    the user what is missing *after* the gesture is the shape to reject (D-107).
 16. **High-bit-depth video is windowed in the worker, never in the pane.** `to_ndarray("rgb24")`
     destroys 12-bit range inside swscale before any UI code runs, so display levels are a decode
     stage, not a filter applied afterwards. The LUT never runs on the UI thread (D-093).
 17. **Accessibility and translatability are build gates, not a later phase.** New user-facing
     strings are wrapped for translation; new interactive widgets carry an accessible name and
     description. Categorical colour is validated in CVD-simulated space and never carries meaning
-    on its own — pair it with dash, glyph, or a direct label (D-094).
+    on its own — pair it with dash, glyph, or a direct label (D-094). Both are enforced against
+    real numbers: `translatable_ratio` must be 100 % of the literals `lupdate` can extract, and the
+    accessibility sweep runs on every source change and on `Show` for every dialog, not once at
+    construction against an empty window (D-107).
 
 ## Coding standards
 
@@ -176,36 +191,43 @@ ALL project commands must be prefixed with `conda run -n <env>`. Never run proje
 commands (pytest, ruff, mypy, pip, avialsync) without this prefix — the system Python
 may differ from the env Python.
 
-**The env is `avialsync`, and check it before you use it.** This file named a
-non-existent env — `avialview`, a leftover from the pre-rebrand repo directory name —
-for several phases, which cost every agent a failed command on its first run. That
-env does not exist on the primary development machine; the editable install is in
-**`avialsync`**. An `avialsync_test` env also exists and holds a stale non-editable
-copy — it is not the development env. Verify rather than trust this paragraph:
-`conda run -n avialsync python -c "import avialsync; print(avialsync.__file__)"`
+**The env is `avialview`, and check it before you use it.** This paragraph has now
+been wrong in both directions, which is the reason it insists you verify rather
+than read. It named `avialview` for several phases, was corrected to `avialsync`,
+and `avialsync` does not exist on the primary development machine either —
+`conda env list` there shows `base`, `avialsync_test`, and `avialview`, and it is
+**`avialview`** that holds the editable install pointing at this working tree. The
+env is named after the repository directory, not after the package; the rebrand
+renamed the package and left the directory and the env alone. `avialsync_test`
+holds a stale non-editable copy and is not the development env.
+
+Verify rather than trust this paragraph:
+`conda run -n avialview python -c "import avialsync; print(avialsync.__file__)"`
 must resolve to `src/avialsync/` in this working tree. If it does not, run
-`conda env list` and find the one that does.
+`conda env list` and find the one that does — and then correct this paragraph in
+the same commit as whatever else you were doing, because the next agent pays for
+it otherwise.
 
 ```bash
-conda run -n avialsync pip install -e .[dev]          # setup
-conda run -n avialsync python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
-QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q   # tests
-conda run -n avialsync pytest --benchmark-only                   # perf budgets
-conda run -n avialsync avialsync                                # run the app
-conda run -n avialsync avialsync open tests/fixtures/sample_session/
+conda run -n avialview pip install -e .[dev]          # setup
+conda run -n avialview python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
+QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -x -q   # tests
+conda run -n avialview pytest --benchmark-only                   # perf budgets
+conda run -n avialview avialsync                                # run the app
+conda run -n avialview avialsync open tests/fixtures/sample_session/
 
 # Type checking — run BOTH; strict mode applies only to core/
-conda run -n avialsync mypy src/avialsync/core    # strict (enforced)
-conda run -n avialsync mypy src/avialsync          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
+conda run -n avialview mypy src/avialsync/core    # strict (enforced)
+conda run -n avialview mypy src/avialsync          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
 
 # Lint + format
-conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format .
+conda run -n avialview ruff check --fix . && conda run -n avialview ruff format .
 
 # Documentation images. NOT under QT_QPA_PLATFORM=offscreen -- the offscreen
 # plugin draws a menu bar inside the window that no real user sees.
-conda run -n avialsync python tools/generate_demo_screenshots.py
-conda run -n avialsync python tools/generate_guide_screenshots.py
-conda run -n avialsync python tools/generate_session_screenshot.py <recording folder>
+conda run -n avialview python tools/generate_demo_screenshots.py
+conda run -n avialview python tools/generate_guide_screenshots.py
+conda run -n avialview python tools/generate_session_screenshot.py <recording folder>
 ```
 
 ## Task protocol for agents

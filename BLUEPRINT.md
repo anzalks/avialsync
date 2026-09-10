@@ -366,6 +366,15 @@ overlay fails CI); a v6 session loads and renders identically to today; no `QPro
 simulated 1 GB import; all benchmarks within 20 % of pre-phase values except the documented
 drag-scrub change; golden sync tests untouched and passing.
 
+**Every one of those is now enforced by a test, which two of them were not (D-107).** The
+`QMessageBox` half of the third criterion had no gate at all and had drifted to nineteen call sites
+across five modules while the suite stayed green — four of them announcing *success* in a modal.
+The lesson generalises and is worth stating here rather than only in the decision log: **an exit
+criterion written in this file and not expressed as a failing test is a preference, not a
+criterion.** Four source-scanning tests now cover the ones that can be: no `QMessageBox` outside
+`ui/feedback/`, no raw `QThread` outside a named three-file exception list, no benchmark file
+outside `tests/benchmarks`, and every extractable literal wrapped for translation.
+
 ---
 
 ## Working method with AI agents (all phases)

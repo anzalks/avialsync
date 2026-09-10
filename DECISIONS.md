@@ -3959,3 +3959,104 @@ in ``pytest_configure`` rather than a fixture because collection imports test
 modules and an import is early enough to construct a ``QSettings``. Per-module
 ``monkeypatch`` of ``QSettings`` only ever covered the module somebody
 remembered.
+
+## 2026-09 · D-107 · One job registry, one message queue, and enablement before the click
+
+**Context:** Phase 7 built five feedback surfaces — `JobManager`, the activity area, the jobs
+panel, the notification strip, the typed error presenter — and wired the *new* subsystems onto
+them. The pre-Phase-7 subsystems were never migrated, so the application shipped two of almost
+everything, and every seam between them was visible to the user. A UX audit of `main` found eight
+symptoms, which are one defect with eight faces: **a surface that exists is not a surface that is
+used, and nothing tested that it was.**
+
+- **Two job systems.** `ui/job_manager.py` says registering there is "the only supported way to
+  start background work in this application". It was not. The four exports, the CSV import, the
+  proxy builder, and the video probes each kept their own `dict[QThread, object]` on the window.
+  The Tasks panel therefore listed four of the nine things the application could be doing; the
+  activity area's Cancel reached two, because only the import and the proxy ever set
+  `_active_cancel`; and the stall watchdog — the thing that separates "slow" from "stuck" — saw
+  none of the unregistered ones. A wedged `ffmpeg` on a network share was the original reason
+  `JobManager` exists, and an export is exactly where one wedges.
+- **The status line contradicted itself.** `_on_jobs_changed` writes "Ready" whenever the manager
+  empties. Saving a session while an export ran therefore wiped the export's own status text, and
+  the export became invisible while still running.
+- **The Tasks panel went stale.** The same function refreshed the panel only on the branch where a
+  job was running; the "nothing running" branch returned first. The last job to finish stayed
+  listed until some later job happened to start.
+- **Nineteen message boxes.** BLUEPRINT.md has listed "no `QProgressDialog` and no `QMessageBox`
+  outside the presenter" as a Phase 7 exit criterion since the phase was written. Only the first
+  half was ever enforced by a test. The second half drifted to nineteen call sites across five
+  modules while the suite stayed green — four of them announcing *success* in a modal, for work the
+  user had already been told was running. Four adjacent File-menu items used three different
+  dialects.
+- **One notification slot.** The strip held exactly one message and replaced it unconditionally. An
+  unread failure was evicted by whatever succeeded next — contradicting the strip's own docstring —
+  and the recovery offer, which is posted once at startup from the only call site that exists, was
+  evicted by any plugin error or autoload notice landing behind it, taking the sole in-session route
+  back to the user's unsaved work with it.
+- **Nothing was ever disabled.** Of forty-six actions, two called `setEnabled`: a menu placeholder
+  and a locked overlay. Commands stayed live whatever was loaded and answered a click they could not
+  honour with a modal saying so. Undo and Redo already did this properly, following the document's
+  own history, so the pattern was in the codebase and unused everywhere else.
+- **The accessibility sweep ran once, on an empty window.** `apply_accessibility` was called from
+  `MainWindow.__init__`, where there are by definition no video panes, plot rows, source entries or
+  quality badges — the application starts empty. Eleven dialog classes were never swept at all. The
+  test that should have caught it asserted `apply_accessibility(window) == 0` against a freshly
+  built empty window, which is true whether the sweep works or not.
+- **Two thirds translatable.** `translatable_ratio` read 67.6 % against a 60 % gate, and 52 of the
+  59 unwrapped literals were in one file: the entire menu bar, plus the five inspector tab names.
+
+**Decision:** the second copy of each thing is deleted rather than improved, and each deletion is
+pinned by a test that fails if it comes back.
+
+1. **Every background job goes through `MainWindow._run_job`.** The four export registries and
+   `_quit_legacy_jobs`'s sweep of them are gone; the import, proxy and video-probe workers are
+   registered too. Three files may still construct a `QThread` directly and each is named with its
+   reason in `tests/test_feedback_surface.py::_UNMANAGED_THREAD_FILES`: `ui/video_pane.py`, whose
+   decode thread is not a job but a per-pane resource with no completion; and `ui/sync_wizard.py`
+   and `demo.py`, whose workers are owned by a modal the user explicitly opened and which is its own
+   progress and cancel surface — the case AGENTS rule 11 permits.
+2. **`QMessageBox` is banned outside `ui/feedback/`,** which is the boundary the exit criterion
+   meant. `ui/feedback/text_dialog.py` is new: one scrolling, selectable, copyable dialog for text
+   the user asked to see, replacing five ad-hoc boxes (Show details, Diagnostics, About, the
+   citation, the missing import report) that differed in whether they could scroll and whether they
+   could be copied. `ExportError` joins `core/errors.py` with a presenter entry, so a worker's raw
+   text lands behind "Show details" instead of in the message.
+3. **The notification strip is a queue.** Two rules: a sticky message is never displaced, and a
+   transient success never holds up a failure. The waiting count is shown beside the message, so a
+   queue is never a silent one.
+4. **Enablement is derived, like every other property of an action.** `_require` pairs an action
+   with the question that answers its availability and the reason it is unavailable; the reason
+   becomes the tooltip while it is greyed, because greying alone moves the dead end earlier rather
+   than removing it. One refresh pass runs on the events that change what is loaded, and again on
+   `aboutToShow`, so a command reached by shortcut or through the palette is as correct as one
+   reached by opening a menu.
+5. **The accessibility sweep runs whenever widgets appear** — on every source change, and on `Show`
+   for any dialog, through one event filter installed on the application. `derive_name` also
+   learned to name a scroll bar from its orientation, which the new dialog test found unnamed
+   everywhere a name had not been written by hand.
+
+**Alternatives rejected:** aggregating the legacy registries into the Tasks panel alongside
+`JobManager`, which is a second source of truth for the thing rule 15 exists to prevent; a
+"are you sure?" confirmation in front of Delete Layout, where an Undo offer on the strip is both
+reversible and non-blocking; sweeping accessibility from each dialog's constructor, which is eleven
+call sites and no coverage of the twelfth; `pytest-xdist` for CI speed, rejected because the suite
+contains real timing assertions and parallel workers on a shared runner turn those into flakes —
+slow CI beats flaky CI.
+
+**Consequences:** the Tasks panel now lists every job, including short ones like the A/B region
+statistics, which is noisier and true. Exports are cancellable and stall-detected for the first
+time. Four adjacent File-menu items report identically. `settings_report()` grows a second section
+listing every stored key the schema does not declare — window geometry, splitters, recent files,
+shortcut overrides, workspaces — because the state causing a reported behaviour is more likely to be
+the remembered state nobody declared than the preference somebody did. `translatable_ratio` reads
+100 % of extractable literals, and its test now gates on the real number rather than a floor beneath
+it; f-strings remain unextractable by `lupdate` and are excluded by construction, so 100 % means
+"every literal that could be wrapped is", not "fully translated".
+
+CI drops from six matrix jobs to four by excluding Python 3.11 on macOS and Windows — every OS and
+both interpreters are still covered, and `test_ci_platform_config.py` fails if a later edit breaks
+that union — runs the fixture determinism check once on Linux rather than on all three platforms as
+release.yml already did, and starts its three job groups together instead of queueing them behind
+lint. Benchmarks were already excluded by `--ignore=tests/benchmarks`; that is now pinned from both
+ends, with a test that also fails if a `test_bench_*.py` appears outside `tests/benchmarks`.

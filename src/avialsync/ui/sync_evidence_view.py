@@ -147,8 +147,10 @@ class SyncEvidenceView(QWidget):
 
         if not proposal.matches:
             self._reading.setText(
-                "No individual matches were retained, so there is nothing to plot. "
-                "The summary above is the whole of the evidence."
+                tr(
+                    "No individual matches were retained, so there is nothing to plot. "
+                    "The summary above is the whole of the evidence."
+                )
             )
             return
 

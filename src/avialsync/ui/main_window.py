@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QMainWindow,
-    QMessageBox,
     QSizePolicy,
     QSplitter,
     QTabWidget,
@@ -62,7 +61,7 @@ from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.engine.snapshot import SnapshotFigure
 from avialsync.ui.about import citation_text, project_urls, version_report
-from avialsync.ui.accessibility import apply_accessibility
+from avialsync.ui.accessibility import apply_accessibility, install_show_time_sweep
 from avialsync.ui.annotations import AnnotationStore, Marker
 from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
 from avialsync.ui.controllers import (
@@ -77,6 +76,7 @@ from avialsync.ui.controllers import (
 from avialsync.ui.empty_state import EmptyState
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
+from avialsync.ui.feedback.text_dialog import show_text
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import JobManager
 from avialsync.ui.levels_panel import LevelsPanel
@@ -328,10 +328,6 @@ class MainWindow(QMainWindow):
         #: Legacy workers are not registered with JobManager, so the bar needs
         #: its own handle to stop them (D-091).
         self._active_cancel: Callable[[], None] | None = None
-        self._data_export_jobs: dict[QThread, object] = {}
-        self._region_stats_jobs: dict[QThread, object] = {}
-        self._video_clip_jobs: dict[QThread, object] = {}
-        self._snapshot_jobs: dict[QThread, object] = {}
         # Owns worker/thread pairs started through _run_job (drop scan, session
         # save/load). See _run_job for why this reference must be kept.
         self._jobs: dict[QThread, _JobWorker] = {}
@@ -407,6 +403,9 @@ class MainWindow(QMainWindow):
         # Annotations
         self.annotation_store = AnnotationStore(self)
         self.annotation_store.changed.connect(self._update_timeline_annotations)
+        # Export Changes is available exactly when one of these has something
+        # in it, so both drive the availability pass (D-107).
+        self.annotation_store.changed.connect(self._refresh_action_availability)
         self.annotation_store.marker_added.connect(self._record_marker_added)
         self.annotation_store.marker_removed.connect(self._record_marker_removed)
         self.annotation_store.marker_relabelled.connect(self._record_marker_relabelled)
@@ -477,13 +476,13 @@ class MainWindow(QMainWindow):
         # answer the same question — what happened here — from the rig's side.
         self._left_tabs = QTabWidget(self)
         self._left_tabs.setAccessibleName(tr("Inspector"))
-        self._left_tabs.addTab(self.sidebar, "Sources")
-        self._left_tabs.addTab(self.readout_panel, "Values")
-        self._left_tabs.addTab(self.message_panel, "Messages")
-        self._left_tabs.addTab(self.changes_panel, "Changes")
+        self._left_tabs.addTab(self.sidebar, tr("Sources"))
+        self._left_tabs.addTab(self.readout_panel, tr("Values"))
+        self._left_tabs.addTab(self.message_panel, tr("Messages"))
+        self._left_tabs.addTab(self.changes_panel, tr("Changes"))
         # Last tab: consulted when something is taking longer than expected,
         # which is not most of the time.
-        self._left_tabs.addTab(self.jobs_panel, "Tasks")
+        self._left_tabs.addTab(self.jobs_panel, tr("Tasks"))
         # Display levels live under Sources, beside the camera they act on.
         # Hidden until a recording that has range to choose from is opened.
         self.sidebar.content_layout.addWidget(self.levels_panel)
@@ -652,7 +651,19 @@ class MainWindow(QMainWindow):
         # Name anything interactive that has not named itself. A sweep rather
         # than ninety manual calls, because the ninety-first widget is the one
         # that gets added without one (WP-12).
+        #
+        # This pass covers the chrome only: the application starts empty, so
+        # there are no video panes, plot rows, source entries or quality badges
+        # here to name yet. `_sweep_accessibility` runs again as those appear,
+        # and `install_show_time_sweep` catches every dialog when it is shown
+        # (D-107).
         apply_accessibility(self)
+        app = QApplication.instance()
+        if app is not None:
+            #: Kept as an attribute, not a local: an event filter with no live
+            #: Python reference is collected while Qt still holds a pointer to
+            #: it.
+            self._show_time_sweeper = install_show_time_sweep(app)
 
     # ── Background job lifetime ──────────────────────────────────────
 
@@ -685,8 +696,77 @@ class MainWindow(QMainWindow):
             grid_layout.addWidget(self.empty_state)
         self._refresh_empty_state()
 
+    # ── Action availability (D-107) ──────────────────────────────────
+
+    def _anything_loaded(self) -> bool:
+        """Whether the workspace holds any recording at all."""
+        return bool(self.video_grid.pane_paths()) or bool(self._sensor_cache_dirs)
+
+    def _has_alignment_evidence(self) -> bool:
+        """Whether both halves of a TTL/event fit are present.
+
+        The same two conditions the wizard opener checks before it builds its
+        specs, so the menu item and the command agree about availability rather
+        than the command discovering it a click later.
+        """
+        has_reference = bool(self.plot_pane.channels)
+        has_target = any(len(times) >= 3 for times in self._video_frame_times.values())
+        return has_reference and has_target
+
+    def _require(self, action: QAction, precondition: Callable[[], bool], reason: str) -> QAction:
+        """Register *action* as available only while *precondition* holds.
+
+        Enablement was the one thing the action layer never derived from the
+        live ``QAction``. Of the forty-six actions this window owns, two called
+        ``setEnabled`` -- a menu placeholder and a locked overlay -- and the
+        rest stayed live whatever was loaded, answering a click they could not
+        honour with a modal saying so: "Load sensor data before exporting",
+        "No videos are loaded", "Please set an A/B loop first". That is the
+        state told after the gesture instead of before it.
+
+        Undo and Redo already did this properly, following the document's own
+        history (``ui/undo_adapter.py``); this is that pattern for the rest.
+        The *reason* becomes the tooltip while the action is unavailable, so a
+        greyed item still says what would make it available -- greying alone
+        just moves the dead end earlier.
+        """
+        self._action_preconditions.append((action, precondition, reason, action.toolTip()))
+        return action
+
+    def _refresh_action_availability(self) -> None:
+        """Re-answer every registered precondition.
+
+        Cheap by construction: each precondition is a container check against
+        state the window already holds, and there are a couple of dozen of
+        them. It runs on the events that change what is loaded rather than on a
+        timer, plus whenever a menu is about to be shown, so a command reached
+        by shortcut or through the palette is as correctly enabled as one
+        reached by opening the menu it lives in.
+        """
+        for action, precondition, reason, original_tip in self._action_preconditions:
+            try:
+                available = bool(precondition())
+            except (AttributeError, RuntimeError):
+                # A pane or reader torn down mid-refresh answers nothing; an
+                # action that cannot prove it is available is not.
+                available = False
+            action.setEnabled(available)
+            action.setToolTip(original_tip if available else reason)
+
+    def _sweep_accessibility(self) -> None:
+        """Name the widgets that were built after the window was (D-107).
+
+        Video panes, plot rows, sidebar source entries and quality badges are
+        all created as recordings load, long after the constructor's sweep.
+        Idempotent, so calling it on every source change costs a walk and
+        renames nothing that already has a name.
+        """
+        apply_accessibility(self)
+
     def _refresh_empty_state(self) -> None:
         """Show it only with nothing open, and never over real data."""
+        self._refresh_action_availability()
+        self._sweep_accessibility()
         empty_state = getattr(self, "empty_state", None)
         if empty_state is None:
             return
@@ -746,8 +826,13 @@ class MainWindow(QMainWindow):
         self._active_cancel = None
 
     def _show_task_details(self, details: str) -> None:
-        """Show the full text behind a failure, on request only."""
-        QMessageBox.information(self, "Details", details)
+        """Show the full text behind a failure, on request only.
+
+        A scrolling, copyable dialog rather than a message box: this text is a
+        traceback or a worker's stderr, which has no length limit and is only
+        useful if it can be pasted into a report (D-107).
+        """
+        show_text(self, tr("Details"), details)
 
     def report_failure(self, error: BaseException, *, doing: str = "") -> None:
         """Present a failure without taking the session away (AGENTS rule 12).
@@ -765,17 +850,28 @@ class MainWindow(QMainWindow):
         if presented.recoverable:
             self.notifications.show_error(message, details=presented.details)
         else:  # pragma: no cover - no unrecoverable presenter exists yet
-            QMessageBox.critical(self, presented.title, message)
+            # The one failure that has earned an interruption. It still shows
+            # its detail in the same scrolling, copyable dialog as everything
+            # else rather than a message box (D-107).
+            show_text(self, presented.title, presented.details, lead=message)
 
     def _refresh_jobs_panel(self) -> None:
         running = [(job.label, job.state.value, job.elapsed) for job in self._job_manager.jobs()]
         self.jobs_panel.refresh(running)
 
     def _on_jobs_changed(self) -> None:
-        """Mirror background-job state into the transport status area."""
+        """Mirror background-job state into the transport status area.
+
+        The panel is refreshed on *both* branches. It used to be refreshed only
+        when a job was running, because the "nothing running" branch returned
+        first — so the last job to finish stayed listed in the Tasks panel until
+        some later job happened to start, and an idle application showed work
+        in progress that had finished minutes ago (D-107).
+        """
         text = self._job_manager.status_text()
         if not text:
             self.transport.set_status("Ready")
+            self._refresh_jobs_panel()
             return
         kind = "error" if self._job_manager.stalled_jobs() else "busy"
         self.transport.set_status(text, kind)
@@ -952,9 +1048,9 @@ class MainWindow(QMainWindow):
         """Show the full ImportReport dialog for a data source."""
         ins = self._inspections.get(path)
         if ins is None:
-            from PySide6.QtWidgets import QMessageBox
-
-            QMessageBox.information(self, "No Report", f"No import report for:\n{path}")
+            self.notifications.show_warning(
+                tr("No import report was kept for {name}.").format(name=Path(path).name)
+            )
             return
         from avialsync.ui.import_report import ImportReportDialog
 
@@ -1067,6 +1163,9 @@ class MainWindow(QMainWindow):
     # ── A/B loop stats ───────────────────────────────────────────────
 
     def _on_ab_loop_changed(self, t_in: float | None, t_out: float | None) -> None:
+        # Export Trimmed Video Clip needs a loop, so its availability changes
+        # here and nowhere else (D-107).
+        self._refresh_action_availability()
         if t_in is not None and t_out is not None:
             lo, hi = min(t_in, t_out), max(t_in, t_out)
             self._start_region_stats(lo, hi)
@@ -1087,10 +1186,6 @@ class MainWindow(QMainWindow):
     @Slot(int, str)
     def _on_region_stats_error(self, request_id: int, error: str) -> None:
         export_controller.on_region_stats_error(self, request_id, error)
-
-    @Slot()
-    def _on_region_stats_thread_finished(self) -> None:
-        export_controller.on_region_stats_thread_finished(self)
 
     # ── Annotations ──────────────────────────────────────────────────
 
@@ -1290,14 +1385,10 @@ class MainWindow(QMainWindow):
         """
 
         def _quit_all_legacy_jobs() -> None:
-            for registry in (
-                self._video_load_jobs,
-                self._data_export_jobs,
-                self._region_stats_jobs,
-                self._video_clip_jobs,
-                self._snapshot_jobs,
-            ):
-                _quit_legacy_jobs(registry)
+            # Only the video-load probes are left outside JobManager; the four
+            # export registries this used to sweep are registered jobs now, and
+            # `self._job_manager.shutdown()` below is what stops them (D-107).
+            _quit_legacy_jobs(self._video_load_jobs)
 
         # Ordering matters twice over.
         #
@@ -1474,6 +1565,9 @@ class MainWindow(QMainWindow):
         #: Lower-cased single-character shortcut keys, collected as actions are
         #: registered so nothing has to restate the bindings.
         self._letter_shortcuts: set[str] = set()
+        #: (action, precondition, reason, original tooltip) for every command
+        #: that needs something loaded. See `_require`.
+        self._action_preconditions: list[tuple[QAction, Callable[[], bool], str, str]] = []
 
         def _reg(act: QAction, category: str) -> QAction:
             """Tag an action with its category and add it to the registry."""
@@ -1492,64 +1586,94 @@ class MainWindow(QMainWindow):
         menu = self.menuBar()
 
         # ── File ──────────────────────────────────────────────────────
-        file_menu = menu.addMenu("File")
+        file_menu = menu.addMenu(tr("File"))
 
         # Ctrl+Shift+V (not Ctrl+V — system Paste collision, D-022.7 / Trap §18)
-        act = file_menu.addAction("Open Video(s)…")
+        act = file_menu.addAction(tr("Open Video(s)…"))
         act.setShortcut(QKeySequence("Ctrl+Shift+V"))
         act.triggered.connect(self._open_video)
         _reg(act, "File")
 
         # Ctrl+Shift+D (not Ctrl+D — bookmark/dock collision, D-022.7 / Trap §18)
-        act = file_menu.addAction("Open Sensor/Ephys Data…")
+        act = file_menu.addAction(tr("Open Sensor/Ephys Data…"))
         act.setShortcut(QKeySequence("Ctrl+Shift+D"))
         act.triggered.connect(self._open_data)
         _reg(act, "File")
 
         file_menu.addSeparator()
 
-        act = file_menu.addAction("Save Session…")
+        act = file_menu.addAction(tr("Save Session…"))
         act.setShortcut(QKeySequence(QKeySequence.StandardKey.Save))
         act.triggered.connect(self._save_session)
         _reg(act, "File")
+        self._require(
+            act,
+            self._anything_loaded,
+            tr("Open a recording first — an empty workspace has nothing to save."),
+        )
 
-        act = file_menu.addAction("Open Session…")
+        act = file_menu.addAction(tr("Open Session…"))
         act.setShortcut(QKeySequence(QKeySequence.StandardKey.Open))
         act.triggered.connect(self._open_session)
         _reg(act, "File")
 
         file_menu.addSeparator()
 
-        self._act_export_changes = file_menu.addAction("Export Changes…")
+        self._act_export_changes = file_menu.addAction(tr("Export Changes…"))
         act = self._act_export_changes
         act.triggered.connect(self._export_changes)
         self.changes_panel.set_export_action(act)
+        self._require(
+            act,
+            lambda: bool(self.annotation_store.markers) or len(self.point_edits) > 0,
+            tr("Flag a frame or correct a tracked point first — there is nothing to export yet."),
+        )
 
-        self._recent_menu = file_menu.addMenu("Recent Sessions")
+        self._recent_menu = file_menu.addMenu(tr("Recent Sessions"))
         self._rebuild_recent_menu()
 
         file_menu.addSeparator()
 
         # Export Snapshot — Ctrl+E is the single authority; no duplicate QShortcut
-        self._act_snapshot = file_menu.addAction("Export Snapshot…")
+        self._act_snapshot = file_menu.addAction(tr("Export Snapshot…"))
         self._act_snapshot.setShortcut(QKeySequence("Ctrl+E"))
         self._act_snapshot.triggered.connect(self._export_snapshot)
         _reg(self._act_snapshot, "File")
+        self._require(
+            self._act_snapshot,
+            self._anything_loaded,
+            tr("Load a video or a data file to have something to snapshot."),
+        )
 
-        act = file_menu.addAction("Export Trimmed Video Clip…")
+        act = file_menu.addAction(tr("Export Trimmed Video Clip…"))
         act.triggered.connect(self._export_video_clip)
+        self._require(
+            act,
+            lambda: bool(self.video_grid._paths) and self.transport._ab_in_t is not None,
+            tr("Load a video and mark an A/B loop — [ and ] set where a clip starts and ends."),
+        )
 
-        act = file_menu.addAction("Export Data Slice…")
+        act = file_menu.addAction(tr("Export Data Slice…"))
         act.triggered.connect(self._export_data_slice)
+        self._require(
+            act,
+            lambda: bool(self.plot_pane.channels),
+            tr("Load sensor or ephys data to have a slice to export."),
+        )
 
-        act = file_menu.addAction("Generate Proxy…")
+        act = file_menu.addAction(tr("Generate Proxy…"))
         act.triggered.connect(self._generate_proxy)
+        self._require(
+            act,
+            lambda: bool(self.video_grid._paths),
+            tr("Load a video first — a proxy is a lighter copy of one."),
+        )
 
         file_menu.addSeparator()
 
         # Preferences — macOS PreferencesRole moves this to the app menu, the
         # same treatment About and Quit already get (D-022.3).
-        act = file_menu.addAction("Preferences…")
+        act = file_menu.addAction(tr("Preferences…"))
         act.setShortcut(QKeySequence(QKeySequence.StandardKey.Preferences))
         act.setMenuRole(QAction.MenuRole.PreferencesRole)
         act.triggered.connect(self._show_preferences)
@@ -1558,7 +1682,7 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
 
         # Quit — macOS QuitRole moves this to the app menu (D-022.3)
-        act = file_menu.addAction("Quit")
+        act = file_menu.addAction(tr("Quit"))
         act.setShortcut(QKeySequence(QKeySequence.StandardKey.Quit))
         act.setMenuRole(QAction.MenuRole.QuitRole)
         act.triggered.connect(self.close)
@@ -1572,7 +1696,7 @@ class MainWindow(QMainWindow):
         # Retained: a QMenu reachable only through `menuBar().actions()` can
         # have its C++ side collected while the Python wrapper survives, which
         # surfaces as "Internal C++ object already deleted" on next access.
-        self._edit_menu = menu.addMenu("Edit")
+        self._edit_menu = menu.addMenu(tr("Edit"))
         self._undo_actions = install_edit_menu(self, self._edit_menu)
         _reg(self._undo_actions.undo_action, "Edit")
         _reg(self._undo_actions.redo_action, "Edit")
@@ -1595,28 +1719,46 @@ class MainWindow(QMainWindow):
         # Promoted out of File. Alignment is not a file operation -- it is the
         # reason this application exists, and it sat between Open Sensor Data
         # and Save Session (WP-10).
-        self._align_menu = menu.addMenu("Align")
+        self._align_menu = menu.addMenu(tr("Align"))
 
-        act = self._align_menu.addAction("Synchronize TTL / events…")
+        act = self._align_menu.addAction(tr("Synchronize TTL / events…"))
         act.setToolTip(tr("Fit an offset from events both recordings share"))
         act.triggered.connect(self._open_sync_wizard)
         _reg(act, "Align")
+        self._require(
+            act,
+            self._has_alignment_evidence,
+            tr(
+                "Load a TTL-bearing sensor channel and a video with frame timestamps "
+                "to have evidence to fit."
+            ),
+        )
 
         self._align_menu.addSeparator()
-        act = self._align_menu.addAction("Nudge selected source earlier")
+        act = self._align_menu.addAction(tr("Nudge selected source earlier"))
         act.setShortcut(QKeySequence("Ctrl+Shift+Left"))
         act.triggered.connect(lambda: self._nudge_alignment(-1))
         _reg(act, "Align")
+        self._require(
+            act,
+            lambda: bool(self.video_grid._paths),
+            tr("Load a video before nudging its alignment."),
+        )
 
-        act = self._align_menu.addAction("Nudge selected source later")
+        act = self._align_menu.addAction(tr("Nudge selected source later"))
         act.setShortcut(QKeySequence("Ctrl+Shift+Right"))
         act.triggered.connect(lambda: self._nudge_alignment(+1))
         _reg(act, "Align")
+        self._require(
+            act,
+            lambda: bool(self.video_grid._paths),
+            tr("Load a video before nudging its alignment."),
+        )
 
         # ── View ──────────────────────────────────────────────────────
-        view_menu = menu.addMenu("View")
+        view_menu = menu.addMenu(tr("View"))
 
-        theme_menu = view_menu.addMenu("Theme")
+        theme_menu = view_menu.addMenu(tr("Theme"))
         self._theme_group = QActionGroup(self)
         for label, key in [("System", "system"), ("Dark", "dark"), ("Light", "light")]:
             ta = theme_menu.addAction(label)
@@ -1626,7 +1768,7 @@ class MainWindow(QMainWindow):
         self._theme_group.triggered.connect(self._on_theme_selected)
         self._sync_theme_menu()
 
-        font_menu = view_menu.addMenu("Font Size")
+        font_menu = view_menu.addMenu(tr("Font Size"))
         self._font_size_group = QActionGroup(self)
         for label, key in [
             ("System", "system"),
@@ -1641,7 +1783,7 @@ class MainWindow(QMainWindow):
         self._font_size_group.triggered.connect(self._on_font_size_selected)
         self._sync_font_size_menu()
 
-        time_menu = view_menu.addMenu("Time Display")
+        time_menu = view_menu.addMenu(tr("Time Display"))
         self._time_mode_group = QActionGroup(self)
         for label, mode in [
             ("Relative (HH:MM:SS)", TimeDisplayMode.RELATIVE),
@@ -1660,67 +1802,87 @@ class MainWindow(QMainWindow):
         # Reset Plot Zoom — single authority (D-022.1); QShortcut removed from _setup_shortcuts
         # Overlays: one checkbox per registered layer, generated from the
         # registry so a new overlay cannot ship without one (D-090).
-        self._overlays_menu = view_menu.addMenu("Overlays")
+        self._overlays_menu = view_menu.addMenu(tr("Overlays"))
         self._build_overlays_menu(_reg)
         view_menu.addSeparator()
 
         # Workspaces: a session is looked at in more than one way, and
         # rearranging the splitters each time is friction enough to stop
         # people doing it (WP-11).
-        self._workspace_menu = view_menu.addMenu("Workspace")
+        self._workspace_menu = view_menu.addMenu(tr("Workspace"))
         self._rebuild_workspace_menu()
         view_menu.addSeparator()
 
-        self._act_reset_zoom = view_menu.addAction("Reset Plot Zoom")
+        self._act_reset_zoom = view_menu.addAction(tr("Reset Plot Zoom"))
         self._act_reset_zoom.setShortcut(QKeySequence("Ctrl+0"))
         self._act_reset_zoom.triggered.connect(self.plot_pane.reset_zoom)
         _reg(self._act_reset_zoom, "View")
+        self._require(
+            self._act_reset_zoom,
+            lambda: bool(self.plot_pane.channels),
+            tr("There are no plots to reset until data is loaded."),
+        )
 
         # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS (D-022.2)
-        self._act_fullscreen = view_menu.addAction("Toggle Pane Fullscreen")
+        self._act_fullscreen = view_menu.addAction(tr("Toggle Pane Fullscreen"))
         self._act_fullscreen.setShortcut(QKeySequence(QKeySequence.StandardKey.FullScreen))
         self._act_fullscreen.triggered.connect(self._toggle_fullscreen)
         _reg(self._act_fullscreen, "View")
+        self._require(
+            self._act_fullscreen,
+            lambda: bool(self.video_grid._paths),
+            tr("Load a video — fullscreen applies to a camera pane."),
+        )
 
         # Pass reset-zoom action to plot pane so the context menu uses the same object (D-022)
         self.plot_pane.set_context_actions([self._act_reset_zoom])
 
         # ── Help ──────────────────────────────────────────────────────
-        help_menu = menu.addMenu("Help")
+        help_menu = menu.addMenu(tr("Help"))
 
         # Shortcuts dialog: F1 primary (HelpContents); "?" alias added in _setup_shortcuts
         # Commands — searchable by name. The menus are deep enough now that
         # finding a command is the problem, not typing it (WP-3).
-        act = help_menu.addAction("Commands…")
+        act = help_menu.addAction(tr("Commands…"))
         act.setShortcut(QKeySequence("Ctrl+Shift+P"))
         act.setToolTip(tr("Search every command by name"))
         act.triggered.connect(self._show_command_palette)
         _reg(act, "View")
 
-        self._act_shortcuts = help_menu.addAction("Keyboard Shortcuts…")
+        self._act_shortcuts = help_menu.addAction(tr("Keyboard Shortcuts…"))
         self._act_shortcuts.setShortcut(QKeySequence(QKeySequence.StandardKey.HelpContents))
         self._act_shortcuts.triggered.connect(self._show_shortcuts)
         _reg(self._act_shortcuts, "View")
 
-        act = help_menu.addAction("Documentation")
+        act = help_menu.addAction(tr("Documentation"))
         act.triggered.connect(lambda: self._open_project_url("Documentation"))
-        act = help_menu.addAction("Report a Problem…")
+        act = help_menu.addAction(tr("Report a Problem…"))
         act.triggered.connect(self._report_a_problem)
-        act = help_menu.addAction("Check for Updates")
+        act = help_menu.addAction(tr("Check for Updates"))
         act.setToolTip(tr("The installers are not code-signed and do not update themselves"))
         act.triggered.connect(lambda: self._open_project_url("Changelog"))
         help_menu.addSeparator()
 
-        act = help_menu.addAction("Cite AvialSync…")
+        act = help_menu.addAction(tr("Cite AvialSync…"))
         act.triggered.connect(self._show_citation)
 
-        act = help_menu.addAction("Diagnostics…")
+        act = help_menu.addAction(tr("Diagnostics…"))
         act.triggered.connect(self._show_diagnostics)
 
         # About — macOS AboutRole moves this to the app menu (D-022.3)
-        act = help_menu.addAction("About AvialSync")
+        act = help_menu.addAction(tr("About AvialSync"))
         act.setMenuRole(QAction.MenuRole.AboutRole)
         act.triggered.connect(self._show_about)
+
+        # Belt and braces for availability (D-107). The state-change hooks are
+        # what keep a shortcut and the command palette honest; this catches the
+        # menu itself in the case nobody predicted, at the one moment it is
+        # about to be read, for the price of a couple of dozen predicate calls.
+        for opened in (file_menu, self._align_menu, view_menu, help_menu):
+            opened.aboutToShow.connect(self._refresh_action_availability)
+
+        # Nothing is loaded yet, so most of this starts unavailable and says so.
+        self._refresh_action_availability()
 
     # ── Workspaces (WP-11) ───────────────────────────────────────────
 
@@ -1735,14 +1897,14 @@ class MainWindow(QMainWindow):
                 act = self._workspace_menu.addAction(name)
                 act.triggered.connect(lambda _c, n=name: self._apply_workspace(n))
         else:
-            act = self._workspace_menu.addAction("(no saved layouts)")
+            act = self._workspace_menu.addAction(tr("(no saved layouts)"))
             act.setEnabled(False)
         self._workspace_menu.addSeparator()
 
-        act = self._workspace_menu.addAction("Save Current Layout…")
+        act = self._workspace_menu.addAction(tr("Save Current Layout…"))
         act.triggered.connect(self._save_workspace)
         if saved:
-            act = self._workspace_menu.addAction("Delete Layout…")
+            act = self._workspace_menu.addAction(tr("Delete Layout…"))
             act.triggered.connect(self._delete_workspace)
 
     def _save_workspace(self) -> None:
@@ -1768,6 +1930,15 @@ class MainWindow(QMainWindow):
         workspaces.apply(self, workspace)
 
     def _delete_workspace(self) -> None:
+        """Delete a saved layout, and offer it back for as long as the message shows.
+
+        Saving a layout said so and deleting one said nothing, which is the
+        wrong way round: the destructive half is the one that needs an answer
+        (D-107). Rather than a "are you sure?" gate in front of a reversible
+        act, the deletion happens and the layout is held here, offered back
+        under Undo on the notification strip — the same shape as the recovery
+        offer, and the same reason: never block, always inform.
+        """
         from PySide6.QtWidgets import QInputDialog
 
         from avialsync.ui import workspaces
@@ -1775,10 +1946,32 @@ class MainWindow(QMainWindow):
         saved = workspaces.names()
         if not saved:
             return
-        name, accepted = QInputDialog.getItem(self, "Delete Layout", "Layout:", saved, 0, False)
-        if accepted and name:
-            workspaces.remove(name)
+        name, accepted = QInputDialog.getItem(
+            self, tr("Delete Layout"), tr("Layout:"), saved, 0, False
+        )
+        if not (accepted and name):
+            return
+
+        removed = workspaces.load(name)
+        workspaces.remove(name)
+        self._rebuild_workspace_menu()
+
+        if removed is None:
+            self.notifications.show_warning(
+                tr("Layout “{name}” was already gone.").format(name=name)
+            )
+            return
+
+        def _restore() -> None:
+            workspaces.save(name, removed)
             self._rebuild_workspace_menu()
+            self.notifications.show_success(tr("Layout “{name}” is back.").format(name=name))
+
+        self.notifications.show_warning(
+            tr("Deleted layout “{name}”.").format(name=name),
+            action_label=tr("Undo"),
+            on_action=_restore,
+        )
 
     # ── Alignment (WP-10) ────────────────────────────────────────────
 
@@ -1861,9 +2054,9 @@ class MainWindow(QMainWindow):
             self._overlay_actions[layer.overlay_id] = action
 
         self._overlays_menu.addSeparator()
-        show_all = self._overlays_menu.addAction("Show All")
+        show_all = self._overlays_menu.addAction(tr("Show All"))
         show_all.triggered.connect(lambda: self._set_all_overlays(True))
-        hide_all = self._overlays_menu.addAction("Hide All")
+        hide_all = self._overlays_menu.addAction(tr("Hide All"))
         hide_all.triggered.connect(lambda: self._set_all_overlays(False))
 
     def _on_overlay_toggled(
@@ -1960,6 +2153,8 @@ class MainWindow(QMainWindow):
         what tells the persistence path a change came from the user rather than
         from reading a sidecar back in.
         """
+        # The first correction is what makes Export Changes available (D-107).
+        self._refresh_action_availability()
         del source_id
         grid = getattr(self, "video_grid", None)
         if grid is not None:
@@ -2229,13 +2424,13 @@ class MainWindow(QMainWindow):
 
         menu = QMenu(self)
 
-        act_fs = menu.addAction("Fullscreen this camera")
-        act_snap = menu.addAction("Snapshot this camera")
+        act_fs = menu.addAction(tr("Fullscreen this camera"))
+        act_snap = menu.addAction(tr("Snapshot this camera"))
 
         # Per-camera overrides, same labels as View -> Overlays. The menu sets
         # the default for every camera; this overrides one (D-090).
         menu.addSeparator()
-        overlays_menu = menu.addMenu("Overlays on this camera")
+        overlays_menu = menu.addMenu(tr("Overlays on this camera"))
         camera_actions: dict[QAction, str] = {}
         for layer in OVERLAY_LAYERS:
             if layer.locked or not layer.per_camera:
@@ -2245,11 +2440,11 @@ class MainWindow(QMainWindow):
             act.setChecked(self.overlay_state.is_visible(layer.overlay_id, path))
             camera_actions[act] = layer.overlay_id
         overlays_menu.addSeparator()
-        act_follow = overlays_menu.addAction("Follow the View menu")
+        act_follow = overlays_menu.addAction(tr("Follow the View menu"))
 
         menu.addSeparator()
-        act_props = menu.addAction("Properties…")
-        act_copy = menu.addAction("Copy frame info")
+        act_props = menu.addAction(tr("Properties…"))
+        act_copy = menu.addAction(tr("Copy frame info"))
 
         chosen = menu.exec(pos)
         if chosen in camera_actions:
@@ -2334,19 +2529,12 @@ class MainWindow(QMainWindow):
 
     def _show_citation(self) -> None:
         """Show the citation the release process maintains."""
-        box = QMessageBox(self)
-        box.setWindowTitle(tr("Cite AvialSync"))
-        box.setText(tr("Citation metadata for this release:"))
-        box.setDetailedText(citation_text())
-        box.setStandardButtons(QMessageBox.StandardButton.Ok)
-        copy = box.addButton("Copy", QMessageBox.ButtonRole.ActionRole)
-        box.exec()
-        if box.clickedButton() is copy:
-            from PySide6.QtWidgets import QApplication
-
-            clipboard = QApplication.clipboard()
-            if clipboard is not None:
-                clipboard.setText(citation_text())
+        show_text(
+            self,
+            tr("Cite AvialSync"),
+            citation_text(),
+            lead=tr("Citation metadata for this release:"),
+        )
 
     def _show_preferences(self) -> None:
         """Open the generated Preferences dialog.
@@ -2380,23 +2568,16 @@ class MainWindow(QMainWindow):
 
     def _show_about(self) -> None:
         """Name the build, so a bug report can carry it."""
-        from PySide6.QtWidgets import QApplication
-
-        box = QMessageBox(self)
-        box.setWindowTitle(tr("About AvialSync"))
-        box.setText(
-            "AvialSync — The Advanced Video and Instrument Alignment Library.\n"
-            "Multi-camera video and time-series inspection.\n"
-            "Free software under the GNU AGPL v3 or later."
+        show_text(
+            self,
+            tr("About AvialSync"),
+            version_report(),
+            lead=tr(
+                "AvialSync — The Advanced Video and Instrument Alignment Library.\n"
+                "Multi-camera video and time-series inspection.\n"
+                "Free software under the GNU AGPL v3 or later."
+            ),
         )
-        box.setInformativeText(version_report())
-        box.setStandardButtons(QMessageBox.StandardButton.Ok)
-        copy = box.addButton("Copy details", QMessageBox.ButtonRole.ActionRole)
-        box.exec()
-        if box.clickedButton() is copy:
-            clipboard = QApplication.clipboard()
-            if clipboard is not None:
-                clipboard.setText(version_report())
 
     # ── Shortcuts dialog ─────────────────────────────────────────────
 
@@ -2440,11 +2621,12 @@ class MainWindow(QMainWindow):
         diag["plugin_errors"] = self._registry.plugin_errors
         text = format_diagnostics(diag)
 
-        msg = QMessageBox(self)
-        msg.setWindowTitle(tr("Diagnostics"))
-        msg.setText(text)
-        msg.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        msg.exec()
+        # A scrolling dialog, not a message box: this report grows with the
+        # number of loaded sources and plugins, and a QMessageBox sized itself
+        # to the text until it ran off the screen with no way to scroll it. It
+        # is also the text most worth pasting into a bug report, so the Copy
+        # button that About had and this did not is now on both (D-107).
+        show_text(self, tr("Diagnostics"), text)
 
     # ── Snapshot export ──────────────────────────────────────────────
 
@@ -2462,10 +2644,6 @@ class MainWindow(QMainWindow):
     def _on_snapshot_error(self, error: str) -> None:
         export_controller.on_snapshot_error(self, error)
 
-    @Slot()
-    def _on_snapshot_thread_finished(self) -> None:
-        export_controller.on_snapshot_thread_finished(self)
-
     # ── Data slice export ────────────────────────────────
 
     def _export_data_slice(self) -> None:
@@ -2482,10 +2660,6 @@ class MainWindow(QMainWindow):
     def _on_data_export_error(self, error: str) -> None:
         export_controller.on_data_export_error(self, error)
 
-    @Slot()
-    def _on_data_export_thread_finished(self) -> None:
-        export_controller.on_data_export_thread_finished(self)
-
     def _export_video_clip(self) -> None:
         export_controller.export_video_clip(self)
 
@@ -2500,31 +2674,19 @@ class MainWindow(QMainWindow):
     def _on_video_clip_error(self, error: str) -> None:
         export_controller.on_video_clip_error(self, error)
 
-    @Slot()
-    def _on_video_clip_thread_finished(self) -> None:
-        export_controller.on_video_clip_thread_finished(self)
-
     # ── Proxy generation ─────────────────────────────────────────────
 
     def _generate_proxy(self) -> None:
         if not self.video_grid._paths:
-            QMessageBox.information(
-                self,
-                "No Videos",
-                "Load a video before generating proxies.",
-            )
+            self.notifications.show_warning(tr("Load a video before generating a proxy."))
             return
-
-        from PySide6.QtCore import QThread
 
         from avialsync.engine.proxy import ProxyWorker
 
         # Proxy the first video for now
         video_path = Path(self.video_grid._paths[0])
 
-        self._proxy_thread = QThread()
         self._proxy_worker = ProxyWorker(video_path)
-        self._proxy_worker.moveToThread(self._proxy_thread)
 
         # Proxy generation is minutes of transcoding. Behind a modal that was
         # minutes of unusable application, for work the user started so they
@@ -2532,16 +2694,23 @@ class MainWindow(QMainWindow):
         self.activity_bar.begin(f"Generating proxy for {video_path.name}")
         self._active_cancel = self._proxy_worker.cancel
 
-        self._proxy_thread.started.connect(self._proxy_worker.run)
-        self._proxy_worker.progress.connect(self.activity_bar.set_progress)
+        def _wire(thread: QThread) -> None:
+            worker = self._proxy_worker
+            assert worker is not None
+            self._proxy_thread = thread
+            worker.progress.connect(self.activity_bar.set_progress)
+            worker.finished.connect(self._on_proxy_finished)
+            worker.error.connect(self._on_proxy_error)
 
-        self._proxy_worker.finished.connect(self._on_proxy_finished)
-        self._proxy_worker.finished.connect(self._proxy_thread.quit)
-        self._proxy_worker.error.connect(self._on_proxy_error)
-        self._proxy_worker.error.connect(self._proxy_thread.quit)
-        self._proxy_thread.finished.connect(self._proxy_thread.deleteLater)
-
-        self._proxy_thread.start()
+        # Registered rather than hand-wired (D-107). `JobManager` connects
+        # `started -> run` and quits the thread on `finished`/`error`, so this
+        # no longer repeats those four lines — and a transcode that wedges is
+        # now reported as not responding instead of merely looking busy.
+        self._run_job(
+            self._proxy_worker,
+            label=f"Generating proxy for {video_path.name}",
+            configure=_wire,
+        )
 
     def _on_proxy_finished(self, orig: str, proxy: str) -> None:
         self.activity_bar.end()
@@ -2643,10 +2812,11 @@ class MainWindow(QMainWindow):
             if len(frame_times) >= 3
         ]
         if not references or not targets:
-            QMessageBox.information(
-                self,
-                "Synchronization evidence",
-                "Load a TTL-bearing sensor channel and a video with frame timestamps first.",
+            self.notifications.show_warning(
+                tr(
+                    "Load a TTL-bearing sensor channel and a video with frame "
+                    "timestamps before aligning."
+                )
             )
             return
 

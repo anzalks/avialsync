@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -71,8 +70,10 @@ class SyncWizard(QDialog):
 
         self._use_all_times_chk = QCheckBox("Use all samples as events (ignore threshold)")
         self._use_all_times_chk.setToolTip(
-            "Check this if your reference data is a list of event timestamps "
-            "(such as a CSV of frame triggers) rather than a continuous voltage signal."
+            tr(
+                "Check this if your reference data is a list of event timestamps "
+                "(such as a CSV of frame triggers) rather than a continuous voltage signal."
+            )
         )
         self._use_all_times_chk.toggled.connect(
             lambda checked: self._threshold.setEnabled(not checked)
@@ -214,8 +215,14 @@ class SyncWizard(QDialog):
 
     @Slot(str)
     def _on_error(self, message: str) -> None:
-        self._summary.setText(f"No mapping proposed: {message}")
-        QMessageBox.warning(self, "Synchronization evidence", message)
+        """Say why no mapping was proposed, in the summary that is already there.
+
+        This used to say it twice: once in the summary line, and again in a
+        modal on top of the wizard carrying the same text (D-107). The modal
+        added nothing but a click, and the wizard stays open either way — the
+        user's next move is to pick different evidence, which is behind it.
+        """
+        self._summary.setText(tr("No mapping proposed: {reason}").format(reason=message))
 
     @Slot()
     def _on_thread_finished(self) -> None:

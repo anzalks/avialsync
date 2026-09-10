@@ -1,7 +1,19 @@
-# Correctness on every push, on every branch: lint, types, and the full
+# Correctness on every push, on every branch: lint, types, and the
 # OS x Python test matrix. Nothing here freezes a bundle or builds an
 # installer — that work belongs to a release tag and lives in release.yml,
 # which additionally refuses any tag not reachable from main.
+#
+# Benchmarks never run here. `--ignore=tests/benchmarks` is on the test command
+# in both workflows, and `tests/test_ci_platform_config.py` fails if it is
+# dropped or if a `test_bench_*` file appears outside that directory. Timing
+# numbers from a shared runner are noise, and they are the slowest thing in the
+# suite; performance budgets are measured locally with `pytest --benchmark-only`
+# against BLUEPRINT.md's table.
+#
+# The three job groups start together rather than queueing behind lint. Lint is
+# the cheapest signal and gating on it saves runner minutes, but it costs every
+# run its duration in wall-clock time, and a red lint job now cancels the rest
+# through `cancel-in-progress` on the next push anyway.
 name: CI
 
 on:
@@ -49,7 +61,6 @@ jobs:
   test:
     name: Test ${{ matrix.os }} - Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
-    needs: lint-type
     timeout-minutes: 15
     strategy:
       # One red job cancels the other five. The matrix exists to say *which*
@@ -61,6 +72,19 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2022]
         python-version: ["3.11", "3.12"]
+        # Six combinations, four of them run. Every OS is still tested and both
+        # interpreters are still tested; what is dropped is the second
+        # interpreter on the two platforms where the queue is slowest and the
+        # setup most expensive. A pure-Python version difference does not
+        # depend on the OS -- if 3.11 breaks, Linux says so -- while an OS
+        # difference is what macOS and Windows are here to catch, and they
+        # still catch it on 3.12. The release workflow keeps all six, because
+        # that is the run where thoroughness beats latency.
+        exclude:
+          - os: macos-15
+            python-version: "3.11"
+          - os: windows-2022
+            python-version: "3.11"
     steps:
       - uses: actions/checkout@v5
       
@@ -110,10 +134,13 @@ jobs:
         run: python tools/make_fixtures.py --small
         
       - name: Verify Determinism
-        # Once per OS, not once per interpreter: the fixtures come out of
-        # ffmpeg, and the Python version does not encode them. It re-runs the
-        # whole generator, so the second copy is the expensive half of setup.
-        if: matrix.python-version == '3.12'
+        # Once per run, on Linux, matching what release.yml already does. It
+        # re-runs the whole generator, which is the expensive half of setup,
+        # and it was paying that on all three platforms to answer a question
+        # that is not about the platform: whether the generator produces the
+        # same bytes twice. The Python version does not encode the fixtures
+        # either, hence the 3.12 pin alongside.
+        if: runner.os == 'Linux' && matrix.python-version == '3.12'
         run: |
           cp -r tests/fixtures tests/fixtures_first_run
           python tools/make_fixtures.py --small
@@ -141,7 +168,6 @@ jobs:
   docs:
     name: Read the Docs build
     runs-on: ubuntu-24.04
-    needs: lint-type
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6

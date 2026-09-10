@@ -14,7 +14,7 @@ import tempfile
 import threading
 import time
 
-from PySide6.QtWidgets import QMessageBox
+from avialsync.ui.i18n import tr
 
 _STARTUP_DIAGNOSTICS: dict | None = None
 _STARTUP_DIAGNOSTICS_LOCK = threading.Lock()
@@ -116,16 +116,22 @@ def run_startup_diagnostics(parent=None) -> dict:
         diag["hwdec"] = probe_hwdec()
         diag["disk_speed_mbps"] = probe_disk_speed()
 
-        if diag["disk_speed_mbps"] < 50.0 and parent is not None:
+        notifications = getattr(parent, "notifications", None)
+        if diag["disk_speed_mbps"] < 50.0 and notifications is not None:
+            # Through the notification strip, not a modal (D-107). This is the
+            # purest case AGENTS rule 10 exists for: an observation nobody
+            # asked for, arriving seconds after launch, in front of a user who
+            # is trying to open a file. It is worth saying and worth nothing at
+            # all as an interruption.
+            speed = diag["disk_speed_mbps"]
 
-            def _warn():
-                QMessageBox.warning(
-                    parent,
-                    "Slow Disk Detected",
-                    f"Disk: {diag['disk_speed_mbps']:.0f} MB/s\n\n"
-                    "Multi-camera scrubbing may be sluggish. "
-                    "Consider using an SSD or generating "
-                    "proxy files (File → Generate Proxy).",
+            def _warn() -> None:
+                notifications.show_warning(
+                    tr(
+                        "This disk measured {speed:.0f} MB/s. Multi-camera scrubbing may "
+                        "be sluggish — File → Generate Proxy makes lighter copies to "
+                        "scrub against."
+                    ).format(speed=speed)
                 )
 
             from PySide6.QtCore import QTimer

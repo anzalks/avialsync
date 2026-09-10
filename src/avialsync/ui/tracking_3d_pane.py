@@ -796,8 +796,10 @@ class Tracking3DPane(QWidget):
         self.up_axis_combo = QComboBox(header)
         self.up_axis_combo.setAccessibleName(tr("Vertical axis"))
         self.up_axis_combo.setToolTip(
-            "Which source axis points up. Detected from head/foot landmarks on load; "
-            "choose one here to override it."
+            tr(
+                "Which source axis points up. Detected from head/foot landmarks on load; "
+                "choose one here to override it."
+            )
         )
         for label, axis, inverted in (
             ("Up: X", 0, False),
@@ -812,9 +814,11 @@ class Tracking3DPane(QWidget):
         self.bone_combo = QComboBox(header)
         self.bone_combo.setAccessibleName(tr("Skeleton"))
         self.bone_combo.setToolTip(
-            "Which skeleton to draw. Auto uses the one the session declared and "
-            "falls back to bones detected from how rigidly the points hold "
-            "together; Detected always uses the detected one, drawn dashed."
+            tr(
+                "Which skeleton to draw. Auto uses the one the session declared and "
+                "falls back to bones detected from how rigidly the points hold "
+                "together; Detected always uses the detected one, drawn dashed."
+            )
         )
         for label, mode in (
             ("Bones: Auto", BoneMode.AUTO),

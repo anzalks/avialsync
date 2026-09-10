@@ -16,19 +16,44 @@ explains the control, so it is the right description. Where a widget shows an
 icon or a bare glyph — the transport's ``[``, ``]``, ``◀``, ``▶`` — there is
 nothing to derive from, and those are named explicitly in :data:`GLYPH_NAMES`
 because a symbol is not a word.
+
+**The sweep has to run more than once (D-107).**  It was called exactly once,
+from ``MainWindow.__init__``, against a window that by definition holds no
+video panes, no plot rows, no per-source sidebar entries and no quality badges
+— the application starts empty, and every one of those widgets is built later.
+Eleven dialog classes were never swept at all, because none of them exists at
+construction time either.  The test that should have caught it asserted
+``apply_accessibility(window) == 0`` on a freshly built empty window, which is
+true whether the sweep works or not.
+
+So the sweep also runs on ``Show``, through :class:`ShowTimeSweeper` installed
+on the application.  One event filter reaches every dialog, including ones
+added later, at the moment its widgets exist and before anyone can interact
+with them.  ``apply_accessibility`` was already documented as idempotent and
+cheap on a second pass, which is what makes this safe to hang off an event.
 """
 
 from __future__ import annotations
 
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractSlider,
     QComboBox,
+    QDialog,
     QLineEdit,
+    QScrollBar,
     QWidget,
 )
 
-__all__ = ["GLYPH_NAMES", "derive_name", "apply_accessibility", "unnamed_widgets"]
+__all__ = [
+    "GLYPH_NAMES",
+    "derive_name",
+    "apply_accessibility",
+    "unnamed_widgets",
+    "ShowTimeSweeper",
+    "install_show_time_sweep",
+]
 
 #: Controls whose visible label is a symbol. A screen reader announcing
 #: "left square bracket" tells someone nothing about what the control does, and
@@ -85,6 +110,16 @@ def derive_name(widget: QWidget) -> str:
     if text:
         return text
 
+    # A scroll bar displays nothing to derive from, so it fell through to "" and
+    # stayed unnamed wherever one had not been written by hand -- which was two
+    # places out of every scroll area in the application. Its orientation is the
+    # only thing it can honestly be named for, and a screen reader announces the
+    # role alongside it, so "Scroll vertically" is what a user hears (D-107).
+    if isinstance(widget, QScrollBar):
+        if widget.orientation() == Qt.Orientation.Vertical:
+            return "Scroll vertically"
+        return "Scroll horizontally"
+
     tooltip = widget.toolTip().strip()
     if tooltip:
         # First sentence only: a tooltip can be a paragraph, and a name is
@@ -136,3 +171,51 @@ def unnamed_widgets(root: QWidget) -> list[QWidget]:
         and widget.isVisible()
         and not widget.accessibleName()
     ]
+
+
+class ShowTimeSweeper(QObject):
+    """Names a dialog's controls the moment it is shown.
+
+    The main window is swept at construction and again whenever sources
+    change; dialogs cannot be, because they do not exist until someone opens
+    one. Filtering ``Show`` on the application catches every one of them --
+    including any added after this was written, which is the property that
+    matters, since the previous arrangement was correct on the day it landed
+    and silently wrong for eleven dialogs afterwards.
+    """
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.Show and isinstance(watched, QDialog):
+            apply_accessibility(watched)
+        # Never consume it: this observes, and the dialog must still be shown.
+        return False
+
+
+#: Marks the application object that already carries a sweeper, so a second
+#: window does not install a second one.
+_SWEEPER_PROPERTY = "av_show_time_sweeper"
+
+
+def install_show_time_sweep(app: QObject) -> ShowTimeSweeper:
+    """Install :class:`ShowTimeSweeper` on *app*, at most once, and return it.
+
+    **One per application, not one per window.** A filter installed on the
+    application object receives every event delivered to every object in the
+    process, and one parented to the application is never removed -- so
+    installing from ``MainWindow.__init__`` without this guard added a filter
+    per window and left them all running. Two windows doubled the per-event
+    cost; a test suite that constructs a hundred multiplied it by a hundred and
+    took the run from two minutes to no longer finishing.
+
+    The sweeper is parented to *app* and also recorded on it as a property. The
+    parent is what keeps it alive -- an event filter with no live reference is
+    collected while Qt still holds a pointer to it -- and the property is what
+    makes this idempotent.
+    """
+    existing = app.property(_SWEEPER_PROPERTY)
+    if isinstance(existing, ShowTimeSweeper):
+        return existing
+    sweeper = ShowTimeSweeper(app)
+    app.installEventFilter(sweeper)
+    app.setProperty(_SWEEPER_PROPERTY, sweeper)
+    return sweeper

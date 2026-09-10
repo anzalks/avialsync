@@ -136,39 +136,47 @@ def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[
     """Start the next queued background import."""
     from avialsync.engine.importer import ImportWorker
 
-    window._import_thread = QThread()
-    window.transport.set_status(f"Importing data: {path.name}", "busy")
-    window._import_worker = ImportWorker(path, config, loader_cls)
-    window._import_worker.moveToThread(window._import_thread)
+    # The local is what `_wire` closes over. `window._import_worker` is typed
+    # `QObject | None`, and that narrowing does not survive into a nested
+    # function -- so reading it back inside `_wire` costs an assert and three
+    # `attr-defined` errors rather than buying anything.
+    worker = ImportWorker(path, config, loader_cls)
+    window._import_worker = worker
 
     # No modal dialog (D-091). The work was always on a worker; the modality
     # was gratuitous, and the budget allows a 1 GB CSV sixty seconds -- a full
     # minute during which the window could not be touched.
     window.activity_bar.begin(f"Importing {path.name}")
-    window._active_cancel = window._import_worker.cancel
+    window._active_cancel = worker.cancel
 
-    window._import_thread.started.connect(window._import_worker.run)
-    window._import_worker.progress.connect(window.activity_bar.set_progress)
+    def _wire(thread: QThread) -> None:
+        # Assigned here, not from `_run_job`'s return value: that returns an
+        # already-running thread, so a fast import can finish -- and
+        # `_on_import_thread_finished` can clear this back to None -- before
+        # the assignment lands. The stale handle would then gate every later
+        # import forever, since `enqueue_import` treats non-None as "busy".
+        window._import_thread = thread
+        worker.progress.connect(window.activity_bar.set_progress)
+        worker.finished.connect(window._on_import_finished)
+        worker.error.connect(window._on_import_error)
+        # The worker is released in `_on_import_thread_finished`, on this
+        # thread. It must NOT be `deleteLater`-ed from its own `finished`:
+        # that signal is emitted in the worker thread, the worker lives there
+        # too, so the connection is direct and ~QObject then runs inside the
+        # worker's event loop. Destroying a QObject severs its connections
+        # while holding one of Qt's 131 *pooled* signal/slot mutexes, and
+        # PySide's `disconnectNotify` override takes the GIL to look for a
+        # Python override. Meanwhile the GUI thread holds the GIL and closes
+        # the progress dialog, which waits on a mutex from that same pool.
+        # Colliding addresses deadlock both threads permanently (D-062).
+        thread.finished.connect(window._on_import_thread_finished)
 
-    window._import_worker.finished.connect(window._on_import_finished)
-    window._import_worker.finished.connect(window._import_thread.quit)
-    # The worker is released in `_on_import_thread_finished`, on this
-    # thread. It must NOT be `deleteLater`-ed from its own `finished`:
-    # that signal is emitted in the worker thread, the worker lives there
-    # too, so the connection is direct and ~QObject then runs inside the
-    # worker's event loop. Destroying a QObject severs its connections
-    # while holding one of Qt's 131 *pooled* signal/slot mutexes, and
-    # PySide's `disconnectNotify` override takes the GIL to look for a
-    # Python override. Meanwhile the GUI thread holds the GIL and closes
-    # the progress dialog, which waits on a mutex from that same pool.
-    # Colliding addresses deadlock both threads permanently (D-062).
-    window._import_thread.finished.connect(window._import_thread.deleteLater)
-    window._import_thread.finished.connect(window._on_import_thread_finished)
-
-    window._import_worker.error.connect(window._on_import_error)
-    window._import_worker.error.connect(window._import_thread.quit)
-
-    window._import_thread.start()
+    # Registered rather than hand-wired (D-107), so the import appears in the
+    # Tasks panel beside every other job, is watched for stalls, and is
+    # abandoned in the ordinary way at shutdown. `JobManager` already connects
+    # `started -> run` and quits the thread on `finished`/`error`, so those
+    # four connections are gone from here rather than duplicated.
+    window._run_job(worker, label=f"Importing {path.name}", configure=_wire)
 
 
 def on_import_thread_finished(window: MainWindow) -> None:

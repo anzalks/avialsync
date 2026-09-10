@@ -71,3 +71,13 @@ class SyncAmbiguityError(SyncEvidenceError):
     """Raised when event evidence supports multiple equally valid alignments."""
 
     pass
+
+
+class ExportError(AvialSyncError):
+    """Raised when writing an export artifact fails.
+
+    Distinct from :class:`CacheError`: nothing AvialSync needs was lost, and the
+    session is untouched — only the file the user asked for was not produced.
+    That difference is the whole message, so it earns its own type rather than
+    reaching the generic presenter.
+    """

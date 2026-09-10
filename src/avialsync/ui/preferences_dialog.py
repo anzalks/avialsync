@@ -67,17 +67,54 @@ def write_setting(setting: Setting, value: Any) -> None:
 
 
 def settings_report() -> str:
-    """Every setting and its current value, for Diagnostics and bug reports.
+    """Everything the application remembers, for Diagnostics and bug reports.
 
     Worth its weight the first time someone reports behaviour that turns out
     to be a preference they had changed and forgotten.
+
+    **Two sections, because there are two kinds of stored state (D-107).** This
+    used to list the nine declared settings and stop, while the application
+    also persists window geometry, four splitter positions, the inspector tab,
+    the recent-file list, every shortcut override, every saved workspace, and
+    the plot's presentation mode. A report that omits them is exactly the wrong
+    shape for its job: the thing causing the reported behaviour is more likely
+    to be the remembered state nobody declared than the preference somebody
+    did. So the declared settings are named with their defaults, and everything
+    else stored under the same organisation is listed after them.
     """
-    lines = []
+    lines = ["[preferences]"]
+    declared = set()
     for setting in SETTINGS:
+        declared.add(setting.key)
         value = read_setting(setting)
         marker = "" if value == setting.default else "  (changed)"
         lines.append(f"{setting.key} = {value!r}{marker}")
+
+    remembered = sorted(key for key in _store().allKeys() if key not in declared)
+    lines.append("")
+    lines.append("[remembered state]")
+    if not remembered:
+        lines.append("(nothing stored yet)")
+    for key in remembered:
+        lines.append(f"{key} = {_describe_stored(key)}")
     return "\n".join(lines)
+
+
+#: Stored values that are opaque binary blobs. Printing the repr of a
+#: ``QByteArray`` holding a window geometry fills the report with hex and hides
+#: the keys around it; what a reader needs to know is that it is set.
+_OPAQUE_SUFFIXES = ("geometry", "state", "splitter/content", "splitter/media")
+
+
+def _describe_stored(key: str) -> str:
+    """A one-line, readable rendering of an undeclared stored value."""
+    value = _store().value(key)
+    if value is None:
+        return "(unset)"
+    if any(key.endswith(suffix) or suffix in key for suffix in _OPAQUE_SUFFIXES):
+        return f"<{type(value).__name__}, stored>"
+    text = repr(value)
+    return text if len(text) <= 120 else f"{text[:117]}…"
 
 
 class PreferencesDialog(QDialog):
@@ -103,8 +140,20 @@ class PreferencesDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.close)
         reset_all = buttons.addButton(
-            "Reset all to defaults", QDialogButtonBox.ButtonRole.ResetRole
+            tr("Reset all to defaults"), QDialogButtonBox.ButtonRole.ResetRole
         )
+        # Says what it will and will not touch. It resets the settings on this
+        # dialog and nothing else -- not the window layout, the recent-file
+        # list, saved workspaces, or shortcut overrides -- and a button called
+        # "Reset all" that quietly means "reset these nine" is the kind of
+        # thing a user only discovers by losing something (D-107).
+        reset_all.setToolTip(
+            tr(
+                "Resets the settings on this dialog. Window layout, saved layouts, "
+                "recent files and shortcut overrides are left alone."
+            )
+        )
+        reset_all.setAccessibleDescription(reset_all.toolTip())
         reset_all.clicked.connect(self._reset_all)
         layout.addWidget(buttons)
 

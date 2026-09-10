@@ -224,6 +224,48 @@ ships with an expected-values JSON.
 
 ## 8. CI matrix (see .github/workflows/ci.yml)
 
-Per PR: 3 OS × (ruff, mypy, unit+GUI offscreen, fast benchmarks ★). ffmpeg installed via
-OS package managers/choco/brew. Nightly: big-fixture benchmarks + packaging smoke.
-Release tag: full matrix + build wheel, sdist, PyInstaller bundles, attach to release, publish PyPI.
+**No benchmark ever runs on CI.** This section used to say "fast benchmarks ★" ran per PR; they did
+not, and they must not. `--ignore=tests/benchmarks` has been on the test command in both workflows,
+and `tests/test_ci_platform_config.py` now pins it from both ends — the flag's presence, and that no
+`test_bench_*.py` exists outside `tests/benchmarks` where it would be collected and timed anyway. A
+timing number from a shared runner sharing a core with three other jobs is noise, and the benchmark
+suite is the slowest thing in the tree. Budgets are measured locally against BLUEPRINT.md's table
+with `pytest --benchmark-only`, as §4 describes. CI answers "is it correct"; your own machine
+answers "is it fast".
+
+**Per push, on every branch — four test jobs, not six.** Three OS × two Python versions is six
+combinations; Python 3.11 on macOS and Windows is excluded, so every operating system and both
+interpreters are still covered while a push costs four jobs. A pure-Python version difference does
+not depend on the OS, and an OS difference is caught on 3.12 where macOS and Windows still run.
+`test_ci_platform_config.py` fails if a later edit breaks that union rather than merely the count.
+Each job runs ruff, mypy (both passes, in the separate lint job), and the unit + GUI suite
+offscreen. The fixture determinism check runs once, on Linux, matching what release.yml already
+did. ffmpeg is installed via apt/brew/choco — it encodes the fixtures; nothing decodes with it
+(D-075). The three job groups start together rather than queueing behind lint.
+
+Release tag: the **full** six-job matrix with `fail-fast: false`, plus wheel, sdist, PyInstaller
+bundles, attach to release, publish PyPI. Thoroughness beats latency on the run that ships.
+
+## 9. Conformance gates (source-scanning tests)
+
+Rules that are cheap to state and easy to erode are enforced by tests that read `src/` rather than
+by review. Each exists because the rule had already been broken and nothing had said so — the
+`QMessageBox` ban had been a written Phase 7 exit criterion for the whole phase while drifting to
+nineteen call sites (D-107).
+
+| Test | Rule |
+|---|---|
+| `test_feedback_surface.py::test_no_modal_progress_dialog_remains` | `QProgressDialog` is banned from `src/` (D-091). |
+| `test_feedback_surface.py::test_no_message_box_outside_the_feedback_package` | `QMessageBox` only inside `ui/feedback/` (D-107). |
+| `test_feedback_surface.py::test_every_background_job_is_registered` | No raw `QThread` outside the three named exceptions; use `_run_job` (D-107). |
+| `test_law1_conformance.py` | No modal gate in front of Open, drop, Open Recent, or quit (D-088/D-089). |
+| `test_overlay_registry.py` | The registry matches the drawn inventory (D-090). |
+| `test_headless_core.py` | `core/` imports no PySide6 (rule 2). |
+| `test_accessibility_i18n.py::test_every_extractable_literal_is_translatable` | 100 % of the literals `lupdate` can extract are wrapped (D-107). |
+| `test_accessibility_i18n.py::test_the_shipped_dialogs_name_their_controls` | Every dialog's controls carry accessible names, checked after `show()` (D-107). |
+| `test_ci_platform_config.py::test_no_benchmark_runs_on_ci` | Benchmarks stay in `tests/benchmarks`, which CI ignores. |
+| `test_ci_platform_config.py` (platform rows) | Pinned runner images, no floating labels, no video library installed (D-075/D-086). |
+
+When one of these fails, fix the code rather than the list. Where an exception is genuinely correct
+— a decode thread is not a job — add it to the test's own exception table **with its reason**, so
+the next reader can judge it instead of inheriting it.

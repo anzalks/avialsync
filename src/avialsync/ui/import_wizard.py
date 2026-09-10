@@ -19,8 +19,8 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
+    QLabel,
     QLineEdit,
-    QMessageBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -288,6 +288,16 @@ class ImportWizard(QDialog):
 
         main_layout.addWidget(config_group)
 
+        # What is missing, said in place rather than in a modal on top of a
+        # modal (D-107). The three "Import Error" message boxes this replaces
+        # made the user click OK to get back to the field they had to fix, and
+        # said nothing at all until they had already pressed Import.
+        self._validation_label = QLabel("")
+        self._validation_label.setWordWrap(True)
+        self._validation_label.setAccessibleName(tr("Why this file cannot be imported yet"))
+        self._validation_label.setVisible(False)
+        main_layout.addWidget(self._validation_label)
+
         # Buttons
         btn_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -295,9 +305,17 @@ class ImportWizard(QDialog):
         btn_box.accepted.connect(self._validate_and_accept)
         btn_box.rejected.connect(self.reject)
         main_layout.addWidget(btn_box)
+        self._ok_button = btn_box.button(QDialogButtonBox.StandardButton.Ok)
 
         # Populate initial preview and column choices
         self._on_separator_changed(0)
+
+        # Re-check whenever any of the three inputs the check reads changes, so
+        # the button state is always an answer about the current form.
+        self._time_col_combo.currentTextChanged.connect(lambda _text: self._refresh_validity())
+        self._anchor_chk.toggled.connect(lambda _checked: self._refresh_validity())
+        self._anchor_date.textChanged.connect(lambda _text: self._refresh_validity())
+        self._refresh_validity()
 
     def _select_format(self, fmt: str) -> None:
         """Select the matching format in the combo, or fall back to auto."""
@@ -355,20 +373,35 @@ class ImportWizard(QDialog):
         val = self._sentinel_combo.currentData()
         self._sentinel_custom.setVisible(val == "custom")
 
-    def _validate_and_accept(self) -> None:
+    def _blocking_reason(self) -> str:
+        """Why Import cannot proceed yet, or an empty string when it can.
+
+        One function, read by both the button's enabled state and the message
+        beside it, so the two can never disagree about whether the form is
+        ready (AGENTS rule 15).
+        """
         if not self._headers:
-            QMessageBox.warning(self, "Import Error", "No columns detected in file.")
-            return
-
-        time_col = self._time_col_combo.currentText()
-        if not time_col:
-            QMessageBox.warning(self, "Import Error", "Please select a time column.")
-            return
-
+            return tr("No columns were detected in this file. Check the separator and encoding.")
+        if not self._time_col_combo.currentText():
+            return tr("Choose which column holds the timestamps.")
         if self._anchor_chk.isChecked() and not self._anchor_date.text().strip():
-            QMessageBox.warning(self, "Import Error", "Please enter an anchor date.")
-            return
+            return tr("Enter the anchor date, or turn off “Use anchor date”.")
+        return ""
 
+    def _refresh_validity(self) -> None:
+        """Show what is missing, and let Import run only when nothing is."""
+        reason = self._blocking_reason()
+        self._validation_label.setText(reason)
+        self._validation_label.setVisible(bool(reason))
+        if self._ok_button is not None:
+            self._ok_button.setEnabled(not reason)
+
+    def _validate_and_accept(self) -> None:
+        # Re-checked here as well as on every edit: the button is the ordinary
+        # route, but a dialog can also be accepted by Return.
+        self._refresh_validity()
+        if self._blocking_reason():
+            return
         self.accept()
 
     def config(self) -> dict[str, Any]:

@@ -71,34 +71,42 @@ def start_one_video_probe(window: MainWindow) -> None:
     from avialsync.engine.video_worker import VideoOpenWorker
 
     path, offset, drift_ppm, config = window._pending_video_loads.popleft()
-    thread = QThread(window)
     worker = VideoOpenWorker(path, config)
-    window._video_load_jobs[thread] = worker
     window._video_load_offsets[str(path)] = offset
     window._video_load_drifts[str(path)] = drift_ppm
     remaining = len(window._pending_video_loads)
     suffix = f" ({remaining} queued)" if remaining else ""
-    window.transport.set_status(f"Loading video: {path.name}{suffix}", "busy")
-    worker.moveToThread(thread)
-    thread.started.connect(worker.run)
-    # These QObject slots are queued onto MainWindow's UI thread.  Do not
-    # replace them with lambdas: a lambda runs in the emitting worker thread
-    # and would create widgets off-thread.
-    worker.opened.connect(window._on_video_opened)
-    worker.error.connect(window._on_video_open_error)
-    worker.opened.connect(thread.quit)
-    worker.error.connect(thread.quit)
-    worker.cancelled.connect(thread.quit)
-    # `_on_video_thread_finished` drops the registry's reference, which is
-    # the worker's only owner, so it is destroyed on the UI thread as that
-    # slot promises. A `thread.finished.connect(worker.deleteLater)` here
-    # would beat it: `finished` is emitted in the worker thread and the
-    # worker lives there, making that connection direct and running
-    # ~QObject inside the dying thread — where severing connections holds
-    # one of Qt's pooled signal/slot mutexes and PySide's disconnectNotify
-    # then blocks on the GIL, deadlocking the UI thread (D-062).
-    thread.finished.connect(window._on_video_thread_finished)
-    thread.start()
+
+    def _wire(thread: QThread) -> None:
+        # The registry is populated here, before the thread runs, because it
+        # is also the concurrency gate: filling it from `_run_job`'s return
+        # value would let a fast probe finish and clear its own entry before
+        # the entry existed, and `MAX_VIDEO_PROBES` would then be counted
+        # against a registry that never fills.
+        window._video_load_jobs[thread] = worker
+        # These QObject slots are queued onto MainWindow's UI thread.  Do not
+        # replace them with lambdas: a lambda runs in the emitting worker thread
+        # and would create widgets off-thread.
+        worker.opened.connect(window._on_video_opened)
+        worker.error.connect(window._on_video_open_error)
+        # `JobManager` quits the thread on `finished`, `error` and `cancelled`.
+        # This worker reports success as `opened`, so that one is ours.
+        worker.opened.connect(thread.quit)
+        # `_on_video_thread_finished` drops the registry's reference, so the
+        # worker is destroyed on the UI thread as that slot promises. A
+        # `thread.finished.connect(worker.deleteLater)` here would beat it:
+        # `finished` is emitted in the worker thread and the worker lives
+        # there, making that connection direct and running ~QObject inside the
+        # dying thread — where severing connections holds one of Qt's pooled
+        # signal/slot mutexes and PySide's disconnectNotify then blocks on the
+        # GIL, deadlocking the UI thread (D-062).
+        thread.finished.connect(window._on_video_thread_finished)
+
+    # Registered like every other job (D-107): named in the Tasks panel,
+    # watched for stalls, and abandoned in the ordinary way at shutdown. A
+    # wedged probe on a network share was the original reason `JobManager`
+    # exists, and this was the last caller still outside it.
+    window._run_job(worker, label=f"Loading video {path.name}{suffix}", configure=_wire)
 
 
 def set_video_coverage(

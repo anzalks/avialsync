@@ -15,5 +15,6 @@ finished.  Long work is never modal.
 from avialsync.ui.feedback.activity_bar import ActivityBar
 from avialsync.ui.feedback.jobs_panel import JobsPanel
 from avialsync.ui.feedback.notifications import NotificationStrip
+from avialsync.ui.feedback.text_dialog import TextDialog, show_text
 
-__all__ = ["ActivityBar", "JobsPanel", "NotificationStrip"]
+__all__ = ["ActivityBar", "JobsPanel", "NotificationStrip", "TextDialog", "show_text"]

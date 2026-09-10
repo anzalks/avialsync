@@ -15,6 +15,25 @@
 >   remaining 60 are f-strings, which `lupdate` cannot extract and which need
 >   restructuring rather than wrapping. `translatable_ratio` measures this
 >   rather than a docstring claiming it.
+>   **Superseded (D-107):** every extractable literal is now wrapped —
+>   `translatable_ratio` reads 100 %, up from 67.6 %, and its test gates on that
+>   rather than on a 60 % floor. 52 of the 59 that were left sat in one file and
+>   were the entire menu bar plus the five inspector tab names. WP-12's
+>   accessibility sweep was also only ever run once, from `MainWindow.__init__`
+>   against a window that is empty by definition, and reached none of the
+>   eleven dialog classes; it now runs on every source change and on `Show` for
+>   any dialog.
+>
+> **One further amendment, and the most important one (D-107).** This phase
+> built five feedback surfaces and wired the *new* subsystems onto them. It did
+> not migrate the pre-Phase-7 subsystems, so the application shipped two of
+> almost everything: two job systems, three outcome dialects, two error paths.
+> Every seam was visible to a user — exports that could not be cancelled, a
+> status line that contradicted itself, an unread failure evicted by the next
+> success. The plan has no work package for "and now delete the old one",
+> which is the gap worth naming: **a foundation is not laid until the callers
+> that predate it are moved onto it, and a written exit criterion with no test
+> behind it will not notice that they were not.**
 >
 > Three predictions written into this plan were contradicted by measurement
 > and the entries are amended: D-093's claim that the windowed video path

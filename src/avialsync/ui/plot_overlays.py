@@ -13,6 +13,7 @@ from PySide6.QtGui import QAction, QColor, QPalette
 from PySide6.QtWidgets import QMenu
 
 from avialsync.ui.annotations import AnnotationStore
+from avialsync.ui.i18n import tr
 from avialsync.ui.plot_row import ChannelPlot
 from avialsync.ui.plot_theme import gap_marker_pen, measure_pen
 
@@ -47,7 +48,7 @@ def show_context_menu(
     menu.addSeparator()
     measure_a = menu.addAction(f"Set Measure A  ({time:.3f} s)")
     measure_b = menu.addAction(f"Set Measure B  ({time:.3f} s)")
-    clear_measure = menu.addAction("Clear Measure")
+    clear_measure = menu.addAction(tr("Clear Measure"))
     menu.addSeparator()
     fit_y = menu.addAction(f"Fit {channel.name} Y (hold)")
     auto_y = menu.addAction(f"Auto-scale {channel.name} Y")

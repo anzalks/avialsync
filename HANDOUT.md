@@ -62,6 +62,18 @@ user-facing literals, the remainder being f-strings `lupdate` cannot extract (`t
 measures it). Kickoff prompts are in PROMPTS.md §Phase 7; the binding rules are AGENTS.md
 architecture rules 10–17 and DECISIONS D-087 … D-097.
 
+**Phase 7's surfaces are now actually used everywhere (D-107).** The phase built five feedback
+surfaces and wired the *new* subsystems onto them; the pre-Phase-7 ones kept their own machinery,
+so the application shipped two of almost everything. That is closed: every background job goes
+through `MainWindow._run_job`, `QMessageBox` is banned outside `ui/feedback/`, the notification
+strip queues instead of overwriting, commands grey out with a reason instead of refusing a click,
+and the accessibility sweep runs whenever widgets appear rather than once against an empty window.
+Two numbers moved with it — translatable literals 67.6 % → 100 % of what `lupdate` can extract, and
+the WP-12 figure quoted above (106 of 166) is superseded. Four new source-scanning tests make each
+of those a gate rather than a convention; the second half of the phase's own exit criterion ("no
+`QMessageBox` outside the presenter") had never been enforced and had drifted to nineteen call
+sites while the suite stayed green.
+
 Two product laws govern that phase and outrank convention:
 
 - **Law 1 — never block, always inform.** Opening a file is never refused or gated. The user is
@@ -456,7 +468,10 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera ROI metric ingest | `AOLVideoExtractionLoader` |
 | `ui/video_overlay.py` | Live pose overlay with named markers; resolves each point once for both painting and hit-testing (D-099) | `PaintCanvas`, `OverlayTrack`, `ResolvedPoint` |
 | `ui/point_edit_tool.py` | The "Fix Tracker" drag: hit test, grab, clamp, handles. `set_edit_mode()` makes markers draggable and emits `point_moved(PointMove)` — **it never writes the store itself** (D-099) | `PointEditMixin`, `point_at()`, `set_edit_mode()` |
-| `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown | `JobManager`, `Job`, `JobState` |
+| `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown. **Every job now actually goes through it** — the four export registries, the import, the proxy and the video probes were migrated in D-107, and a raw `QThread` in `src/` fails `tests/test_feedback_surface.py` | `JobManager`, `Job`, `JobState`; reached through `MainWindow._run_job` |
+| `ui/feedback/notifications.py` | One message shown, the rest queued behind it (D-107). A sticky message is never displaced; a transient success never holds up a failure. The waiting count is shown, so a queue is never silent | `NotificationStrip.show_success/show_warning/show_error()`, `clear()`, `clear_all()`, `pending_count` |
+| `ui/feedback/text_dialog.py` | The one modal for text the user asked to see — scrolling, selectable, copyable. Replaced five ad-hoc `QMessageBox`es that disagreed about both (D-107) | `TextDialog`, `show_text()` |
+| `ui/feedback/error_presenter.py` | Typed exception → title + cause + named recoveries. `ExportError` is the newest entry; the enumeration test fails if a `core/errors.py` type has no presenter | `present()`, `presentation_for()`, `PresentedError`, `Recovery` |
 | `ui/ui_heartbeat.py` | Measures UI-thread stalls and reports them | `UiHeartbeat` |
 | `engine/player.py` | Playback loop, seek coalescing, A/B. **`stop()` is teardown and halts the only tick that advances the clock; anything meaning "stop but stay usable" calls `reset()`** (D-104) | `set_playing()`, `seek()`, `start()`, `stop()`, `reset()` |
 | `engine/display_pipeline.py` | Windows the declared bit depth on the decode thread (WP-9, D-093). **`to_display_array` guarantees a C-contiguous array** — PyAV returns a strided view into a padded plane, which `QImage` cannot borrow (D-102) | `to_display_array()`, `probe_format()`, `build_lut()`, `DisplayLevels`, `SourceFormat` |
@@ -631,6 +646,44 @@ Verified against the tree, not inferred. Each has caused, or will cause, a wrong
    D-093). Related: `PyAVReader._store` caches `av.VideoFrame` *pre-conversion*, which is what makes
    a levels change a re-conversion rather than a re-decode — do not "optimise" it into caching
    converted output.
+
+### 0a-quater. Four surfaces that existed and were not used (D-107)
+
+Phase 7 built the feedback surfaces; the pre-Phase-7 subsystems were never moved onto them. Each of
+these looked done from the module that owned it and was wrong from the window.
+
+1. **`_run_job` is now the only way to start background work.** It was not before: the four
+   exports, the CSV import, the proxy builder and the video probes each kept a
+   `dict[QThread, object]` on `MainWindow`. Consequences, all user-visible — the Tasks panel listed
+   four of nine possible jobs, the activity area's Cancel drove `_active_cancel` which only two
+   callers ever set, and `JobManager`'s stall watchdog saw none of the unregistered ones. If you
+   are adding a worker, call `window._run_job(worker, label=..., configure=_wire)` and connect your
+   result signals **inside `configure`** — the thread is already running when it returns.
+   `tests/test_feedback_surface.py::test_every_background_job_is_registered` fails on a raw
+   `QThread`, with three named exceptions and their reasons.
+
+2. **Assign your own handle inside `configure`, never from the return value.** `import_controller`
+   gates its queue on `window._import_thread is not None`, and `video_controller` counts
+   `_video_load_jobs` against `MAX_VIDEO_PROBES`. Filling either from `_run_job`'s return value is a
+   race a fast job wins: it finishes, its `finished` handler clears the entry, and *then* the
+   assignment lands — leaving a stale handle that gates every later import forever, or a registry
+   that never fills so the probe limit is never reached. Both now assign inside `_wire`, which runs
+   before `thread.start()`.
+
+3. **`ast` column offsets are UTF-8 byte offsets, not character offsets.** This bit during the
+   `tr()` wrapping sweep: slicing a Python `str` by `col_offset`/`end_col_offset` is correct only
+   for pure-ASCII lines, and every menu label ending in `…` is not. The result is a replacement that
+   lands short and splits the line — `addAction(tr("Open Video(s)…")` on one line and `)` on the
+   next, twenty times, all of them syntax errors ruff reports as something else. Encode the line to
+   UTF-8, slice, and decode back, or match on text rather than offsets.
+
+4. **A widget sweep at construction time sweeps an empty window.** `apply_accessibility` ran once
+   from `MainWindow.__init__`, where there are no video panes, no plot rows, no source entries and
+   no quality badges, because the application starts empty. The test guarding it asserted
+   `apply_accessibility(window) == 0` on a fresh window, which is true whether the sweep works or
+   not — a second pass over nothing finds nothing. Anything that walks the widget tree has to run
+   again when the tree grows: `_sweep_accessibility` on every source change, and `ShowTimeSweeper`
+   on `Show` for dialogs, which do not exist until someone opens one.
 
 ### 0a-bis. Four ways a theme change silently fails to arrive (D-106)
 None of these raise. Each just leaves one surface on the previous appearance, which is

@@ -649,7 +649,7 @@ def rebuild_recent_menu(window: MainWindow) -> None:
     window._recent_menu.clear()
     recent = get_recent()
     if not recent:
-        act = window._recent_menu.addAction("(no recent files)")
+        act = window._recent_menu.addAction(tr("(no recent files)"))
         act.setEnabled(False)
         return
     for rpath in recent:

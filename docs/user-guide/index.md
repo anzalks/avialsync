@@ -19,6 +19,17 @@
   **Values**, **Messages** (prose the recording itself carries), **Changes** (everything you
   flagged, labelled, or corrected), and **Tasks** (what is loading, with a cancel where the work
   supports one — worth opening when something is taking longer than you expected).
+- **Tasks lists everything the application is doing** — imports, session saves and loads, proxy
+  builds, every export, and the metadata probe each video runs when it opens. A job that has gone
+  quiet for longer than it should is marked *not responding* rather than left looking busy, which
+  is the difference between slow and stuck.
+- **The line at the bottom of the window** is where results appear: a finished export, a generated
+  proxy, a file that could not be read. Successes clear themselves; anything you need to act on
+  stays until you dismiss it. If more than one arrives at once, a count beside the message says how
+  many are waiting and Dismiss brings up the next, so nothing is lost by being second. Failures
+  keep their technical detail behind **Show details**.
+- **A command that cannot run yet is greyed out, with the reason in its tooltip.** Nothing accepts
+  a click and then tells you it could not act on it.
 
 ## Where the detail lives
 

@@ -456,7 +456,13 @@ def test_a_window_with_nothing_loaded_captures_an_empty_figure(main_window) -> N
 def test_export_snapshot_reports_instead_of_asking_where_to_write_nothing(
     main_window, monkeypatch
 ) -> None:
-    """Never block, always inform (AGENTS rule 10): a status line, not a modal."""
+    """Never block, always inform (AGENTS rule 10): a message, not a modal.
+
+    The message moved from the transport status line to the notification strip
+    with D-107, so that every export -- this one included -- reports through one
+    surface instead of four. What must not change is that nothing asks the user
+    where to save a figure that has nothing in it.
+    """
     from avialsync.ui.controllers import export_controller
 
     class _NoDialog:
@@ -468,8 +474,8 @@ def test_export_snapshot_reports_instead_of_asking_where_to_write_nothing(
 
     export_controller.export_snapshot(main_window)
 
-    assert "Nothing to snapshot" in main_window.transport.status_text()
-    assert not main_window._snapshot_jobs
+    assert "nothing to snapshot" in main_window.notifications.message.lower()
+    assert main_window.notifications.is_sticky, "a warning must not fade before it is read"
 
 
 def test_the_subtitle_writes_the_time_the_transport_is_showing(main_window) -> None:
@@ -496,16 +502,21 @@ def test_the_subtitle_writes_the_time_the_transport_is_showing(main_window) -> N
 def _stub_window(pane, recorded: list, qtbot) -> SimpleNamespace:
     """The attributes `export_snapshot_for_pane` and the capture actually touch.
 
-    A real `Transport`, because the subtitle's time and the status line both
-    come from it; everything else the pane path reads is a plain value.
+    A real `Transport`, because the subtitle's time comes from it, and a real
+    `NotificationStrip`, because that is where an export says what happened
+    since D-107; everything else the pane path reads is a plain value.
     """
+    from avialsync.ui.feedback.notifications import NotificationStrip
     from avialsync.ui.transport import Transport
 
     transport = Transport()
     qtbot.addWidget(transport)
+    notifications = NotificationStrip()
+    qtbot.addWidget(notifications)
     return SimpleNamespace(
         video_grid=SimpleNamespace(_paths=["camera_1.mp4"], panes=[pane]),
         transport=transport,
+        notifications=notifications,
         clock=SimpleNamespace(state=SimpleNamespace(t=1.0)),
         plot_pane=SimpleNamespace(channels=[]),
         _session_path=None,
@@ -556,7 +567,7 @@ def test_a_pane_with_no_drawable_surface_reports_rather_than_writing_a_blank(
 ) -> None:
     """A pane with nothing to draw into has nothing to export; say so.
 
-    Never block, always inform (AGENTS rule 10): a status line, not a modal and
+    Never block, always inform (AGENTS rule 10): a message, not a modal and
     not a file containing only a header and a footer.
     """
     # No event loop turn between here and the assertions: a queued layout pass
@@ -579,7 +590,7 @@ def test_a_pane_with_no_drawable_surface_reports_rather_than_writing_a_blank(
     export_controller.export_snapshot_for_pane(window, "camera_1.mp4")
 
     assert recorded == []
-    assert "Nothing to snapshot" in window.transport.status_text()
+    assert "nothing to snapshot" in window.notifications.message.lower()
 
 
 # ── failures reach the user as a signal, never as a traceback ────────

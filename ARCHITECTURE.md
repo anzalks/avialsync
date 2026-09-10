@@ -265,6 +265,54 @@ encodings remain plugins.
   update, so a slow paint cannot create an unbounded Qt event backlog.
 - Proxy generation: QProcess (ffmpeg), non-blocking, progress parsed from stderr.
 
+### Background-job ownership (D-107)
+
+**One registry.** Every background job is started through `MainWindow._run_job`, which delegates to
+`ui/job_manager.py`. That registration is not bookkeeping — it is what gives a job its label in the
+Tasks panel, its entry in the stall watchdog that distinguishes "slow" from "stuck", and its
+orderly abandonment when the window closes so that a wedged worker on a network share can never
+hold the application open.
+
+`JobManager.start` owns the `QThread`, connects `started → run`, quits the thread on
+`finished`/`error`/`cancelled`, and forwards `progress`/`finished`/`error` to the watchdog. Callers
+connect their own result signals inside the `configure` callback, which runs **before** the thread
+starts; connecting after `_run_job` returns is a race a fast worker wins, and the user is then never
+told the job finished.
+
+Three files construct a `QThread` directly, each for a stated reason, and
+`tests/test_feedback_surface.py` fails on a fourth:
+
+| File | Why it is not a job |
+|---|---|
+| `ui/video_pane.py` | A per-pane decode thread, created with the pane and living as long as it. It has no completion to report; `VideoGrid.shutdown()` stops it, in the order the D-062 notes in that file pin. |
+| `ui/sync_wizard.py` | Owned by a modal the user explicitly opened, which is its own progress and cancel surface — the case AGENTS rule 11 permits. It cannot outlive its dialog. |
+| `demo.py` | The same, for demo generation. |
+
+**One feedback surface.** `ui/feedback/` is the only package allowed to raise something modal, and
+`QMessageBox` is banned from `src/` outside it. What reports what:
+
+- **Activity area** (`feedback/activity_bar.py`) — the job in front of the user right now, with an
+  ETA and Cancel.
+- **Tasks panel** (`feedback/jobs_panel.py`) — everything `JobManager` owns, refreshed on both
+  branches of `_on_jobs_changed`, including the branch where nothing is running (otherwise the last
+  job to finish stays listed until the next one starts).
+- **Notification strip** (`feedback/notifications.py`) — outcomes, queued. One message shows and the
+  rest wait: a sticky message is never displaced, and a transient success never holds up a failure.
+  The recovery offer lives here and is posted from exactly one call site, which is why losing a
+  message to an unconditional replace was losing the user's route back to unsaved work.
+- **Error presenter** (`feedback/error_presenter.py`) — typed exceptions from `core/errors.py`
+  become title, plain-language cause, and named recovery actions, with the raw text behind "Show
+  details".
+- **Text dialog** (`feedback/text_dialog.py`) — the one modal for text the user asked to see:
+  Show details, Diagnostics, About, the citation. Scrolls, selects, copies.
+
+**Action availability** is derived, not asserted. `MainWindow._require` pairs a `QAction` with the
+question that answers whether it can run and the reason it cannot; `_refresh_action_availability`
+re-answers all of them on the events that change what is loaded, and again on `aboutToShow`, so a
+command reached by shortcut or through the command palette is as correctly enabled as one reached
+by opening its menu. The reason becomes the tooltip while the action is greyed — greying alone
+moves the dead end earlier rather than removing it.
+
 ### Appearance boundary
 
 `ui/theme.py` is the single authority for what a colour *means*: Qt palette roles, the

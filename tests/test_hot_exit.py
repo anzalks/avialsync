@@ -361,15 +361,41 @@ def test_the_offer_names_when_the_work_is_from(main_window, isolated_recovery_di
 def test_a_message_without_an_action_does_not_inherit_the_last_one(
     main_window, isolated_recovery_dir
 ):
-    """The button is one widget reused by every message posted to the strip."""
+    """The button is one widget reused by every message posted to the strip.
+
+    Since D-107 a later message no longer displaces the offer -- it queues
+    behind it -- so the inheritance this guards against can only happen when
+    the queued message is promoted. That is the moment to check.
+    """
     recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
     session_controller.offer_pending_recovery(main_window)
     assert main_window.notifications.action_button.isVisible()
 
     main_window.notifications.show_error("Something else failed")
+    main_window.notifications.clear()
 
+    assert main_window.notifications.message == "Something else failed"
     assert main_window.notifications.action_button.isVisible() is False
     assert main_window.notifications.action_label == ""
+
+
+def test_a_later_failure_does_not_evict_the_offer(main_window, isolated_recovery_dir):
+    """The offer is the only in-session route back to unsaved work (D-107).
+
+    It is posted once, at startup, from a single call site. Before the strip
+    queued, any plugin error or autoload notice landing behind it replaced it,
+    and the work stayed on disk with nothing left in the interface pointing at
+    it. Losing a *message* is a nuisance; losing this one is losing the work.
+    """
+    recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
+    session_controller.offer_pending_recovery(main_window)
+
+    main_window.notifications.show_error("A plugin failed to load")
+    main_window.notifications.show_success("Imported sensor.csv")
+
+    assert main_window.notifications.action_label == "Restore"
+    assert "Unsaved work from" in main_window.notifications.message
+    assert main_window.notifications.pending_count == 2
 
 
 def test_constructing_the_window_is_what_makes_the_offer(qapp, qtbot, isolated_recovery_dir):

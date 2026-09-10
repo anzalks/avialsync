@@ -1,10 +1,31 @@
-"""Snapshot, data-slice, video-clip, annotation, and A/B region-statistics export.
+"""Snapshot, data-slice, video-clip, and A/B region-statistics export.
 
 Every job here hands immutable captures or worker-safe reader references to a
-background thread and reports the outcome through the transport status line.
-The ``_on_*_thread_finished`` handlers rely on ``window.sender()``: the slot Qt
-invokes is the window's own method, so the window is the receiver whose sender
-is the finishing thread.
+background thread and reports the outcome through the feedback surface.
+
+**These four used to run outside :class:`~avialsync.ui.job_manager.JobManager`**
+(D-107).  Each kept its own ``dict[QThread, object]`` on the window, wired its
+own ``started``/``finished``/``error`` connections, reported progress by writing
+the transport status line directly, and announced its result in a raw
+``QMessageBox`` — a modal *on success*, for work the user had already been told
+was running.  Four consequences, all of them things the user met:
+
+* **Cancel did nothing.**  The activity area's cancel button drives
+  ``_active_cancel``, which only the CSV import and the proxy builder ever set,
+  so a running export offered no way to stop.
+* **A stall was invisible.**  ``JobManager``'s watchdog is what separates "slow"
+  from "stuck"; a wedged ffmpeg on a network share merely looked busy.
+* **The status line contradicted itself.**  ``_on_jobs_changed`` writes "Ready"
+  whenever the manager empties, so saving a session while an export ran wiped
+  the export's own status text.
+* **Neighbouring menu items behaved differently.**  Export Changes reported
+  through the notification strip while the three items under it in the same
+  menu raised modals, two of them on success.
+
+So they go through ``window._run_job`` like everything else, and say what
+happened through ``window.notifications``.  Failures go through
+``window.report_failure`` so a worker's raw text lands behind "Show details"
+rather than in the message itself (AGENTS rule 12).
 """
 
 from __future__ import annotations
@@ -14,10 +35,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog
 
+from avialsync.core.errors import ExportError
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.snapshot import SnapshotFigure
+from avialsync.ui.i18n import tr
 from avialsync.ui.snapshot_capture import capture_figure, capture_pane_figure
 
 if TYPE_CHECKING:
@@ -39,8 +62,17 @@ def reader_references(window: MainWindow) -> list[ReaderReference]:
     ]
 
 
+# ── A/B region statistics ────────────────────────────────────────────
+
+
 def start_region_stats(window: MainWindow, t0: float, t1: float) -> None:
-    """Calculate A/B statistics in a dedicated worker thread."""
+    """Calculate A/B statistics in a dedicated worker thread.
+
+    Registered like every other job even though it reports into the readout
+    rather than to the user: registration is what gives it an owner, a stall
+    watchdog, and an orderly abandonment at shutdown.  Superseded requests are
+    filtered by id on arrival, so several may legitimately be in flight.
+    """
     if t0 >= t1:
         window.readout_panel.clear_region_stats()
         return
@@ -49,24 +81,13 @@ def start_region_stats(window: MainWindow, t0: float, t1: float) -> None:
 
     window._region_stats_request += 1
     request_id = window._region_stats_request
-    thread = QThread(window)
     worker = RegionStatsWorker(request_id, window._reader_references(), t0, t1)
-    window._region_stats_jobs[thread] = worker
-    worker.moveToThread(thread)
-    thread.started.connect(worker.run)
-    worker.finished.connect(window._on_region_stats_finished)
-    worker.error.connect(window._on_region_stats_error)
-    worker.finished.connect(thread.quit)
-    worker.error.connect(thread.quit)
-    # No `worker.deleteLater` here: these signals are emitted in the
-    # worker thread, where the worker also lives, so the connection is
-    # direct and ~QObject runs inside that thread — severing connections
-    # while holding one of Qt's pooled signal/slot mutexes and then
-    # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-    # thread holding the GIL and waiting on a colliding mutex (D-062).
-    # The owning registry drops its reference on the UI thread instead.
-    thread.finished.connect(window._on_region_stats_thread_finished)
-    thread.start()
+
+    def _wire(thread: QThread) -> None:
+        worker.finished.connect(window._on_region_stats_finished)
+        worker.error.connect(window._on_region_stats_error)
+
+    window._run_job(worker, label=tr("Measuring the A/B region"), configure=_wire)
 
 
 def on_region_stats_finished(window: MainWindow, request_id: int, stats: object) -> None:
@@ -84,12 +105,7 @@ def on_region_stats_error(window: MainWindow, request_id: int, error: str) -> No
         window.readout_panel.clear_region_stats()
 
 
-def on_region_stats_thread_finished(window: MainWindow) -> None:
-    """Release ownership of a completed region-statistics worker."""
-    thread = window.sender()
-    if isinstance(thread, QThread):
-        window._region_stats_jobs.pop(thread, None)
-        thread.deleteLater()
+# ── Snapshot ─────────────────────────────────────────────────────────
 
 
 def export_snapshot_for_pane(window: MainWindow, path: str) -> None:
@@ -106,13 +122,15 @@ def export_snapshot_for_pane(window: MainWindow, path: str) -> None:
     pane = window.video_grid.panes[idx]
     figure = capture_pane_figure(window, pane, Path(path).name)
     if figure.is_empty:
-        window.transport.set_status(f"Nothing to snapshot in {Path(path).name}", "error")
+        window.notifications.show_warning(
+            tr("There is nothing to snapshot in {name} yet.").format(name=Path(path).name)
+        )
         return
     out_path, _ = QFileDialog.getSaveFileName(
         window,
-        f"Snapshot — {Path(path).name}",
+        tr("Snapshot — {name}").format(name=Path(path).name),
         f"snapshot_{Path(path).stem}.png",
-        "PNG Images (*.png)",
+        tr("PNG Images (*.png)"),
     )
     if not out_path:
         return
@@ -128,14 +146,16 @@ def export_snapshot(window: MainWindow) -> None:
     """
     figure = capture_figure(window)
     if figure.is_empty:
-        window.transport.set_status("Nothing to snapshot: load a video or a data file", "error")
+        window.notifications.show_warning(
+            tr("There is nothing to snapshot: load a video or a data file first.")
+        )
         return
 
     path, _ = QFileDialog.getSaveFileName(
         window,
-        "Export Snapshot",
+        tr("Export Snapshot"),
         "snapshot.png",
-        "PNG Images (*.png)",
+        tr("PNG Images (*.png)"),
     )
     if not path:
         return
@@ -147,53 +167,35 @@ def start_snapshot_export(window: MainWindow, figure: SnapshotFigure, path: Path
     """Hand an immutable captured figure to a background composer and encoder."""
     from avialsync.engine.export_worker import SnapshotWorker
 
-    thread = QThread(window)
     worker = SnapshotWorker(figure, path)
-    window._snapshot_jobs[thread] = worker
-    worker.moveToThread(thread)
-    thread.started.connect(worker.run)
-    worker.finished.connect(window._on_snapshot_finished)
-    worker.error.connect(window._on_snapshot_error)
-    worker.finished.connect(thread.quit)
-    worker.error.connect(thread.quit)
-    # No `worker.deleteLater` here: these signals are emitted in the
-    # worker thread, where the worker also lives, so the connection is
-    # direct and ~QObject runs inside that thread — severing connections
-    # while holding one of Qt's pooled signal/slot mutexes and then
-    # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-    # thread holding the GIL and waiting on a colliding mutex (D-062).
-    # The owning registry drops its reference on the UI thread instead.
-    thread.finished.connect(window._on_snapshot_thread_finished)
-    window.transport.set_status(f"Exporting snapshot: {path.name}", "busy")
-    thread.start()
+
+    def _wire(thread: QThread) -> None:
+        worker.finished.connect(window._on_snapshot_finished)
+        worker.error.connect(window._on_snapshot_error)
+
+    window._run_job(
+        worker,
+        label=tr("Exporting snapshot {name}").format(name=path.name),
+        configure=_wire,
+    )
 
 
 def on_snapshot_finished(window: MainWindow, path: str) -> None:
     """Report background snapshot completion on the UI thread."""
-    window.transport.set_status(f"Exported snapshot: {Path(path).name}")
+    window.notifications.show_success(tr("Snapshot saved: {name}").format(name=Path(path).name))
 
 
 def on_snapshot_error(window: MainWindow, error: str) -> None:
     """Report background snapshot failure on the UI thread."""
-    window.transport.set_status("Snapshot export failed", "error")
-    QMessageBox.critical(window, "Export Error", error)
+    window.report_failure(ExportError(error), doing=tr("The snapshot could not be saved"))
 
 
-def on_snapshot_thread_finished(window: MainWindow) -> None:
-    """Release ownership of a completed snapshot encoder."""
-    thread = window.sender()
-    if isinstance(thread, QThread):
-        window._snapshot_jobs.pop(thread, None)
-        thread.deleteLater()
+# ── Data slice ───────────────────────────────────────────────────────
 
 
 def export_data_slice(window: MainWindow) -> None:
     if not window.plot_pane.channels:
-        QMessageBox.information(
-            window,
-            "No Data",
-            "Load sensor data before exporting.",
-        )
+        window.notifications.show_warning(tr("Load sensor data before exporting a data slice."))
         return
 
     # Use A/B loop region if set, else full bounds
@@ -204,9 +206,9 @@ def export_data_slice(window: MainWindow) -> None:
 
     path, filt = QFileDialog.getSaveFileName(
         window,
-        "Export Data Slice",
+        tr("Export Data Slice"),
         "data_export.csv",
-        "CSV files (*.csv);;Parquet files (*.parquet)",
+        tr("CSV files (*.csv);;Parquet files (*.parquet)"),
     )
     if not path:
         return
@@ -218,58 +220,43 @@ def start_data_export(window: MainWindow, t0: float, t1: float, path: Path) -> N
     """Write a cached data slice on a worker thread."""
     from avialsync.engine.export_worker import DataExportWorker
 
-    thread = QThread(window)
     worker = DataExportWorker(window._reader_references(), t0, t1, path)
-    window._data_export_jobs[thread] = worker
-    worker.moveToThread(thread)
-    thread.started.connect(worker.run)
-    worker.finished.connect(window._on_data_export_finished)
-    worker.error.connect(window._on_data_export_error)
-    worker.finished.connect(thread.quit)
-    worker.error.connect(thread.quit)
-    # No `worker.deleteLater` here: these signals are emitted in the
-    # worker thread, where the worker also lives, so the connection is
-    # direct and ~QObject runs inside that thread — severing connections
-    # while holding one of Qt's pooled signal/slot mutexes and then
-    # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-    # thread holding the GIL and waiting on a colliding mutex (D-062).
-    # The owning registry drops its reference on the UI thread instead.
-    thread.finished.connect(window._on_data_export_thread_finished)
-    window.transport.set_status(f"Exporting data: {path.name}", "busy")
-    thread.start()
+
+    def _wire(thread: QThread) -> None:
+        worker.finished.connect(window._on_data_export_finished)
+        worker.error.connect(window._on_data_export_error)
+
+    window._run_job(
+        worker,
+        label=tr("Exporting data to {name}").format(name=path.name),
+        configure=_wire,
+    )
 
 
 def on_data_export_finished(window: MainWindow, path: str) -> None:
     """Report a completed data export on the UI thread."""
-    window.transport.set_status(f"Exported data: {Path(path).name}")
-    QMessageBox.information(window, "Export Complete", f"Data exported to:\n{path}")
+    window.notifications.show_success(tr("Data exported to {name}").format(name=Path(path).name))
 
 
 def on_data_export_error(window: MainWindow, error: str) -> None:
     """Show a worker-side export failure on the UI thread."""
-    window.transport.set_status("Data export failed", "error")
-    QMessageBox.critical(window, "Export Error", error)
+    window.report_failure(ExportError(error), doing=tr("The data slice could not be written"))
 
 
-def on_data_export_thread_finished(window: MainWindow) -> None:
-    """Release ownership of a completed data-export worker."""
-    thread = window.sender()
-    if isinstance(thread, QThread):
-        window._data_export_jobs.pop(thread, None)
-        thread.deleteLater()
+# ── Video clip ───────────────────────────────────────────────────────
 
 
 def export_video_clip(window: MainWindow) -> None:
     """Export a trimmed video clip for all loaded videos based on A/B loop."""
     if not window.video_grid._paths:
-        QMessageBox.warning(window, "Export", "No videos are loaded.")
+        window.notifications.show_warning(tr("Load a video before exporting a clip."))
         return
 
     t0 = window.transport._ab_in_t
     t1 = window.transport._ab_out_t
     if t0 is None or t1 is None:
-        QMessageBox.warning(
-            window, "Export Error", "Please set an A/B loop first ([ and ] buttons)."
+        window.notifications.show_warning(
+            tr("Set an A/B loop first — the [ and ] buttons mark where a clip starts and ends.")
         )
         return
 
@@ -278,13 +265,18 @@ def export_video_clip(window: MainWindow) -> None:
 
     if len(window.video_grid._paths) == 1:
         path, _ = QFileDialog.getSaveFileName(
-            window, "Export Trimmed Video", "", "Video files (*.mp4 *.mkv *.mov *.avi)"
+            window,
+            tr("Export Trimmed Video"),
+            "",
+            tr("Video files (*.mp4 *.mkv *.mov *.avi)"),
         )
         if not path:
             return
         clips = [(window.video_grid._paths[0], t0, t1, Path(path))]
     else:
-        dir_path = QFileDialog.getExistingDirectory(window, "Select Directory for Trimmed Clips")
+        dir_path = QFileDialog.getExistingDirectory(
+            window, tr("Select Directory for Trimmed Clips")
+        )
         if not dir_path:
             return
 
@@ -307,46 +299,30 @@ def start_video_clip_export(
     """Run ffmpeg trim work in a worker thread."""
     from avialsync.engine.export_worker import VideoClipWorker
 
-    thread = QThread(window)
     worker = VideoClipWorker(clips)
-    window._video_clip_jobs[thread] = worker
-    worker.moveToThread(thread)
-    thread.started.connect(worker.run)
-    worker.finished.connect(window._on_video_clip_finished)
-    worker.error.connect(window._on_video_clip_error)
-    worker.finished.connect(thread.quit)
-    worker.error.connect(thread.quit)
-    # No `worker.deleteLater` here: these signals are emitted in the
-    # worker thread, where the worker also lives, so the connection is
-    # direct and ~QObject runs inside that thread — severing connections
-    # while holding one of Qt's pooled signal/slot mutexes and then
-    # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-    # thread holding the GIL and waiting on a colliding mutex (D-062).
-    # The owning registry drops its reference on the UI thread instead.
-    thread.finished.connect(window._on_video_clip_thread_finished)
-    window.transport.set_status("Exporting video clip", "busy")
-    thread.start()
+
+    def _wire(thread: QThread) -> None:
+        worker.finished.connect(window._on_video_clip_finished)
+        worker.error.connect(window._on_video_clip_error)
+
+    label = (
+        tr("Exporting 1 video clip")
+        if len(clips) == 1
+        else tr("Exporting {count} video clips").format(count=len(clips))
+    )
+    window._run_job(worker, label=label, configure=_wire)
 
 
 def on_video_clip_finished(window: MainWindow, successful: int, total: int) -> None:
     """Show ffmpeg trim results once all worker jobs finish."""
     if successful == total:
-        window.transport.set_status("Video clip export complete")
-        QMessageBox.information(window, "Export Complete", f"Exported {successful} clips.")
+        window.notifications.show_success(tr("Exported {count} clips.").format(count=successful))
     else:
-        window.transport.set_status("Video clip export incomplete", "error")
-        QMessageBox.warning(window, "Export Incomplete", f"Exported {successful} of {total} clips.")
+        window.notifications.show_warning(
+            tr("Exported {done} of {total} clips.").format(done=successful, total=total)
+        )
 
 
 def on_video_clip_error(window: MainWindow, error: str) -> None:
     """Show an ffmpeg worker failure on the UI thread."""
-    window.transport.set_status("Video clip export failed", "error")
-    QMessageBox.critical(window, "Export Failed", error)
-
-
-def on_video_clip_thread_finished(window: MainWindow) -> None:
-    """Release ownership of a completed ffmpeg worker."""
-    thread = window.sender()
-    if isinstance(thread, QThread):
-        window._video_clip_jobs.pop(thread, None)
-        thread.deleteLater()
+    window.report_failure(ExportError(error), doing=tr("The clip could not be exported"))

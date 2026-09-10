@@ -361,6 +361,85 @@ def test_the_scrub_benchmark_measures_one_backend() -> None:
     assert "find_library" not in instructions
 
 
+def test_no_benchmark_runs_on_ci() -> None:
+    """Benchmarks stay off the runners, and stay findable when they are wanted.
+
+    ``--ignore=tests/benchmarks`` on the test command is half of it, and
+    ``TEST_COMMAND`` above already pins that in both workflows. The other half
+    is that the directory keeps being the whole of the benchmark suite: a
+    ``test_bench_*.py`` written next to the ordinary tests would be collected
+    and timed on every push, on a shared runner, where the number means nothing
+    and the minutes are real.
+
+    Budgets are measured locally against BLUEPRINT.md's table, with
+    ``pytest --benchmark-only``. CI answers "is it correct"; a laptop that is
+    not sharing a core with three other jobs answers "is it fast".
+    """
+    stray = sorted(
+        path.as_posix()
+        for path in Path("tests").glob("test_bench_*.py")
+        if path.parent.name != "benchmarks"
+    )
+    assert stray == [], f"benchmarks belong in tests/benchmarks, which CI ignores: {stray}"
+
+    for workflow_path in WORKFLOW_PATHS:
+        workflow = workflow_path.read_text(encoding="utf-8")
+        instructions = "\n".join(
+            line for line in workflow.splitlines() if not line.strip().startswith("#")
+        )
+        assert "--benchmark-only" not in instructions, (
+            f"{workflow_path} would run the benchmark suite on a shared runner"
+        )
+        assert "--benchmark-enable" not in instructions
+
+
+def test_ci_starts_its_jobs_without_queueing_behind_lint() -> None:
+    """CI's wall clock is the slowest job, not lint plus the slowest job.
+
+    ``needs: lint-type`` on the test and docs jobs made every run pay for the
+    lint job's install and execution before anything else began. It saves
+    runner minutes on a red lint, and costs wall-clock time on every green one;
+    for a suite that already stops at the first failure and cancels superseded
+    runs, the trade is the wrong way round.
+
+    Release is different and stays gated: ``verify_release_ref`` is a
+    correctness gate on what is being built, not a cheap-signal-first
+    optimisation, so this only looks at CI.
+    """
+    workflow = yaml.safe_load(Path(".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    for name in ("test", "docs"):
+        assert "needs" not in workflow["jobs"][name], (
+            f"the {name} job should start with the others, not queue behind lint"
+        )
+
+
+def test_ci_covers_every_platform_and_interpreter_in_fewer_jobs() -> None:
+    """The trimmed matrix must not quietly drop a platform or an interpreter.
+
+    Two of the six combinations are excluded so a push costs four jobs instead
+    of six. That is only acceptable while the union still covers everything:
+    three operating systems, two Python versions. This is what fails if a later
+    edit excludes, say, Windows entirely and leaves the count looking the same.
+    """
+    workflow = yaml.safe_load(Path(".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    matrix = workflow["jobs"]["test"]["strategy"]["matrix"]
+    excluded = {(entry["os"], entry["python-version"]) for entry in matrix.get("exclude", [])}
+    combinations = {
+        (os_name, version)
+        for os_name in matrix["os"]
+        for version in matrix["python-version"]
+        if (os_name, version) not in excluded
+    }
+
+    assert {os_name for os_name, _ in combinations} == set(matrix["os"]), (
+        "every operating system must still be tested on some interpreter"
+    )
+    assert {version for _, version in combinations} == set(matrix["python-version"]), (
+        "every interpreter must still be tested on some operating system"
+    )
+    assert len(combinations) == 4, f"expected four jobs, got {sorted(combinations)}"
+
+
 def test_every_committed_git_hook_carries_its_executable_bit() -> None:
     """A hook without the mode bit is skipped, and it is skipped silently enough.
 

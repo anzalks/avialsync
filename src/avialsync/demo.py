@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QTextEdit,
@@ -24,7 +23,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.core.errors import SourceOpenError
 from avialsync.engine.transcode import TranscodeCancelled, encode_video
+from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -476,7 +477,7 @@ class DemoProgressDialog(QDialog):
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Preparing AvialSync Demo")
+        self.setWindowTitle(tr("Preparing AvialSync Demo"))
         # Not modal (D-091). Demo generation encodes four videos and can take
         # minutes; the log below is worth watching, and the window behind it
         # stays usable meanwhile.
@@ -572,8 +573,16 @@ class DemoLaunch(QObject):
 
     @Slot(str)
     def _on_failed(self, message: str) -> None:
-        """Surface the failed command's diagnostic text to the user."""
+        """Surface the failed command's diagnostic text to the user.
+
+        Through the window's one failure route (D-107), so the demo reports
+        like everything else: a title in the user's terms, a plain-language
+        cause, and the command's raw diagnostic text behind Show details rather
+        than in the message itself (AGENTS rule 12).
+        """
         self._dialog.close()
         if message == "Demo preparation was cancelled.":
             return
-        QMessageBox.critical(self._window, "Demo Preparation Failed", message)
+        self._window.report_failure(
+            SourceOpenError(message), doing=tr("The demo could not be prepared")
+        )

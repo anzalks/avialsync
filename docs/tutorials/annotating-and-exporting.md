@@ -56,6 +56,18 @@ cannot offer different things. It lists only the recordings that actually have s
 and nothing is written until you choose it. [Correcting a tracked
 point](../user-guide/index.md#correcting-a-tracked-point) covers the pose outputs in full.
 
+**An export that has nothing to work on is greyed out, and says why.** Export Data Slice needs
+loaded signals, Export Trimmed Video Clip needs a video and a marked A/B range, Export Snapshot
+needs something on screen. Hover a greyed item and its tooltip names what is missing, so you find
+out before you commit to the gesture rather than after.
+
+**Exports run in the background and report when they finish.** Each one appears in the **Tasks**
+tab beside the sidebar while it runs, with a Cancel in the status area, and the result arrives as a
+line at the bottom of the window rather than a dialog you have to dismiss. If several finish at
+once they queue: one message shows, a count beside it says how many are waiting, and Dismiss brings
+up the next. A failure stays until you dismiss it and keeps the technical detail behind **Show
+details**, ready to paste into a bug report.
+
 **A snapshot is composed, not grabbed.** Every displayed camera goes in at the resolution it decoded
 at, with the 3D pose and the whole channel stack including rows you would have to scroll to reach —
 so nothing is cut off at a pane edge, and each camera is captioned with its own frame number,
