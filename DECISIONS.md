@@ -4054,9 +4054,30 @@ the remembered state nobody declared than the preference somebody did. `translat
 it; f-strings remain unextractable by `lupdate` and are excluded by construction, so 100 % means
 "every literal that could be wrapped is", not "fully translated".
 
-CI drops from six matrix jobs to four by excluding Python 3.11 on macOS and Windows — every OS and
-both interpreters are still covered, and `test_ci_platform_config.py` fails if a later edit breaks
-that union — runs the fixture determinism check once on Linux rather than on all three platforms as
+CI runs the fixture determinism check once on Linux rather than on all three platforms as
 release.yml already did, and starts its three job groups together instead of queueing them behind
 lint. Benchmarks were already excluded by `--ignore=tests/benchmarks`; that is now pinned from both
 ends, with a test that also fails if a `test_bench_*.py` appears outside `tests/benchmarks`.
+
+**Amended — the matrix trim is reverted.** This decision originally also dropped CI from six matrix
+jobs to four, excluding Python 3.11 on macOS and Windows, on the reasoning that a pure-Python
+version difference does not depend on the operating system. Both halves of that were wrong, and the
+first run under the new configuration is what showed it.
+
+*It bought nothing.* Matrix jobs are concurrent: on run #188 all six jobs started within five
+seconds of each other and the run took 6m17s, bounded entirely by the slowest (Windows, 6m13s).
+Excluding two saved runner minutes — free on a public repository — and no wall-clock time, which is
+the only thing the change was made to save. The real savings came from the other two edits, and one
+of them is visible in that same run: the docs job finished at 12:09:53 while lint ran until
+12:10:15, which under the old `needs:` ordering it could not have started.
+
+*It dropped exactly the wrong two.* `release.yml` builds the PyInstaller bundle for every platform
+on **3.11**, so 3.11 is the interpreter inside every shipped `.exe`, `.dmg` and `.AppImage`. The
+excluded combinations were the shipping runtime on macOS and Windows — the last place to leave
+untested on push. `test_ci_tests_the_interpreter_the_installers_ship` now reads the bundle job's own
+Python version and asserts CI covers it on every platform, so the two files cannot drift apart
+again.
+
+The general lesson is the one this whole decision is about: **a saving that was not measured is a
+guess**, and this one was made in the same change that added tests specifically because written
+rules without measurement had been drifting for a whole phase.

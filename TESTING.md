@@ -233,15 +233,29 @@ suite is the slowest thing in the tree. Budgets are measured locally against BLU
 with `pytest --benchmark-only`, as §4 describes. CI answers "is it correct"; your own machine
 answers "is it fast".
 
-**Per push, on every branch — four test jobs, not six.** Three OS × two Python versions is six
-combinations; Python 3.11 on macOS and Windows is excluded, so every operating system and both
-interpreters are still covered while a push costs four jobs. A pure-Python version difference does
-not depend on the OS, and an OS difference is caught on 3.12 where macOS and Windows still run.
-`test_ci_platform_config.py` fails if a later edit breaks that union rather than merely the count.
-Each job runs ruff, mypy (both passes, in the separate lint job), and the unit + GUI suite
-offscreen. The fixture determinism check runs once, on Linux, matching what release.yml already
-did. ffmpeg is installed via apt/brew/choco — it encodes the fixtures; nothing decodes with it
-(D-075). The three job groups start together rather than queueing behind lint.
+**Per push, on every branch — the full 3 OS × 2 Python matrix.** Six test jobs, and
+`test_ci_platform_config.py::test_ci_tests_the_interpreter_the_installers_ship` fails if an
+`exclude` reappears.
+
+Two combinations were excluded for one commit — 3.11 on macOS and Windows — and it was a mistake
+worth recording, because the reasoning sounds right:
+
+- **It saved no time.** Matrix jobs are concurrent. Measured on run #188, all six jobs started
+  within five seconds of each other and the run took 6m17s, bounded entirely by the slowest
+  (Windows, 6m13s). Excluding two saved runner minutes and no wall clock. *Wall clock is the thing
+  worth optimising; runner minutes are free on a public repository.*
+- **It dropped exactly the wrong two.** `release.yml` builds the PyInstaller bundle for every
+  platform on **Python 3.11**, so 3.11 is the interpreter inside every shipped `.exe`, `.dmg` and
+  `.AppImage`. The excluded combinations were the shipping runtime on macOS and Windows.
+
+The test now reads the bundle job's own Python version, so if the installers ever move to a
+different interpreter it fails until CI follows.
+
+The wall-clock savings in this workflow come from the two changes that actually cost time: the
+three job groups start together rather than queueing behind lint, and the fixture determinism check
+runs once on Linux rather than on all three platforms (matching what release.yml already did). Each
+job runs the unit + GUI suite offscreen; ruff and both mypy passes run once in the lint job. ffmpeg
+is installed via apt/brew/choco — it encodes the fixtures; nothing decodes with it (D-075).
 
 Release tag: the **full** six-job matrix with `fail-fast: false`, plus wheel, sdist, PyInstaller
 bundles, attach to release, publish PyPI. Thoroughness beats latency on the run that ships.

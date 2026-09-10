@@ -72,19 +72,31 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2022]
         python-version: ["3.11", "3.12"]
-        # Six combinations, four of them run. Every OS is still tested and both
-        # interpreters are still tested; what is dropped is the second
-        # interpreter on the two platforms where the queue is slowest and the
-        # setup most expensive. A pure-Python version difference does not
-        # depend on the OS -- if 3.11 breaks, Linux says so -- while an OS
-        # difference is what macOS and Windows are here to catch, and they
-        # still catch it on 3.12. The release workflow keeps all six, because
-        # that is the run where thoroughness beats latency.
-        exclude:
-          - os: macos-15
-            python-version: "3.11"
-          - os: windows-2022
-            python-version: "3.11"
+        # All six combinations run. Two were excluded for one commit -- 3.11 on
+        # macOS and Windows -- on the theory that a pure-Python version
+        # difference does not depend on the OS. Two things were wrong with it.
+        #
+        # It bought nothing. Measured on run #188, every job started within
+        # five seconds of every other and the run took 6m17s, bounded entirely
+        # by the slowest job (Windows, 6m13s). Matrix jobs are concurrent, so
+        # dropping two saved runner minutes and no wall-clock time at all, and
+        # wall clock is the thing worth optimising.
+        #
+        # And it dropped exactly the wrong two. `release.yml` freezes the
+        # bundle for every platform on **3.11**, so the interpreter inside
+        # every shipped .exe, .dmg and .AppImage is 3.11 -- on macOS and
+        # Windows, the two combinations that had been excluded. Untested on
+        # push is the wrong status for the runtime users actually get.
+        #
+        # (Naming the bundler here would trip the guard in
+        # `tests/test_packaging_smoke.py` that keeps CI from building
+        # installers. That check is a blunt substring match on this file, and
+        # it is worth more as blunt insurance than as prose I can quote in.)
+        #
+        # The wall-clock savings in this file come from the two changes that
+        # actually cost time: the job groups no longer queue behind lint, and
+        # the fixture determinism check runs once rather than on all three
+        # platforms.
     steps:
       - uses: actions/checkout@v5
       

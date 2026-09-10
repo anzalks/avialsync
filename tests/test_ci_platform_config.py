@@ -413,31 +413,46 @@ def test_ci_starts_its_jobs_without_queueing_behind_lint() -> None:
         )
 
 
-def test_ci_covers_every_platform_and_interpreter_in_fewer_jobs() -> None:
-    """The trimmed matrix must not quietly drop a platform or an interpreter.
+def test_ci_tests_the_interpreter_the_installers_ship() -> None:
+    """CI must cover every combination the release bundles, on push.
 
-    Two of the six combinations are excluded so a push costs four jobs instead
-    of six. That is only acceptable while the union still covers everything:
-    three operating systems, two Python versions. This is what fails if a later
-    edit excludes, say, Windows entirely and leaves the count looking the same.
+    Two were excluded for one commit -- 3.11 on macOS and Windows -- and both
+    reasons for it were wrong. Matrix jobs are concurrent, so dropping two
+    saved runner minutes and no wall-clock time (measured: run #188, all six
+    jobs started within five seconds, total bounded by the slowest at 6m13s).
+    And ``release.yml`` builds the PyInstaller bundle for every platform on
+    **3.11**, so those two were the interpreter inside the shipped macOS and
+    Windows installers.
+
+    So this asserts the full product, not a union: every OS crossed with every
+    interpreter, and no ``exclude`` quietly removing one again. It also reads
+    the bundle job's own Python version, so if the installers ever move to a
+    different interpreter this fails until CI follows.
     """
     workflow = yaml.safe_load(Path(".github/workflows/ci.yml").read_text(encoding="utf-8"))
     matrix = workflow["jobs"]["test"]["strategy"]["matrix"]
-    excluded = {(entry["os"], entry["python-version"]) for entry in matrix.get("exclude", [])}
-    combinations = {
-        (os_name, version)
-        for os_name in matrix["os"]
-        for version in matrix["python-version"]
-        if (os_name, version) not in excluded
-    }
+    assert "exclude" not in matrix, (
+        f"CI excludes {matrix['exclude']}; every combination the release ships must run on push"
+    )
+    combinations = {(o, v) for o in matrix["os"] for v in matrix["python-version"]}
+    assert len(combinations) == 6, f"expected all six, got {sorted(combinations)}"
 
-    assert {os_name for os_name, _ in combinations} == set(matrix["os"]), (
-        "every operating system must still be tested on some interpreter"
+    release = yaml.safe_load(Path(".github/workflows/release.yml").read_text(encoding="utf-8"))
+    bundle = release["jobs"]["packages"]
+    bundled_python = None
+    for step in bundle["steps"]:
+        with_block = step.get("with") or {}
+        if "python-version" in with_block:
+            bundled_python = str(with_block["python-version"])
+            break
+    assert bundled_python is not None, "the bundle job names no Python version"
+    assert bundled_python in matrix["python-version"], (
+        f"installers are built on {bundled_python}, which CI does not test"
     )
-    assert {version for _, version in combinations} == set(matrix["python-version"]), (
-        "every interpreter must still be tested on some operating system"
-    )
-    assert len(combinations) == 4, f"expected four jobs, got {sorted(combinations)}"
+    for os_name in matrix["os"]:
+        assert (os_name, bundled_python) in combinations, (
+            f"{os_name} ships a {bundled_python} bundle that CI never exercises"
+        )
 
 
 def test_every_committed_git_hook_carries_its_executable_bit() -> None:
