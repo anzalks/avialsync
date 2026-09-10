@@ -9,6 +9,7 @@ made the whole window unusable for a minute.
 from __future__ import annotations
 
 import pytest
+from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
@@ -315,6 +316,48 @@ def test_the_window_has_a_feedback_surface(window: MainWindow) -> None:
 def test_a_tasks_tab_exists(window: MainWindow) -> None:
     titles = [window._left_tabs.tabText(i) for i in range(window._left_tabs.count())]
     assert "Tasks" in titles
+
+
+def test_the_tasks_panel_empties_when_the_last_job_finishes(window: MainWindow) -> None:
+    """An idle application must not still be showing work (D-107).
+
+    ``_on_jobs_changed`` refreshed the panel only on the branch where a job was
+    running: the "nothing running" branch set the status to Ready and returned
+    *before* the refresh. So the last job to finish stayed listed until some
+    later job happened to start, and a window that had been idle for minutes
+    claimed an export was in progress.
+
+    Driven through `_on_jobs_changed` rather than through a real worker, because
+    the defect is in that function's control flow and a real job would make the
+    test a race about when the thread ends.
+    """
+    window.jobs_panel.refresh([("Exporting data to slice.csv", "running", 2.0)])
+    assert window.jobs_panel.row_count == 1, "the fixture must actually show a job"
+
+    # The manager is empty -- nothing was ever registered on this window -- so
+    # this is exactly the branch that used to return early.
+    window._on_jobs_changed()
+
+    assert window.jobs_panel.row_count == 0, "a finished job is still listed as running"
+    assert window.transport.status_text() == "Ready"
+
+
+def test_a_running_job_reaches_both_the_status_line_and_the_panel(window: MainWindow) -> None:
+    """The other branch still does what it always did."""
+    window._job_manager.start("Exporting snapshot cam1.png", _SilentWorker())
+    try:
+        window._on_jobs_changed()
+        assert window.jobs_panel.row_count == 1
+        assert "Exporting snapshot" in window.transport.status_text()
+    finally:
+        window._job_manager.shutdown()
+
+
+class _SilentWorker(QObject):
+    """A worker that never finishes on its own, so the job stays registered."""
+
+    def run(self) -> None:  # pragma: no cover - the thread is torn down first
+        pass
 
 
 def test_cancel_stops_the_active_task(window: MainWindow) -> None:
