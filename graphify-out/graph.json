@@ -520,7 +520,7 @@
       "ecosystem": "python",
       "source_file": "pyproject.toml",
       "source_location": "L1",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "_origin": "ast"
     },
     {
