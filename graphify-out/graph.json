@@ -41668,8 +41668,8 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_test_ci_covers_every_platform_and_interpreter_in_fewer_jobs",
-      "label": "test_ci_covers_every_platform_and_interpreter_in_fewer_jobs()",
+      "id": "tests_test_ci_platform_config_test_ci_tests_the_interpreter_the_installers_ship",
+      "label": "test_ci_tests_the_interpreter_the_installers_ship()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
       "source_location": "L416",
@@ -41681,7 +41681,7 @@
       "label": "test_every_committed_git_hook_carries_its_executable_bit()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L443",
+      "source_location": "L458",
       "_callable": true,
       "_origin": "ast"
     },
@@ -41839,18 +41839,18 @@
     },
     {
       "id": "tests_test_ci_platform_config_rationale_417",
-      "label": "The trimmed matrix must not quietly drop a platform or an interpreter. Two of…",
+      "label": "CI must cover every combination the release bundles, on push. Two were excluded…",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
       "source_location": "L417",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_444",
+      "id": "tests_test_ci_platform_config_rationale_459",
       "label": "A hook without the mode bit is skipped, and it is skipped silently enough.…",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L444",
+      "source_location": "L459",
       "_origin": "ast"
     },
     {
@@ -74706,7 +74706,7 @@
       "label": "9. Conformance gates (source-scanning tests)",
       "file_type": "document",
       "source_file": "TESTING.md",
-      "source_location": "L249",
+      "source_location": "L263",
       "_origin": "ast"
     },
     {
@@ -167100,7 +167100,7 @@
     },
     {
       "source": "tests_test_ci_platform_config",
-      "target": "tests_test_ci_platform_config_test_ci_covers_every_platform_and_interpreter_in_fewer_jobs",
+      "target": "tests_test_ci_platform_config_test_ci_tests_the_interpreter_the_installers_ship",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
@@ -167114,7 +167114,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L443",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -167310,7 +167310,7 @@
     },
     {
       "source": "tests_test_ci_platform_config_rationale_417",
-      "target": "tests_test_ci_platform_config_test_ci_covers_every_platform_and_interpreter_in_fewer_jobs",
+      "target": "tests_test_ci_platform_config_test_ci_tests_the_interpreter_the_installers_ship",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
@@ -167319,12 +167319,12 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_444",
+      "source": "tests_test_ci_platform_config_rationale_459",
       "target": "tests_test_ci_platform_config_test_every_committed_git_hook_carries_its_executable_bit",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L444",
+      "source_location": "L459",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -234223,7 +234223,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "TESTING.md",
-      "source_location": "L249",
+      "source_location": "L263",
       "weight": 1.0,
       "_origin": "ast"
     },
