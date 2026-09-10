@@ -186,16 +186,20 @@ def test_opening_a_menu_refreshes_availability(window: MainWindow) -> None:
     The state-change hooks are what keep those honest; this covers the belt to
     their braces -- the menu re-asking at the moment it is about to be read.
     """
+    from PySide6.QtWidgets import QMenu
+
     action = _action(window, "Generate Proxy…")
     window.video_grid._paths.append("cam1.mp4")
     assert action.isEnabled() is False, "nothing has told the window yet"
 
-    from PySide6.QtWidgets import QMenu
-
-    file_menu = next(
-        menu for menu in window.menuBar().findChildren(QMenu) if menu.title() == "File"
-    )
-    file_menu.aboutToShow.emit()
+    # The menu is taken from the action rather than found by title. macOS moves
+    # actions carrying a `MenuRole` into the application menu, and a title match
+    # is the kind of thing that passes on the machine it was written on and
+    # raises StopIteration on someone else's.
+    menus = [obj for obj in action.associatedObjects() if isinstance(obj, QMenu)]
+    assert menus, "the action is not in a menu, so nothing would refresh it"
+    for menu in menus:
+        menu.aboutToShow.emit()
 
     assert action.isEnabled() is True
 
