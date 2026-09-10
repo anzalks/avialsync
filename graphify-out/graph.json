@@ -56213,7 +56213,34 @@
       "label": "test_package_caps_python_at_3_12()",
       "file_type": "code",
       "source_file": "tests/test_packaging_metadata.py",
-      "source_location": "L9",
+      "source_location": "L10",
+      "_callable": true,
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_packaging_metadata_declared_version",
+      "label": "_declared_version()",
+      "file_type": "code",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L18",
+      "_callable": true,
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_packaging_metadata_test_every_version_authority_agrees",
+      "label": "test_every_version_authority_agrees()",
+      "file_type": "code",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L24",
+      "_callable": true,
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_packaging_metadata_test_the_release_helper_updates_every_authority",
+      "label": "test_the_release_helper_updates_every_authority()",
+      "file_type": "code",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L63",
       "_callable": true,
       "_origin": "ast"
     },
@@ -56226,11 +56253,35 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_packaging_metadata_rationale_10",
+      "id": "tests_test_packaging_metadata_rationale_11",
       "label": "Published metadata supports exactly the tested Python range.",
       "file_type": "rationale",
       "source_file": "tests/test_packaging_metadata.py",
-      "source_location": "L10",
+      "source_location": "L11",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_packaging_metadata_rationale_19",
+      "label": "The version in pyproject.toml, which every other authority follows.",
+      "file_type": "rationale",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L19",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_packaging_metadata_rationale_25",
+      "label": "Four files declare the version, and a release is only safe if all four match.…",
+      "file_type": "rationale",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L25",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_packaging_metadata_rationale_64",
+      "label": "The guard above is only as good as the tool it guards. A fifth version…",
+      "file_type": "rationale",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L64",
       "_origin": "ast"
     },
     {
@@ -196837,7 +196888,7 @@
     },
     {
       "source": "tests_test_packaging_metadata",
-      "target": "tomllib",
+      "target": "re",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -196848,8 +196899,8 @@
     },
     {
       "source": "tests_test_packaging_metadata",
-      "target": "pathlib",
-      "relation": "imports_from",
+      "target": "tomllib",
+      "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_packaging_metadata.py",
@@ -196859,11 +196910,63 @@
     },
     {
       "source": "tests_test_packaging_metadata",
+      "target": "pathlib",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_metadata",
       "target": "tests_test_packaging_metadata_test_package_caps_python_at_3_12",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_packaging_metadata.py",
-      "source_location": "L9",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_metadata",
+      "target": "tests_test_packaging_metadata_declared_version",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L18",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_metadata",
+      "target": "tests_test_packaging_metadata_test_every_version_authority_agrees",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_metadata",
+      "target": "tests_test_packaging_metadata_test_the_release_helper_updates_every_authority",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L63",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_metadata_test_every_version_authority_agrees",
+      "target": "tests_test_packaging_metadata_declared_version",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L45",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -196878,12 +196981,42 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_packaging_metadata_rationale_10",
+      "source": "tests_test_packaging_metadata_rationale_11",
       "target": "tests_test_packaging_metadata_test_package_caps_python_at_3_12",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_packaging_metadata.py",
-      "source_location": "L10",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_metadata_rationale_19",
+      "target": "tests_test_packaging_metadata_declared_version",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L19",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_metadata_rationale_25",
+      "target": "tests_test_packaging_metadata_test_every_version_authority_agrees",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_metadata_rationale_64",
+      "target": "tests_test_packaging_metadata_test_the_release_helper_updates_every_authority",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast"
     },
