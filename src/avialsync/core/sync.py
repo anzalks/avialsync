@@ -38,6 +38,10 @@ class AlignmentMethod(StrEnum):
     EXACT = "exact"
     #: Offset and rate fitted from matched events.
     AFFINE = "affine"
+    #: Linear interpolation between consecutive matched sync edges (TPrime's
+    #: model). No single rate has to hold for the whole recording, which is
+    #: what makes it the answer to drift that is not predictable.
+    PIECEWISE = "piecewise"
     #: Offset alone, either because the span cannot support a rate or because
     #: the evidence was too sparse to fit one.
     SHIFT = "shift"
@@ -50,7 +54,12 @@ class AlignmentMethod(StrEnum):
     @property
     def is_evidence_based(self) -> bool:
         """Whether residuals and counts mean anything for this method."""
-        return self in (AlignmentMethod.EXACT, AlignmentMethod.AFFINE, AlignmentMethod.SHIFT)
+        return self in (
+            AlignmentMethod.EXACT,
+            AlignmentMethod.PIECEWISE,
+            AlignmentMethod.AFFINE,
+            AlignmentMethod.SHIFT,
+        )
 
 
 #: A free-running crystal is specified at ±20-100 ppm and a TCXO at ±2; 200 is
@@ -133,6 +142,12 @@ class SyncFit:
             return (
                 f"exact per-frame mapping over {self.matched_count} frames "
                 f"({self.match_rate * 100:.0f}% of the reference paired)"
+            )
+        if self.method is AlignmentMethod.PIECEWISE:
+            return (
+                f"interpolated between {self.matched_count} matched sync edges, "
+                f"{self.match_rate * 100:.0f}% of the reference paired -- no single rate "
+                "assumed across the recording"
             )
         if self.method is AlignmentMethod.UNVALIDATED:
             return f"placed by {self.matched_count} events, with none left over to check it against"

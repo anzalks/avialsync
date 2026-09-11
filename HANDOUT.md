@@ -412,6 +412,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/session.py` | `.avv` session JSON, schema v9 (v8 adds `point_edits` — a **count per source**, not the coordinates, D-099; v9 adds `SyncProvenance.method` plus per-side counts, `offset_stderr`, `ambiguity_margin`, `superseded_by`) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020); carries recorded messages into the sidecar manifest (D-078) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/messages.py` | Headless record for free text the rig stored with the data (D-078) | `Message`, `clean()`, `bounded()`, `MAX_MESSAGES` |
+| `core/triggers.py` | What a TTL train is evidence **of**, which depends on which way the wire ran. Keeps both edges, so a strobe is timestamped at its exposure midpoint and carries its duration | `TriggerKind`, `TriggerTrain`, `extract_pulses()`, `locate_drops()`, `reconcile_with_frames()` |
+| `core/alignment.py` | The model ladder: exact → piecewise → affine → shift → unvalidated, chosen from the evidence and the span rather than offered as a dropdown | `choose_method()`, `fit_piecewise()`, `drift_is_identifiable()`, `residual_trend()`, `demote_to_shift()` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026). Carries the guards a residual plot structurally cannot express: match rate, ambiguity margin, plausible-rate search constraint | `SyncEvent`, `SyncProposal`, `AlignmentMethod`, `SyncFit.describe()`, `SyncProposal.applicable`/`.refusal` |
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
 | `core/point_edits.py` | Hand corrections to tracked points, in memory — sparse overrides keyed by `(source, body part, sample index)`. HEADLESS. **Never writes the pose file or its cache** (D-099) | `PointEditStore`, `PointKey`, `PointMove` |
@@ -606,6 +608,28 @@ _start_data_import(path)
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
 > traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
+
+### 0-trigger. An external trigger and a frame strobe are not the same evidence
+
+A **trigger** runs DAQ → camera: the DAQ knows when it *asked* for frame N and
+not whether frame N happened. A dropped exposure shifts every later frame by
+one and the residuals stay beautiful, because the wrong pairs still fit a line.
+Counts agreeing means nothing visibly went wrong — a drop plus a duplicate
+agree too — so `Reconciliation.exact_mapping_is_safe` is False for a trigger
+train however well the counts match. A **strobe** runs camera → DAQ, one pulse
+per exposure that happened; that one licenses pairing pulse *i* with frame *i*.
+
+Keep **both edges**. Rising is exposure start and falling is exposure end, so a
+strobe gives exposure duration for free and lets a frame be timestamped at its
+midpoint — the right instant for a moving subject, and standard in high-speed
+behaviour work. `extract_ttl_edges` takes one direction and throws that away;
+`triggers.extract_pulses` is what new code should use.
+
+And a rate needs a span to be measured over. `drift_is_identifiable` gates it:
+7,200 ppm across one second is seven milliseconds, indistinguishable from
+jitter, while across four hundred seconds it is three seconds and real. A drift
+fitted over a span too short to show it is noise in a parameter, quoted to
+three decimals — `demote_to_shift` drops it rather than reporting it.
 
 ### 0-epoch. Nothing declared a session zero, and two things broke on it
 
