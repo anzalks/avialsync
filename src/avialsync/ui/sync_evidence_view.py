@@ -121,10 +121,11 @@ class SyncEvidenceView(QWidget):
         # no menu (rule 15).
         self._plot.setMenuEnabled(False)
         self._apply_palette()
-        layout.addWidget(self._plot, 1)
 
-        self._nav = AxisNav(self._view_box, self)
-        layout.addWidget(self._nav)
+        # The nav wraps the canvas rather than sitting under it, so each control
+        # group stands against the axis it moves.
+        self._nav = AxisNav(self._plot, self)
+        layout.addWidget(self._nav, 1)
 
         self._reading = QLabel("")
         self._reading.setWordWrap(True)

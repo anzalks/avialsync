@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Literal
 
 import numpy as np
@@ -18,6 +19,39 @@ from avialsync.core.timeline import TimeMap
 
 Edge = Literal["rising", "falling"]
 _MAX_PRESENTED_EVIDENCE = 500
+
+
+class AlignmentMethod(StrEnum):
+    """How a mapping was arrived at, which is not recoverable from its numbers.
+
+    A hand-typed offset and a three-event fit with perfect residuals are the
+    same six floats. Without this field the session had no way to tell them
+    apart, and the reader printed the typed one as "± 0.0 ms from 3 events" --
+    the highest confidence a record could express -- because the wizard had
+    filled a count of 3 in to clear an acceptance gate.
+
+    A string enum so it survives a JSON round trip as itself.
+    """
+
+    #: Per-frame evidence paired one to one. Residuals are zero by
+    #: construction, so its confidence comes from count agreement, not scatter.
+    EXACT = "exact"
+    #: Offset and rate fitted from matched events.
+    AFFINE = "affine"
+    #: Offset alone, either because the span cannot support a rate or because
+    #: the evidence was too sparse to fit one.
+    SHIFT = "shift"
+    #: Determined but unchecked: enough evidence to place the source, none left
+    #: over to test the placement with.
+    UNVALIDATED = "unvalidated"
+    #: Typed or dragged by a person. Carries no evidence and never claims any.
+    MANUAL = "manual"
+
+    @property
+    def is_evidence_based(self) -> bool:
+        """Whether residuals and counts mean anything for this method."""
+        return self in (AlignmentMethod.EXACT, AlignmentMethod.AFFINE, AlignmentMethod.SHIFT)
+
 
 #: A free-running crystal is specified at ±20-100 ppm and a TCXO at ±2; 200 is
 #: already generous for anything that has not been baked or frozen. A fit that
@@ -74,6 +108,10 @@ class SyncFit:
     #: How much better the winning lag was than the best rival at a materially
     #: different one. 1.0 means nothing else came close; 0.0 means a coin toss.
     ambiguity_margin: float = 1.0
+    #: How this mapping was arrived at. Defaults to the affine fit because that
+    #: is what every constructor in this module produces; everything that is
+    #: not a fit has to say so.
+    method: AlignmentMethod = AlignmentMethod.AFFINE
 
     @property
     def match_rate(self) -> float:
@@ -81,6 +119,29 @@ class SyncFit:
         if self.reference_count <= 0:
             return 1.0
         return self.matched_count / self.reference_count
+
+    def describe(self) -> str:
+        """One line a person can judge, in the terms its method supports.
+
+        Each method gets the numbers that mean something for it. A manual
+        mapping is told as a manual mapping rather than dressed in an interval
+        it never measured.
+        """
+        if self.method is AlignmentMethod.MANUAL:
+            return f"set by hand: offset {self.offset:+.6f} s, drift {self.drift_ppm:+.3f} ppm"
+        if self.method is AlignmentMethod.EXACT:
+            return (
+                f"exact per-frame mapping over {self.matched_count} frames "
+                f"({self.match_rate * 100:.0f}% of the reference paired)"
+            )
+        if self.method is AlignmentMethod.UNVALIDATED:
+            return f"placed by {self.matched_count} events, with none left over to check it against"
+        return (
+            f"fitted from {self.matched_count} of {self.reference_count} events, "
+            f"offset {self.offset:+.6f} ± {self.offset_stderr * 1000:.3f} ms, "
+            f"drift {self.drift_ppm:+.3f} ppm, worst residual "
+            f"{self.max_residual * 1000:.3f} ms"
+        )
 
     def to_time_map(self) -> TimeMap:
         """Return the equivalent master-to-target mapping."""
@@ -132,11 +193,24 @@ class SyncProposal:
         the residual looks perfect.
         """
         return (
-            self.fit.matched_count >= 3
+            self.fit.method.is_evidence_based
+            and self.fit.matched_count >= 3
             and self.fit.max_residual <= self.tolerance
             and self.fit.match_rate >= MIN_MATCH_RATE
             and self.fit.ambiguity_margin >= MIN_AMBIGUITY_MARGIN
         )
+
+    @property
+    def applicable(self) -> bool:
+        """Whether the user may apply this, which is not whether it is good.
+
+        A mapping a person typed is applicable and will never be acceptable:
+        it has no evidence to be acceptable on. Keeping the two apart is what
+        stops a typed number being recorded as a measurement -- collapsing
+        them is exactly how `matched_count=3` came to be written by a dialog
+        with no events in it at all.
+        """
+        return self.acceptable or self.fit.method is AlignmentMethod.MANUAL
 
     @property
     def refusal(self) -> str:
@@ -146,6 +220,8 @@ class SyncProposal:
         rather than as a greyed button with no reason attached.
         """
         fit = self.fit
+        if fit.method is AlignmentMethod.MANUAL:
+            return ""
         if fit.matched_count < 3:
             return (
                 f"Only {fit.matched_count} events matched. Three is the minimum for an "

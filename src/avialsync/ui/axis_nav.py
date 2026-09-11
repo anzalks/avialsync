@@ -19,6 +19,10 @@ survived it.
 This is the single authority for that gesture set (architecture rule 15): the
 buttons, the wheel, and the keyboard drive the same view box through the same
 methods, so a plot cannot acquire a second dialect of "zoom out".
+
+:class:`AxisNav` wraps the canvas rather than sitting beside it, because the
+position of a control is what says which axis it moves. A row of buttons under
+a plot has to carry captions to say the same thing, and still reads as a form.
 """
 
 from __future__ import annotations
@@ -29,10 +33,10 @@ import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGraphicsSceneWheelEvent,
+    QGridLayout,
     QHBoxLayout,
-    QLabel,
     QPushButton,
-    QSizePolicy,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -94,69 +98,103 @@ class NavigableViewBox(pg.ViewBox):
 
 
 class AxisNav(QWidget):
-    """A compact strip of per-axis zoom and reset controls for one view box.
+    """A plot with its zoom controls standing against the axes they move.
+
+    Laid out the way a reader already expects to find them: the vertical
+    controls beside the vertical axis, the horizontal controls beneath the
+    horizontal one, and the control that restores both in the corner where the
+    two axes meet. A row of buttons under the plot would need its captions to
+    say which axis each belonged to; against the axis, the position says it.
+
+    ::
+
+        [+]
+        [-]   the plot
+        [home]
+        [fit]  [-] [+] [home]
 
     Buttons rather than a context menu because the most useful control here --
     getting back to the whole picture -- should not be hidden behind the
-    gesture that produced the wrong picture.
+    gesture that produced the wrong one.
     """
 
-    def __init__(self, view_box: pg.ViewBox, parent: QWidget | None = None) -> None:
+    #: Square and small, so the controls read as chrome beside the canvas
+    #: rather than as a form the user is expected to fill in.
+    _BUTTON = 24
+
+    def __init__(self, plot: pg.PlotWidget, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._view_box = view_box
+        self._plot = plot
+        self._view_box = plot.getViewBox()
         self._home_x: tuple[float, float] | None = None
         self._home_y: tuple[float, float] | None = None
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        grid = QGridLayout(self)
+        grid.setContentsMargins(2, 0, 0, 0)
+        grid.setSpacing(3)
 
-        self._build_axis_group(layout, tr("Time"), "x")
-        layout.addSpacing(8)
-        self._build_axis_group(layout, tr("Residual"), "y")
-        layout.addSpacing(8)
-
-        self._fit_all = self._button(
-            tr("Fit all"),
-            tr("Show the whole span the fit was computed over, not only the matched part"),
-            self.reset_both,
-        )
-        layout.addWidget(self._fit_all)
-        layout.addStretch(1)
+        grid.addLayout(self._vertical_group(), 0, 0, Qt.AlignmentFlag.AlignVCenter)
+        grid.addWidget(plot, 0, 1)
+        grid.addWidget(self._fit_all_button(), 1, 0, Qt.AlignmentFlag.AlignCenter)
+        grid.addLayout(self._horizontal_group(), 1, 1, Qt.AlignmentFlag.AlignHCenter)
+        # The canvas takes every spare pixel; the control strips keep their
+        # button height whatever the dialog is resized to.
+        grid.setColumnStretch(1, 1)
+        grid.setRowStretch(0, 1)
 
     # ── construction helpers ─────────────────────────────────────────
 
-    def _build_axis_group(self, layout: QHBoxLayout, label: str, axis: str) -> None:
-        """Add a ``label  [-] [+] [reset]`` group driving one axis."""
-        caption = QLabel(label, self)
-        caption.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        layout.addWidget(caption)
+    def _vertical_group(self) -> QVBoxLayout:
+        """Zoom in above zoom out, the way every map control is arranged."""
+        column = QVBoxLayout()
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(2)
+        for text, tip, slot in self._controls("y", tr("residual axis")):
+            column.addWidget(self._button(text, tip, slot))
+        return column
 
-        # Accessible names carry the axis, because "−" alone is meaningless to
-        # a screen reader and there are two of every button here (rule 17).
-        layout.addWidget(
-            self._button(
-                "−",
-                tr("Zoom out {axis}").format(axis=label),
-                lambda: self.zoom(axis, out=True),
-                accessible=tr("Zoom out {axis}").format(axis=label),
-            )
-        )
-        layout.addWidget(
-            self._button(
+    def _horizontal_group(self) -> QHBoxLayout:
+        """Out, in, home -- reading order, left to right under the axis."""
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(2)
+        controls = self._controls("x", tr("time axis"))
+        for text, tip, slot in [controls[1], controls[0], controls[2]]:
+            row.addWidget(self._button(text, tip, slot))
+        return row
+
+    def _controls(self, axis: str, described: str) -> list[tuple[str, str, Callable[[], None]]]:
+        """The same three controls for either axis, named for a screen reader.
+
+        A bare "+" is meaningless read aloud, and there are two of each on this
+        widget, so the axis has to be in the name rather than only in the
+        position (rule 17).
+        """
+        return [
+            (
                 "+",
-                tr("Zoom in {axis}").format(axis=label),
+                tr("Zoom in on the {axis}").format(axis=described),
                 lambda: self.zoom(axis, out=False),
-                accessible=tr("Zoom in {axis}").format(axis=label),
-            )
-        )
-        layout.addWidget(
-            self._button(
-                tr("Reset"),
-                tr("Return {axis} to its full range").format(axis=label),
+            ),
+            (
+                "\u2212",
+                tr("Zoom out on the {axis}").format(axis=described),
+                lambda: self.zoom(axis, out=True),
+            ),
+            (
+                "\u2302",
+                tr("Return the {axis} to its full range").format(axis=described),
                 lambda: self.reset(axis),
-                accessible=tr("Reset {axis}").format(axis=label),
-            )
+            ),
+        ]
+
+    def _fit_all_button(self) -> QPushButton:
+        """The corner where the axes meet: the control that restores both."""
+        return self._button(
+            "\u2922",
+            tr("Fit all: show the whole span the fit was computed over, on both axes"),
+            self.reset_both,
+            accessible=tr("Fit all"),
         )
 
     def _button(
@@ -169,11 +207,14 @@ class AxisNav(QWidget):
         """One control, described for both a pointer and a screen reader."""
         button = QPushButton(text, self)
         button.setToolTip(tooltip)
-        button.setAccessibleName(accessible or text)
+        button.setAccessibleName(accessible or tooltip)
         button.setAccessibleDescription(tooltip)
         button.setAutoRepeat(True)
-        button.setFixedHeight(22)
-        button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        # Not flat. Borderless at this size the glyphs stop reading as controls
+        # at all -- they look like stray axis decoration, which is worse than
+        # looking slightly heavy.
+        button.setFixedSize(self._BUTTON, self._BUTTON)
+        button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         button.clicked.connect(on_click)
         return button
 

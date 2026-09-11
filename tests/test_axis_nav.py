@@ -22,9 +22,8 @@ def _nav(qtbot) -> tuple[AxisNav, pg.ViewBox, pg.PlotWidget]:
     """
     view_box = NavigableViewBox()
     plot = pg.PlotWidget(viewBox=view_box)
-    qtbot.addWidget(plot)
     view_box.setRange(xRange=(0.0, 100.0), yRange=(-10.0, 10.0), padding=0)
-    nav = AxisNav(view_box)
+    nav = AxisNav(plot)
     qtbot.addWidget(nav)
     return nav, view_box, plot
 
@@ -134,9 +133,39 @@ def test_every_control_is_named_for_a_screen_reader(qtbot) -> None:
     from PySide6.QtWidgets import QPushButton
 
     names = [b.accessibleName() for b in nav.findChildren(QPushButton)]
+    assert len(names) == 7, f"three per axis plus fit-all, got {names}"
     assert all(names), "every button needs an accessible name"
     assert len(names) == len(set(names)), f"ambiguous control names: {names}"
     assert all(b.accessibleDescription() for b in nav.findChildren(QPushButton))
+
+
+def test_each_group_stands_against_the_axis_it_moves(qtbot) -> None:
+    """Position is what says which axis a control belongs to.
+
+    The residual controls sit left of the canvas and the time controls below
+    it, with fit-all in the corner where the two axes meet. A row of buttons
+    under the plot would need captions to say the same thing.
+    """
+    nav, _, plot = _nav(qtbot)
+    nav.resize(400, 300)
+    nav.show()
+    qtbot.waitExposed(nav)
+
+    canvas = plot.geometry()
+    from PySide6.QtWidgets import QPushButton
+
+    boxes = {b.accessibleName(): b.geometry() for b in nav.findChildren(QPushButton)}
+    residual = [g for name, g in boxes.items() if "residual" in name]
+    time_axis = [g for name, g in boxes.items() if "time" in name]
+
+    assert len(residual) == 3 and len(time_axis) == 3
+    assert all(g.right() <= canvas.left() for g in residual), (
+        "residual controls not beside the y axis"
+    )
+    assert all(g.top() >= canvas.bottom() for g in time_axis), "time controls not under the x axis"
+
+    corner = next(g for name, g in boxes.items() if name == "Fit all")
+    assert corner.right() <= canvas.left() and corner.top() >= canvas.bottom()
 
 
 # ── the evidence view that uses it ───────────────────────────────────
