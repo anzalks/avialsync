@@ -2,7 +2,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PySide6.QtCore import QTimer
 
 from avialsync.core.pyramid import PyramidBuilder
 from avialsync.loaders.video_standard import VideoStandardLoader
@@ -31,34 +30,24 @@ def test_exact_sync_flow(qtbot, tmp_path: Path):
     window.plot_pane.load_channels(cache_dir, ["trigger"])
     window.plot_pane.wait_for_pending_rows()
 
-    # 3. Open Sync Wizard and interact
-    def interact():
-        wizards = window.findChildren(SyncWizard)
-        assert len(wizards) == 1
-        wizard = wizards[0]
-
-        # 4. Select Exact Index
-        wizard._strategy_combo.setCurrentIndex(1)
-        wizard._use_all_times_chk.setChecked(True)
-
-        # Click Preview
-        wizard._preview_button.click()
-
-        # We cannot use qtbot.waitUntil easily inside singleShot, but we can use QTimer
-        def check_finished():
-            if wizard._thread is None:
-                assert wizard.proposal is not None
-                assert wizard.proposal.acceptable
-                wizard.accept()
-            else:
-                QTimer.singleShot(100, check_finished)
-
-        QTimer.singleShot(100, check_finished)
-
-    QTimer.singleShot(0, interact)
-
-    # This blocks until wizard.accept() is called which ends exec()
+    # 3. Open the wizard. It no longer blocks -- it is shown beside the window
+    # it is asking about, so the footage under a suspect residual can be looked
+    # at while deciding -- so the test drives it directly instead of from a
+    # timer scheduled around `exec()`.
     window._open_sync_wizard()
+    wizards = window.findChildren(SyncWizard)
+    assert len(wizards) == 1
+    wizard = wizards[0]
+
+    # 4. Select Exact Index
+    wizard._strategy_combo.setCurrentIndex(1)
+    wizard._use_all_times_chk.setChecked(True)
+    wizard._preview_button.click()
+    qtbot.waitUntil(lambda: wizard._thread is None, timeout=5000)
+
+    assert wizard.proposal is not None
+    assert wizard.proposal.acceptable
+    wizard.accept()
 
     pane = window.video_grid.panes[0]
     assert pane.time_map.to_source(float(master_times[5])) == pytest.approx(frame_times[5])

@@ -83,3 +83,33 @@ def test_a_refused_fit_says_which_evidence_to_change(qtbot) -> None:
     assert not wizard._buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
     text = wizard._summary.text()
     assert "No mapping proposed" in text or "Cannot accept" in text
+
+
+def test_the_wizard_does_not_block_the_window_it_asks_about(qtbot) -> None:
+    """Rule 11 permits a modal for a dialog the user asked for. This declines it.
+
+    The natural question at a forty-millisecond outlier is what the footage
+    looks like there, and under `exec()` it could not be asked at all.
+    """
+    reference = EventEvidenceSpec("sensor:ttl", np.arange(0.0, 10.0, 1.0))
+    target = EventEvidenceSpec("video:camera", np.arange(0.0, 10.0, 1.0) + 1.25)
+    wizard = SyncWizard([reference], [target])
+    qtbot.addWidget(wizard)
+
+    wizard.show()
+    qtbot.waitExposed(wizard)
+
+    assert not wizard.isModal()
+
+
+def test_a_clicked_point_is_forwarded_for_seeking(qtbot) -> None:
+    reference = EventEvidenceSpec("sensor:ttl", np.arange(0.0, 10.0, 1.0))
+    target = EventEvidenceSpec("video:camera", np.arange(0.0, 10.0, 1.0) + 1.25)
+    wizard = SyncWizard([reference], [target])
+    qtbot.addWidget(wizard)
+
+    seen: list[float] = []
+    wizard.seek_requested.connect(seen.append)
+    wizard._evidence.point_selected.emit(42.5)
+
+    assert seen == [42.5]

@@ -21,6 +21,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
     QApplication,
+    QDialog,
     QFileDialog,
     QHBoxLayout,
     QLineEdit,
@@ -322,6 +323,9 @@ class MainWindow(QMainWindow):
         #: Trigger trains the user has loaded and typed, by file path. Evidence
         #: for the alignment wizard, not data: nothing here is ever plotted.
         self._trigger_trains: dict[str, list[Any]] = {}
+        #: The alignment wizard while it is open. Non-modal, so the window has
+        #: to own it -- see `_open_sync_wizard`.
+        self._sync_wizard: QDialog | None = None
         self._pending_exact_mappings: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         self._overview_gaps: dict[float, str] = {}
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
@@ -3133,8 +3137,38 @@ class MainWindow(QMainWindow):
 
         wizard = SyncWizard(references, targets, self)
         wizard.set_coverage(self._source_coverage())
-        if wizard.exec() == wizard.DialogCode.Accepted and wizard.proposal is not None:
-            self._accept_sync_proposal(wizard.target_id, wizard.proposal)
+        # Held on the window, not on this frame: a non-modal dialog whose only
+        # reference is a local dies the moment the function returns.
+        self._sync_wizard = wizard
+        wizard.seek_requested.connect(self._seek_to_evidence)
+        wizard.accepted.connect(lambda: self._on_sync_wizard_accepted(wizard))
+        wizard.finished.connect(lambda _result: self._release_sync_wizard())
+        wizard.show()
+        wizard.raise_()
+
+    def _on_sync_wizard_accepted(self, wizard: object) -> None:
+        """Apply what the user accepted, once they have finished looking."""
+        proposal = getattr(wizard, "proposal", None)
+        if proposal is not None:
+            self._accept_sync_proposal(getattr(wizard, "target_id", ""), proposal)
+
+    def _release_sync_wizard(self) -> None:
+        """Drop the window's reference once the dialog has closed."""
+        wizard = self._sync_wizard
+        self._sync_wizard = None
+        if wizard is not None:
+            wizard.deleteLater()
+
+    @Slot(float)
+    def _seek_to_evidence(self, reference_time: float) -> None:
+        """Put the master clock on a clicked event, so the footage can be seen.
+
+        The reference source's own clock is master time for it: the fit being
+        judged has not been applied to anything yet, and applying it to decide
+        whether to apply it would be circular.
+        """
+        self.clock.seek(float(reference_time))
+        self.player.seek(float(reference_time), exact=True)
 
     def _accept_sync_proposal(self, target_path: str, proposal: object) -> None:
         """Apply an explicitly accepted proposal and retain reproducible provenance."""

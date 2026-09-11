@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 from collections.abc import Sequence
 
-from PySide6.QtCore import QThread, Slot
+from PySide6.QtCore import QThread, Signal, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -28,7 +28,17 @@ from avialsync.ui.sync_evidence_view import SyncEvidenceView
 
 
 class SyncWizard(QDialog):
-    """Select evidence, inspect a fit, and explicitly accept a proposal."""
+    """Select evidence, inspect a fit, and explicitly accept a proposal.
+
+    Shown without blocking. The natural question at a forty-millisecond outlier
+    is what the footage looks like there, and under ``exec()`` it could not be
+    asked: the dialog blocked the window it was asking the user to judge, in
+    the one place where cross-examining the evidence matters most. Rule 11
+    permits a modal for a dialog the user asked for; this one declines it.
+    """
+
+    #: A point on the evidence was clicked, in the reference source's clock.
+    seek_requested = Signal(float)
 
     def __init__(
         self,
@@ -52,6 +62,7 @@ class SyncWizard(QDialog):
             )
         )
         self._evidence = SyncEvidenceView(self)
+        self._evidence.point_selected.connect(self.seek_requested)
         layout.addWidget(self._evidence)
         form = QFormLayout()
         self._reference_combo = QComboBox(self)

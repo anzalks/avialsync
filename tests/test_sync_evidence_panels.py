@@ -144,3 +144,66 @@ class TestWhatElseThePanelCarries:
 
         assert not view._pairing.getPlotItem().listDataItems()
         assert not view._plot.getPlotItem().listDataItems()
+
+
+class TestInterrogatingAPoint:
+    """A scatter nobody can question point by point is a picture of evidence."""
+
+    def test_hovering_names_the_event_under_the_cursor(self, qtbot) -> None:
+        reference = np.arange(0.0, 50.0, 1.0) + 34540.0
+        view = _view(qtbot)
+        view.resize(600, 400)
+        view.show_proposal(_proposal(reference, reference + 1.0))
+
+        box = view._plot.getViewBox()
+        scene_pos = box.mapViewToScene(_point(10.0, 0.0))
+        view._on_hover(scene_pos)
+
+        assert "Event" in view._readout.text()
+        assert "residual" in view._readout.text()
+
+    def test_clicking_publishes_the_events_own_timestamp(self, qtbot) -> None:
+        """The reference source's clock, not the master clock: the fit being
+        judged has not been applied to anything yet."""
+        reference = np.arange(0.0, 50.0, 1.0) + 34540.0
+        view = _view(qtbot)
+        view.resize(600, 400)
+        view.show_proposal(_proposal(reference, reference + 1.0))
+
+        seen: list[float] = []
+        view.point_selected.connect(seen.append)
+        box = view._plot.getViewBox()
+        view._on_click(_FakeClick(box.mapViewToScene(_point(10.0, 0.0))))
+
+        assert seen, "no point was published"
+        assert seen[0] == pytest.approx(34550.0, abs=2.0)
+
+    def test_hovering_outside_every_canvas_clears_the_readout(self, qtbot) -> None:
+        reference = np.arange(0.0, 50.0, 1.0) + 34540.0
+        view = _view(qtbot)
+        view.resize(600, 400)
+        view.show_proposal(_proposal(reference, reference + 1.0))
+
+        view._on_hover(_point(-10_000.0, -10_000.0))
+
+        assert view._readout.text() == ""
+
+    def test_a_click_with_nothing_plotted_is_harmless(self, qtbot) -> None:
+        view = _view(qtbot)
+        view._on_click(_FakeClick(_point(0.0, 0.0)))
+
+
+def _point(x: float, y: float):
+    from PySide6.QtCore import QPointF
+
+    return QPointF(x, y)
+
+
+class _FakeClick:
+    """The one method `_on_click` reads off a pyqtgraph mouse event."""
+
+    def __init__(self, scene_pos) -> None:
+        self._scene_pos = scene_pos
+
+    def scenePos(self):
+        return self._scene_pos

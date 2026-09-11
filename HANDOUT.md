@@ -613,6 +613,22 @@ _start_data_import(path)
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
 > traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
 
+### 0-wizard. The alignment wizard is non-modal, and a test cannot `exec()` around it
+
+It used to run under `exec()`, which blocked the window it was asking the user
+to judge — so the natural question at a forty-millisecond outlier ("what does
+the footage look like there?") could not be asked at all. Rule 11 permits a
+modal for a dialog the user asked for; this one declines it, clicking a point
+emits `SyncEvidenceView.point_selected`, and `MainWindow._seek_to_evidence`
+puts the master clock there.
+
+Two consequences. `MainWindow` holds `_sync_wizard` for the dialog's lifetime:
+a non-modal dialog whose only reference is a local dies the moment the opening
+function returns. And a test can no longer schedule interaction with
+`QTimer.singleShot` and rely on `_open_sync_wizard()` blocking until
+`accept()` — it returns immediately, so drive the dialog directly and
+`qtbot.waitUntil` on its worker (see `tests/test_ui_exact_sync.py`).
+
 ### 0-badge. `ui/quality_badge.py` had no caller in `src/` at all
 
 It was written in Phase 7 to answer "what is worth knowing about this source",

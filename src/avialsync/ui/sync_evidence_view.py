@@ -26,7 +26,8 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, Qt
+from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
+from PySide6.QtCore import QEvent, Qt, Signal, Slot
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from avialsync.core.sync import SyncProposal
@@ -95,6 +96,12 @@ def decimate_residuals(
 class SyncEvidenceView(QWidget):
     """Residuals against the tolerance that judged them."""
 
+    #: A point on the evidence was clicked, in the reference source's own clock.
+    #: The natural question at a 40 ms outlier is what the footage looks like
+    #: there, and it was unaskable: the dialog ran under `exec()` and blocked
+    #: the window it was asking about.
+    point_selected = Signal(float)
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
@@ -155,12 +162,28 @@ class SyncEvidenceView(QWidget):
         # both, so a point picked out above is the same instant below it.
         self._pairing.setXLink(self._plot)
 
+        self._readout = QLabel("")
+        self._readout.setWordWrap(True)
+        self._readout.setAccessibleName(tr("Evidence under the cursor"))
+        layout.addWidget(self._readout)
+
         self._reading = QLabel("")
         self._reading.setWordWrap(True)
         layout.addWidget(self._reading)
 
+        # A scatter nobody can interrogate point by point is a picture of
+        # evidence rather than the evidence.
+        for plot in (self._plot, self._pairing):
+            plot.scene().sigMouseMoved.connect(self._on_hover)
+            plot.scene().sigMouseClicked.connect(self._on_click)
+        #: Reference-event times as plotted, and their absolute counterparts,
+        #: so a point picked off the canvas can be named in either.
+        self._plotted_times: np.ndarray = np.empty(0)
+        self._origin: float = 0.0
+
         self.setAccessibleName(tr("Alignment evidence"))
         self._proposal: SyncProposal | None = None
+        self._residuals: np.ndarray = np.empty(0)
 
     # ── following the appearance ─────────────────────────────────────
 
@@ -279,6 +302,9 @@ class SyncEvidenceView(QWidget):
                 symbolBrush=pg.mkBrush(status_color(self.palette(), "error")),
             )
 
+        self._plotted_times = times - origin
+        self._origin = origin
+        self._residuals = residuals
         self._draw_pairing(times - origin, proposal, origin)
         self._set_home_range(times - origin, residuals, proposal, origin)
         self._reading.setText(self._read_the_shape(times, residuals, proposal))
@@ -369,6 +395,50 @@ class SyncEvidenceView(QWidget):
 
         self._nav.set_home_range(x_home, y_home)
         self._nav.reset_both()
+
+    # ── interrogating a point ────────────────────────────────────────
+
+    def _nearest(self, scene_pos: object, plot: pg.PlotWidget) -> int | None:
+        """Index of the plotted event closest in time to a scene position."""
+        if not len(self._plotted_times):
+            return None
+        view_pos = plot.getViewBox().mapSceneToView(scene_pos)
+        index = int(np.argmin(np.abs(self._plotted_times - float(view_pos.x()))))
+        return index
+
+    @Slot(object)
+    def _on_hover(self, scene_pos: object) -> None:
+        """Name the event under the cursor, in the session's own time format."""
+        for plot in (self._plot, self._pairing):
+            if not plot.sceneBoundingRect().contains(scene_pos):
+                continue
+            index = self._nearest(scene_pos, plot)
+            if index is None:
+                return
+            absolute = float(self._plotted_times[index]) + self._origin
+            self._readout.setText(
+                tr("Event {n} of {total} at {when} · residual {residual:.3f} ms").format(
+                    n=index + 1,
+                    total=len(self._plotted_times),
+                    when=format_time(absolute, TimeDisplayMode.RELATIVE),
+                    residual=float(self._residuals[index]),
+                )
+            )
+            return
+        self._readout.setText("")
+
+    @Slot(object)
+    def _on_click(self, event: MouseClickEvent) -> None:
+        """Publish the clicked event's own timestamp, for the window to seek to."""
+        scene_pos = event.scenePos()
+        for plot in (self._plot, self._pairing):
+            if not plot.sceneBoundingRect().contains(scene_pos):
+                continue
+            index = self._nearest(scene_pos, plot)
+            if index is None:
+                return
+            self.point_selected.emit(float(self._plotted_times[index]) + self._origin)
+            return
 
     # ── saying what the plot shows ───────────────────────────────────
 

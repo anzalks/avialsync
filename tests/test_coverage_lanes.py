@@ -32,9 +32,7 @@ class TestMeasuredAgainstExtended:
         lanes = CoverageLanes()
         qtbot.addWidget(lanes)
 
-        lanes.show_sources(
-            [SourceCoverage("cam.mp4", data=(0.0, 100.0), evidence=(10.0, 60.0))]
-        )
+        lanes.show_sources([SourceCoverage("cam.mp4", data=(0.0, 100.0), evidence=(10.0, 60.0))])
 
         text = lanes.describe()
         assert "across 50.0 s" in text
