@@ -31,6 +31,7 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from avialsync.core.sync import SyncProposal
 from avialsync.ui.axis_nav import AxisNav, NavigableViewBox
+from avialsync.ui.coverage_lanes import CoverageLanes, SourceCoverage
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_theme import apply_canvas_palette
 from avialsync.ui.theme import coverage_color, status_color
@@ -142,7 +143,15 @@ class SyncEvidenceView(QWidget):
         self._nav = AxisNav(self._plot, self)
         layout.addWidget(self._nav, 1)
 
-        # One time axis across the dialog, not three. Moving either panel moves
+        # Where each recording has data, and where the alignment is measured
+        # rather than extended. Deliberately *not* x-linked to the panels above:
+        # those are in reference-event time and this is the whole session on the
+        # master clock, and tying them would mean one of the two axes lying
+        # about what it shows.
+        self._lanes = CoverageLanes(self)
+        layout.addWidget(self._lanes)
+
+        # One time axis across the two evidence panels. Moving either moves
         # both, so a point picked out above is the same instant below it.
         self._pairing.setXLink(self._plot)
 
@@ -179,6 +188,15 @@ class SyncEvidenceView(QWidget):
         apply_canvas_palette(self._pairing, self.palette())
 
     # ── showing a proposal ───────────────────────────────────────────
+
+    def set_coverage(self, sources: list[SourceCoverage]) -> None:
+        """Show where each recording has data, independently of any proposal.
+
+        Set before a fit is previewed, because "do these recordings even
+        overlap" is the question a person asks first and is answerable without
+        fitting anything.
+        """
+        self._lanes.show_sources(sources)
 
     def show_proposal(self, proposal: SyncProposal | None) -> None:
         """Draw the evidence behind *proposal*, or clear."""

@@ -57,7 +57,7 @@ from avialsync.core.session import (
 )
 from avialsync.core.session_time import reference_epoch
 from avialsync.core.source import TimeSeriesSource, VideoSource
-from avialsync.core.timeline import MasterClock
+from avialsync.core.timeline import MasterClock, TimeMap
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
@@ -75,6 +75,7 @@ from avialsync.ui.controllers import (
     session_controller,
     video_controller,
 )
+from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.empty_state import EmptyState
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
@@ -433,6 +434,7 @@ class MainWindow(QMainWindow):
         self.sidebar.reset_session_requested.connect(self._reset_session)
         self.sidebar.video_offset_changed.connect(self._select_video)
         self.sidebar.video_offset_changed.connect(self._on_video_offset_changed)
+        self.sidebar.video_mapping_changed.connect(self._on_video_mapping_changed)
         self.sidebar.video_badge_clicked.connect(self._select_video)
         self.sidebar.video_remove_requested.connect(self._on_video_remove_requested)
         # Persist before a removed pane's media client is torn down: that
@@ -3015,6 +3017,69 @@ class MainWindow(QMainWindow):
         self.notifications.show_success(summary)
         self._refresh_action_availability()
 
+    def _source_coverage(self) -> list[SourceCoverage]:
+        """Every loaded source's span, and how much of it evidence reaches.
+
+        Answering "do these recordings overlap at all" before anything is
+        fitted, which no residual can answer afterwards.
+        """
+        coverage: list[SourceCoverage] = []
+        for path, bounds in self._video_source_bounds.items():
+            offset, drift_ppm = self._video_time_mappings.get(path, (0.0, 0.0))
+            mapping = TimeMap(offset, drift_ppm)
+            coverage.append(
+                SourceCoverage(
+                    label=Path(path).name,
+                    data=(mapping.to_master(bounds[0]), mapping.to_master(bounds[1])),
+                    evidence=self._evidence_span(path),
+                )
+            )
+        for path, cache_dir in self._sensor_cache_dirs.items():
+            span = self.plot_pane.source_bounds(cache_dir)
+            if span is None:
+                continue
+            coverage.append(
+                SourceCoverage(
+                    label=Path(path).name,
+                    data=span,
+                    evidence=self._evidence_span(path),
+                )
+            )
+        return coverage
+
+    def _evidence_span(self, path: str) -> tuple[float, float] | None:
+        """First and last accepted sync point for *path*, or None.
+
+        Superseded evidence is not a span: the source has been moved off it by
+        hand, so nothing between those points is measured any more.
+        """
+        for entry in self._sync_provenance:
+            if entry.target_id != path or entry.superseded_by or not entry.matches:
+                continue
+            times = [float(match["reference_time"]) for match in entry.matches]
+            return (min(times), max(times))
+        return None
+
+    @Slot(str, float, float)
+    def _on_video_mapping_changed(self, path: str, offset: float, drift_ppm: float) -> None:
+        """Re-map one camera against the master clock, rate included.
+
+        `_on_video_offset_changed` keeps whatever drift was already recorded,
+        because a nudge is about position alone. This is the path that can
+        change the rate, and it exists because a camera had no way to be given
+        one by hand: the only route was an accepted fit, so a user watching a
+        camera slip had to drift the *sensor* instead, moving it relative to
+        every other camera at once.
+        """
+        _, previous_drift = self._recorded_mappings.get(path, (0.0, 0.0))
+        if drift_ppm == previous_drift:
+            return  # `_on_video_offset_changed` already handled the position.
+        self._record_mapping_change(path, offset, drift_ppm)
+        self.video_grid.set_sync_mapping(path, offset, drift_ppm, None, None)
+        if path in self._video_source_bounds:
+            self._set_video_coverage(path, self._video_source_bounds[path], offset, drift_ppm)
+        self.player.seek(self.clock.state.t, exact=True)
+
     def _open_sync_wizard(self) -> None:
         """Open evidence-based TTL/frame-event alignment for loaded sources."""
         from avialsync.engine.sync_worker import (
@@ -3067,6 +3132,7 @@ class MainWindow(QMainWindow):
             return
 
         wizard = SyncWizard(references, targets, self)
+        wizard.set_coverage(self._source_coverage())
         if wizard.exec() == wizard.DialogCode.Accepted and wizard.proposal is not None:
             self._accept_sync_proposal(wizard.target_id, wizard.proposal)
 

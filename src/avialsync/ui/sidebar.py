@@ -533,6 +533,7 @@ class VideoInfoWidget(QFrame):
 
     remove_requested = Signal(str)  # Emits the file path
     offset_changed = Signal(str, float)  # Emits path, new offset
+    mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ppm
     visibility_changed = Signal(str, bool)  # Emits path, is_visible
     badge_clicked = Signal(str)  # path
 
@@ -615,6 +616,24 @@ class VideoInfoWidget(QFrame):
         )
         self.offset_spin.valueChanged.connect(self._on_offset_changed)
         sync_form.addRow(tr("Offset:"), self.offset_spin)
+
+        # A camera had offset but no drift, so a rate difference could only ever
+        # reach it through an accepted fit. A user watching a camera slip
+        # against the sensor had to drift the *sensor* instead, which moves it
+        # relative to every other camera at the same time.
+        self.drift_spin = QDoubleSpinBox()
+        self.drift_spin.setRange(-100000.0, 100000.0)
+        self.drift_spin.setDecimals(1)
+        self.drift_spin.setSingleStep(10.0)
+        self.drift_spin.setSuffix(" ppm")
+        self.drift_spin.setMinimumWidth(90)
+        self.drift_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.drift_spin.setAccessibleName(f"Clock drift for {Path(path).name}")
+        self.drift_spin.setToolTip(
+            tr("Rate difference between this camera's clock and master time.")
+        )
+        self.drift_spin.valueChanged.connect(self._on_mapping_changed)
+        sync_form.addRow(tr("Drift:"), self.drift_spin)
         layout.addLayout(sync_form)
 
         # Badge (hidden until inspection is available)
@@ -641,6 +660,23 @@ class VideoInfoWidget(QFrame):
 
     def _on_offset_changed(self, val: float) -> None:
         self.offset_changed.emit(self.path, val)
+        self._on_mapping_changed(val)
+
+    def _on_mapping_changed(self, _value: float) -> None:
+        self.mapping_changed.emit(self.path, self.offset_spin.value(), self.drift_spin.value())
+
+    def mapping(self) -> tuple[float, float]:
+        """Return the displayed ``(offset_s, drift_ppm)``."""
+        return self.offset_spin.value(), self.drift_spin.value()
+
+    def set_mapping(self, offset: float, drift_ppm: float) -> None:
+        """Show a mapping without re-emitting it, as :meth:`set_offset` does."""
+        for spin, value in ((self.offset_spin, offset), (self.drift_spin, drift_ppm)):
+            blocked = spin.blockSignals(True)
+            try:
+                spin.setValue(float(value))
+            finally:
+                spin.blockSignals(blocked)
 
     def set_offset(self, offset: float) -> None:
         """Show *offset* without re-emitting it.
@@ -718,6 +754,7 @@ class SidebarPane(QWidget):
     open_sensor_requested = Signal()
 
     video_offset_changed = Signal(str, float)
+    video_mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ppm
     video_remove_requested = Signal(str)
     video_visibility_changed = Signal(str, bool)
     video_badge_clicked = Signal(str)  # path
@@ -816,6 +853,7 @@ class SidebarPane(QWidget):
 
         widget = VideoInfoWidget(path, metadata)
         widget.offset_changed.connect(self.video_offset_changed)
+        widget.mapping_changed.connect(self.video_mapping_changed)
         widget.remove_requested.connect(self.video_remove_requested)
         widget.visibility_changed.connect(self.video_visibility_changed)
         widget.badge_clicked.connect(self.video_badge_clicked)

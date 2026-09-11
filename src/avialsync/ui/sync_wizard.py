@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.sync import AlignmentMethod, SyncFit, SyncProposal
 from avialsync.engine.sync_worker import EvidenceSpec, SignalEvidenceSpec, SyncWorker
+from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.i18n import tr
 from avialsync.ui.sync_evidence_view import SyncEvidenceView
 
@@ -128,6 +129,10 @@ class SyncWizard(QDialog):
         self._buttons.accepted.connect(self.accept)
         self._buttons.rejected.connect(self.reject)
         layout.addWidget(self._buttons)
+
+    def set_coverage(self, sources: list[SourceCoverage]) -> None:
+        """Show where the loaded recordings sit before anything is fitted."""
+        self._evidence.set_coverage(sources)
 
     @property
     def proposal(self) -> SyncProposal | None:
