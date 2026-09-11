@@ -122,6 +122,13 @@ class SessionState:
     #: imported CSV and its cache are never rewritten, so removing this list
     #: restores exactly the model's own predictions.
     point_edits: list[dict[str, Any]] = dataclasses.field(default_factory=list)
+    #: Unix epoch of master-clock zero, after NWB's `session_start_time`
+    #: (schema v9). 0.0 means the session has no wall clock -- every source is
+    #: container-relative, and elapsed time is the only thing that can honestly
+    #: be displayed. `ui/time_format.format_time` has always taken this and
+    #: always received 0.0, which is why two of the three time display modes
+    #: could not work. See `core/session_time.py`.
+    session_start_time: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-compatible dict (always writes version 9)."""
@@ -152,6 +159,7 @@ class SessionState:
             "overlays": self.overlays,
             "display_levels": self.display_levels,
             "point_edits": self.point_edits,
+            "session_start_time": self.session_start_time,
         }
 
     @classmethod
@@ -242,6 +250,7 @@ class SessionState:
             t_end=data.get("t_end", 0.0),
             plot_x0=data.get("plot_x0"),
             plot_x1=data.get("plot_x1"),
+            session_start_time=float(data.get("session_start_time", 0.0)),
             overlays=data.get("overlays") or {},
             display_levels=data.get("display_levels") or {},
             point_edits=list(data.get("point_edits") or []),

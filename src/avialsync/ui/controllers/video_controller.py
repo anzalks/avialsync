@@ -23,6 +23,7 @@ from PySide6.QtCore import QThread, QTimer
 
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.inspection import SourceInspection
+from avialsync.core.session_time import rebase_offset
 from avialsync.core.source import VideoSource
 from avialsync.core.timeline import TimeMap
 
@@ -119,6 +120,15 @@ def set_video_coverage(
     exact_source: np.ndarray | None = None,
 ) -> None:
     """Project media bounds through its TimeMap before drawing master-time coverage."""
+    # A container that records absolute time -- machine-vision formats and the
+    # AOL session loader do -- is placed against the session zero like any
+    # other wall-clock source, rather than dragging the timeline out to 1.7e9.
+    # Only when it has no mapping of its own; an accepted fit or a typed offset
+    # always wins.
+    if offset == 0.0 and drift_ppm == 0.0 and exact_master is None:
+        window.adopt_session_start(source_bounds[0])
+        offset = rebase_offset(source_bounds[0], window.session_start_time)
+
     if exact_master is not None and exact_source is not None and len(exact_master) >= 2:
         master_bounds = (float(exact_master[0]), float(exact_master[-1]))
     else:

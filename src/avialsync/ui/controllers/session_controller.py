@@ -151,6 +151,7 @@ def build_session_state(window: MainWindow) -> SessionState:
         sensors=sensors,
         markers=markers,
         sync_provenance=list(window._sync_provenance),
+        session_start_time=window.session_start_time,
         t_start=bounds[0],
         t_end=bounds[1],
         plot_x0=plot_x0,
@@ -360,6 +361,7 @@ def reset_session(window: MainWindow) -> None:
     window._video_source_bounds.clear()
     window._video_time_mappings.clear()
     window._sync_provenance.clear()
+    window._session_start_time = 0.0
     window._pending_exact_mappings.clear()
     window._overview_gaps.clear()
     window._frame_indexed_sources.clear()
@@ -443,6 +445,11 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
         # and its expected count would be checked against a file that is gone.
         corrections_controller.remap(window, str(old_path), str(new_path))
 
+    # Before any source loads: the reference is declared once, and a restored
+    # session already declared it. Adopting it here stops the first file to
+    # arrive from re-declaring a different one and renumbering the session.
+    window._session_start_time = float(state.session_start_time)
+    window._publish_session_epoch()
     window._sync_provenance = list(state.sync_provenance)
     window._pending_exact_mappings.clear()
     for provenance in state.sync_provenance:

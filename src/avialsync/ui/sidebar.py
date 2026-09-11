@@ -76,6 +76,12 @@ _FILTER_THRESHOLD = 8
 #: and the wrong number only surfaced on save -- reopening the session put the
 #: source hours away from the video. A control that cannot express a legitimate
 #: value must not silently substitute one (D-026).
+#:
+#: A day is enough only because a source carrying wall-clock time is now placed
+#: against the session zero on load (`core/session_time.py`), so what the user
+#: types here is a residual correction rather than an epoch. Without that, an
+#: `epoch_ms` CSV needs about 1.7e9 and this control could not express it at
+#: any width -- which is the same defect one order of magnitude further out.
 _OFFSET_LIMIT_S = 86_400.0
 
 

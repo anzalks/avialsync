@@ -405,6 +405,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | File | Responsibility | Key API |
 |---|---|---|
 | `core/timeline.py` | Single master clock — HEADLESS, no PySide6 | `MasterClock`, `TimeMap`, `ClockState` |
+| `core/session_time.py` | The session's declared zero, after NWB's `session_start_time`. A source carrying wall-clock time is **placed** against it through its own TimeMap — nothing is rewritten | `is_absolute()`, `reference_epoch()`, `rebase_offset()`, `ABSOLUTE_EPOCH_FLOOR` |
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
 | `core/source.py` | Plugin ABCs — frozen API plus additive optional hooks (`messages()`, `exact_time_mapping()`, `video_metadata()`) | `TimeSeriesSource`, `VideoSource`, `VideoMetadata` |
@@ -605,6 +606,29 @@ _start_data_import(path)
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
 > traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
+
+### 0-epoch. Nothing declared a session zero, and two things broke on it
+
+`format_time` has taken the Unix epoch of master-clock zero since D-020 and
+falls back to elapsed time when it is 0.0. **No caller ever passed one**, so
+the UTC and local time-of-day entries on the time display menu silently did
+nothing for every session that has ever been opened. `MainWindow` now holds
+`_session_start_time` and pushes it through `_publish_session_epoch()`, which
+`_set_time_mode` also routes through — each surface takes the epoch as a
+*defaulted* argument, so a mode change that passed only the mode would quietly
+reset them to elapsed time again.
+
+The louder half: an `epoch_ms` CSV lands near 1.7e9 while a video's frame times
+are `pts * time_base` from a container start of 0, and `_update_bounds` takes a
+union. The master timeline became fifty-four years long with two five-minute
+islands at its ends, and the correction could not be typed — `_OFFSET_LIMIT_S`
+clamps at a day, silently, as Qt spin boxes do. `import_controller` and
+`video_controller` now call `window.adopt_session_start()` and apply
+`rebase_offset()` **only when the source has no mapping of its own**: an
+accepted fit, a wizard offset, or a restored session always wins. The reference
+is declared once and never moved, which is the half of NWB's convention that
+matters — a reference that shifted when an earlier source arrived would
+renumber every timestamp the user had already written down.
 
 ### 0-align. A mapping's numbers cannot say how it was made
 

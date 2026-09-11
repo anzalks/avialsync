@@ -55,6 +55,7 @@ from avialsync.core.session import (
     SessionState,
     SyncProvenance,
 )
+from avialsync.core.session_time import reference_epoch
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
@@ -313,6 +314,10 @@ class MainWindow(QMainWindow):
         self._video_source_bounds: dict[str, tuple[float, float]] = {}
         self._video_time_mappings: dict[str, tuple[float, float]] = {}
         self._sync_provenance: list[SyncProvenance] = []
+        #: Unix epoch of master-clock zero, after NWB's `session_start_time`.
+        #: 0.0 until a source carrying wall-clock time declares it; see
+        #: `core/session_time.py`.
+        self._session_start_time: float = 0.0
         self._pending_exact_mappings: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         self._overview_gaps: dict[float, str] = {}
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
@@ -1072,11 +1077,45 @@ class MainWindow(QMainWindow):
 
     # ── Time display mode ────────────────────────────────────────────
 
+    @property
+    def session_start_time(self) -> float:
+        """Unix epoch of master-clock zero, or 0.0 when the session has no wall clock."""
+        return self._session_start_time
+
+    def adopt_session_start(self, source_start: float) -> float:
+        """Declare the session's zero from a source, if it has not been declared.
+
+        Declared once and then kept (NWB): a reference that moved whenever an
+        earlier source arrived would renumber every timestamp the user had
+        already written down. Returns the reference in force afterwards.
+        """
+        reference = reference_epoch(self._session_start_time, source_start)
+        if reference == self._session_start_time:
+            return reference
+        self._session_start_time = reference
+        self._publish_session_epoch()
+        return reference
+
+    def _publish_session_epoch(self) -> None:
+        """Give every time-displaying surface the epoch of master zero.
+
+        `format_time` has always taken this and falls back to elapsed time when
+        it is zero. Nothing ever passed one, so the UTC and local time-of-day
+        display modes silently could not work -- two of three options on a menu
+        that has been there since D-020.
+        """
+        epoch = self._session_start_time
+        self.transport.set_t_epoch(epoch)
+        self.plot_pane.set_time_mode(self._time_mode, epoch)
+        self.message_panel.set_time_mode(self._time_mode, epoch)
+        self.changes_panel.set_time_mode(self._time_mode, epoch)
+
     def _set_time_mode(self, mode: TimeDisplayMode) -> None:
         self._time_mode = mode
         self.transport.set_time_mode(mode)
-        self.plot_pane.set_time_mode(mode)
-        self.message_panel.set_time_mode(mode)
+        # Through the one place that knows the epoch, so a mode change cannot
+        # reset a surface to elapsed time by passing the default.
+        self._publish_session_epoch()
         self.transport.set_time(self.clock.state.t)
         self.time_mode_changed.emit(mode)
 

@@ -18,6 +18,7 @@ from PySide6.QtCore import QThread, QTimer
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.errors import FileUnreadableError, LoaderContractError, SourceOpenError
 from avialsync.core.inspection import SourceInspection
+from avialsync.core.session_time import rebase_offset
 from avialsync.core.source import TimeSeriesSource
 
 if TYPE_CHECKING:
@@ -226,6 +227,16 @@ def on_import_finished(
             offset = float(inspection.import_config["offset"])
         if "drift_ppm" in inspection.import_config and drift_ppm == 0.0:
             drift_ppm = float(inspection.import_config["drift_ppm"])
+
+    # NWB's zero. A source carrying wall-clock time is placed against the
+    # session reference instead of sitting 1.7e9 seconds from a
+    # container-relative video, which is how the master timeline came to be
+    # fifty-four years long with two short islands at its ends. Only when
+    # nothing more specific was asked for: an explicit offset, from the wizard
+    # or a restored session, always wins.
+    if offset == 0.0:
+        window.adopt_session_start(bounds[0])
+        offset = rebase_offset(bounds[0], window.session_start_time)
 
     if role in ("overlay2d", "pose3d"):
         # Pose data drives the video overlay and the 3D view. It is not
