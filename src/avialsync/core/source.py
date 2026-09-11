@@ -465,6 +465,21 @@ class TriggerSource(_Nameable, ABC):
         says so rather than inventing a width.
         """
 
+    @classmethod
+    def suggest_trains(cls, path: Path) -> list[dict[str, Any]]:
+        """Starting configurations for *path*, for the user to correct.
+
+        A provider that can read a file's headers can usually tell which
+        columns are logical lines, which saves the user typing them. It cannot
+        tell which of them is a camera's exposure strobe -- that is a fact
+        about the wiring -- so a suggestion that guessed one would be guessing
+        about the single decision that must not be made on the user's behalf.
+
+        Returns an empty list when the provider has nothing to propose, which
+        leaves the user to declare the trains themselves.
+        """
+        return []
+
     def target_hint(self, train_id: str) -> str:
         """The source this train is evidence about, when the file names it.
 

@@ -318,6 +318,9 @@ class MainWindow(QMainWindow):
         #: 0.0 until a source carrying wall-clock time declares it; see
         #: `core/session_time.py`.
         self._session_start_time: float = 0.0
+        #: Trigger trains the user has loaded and typed, by file path. Evidence
+        #: for the alignment wizard, not data: nothing here is ever plotted.
+        self._trigger_trains: dict[str, list[Any]] = {}
         self._pending_exact_mappings: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         self._overview_gaps: dict[float, str] = {}
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
@@ -715,6 +718,10 @@ class MainWindow(QMainWindow):
         specs, so the menu item and the command agree about availability rather
         than the command discovering it a click later.
         """
+        if self._trigger_trains:
+            # A trigger file the user has typed is evidence on its own terms;
+            # it does not need a video to be worth fitting against.
+            return True
         timed_videos = sum(1 for times in self._video_frame_times.values() if len(times) >= 3)
         if not timed_videos:
             return False
@@ -1776,6 +1783,11 @@ class MainWindow(QMainWindow):
                 "channel or a second such video, to have evidence to fit."
             ),
         )
+
+        act = self._align_menu.addAction(tr("Open Trigger Evidence…"))
+        act.setToolTip(tr("Load a TTL or strobe file and say what each of its lines is"))
+        act.triggered.connect(self._open_trigger_evidence)
+        _reg(act, "Align")
 
         self._align_menu.addSeparator()
         act = self._align_menu.addAction(tr("Nudge selected source earlier"))
@@ -2912,6 +2924,97 @@ class MainWindow(QMainWindow):
         self.clock.play()
         self.clock.pause()
 
+    # ── Trigger evidence (WP-D) ──────────────────────────────────────
+
+    def _open_trigger_evidence(self) -> None:
+        """Load a trigger file and record what the user says its lines are."""
+        from PySide6.QtWidgets import QFileDialog
+
+        from avialsync.core.errors import FileUnreadableError
+
+        chosen, _ = QFileDialog.getOpenFileName(
+            self,
+            tr("Open Trigger Evidence"),
+            "",
+            tr("Trigger and TTL files (*.csv *.tsv *.txt);;All files (*)"),
+        )
+        if not chosen:
+            return
+        path = Path(chosen)
+
+        provider_cls = self._registry.trigger_for(path)
+        if provider_cls is None:
+            self.report_failure(
+                FileUnreadableError(
+                    f"Nothing installed can read {path.name} as trigger evidence. A "
+                    "trigger file needs a time column and at least one logical line."
+                )
+            )
+            return
+
+        suggestions = provider_cls.suggest_trains(path)
+        if not suggestions or not suggestions[0].get("trains"):
+            self.report_failure(
+                FileUnreadableError(
+                    f"{path.name} has no columns that look like trigger lines. Trigger "
+                    "evidence is a time column plus a line that goes high and low, or a "
+                    "column of event timestamps."
+                )
+            )
+            return
+
+        from avialsync.ui.trigger_dialog import TriggerEvidenceDialog
+
+        dialog = TriggerEvidenceDialog(
+            path, suggestions[0], list(self.video_grid.pane_paths()), self
+        )
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        config = dialog.config()
+        if not config["trains"]:
+            self.notifications.show_warning(tr("No trigger lines were selected."))
+            return
+        self._start_trigger_read(provider_cls(), path, config)
+
+    def _start_trigger_read(self, source: object, path: Path, config: dict[str, Any]) -> None:
+        """Read the declared trains off the UI thread (architecture rule 3)."""
+        from avialsync.core.errors import FileUnreadableError
+        from avialsync.engine.trigger_worker import TriggerReadWorker
+
+        worker = TriggerReadWorker(cast(Any, source), path, config)
+
+        def configure(_thread: QThread) -> None:
+            # Connected before the thread runs: a worker that finishes first
+            # would otherwise emit into nothing (D-062).
+            worker.finished.connect(
+                lambda results: self._on_trigger_trains_read(str(path), results)
+            )
+            worker.error.connect(
+                lambda message: self.report_failure(FileUnreadableError(f"{path.name}: {message}"))
+            )
+
+        self._run_job(worker, label=f"Reading triggers from {path.name}", configure=configure)
+
+    @Slot(str, object)
+    def _on_trigger_trains_read(self, path: str, results: object) -> None:
+        """Register read trains as evidence the alignment wizard can offer."""
+        if not isinstance(results, list):
+            return
+        self._trigger_trains[path] = list(results)
+        drops = sum(len(getattr(train, "drops", ())) for train in results)
+        summary = tr("{count} trigger train(s) from {name}").format(
+            count=len(results), name=Path(path).name
+        )
+        if drops:
+            # Said on arrival rather than discovered later: a train that skips
+            # beats is the evidence that frames were lost, and it is the reason
+            # an index-paired mapping would be wrong.
+            summary = tr("{summary} — {drops} gap(s) in the pulses").format(
+                summary=summary, drops=drops
+            )
+        self.notifications.show_success(summary)
+        self._refresh_action_availability()
+
     def _open_sync_wizard(self) -> None:
         """Open evidence-based TTL/frame-event alignment for loaded sources."""
         from avialsync.engine.sync_worker import (
@@ -2937,6 +3040,17 @@ class MainWindow(QMainWindow):
             for path, frame_times in self._video_frame_times.items()
             if len(frame_times) >= 3
         ]
+        # Every loaded trigger train, on whichever side it belongs. A train the
+        # user said is evidence *about* a video is a target; everything else is
+        # a reference other sources can be fitted to.
+        for file_path, trains in self._trigger_trains.items():
+            for train in trains:
+                spec = EventEvidenceSpec(f"{Path(file_path).name} : {train.train_id}", train.times)
+                if train.target:
+                    targets.append(spec)
+                else:
+                    references.append(spec)
+
         # A camera can be a reference too. Two cameras that saw the same trigger
         # had no path to each other before this: each had to be fitted to a
         # sensor separately, and a rig with no sensor at all could not align its
