@@ -19,6 +19,28 @@ from avialsync.core.timeline import TimeMap
 Edge = Literal["rising", "falling"]
 _MAX_PRESENTED_EVIDENCE = 500
 
+#: A free-running crystal is specified at ±20-100 ppm and a TCXO at ±2; 200 is
+#: already generous for anything that has not been baked or frozen. A fit that
+#: comes back outside this has not measured a clock difference -- it has paired
+#: the wrong events, or been handed two quantities that are not both seconds.
+#: Reported rather than clamped: the number names the diagnosis.
+MAX_PLAUSIBLE_DRIFT_PPM = 200.0
+
+#: Below this fraction of the reference events finding a partner, a fit is not
+#: a noisy alignment, it is a different hypothesis. Uniform grids commensurate
+#: at wrong rates and land a minority of points exactly, which is why a low
+#: match rate and a tiny residual arrive together rather than trading off.
+MIN_MATCH_RATE = 0.5
+
+#: How much better the winning sequence offset must be than the best rival at a
+#: materially different lag. A uniform pulse train is ambiguous at every
+#: multiple of its period and no residual will ever say so.
+MIN_AMBIGUITY_MARGIN = 0.25
+
+#: The share of the matching tolerance by which two candidates' residuals must
+#: differ before one is judged better than the other.
+_MATERIAL_RMS_FRACTION = 0.01
+
 
 @dataclass(frozen=True)
 class SyncEvent:
@@ -40,6 +62,25 @@ class SyncFit:
     max_residual: float
     matched_count: int
     rejected_count: int
+    #: Events offered on each side, so a match *rate* can be stated. The counts
+    #: are not recoverable from ``rejected_count``, which sums both sides.
+    reference_count: int = 0
+    target_count: int = 0
+    #: Uncertainty on the offset, not a worst case: ``rms / sqrt(n)``. The
+    #: maximum residual is a bound on the worst pair and reads like a ± when it
+    #: is printed as one, which is how a hand-typed number came to be reported
+    #: as the most confident record in a session.
+    offset_stderr: float = 0.0
+    #: How much better the winning lag was than the best rival at a materially
+    #: different one. 1.0 means nothing else came close; 0.0 means a coin toss.
+    ambiguity_margin: float = 1.0
+
+    @property
+    def match_rate(self) -> float:
+        """Fraction of the reference events that found a partner."""
+        if self.reference_count <= 0:
+            return 1.0
+        return self.matched_count / self.reference_count
 
     def to_time_map(self) -> TimeMap:
         """Return the equivalent master-to-target mapping."""
@@ -82,8 +123,52 @@ class SyncProposal:
 
     @property
     def acceptable(self) -> bool:
-        """Whether this proposal is unambiguous and within its fit tolerance."""
-        return self.fit.matched_count >= 3 and self.fit.max_residual <= self.tolerance
+        """Whether this proposal is unambiguous and within its fit tolerance.
+
+        Residuals alone cannot answer this. They describe the pairs that were
+        matched and are silent about whether those are the right pairs, so a
+        degenerate match reports a *smaller* residual than a correct one. The
+        match rate and the ambiguity margin are the tests that can fail while
+        the residual looks perfect.
+        """
+        return (
+            self.fit.matched_count >= 3
+            and self.fit.max_residual <= self.tolerance
+            and self.fit.match_rate >= MIN_MATCH_RATE
+            and self.fit.ambiguity_margin >= MIN_AMBIGUITY_MARGIN
+        )
+
+    @property
+    def refusal(self) -> str:
+        """Why this proposal cannot be accepted, or "" when it can.
+
+        Said in the terms the user can act on -- which evidence to change --
+        rather than as a greyed button with no reason attached.
+        """
+        fit = self.fit
+        if fit.matched_count < 3:
+            return (
+                f"Only {fit.matched_count} events matched. Three is the minimum for an "
+                "offset and a drift, and it leaves nothing over to check them against."
+            )
+        if fit.max_residual > self.tolerance:
+            return (
+                f"The worst pair is {fit.max_residual * 1000:.3f} ms out, past the "
+                f"{self.tolerance * 1000:.3f} ms tolerance this fit was judged by."
+            )
+        if fit.match_rate < MIN_MATCH_RATE:
+            return (
+                f"Only {fit.match_rate * 100:.0f}% of the reference events found a partner. "
+                "A minority matching exactly is the signature of two regular grids meeting "
+                "at a wrong rate, not of a noisy alignment."
+            )
+        if fit.ambiguity_margin < MIN_AMBIGUITY_MARGIN:
+            return (
+                "Another lag fits almost as well. A uniform pulse train is ambiguous at "
+                "every multiple of its period; pick a distinguishable landmark, or give "
+                "the fit a manual constraint."
+            )
+        return ""
 
 
 def extract_ttl_edges(
@@ -247,31 +332,65 @@ def fit_sync_events(
     if tolerance <= 0 or not np.isfinite(tolerance):
         raise SyncEvidenceError("Synchronization residual tolerance must be finite and positive.")
 
+    evidence_span = float(reference[-1] - reference[0])
     candidates: list[tuple[np.ndarray, float, float, float]] = []
-    for ref_index, target_index in _candidate_indices(len(reference), len(target)):
-        offset = target[target_index] - scale * reference[ref_index]
-        pairs = _match_pairs(reference, target, scale, offset, tolerance)
-        if len(pairs) < min_pairs:
-            continue
-        fitted_scale, fitted_offset = _fit_affine(reference[pairs[:, 0]], target[pairs[:, 1]])
-        pairs = _match_pairs(reference, target, fitted_scale, fitted_offset, tolerance)
-        if len(pairs) < min_pairs:
-            continue
-        fitted_scale, fitted_offset = _fit_affine(reference[pairs[:, 0]], target[pairs[:, 1]])
-        residuals = target[pairs[:, 1]] - (fitted_scale * reference[pairs[:, 0]] + fitted_offset)
-        rms = float(np.sqrt(np.mean(np.square(residuals))))
-        candidates.append((pairs, fitted_scale, fitted_offset, rms))
+    implausible: list[tuple[int, float]] = []
+    for seed_scale in _seed_scales(scale):
+        for ref_index, target_index in _candidate_indices(len(reference), len(target)):
+            offset = target[target_index] - seed_scale * reference[ref_index]
+            pairs = _match_pairs(reference, target, seed_scale, offset, tolerance)
+            if len(pairs) < min_pairs:
+                continue
+            fitted_scale, fitted_offset = _fit_affine(reference[pairs[:, 0]], target[pairs[:, 1]])
+            pairs = _match_pairs(reference, target, fitted_scale, fitted_offset, tolerance)
+            if len(pairs) < min_pairs:
+                continue
+            fitted_scale, fitted_offset = _fit_affine(reference[pairs[:, 0]], target[pairs[:, 1]])
+            # The plausible-rate bound is a search constraint, not only a check
+            # on the winner. A wrong-scale local optimum can match a *longer*
+            # run of events than the truth -- 27 pairs at 0.93 against 40 at
+            # 1.0, in the case that found this -- and would otherwise out-vote
+            # it on count before anything looked at the rate at all.
+            if _rate_is_implausible(fitted_scale, evidence_span, tolerance):
+                implausible.append((len(pairs), fitted_scale))
+                continue
+            residuals = target[pairs[:, 1]] - (
+                fitted_scale * reference[pairs[:, 0]] + fitted_offset
+            )
+            rms = float(np.sqrt(np.mean(np.square(residuals))))
+            candidates.append((pairs, fitted_scale, fitted_offset, rms))
+
+    best_plausible = max((len(item[0]) for item in candidates), default=0)
+    if _rate_is_the_diagnosis(implausible, best_plausible):
+        worst = max(implausible, key=lambda item: item[0])[1]
+        # Not a threshold on quality -- a diagnosis. Clocks do not do this, so
+        # the two sides are not both seconds, or the events are not the same
+        # events. Saying which is more use than refusing.
+        raise SyncEvidenceError(
+            f"The alignment that best fits this evidence implies a rate difference of "
+            f"{(worst - 1.0) * 1_000_000.0:,.0f} ppm, a factor of {worst:.4g}. Real "
+            f"clocks stay within about {MAX_PLAUSIBLE_DRIFT_PPM:.0f} ppm of each "
+            "other, so this is a unit or sample-index mismatch, or dense signal "
+            "samples being used where per-event timestamps are needed -- not a "
+            "clock difference."
+        )
 
     if not candidates:
         raise SyncEvidenceError("No event alignment satisfies the residual tolerance.")
 
     candidates.sort(key=lambda item: (-len(item[0]), item[3], item[2]))
-    best_pairs, best_scale, best_offset, _ = candidates[0]
-    if _is_ambiguous(candidates, best_pairs, best_offset):
+    best_pairs, best_scale, best_offset, best_rms = candidates[0]
+
+    margin = _ambiguity_margin(candidates, tolerance)
+    if margin < MIN_AMBIGUITY_MARGIN:
         raise SyncAmbiguityError(
-            "Synchronization alignment is ambiguous; choose a manual constraint."
+            "This alignment is ambiguous: another sequence offset matches as many "
+            f"events almost as well (margin {margin:.2f}). A uniform pulse train "
+            "fits at every multiple of its period, and no residual can tell them "
+            "apart; choose a manual constraint or a distinguishable landmark."
         )
 
+    drift_ppm = (best_scale - 1.0) * 1_000_000.0
     residuals = target[best_pairs[:, 1]] - (best_scale * reference[best_pairs[:, 0]] + best_offset)
     matches = tuple(
         SyncMatch(
@@ -281,13 +400,18 @@ def fit_sync_events(
         )
         for (ref_idx, target_idx), residual in zip(best_pairs, residuals, strict=True)
     )
+    rms = float(np.sqrt(np.mean(np.square(residuals))))
     fit = SyncFit(
         offset=float(best_offset),
-        drift_ppm=float((best_scale - 1.0) * 1_000_000.0),
-        rms_residual=float(np.sqrt(np.mean(np.square(residuals)))),
+        drift_ppm=float(drift_ppm),
+        rms_residual=rms,
         max_residual=float(np.max(np.abs(residuals))),
         matched_count=len(matches),
         rejected_count=len(reference) + len(target) - 2 * len(matches),
+        reference_count=len(reference),
+        target_count=len(target),
+        offset_stderr=rms / np.sqrt(len(matches)) if len(matches) else 0.0,
+        ambiguity_margin=margin,
     )
     matched_indices = set(best_pairs[:, 0])
     unmatched_references = tuple(
@@ -309,6 +433,59 @@ def _validated_times(times: np.ndarray, name: str) -> np.ndarray:
             f"{name.capitalize()} event timestamps must be strictly increasing."
         )
     return values
+
+
+def _rate_is_implausible(scale: float, span: float, tolerance: float) -> bool:
+    """Whether a fitted rate is both outside physics and actually measurable.
+
+    Both halves are needed. A rate is only *identifiable* when the divergence
+    it implies across the evidence exceeds the tolerance that judged the
+    matching: 7,200 ppm over one second is seven milliseconds, which no amount
+    of arithmetic distinguishes from jitter, and refusing it would reject an
+    ordinary short recording on the strength of a parameter its span cannot
+    support. Over four hundred seconds the same ppm is three seconds, and then
+    it means something.
+
+    The consequence is worth stating plainly: a drift fitted over a span too
+    short to show it is not evidence of a clock, it is the fit absorbing noise
+    into a parameter. This gate stops such a fit being *refused*; it does not
+    make the number trustworthy, and the model ladder is what should stop it
+    being reported at all.
+    """
+    if abs(scale - 1.0) * 1_000_000.0 <= MAX_PLAUSIBLE_DRIFT_PPM:
+        return False
+    return abs(scale - 1.0) * span > tolerance
+
+
+def _rate_is_the_diagnosis(implausible: list[tuple[int, float]], best_plausible: int) -> bool:
+    """Whether an impossible rate explains this evidence better than any real one.
+
+    Refusing on the winner's rate alone is not enough: a search seeded at unity
+    will usually turn up *some* coincidental handful of pairs at a believable
+    rate, and returning that as the answer buries the finding. When a far
+    larger set of events lines up at a rate no crystal can produce, that larger
+    set is the finding -- the inputs are not two recordings of the same events
+    in the same units -- and saying so beats reporting that 1% matched.
+    """
+    if not implausible:
+        return False
+    return max(count for count, _ in implausible) > max(best_plausible * 2, 3)
+
+
+def _seed_scales(estimated: float) -> tuple[float, ...]:
+    """Rate seeds to start the search from, most likely first.
+
+    Unity comes first and is always tried. Two recordings of the same events
+    differ by a crystal's error, so the truth is within 200 ppm of 1.0 in every
+    case this module will accept -- while the median-interval estimate is only
+    right when both trains carry the *same* pulses. Hand it a target that
+    covers part of the session and the estimate lands percent-wrong, the search
+    converges on a local optimum matching a fraction of the events, and that
+    fit used to be returned and accepted.
+    """
+    if abs(estimated - 1.0) <= 1e-9:
+        return (1.0,)
+    return (1.0, estimated)
 
 
 def _initial_scale(reference: np.ndarray, target: np.ndarray) -> float:
@@ -361,14 +538,47 @@ def _fit_affine(reference: np.ndarray, target: np.ndarray) -> tuple[float, float
     return float(slope), float(offset)
 
 
-def _is_ambiguous(
-    candidates: list[tuple[np.ndarray, float, float, float]],
-    best_pairs: np.ndarray,
-    best_offset: float,
-) -> bool:
+def _ambiguity_margin(
+    candidates: list[tuple[np.ndarray, float, float, float]], tolerance: float
+) -> float:
+    """How decisively the winning lag beat the best rival at a different lag.
+
+    The guard this replaces asked whether a rival had an identical pair count
+    *and* an RMS at or below 1e-9 -- a bit-exact fit. Any real jitter puts the
+    RMS above that, so on measured data it never fired, which left the one
+    failure mode a residual plot structurally cannot show with no guard at all.
+
+    Two rivals are discounted. One within *tolerance* of the winner's offset is
+    the same alignment reached from a different seed. One matching strictly
+    fewer events lost on overlap, which is the principled tiebreak every
+    implementation of this uses: a lag shifted by one period always leaves an
+    event stranded at each end.
+
+    What is left is a rival that matched *as many* events at a materially
+    different lag, where only the residual separates the two -- and two regular
+    grids meeting at a wrong rate separate by nothing at all. So the margin is
+    the winner's fractional advantage in RMS, and 0.0 when it has none.
+
+    This is deliberately a tie detector rather than a full ambiguity analysis.
+    The wider failure it used to be asked to catch -- a fit that matched a
+    minority of its evidence exactly -- is now :data:`MIN_MATCH_RATE`'s job,
+    which measures it directly instead of inferring it from the runners-up.
+    """
+    best_pairs, _, best_offset, best_rms = candidates[0]
+    best_count = len(best_pairs)
+    if best_count == 0:
+        return 0.0
+
     for pairs, _, offset, rms in candidates[1:]:
-        if len(pairs) != len(best_pairs):
-            return False
-        if abs(offset - best_offset) > 1e-9 and rms <= 1e-9:
-            return True
-    return False
+        if abs(offset - best_offset) <= max(tolerance, 1e-9):
+            continue
+        if len(pairs) < best_count:
+            continue
+        # Materiality is measured against the tolerance that judged the
+        # matching, not against zero. Two exact alignments differ only by
+        # float noise -- 1e-17 against 2e-17 is a doubling, and comparing them
+        # as a ratio calls that a decisive win.
+        if (rms - best_rms) <= tolerance * _MATERIAL_RMS_FRACTION:
+            return 0.0
+        return float(min(1.0, (rms - best_rms) / rms))
+    return 1.0

@@ -251,22 +251,43 @@ class TestSyncInternals:
         assert pairs.shape == (0, 2)
 
     def test_equal_quality_candidates_at_different_offsets_are_ambiguous(self) -> None:
-        """Two perfect alignments mean the evidence cannot choose; refuse."""
-        from avialsync.core.sync import _is_ambiguous
+        """Two perfect alignments mean the evidence cannot choose; refuse.
+
+        Ported from `_is_ambiguous`, which scored this the same way but only
+        recognised a tie when both residuals were at or below 1e-9 -- so it
+        never fired on measured data. `_ambiguity_margin` returns a score
+        instead of a verdict, and the same tie now reads 0.0.
+        """
+        from avialsync.core.sync import _ambiguity_margin
 
         best = np.array([[0, 0], [1, 1], [2, 2]])
         rival = np.array([[0, 1], [1, 2], [2, 3]])
 
-        assert _is_ambiguous([(best, 1.0, 0.0, 0.0), (rival, 1.0, 5.0, 0.0)], best, 0.0)
+        margin = _ambiguity_margin([(best, 1.0, 0.0, 0.0), (rival, 1.0, 5.0, 0.0)], 1.0)
+
+        assert margin == 0.0
 
     def test_a_shorter_rival_candidate_is_not_ambiguity(self) -> None:
         """Fewer matched events is a worse fit, not a tie."""
-        from avialsync.core.sync import _is_ambiguous
+        from avialsync.core.sync import _ambiguity_margin
 
         best = np.array([[0, 0], [1, 1], [2, 2]])
         shorter = np.array([[0, 1], [1, 2]])
 
-        assert not _is_ambiguous([(best, 1.0, 0.0, 0.0), (shorter, 1.0, 5.0, 0.0)], best, 0.0)
+        margin = _ambiguity_margin([(best, 1.0, 0.0, 0.0), (shorter, 1.0, 5.0, 0.0)], 1.0)
+
+        assert margin == 1.0
+
+    def test_a_rival_at_the_same_offset_is_the_same_alignment(self) -> None:
+        """One alignment reached from two seeds is not two alignments."""
+        from avialsync.core.sync import _ambiguity_margin
+
+        best = np.array([[0, 0], [1, 1], [2, 2]])
+        same = np.array([[0, 0], [1, 1], [2, 2]])
+
+        margin = _ambiguity_margin([(best, 1.0, 0.0, 0.0), (same, 1.0, 0.0, 0.0)], 1.0)
+
+        assert margin == 1.0
 
 
 class TestPyramidLevels:
@@ -347,14 +368,32 @@ class TestAmbiguityLoopExhaustion:
     """Equal-length rivals that are not perfect fits are not ambiguity."""
 
     def test_a_rival_with_real_residual_is_not_a_tie(self) -> None:
-        from avialsync.core.sync import _is_ambiguous
+        from avialsync.core.sync import _ambiguity_margin
 
         best = np.array([[0, 0], [1, 1], [2, 2]])
         rival = np.array([[0, 1], [1, 2], [2, 3]])
 
-        # Same pair count and a different offset, but a residual well above
-        # the perfect-fit threshold: the best candidate genuinely wins.
-        assert not _is_ambiguous([(best, 1.0, 0.0, 0.0), (rival, 1.0, 5.0, 0.5)], best, 0.0)
+        # Same pair count and a different offset, but a residual far enough
+        # above the winner's to be material against the tolerance that judged
+        # the matching: the best candidate genuinely wins.
+        margin = _ambiguity_margin([(best, 1.0, 0.0, 0.0), (rival, 1.0, 5.0, 0.5)], 1.0)
+
+        assert margin == pytest.approx(1.0)
+
+    def test_a_separation_smaller_than_the_tolerance_is_still_a_tie(self) -> None:
+        """Two exact fits differ by float noise; a ratio calls that decisive.
+
+        1e-17 against 2e-17 is a doubling. Materiality is measured against the
+        tolerance that judged the matching, not against zero.
+        """
+        from avialsync.core.sync import _ambiguity_margin
+
+        best = np.array([[0, 0], [1, 1], [2, 2]])
+        rival = np.array([[0, 1], [1, 2], [2, 3]])
+
+        margin = _ambiguity_margin([(best, 1.0, 0.0, 1e-17), (rival, 1.0, 5.0, 2e-17)], 1.0)
+
+        assert margin == 0.0
 
 
 def test_a_failed_backup_restore_still_falls_back_to_the_swap(
