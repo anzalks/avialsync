@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.core.sync import SyncFit, SyncProposal
+from avialsync.core.sync import AlignmentMethod, SyncFit, SyncProposal
 from avialsync.engine.sync_worker import EvidenceSpec, SignalEvidenceSpec, SyncWorker
 from avialsync.ui.i18n import tr
 from avialsync.ui.sync_evidence_view import SyncEvidenceView
@@ -177,7 +177,18 @@ class SyncWizard(QDialog):
         self._thread.start()
 
     def _use_manual_mapping(self) -> None:
-        """Provide an explicit fallback when evidence is sparse or ambiguous."""
+        """Provide an explicit fallback when evidence is sparse or ambiguous.
+
+        It used to declare three matched events and a zero maximum residual, so
+        that `SyncProposal.acceptable` -- which needs at least three matches --
+        would let it through. Those numbers went into the session and came back
+        out of it as "aligned to X ± 0.0 ms from 3 events": a figure nobody
+        measured, presented as the most confident record in the file.
+
+        A manual mapping now counts nothing and claims nothing. It is
+        *applicable* because the user chose it, which is a different question
+        from whether it is acceptable on evidence, and it has none.
+        """
         self._proposal = SyncProposal(
             reference_id=self._reference_combo.currentText(),
             target_id=self._target_combo.currentText(),
@@ -186,14 +197,22 @@ class SyncWizard(QDialog):
                 drift_ppm=self._manual_drift.value(),
                 rms_residual=0.0,
                 max_residual=0.0,
-                matched_count=3,
+                matched_count=0,
                 rejected_count=0,
+                method=AlignmentMethod.MANUAL,
             ),
             matches=(),
             tolerance=0.0,
             unmatched_references=(),
         )
-        self._summary.setText(tr("Manual mapping selected. Accept it to apply and persist it."))
+        self._evidence.show_proposal(None)
+        self._summary.setText(
+            tr(
+                "Manual mapping: offset {offset:+.6f} s, drift {drift:+.3f} ppm. This is "
+                "recorded as set by hand, with no evidence behind it, and will be reported "
+                "that way wherever the alignment is shown."
+            ).format(offset=self._manual_offset.value(), drift=self._manual_drift.value())
+        )
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
 
     @Slot(object)
@@ -206,12 +225,15 @@ class SyncWizard(QDialog):
         # The plot, not just the sentence. BLUEPRINT principle 8 asks for the
         # matched evidence; four numbers are a summary of it (WP-10).
         self._evidence.show_proposal(proposal)
-        self._summary.setText(
-            f"{fit.matched_count} matched events; {fit.rejected_count} unmatched; "
-            f"offset {fit.offset:.6f} s; drift {fit.drift_ppm:.3f} ppm; "
-            f"maximum residual {fit.max_residual * 1000:.3f} ms."
-        )
-        self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(proposal.acceptable)
+        summary = fit.describe()
+        refusal = proposal.refusal
+        if refusal:
+            # Why, beside the disabled button, rather than a greyed control the
+            # user has to guess at (rule 15). The next move is to change the
+            # evidence, and this says which part of it.
+            summary = f"{summary}\n\nCannot accept: {refusal}"
+        self._summary.setText(summary)
+        self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(proposal.applicable)
 
     @Slot(str)
     def _on_error(self, message: str) -> None:

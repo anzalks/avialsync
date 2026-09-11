@@ -57,7 +57,7 @@ def test_v1_session_roundtrips_as_v7(tmp_path: Path) -> None:
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 8
+    assert data["version"] == 9
     assert data["videos"][0]["offset"] == 0.5
     assert data["sensors"][0]["channels"] == ["ch1", "ch2"]
     assert data["sensors"][0]["import_report"] is None
@@ -166,7 +166,7 @@ def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 8
+    assert data["version"] == 9
 
     loaded = SessionState.load(out)
     assert loaded.videos[0].integrity_flags == {"is_vfr": True, "has_gaps": False}
@@ -242,3 +242,90 @@ def test_large_exact_mapping_is_stored_in_a_validated_binary_sidecar(tmp_path: P
     sidecar.write_bytes(b"not a mapping")
     with pytest.raises(ValueError, match="Invalid exact synchronization sidecar"):
         SessionState.load(path)
+
+
+def test_a_v8_session_reads_back_as_the_affine_fit_it_recorded(tmp_path: Path) -> None:
+    """The v9 bump must not change what an existing session means.
+
+    v8 had one kind of sync record and no way to say which kind it was, so
+    every mapping it holds reads back as an affine fit. That is not a guess:
+    it is the only thing a v8 file could describe. What the bump cannot undo
+    is that a hand-typed offset was written into that same shape -- which is
+    the reason the field now exists.
+    """
+    v8 = {
+        "version": 8,
+        "videos": [{"path": "/tmp/cam.mp4", "offset": 1.25, "drift_ppm": 3.5}],
+        "sensors": [],
+        "markers": [],
+        "sync_provenance": [
+            {
+                "reference_id": "sensor:ttl",
+                "target_id": "/tmp/cam.mp4",
+                "offset": 1.25,
+                "drift_ppm": 3.5,
+                "rms_residual": 0.002,
+                "max_residual": 0.004,
+                "matched_count": 47,
+                "rejected_count": 3,
+                "tolerance": 0.25,
+                "matches": [{"reference_time": 1.0, "target_time": 2.25, "residual": 0.001}],
+                "exact_master": [],
+                "exact_source": [],
+            }
+        ],
+        "t_start": 0.0,
+        "t_end": 10.0,
+    }
+    path = tmp_path / "legacy.avv"
+    path.write_text(json.dumps(v8), encoding="utf-8")
+
+    loaded = SessionState.load(path)
+    provenance = loaded.sync_provenance[0]
+
+    assert provenance.method == "affine"
+    assert provenance.offset == pytest.approx(1.25)
+    assert provenance.matched_count == 47
+    # The v9-only fields take defaults that claim nothing: no counts to state a
+    # rate from, no measured uncertainty, and no rival to have beaten.
+    assert provenance.reference_count == 0
+    assert provenance.offset_stderr == 0.0
+    assert provenance.ambiguity_margin == 1.0
+
+    # And it re-saves as v9 without inventing anything.
+    out = tmp_path / "resaved.avv"
+    loaded.save(out)
+    resaved = json.loads(out.read_text())
+    assert resaved["version"] == 9
+    assert resaved["sync_provenance"][0]["method"] == "affine"
+    assert resaved["sync_provenance"][0]["matched_count"] == 47
+
+
+def test_a_manual_mapping_is_recorded_as_manual(tmp_path: Path) -> None:
+    """The whole point of the field: a typed number says it was typed."""
+    from avialsync.core.sync import AlignmentMethod
+
+    state = SessionState(
+        sync_provenance=[
+            SyncProvenance(
+                reference_id="sensor:ttl",
+                target_id="/tmp/cam.mp4",
+                offset=1.25,
+                drift_ppm=0.0,
+                rms_residual=0.0,
+                max_residual=0.0,
+                matched_count=0,
+                rejected_count=0,
+                tolerance=0.0,
+                method=AlignmentMethod.MANUAL,
+            )
+        ]
+    )
+    out = tmp_path / "manual.avv"
+    state.save(out)
+
+    reloaded = SessionState.load(out)
+
+    assert reloaded.sync_provenance[0].method == "manual"
+    # No fabricated count to make it look measured.
+    assert reloaded.sync_provenance[0].matched_count == 0

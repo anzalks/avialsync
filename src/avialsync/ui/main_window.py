@@ -1,5 +1,6 @@
 """Main window for AvialSync."""
 
+import dataclasses
 import logging
 from collections import deque
 from collections.abc import Callable
@@ -2006,20 +2007,68 @@ class MainWindow(QMainWindow):
             f"{Path(path).name} offset {new_offset:+.4f} s ({direction:+d} frame)", "info"
         )
 
+    def _supersede_alignment(
+        self, source_id: str, before: tuple[float, float], after: tuple[float, float]
+    ) -> None:
+        """Mark accepted evidence as no longer describing this source.
+
+        A fit accepted at two milliseconds and then nudged five frames is no
+        longer that fit, but nothing used to connect the two: the session kept
+        reporting the residual of a mapping it was no longer using. The record
+        is annotated rather than dropped, so the user can still see what the
+        alignment was and that it has been moved off it by hand.
+        """
+        moved = after[0] - before[0]
+        for index, entry in enumerate(self._sync_provenance):
+            if entry.target_id != source_id or entry.superseded_by:
+                continue
+            self._sync_provenance[index] = dataclasses.replace(
+                entry,
+                superseded_by=(
+                    f"moved {moved:+.4f} s by hand after it was accepted "
+                    f"({self._describe_provenance(entry)})"
+                ),
+            )
+
     def alignment_confidence(self, path: str) -> str:
         """One line describing how this source is aligned, or that it is not.
 
         Derived from the accepted provenance, which is the record of what was
         actually agreed to. Event-driven: never sampled on the clock tick.
+
+        Every method is described in the terms it supports, and no others.
+        This used to print `max_residual` as a "±" for every record alike,
+        which turned a hand-typed offset into "± 0.0 ms from 3 events" -- the
+        most confident thing the sentence could say, about the one kind of
+        mapping that measured nothing.
         """
         for entry in self._sync_provenance:
             if entry.target_id != path:
                 continue
-            return (
-                f"aligned to {Path(entry.reference_id).name or entry.reference_id} "
-                f"± {entry.max_residual * 1000:.1f} ms from {entry.matched_count} events"
-            )
+            if entry.superseded_by:
+                return f"alignment superseded: {entry.superseded_by}"
+            reference = Path(entry.reference_id).name or entry.reference_id
+            return f"aligned to {reference}: {self._describe_provenance(entry)}"
         return "no accepted alignment"
+
+    @staticmethod
+    def _describe_provenance(entry: SyncProvenance) -> str:
+        """Render a persisted record through the same words a live fit uses."""
+        from avialsync.core.sync import AlignmentMethod, SyncFit
+
+        return SyncFit(
+            offset=entry.offset,
+            drift_ppm=entry.drift_ppm,
+            rms_residual=entry.rms_residual,
+            max_residual=entry.max_residual,
+            matched_count=entry.matched_count,
+            rejected_count=entry.rejected_count,
+            reference_count=entry.reference_count,
+            target_count=entry.target_count,
+            offset_stderr=entry.offset_stderr,
+            ambiguity_margin=entry.ambiguity_margin,
+            method=AlignmentMethod(entry.method),
+        ).describe()
 
     # ── Overlays (D-090) ─────────────────────────────────────────────
 
@@ -2257,6 +2306,7 @@ class MainWindow(QMainWindow):
         if before == after:
             return
         self._recorded_mappings[source_id] = after
+        self._supersede_alignment(source_id, before, after)
         if self._recording_suspended:
             return
         self._record(
@@ -2828,8 +2878,8 @@ class MainWindow(QMainWindow):
         """Apply an explicitly accepted proposal and retain reproducible provenance."""
         from avialsync.core.sync import SyncProposal
 
-        if not isinstance(proposal, SyncProposal) or not proposal.acceptable:
-            raise ValueError("Only an acceptable synchronization proposal can be applied.")
+        if not isinstance(proposal, SyncProposal) or not proposal.applicable:
+            raise ValueError("Only an applicable synchronization proposal can be applied.")
         if target_path not in self.video_grid.pane_paths():
             raise ValueError(f"Synchronization target is not a loaded video: {target_path}")
 
@@ -2860,6 +2910,11 @@ class MainWindow(QMainWindow):
             matched_count=fit.matched_count,
             rejected_count=fit.rejected_count,
             tolerance=proposal.tolerance,
+            method=str(fit.method),
+            reference_count=fit.reference_count,
+            target_count=fit.target_count,
+            offset_stderr=fit.offset_stderr,
+            ambiguity_margin=fit.ambiguity_margin,
             matches=[
                 {
                     "reference_time": match.reference_time,
@@ -2899,9 +2954,7 @@ class MainWindow(QMainWindow):
             )
         )
         self._recorded_mappings[target_path] = (fit.offset, fit.drift_ppm)
-        self.transport.set_status(
-            f"TTL aligned · {fit.max_residual * 1000:.3f} ms residual", "info"
-        )
+        self.transport.set_status(f"Aligned · {fit.describe()}", "info")
         self.transport.set_ttl_events(
             [
                 (

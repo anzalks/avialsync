@@ -208,7 +208,7 @@ def test_a_v6_session_loads_with_default_overlays() -> None:
 
 
 def test_the_session_writes_version_8() -> None:
-    assert SessionState().to_dict()["version"] == 8
+    assert SessionState().to_dict()["version"] == 9
 
 
 # ── the window wiring ────────────────────────────────────────────────

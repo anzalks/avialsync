@@ -408,10 +408,10 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
 | `core/source.py` | Plugin ABCs — frozen API plus additive optional hooks (`messages()`, `exact_time_mapping()`, `video_metadata()`) | `TimeSeriesSource`, `VideoSource`, `VideoMetadata` |
-| `core/session.py` | `.avv` session JSON, schema v8 (v8 adds `point_edits` — a **count per source**, not the coordinates, D-099) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
+| `core/session.py` | `.avv` session JSON, schema v9 (v8 adds `point_edits` — a **count per source**, not the coordinates, D-099; v9 adds `SyncProvenance.method` plus per-side counts, `offset_stderr`, `ambiguity_margin`, `superseded_by`) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020); carries recorded messages into the sidecar manifest (D-078) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/messages.py` | Headless record for free text the rig stored with the data (D-078) | `Message`, `clean()`, `bounded()`, `MAX_MESSAGES` |
-| `core/sync.py` | Headless synchronization evidence/model layer (D-026) | `SyncEvent`, `SyncProposal`, match/fit dataclasses |
+| `core/sync.py` | Headless synchronization evidence/model layer (D-026). Carries the guards a residual plot structurally cannot express: match rate, ambiguity margin, plausible-rate search constraint | `SyncEvent`, `SyncProposal`, `AlignmentMethod`, `SyncFit.describe()`, `SyncProposal.applicable`/`.refusal` |
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
 | `core/point_edits.py` | Hand corrections to tracked points, in memory — sparse overrides keyed by `(source, body part, sample index)`. HEADLESS. **Never writes the pose file or its cache** (D-099) | `PointEditStore`, `PointKey`, `PointMove` |
 | `core/point_edit_sidecar.py` | Where those corrections live: `<pose file>.avialfix.csv` beside the source, written on every edit. Commented header, atomic replace, emptied never deleted (D-099) | `sidecar_path()`, `is_correction_path()`, `read()`, `write()` |
@@ -605,6 +605,27 @@ _start_data_import(path)
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
 > traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
+
+### 0-align. A mapping's numbers cannot say how it was made
+
+A hand-typed offset and a three-event fit with perfect residuals are the same
+six floats. The sync wizard's manual fallback exploited that: it declared
+`matched_count=3` and `max_residual=0.0` purely to clear
+`SyncProposal.acceptable`, which needs three matches — and those numbers went
+into the `.avv` and came back out as "aligned to X ± 0.0 ms from 3 events", the
+most confident thing the reader could say, about the one mapping that measured
+nothing. `SyncFit.method` (`AlignmentMethod`) now carries it, and
+`SyncProposal.applicable` is deliberately separate from `.acceptable`: a typed
+number is applicable because a person chose it and can never be acceptable,
+because it has no evidence to be acceptable on. Collapsing those two is how the
+fabrication happened. Anything rendering an alignment goes through
+`SyncFit.describe()`, which gives each method only the numbers that mean
+something for it.
+
+Accepted evidence also goes stale: `_record_mapping_change` now calls
+`_supersede_alignment`, because accepting a fit and then nudging the source
+five frames used to leave the session reporting the old fit's residual for a
+mapping it had stopped using. The record is annotated, never dropped.
 
 ### 0-nav. `qtbot.addWidget` holds its widgets weakly
 

@@ -136,10 +136,15 @@ class SyncFit:
             )
         if self.method is AlignmentMethod.UNVALIDATED:
             return f"placed by {self.matched_count} events, with none left over to check it against"
+        if self.method is AlignmentMethod.SHIFT:
+            return (
+                f"offset {self.offset:+.6f} s ± {self.offset_stderr * 1000:.3f} ms from "
+                f"{self.matched_count} of {self.reference_count} events, no rate fitted"
+            )
         return (
-            f"fitted from {self.matched_count} of {self.reference_count} events, "
-            f"offset {self.offset:+.6f} ± {self.offset_stderr * 1000:.3f} ms, "
-            f"drift {self.drift_ppm:+.3f} ppm, worst residual "
+            f"offset {self.offset:+.6f} s ± {self.offset_stderr * 1000:.3f} ms and "
+            f"{self.drift_ppm:+.3f} ppm, fitted from {self.matched_count} of "
+            f"{self.reference_count} events, worst residual "
             f"{self.max_residual * 1000:.3f} ms"
         )
 
@@ -350,6 +355,9 @@ def fit_exact_index_mapping(
         max_residual=0.0,
         matched_count=length,
         rejected_count=len(reference_times) + len(target_times) - 2 * length,
+        reference_count=len(reference),
+        target_count=len(target),
+        method=AlignmentMethod.EXACT,
         exact_master=matched_ref,
         exact_source=matched_tgt,
     )

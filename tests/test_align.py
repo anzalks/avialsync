@@ -300,8 +300,76 @@ def test_an_aligned_source_reports_its_evidence(window: MainWindow) -> None:
         )
     )
     text = window.alignment_confidence("/tmp/cam1.mp4")
-    assert "47 events" in text
-    assert "3.0 ms" in text
+    assert "ephys.csv" in text
+    assert "47" in text
+    # The worst single pair is still reported, but as a worst residual rather
+    # than as the "+/-" it used to be printed as.
+    assert "worst residual 3.000 ms" in text
+
+
+def test_a_hand_typed_mapping_is_never_described_as_measured(window: MainWindow) -> None:
+    """The defect this field exists to close.
+
+    A manual offset used to be written with `matched_count=3` and a zero
+    maximum residual, purely to clear an acceptance gate, and came back out as
+    "aligned to X +/- 0.0 ms from 3 events" -- the most confident sentence the
+    reader could produce, about the one mapping that measured nothing.
+    """
+    from avialsync.core.session import SyncProvenance
+    from avialsync.core.sync import AlignmentMethod
+
+    window._sync_provenance.append(
+        SyncProvenance(
+            reference_id="/tmp/ephys.csv",
+            target_id="/tmp/cam1.mp4",
+            offset=1.25,
+            drift_ppm=0.0,
+            rms_residual=0.0,
+            max_residual=0.0,
+            matched_count=0,
+            rejected_count=0,
+            tolerance=0.0,
+            method=AlignmentMethod.MANUAL,
+        )
+    )
+
+    text = window.alignment_confidence("/tmp/cam1.mp4")
+
+    assert "set by hand" in text
+    assert "events" not in text
+    assert "±" not in text
+
+
+def test_nudging_an_aligned_source_supersedes_its_evidence(window: MainWindow) -> None:
+    """Accepting a fit and then moving the source by hand invalidates the fit.
+
+    Nothing used to connect the two, so the session kept reporting the
+    residual of a mapping it had stopped using.
+    """
+    from avialsync.core.session import SyncProvenance
+
+    window._sync_provenance.append(
+        SyncProvenance(
+            reference_id="/tmp/ephys.csv",
+            target_id="/tmp/cam1.mp4",
+            offset=1.0,
+            drift_ppm=0.0,
+            rms_residual=0.001,
+            max_residual=0.003,
+            matched_count=47,
+            rejected_count=1,
+            tolerance=0.005,
+        )
+    )
+    window._recorded_mappings["/tmp/cam1.mp4"] = (1.0, 0.0)
+
+    window._record_mapping_change("/tmp/cam1.mp4", 1.2, 0.0)
+
+    text = window.alignment_confidence("/tmp/cam1.mp4")
+    assert "superseded" in text
+    assert "+0.2000 s by hand" in text
+    # The record is kept, not dropped: what it *was* is still legible.
+    assert window._sync_provenance[0].matched_count == 47
 
 
 # ── which camera a nudge moves (the multi-camera bug) ────────────────

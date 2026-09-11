@@ -65,6 +65,30 @@ class SyncProvenance:
     matched_count: int
     rejected_count: int
     tolerance: float
+    #: How this mapping was arrived at (schema v9). The numbers beside it
+    #: cannot say: a typed offset and a three-event fit with perfect residuals
+    #: are the same six floats, and the reader used to render the typed one as
+    #: the most confident record in the session. Values are
+    #: `core.sync.AlignmentMethod`; a v8 session has none and is read back as
+    #: an affine fit, which is what every mapping those sessions could record
+    #: actually was.
+    method: str = "affine"
+    #: Events offered on each side (schema v9), so a match *rate* can be
+    #: stated. Not recoverable from `rejected_count`, which sums both sides.
+    reference_count: int = 0
+    target_count: int = 0
+    #: Uncertainty on the offset, `rms/sqrt(n)` (schema v9). `max_residual` is
+    #: a bound on the worst single pair and reads as a "±" when printed as one.
+    offset_stderr: float = 0.0
+    #: How decisively the winning lag beat the best rival at a different one
+    #: (schema v9). 1.0 is unopposed; 0.0 is a coin toss.
+    ambiguity_margin: float = 1.0
+    #: What replaced this evidence, when the mapping it describes no longer
+    #: holds (schema v9). Accepting a fit and then nudging the source by five
+    #: frames left the session still claiming the fit's residual, because
+    #: nothing connected the two; the record is kept rather than deleted so the
+    #: user can see what the alignment *was*, and that it is no longer that.
+    superseded_by: str = ""
     matches: list[dict[str, float]] = dataclasses.field(default_factory=list)
     exact_master: list[float] | np.ndarray = dataclasses.field(default_factory=list)
     exact_source: list[float] | np.ndarray = dataclasses.field(default_factory=list)
@@ -100,7 +124,7 @@ class SessionState:
     point_edits: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 8)."""
+        """Serialise to a JSON-compatible dict (always writes version 9)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -116,7 +140,7 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 8,
+            "version": 9,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
@@ -139,7 +163,7 @@ class SessionState:
         migration test, not an aspiration.
         """
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5, 6, 7, 8):
+        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
@@ -185,6 +209,16 @@ class SessionState:
                 matched_count=int(item["matched_count"]),
                 rejected_count=int(item["rejected_count"]),
                 tolerance=float(item["tolerance"]),
+                # A v8 session recorded nothing but affine fits and manual
+                # entries it could not distinguish, so "affine" is the only
+                # honest default -- and the reason the field exists is that the
+                # two were indistinguishable, which no migration can undo.
+                method=str(item.get("method", "affine")),
+                reference_count=int(item.get("reference_count", 0)),
+                target_count=int(item.get("target_count", 0)),
+                offset_stderr=float(item.get("offset_stderr", 0.0)),
+                ambiguity_margin=float(item.get("ambiguity_margin", 1.0)),
+                superseded_by=str(item.get("superseded_by", "")),
                 matches=[
                     {
                         "reference_time": float(match["reference_time"]),

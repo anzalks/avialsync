@@ -23,7 +23,7 @@ def test_sync_wizard_requires_preview_before_acceptance(qtbot) -> None:
 
     assert wizard.proposal is not None
     assert accept.isEnabled()
-    assert "matched events" in wizard._summary.text()
+    assert "fitted from 10 of 10 events" in wizard._summary.text()
     qtbot.waitUntil(lambda: wizard._thread is None, timeout=3000)
 
 
@@ -40,3 +40,46 @@ def test_sync_wizard_allows_explicit_manual_fallback(qtbot) -> None:
     assert wizard.proposal is not None
     assert wizard.proposal.fit.offset == 1.25
     assert wizard.proposal.fit.drift_ppm == 4.0
+
+
+def test_a_manual_mapping_counts_nothing_and_claims_nothing(qtbot) -> None:
+    """It is applicable because the user chose it, never acceptable on evidence.
+
+    The fallback used to declare three matched events and a zero maximum
+    residual so that `acceptable` -- which needs three matches -- would let it
+    through, and those numbers were then persisted as if measured.
+    """
+    from avialsync.core.sync import AlignmentMethod
+
+    reference = EventEvidenceSpec("sensor:ttl", np.arange(0.0, 10.0, 1.0))
+    target = EventEvidenceSpec("video:camera", np.arange(0.0, 10.0, 1.0) + 1.25)
+    wizard = SyncWizard([reference], [target])
+    qtbot.addWidget(wizard)
+
+    wizard._manual_offset.setValue(1.25)
+    wizard._use_manual_mapping()
+
+    proposal = wizard.proposal
+    assert proposal is not None
+    assert proposal.fit.method is AlignmentMethod.MANUAL
+    assert proposal.fit.matched_count == 0
+    assert not proposal.acceptable, "a typed number has no evidence to be acceptable on"
+    assert proposal.applicable, "but the user explicitly chose it"
+    assert wizard._buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    assert "set by hand" in wizard._summary.text() or "no evidence" in wizard._summary.text()
+
+
+def test_a_refused_fit_says_which_evidence_to_change(qtbot) -> None:
+    """A disabled Accept with no reason beside it is the shape to avoid."""
+    # A uniform train against a target with slack: many lags fit equally well.
+    reference = EventEvidenceSpec("sensor:ttl", np.arange(0.0, 12.0, 1.0))
+    target = EventEvidenceSpec("video:camera", np.arange(0.0, 30.0, 1.0))
+    wizard = SyncWizard([reference], [target])
+    qtbot.addWidget(wizard)
+
+    wizard._preview()
+    qtbot.waitUntil(lambda: wizard._thread is None, timeout=3000)
+
+    assert not wizard._buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    text = wizard._summary.text()
+    assert "No mapping proposed" in text or "Cannot accept" in text
