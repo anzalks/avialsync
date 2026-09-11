@@ -74,6 +74,17 @@ of those a gate rather than a convention; the second half of the phase's own exi
 `QMessageBox` outside the presenter") had never been enforced and had drifted to nineteen call
 sites while the suite stayed green.
 
+**Alignment was rebuilt on branch `feat/ttl-alignment` (D-108).** The short version: residuals are
+conditional on the pairing, so they cannot show a *wrong* pairing — a degenerate match reports a
+smaller residual than a correct one. Acceptance now tests the match rate, an ambiguity margin
+scored against the tolerance rather than against zero, and a plausible rate applied as a search
+constraint. The model comes from the evidence and the span (`core/alignment.py`) and from which way
+the wire ran (`core/triggers.py`), not from a dropdown. A mapping records how it was made
+(`AlignmentMethod`, session schema v9), so a hand-typed offset can no longer be persisted as a
+three-event fit. The session has one declared zero after NWB (`core/session_time.py`). The evidence
+dialog gained a correspondence panel, coverage lanes, per-axis navigation, and stopped blocking the
+window it asks the user to judge.
+
 Two product laws govern that phase and outrank convention:
 
 - **Law 1 — never block, always inform.** Opening a file is never refused or gated. The user is

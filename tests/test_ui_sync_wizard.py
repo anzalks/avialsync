@@ -23,7 +23,12 @@ def test_sync_wizard_requires_preview_before_acceptance(qtbot) -> None:
 
     assert wizard.proposal is not None
     assert accept.isEnabled()
-    assert "fitted from 10 of 10 events" in wizard._summary.text()
+    # Ten pulses across nine seconds cannot support a rate -- 1 ppm over that
+    # span is nine microseconds -- so the automatic ladder reports the offset it
+    # measured and declines to quote a drift it cannot resolve.
+    summary = wizard._summary.text()
+    assert "10 of 10 events" in summary
+    assert "no rate fitted" in summary
     qtbot.waitUntil(lambda: wizard._thread is None, timeout=3000)
 
 

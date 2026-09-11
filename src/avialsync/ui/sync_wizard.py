@@ -93,9 +93,22 @@ class SyncWizard(QDialog):
         form.addRow("", self._use_all_times_chk)
 
         self._strategy_combo = QComboBox(self)
-        self._strategy_combo.addItem("Affine Fit (Drift Compensation)", "affine")
-        self._strategy_combo.addItem("Exact Index (1:1 Frame Mapping)", "exact_index")
-        form.addRow("Alignment Strategy:", self._strategy_combo)
+        # Automatic first, and the default. A strategy dropdown asks the user to
+        # certify something only the data knows -- whether the span can support
+        # a rate, whether the pulses are regular enough to interpolate between
+        # -- so the ladder decides unless someone overrides it deliberately.
+        self._strategy_combo.addItem(tr("Automatic (from the evidence)"), "auto")
+        self._strategy_combo.addItem(tr("Affine fit (offset and drift)"), "affine")
+        self._strategy_combo.addItem(tr("Exact index (1:1 frame mapping)"), "exact_index")
+        self._strategy_combo.setToolTip(
+            tr(
+                "Automatic picks the strongest model this evidence supports: exact where "
+                "frames are paired, interpolated between sync edges where a shared train "
+                "exists, a fitted rate where the recording is long enough to measure one, "
+                "and an offset alone where it is not."
+            )
+        )
+        form.addRow(tr("Alignment strategy:"), self._strategy_combo)
 
         self._index_offset = QSpinBox(self)
         self._index_offset.setRange(-1000000, 1000000)

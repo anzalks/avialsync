@@ -52,23 +52,40 @@ __all__ = [
     "residual_trend",
 ]
 
+#: No rate is called real on a divergence below this, whatever the residuals
+#: say. A fit whose scatter is numerically zero -- synthetic data, or an exact
+#: mapping -- would otherwise make any rate at all "identifiable", including one
+#: that is the last few bits of a float.
+_IDENTIFIABILITY_FLOOR_S = 1e-6
+
 #: Below this many matched edges, interpolating between them is a straight line
 #: with extra steps -- and a straight line is what the affine model already is,
 #: fitted with every point instead of two.
 MIN_PIECEWISE_KNOTS = 4
 
 
-def drift_is_identifiable(drift_ppm: float, span: float, tolerance: float) -> bool:
+def drift_is_identifiable(drift_ppm: float, span: float, noise: float) -> bool:
     """Whether a rate difference is large enough, over this span, to be measured.
 
-    7,200 ppm across one second is seven milliseconds, and no arithmetic
-    separates that from jitter; across four hundred seconds the same figure is
-    three seconds and means something. Reporting a rate the span cannot resolve
-    dresses noise as a clock measurement, to three decimal places.
+    Two things decide it. The span, because 7,200 ppm across one second is
+    seven milliseconds while across four hundred seconds it is three; and the
+    scatter it has to stand out from, because a divergence smaller than the
+    fit's own residuals is not a measurement of anything.
+
+    *noise* is the fit's RMS residual where one exists, and the matching
+    tolerance only where no fit has happened yet. Judging against the tolerance
+    is the weaker test and was the wrong one here: that number is a quarter of
+    the pulse interval, so a 1 Hz sync train sets it to 250 ms and would bury a
+    genuine 60 ppm over twenty minutes -- forty-eight milliseconds of real
+    divergence, against residuals measured in picoseconds.
+
+    Three times the scatter, which is the usual bar for calling a term real
+    rather than a fluctuation.
     """
-    if span <= 0 or tolerance <= 0:
+    if span <= 0:
         return False
-    return abs(drift_ppm) * 1e-6 * span > tolerance
+    divergence = abs(drift_ppm) * 1e-6 * span
+    return divergence > max(3.0 * noise, _IDENTIFIABILITY_FLOOR_S)
 
 
 def residual_trend(times: np.ndarray, residuals: np.ndarray) -> float:
@@ -96,7 +113,7 @@ def choose_method(
     matched_count: int,
     span: float,
     drift_ppm: float,
-    tolerance: float,
+    noise: float,
 ) -> AlignmentMethod:
     """The strongest model this evidence supports, never a stronger one.
 
@@ -106,7 +123,7 @@ def choose_method(
         matched_count: Events paired between the two sources.
         span: Seconds covered by the evidence.
         drift_ppm: Rate difference a free fit would report.
-        tolerance: The matching tolerance the evidence was judged by.
+        noise: Scatter the rate must stand out from -- the fit's RMS residual.
     """
     if matched_count < 2:
         raise SyncEvidenceError("An alignment needs at least two matched events.")
@@ -123,7 +140,7 @@ def choose_method(
         # at every edge. No single rate has to be true for the whole recording.
         return AlignmentMethod.PIECEWISE
 
-    if drift_is_identifiable(drift_ppm, span, tolerance):
+    if drift_is_identifiable(drift_ppm, span, noise):
         return AlignmentMethod.AFFINE
     return AlignmentMethod.SHIFT
 

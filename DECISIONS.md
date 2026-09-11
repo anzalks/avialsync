@@ -4081,3 +4081,87 @@ again.
 The general lesson is the one this whole decision is about: **a saving that was not measured is a
 guess**, and this one was made in the same change that added tests specifically because written
 rules without measurement had been drifting for a whole phase.
+
+---
+
+## 2026-09 · D-108 · The evidence decides the model, and the record says how it was made
+
+**Context:** A real fit reached the accept button reading *"9405 matched, 36233 rejected · offset
+−150158.117391 s · drift 3347826.087 ppm · RMS 0.000 ms · worst 0.000 ms"*, with the evidence plot
+beside it drawing a flat band at zero and the prose under it saying the residuals were scattered
+evenly with no remaining trend. Every statement was true. Every gate was green. The offset was 41
+hours and the rate was four decades outside anything a crystal can do.
+
+That is not a bug in one function. It is what a residual plot *is*: residuals are conditional on
+the pairing, so they measure how tightly the matched pairs agree and are structurally silent about
+whether those are the right pairs. A degenerate match — two regular grids commensurating at a
+wrong rate — lands a minority of points exactly and therefore reports a **smaller** residual than
+the correct alignment would. Precision was being checked; correctness was not being checked at
+all.
+
+**Decision.** Five things, none of which may be reversed by making the acceptance test simpler.
+
+1. **Acceptance tests the matching, not only its residuals.** `SyncProposal.acceptable` requires a
+   match *rate* (`MIN_MATCH_RATE`), an ambiguity margin, and a plausible rate, alongside the
+   residual bound. `SyncFit` carries per-side counts because a rate is not recoverable from
+   `rejected_count`, which sums both sides.
+
+2. **The ambiguity margin is scored against the tolerance, never against zero.** The guard this
+   replaced fired only when a rival had an identical pair count *and* an RMS at or below 1e-9 —
+   a bit-exact fit — so on measured data it never fired at all, leaving the one failure a residual
+   plot cannot show with no guard whatsoever. Two exact fits differ by float noise, and 1e-17
+   against 2e-17 is a doubling; materiality is measured against the tolerance that judged the
+   matching.
+
+3. **A plausible rate is a search constraint, not a post-hoc check** — a wrong-scale local optimum
+   can match a *longer* run of events than the truth (27 pairs at 0.93 against 40 at 1.0) and
+   would otherwise win on count before anything looked at the rate. And a rate is only implausible
+   where it is *identifiable*: `alignment.drift_is_identifiable` judges the divergence a rate
+   implies against **the fit's own residual scatter**, not against the matching tolerance. The
+   tolerance is a quarter of the pulse interval, so a 1 Hz sync train sets it to 250 ms and would
+   discard a genuine 60 ppm over twenty minutes — 72 ms of real divergence against residuals in
+   microseconds.
+
+4. **The model comes from the evidence and the span, never from a dropdown.** `core/alignment.py`
+   holds the ladder — exact, piecewise, affine, shift, unvalidated — and `core/triggers.py` holds
+   what decides it: **which way the wire ran.** A camera strobe is evidence that frames *happened*
+   and licenses pairing pulse *i* with frame *i*; an external trigger records only that they were
+   requested, and a frame the camera dropped looks exactly like one it kept. Counts agreeing does
+   not rescue a trigger train — a drop plus a duplicate agree too — so
+   `Reconciliation.exact_mapping_is_safe` is False for one however well the counts match. The
+   wizard still offers a manual override, and "Automatic" is the default.
+
+5. **A mapping records how it was made.** A hand-typed offset and a three-event fit with perfect
+   residuals are the same six floats, and the wizard's manual fallback exploited exactly that: it
+   declared `matched_count=3` and `max_residual=0.0` purely to clear an acceptance gate, and those
+   numbers were persisted and read back as "aligned to X ± 0.0 ms from 3 events" — the most
+   confident sentence the reader could produce, about the one mapping that measured nothing.
+   `AlignmentMethod` travels with the fit and into the session (schema v9), and
+   `SyncProposal.applicable` is deliberately **not** `acceptable`: a typed number is applicable
+   because a person chose it and can never be acceptable, because it has no evidence to be
+   acceptable on. Collapsing those two questions is how the fabrication happened.
+
+**Also settled, and not to be re-litigated:**
+
+- **One session zero, after NWB** (`core/session_time.py`). A source carrying wall-clock time is
+  *placed* against the reference through its own `TimeMap` — nothing is rewritten. Declared once
+  and never moved, including by a source that turns out to start earlier; that one goes before
+  zero, where it truly is. A reference that shifted whenever an earlier file arrived would
+  renumber every timestamp the user had already written down.
+- **Accepted evidence goes stale.** A mapping change supersedes the provenance it contradicts,
+  annotating the record rather than dropping it, so what the alignment *was* stays legible.
+- **Trigger evidence is a third plugin kind** (`TriggerSource`), because it answers a different
+  question from a loader: not what was recorded but when things happened, and what those instants
+  are evidence *of*. `suggest_trains` never proposes `frame_strobe` — that is a fact about wiring
+  a file cannot describe, and it is the single decision that must not be made for the user.
+
+**Alternatives rejected.** Widening the residual tolerance (it was already 250 ms on a 1 Hz train,
+which is the disease); refusing every uniform pulse train outright (it is most rigs, and maximum
+overlap is the principled tiebreak every implementation of this uses); clamping an implausible rate
+rather than naming it (the number *is* the diagnosis — a unit or sample-index mismatch, or dense
+samples used where per-event timestamps are needed).
+
+**The generalisable lesson**, which is D-107's restated for a different subsystem: **a plot that
+can only show the quality of an answer cannot tell you the answer is to the wrong question.** The
+accept button is now gated on the correspondence panel's question — are these the right pairs —
+and the residual panel is what it always was, a measure of precision once correctness is settled.

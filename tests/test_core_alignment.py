@@ -24,21 +24,36 @@ def _irregular(count: int, *, seed: int, period: float = 1.0) -> np.ndarray:
     return np.cumsum(rng.uniform(period * 0.5, period * 1.5, count))
 
 
-class TestARateNeedsASpanToBeMeasuredOver:
+class TestARateNeedsASpanAndAQuietEnoughFit:
     def test_a_large_rate_over_a_short_span_is_not_identifiable(self) -> None:
-        """7,200 ppm across one second is seven milliseconds."""
-        assert not drift_is_identifiable(7200.0, span=1.0, tolerance=0.025)
+        """7,200 ppm across one second is seven milliseconds of divergence."""
+        assert not drift_is_identifiable(7200.0, span=1.0, noise=0.025)
 
     def test_the_same_rate_over_a_long_span_is(self) -> None:
-        assert drift_is_identifiable(7200.0, span=400.0, tolerance=0.025)
+        assert drift_is_identifiable(7200.0, span=400.0, noise=0.025)
 
     def test_a_real_crystal_error_needs_a_real_recording(self) -> None:
         """50 ppm is 50 us a second: minutes of recording before it shows."""
-        assert not drift_is_identifiable(50.0, span=10.0, tolerance=0.005)
-        assert drift_is_identifiable(50.0, span=1800.0, tolerance=0.005)
+        assert not drift_is_identifiable(50.0, span=10.0, noise=0.005)
+        assert drift_is_identifiable(50.0, span=1800.0, noise=0.005)
+
+    def test_the_yardstick_is_the_fit_not_the_pulse_interval(self) -> None:
+        """60 ppm over twenty minutes is 72 ms of divergence.
+
+        Judged against a 1 Hz train's matching tolerance -- a quarter of its
+        interval, 250 ms -- that real rate would be discarded, against
+        residuals measured in microseconds.
+        """
+        assert drift_is_identifiable(60.0, span=1200.0, noise=0.000_01)
+        assert not drift_is_identifiable(60.0, span=1200.0, noise=0.25)
+
+    def test_a_numerically_perfect_fit_still_needs_a_real_divergence(self) -> None:
+        """Otherwise the last few bits of a float become a clock measurement."""
+        assert not drift_is_identifiable(0.0001, span=1.0, noise=0.0)
+        assert drift_is_identifiable(60.0, span=1200.0, noise=0.0)
 
     def test_a_zero_span_can_identify_nothing(self) -> None:
-        assert not drift_is_identifiable(1000.0, span=0.0, tolerance=0.01)
+        assert not drift_is_identifiable(1000.0, span=0.0, noise=0.01)
 
 
 class TestReadingWhatTheModelDidNotAbsorb:
@@ -65,7 +80,7 @@ class TestTheLadder:
             matched_count=2,
             span=100.0,
             drift_ppm=0.0,
-            tolerance=0.01,
+            noise=0.01,
         )
         assert method is AlignmentMethod.UNVALIDATED
 
@@ -77,7 +92,7 @@ class TestTheLadder:
                 matched_count=1,
                 span=100.0,
                 drift_ppm=0.0,
-                tolerance=0.01,
+                noise=0.01,
             )
 
     def test_a_strobe_whose_counts_agree_is_exact(self) -> None:
@@ -87,7 +102,7 @@ class TestTheLadder:
             matched_count=500,
             span=100.0,
             drift_ppm=30.0,
-            tolerance=0.001,
+            noise=0.001,
         )
         assert method is AlignmentMethod.EXACT
 
@@ -99,7 +114,7 @@ class TestTheLadder:
             matched_count=500,
             span=1000.0,
             drift_ppm=30.0,
-            tolerance=0.001,
+            noise=0.001,
         )
         assert method is not AlignmentMethod.EXACT
         assert method is AlignmentMethod.AFFINE
@@ -112,7 +127,7 @@ class TestTheLadder:
             matched_count=3600,
             span=3600.0,
             drift_ppm=40.0,
-            tolerance=0.01,
+            noise=0.01,
         )
         assert method is AlignmentMethod.PIECEWISE
 
@@ -123,7 +138,7 @@ class TestTheLadder:
             matched_count=MIN_PIECEWISE_KNOTS - 1,
             span=3600.0,
             drift_ppm=40.0,
-            tolerance=0.01,
+            noise=0.01,
         )
         assert method is not AlignmentMethod.PIECEWISE
 
@@ -134,7 +149,7 @@ class TestTheLadder:
             matched_count=40,
             span=2.0,
             drift_ppm=500.0,
-            tolerance=0.05,
+            noise=0.05,
         )
         assert method is AlignmentMethod.SHIFT
 

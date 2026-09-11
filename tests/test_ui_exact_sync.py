@@ -40,7 +40,9 @@ def test_exact_sync_flow(qtbot, tmp_path: Path):
     wizard = wizards[0]
 
     # 4. Select Exact Index
-    wizard._strategy_combo.setCurrentIndex(1)
+    # By data, not by position: "Automatic" now leads the list, so an index
+    # picked out of the old order silently selects a different strategy.
+    wizard._strategy_combo.setCurrentIndex(wizard._strategy_combo.findData("exact_index"))
     wizard._use_all_times_chk.setChecked(True)
     wizard._preview_button.click()
     qtbot.waitUntil(lambda: wizard._thread is None, timeout=5000)
