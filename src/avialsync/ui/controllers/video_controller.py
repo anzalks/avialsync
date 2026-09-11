@@ -292,6 +292,9 @@ def create_video_pane(
     )
     window._inspections[original_path] = inspection
     window.sidebar.set_video_inspection(original_path, inspection)
+    # A camera that has just appeared has no alignment yet, and the badge has
+    # to say so rather than stay blank until something else happens.
+    window.refresh_alignment_badges()
     if frame_times is not None:
         window._video_frame_times[original_path] = frame_times
         from avialsync.ui.controllers import import_controller

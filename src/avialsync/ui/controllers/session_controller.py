@@ -451,6 +451,10 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     window._session_start_time = float(state.session_start_time)
     window._publish_session_epoch()
     window._sync_provenance = list(state.sync_provenance)
+    # Sources arrive asynchronously, so this runs again once they have; doing
+    # it here as well means a restore with nothing left to load still ends with
+    # correct badges.
+    window.refresh_alignment_badges()
     window._pending_exact_mappings.clear()
     for provenance in state.sync_provenance:
         if len(provenance.exact_master) and len(provenance.exact_source):

@@ -406,3 +406,70 @@ class VideoSource(_Nameable, ABC):
     def label(self) -> str:
         """Camera label for the UI."""
         pass
+
+
+class TriggerSource(_Nameable, ABC):
+    """Plugin contract for evidence about *when things happened*, not what.
+
+    The third source kind, beside :class:`TimeSeriesSource` and
+    :class:`VideoSource`. It returns no samples and no frames: it returns a
+    train of instants and says what those instants are evidence of, which is
+    the thing that decides how an alignment may be fitted.
+
+    That declaration is the whole point of the boundary. A user who picks
+    "exact index mapping" from a dropdown is certifying something only the
+    recording knows -- whether every requested exposure actually reached the
+    file. A provider that declares ``FRAME_STROBE`` is stating a fact about the
+    wiring, and `core.alignment.choose_method` derives the model from it.
+
+    Implementations run on a worker thread and must not retain Qt objects.
+    """
+
+    @classmethod
+    @abstractmethod
+    def can_open(cls, path: Path) -> float:
+        """Return a confidence in ``[0.0, 1.0]`` without expensive I/O."""
+
+    @abstractmethod
+    def open(self, path: Path, config: dict[str, Any]) -> None:
+        """Read what is needed to enumerate trains.
+
+        ``config`` is plugin-defined and JSON-serialisable, so a session can
+        reopen the same evidence without asking the user again.
+        """
+
+    @abstractmethod
+    def trains(self) -> list[str]:
+        """Return the identifier of every trigger train this file offers.
+
+        One file often carries several -- a camera strobe on one channel, a
+        stimulus marker on another -- and they align different things.
+        """
+
+    @abstractmethod
+    def kind_of(self, train_id: str) -> str:
+        """Return the :class:`core.triggers.TriggerKind` of *train_id*.
+
+        A string rather than the enum so that `core/source.py` stays free of a
+        dependency on the trigger module, and a plugin author can return a
+        literal without importing anything from us.
+        """
+
+    @abstractmethod
+    def read_train(self, train_id: str) -> tuple[np.ndarray, np.ndarray | None]:
+        """Return ``(times, durations)`` for *train_id*, in the file's own clock.
+
+        *times* is one strictly increasing timestamp per event. *durations* is
+        the exposure length of each event where both edges were recorded, and
+        ``None`` where only one was -- a provider that has only rising edges
+        says so rather than inventing a width.
+        """
+
+    def target_hint(self, train_id: str) -> str:
+        """The source this train is evidence about, when the file names it.
+
+        A strobe file recorded beside ``front_camera.mp4`` usually says so, and
+        a provider that knows saves the user from pairing them by hand. An
+        empty string means "ask", which is the honest default.
+        """
+        return ""

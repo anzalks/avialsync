@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent
+from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from avialsync.core.sync import SyncProposal
@@ -103,6 +103,21 @@ class SyncEvidenceView(QWidget):
         self._headline.setWordWrap(True)
         layout.addWidget(self._headline)
 
+        # The correspondence panel, above the residuals and sharing their time
+        # axis. Residuals are *conditional on the pairing*: they measure how
+        # tightly the matched pairs agree and are silent about whether those
+        # are the right pairs, so a degenerate match reports a smaller residual
+        # than a correct one. On this plot a wrong pairing cannot hide -- the
+        # slope is the rate, so a fit at four times the true rate is a line at
+        # four to one, and a whole-period lag error is a line of correct slope
+        # sitting in the wrong place. Neither is visible in a residual at all.
+        self._pairing = pg.PlotWidget(viewBox=NavigableViewBox())
+        self._pairing.setLabel("left", "Target time (s)")
+        self._pairing.showGrid(x=True, y=True, alpha=0.2)
+        self._pairing.setMinimumHeight(150)
+        self._pairing.setMenuEnabled(False)
+        layout.addWidget(self._pairing, 1)
+
         # A navigable view box, not a bare one: the wheel means time unless a
         # modifier says otherwise, so the tolerance band cannot be scrolled off
         # the plot by someone who believes they are moving along the recording.
@@ -126,6 +141,10 @@ class SyncEvidenceView(QWidget):
         # group stands against the axis it moves.
         self._nav = AxisNav(self._plot, self)
         layout.addWidget(self._nav, 1)
+
+        # One time axis across the dialog, not three. Moving either panel moves
+        # both, so a point picked out above is the same instant below it.
+        self._pairing.setXLink(self._plot)
 
         self._reading = QLabel("")
         self._reading.setWordWrap(True)
@@ -157,12 +176,14 @@ class SyncEvidenceView(QWidget):
         theme chosen somewhere else, at an unrelated time.
         """
         apply_canvas_palette(self._plot, self.palette())
+        apply_canvas_palette(self._pairing, self.palette())
 
     # ── showing a proposal ───────────────────────────────────────────
 
     def show_proposal(self, proposal: SyncProposal | None) -> None:
         """Draw the evidence behind *proposal*, or clear."""
         self._plot.clear()
+        self._pairing.clear()
         self._proposal = proposal
         if proposal is None:
             self._headline.setText(tr("No alignment has been proposed."))
@@ -240,8 +261,59 @@ class SyncEvidenceView(QWidget):
                 symbolBrush=pg.mkBrush(status_color(self.palette(), "error")),
             )
 
+        self._draw_pairing(times - origin, proposal, origin)
         self._set_home_range(times - origin, residuals, proposal, origin)
         self._reading.setText(self._read_the_shape(times, residuals, proposal))
+
+    def _draw_pairing(self, times: np.ndarray, proposal: SyncProposal, origin: float) -> None:
+        """Reference time against the target time it was matched to.
+
+        A correct alignment is a dense diagonal with clean margins. The ink on
+        the margins is the rejected evidence, drawn where it sits in time: a
+        fit that matched a quarter of its events has a margin three-quarters
+        solid, which is a quantity of ink rather than a percentage in a clause
+        at the bottom of the dialog.
+        """
+        targets = np.array([match.target_time for match in proposal.matches], dtype=float)
+        if not len(targets):
+            return
+        targets = targets - targets[0]
+        plotted_x, plotted_y = decimate_residuals(times, targets)
+
+        self._pairing.plot(
+            plotted_x,
+            plotted_y,
+            pen=None,
+            symbol="o",
+            symbolSize=4,
+            symbolBrush=pg.mkBrush(status_color(self.palette(), "info")),
+        )
+        # One second of reference per second of target, anchored at the first
+        # pair. Without it the slope only reads against the axis numbers, and
+        # two axes at different scales make any straight line look like 45
+        # degrees; against it, a rate difference is a visible divergence and a
+        # matching rate is points lying on the guide.
+        span = float(plotted_x[-1] - plotted_x[0])
+        guide = pg.PlotDataItem(
+            [float(plotted_x[0]), float(plotted_x[0]) + span],
+            [float(plotted_y[0]), float(plotted_y[0]) + span],
+            pen=pg.mkPen(coverage_color(self.palette()), width=1, style=Qt.PenStyle.DashLine),
+        )
+        guide.setZValue(-5)
+        self._pairing.addItem(guide)
+
+        if proposal.unmatched_references:
+            rejected = np.array(proposal.unmatched_references, dtype=float) - origin
+            floor = float(np.min(plotted_y))
+            self._pairing.plot(
+                rejected,
+                np.full(len(rejected), floor),
+                pen=None,
+                symbol="|",
+                symbolSize=8,
+                symbolBrush=pg.mkBrush(status_color(self.palette(), "error")),
+            )
+        self._pairing.setLabel("bottom", tr("Reference time (s)"))
 
     def _set_home_range(
         self,

@@ -715,9 +715,12 @@ class MainWindow(QMainWindow):
         specs, so the menu item and the command agree about availability rather
         than the command discovering it a click later.
         """
-        has_reference = bool(self.plot_pane.channels)
-        has_target = any(len(times) >= 3 for times in self._video_frame_times.values())
-        return has_reference and has_target
+        timed_videos = sum(1 for times in self._video_frame_times.values() if len(times) >= 3)
+        if not timed_videos:
+            return False
+        # Either a sensor channel to fit against, or a second camera -- two
+        # cameras carrying frame timestamps are evidence about each other.
+        return bool(self.plot_pane.channels) or timed_videos >= 2
 
     def _require(self, action: QAction, precondition: Callable[[], bool], reason: str) -> QAction:
         """Register *action* as available only while *precondition* holds.
@@ -1769,8 +1772,8 @@ class MainWindow(QMainWindow):
             act,
             self._has_alignment_evidence,
             tr(
-                "Load a TTL-bearing sensor channel and a video with frame timestamps "
-                "to have evidence to fit."
+                "Load a video with frame timestamps, and either a TTL-bearing sensor "
+                "channel or a second such video, to have evidence to fit."
             ),
         )
 
@@ -2068,6 +2071,7 @@ class MainWindow(QMainWindow):
                     f"({self._describe_provenance(entry)})"
                 ),
             )
+            self.refresh_alignment_badges()
 
     def alignment_confidence(self, path: str) -> str:
         """One line describing how this source is aligned, or that it is not.
@@ -2089,6 +2093,35 @@ class MainWindow(QMainWindow):
             reference = Path(entry.reference_id).name or entry.reference_id
             return f"aligned to {reference}: {self._describe_provenance(entry)}"
         return "no accepted alignment"
+
+    def refresh_alignment_badges(self) -> None:
+        """Push each source's alignment state onto its badge.
+
+        Event-driven, from the four things that can change it: accepting a fit,
+        moving a source by hand, removing a source, and restoring a session.
+        Never sampled on the clock tick -- this walks every loaded source, and
+        doing that sixty times a second to display a string that changes a
+        handful of times per session is the shape architecture rule 3 forbids.
+        """
+        for path in self.video_grid.pane_paths():
+            summary = self.alignment_confidence(path)
+            self.sidebar.set_video_alignment(path, summary, accepted=self._has_live_alignment(path))
+        for path in self._sensor_cache_dirs:
+            summary = self.alignment_confidence(path)
+            self.sidebar.set_sensor_alignment(
+                path, summary, accepted=self._has_live_alignment(path)
+            )
+
+    def _has_live_alignment(self, path: str) -> bool:
+        """Whether accepted evidence still describes this source.
+
+        Superseded evidence does not count. The source sits where a person put
+        it, which is a legitimate place to be and an entirely different claim
+        from a fit nobody has contradicted.
+        """
+        return any(
+            entry.target_id == path and not entry.superseded_by for entry in self._sync_provenance
+        )
 
     @staticmethod
     def _describe_provenance(entry: SyncProvenance) -> str:
@@ -2881,10 +2914,14 @@ class MainWindow(QMainWindow):
 
     def _open_sync_wizard(self) -> None:
         """Open evidence-based TTL/frame-event alignment for loaded sources."""
-        from avialsync.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec
+        from avialsync.engine.sync_worker import (
+            EventEvidenceSpec,
+            EvidenceSpec,
+            SignalEvidenceSpec,
+        )
         from avialsync.ui.sync_wizard import SyncWizard
 
-        references = [
+        references: list[EvidenceSpec] = [
             SignalEvidenceSpec(
                 source_id=(
                     f"{channel.reader.cache_dir.name.removesuffix('.avialcache')} : "
@@ -2900,11 +2937,17 @@ class MainWindow(QMainWindow):
             for path, frame_times in self._video_frame_times.items()
             if len(frame_times) >= 3
         ]
+        # A camera can be a reference too. Two cameras that saw the same trigger
+        # had no path to each other before this: each had to be fitted to a
+        # sensor separately, and a rig with no sensor at all could not align its
+        # cameras even when their frame timestamps agreed perfectly. The fitter
+        # already refuses a source against itself.
+        references = references + list(targets)
         if not references or not targets:
             self.notifications.show_warning(
                 tr(
-                    "Load a TTL-bearing sensor channel and a video with frame "
-                    "timestamps before aligning."
+                    "Load a TTL-bearing sensor channel, or a second video with frame "
+                    "timestamps, before aligning."
                 )
             )
             return
@@ -2993,6 +3036,7 @@ class MainWindow(QMainWindow):
             )
         )
         self._recorded_mappings[target_path] = (fit.offset, fit.drift_ppm)
+        self.refresh_alignment_badges()
         self.transport.set_status(f"Aligned · {fit.describe()}", "info")
         self.transport.set_ttl_events(
             [

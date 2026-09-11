@@ -28,6 +28,7 @@ from avialsync.core.inspection import SourceInspection
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
+from avialsync.ui.quality_badge import findings_for, worst_severity
 from avialsync.ui.source_properties import VideoPropertiesPanel
 from avialsync.ui.theme import follow_palette, set_bold, status_color
 
@@ -125,6 +126,12 @@ class SensorInfoWidget(QFrame):
         )
         self._badge_btn.setVisible(False)
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
+
+        #: Everything the badge reports comes from these three. Alignment is
+        #: session state, not file state, so it arrives separately.
+        self._inspection: SourceInspection | None = None
+        self._alignment_summary: str = ""
+        self._has_accepted_alignment: bool = True
 
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(20, 20)
@@ -453,15 +460,67 @@ class SensorInfoWidget(QFrame):
 
     def set_inspection(self, inspection: SourceInspection) -> None:
         """Update badge and properties panel from a SourceInspection."""
-        flags = getattr(inspection, "integrity_flags", None)
-        if flags and getattr(flags, "any_flag", False):
-            tip = "\n".join(flags.flag_labels())
-            self._badge_btn.setToolTip(tip)
-            self._badge_btn.setVisible(True)
-        else:
-            self._badge_btn.setVisible(False)
+        self._inspection = inspection
         self._report_btn.setVisible(True)
         self._props_panel.update_inspection(inspection)
+        self._refresh_badge()
+
+    def set_alignment(self, summary: str, *, accepted: bool) -> None:
+        """Record how this source is aligned, for the badge to report."""
+        self._alignment_summary = summary
+        self._has_accepted_alignment = accepted
+        self._refresh_badge()
+
+    def _refresh_badge(self) -> None:
+        """One badge, from every finding -- the file's and the session's."""
+        _render_badge(
+            self._badge_btn,
+            self._inspection,
+            has_accepted_alignment=self._has_accepted_alignment,
+            alignment_summary=self._alignment_summary,
+        )
+
+
+def _render_badge(
+    button: QPushButton,
+    inspection: SourceInspection | None,
+    *,
+    has_accepted_alignment: bool,
+    alignment_summary: str,
+) -> None:
+    """Drive one source's badge from every finding about it, not only the file's.
+
+    `ui/quality_badge.py` was written in Phase 7 to be exactly this -- including
+    a "No accepted alignment" finding put there for the purpose -- and then
+    nothing in `src/` ever imported it. The badge that shipped read
+    `inspection.integrity_flags` instead, which is a property of the *file* and
+    structurally cannot know whether the source has been aligned. So the "data
+    dirty" half of architecture rule 10, and WP-10's persistent confidence
+    badge, were computed and thrown away.
+
+    Alignment is passed in rather than read off the inspection because it
+    belongs to the session: the same recording is aligned in one and not in
+    another.
+    """
+    findings = findings_for(inspection, has_accepted_alignment=has_accepted_alignment)
+    if not findings:
+        button.setVisible(False)
+        return
+
+    severity = worst_severity(findings)
+    lines = [f"{finding.summary} \u2014 {finding.detail}" for finding in findings]
+    if alignment_summary:
+        lines.append(alignment_summary)
+    button.setToolTip("\n\n".join(lines))
+    button.setAccessibleDescription(" ".join(finding.summary for finding in findings))
+
+    def _paint(palette: QPalette, level: str = severity) -> str:
+        """Bound as a default argument: `follow_palette` re-runs this on every
+        appearance change, long after *severity* has gone out of scope."""
+        return f"color: {status_color(palette, level).name()}; font-weight: bold;"
+
+    follow_palette(button, _paint)
+    button.setVisible(True)
 
 
 def _make_empty_inspection(path: str) -> SourceInspection:
@@ -570,6 +629,12 @@ class VideoInfoWidget(QFrame):
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
         header_layout.insertWidget(2, self._badge_btn)  # between name and close
 
+        #: Everything the badge reports comes from these three. Alignment is
+        #: session state, not file state, so it arrives separately.
+        self._inspection: SourceInspection | None = None
+        self._alignment_summary: str = ""
+        self._has_accepted_alignment: bool = True
+
         self._props_panel = VideoPropertiesPanel(loader=None, parent=self)
         self._loader: object = None
         layout.addWidget(self._props_panel)
@@ -615,14 +680,24 @@ class VideoInfoWidget(QFrame):
         self._props_panel.set_pane(pane)
 
     def set_inspection(self, inspection: SourceInspection) -> None:
-        """Show badge if integrity flags are set."""
-        flags = getattr(inspection, "integrity_flags", None)
-        if flags and getattr(flags, "any_flag", False):
-            tip = "\n".join(flags.flag_labels())
-            self._badge_btn.setToolTip(tip)
-            self._badge_btn.setVisible(True)
-        else:
-            self._badge_btn.setVisible(False)
+        """Update the badge from everything known about this camera."""
+        self._inspection = inspection
+        self._refresh_badge()
+
+    def set_alignment(self, summary: str, *, accepted: bool) -> None:
+        """Record how this source is aligned, for the badge to report."""
+        self._alignment_summary = summary
+        self._has_accepted_alignment = accepted
+        self._refresh_badge()
+
+    def _refresh_badge(self) -> None:
+        """One badge, from every finding -- the file's and the session's."""
+        _render_badge(
+            self._badge_btn,
+            self._inspection,
+            has_accepted_alignment=self._has_accepted_alignment,
+            alignment_summary=self._alignment_summary,
+        )
 
 
 def _wrapped_note(text: str) -> QLabel:
@@ -819,6 +894,19 @@ class SidebarPane(QWidget):
         w = self._video_widgets.get(path)
         if w:
             w.set_pane(pane)
+
+    def set_video_alignment(self, path: str, summary: str, *, accepted: bool) -> None:
+        """Tell one camera's badge how it is aligned."""
+        widget = self._video_widgets.get(path)
+        if widget:
+            widget.set_alignment(summary, accepted=accepted)
+
+    def set_sensor_alignment(self, path: str, summary: str, *, accepted: bool) -> None:
+        """Tell one sensor's badge how it is aligned."""
+        for widget in _widgets_of(self.sensors_layout, SensorInfoWidget):
+            if widget.path == path:
+                widget.set_alignment(summary, accepted=accepted)
+                return
 
     def set_video_inspection(self, path: str, inspection: SourceInspection) -> None:
         """Forward SourceInspection to the VideoInfoWidget badge."""

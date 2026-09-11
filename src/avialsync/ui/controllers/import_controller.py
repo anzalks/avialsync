@@ -273,6 +273,7 @@ def on_import_finished(
     if isinstance(inspection, SourceInspection):
         window._inspections[path] = inspection
         window.sidebar.set_sensor_inspection(path, inspection)
+        window.refresh_alignment_badges()
         # Messages arrive in source time, so the mapping goes in first: setting
         # them the other way round would emit a change the panel renders at the
         # unmapped position before the correction lands.

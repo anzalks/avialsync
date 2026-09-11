@@ -13,7 +13,7 @@ from types import ModuleType
 from typing import Protocol, TypeVar
 
 from avialsync.core.point_edit_sidecar import is_correction_path
-from avialsync.core.source import SessionSource, TimeSeriesSource, VideoSource
+from avialsync.core.source import SessionSource, TimeSeriesSource, TriggerSource, VideoSource
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,11 @@ class _Capability(Protocol):
 _T = TypeVar("_T", bound=type[_Capability])
 
 #: The entry-point groups this application publishes and reads.
-_ENTRY_POINT_GROUPS: tuple[str, ...] = ("avialsync.loaders", "avialsync.sessions")
+_ENTRY_POINT_GROUPS: tuple[str, ...] = (
+    "avialsync.loaders",
+    "avialsync.sessions",
+    "avialsync.triggers",
+)
 
 #: The built-in loaders, as ``(module, class name)``, in discovery order.
 #: Named rather than imported at the top of ``_discover`` so each one can fail
@@ -48,6 +52,13 @@ _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.neo_loader", "NeoLoader"),
 )
 
+#: The built-in trigger providers. A third kind beside loaders and sessions,
+#: because trigger evidence answers a different question: not what was recorded
+#: but when things happened, and what those instants are evidence *of*.
+_BUILTIN_TRIGGERS: tuple[tuple[str, str], ...] = (
+    ("avialsync.loaders.trigger_csv", "TriggerCSVSource"),
+)
+
 #: The built-in session scanners, in the same form and for the same reason.
 _BUILTIN_SESSIONS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.aol_session_loader", "AOLSessionSource"),
@@ -61,6 +72,7 @@ class LoaderRegistry:
     def __init__(self, plugin_dirs: Iterable[Path] | None = None) -> None:
         self._loaders: list[type[TimeSeriesSource | VideoSource]] = []
         self._sessions: list[type[SessionSource]] = []
+        self._triggers: list[type[TriggerSource]] = []
         #: Plugins that were found but could not be used, as ``(source, reason)``.
         #: A plugin that fails to import is otherwise indistinguishable from one
         #: that was never installed: the format simply does not appear, with
@@ -197,6 +209,9 @@ class LoaderRegistry:
 
         self._load_builtins(_BUILTIN_SESSIONS, self._sessions)
         self._load_entry_points("avialsync.sessions", self._sessions)
+
+        self._load_builtins(_BUILTIN_TRIGGERS, self._triggers)
+        self._load_entry_points("avialsync.triggers", self._triggers)
 
         for plugin_dir in self._plugin_dirs:
             self._discover_directory(plugin_dir)
@@ -377,3 +392,13 @@ class LoaderRegistry:
         """Return all discovered session scanners."""
         self.ensure_discovered()
         return list(self._sessions)
+
+    def triggers(self) -> list[type[TriggerSource]]:
+        """Return all discovered trigger providers."""
+        self.ensure_discovered()
+        return list(self._triggers)
+
+    def trigger_for(self, path: Path) -> type[TriggerSource] | None:
+        """The provider most confident it can read *path* as trigger evidence."""
+        self.ensure_discovered()
+        return self._best_by_capability(self._triggers, path, "trigger")

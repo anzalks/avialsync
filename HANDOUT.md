@@ -408,7 +408,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/session_time.py` | The session's declared zero, after NWB's `session_start_time`. A source carrying wall-clock time is **placed** against it through its own TimeMap — nothing is rewritten | `is_absolute()`, `reference_epoch()`, `rebase_offset()`, `ABSOLUTE_EPOCH_FLOOR` |
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
-| `core/source.py` | Plugin ABCs — frozen API plus additive optional hooks (`messages()`, `exact_time_mapping()`, `video_metadata()`) | `TimeSeriesSource`, `VideoSource`, `VideoMetadata` |
+| `core/source.py` | Plugin ABCs — frozen API plus additive optional hooks (`messages()`, `exact_time_mapping()`, `video_metadata()`). **Three kinds, not two**: `TriggerSource` returns instants and declares what they are evidence *of* | `TimeSeriesSource`, `VideoSource`, `TriggerSource`, `VideoMetadata` |
+| `loaders/trigger_csv.py` | Trigger evidence from a delimited file, either a sampled line or a column of event times. The config declares each train's `TriggerKind` — `suggest_trains` never guesses `frame_strobe` | `TriggerCSVSource`, `LEVEL`, `TIMESTAMPS` |
 | `core/session.py` | `.avv` session JSON, schema v9 (v8 adds `point_edits` — a **count per source**, not the coordinates, D-099; v9 adds `SyncProvenance.method` plus per-side counts, `offset_stderr`, `ambiguity_margin`, `superseded_by`) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020); carries recorded messages into the sidecar manifest (D-078) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/messages.py` | Headless record for free text the rig stored with the data (D-078) | `Message`, `clean()`, `bounded()`, `MAX_MESSAGES` |
@@ -608,6 +609,33 @@ _start_data_import(path)
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
 > traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
+
+### 0-badge. `ui/quality_badge.py` had no caller in `src/` at all
+
+It was written in Phase 7 to answer "what is worth knowing about this source",
+with a "No accepted alignment" finding put there for the purpose, and nothing
+ever imported it — `findings_for` and `worst_severity` were reachable only from
+`tests/test_error_presenter.py`. The badge that shipped read
+`inspection.integrity_flags`, which describes the **file** and structurally
+cannot know whether a source has been aligned, so the "data dirty" half of
+architecture rule 10 and WP-10's persistent confidence badge were computed and
+discarded. `sidebar._render_badge` is now the one renderer; alignment is passed
+in rather than read off the inspection, because the same recording is aligned
+in one session and not in another. `MainWindow.refresh_alignment_badges()` is
+event-driven from the four things that change it — accept, hand-move, remove,
+restore — and must never be called on the clock tick: it walks every loaded
+source.
+
+### 0-entrypoints. A new plugin group must be added to `_ENTRY_POINT_GROUPS`
+
+`_snapshot_entry_points` reads entry-point metadata on the *calling* thread
+because doing it on the warm-up thread segfaulted CPython. It only snapshots
+the groups in `_ENTRY_POINT_GROUPS`; a group missing from that tuple falls
+through to `entry_points(group=...)` inside `_load_entry_points`, back on the
+warm-up thread, which is the exact thing the snapshot exists to prevent.
+`tests/test_startup_responsiveness.py` catches it — adding
+`avialsync.triggers` to the registry without adding it to the tuple failed
+there immediately.
 
 ### 0-trigger. An external trigger and a frame strobe are not the same evidence
 
