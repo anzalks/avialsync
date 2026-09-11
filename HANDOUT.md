@@ -452,6 +452,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control | `ChannelPlot`, `create_channel_plot()`, `apply_channel_palette()`, `fit_channel_y()` |
 | `ui/plot_sweep.py` | Review/Sweep/Scope state and shared unit-converting logarithmic time-span control | `PlotPresentation`, `SweepWindowControl`, `SweepCurveItem` |
 | `ui/plot_interactions.py` | Plot context actions, measurement, annotation, and gap interaction state | `PlotInteractionController` |
+| `ui/axis_nav.py` | Per-axis zoom/reset controls and one-axis-at-a-time wheel semantics for a pyqtgraph canvas. **Reset goes to a range the owner declares**, never to auto-range — auto-ranging to the matched subset is what hid a bad fit | `AxisNav`, `NavigableViewBox`, `AxisNav.set_home_range()` |
 | `ui/plot_overlays.py` | Bounded page-local overlay drawing and plot context menu helpers | `redraw_annotations()`, `redraw_measure_lines()` |
 | `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit. `Tracking3DCanvas.render_scene(painter, w, h)` is the one painting authority — `paintEvent` calls it at the widget's size, a snapshot at its tile's (D-101) | `Tracking3DPane.set_readers()`, `set_cursor()`, `Tracking3DCanvas.render_scene()` |
 | `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status. Owns the displayed time mode and epoch: anything writing a master time in the same words calls `format_master_time()` rather than keeping a second copy (D-020, D-101) | `set_time()`, `set_bounds()`, `format_master_time()`, `status_text()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
@@ -604,6 +605,26 @@ _start_data_import(path)
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
 > traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
+
+### 0-nav. `qtbot.addWidget` holds its widgets weakly
+
+A helper that builds a `PlotWidget`, registers it with `qtbot.addWidget`, and
+returns only its view box has already lost the plot: pytest-qt keeps weak
+references, so the widget is collected when the helper returns and the view box
+goes with it. The failure surfaces later and elsewhere, as
+`RuntimeError: Signal source has been deleted` raised from whatever pyqtgraph
+method the test called next — `enableAutoRange` in the case that found this —
+which reads like a pyqtgraph bug rather than a lifetime one. Return the widget
+from the helper and bind it in the test, even when the test never uses it.
+
+### 0-nav-bis. A pyqtgraph view box receives `QGraphicsSceneWheelEvent`, not `QWheelEvent`
+
+They are not interchangeable: the scene event has `delta()` and `scenePos()`,
+the widget event has `angleDelta()` and `position()`. A `wheelEvent` override
+typed against `QWheelEvent` passes mypy, works at runtime because the scene
+event happens to answer `delta()`, and then raises `AttributeError` on
+`scenePos()` the first time anyone scrolls. Synthesise the scene event in tests
+(`QGraphicsSceneWheelEvent(QEvent.Type.GraphicsSceneWheel)`), not the widget one.
 
 ### 0a. Three UI facts that look like features and are not (Phase 7)
 Verified against the tree, not inferred. Each has caused, or will cause, a wrong assumption.

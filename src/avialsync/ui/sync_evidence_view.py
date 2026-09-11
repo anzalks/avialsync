@@ -30,9 +30,11 @@ from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from avialsync.core.sync import SyncProposal
+from avialsync.ui.axis_nav import AxisNav, NavigableViewBox
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_theme import apply_canvas_palette
 from avialsync.ui.theme import coverage_color, status_color
+from avialsync.ui.time_format import TimeDisplayMode, format_time
 
 __all__ = ["SyncEvidenceView", "decimate_residuals"]
 
@@ -44,6 +46,19 @@ MAX_PLOTTED_POINTS = 800
 #: A residual trend below this is not worth reporting, whatever the scatter.
 #: Sub-microsecond drift across a recording is arithmetic, not evidence.
 _TREND_FLOOR_MS = 0.001
+
+#: Half-height the residual axis never goes below, so an exact mapping -- whose
+#: residuals are zero by construction -- still gets a readable axis instead of a
+#: degenerate one the view box fills in for itself.
+_MIN_RESIDUAL_EXTENT_MS = 0.01
+
+
+def _evidence_origin(times: np.ndarray, unmatched: tuple[float, ...]) -> float:
+    """The earliest reference event the fit was offered, matched or not."""
+    candidates = [float(np.min(times))] if len(times) else []
+    if unmatched:
+        candidates.append(float(min(unmatched)))
+    return min(candidates) if candidates else 0.0
 
 
 def decimate_residuals(
@@ -88,13 +103,28 @@ class SyncEvidenceView(QWidget):
         self._headline.setWordWrap(True)
         layout.addWidget(self._headline)
 
-        self._plot = pg.PlotWidget()
-        self._plot.setLabel("bottom", "Reference time", units="s")
-        self._plot.setLabel("left", "Residual", units="ms")
+        # A navigable view box, not a bare one: the wheel means time unless a
+        # modifier says otherwise, so the tolerance band cannot be scrolled off
+        # the plot by someone who believes they are moving along the recording.
+        self._view_box = NavigableViewBox()
+        self._plot = pg.PlotWidget(viewBox=self._view_box)
+        # No `units=`. pyqtgraph SI-prefixes a unit at large values, and a
+        # recording nine hours into its own time base turns the axis into
+        # "34.5 ks" -- a quantity nobody reasons in. The domain goes in the
+        # label instead, and `show_proposal` states the origin it is relative to.
+        self._plot.setLabel("left", "Residual (ms)")
         self._plot.showGrid(x=True, y=True, alpha=0.2)
         self._plot.setMinimumHeight(180)
+        # pyqtgraph's stock context menu offers Downsample and Average, which
+        # would change the evidence while it is being judged, with no record
+        # that anything changed. There is no managed menu here yet, so there is
+        # no menu (rule 15).
+        self._plot.setMenuEnabled(False)
         self._apply_palette()
-        layout.addWidget(self._plot)
+        layout.addWidget(self._plot, 1)
+
+        self._nav = AxisNav(self._view_box, self)
+        layout.addWidget(self._nav)
 
         self._reading = QLabel("")
         self._reading.setWordWrap(True)
@@ -136,6 +166,7 @@ class SyncEvidenceView(QWidget):
         if proposal is None:
             self._headline.setText(tr("No alignment has been proposed."))
             self._reading.setText("")
+            self._nav.set_home_range(None, None)
             return
 
         fit = proposal.fit
@@ -156,7 +187,20 @@ class SyncEvidenceView(QWidget):
 
         times = np.array([match.reference_time for match in proposal.matches], dtype=float)
         residuals = np.array([match.residual * 1000.0 for match in proposal.matches], dtype=float)
-        plotted_times, plotted_residuals = decimate_residuals(times, residuals)
+
+        # Everything is drawn relative to the first piece of evidence, matched
+        # or not. Five-digit tick labels whose leading four digits never change
+        # spend the axis on a constant the reader has to subtract by eye; the
+        # constant belongs in the label, stated once.
+        origin = _evidence_origin(times, proposal.unmatched_references)
+        self._plot.setLabel(
+            "bottom",
+            tr("Time from {origin} (s)").format(
+                origin=format_time(origin, TimeDisplayMode.RELATIVE)
+            ),
+        )
+
+        plotted_times, plotted_residuals = decimate_residuals(times - origin, residuals)
 
         tolerance_ms = proposal.tolerance * 1000.0
         if tolerance_ms > 0:
@@ -184,7 +228,7 @@ class SyncEvidenceView(QWidget):
             # Rejected events at the foot of the plot: where they sit in time
             # is the question -- a cluster at one end means the recordings
             # only overlap partly, which no residual can show.
-            rejected = np.array(proposal.unmatched_references, dtype=float)
+            rejected = np.array(proposal.unmatched_references, dtype=float) - origin
             floor = float(np.min(plotted_residuals)) if len(plotted_residuals) else 0.0
             self._plot.plot(
                 rejected,
@@ -195,7 +239,45 @@ class SyncEvidenceView(QWidget):
                 symbolBrush=pg.mkBrush(status_color(self.palette(), "error")),
             )
 
+        self._set_home_range(times - origin, residuals, proposal, origin)
         self._reading.setText(self._read_the_shape(times, residuals, proposal))
+
+    def _set_home_range(
+        self,
+        times: np.ndarray,
+        residuals: np.ndarray,
+        proposal: SyncProposal,
+        origin: float,
+    ) -> None:
+        """Declare what "all" means, and start there.
+
+        Auto-ranging to the plotted points is what let a fit that matched 23 %
+        of its evidence present itself inside a fifty-second window where it
+        looked clean. The home range spans every reference event the fit was
+        offered -- the rejected ones are the evidence that something is wrong,
+        so they are never the part that goes off screen. Vertically it always
+        contains the tolerance band, because the band is what gives the
+        residuals a scale.
+        """
+        spans = [times]
+        if proposal.unmatched_references:
+            spans.append(np.array(proposal.unmatched_references, dtype=float) - origin)
+        everything = np.concatenate(spans)
+        x_home = (float(np.min(everything)), float(np.max(everything)))
+
+        tolerance_ms = proposal.tolerance * 1000.0
+        extent = max(
+            float(np.max(np.abs(residuals))) if len(residuals) else 0.0,
+            tolerance_ms,
+        )
+        # A fit whose residuals are zero by construction still needs a visible
+        # axis; without a floor the view box would be asked for a zero-height
+        # range and would pick its own.
+        extent = max(extent, _MIN_RESIDUAL_EXTENT_MS)
+        y_home = (-extent * 1.2, extent * 1.2)
+
+        self._nav.set_home_range(x_home, y_home)
+        self._nav.reset_both()
 
     # ── saying what the plot shows ───────────────────────────────────
 
