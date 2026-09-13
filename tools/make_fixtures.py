@@ -514,7 +514,13 @@ DEMO_SESSION_LOCAL_START = "2026-01-09_09-35-24"
 DEMO_SESSION_UTC_OFFSET_HOURS = 1
 
 
-def generate_demo_session(out_path: pathlib.Path, tracking_src: pathlib.Path) -> None:
+def generate_demo_session(
+    out_path: pathlib.Path,
+    tracking_src: pathlib.Path,
+    *,
+    duration: float = 10.0,
+    sample_rate: float = 30000.0,
+) -> None:
     """Build an Open Ephys session that declares its own wall clock.
 
     ``openephys_mock`` cannot serve this purpose and should not be bent into it.
@@ -538,8 +544,7 @@ def generate_demo_session(out_path: pathlib.Path, tracking_src: pathlib.Path) ->
     cont_dir = exp_dir / "continuous" / "Acquisition_Board-100.Rhythm_Data"
     cont_dir.mkdir(parents=True, exist_ok=True)
 
-    fs = 30000.0
-    duration = 10.0
+    fs = sample_rate
     num_samples = int(duration * fs)
     num_channels = 4
     t = np.arange(num_samples) / fs
@@ -613,7 +618,7 @@ def generate_demo_session(out_path: pathlib.Path, tracking_src: pathlib.Path) ->
         lambda: False,
         0,
         100,
-        duration=8.0,
+        duration=max(1.0, duration - 2.0),
     )
     shutil.copy(tracking_src, out_path / f"{pathlib.Path(camera_name).stem}_tracking.csv")
 
@@ -743,7 +748,15 @@ def main() -> None:
     generate_frame_strobe(sample_dir / "frame_triggers.csv", fps, frames)
 
     # 6. A session that declares its own wall clock, for the overview animation.
-    generate_demo_session(fixtures_dir / "demo_session", sig_dir / "tracking_dlc.csv")
+    # Honours --small like every other fixture: at the full rate and duration
+    # this writes 4.8 MB of ephys, which is not what a test run should pay to
+    # have on disk, and CI generates the fixtures twice to check determinism.
+    generate_demo_session(
+        fixtures_dir / "demo_session",
+        sig_dir / "tracking_dlc.csv",
+        duration=4.0 if args.small else 10.0,
+        sample_rate=2000.0 if args.small else 30000.0,
+    )
 
     # Copy OpenEphys to examples/data for user testing
     example_openephys = pathlib.Path("examples/data/openephys_mock")
