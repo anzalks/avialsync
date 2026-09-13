@@ -288,6 +288,7 @@ class Tracking3DCanvas(QWidget):
         self._scene_min = np.zeros(3, dtype=np.float64)
         self._scene_max = np.zeros(3, dtype=np.float64)
         self._has_scene_bounds = False
+        self._bounds_held = False
         self._drag_origin: QPoint | None = None
 
     @property
@@ -326,6 +327,7 @@ class Tracking3DCanvas(QWidget):
         self._up_auto = automatic
         self._view_basis = _view_matrix(self._up_axis, -1.0 if self._up_inverted else 1.0)
         self._has_scene_bounds = False
+        self._bounds_held = False
         # Re-root the derived skeleton: the topology does not change with the
         # view, but which end of it counts as the top does, and the taper reads
         # backwards if the flow keeps pointing at what is now the bottom.
@@ -353,6 +355,7 @@ class Tracking3DCanvas(QWidget):
         self._positions = np.full((len(self._names), 3), np.nan, dtype=np.float64)
         self._valid = np.zeros(len(self._names), dtype=bool)
         self._has_scene_bounds = False
+        self._bounds_held = False
         if self._up_auto:
             detected = detect_up_axis(self._sources)
             if detected is not None:
@@ -470,13 +473,22 @@ class Tracking3DCanvas(QWidget):
         self.update()
 
     def fit_current_pose(self) -> None:
-        """Fit the camera to the valid points at the current master time."""
+        """Fit the camera to the valid points at the current master time.
+
+        Fitting also *holds* the scale. Bounds otherwise grow with every pose
+        the cursor passes, and since the projection divides by the resulting
+        radius, the whole scene quietly shrank as the animal moved -- a point
+        the rig holds still, like a head bar, drifted across the pane and
+        nothing in the view said why. Fit View means fit to this and stay
+        there; loading different tracking releases the hold.
+        """
         valid_positions = self._to_view(self._positions[self._valid])
         if len(valid_positions) == 0:
             return
         self._scene_min = np.min(valid_positions, axis=0)
         self._scene_max = np.max(valid_positions, axis=0)
         self._has_scene_bounds = True
+        self._bounds_held = True
         self._update_camera_bounds()
         self._zoom = 1.0
         self.update()
@@ -488,6 +500,9 @@ class Tracking3DCanvas(QWidget):
         self.fit_current_pose()
 
     def _expand_scene_bounds(self) -> None:
+        """Widen the camera bounds to include the current pose, unless held."""
+        if self._bounds_held:
+            return
         valid_positions = self._to_view(self._positions[self._valid])
         if len(valid_positions) == 0:
             return
@@ -701,7 +716,8 @@ class Tracking3DCanvas(QWidget):
 
     def _draw_corner_axes(self, painter: QPainter, width: int, height: int) -> None:
         """Draw a compact orientation indicator in the bottom-left corner."""
-        del width  # anchored to the left edge; only the height positions it
+        # `width` positions the orbit readout against the right edge; the triad
+        # itself is anchored to the left one.
         right, up, _direction = self._camera_basis()
         ax_len = 28  # pixels
         margin = 40
@@ -719,6 +735,40 @@ class Tracking3DCanvas(QWidget):
             painter.setPen(QPen(_qcolor(colors[i]), 2))
             painter.drawLine(cx, cy, round(cx + dx), round(cy + dy))
             painter.drawText(round(cx + dx * 1.25) - 3, round(cy + dy * 1.25) + 4, labels[i])
+
+        self._draw_orientation_readout(painter, width, height)
+
+    def _draw_orientation_readout(self, painter: QPainter, width: int, height: int) -> None:
+        """State the orbit in numbers, beside the axes it applies to.
+
+        The triad shows which way the world is pointing; it does not say how
+        far the camera has been turned to get there. That mattered the moment
+        anyone tried to reproduce a view: a screenshot of this pane records its
+        orientation only as a picture, so matching it again meant dragging
+        until it looked right. The figures are what the capture harness takes
+        as ``--azimuth`` and ``--elevation``, in the same units.
+        """
+        # Right-aligned, in the corner opposite the triad. On the left it sat
+        # under the axes and read as a label for them; the figures describe the
+        # camera, not the world arrows, and the two are easier to tell apart at
+        # opposite ends of the same edge.
+        readout = self._orientation_readout()
+        painter.setPen(QPen(self.palette().color(QPalette.ColorRole.WindowText), 1))
+        text_width = painter.fontMetrics().horizontalAdvance(readout)
+        painter.drawText(max(12, width - text_width - 12), height - 10, readout)
+
+    def _orientation_readout(self) -> str:
+        """The orbit as text. Separate from painting so it can be asserted on.
+
+        Azimuth is wrapped to a single turn: orbiting is a drag that accumulates,
+        so after a few passes the raw angle is several thousand degrees and
+        naming it that way would be arithmetic rather than a bearing.
+        """
+        return (
+            f"az {math.degrees(self._azimuth) % 360:.0f}°  "
+            f"el {math.degrees(self._elevation):.0f}°  "
+            f"{self._zoom:.2f}×"
+        )
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """Begin orbiting on a primary-button drag."""

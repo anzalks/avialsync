@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter
 
@@ -335,3 +336,116 @@ def test_detected_skeleton_survives_an_up_axis_change(qtbot, tmp_path: Path) -> 
 
     assert pane.canvas.inferred_skeleton.roots == ("tail",)
     assert len(pane.canvas.skeleton_edges) == 2
+
+
+def test_the_pane_states_its_orbit_in_numbers(qtbot) -> None:
+    """A screenshot records orientation only as a picture.
+
+    The axis triad shows which way the world points; it cannot say how far the
+    camera was turned to get there, so reproducing a view meant dragging until
+    it looked right. These are the same figures, in the same units, that the
+    capture harness takes as --azimuth and --elevation.
+    """
+    import math
+
+    from avialsync.ui.tracking_3d_pane import Tracking3DPane
+
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    canvas = pane.canvas
+
+    canvas._azimuth = math.radians(240.0)
+    canvas._elevation = math.radians(10.0)
+    canvas._zoom = 1.5
+
+    readout = canvas._orientation_readout()
+
+    assert "az 240" in readout
+    assert "el 10" in readout
+    assert "1.50" in readout
+
+
+def test_the_orbit_readout_wraps_a_full_turn(qtbot) -> None:
+    """Dragging past 360 degrees must not report 400."""
+    import math
+
+    from avialsync.ui.tracking_3d_pane import Tracking3DPane
+
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.canvas._azimuth = math.radians(400.0)
+
+    assert "az 40" in pane.canvas._orientation_readout()
+
+
+class TestTheScaleHoldsOnceFitted:
+    """A point the rig holds still must not drift as the animal moves.
+
+    Scene bounds grow with every pose the cursor passes, and the projection
+    divides by the radius they imply -- so the whole scene quietly shrank
+    during playback, and a fixed head bar wandered across the pane with
+    nothing in the view to say why.
+    """
+
+    def _canvas(self, qtbot):
+        """Return the canvas *and* its pane: `qtbot.addWidget` holds weakly, so
+        a helper that dropped the pane would have it collected underneath the
+        test (HANDOUT "0-nav")."""
+        from avialsync.ui.tracking_3d_pane import Tracking3DPane
+
+        pane = Tracking3DPane()
+        qtbot.addWidget(pane)
+        canvas = pane.canvas
+        canvas._positions = np.array(
+            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=float
+        )
+        canvas._valid = np.ones(3, dtype=bool)
+        return canvas, pane
+
+    def test_fitting_holds_the_radius(self, qtbot) -> None:
+        canvas, _pane = self._canvas(qtbot)
+        canvas.fit_current_pose()
+        fitted = canvas._radius
+
+        # A later pose reaching much further out must not rescale the view.
+        canvas._positions = np.array(
+            [[0.0, 0.0, 0.0], [40.0, 0.0, 0.0], [0.0, 40.0, 0.0]], dtype=float
+        )
+        canvas._expand_scene_bounds()
+
+        assert canvas._radius == pytest.approx(fitted)
+
+    def test_the_centre_holds_too(self, qtbot) -> None:
+        """Otherwise a fixed point slides even at a constant scale."""
+        canvas, _pane = self._canvas(qtbot)
+        canvas.fit_current_pose()
+        centre = canvas._center.copy()
+
+        canvas._positions = np.array(
+            [[10.0, 10.0, 0.0], [12.0, 10.0, 0.0], [10.0, 12.0, 0.0]], dtype=float
+        )
+        canvas._expand_scene_bounds()
+
+        assert canvas._center == pytest.approx(centre)
+
+    def test_before_fitting_the_view_still_finds_the_pose(self, qtbot) -> None:
+        """The hold is something Fit View applies, not the default state."""
+        canvas, _pane = self._canvas(qtbot)
+        canvas._expand_scene_bounds()
+
+        assert canvas._has_scene_bounds
+        assert canvas._radius > 0.0
+
+    def test_new_tracking_releases_the_hold(self, qtbot) -> None:
+        """A different recording is a different scene; its own fit must win.
+
+        Also covers changing the up axis, which re-projects every point and so
+        invalidates the bounds the old projection was fitted to.
+        """
+        canvas, _pane = self._canvas(qtbot)
+        canvas.fit_current_pose()
+        assert canvas._bounds_held
+
+        canvas.set_readers([])
+
+        assert not canvas._bounds_held

@@ -260,6 +260,7 @@ def capture(
     colors: int,
     azimuth_deg: float | None = None,
     elevation_deg: float | None = None,
+    pose_zoom: float | None = None,
     video_zoom: float = 1.0,
     crowded_zoom: float = 1.0,
 ) -> None:
@@ -374,6 +375,16 @@ def capture(
     settle_for(3.0)
     wait_until_quiet()
 
+    # Drop the notification strip before recording. Loading a session posts
+    # "Imported encoder_log.txt" and friends, and since D-107 those queue and
+    # wait to be dismissed rather than fading -- so the hero image captured a
+    # transient toast, complete with its Dismiss button, as though it were part
+    # of the interface. `clear_all` declines them without acting on them, which
+    # is what a reader of this image would want and what the previous capture
+    # got for free by predating the queue.
+    window.notifications.clear_all()
+    settle()
+
     # Frame the 3D pose the way a reader would: press Fit View.
     #
     # The 3D camera fits once when tracking first arrives, and its scene bounds
@@ -397,6 +408,10 @@ def capture(
         window.tracking_3d_pane.canvas._azimuth = math.radians(azimuth_deg)
     if elevation_deg is not None:
         window.tracking_3d_pane.canvas._elevation = math.radians(elevation_deg)
+    if pose_zoom is not None:
+        # After Fit View, which resets it to 1.0 -- so this is a deliberate
+        # magnification of the fitted pose rather than a fight with it.
+        window.tracking_3d_pane.canvas._zoom = pose_zoom
     window.tracking_3d_pane.canvas.update()
     settle()
 
@@ -478,6 +493,12 @@ def main() -> None:
         help="3D camera elevation in degrees; 0 puts the ground plane edge-on",
     )
     parser.add_argument(
+        "--pose-zoom",
+        type=float,
+        default=None,
+        help="3D pane magnification after Fit View; omit to keep the fitted 1.0x",
+    )
+    parser.add_argument(
         "--duration",
         type=float,
         default=1.0,
@@ -529,6 +550,7 @@ def main() -> None:
         args.colors,
         args.azimuth,
         args.elevation,
+        args.pose_zoom,
         args.video_zoom,
         args.crowded_zoom,
     )

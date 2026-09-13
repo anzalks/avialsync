@@ -24,7 +24,7 @@ through plugins.
 ![A one-second loop of three synchronised camera views of a head-fixed mouse with 2D pose overlays,
 a triangulated 3D pose drawn as a skeleton, and a running-wheel encoder velocity trace, all
 advancing together on one master
-timeline.](https://raw.githubusercontent.com/anzalks/avialsync/main/docs/_static/screenshots/session_overview.gif)
+timeline.](https://raw.githubusercontent.com/anzalks/avialsync/main/docs/_static/screenshots/aol_session_overview.gif)
 
 *A real recording session: three cameras at 230 fps with per-camera 2D pose drawn over each view,
 triangulated 3D pose in a fourth column no wider than one camera view, and the running-wheel encoder

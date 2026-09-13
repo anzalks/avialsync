@@ -54134,6 +54134,22 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_loaders_open_ephys_test_a_camera_without_a_sidecar_is_still_placed_by_its_filename",
+      "label": "test_a_camera_without_a_sidecar_is_still_placed_by_its_filename()",
+      "file_type": "code",
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1169",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_loaders_open_ephys_test_a_camera_with_a_sidecar_is_left_to_its_per_frame_mapping",
+      "label": "test_a_camera_with_a_sidecar_is_left_to_its_per_frame_mapping()",
+      "file_type": "code",
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1192",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_loaders_open_ephys_rationale_1",
       "label": "Tests for the Open Ephys session plugin and the neo ingest path behind it.  Ever",
       "file_type": "rationale",
@@ -54587,6 +54603,22 @@
       "file_type": "rationale",
       "source_file": "tests/test_loaders_open_ephys.py",
       "source_location": "L1147",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_loaders_open_ephys_rationale_1172",
+      "label": "`start_time` alone never reached anything that could place the camera.      The",
+      "file_type": "rationale",
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1172",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_loaders_open_ephys_rationale_1195",
+      "label": "The exact mapping consumes `start_time` itself; an offset would double it.",
+      "file_type": "rationale",
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1195",
       "_origin": "ast"
     },
     {
@@ -70650,7 +70682,7 @@
       "label": "_to_pillow()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L71",
+      "source_location": "L83",
       "_origin": "ast"
     },
     {
@@ -70674,7 +70706,7 @@
       "label": "quantize_to_shared_palette()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L88",
+      "source_location": "L100",
       "_origin": "ast"
     },
     {
@@ -70682,7 +70714,7 @@
       "label": "write_gif()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L109",
+      "source_location": "L121",
       "_origin": "ast"
     },
     {
@@ -70698,7 +70730,7 @@
       "label": "_load_session()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L128",
+      "source_location": "L140",
       "_origin": "ast"
     },
     {
@@ -70706,7 +70738,7 @@
       "label": "_tracked_points()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L156",
+      "source_location": "L168",
       "_origin": "ast"
     },
     {
@@ -70714,7 +70746,7 @@
       "label": "_frame_pane_on_limbs()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L174",
+      "source_location": "L186",
       "_origin": "ast"
     },
     {
@@ -70722,7 +70754,7 @@
       "label": "_nudge_markers_into_view()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L213",
+      "source_location": "L225",
       "_origin": "ast"
     },
     {
@@ -70730,7 +70762,7 @@
       "label": "capture()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L238",
+      "source_location": "L250",
       "_origin": "ast"
     },
     {
@@ -70738,79 +70770,79 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L431",
+      "source_location": "L443",
       "_origin": "ast"
     },
     {
       "id": "tools_generate_session_screenshot_rationale_1",
-      "label": "Capture a short looping animation of a real session folder opened through its pl",
+      "label": "Capture a short looping animation of a session folder opened through its plugin.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
       "source_location": "L1",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_72",
+      "id": "tools_generate_session_screenshot_rationale_84",
       "label": "Copy a QImage into Pillow without a PNG round trip.      Qt pads every scanline",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L72",
+      "source_location": "L84",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_89",
+      "id": "tools_generate_session_screenshot_rationale_101",
       "label": "Map every frame onto one palette derived from all of them.      Per-frame palett",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L89",
+      "source_location": "L101",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_110",
+      "id": "tools_generate_session_screenshot_rationale_122",
       "label": "Write ``frames`` as one endlessly looping GIF spanning ``duration`` seconds.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L110",
+      "source_location": "L122",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_129",
+      "id": "tools_generate_session_screenshot_rationale_141",
       "label": "Open ``session_dir`` the way a drop onto the window would.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L129",
+      "source_location": "L141",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_157",
+      "id": "tools_generate_session_screenshot_rationale_169",
       "label": "Return the pane's limb markers in video pixels at the frame it is showing.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L157",
+      "source_location": "L169",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_175",
+      "id": "tools_generate_session_screenshot_rationale_187",
       "label": "Magnify one video pane and hang its topmost marker off the pane's top edge.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L175",
+      "source_location": "L187",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_214",
+      "id": "tools_generate_session_screenshot_rationale_226",
       "label": "Shift a framed pane sideways by as little as it takes to show every marker.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L214",
+      "source_location": "L226",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_254",
+      "id": "tools_generate_session_screenshot_rationale_266",
       "label": "Open ``session_dir``, record ``frames`` of playback, and write the loop.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L254",
+      "source_location": "L266",
       "_origin": "ast"
     },
     {
@@ -70902,11 +70934,19 @@
       "_origin": "ast"
     },
     {
+      "id": "tools_make_fixtures_generate_demo_session",
+      "label": "generate_demo_session()",
+      "file_type": "code",
+      "source_file": "tools/make_fixtures.py",
+      "source_location": "L517",
+      "_origin": "ast"
+    },
+    {
       "id": "tools_make_fixtures_generate_frame_strobe",
       "label": "generate_frame_strobe()",
       "file_type": "code",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L508",
+      "source_location": "L621",
       "_origin": "ast"
     },
     {
@@ -70914,7 +70954,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L553",
+      "source_location": "L666",
       "_origin": "ast"
     },
     {
@@ -70966,11 +71006,19 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_make_fixtures_rationale_516",
+      "id": "tools_make_fixtures_rationale_518",
+      "label": "Build an Open Ephys session that declares its own wall clock.      ``openephys_m",
+      "file_type": "rationale",
+      "source_file": "tools/make_fixtures.py",
+      "source_location": "L518",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_make_fixtures_rationale_629",
       "label": "Write the camera's exposure strobe as a DAQ would have recorded it.      The sam",
       "file_type": "rationale",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L516",
+      "source_location": "L629",
       "_origin": "ast"
     },
     {
@@ -75994,7 +76042,7 @@
       "label": "Building the documentation",
       "file_type": "document",
       "source_file": "docs/technical/development.md",
-      "source_location": "L99",
+      "source_location": "L111",
       "_origin": "ast"
     },
     {
@@ -76002,7 +76050,7 @@
       "label": "Connecting the Read the Docs project",
       "file_type": "document",
       "source_file": "docs/technical/development.md",
-      "source_location": "L110",
+      "source_location": "L122",
       "_origin": "ast"
     },
     {
@@ -76010,7 +76058,7 @@
       "label": "Releases",
       "file_type": "document",
       "source_file": "docs/technical/development.md",
-      "source_location": "L131",
+      "source_location": "L143",
       "_origin": "ast"
     },
     {
@@ -76018,7 +76066,7 @@
       "label": "Signing",
       "file_type": "document",
       "source_file": "docs/technical/development.md",
-      "source_location": "L163",
+      "source_location": "L175",
       "_origin": "ast"
     },
     {
@@ -107348,7 +107396,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/loaders/open_ephys_session.py",
-      "source_location": "L393",
+      "source_location": "L407",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -200340,6 +200388,48 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_loaders_open_ephys",
+      "target": "tests_test_loaders_open_ephys_test_a_camera_without_a_sidecar_is_still_placed_by_its_filename",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1169",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_loaders_open_ephys_test_a_camera_without_a_sidecar_is_still_placed_by_its_filename",
+      "target": "tests_test_loaders_open_ephys_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1169",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_loaders_open_ephys",
+      "target": "tests_test_loaders_open_ephys_test_a_camera_with_a_sidecar_is_left_to_its_per_frame_mapping",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1192",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_loaders_open_ephys_test_a_camera_with_a_sidecar_is_left_to_its_per_frame_mapping",
+      "target": "tests_test_loaders_open_ephys_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1192",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_loaders_open_ephys_test_utc_offset_is_rejected_when_it_is_not_a_timezone",
       "target": "tests_test_loaders_open_ephys_py_datetime",
       "relation": "calls",
@@ -201412,6 +201502,26 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_loaders_open_ephys.py",
       "source_location": "L1147",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_loaders_open_ephys_rationale_1172",
+      "target": "tests_test_loaders_open_ephys_test_a_camera_without_a_sidecar_is_still_placed_by_its_filename",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1172",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_loaders_open_ephys_rationale_1195",
+      "target": "tests_test_loaders_open_ephys_test_a_camera_with_a_sidecar_is_left_to_its_per_frame_mapping",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238566,7 +238676,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L35",
+      "source_location": "L43",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238577,7 +238687,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L36",
+      "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238588,7 +238698,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L37",
+      "source_location": "L45",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238599,7 +238709,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L38",
+      "source_location": "L46",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238610,7 +238720,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L39",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238621,7 +238731,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L41",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238632,7 +238742,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L42",
+      "source_location": "L50",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238643,7 +238753,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L43",
+      "source_location": "L51",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238654,7 +238764,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L44",
+      "source_location": "L52",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238665,7 +238775,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L45",
+      "source_location": "L53",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238676,7 +238786,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L46",
+      "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238686,7 +238796,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L71",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238697,7 +238807,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L71",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238708,7 +238818,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L71",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238718,7 +238828,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L88",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238729,7 +238839,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L88",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238739,7 +238849,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L109",
+      "source_location": "L121",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238750,7 +238860,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L109",
+      "source_location": "L121",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238761,7 +238871,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L109",
+      "source_location": "L121",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238771,7 +238881,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L128",
+      "source_location": "L140",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238782,7 +238892,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L128",
+      "source_location": "L140",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238792,7 +238902,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L156",
+      "source_location": "L168",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238802,7 +238912,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L174",
+      "source_location": "L186",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238812,7 +238922,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L213",
+      "source_location": "L225",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238822,7 +238932,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L238",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238833,7 +238943,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L238",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238843,7 +238953,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L431",
+      "source_location": "L443",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238854,7 +238964,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L115",
+      "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238865,7 +238975,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L177",
+      "source_location": "L189",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238876,7 +238986,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L210",
+      "source_location": "L222",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238887,7 +238997,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L342",
+      "source_location": "L354",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238898,7 +239008,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L404",
+      "source_location": "L416",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238909,7 +239019,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L426",
+      "source_location": "L438",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238920,7 +239030,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L501",
+      "source_location": "L519",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238935,82 +239045,82 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_72",
+      "source": "tools_generate_session_screenshot_rationale_84",
       "target": "tools_generate_session_screenshot_to_pillow",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L72",
+      "source_location": "L84",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_89",
+      "source": "tools_generate_session_screenshot_rationale_101",
       "target": "tools_generate_session_screenshot_quantize_to_shared_palette",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L89",
+      "source_location": "L101",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_110",
+      "source": "tools_generate_session_screenshot_rationale_122",
       "target": "tools_generate_session_screenshot_write_gif",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L110",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_129",
+      "source": "tools_generate_session_screenshot_rationale_141",
       "target": "tools_generate_session_screenshot_load_session",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L129",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_157",
+      "source": "tools_generate_session_screenshot_rationale_169",
       "target": "tools_generate_session_screenshot_tracked_points",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L157",
+      "source_location": "L169",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_175",
+      "source": "tools_generate_session_screenshot_rationale_187",
       "target": "tools_generate_session_screenshot_frame_pane_on_limbs",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L175",
+      "source_location": "L187",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_214",
+      "source": "tools_generate_session_screenshot_rationale_226",
       "target": "tools_generate_session_screenshot_nudge_markers_into_view",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L214",
+      "source_location": "L226",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_254",
+      "source": "tools_generate_session_screenshot_rationale_266",
       "target": "tools_generate_session_screenshot_capture",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L254",
+      "source_location": "L266",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239350,11 +239460,32 @@
     },
     {
       "source": "tools_make_fixtures",
+      "target": "tools_make_fixtures_generate_demo_session",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/make_fixtures.py",
+      "source_location": "L517",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_make_fixtures_generate_demo_session",
+      "target": "tools_make_fixtures_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/make_fixtures.py",
+      "source_location": "L517",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_make_fixtures",
       "target": "tools_make_fixtures_generate_frame_strobe",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L508",
+      "source_location": "L621",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239365,7 +239496,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L508",
+      "source_location": "L621",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239375,7 +239506,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L553",
+      "source_location": "L666",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_make_fixtures_generate_demo_session",
+      "target": "tools_make_fixtures_py_path",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/make_fixtures.py",
+      "source_location": "L618",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239386,7 +239528,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L559",
+      "source_location": "L672",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239397,7 +239539,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L561",
+      "source_location": "L674",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239408,7 +239550,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L579",
+      "source_location": "L692",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239419,7 +239561,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L602",
+      "source_location": "L715",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239430,7 +239572,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L616",
+      "source_location": "L729",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239441,7 +239583,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L619",
+      "source_location": "L732",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239452,7 +239594,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L630",
+      "source_location": "L743",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_make_fixtures_main",
+      "target": "tools_make_fixtures_generate_demo_session",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/make_fixtures.py",
+      "source_location": "L746",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239517,12 +239670,22 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_make_fixtures_rationale_516",
+      "source": "tools_make_fixtures_rationale_518",
+      "target": "tools_make_fixtures_generate_demo_session",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/make_fixtures.py",
+      "source_location": "L518",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_make_fixtures_rationale_629",
       "target": "tools_make_fixtures_generate_frame_strobe",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L516",
+      "source_location": "L629",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -246460,7 +246623,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/development.md",
-      "source_location": "L99",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -246470,7 +246633,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/development.md",
-      "source_location": "L110",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -246480,7 +246643,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/development.md",
-      "source_location": "L131",
+      "source_location": "L143",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -246490,7 +246653,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/development.md",
-      "source_location": "L163",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254704,7 +254867,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L46",
+      "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -254715,7 +254878,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L46",
+      "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257212,7 +257375,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L258",
+      "source_location": "L270",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257223,7 +257386,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L273",
+      "source_location": "L285",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -270590,7 +270753,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/loaders/open_ephys_session.py",
-      "source_location": "L395",
+      "source_location": "L409",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -287311,6 +287474,54 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_loaders_open_ephys_test_a_camera_without_a_sidecar_is_still_placed_by_its_filename",
+      "target": "src_avialsync_loaders_open_ephys_session_openephyssessionsource",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1182",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_loaders_open_ephys_test_a_camera_without_a_sidecar_is_still_placed_by_its_filename",
+      "target": "src_avialsync_core_registry_loaderregistry",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1182",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_loaders_open_ephys_test_a_camera_with_a_sidecar_is_left_to_its_per_frame_mapping",
+      "target": "src_avialsync_loaders_open_ephys_session_openephyssessionsource",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1204",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_loaders_open_ephys_test_a_camera_with_a_sidecar_is_left_to_its_per_frame_mapping",
+      "target": "src_avialsync_core_registry_loaderregistry",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_loaders_open_ephys.py",
+      "source_location": "L1204",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_loaders_open_ephys_legacy_test_a_signed_level_is_a_level_not_a_message",
       "target": "src_avialsync_loaders_neo_loader_is_numeric_label",
       "relation": "calls",
@@ -295658,7 +295869,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L139",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295670,7 +295881,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L260",
+      "source_location": "L272",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295682,7 +295893,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L389",
+      "source_location": "L401",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295759,6 +295970,18 @@
       "_origin": "ast"
     },
     {
+      "source": "tools_make_fixtures_generate_demo_session",
+      "target": "src_avialsync_demo_generate_video",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tools/make_fixtures.py",
+      "source_location": "L610",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tools_make_fixtures_generate_frame_strobe",
       "target": "src_avialsync_loaders_video_standard_videostandardloader",
       "relation": "calls",
@@ -295766,7 +295989,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L534",
+      "source_location": "L647",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295778,7 +296001,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L538",
+      "source_location": "L651",
       "weight": 1.0,
       "_origin": "ast"
     },
