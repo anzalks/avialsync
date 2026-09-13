@@ -185,15 +185,67 @@ offset always takes precedence.
 Override it to return `VideoMetadata` when the format exposes codec, byte size, and
 timestamp-derived CFR/VFR evidence.
 
-## Synchronization and future plugins
+## Trigger plugins
 
-AvialSync currently extracts rising TTL edges from cached time-series channels
-and aligns them to video frame-event timestamps through the Sync Wizard. Its plugin
-event-provider API is intentionally not frozen yet. The future extension will let a
-loader expose raw event timestamps and metadata for native digital events, TTL edges,
-or camera-frame triggers.
+A trigger plugin is the third source kind, beside time-series and video, and it
+answers a different question from either: not *what* was recorded but *when
+things happened*, and what those instants are evidence **of**.
 
-Keep laboratory-specific parsing and semantics in the plugin. AvialSync will
-preserve raw timestamps, perform visual alignment, show matched evidence and fit
-quality, and require user acceptance before changing a source mapping. It will not
-provide acquisition drivers or built-in scientific analysis.
+That second half is the reason the kind exists. A pulse train is not
+self-describing. The same column of edges means something different depending
+on which way the wire ran, and the difference decides what may be done with it:
+
+- `frame_strobe` — the camera emitted a pulse per exposure it **took**. Pulse
+  count is frame count, so pulse *i* may be paired with frame *i*.
+- `frame_trigger` — a generator **asked** for each exposure. A frame the camera
+  dropped looks exactly like one it kept, so index pairing would shift
+  everything after the loss. Counts agreeing does not rescue it — a drop plus a
+  duplicate agree too.
+- `sync_train` — a shared square wave, far sparser than the frame rate. Enough
+  to follow two clocks wherever they wander; not enough to identify a frame.
+- `sparse_events` — a handful of landmarks. Enough to place a recording, rarely
+  enough to check the placing.
+
+Your plugin declares the kind; `core.alignment.choose_method` derives the model
+from it. This is deliberately not a user-facing dropdown: asking someone to
+pick "exact index mapping" asks them to certify something only the recording
+knows.
+
+Register under the `avialsync.triggers` entry-point group:
+
+```toml
+[project.entry-points."avialsync.triggers"]
+my_rig_ttl = "my_package.triggers:MyRigTriggerSource"
+```
+
+Implement `core.source.TriggerSource`:
+
+| Method | Returns |
+|---|---|
+| `can_open(path)` | Confidence in `[0, 1]`, without expensive I/O |
+| `open(path, config)` | Nothing; reads what is needed to enumerate trains |
+| `trains()` | The id of every train this file offers |
+| `kind_of(train_id)` | One of the four kinds above, as a string |
+| `read_train(train_id)` | `(times, durations)` in the file's own clock |
+
+Two optional hooks. `suggest_trains(path)` proposes a starting configuration
+for the user to correct — **never suggest `frame_strobe`**, because that is a
+claim about wiring your file cannot make, and it is the one decision that must
+not be made on the user's behalf. `target_hint(train_id)` names the source a
+train is evidence about, when the file records it.
+
+`durations` is the exposure length per event where both edges were recorded,
+and `None` where only one was. Return `None` rather than zeros: a provider with
+only rising edges does not know the width, and saying so is not the same as
+measuring it as nothing. Where durations exist, a strobe is timestamped at its
+exposure **midpoint**, which is the instant a frame represents for a subject
+moving through the exposure.
+
+`times` must be strictly increasing, in the file's own clock. Do not rebase it
+onto anything — AvialSync places sources through their own time map and never
+rewrites a timestamp.
+
+Keep laboratory-specific parsing and semantics in the plugin. AvialSync
+preserves raw timestamps, performs the alignment, shows the matched evidence
+and fit quality, and requires user acceptance before changing a source mapping.
+It does not provide acquisition drivers or built-in scientific analysis.

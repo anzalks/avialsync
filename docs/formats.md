@@ -74,6 +74,23 @@ Both Open Ephys layouts are read, including the free text each one stores:
 In both cases the recording's sync preamble is used to place the clock and is not listed as a
 message: it is what the software wrote about the recording, not something a person typed.
 
+## Trigger and TTL files
+
+Delimited text carrying pulses rather than data: a DAQ export with a time column and one or more
+logical lines, or a camera log with one timestamp per exposure. Open these through **Align → Open
+Trigger Evidence…** rather than as sensor data — they are evidence about *when things happened*,
+and nothing in them is plotted.
+
+AvialSync reads the header and offers every column that looks like a trigger line. You then say
+what each one is, because the file cannot: whether a line is a camera's exposure strobe, an
+external frame trigger, a shared sync pulse train, or a handful of landmarks. That declaration
+decides which alignment models are available, so nothing is assumed for you — every column is
+offered as a sync train until you say otherwise. See
+[the alignment tutorial](tutorials/synchronization.md) for what each kind licenses.
+
+One file may carry several lines about different cameras. What you declared is saved with the
+session; the pulses are re-read from the file each time it loads.
+
 ## Lab formats
 
 Ask your lab for its AvialSync plugin, or see the [plugin guide](plugin-guide.md) to write one.

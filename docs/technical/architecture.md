@@ -12,9 +12,23 @@ The 3D tracking pane is another observer on that same update path; it has no tim
 state of its own.
 
 Each source has a `TimeMap` that converts its own timestamps to the master timeline. The map can
-contain an offset and an optional drift term. The raw source timestamps are retained. This separation
-means a user can inspect a proposed alignment, accept it, or change it later without altering the
-recording on disk.
+contain an offset, an optional drift term, or a piecewise table of measured sync points for clocks
+that wander in ways no single rate describes. The raw source timestamps are retained. This
+separation means a user can inspect a proposed alignment, accept it, or change it later without
+altering the recording on disk.
+
+The session declares one zero, after NWB's `session_start_time`, and a source carrying wall-clock
+time is *placed* against it through its own `TimeMap` rather than rewritten. The zero is declared
+once and never moved, including by a source that turns out to start earlier — that one sits before
+zero, where it truly is. A reference that shifted whenever an earlier file arrived would renumber
+every timestamp the user had already written down. Sessions whose sources are all
+container-relative have no wall clock and say so, which is why elapsed time is the only display
+mode such a session offers.
+
+Every accepted mapping records **how it was made** — exact, interpolated, fitted, offset-only,
+unvalidated, or set by hand — because the numbers cannot say. A hand-typed offset and a
+three-event fit with perfect residuals are the same few floats, and only the method distinguishes
+them.
 
 ## Main parts
 

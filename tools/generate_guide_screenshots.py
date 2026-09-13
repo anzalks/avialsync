@@ -144,7 +144,9 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
     settle(app)
 
     # --- The synchronization wizard, field by field --------------------
-    SyncWizard.exec = lambda self: self.show()  # type: ignore[method-assign]
+    # No `exec` monkeypatch any more: the wizard is shown without blocking, so
+    # that it can be read against the window it is asking about (D-108). It
+    # used to need patching out or this script would stop here forever.
     window._open_sync_wizard()
     settle(app)
     wizards = window.findChildren(SyncWizard)

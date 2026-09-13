@@ -377,6 +377,43 @@ outside `tests/benchmarks`, and every extractable literal wrapped for translatio
 
 ---
 
+## Phase 8 — Alignment on evidence
+
+**Goal:** make the alignment subsystem say what it knows and refuse what it does not. Branch
+`feat/ttl-alignment`. **The settled decisions are D-108**; this section is the summary.
+
+The engine was correct and the alignment around it could not be audited. A fit reached the accept
+button reading *"9405 matched, 36233 rejected · offset −150158 s · drift 3347826 ppm · RMS
+0.000 ms"* with every gate green, because acceptance tested residuals and residuals are conditional
+on the pairing: they measure how tightly matched pairs agree and are structurally silent about
+whether those are the right pairs. A degenerate match therefore reports a **smaller** residual than
+a correct one. Precision was checked; correctness was not checked at all.
+
+| | Foundation | Delivers |
+|---|---|---|
+| F1 | Session zero (`core/session_time.py`) | one declared origin after NWB; wall-clock sources placed, never rewritten |
+| F2 | Method on the record (`AlignmentMethod`, schema v9) | a typed offset can no longer be persisted as a measured fit |
+| F3 | Trigger evidence (`core/triggers.py`) | strobe vs trigger; both edges, so a frame is timestamped mid-exposure |
+| F4 | The model ladder (`core/alignment.py`) | exact → piecewise → affine → shift → unvalidated, chosen from evidence and span |
+| F5 | Trigger plugins (`TriggerSource`, `loaders/trigger_csv.py`) | a third source kind; the user declares what a line is, once |
+| F6 | The evidence dialog | correspondence panel, coverage lanes, per-axis navigation, non-modal |
+
+**Exit criteria, all enforced by tests:** acceptance tests match rate, ambiguity margin and a
+plausible rate, not only residuals; every rung of the ladder is reachable *from the running
+application*, not merely implemented; a manual mapping is never described in the vocabulary of a
+measurement; accepted evidence is superseded when a source is moved by hand; a v8 session loads and
+renders as before.
+
+**The lesson, and the reason it is worth a phase.** Two of the five rungs were fully implemented,
+fully tested in `core/`, and unreachable in the running application — the kind was a constructor
+argument no caller passed, and a reconciliation was passed as `None` unconditionally. Phase 7 ended
+on the finding that *a surface that exists is not a surface that is used*; this phase is the same
+defect one layer down, and the same answer: **a capability not exercised end to end is a capability
+you do not have.** Every rung now has a test that drives it through the worker, not through the
+function that implements it.
+
+---
+
 ## Working method with AI agents (all phases)
 
 - One phase = one milestone = a series of small PR-sized tasks. Agents work from `PROMPTS.md` kickoff prompts + `AGENTS.md` standing rules.
