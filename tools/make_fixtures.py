@@ -505,6 +505,51 @@ def _clean_generated(fixtures_dir: pathlib.Path) -> None:
             shutil.rmtree(p)
 
 
+def generate_frame_strobe(
+    out_path: pathlib.Path,
+    video_path: pathlib.Path,
+    *,
+    offset: float = 0.25,
+    width: float = 0.004,
+    rate: float = 1000.0,
+) -> None:
+    """Write the camera's exposure strobe as a DAQ would have recorded it.
+
+    The sample session had nothing to align *from*. Its analogue channels carry
+    no events, and its one logical line has a single edge -- a step, not a
+    train -- so the demo screenshots documented an evidence-based alignment the
+    fixture could not perform, and shipped a picture of "No mapping proposed"
+    for as long as they had existed.
+
+    Derived from the video's own frame timestamps rather than invented beside
+    them, so pulse *i* really is the exposure that produced frame *i* and the
+    alignment demonstrated is a true one. *offset* stands for the DAQ having
+    been started a quarter-second before the camera, which is the thing the
+    alignment then recovers.
+    """
+    import bisect
+
+    from avialsync.loaders.video_standard import VideoStandardLoader
+
+    loader = VideoStandardLoader()
+    loader.open(video_path, {})
+    frames = loader.frame_times()
+    if frames is None or not len(frames):
+        raise RuntimeError(f"{video_path.name} reported no frame timestamps.")
+
+    rises = [float(frame) + offset for frame in frames]
+    step = 1.0 / rate
+    samples = int((rises[-1] + width + 0.2) / step)
+
+    rows = ["t,cam_strobe"]
+    for index in range(samples):
+        t = index * step
+        previous = bisect.bisect_right(rises, t) - 1
+        high = previous >= 0 and t < rises[previous] + width
+        rows.append(f"{t:.6f},{1.0 if high else 0.0:.1f}")
+    out_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--small", action="store_true", help="Generate tiny files for fast tests")
@@ -582,6 +627,7 @@ def main() -> None:
     shutil.copy(sig_dir / "signal_base.csv", sample_dir / "signal_base.csv")
     shutil.copy(sig_dir / "signal_base.json", sample_dir / "signal_base.json")
     shutil.copy(sig_dir / "tracking_dlc.csv", sample_dir / "tracking_dlc.csv")
+    generate_frame_strobe(sample_dir / "frame_triggers.csv", sample_dir / "camera_1.mp4")
 
     # Copy OpenEphys to examples/data for user testing
     example_openephys = pathlib.Path("examples/data/openephys_mock")

@@ -49,6 +49,10 @@ _LABEL_WIDTH = 110
 #: in a dialog rather than pushing the evidence panels off it.
 _PIXELS_PER_LANE = 26
 
+#: Room for the time axis beneath the lanes: ticks, their labels, and the axis
+#: title. Left out, the axis is drawn over the lowest lane.
+_AXIS_ALLOWANCE = 52
+
 
 def _key_text() -> str:
     """What the bands mean, in words rather than as colour alone.
@@ -172,9 +176,14 @@ class CoverageLanes(QWidget):
         )
         self._plot.setYRange(-0.1, len(sources) * _LANE_HEIGHT, padding=0)
         self._plot.setXRange(*self.session_span(), padding=0.02)
-        # Grows with the number of sources rather than squeezing them, and the
-        # dialog's own layout decides what to do about it.
-        self._plot.setMinimumHeight(max(70, len(sources) * _PIXELS_PER_LANE + 40))
+        # Grows with the number of sources rather than squeezing them.
+        plot_height = max(70, len(sources) * _PIXELS_PER_LANE + _AXIS_ALLOWANCE)
+        self._plot.setMinimumHeight(plot_height)
+        # And the *widget* claims room for the plot plus its key. Without this
+        # a splitter will squeeze the pane below what it needs, and Qt then lets
+        # the key overlap the axis it is explaining -- which is what the first
+        # rendering of this panel did.
+        self.setMinimumHeight(plot_height + self._key.sizeHint().height() + 8)
         self._key.setAccessibleDescription(self.describe())
 
     def session_span(self) -> tuple[float, float]:

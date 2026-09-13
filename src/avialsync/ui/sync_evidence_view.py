@@ -30,7 +30,7 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from PySide6.QtCore import QEvent, Qt, Signal, Slot
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QSplitter, QVBoxLayout, QWidget
 
 from avialsync.core.sync import SyncProposal
 from avialsync.ui.axis_nav import AxisNav, NavigableViewBox
@@ -141,9 +141,8 @@ class SyncEvidenceView(QWidget):
         self._pairing = pg.PlotWidget(viewBox=NavigableViewBox())
         self._pairing.setLabel("left", "Target time (s)")
         self._pairing.showGrid(x=True, y=True, alpha=0.2)
-        self._pairing.setMinimumHeight(150)
+        self._pairing.setMinimumHeight(110)
         self._pairing.setMenuEnabled(False)
-        layout.addWidget(self._pairing, 1)
 
         # A navigable view box, not a bare one: the wheel means time unless a
         # modifier says otherwise, so the tolerance band cannot be scrolled off
@@ -156,7 +155,7 @@ class SyncEvidenceView(QWidget):
         # label instead, and `show_proposal` states the origin it is relative to.
         self._plot.setLabel("left", "Residual (ms)")
         self._plot.showGrid(x=True, y=True, alpha=0.2)
-        self._plot.setMinimumHeight(180)
+        self._plot.setMinimumHeight(110)
         # A managed menu replaces pyqtgraph's own, which offers Downsample and
         # Average -- changes to the evidence, made while it is being judged,
         # with no record that anything changed (rule 15). Installed below, once
@@ -167,7 +166,18 @@ class SyncEvidenceView(QWidget):
         # The nav wraps the canvas rather than sitting under it, so each control
         # group stands against the axis it moves.
         self._nav = AxisNav(self._plot, self)
-        layout.addWidget(self._nav, 1)
+
+        # A splitter, not a stack of fixed minimums. Three panels plus a key and
+        # two prose lines do not fit a laptop dialog at any set of heights that
+        # suits every reading -- the first attempt clipped the residual panel's
+        # own time axis behind the lanes below it. Sized so all three are usable
+        # on opening, and draggable because which panel matters depends on what
+        # the reader is checking.
+        self._panels = QSplitter(Qt.Orientation.Vertical, self)
+        self._panels.setChildrenCollapsible(False)
+        self._panels.addWidget(self._pairing)
+        self._panels.addWidget(self._nav)
+        layout.addWidget(self._panels, 1)
 
         # Where each recording has data, and where the alignment is measured
         # rather than extended. Deliberately *not* x-linked to the panels above:
@@ -175,7 +185,8 @@ class SyncEvidenceView(QWidget):
         # master clock, and tying them would mean one of the two axes lying
         # about what it shows.
         self._lanes = CoverageLanes(self)
-        layout.addWidget(self._lanes)
+        self._panels.addWidget(self._lanes)
+        self._panels.setSizes([200, 240, 180])
 
         # One time axis across the two evidence panels. Moving either moves
         # both, so a point picked out above is the same instant below it.

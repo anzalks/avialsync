@@ -41,6 +41,19 @@ DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"
 WINDOW_SIZE = (1280, 860)
 
 
+def _select_by_text(combo, fragment: str) -> None:
+    """Choose the first entry containing *fragment*, or leave it alone.
+
+    By text rather than by index: channel order depends on what the importer
+    found, and an index picked out of one run silently selects something else
+    in the next.
+    """
+    for index in range(combo.count()):
+        if fragment in combo.itemText(index):
+            combo.setCurrentIndex(index)
+            return
+
+
 def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     app = QApplication.instance() or QApplication(sys.argv)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -87,9 +100,36 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     settle(app)
     save_shot("demo_step3_csv_loaded.png")
 
-    # 3. Open Sync Wizard
-    # We have to bypass exec() blocking, so we monkeypatch exec() to just show()
-    SyncWizard.exec = lambda self: self.show()
+    # 2b. Load the camera strobe as trigger evidence, the way a user would
+    # through Align -> Open Trigger Evidence. Read synchronously here; the
+    # application does it on a worker.
+    from avialsync.core.triggers import TriggerKind
+    from avialsync.engine.trigger_worker import TriggerReadWorker
+    from avialsync.loaders.trigger_csv import LEVEL, TriggerCSVSource
+
+    trigger_path = REPOSITORY_ROOT / "tests/fixtures/sample_session/frame_triggers.csv"
+    trigger_config = {
+        "time_column": "t",
+        "trains": [
+            {
+                "id": "cam_strobe",
+                "column": "cam_strobe",
+                "kind": str(TriggerKind.FRAME_STROBE),
+                "mode": LEVEL,
+                "target": "",
+            }
+        ],
+    }
+    reader = TriggerReadWorker(TriggerCSVSource(), trigger_path, trigger_config)
+    reader.finished.connect(
+        lambda results: window._on_trigger_trains_read(str(trigger_path), results)
+    )
+    window._trigger_configs[str(trigger_path)] = trigger_config
+    reader.run()
+    settle(app)
+
+    # 3. Open Sync Wizard. No `exec` monkeypatch any more: it is shown without
+    # blocking, so it can be read against the window it asks about (D-108).
     window._open_sync_wizard()
 
     wizards = window.findChildren(SyncWizard)
@@ -97,9 +137,26 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     settle(app)
     wizard.grab().save(str(out_dir / "demo_step4_wizard_open.png"))
 
-    # 4. Select Exact Index
-    wizard._strategy_combo.setCurrentIndex(1)
-    wizard._use_all_times_chk.setChecked(True)
+    # 4. Point it at the camera strobe, and let the evidence choose the model.
+    #
+    # This demo has been shipping a picture of a *failure*: the committed
+    # step-6 screenshot reads "No mapping proposed", and has for as long as the
+    # file has existed. It selected `ch0` -- a continuous analogue trace with
+    # no events in it -- and ticked "use all samples as events", feeding a
+    # hundred thousand dense samples in where per-frame trigger timestamps
+    # belong. Nor could any other channel have rescued it: `ch2` is the only
+    # logical line in the fixture and it has exactly one edge, a step rather
+    # than a train. The session had nothing to align *from*.
+    #
+    # `frame_triggers.csv` is that missing evidence: the camera's exposure
+    # strobe as a DAQ would have recorded it, generated from the video's own
+    # frame timestamps so the alignment it demonstrates is a real one.
+    _select_by_text(wizard._reference_combo, "cam_strobe")
+    wizard._use_all_times_chk.setChecked(False)
+    # Automatic, because the point being demonstrated is that the model follows
+    # the evidence (D-108). A declared strobe whose count matches the container
+    # earns the exact mapping; forcing a strategy would hide that.
+    wizard._strategy_combo.setCurrentIndex(wizard._strategy_combo.findData("auto"))
     settle(app)
     wizard.grab().save(str(out_dir / "demo_step5_wizard_configured.png"))
 
