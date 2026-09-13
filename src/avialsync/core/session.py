@@ -95,6 +95,25 @@ class SyncProvenance:
 
 
 @dataclasses.dataclass
+class TriggerEntry:
+    """A trigger file and what the user said its lines are (schema v9).
+
+    The declaration is the whole value of the record: which column is a camera
+    strobe rather than a pulse generator's request is a fact about the wiring
+    that the file cannot state and the user supplied once. Losing it on reload
+    would not merely lose a path -- it would lose the reason an exact mapping
+    was allowed.
+
+    Only the path and the configuration are stored. The trains themselves are
+    re-read on restore, exactly as sensor channels are re-imported, so a file
+    that has changed on disk is read as it now is rather than as it once was.
+    """
+
+    path: str
+    config: dict[str, Any] = dataclasses.field(default_factory=dict)
+
+
+@dataclasses.dataclass
 class SessionState:
     """Complete serialisable state of a AvialSync session.
 
@@ -129,6 +148,9 @@ class SessionState:
     #: always received 0.0, which is why two of the three time display modes
     #: could not work. See `core/session_time.py`.
     session_start_time: float = 0.0
+    #: Trigger evidence the user loaded and typed (schema v9). Evidence, not
+    #: data: nothing here is ever plotted.
+    triggers: list[TriggerEntry] = dataclasses.field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-compatible dict (always writes version 9)."""
@@ -160,6 +182,7 @@ class SessionState:
             "display_levels": self.display_levels,
             "point_edits": self.point_edits,
             "session_start_time": self.session_start_time,
+            "triggers": [dataclasses.asdict(entry) for entry in self.triggers],
         }
 
     @classmethod
@@ -251,6 +274,10 @@ class SessionState:
             plot_x0=data.get("plot_x0"),
             plot_x1=data.get("plot_x1"),
             session_start_time=float(data.get("session_start_time", 0.0)),
+            triggers=[
+                TriggerEntry(path=str(item["path"]), config=dict(item.get("config", {})))
+                for item in data.get("triggers", [])
+            ],
             overlays=data.get("overlays") or {},
             display_levels=data.get("display_levels") or {},
             point_edits=list(data.get("point_edits") or []),

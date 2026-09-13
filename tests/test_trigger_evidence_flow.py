@@ -229,3 +229,82 @@ class TestItReachesTheWizard:
         assert seen[0][0].drops, "the missing exposure was not located"
         window._on_trigger_trains_read(str(path), seen[0])
         assert window._trigger_trains[str(path)][0].drops
+
+
+class TestItSurvivesTheSession:
+    """The declaration is what a session owns; the trains are re-read from it.
+
+    Which column is a camera strobe rather than a pulse generator's request is
+    a fact about the wiring the file cannot state and the user supplied once.
+    Losing it on reload would lose the reason an exact mapping was allowed.
+    """
+
+    def _config(self) -> dict:
+        return {
+            "time_column": "t",
+            "trains": [
+                {
+                    "id": "front",
+                    "column": "front_strobe",
+                    "kind": str(TriggerKind.FRAME_STROBE),
+                    "mode": LEVEL,
+                    "target": "",
+                },
+            ],
+        }
+
+    def test_the_declaration_round_trips(self, tmp_path: Path) -> None:
+        from avialsync.core.session import SessionState, TriggerEntry
+
+        path = _write_daq(tmp_path / "ttl.csv")
+        state = SessionState(triggers=[TriggerEntry(path=str(path), config=self._config())])
+        out = tmp_path / "s.avv"
+        state.save(out)
+
+        reloaded = SessionState.load(out)
+
+        assert reloaded.triggers[0].path == str(path)
+        assert reloaded.triggers[0].config["trains"][0]["kind"] == "frame_strobe"
+
+    def test_a_session_without_triggers_reads_back_empty(self, tmp_path: Path) -> None:
+        from avialsync.core.session import SessionState
+
+        out = tmp_path / "none.avv"
+        SessionState().save(out)
+
+        assert SessionState.load(out).triggers == []
+
+    def test_restoring_re_reads_the_trains(self, window: MainWindow, tmp_path: Path) -> None:
+        from avialsync.core.session import TriggerEntry
+
+        path = _write_daq(tmp_path / "ttl.csv")
+        window.restore_trigger_sources([TriggerEntry(path=str(path), config=self._config())])
+
+        # The read is a job, so drain it before asserting on the result.
+        from PySide6.QtWidgets import QApplication
+
+        for _ in range(200):
+            QApplication.processEvents()
+            if window._trigger_trains:
+                break
+        assert window._trigger_trains[str(path)][0].kind is TriggerKind.FRAME_STROBE
+
+    def test_a_trigger_file_that_has_gone_says_so(self, window: MainWindow, tmp_path: Path) -> None:
+        """Never silent: the evidence an alignment rested on is not there."""
+        from avialsync.core.session import TriggerEntry
+
+        window.restore_trigger_sources(
+            [TriggerEntry(path=str(tmp_path / "vanished.csv"), config=self._config())]
+        )
+
+        assert not window._trigger_trains
+
+    def test_what_was_read_is_what_gets_saved(self, window: MainWindow, tmp_path: Path) -> None:
+        path = _write_daq(tmp_path / "ttl.csv")
+        source = TriggerCSVSource()
+        window._start_trigger_read(source, path, self._config())
+
+        state = window._build_session_state()
+
+        assert [entry.path for entry in state.triggers] == [str(path)]
+        assert state.triggers[0].config["trains"][0]["kind"] == "frame_strobe"

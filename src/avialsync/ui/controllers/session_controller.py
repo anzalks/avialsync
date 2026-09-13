@@ -23,6 +23,7 @@ from avialsync.core.session import (
     MarkerEntry,
     SensorEntry,
     SessionState,
+    TriggerEntry,
     VideoEntry,
 )
 from avialsync.ui import recovery
@@ -152,6 +153,10 @@ def build_session_state(window: MainWindow) -> SessionState:
         markers=markers,
         sync_provenance=list(window._sync_provenance),
         session_start_time=window.session_start_time,
+        triggers=[
+            TriggerEntry(path=path, config=dict(config))
+            for path, config in window._trigger_configs.items()
+        ],
         t_start=bounds[0],
         t_end=bounds[1],
         plot_x0=plot_x0,
@@ -362,6 +367,8 @@ def reset_session(window: MainWindow) -> None:
     window._video_time_mappings.clear()
     window._sync_provenance.clear()
     window._session_start_time = 0.0
+    window._trigger_trains.clear()
+    window._trigger_configs.clear()
     window._pending_exact_mappings.clear()
     window._overview_gaps.clear()
     window._frame_indexed_sources.clear()
@@ -455,6 +462,9 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # it here as well means a restore with nothing left to load still ends with
     # correct badges.
     window.refresh_alignment_badges()
+    # Re-read before the sources, so a train is available as evidence by the
+    # time the wizard could be opened against what has just been loaded.
+    window.restore_trigger_sources(list(state.triggers))
     window._pending_exact_mappings.clear()
     for provenance in state.sync_provenance:
         if len(provenance.exact_master) and len(provenance.exact_source):

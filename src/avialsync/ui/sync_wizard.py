@@ -187,6 +187,10 @@ class SyncWizard(QDialog):
         self._thread = QThread(self)
         mode = self._strategy_combo.currentData()
         index_offset = self._index_offset.value()
+        # The reference's own declaration reaches the fit through the spec
+        # itself. Before it did, the ladder saw SPARSE_EVENTS for everything, so
+        # a user could declare a camera strobe or a shared sync train and never
+        # get the model it licenses -- two of five rungs were unreachable.
         self._worker = SyncWorker(reference, target, mode=mode, index_offset=index_offset)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)

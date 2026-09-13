@@ -55,10 +55,12 @@ from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
 from avialsync.core.session import (
     SessionState,
     SyncProvenance,
+    TriggerEntry,
 )
 from avialsync.core.session_time import reference_epoch
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
+from avialsync.core.triggers import TriggerKind
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
@@ -323,6 +325,9 @@ class MainWindow(QMainWindow):
         #: Trigger trains the user has loaded and typed, by file path. Evidence
         #: for the alignment wizard, not data: nothing here is ever plotted.
         self._trigger_trains: dict[str, list[Any]] = {}
+        #: The configuration each trigger file was read with, by path. Saved in
+        #: the session; the trains themselves are re-read from it on restore.
+        self._trigger_configs: dict[str, dict[str, Any]] = {}
         #: The alignment wizard while it is open. Non-modal, so the window has
         #: to own it -- see `_open_sync_wizard`.
         self._sync_wizard: QDialog | None = None
@@ -2983,7 +2988,13 @@ class MainWindow(QMainWindow):
         self._start_trigger_read(provider_cls(), path, config)
 
     def _start_trigger_read(self, source: object, path: Path, config: dict[str, Any]) -> None:
-        """Read the declared trains off the UI thread (architecture rule 3)."""
+        """Read the declared trains off the UI thread (architecture rule 3).
+
+        The configuration is kept beside the result, because it -- not the
+        trains -- is what a session stores: the declaration of which column is
+        a strobe is the fact the user supplied and the file cannot.
+        """
+        self._trigger_configs[str(path)] = dict(config)
         from avialsync.core.errors import FileUnreadableError
         from avialsync.engine.trigger_worker import TriggerReadWorker
 
@@ -3084,6 +3095,30 @@ class MainWindow(QMainWindow):
             self._set_video_coverage(path, self._video_source_bounds[path], offset, drift_ppm)
         self.player.seek(self.clock.state.t, exact=True)
 
+    def restore_trigger_sources(self, entries: list[TriggerEntry]) -> None:
+        """Re-read every trigger file a restored session declared.
+
+        Re-read rather than restored from the file: a trigger file that has
+        changed on disk is read as it now is, which is the same contract sensor
+        channels have. The *declaration* is what the session owns.
+        """
+        for entry in entries:
+            path = Path(entry.path)
+            if not path.exists():
+                self.notifications.show_warning(
+                    tr("Trigger evidence is missing: {name}").format(name=path.name)
+                )
+                continue
+            provider_cls = self._registry.trigger_for(path)
+            if provider_cls is None:
+                self.notifications.show_warning(
+                    tr("Nothing can read {name} as trigger evidence any more.").format(
+                        name=path.name
+                    )
+                )
+                continue
+            self._start_trigger_read(provider_cls(), path, dict(entry.config))
+
     def _open_sync_wizard(self) -> None:
         """Open evidence-based TTL/frame-event alignment for loaded sources."""
         from avialsync.engine.sync_worker import (
@@ -3104,8 +3139,11 @@ class MainWindow(QMainWindow):
             )
             for channel in self.plot_pane.channels
         ]
+        # A container's own frame timestamps are one per *stored* frame, which
+        # is what FRAME_STROBE means: evidence the frame happened, not that it
+        # was requested.
         targets = [
-            EventEvidenceSpec(path, frame_times)
+            EventEvidenceSpec(path, frame_times, kind=TriggerKind.FRAME_STROBE)
             for path, frame_times in self._video_frame_times.items()
             if len(frame_times) >= 3
         ]
@@ -3114,7 +3152,11 @@ class MainWindow(QMainWindow):
         # a reference other sources can be fitted to.
         for file_path, trains in self._trigger_trains.items():
             for train in trains:
-                spec = EventEvidenceSpec(f"{Path(file_path).name} : {train.train_id}", train.times)
+                spec = EventEvidenceSpec(
+                    f"{Path(file_path).name} : {train.train_id}",
+                    train.times,
+                    kind=train.kind,
+                )
                 if train.target:
                     targets.append(spec)
                 else:

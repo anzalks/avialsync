@@ -424,7 +424,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/trigger_dialog.py` | Where the user says what each trigger column **is**. Leads with the kind, because the difference between a strobe and a trigger is the difference between an exact mapping and a fitted one | `TriggerEvidenceDialog`, `TrainChoice` |
 | `engine/trigger_worker.py` | Reads every declared train in one job, off the UI thread. All or nothing — a partial set leaves the user to notice which train went missing | `TriggerReadWorker`, `TriggerTrainResult` |
 | `loaders/trigger_csv.py` | Trigger evidence from a delimited file, either a sampled line or a column of event times. The config declares each train's `TriggerKind` — `suggest_trains` never guesses `frame_strobe` | `TriggerCSVSource`, `LEVEL`, `TIMESTAMPS` |
-| `core/session.py` | `.avv` session JSON, schema v9 (v8 adds `point_edits` — a **count per source**, not the coordinates, D-099; v9 adds `SyncProvenance.method` plus per-side counts, `offset_stderr`, `ambiguity_margin`, `superseded_by`) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
+| `core/session.py` | `.avv` session JSON, schema v9 (v9 also adds `TriggerEntry` — the trigger file's **declaration**, re-read on restore) (v8 adds `point_edits` — a **count per source**, not the coordinates, D-099; v9 adds `SyncProvenance.method` plus per-side counts, `offset_stderr`, `ambiguity_margin`, `superseded_by`) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020); carries recorded messages into the sidecar manifest (D-078) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/messages.py` | Headless record for free text the rig stored with the data (D-078) | `Message`, `clean()`, `bounded()`, `MAX_MESSAGES` |
 | `core/triggers.py` | What a TTL train is evidence **of**, which depends on which way the wire ran. Keeps both edges, so a strobe is timestamped at its exposure midpoint and carries its duration | `TriggerKind`, `TriggerTrain`, `extract_pulses()`, `locate_drops()`, `reconcile_with_frames()` |
@@ -666,6 +666,26 @@ warm-up thread, which is the exact thing the snapshot exists to prevent.
 `tests/test_startup_responsiveness.py` catches it — adding
 `avialsync.triggers` to the registry without adding it to the tuple failed
 there immediately.
+
+### 0-kind. A `TriggerKind` that does not travel on the spec loses two rungs
+
+`EXACT` and `PIECEWISE` were both fully implemented and fully tested in
+`core/` and **neither could ever be selected by the running application**.
+`SyncWorker` passed `reconciliation=None` unconditionally, so the strobe test
+could not fire; and the kind was a separate constructor argument no caller
+passed, so `choose_method` saw `SPARSE_EVENTS` for everything. Every automatic
+fit chose between affine and shift whatever the user had declared.
+
+Both are fixed the same way: `EvidenceSpec` carries `kind`, and `SyncWorker`
+reads it off the reference (`_kind` is a property, not a stored argument) so
+there is one authority for it rather than two that can disagree — a caller that
+had to pass it separately could pass a different one. If you add another route
+into the fit, carry the spec, not the times.
+
+Related: `_fit_automatically` must have a branch per rung. `EXACT` was being
+*selected* correctly and then falling through to the affine proposal unchanged,
+so the method was chosen and then discarded — which looks exactly like the
+selection being wrong.
 
 ### 0-trigger. An external trigger and a frame strobe are not the same evidence
 
