@@ -121,6 +121,11 @@ class SyncFit:
     #: is what every constructor in this module produces; everything that is
     #: not a fit has to say so.
     method: AlignmentMethod = AlignmentMethod.AFFINE
+    #: The window of reference time the fit was computed over, when the user
+    #: restricted it. A fit over part of a recording is a different claim from
+    #: one over all of it -- it says nothing about the part excluded -- so the
+    #: restriction belongs in the record rather than in how the number was made.
+    restricted_to: tuple[float, float] | None = None
 
     @property
     def match_rate(self) -> float:
@@ -151,11 +156,21 @@ class SyncFit:
             )
         if self.method is AlignmentMethod.UNVALIDATED:
             return f"placed by {self.matched_count} events, with none left over to check it against"
+        if self.restricted_to is not None:
+            start, end = self.restricted_to
+            return (
+                f"{self._describe_fit()}, over {start:.3f}–{end:.3f} s only, "
+                "claiming nothing outside that window"
+            )
         if self.method is AlignmentMethod.SHIFT:
             return (
                 f"offset {self.offset:+.6f} s ± {self.offset_stderr * 1000:.3f} ms from "
                 f"{self.matched_count} of {self.reference_count} events, no rate fitted"
             )
+        return self._describe_fit()
+
+    def _describe_fit(self) -> str:
+        """The affine wording, shared with the restricted-window sentence."""
         return (
             f"offset {self.offset:+.6f} s ± {self.offset_stderr * 1000:.3f} ms and "
             f"{self.drift_ppm:+.3f} ppm, fitted from {self.matched_count} of "
@@ -599,8 +614,21 @@ def _initial_scale(reference: np.ndarray, target: np.ndarray) -> float:
     return float(target_dt / reference_dt)
 
 
-def _default_tolerance(reference: np.ndarray, target: np.ndarray) -> float:
+def default_tolerance(reference: np.ndarray, target: np.ndarray) -> float:
+    """A quarter of the smaller median inter-event interval.
+
+    Public so that a caller can *show* it. It is a heuristic about
+    distinguishability -- a quarter of a period is far enough that the wrong
+    pulse cannot be nearer than the right one -- and not a statement about
+    timing precision at all. At 1 Hz it is 250 ms, which will accept a
+    100 ms misalignment without complaint, and a user who needs better has to
+    be able to see the number before they can know to change it.
+    """
     return float(min(np.median(np.diff(reference)), np.median(np.diff(target))) * 0.25)
+
+
+#: Retained so existing internal callers keep working; prefer the public name.
+_default_tolerance = default_tolerance
 
 
 def _candidate_indices(reference_count: int, target_count: int) -> Iterator[tuple[int, int]]:

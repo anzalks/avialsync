@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QGraphicsSceneWheelEvent,
     QGridLayout,
     QHBoxLayout,
+    QMenu,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -128,6 +129,7 @@ class AxisNav(QWidget):
         self._view_box = plot.getViewBox()
         self._home_x: tuple[float, float] | None = None
         self._home_y: tuple[float, float] | None = None
+        self._menus: list[QMenu] = []
 
         grid = QGridLayout(self)
         grid.setContentsMargins(2, 0, 0, 0)
@@ -196,6 +198,51 @@ class AxisNav(QWidget):
             self.reset_both,
             accessible=tr("Fit all"),
         )
+
+    def install_menu(self, plot: pg.PlotWidget, *, exporter: Callable[[], None]) -> None:
+        """Give *plot* a managed context menu instead of pyqtgraph's own.
+
+        The stock menu offers Transforms, Downsample, Average and Alpha beside
+        Export. Downsample and Average change the evidence while it is being
+        judged, with no record that anything changed -- a second, undocumented
+        control surface over a scientific decision, which is what rule 15
+        forbids. Disabling it outright was the holding position; it also took
+        Export away, and exporting the evidence you are about to accept is a
+        legitimate thing to want.
+
+        So: the same navigation the buttons drive, plus Export, and nothing
+        that alters what is drawn.
+        """
+        menu = QMenu(plot)
+        for text, tip, slot in (
+            (tr("Fit all"), tr("Show the whole span on both axes"), self.reset_both),
+            (
+                tr("Reset time axis"),
+                tr("Return the time axis to its full range"),
+                lambda: self.reset("x"),
+            ),
+            (
+                tr("Reset value axis"),
+                tr("Return the value axis to its full range"),
+                lambda: self.reset("y"),
+            ),
+        ):
+            action = menu.addAction(text)
+            action.setToolTip(tip)
+            action.triggered.connect(slot)
+        menu.addSeparator()
+        export = menu.addAction(tr("Export…"))
+        export.setToolTip(tr("Save this plot as an image or its points as text"))
+        export.triggered.connect(exporter)
+
+        plot.setMenuEnabled(False)
+        plot.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        plot.customContextMenuRequested.connect(
+            lambda point, target=plot, owned=menu: owned.exec(target.mapToGlobal(point))
+        )
+        # Parented to the plot, but held as well: the lambda above is the only
+        # other reference and Qt would be free to collect the menu behind it.
+        self._menus.append(menu)
 
     def _button(
         self,

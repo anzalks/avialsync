@@ -437,3 +437,33 @@ def test_a_removed_camera_stops_being_the_target(window: MainWindow) -> None:
     window.video_grid.panes.pop()
 
     assert window._focused_video_path() == "/tmp/cam1.mp4", "one left, so no ambiguity"
+
+
+def test_a_restricted_fit_says_so_wherever_it_is_read(window: MainWindow) -> None:
+    """The window changes what the mapping claims, so it survives the session.
+
+    Outside it the alignment is an extension of a trend measured elsewhere, and
+    a reader who cannot see the window has no way to know that.
+    """
+    from avialsync.core.session import SyncProvenance
+
+    window._sync_provenance.append(
+        SyncProvenance(
+            reference_id="/tmp/ephys.csv",
+            target_id="/tmp/cam1.mp4",
+            offset=1.0,
+            drift_ppm=2.0,
+            rms_residual=0.001,
+            max_residual=0.003,
+            matched_count=47,
+            rejected_count=1,
+            tolerance=0.005,
+            reference_count=48,
+            restricted_to=[30.0, 300.0],
+        )
+    )
+
+    text = window.alignment_confidence("/tmp/cam1.mp4")
+
+    assert "30.000" in text and "300.000" in text
+    assert "claiming nothing outside that window" in text

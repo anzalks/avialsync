@@ -24,6 +24,8 @@ smear.
 
 from __future__ import annotations
 
+import functools
+
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
@@ -53,6 +55,19 @@ _TREND_FLOOR_MS = 0.001
 #: residuals are zero by construction -- still gets a readable axis instead of a
 #: degenerate one the view box fills in for itself.
 _MIN_RESIDUAL_EXTENT_MS = 0.01
+
+
+def _export(plot: pg.PlotWidget) -> None:
+    """Open pyqtgraph's exporter for one plot.
+
+    Kept from the stock menu deliberately. Saving a picture of the evidence, or
+    its points as text, does not change what was judged -- which is the whole
+    reason the rest of that menu is gone.
+    """
+    from pyqtgraph.GraphicsScene.exportDialog import ExportDialog
+
+    dialog = ExportDialog(plot.scene())
+    dialog.show(plot.getPlotItem())
 
 
 def _evidence_origin(times: np.ndarray, unmatched: tuple[float, ...]) -> float:
@@ -96,6 +111,10 @@ def decimate_residuals(
 class SyncEvidenceView(QWidget):
     """Residuals against the tolerance that judged them."""
 
+    #: The window the user wants fitted, in the reference source's own clock,
+    #: or ``None`` when they have cleared it.
+    restriction_changed = Signal(object)
+
     #: A point on the evidence was clicked, in the reference source's own clock.
     #: The natural question at a 40 ms outlier is what the footage looks like
     #: there, and it was unaskable: the dialog ran under `exec()` and blocked
@@ -138,10 +157,10 @@ class SyncEvidenceView(QWidget):
         self._plot.setLabel("left", "Residual (ms)")
         self._plot.showGrid(x=True, y=True, alpha=0.2)
         self._plot.setMinimumHeight(180)
-        # pyqtgraph's stock context menu offers Downsample and Average, which
-        # would change the evidence while it is being judged, with no record
-        # that anything changed. There is no managed menu here yet, so there is
-        # no menu (rule 15).
+        # A managed menu replaces pyqtgraph's own, which offers Downsample and
+        # Average -- changes to the evidence, made while it is being judged,
+        # with no record that anything changed (rule 15). Installed below, once
+        # the nav that owns the actions exists.
         self._plot.setMenuEnabled(False)
         self._apply_palette()
 
@@ -161,6 +180,18 @@ class SyncEvidenceView(QWidget):
         # One time axis across the two evidence panels. Moving either moves
         # both, so a point picked out above is the same instant below it.
         self._pairing.setXLink(self._plot)
+
+        for plot in (self._plot, self._pairing):
+            self._nav.install_menu(plot, exporter=functools.partial(_export, plot))
+
+        #: A draggable window over the evidence. "The first thirty seconds are
+        #: garbage, fit from there on" is a routine scientific control, and the
+        #: only way to say it was to edit the file.
+        self._restriction = pg.LinearRegionItem(movable=True)
+        self._restriction.setZValue(-8)
+        self._restriction.hide()
+        self._restriction.sigRegionChangeFinished.connect(self._on_restriction_moved)
+        self._plot.addItem(self._restriction)
 
         self._readout = QLabel("")
         self._readout.setWordWrap(True)
@@ -225,6 +256,9 @@ class SyncEvidenceView(QWidget):
         """Draw the evidence behind *proposal*, or clear."""
         self._plot.clear()
         self._pairing.clear()
+        # `clear()` removes every item including the restriction, which is the
+        # user's own state and must outlive a re-preview.
+        self._plot.addItem(self._restriction)
         self._proposal = proposal
         if proposal is None:
             self._headline.setText(tr("No alignment has been proposed."))
@@ -395,6 +429,40 @@ class SyncEvidenceView(QWidget):
 
         self._nav.set_home_range(x_home, y_home)
         self._nav.reset_both()
+
+    # ── restricting the fit ──────────────────────────────────────────
+
+    def set_restriction(self, window: tuple[float, float] | None) -> None:
+        """Show, or clear, the window the next fit will be computed over."""
+        if window is None:
+            self._restriction.hide()
+            return
+        blocked = self._restriction.blockSignals(True)
+        try:
+            self._restriction.setRegion((window[0] - self._origin, window[1] - self._origin))
+        finally:
+            self._restriction.blockSignals(blocked)
+        self._restriction.show()
+
+    def evidence_span(self) -> tuple[float, float] | None:
+        """First and last plotted reference event, in that source's own clock."""
+        if not len(self._plotted_times):
+            return None
+        return (
+            float(self._plotted_times[0]) + self._origin,
+            float(self._plotted_times[-1]) + self._origin,
+        )
+
+    def restriction(self) -> tuple[float, float] | None:
+        """The window in the reference's own clock, or None when not in use."""
+        if not self._restriction.isVisible():
+            return None
+        low, high = self._restriction.getRegion()
+        return (float(low) + self._origin, float(high) + self._origin)
+
+    @Slot()
+    def _on_restriction_moved(self) -> None:
+        self.restriction_changed.emit(self.restriction())
 
     # ── interrogating a point ────────────────────────────────────────
 

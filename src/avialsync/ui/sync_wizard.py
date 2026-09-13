@@ -122,6 +122,37 @@ class SyncWizard(QDialog):
         )
         form.addRow("Index Offset:", self._index_offset)
 
+        # The number that decided which events counted, shown rather than
+        # implied. Left at zero it is derived from the pulse rate -- a quarter
+        # of the median interval -- which is a heuristic about telling one
+        # pulse from the next and says nothing about the precision the work
+        # needs. At 1 Hz that is 250 ms, and it will accept a 100 ms
+        # misalignment without complaint; a user who needs better cannot know
+        # to ask for it while the figure is invisible.
+        self._tolerance = QDoubleSpinBox(self)
+        self._tolerance.setRange(0.0, 1e6)
+        self._tolerance.setDecimals(6)
+        self._tolerance.setSuffix(" s")
+        self._tolerance.setSpecialValueText(tr("from the pulse rate"))
+        self._tolerance.setToolTip(
+            tr(
+                "How far a pair may be apart and still count as matched. Left at zero "
+                "it is a quarter of the smaller median interval between events."
+            )
+        )
+        form.addRow(tr("Match tolerance:"), self._tolerance)
+
+        self._restrict = QCheckBox(tr("Fit only part of the recording"))
+        self._restrict.setToolTip(
+            tr(
+                "Drag the shaded window on the residual plot to choose it. A fit over "
+                "part of a recording claims nothing about the rest, and is recorded "
+                "as such."
+            )
+        )
+        self._restrict.toggled.connect(self._on_restrict_toggled)
+        form.addRow("", self._restrict)
+
         self._manual_offset = QDoubleSpinBox(self)
         self._manual_offset.setRange(-1e9, 1e9)
         self._manual_offset.setDecimals(6)
@@ -191,7 +222,15 @@ class SyncWizard(QDialog):
         # itself. Before it did, the ladder saw SPARSE_EVENTS for everything, so
         # a user could declare a camera strobe or a shared sync train and never
         # get the model it licenses -- two of five rungs were unreachable.
-        self._worker = SyncWorker(reference, target, mode=mode, index_offset=index_offset)
+        tolerance = self._tolerance.value() or None
+        self._worker = SyncWorker(
+            reference,
+            target,
+            mode=mode,
+            index_offset=index_offset,
+            tolerance=tolerance,
+            restrict_to=self._evidence.restriction(),
+        )
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.finished.connect(self._on_finished)
@@ -208,6 +247,27 @@ class SyncWizard(QDialog):
         # `_on_thread_finished` drops the reference on the UI thread instead.
         self._thread.finished.connect(self._on_thread_finished)
         self._thread.start()
+
+    def _on_restrict_toggled(self, checked: bool) -> None:
+        """Show a window over the middle half of the evidence, or clear it.
+
+        The middle half rather than all of it: a window covering everything is
+        indistinguishable from no window, and would record a restriction that
+        restricted nothing.
+        """
+        if not checked:
+            self._evidence.set_restriction(None)
+            return
+        span = self._evidence.evidence_span()
+        if span is None:
+            self._restrict.setChecked(False)
+            self._summary.setText(
+                tr("Preview a fit first: there is no evidence to choose a window from yet.")
+            )
+            return
+        start, end = span
+        quarter = (end - start) * 0.25
+        self._evidence.set_restriction((start + quarter, end - quarter))
 
     def _use_manual_mapping(self) -> None:
         """Provide an explicit fallback when evidence is sparse or ambiguous.
@@ -258,6 +318,10 @@ class SyncWizard(QDialog):
         # The plot, not just the sentence. BLUEPRINT principle 8 asks for the
         # matched evidence; four numbers are a summary of it (WP-10).
         self._evidence.show_proposal(proposal)
+        # Say what the tolerance was, whoever chose it: a fit judged by a
+        # quarter-second band is a different claim from one judged by a
+        # millisecond, and the number was previously nowhere on the dialog.
+        self._show_tolerance(proposal.tolerance)
         summary = fit.describe()
         refusal = proposal.refusal
         if refusal:
@@ -267,6 +331,21 @@ class SyncWizard(QDialog):
             summary = f"{summary}\n\nCannot accept: {refusal}"
         self._summary.setText(summary)
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(proposal.applicable)
+
+    def _show_tolerance(self, tolerance: float) -> None:
+        """Reflect the tolerance a fit was actually judged by, without re-firing."""
+        if self._tolerance.value():
+            return  # The user set it; echoing it back would only round it.
+        blocked = self._tolerance.blockSignals(True)
+        try:
+            self._tolerance.setToolTip(
+                tr(
+                    "Derived from the pulse rate: {value:.6f} s. Type a value to judge "
+                    "this fit by the precision your work needs instead."
+                ).format(value=tolerance)
+            )
+        finally:
+            self._tolerance.blockSignals(blocked)
 
     @Slot(str)
     def _on_error(self, message: str) -> None:

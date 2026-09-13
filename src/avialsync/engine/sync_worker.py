@@ -10,6 +10,7 @@ from typing import TypeAlias
 import numpy as np
 from PySide6.QtCore import QObject, Signal, Slot
 
+from avialsync.core.errors import SyncEvidenceError
 from avialsync.core.pyramid import RAW_CHUNK_SAMPLES, PyramidReader
 from avialsync.core.sync import (
     SyncProposal,
@@ -61,12 +62,22 @@ class SyncWorker(QObject):
         target: EvidenceSpec,
         mode: str = "affine",
         index_offset: int = 0,
+        tolerance: float | None = None,
+        restrict_to: tuple[float, float] | None = None,
     ) -> None:
         super().__init__()
         self._reference = reference
         self._target = target
         self._mode = mode
         self._index_offset = index_offset
+        #: How far a pair may be apart and still count. ``None`` derives it
+        #: from the pulse rate, which is a heuristic about distinguishability
+        #: and says nothing about the precision the user actually needs.
+        self._tolerance = tolerance
+        #: A window of *reference* time to fit within. "The first thirty
+        #: seconds are garbage, fit from there on" is a routine and legitimate
+        #: scientific control, and it changes what the result claims.
+        self._restrict_to = restrict_to
 
     @property
     def _kind(self) -> TriggerKind:
@@ -86,6 +97,7 @@ class SyncWorker(QObject):
             is_exact = self._mode == "exact_index"
             reference_times = self._event_times(self._reference, use_all_times=is_exact)
             target_times = self._event_times(self._target, use_all_times=is_exact)
+            reference_times = self._restricted(reference_times)
 
             if is_exact:
                 proposal = fit_exact_index_mapping(
@@ -103,8 +115,9 @@ class SyncWorker(QObject):
                     target_times,
                     reference_id=self._reference.source_id,
                     target_id=self._target.source_id,
+                    max_residual=self._tolerance,
                 )
-            self.finished.emit(proposal)
+            self.finished.emit(self._record_restriction(proposal))
         except Exception as error:
             self.error.emit(str(error))
 
@@ -132,6 +145,7 @@ class SyncWorker(QObject):
             target_times,
             reference_id=self._reference.source_id,
             target_id=self._target.source_id,
+            max_residual=self._tolerance,
         )
         span = float(reference_times[-1] - reference_times[0]) if len(reference_times) else 0.0
         method = choose_method(
@@ -162,6 +176,7 @@ class SyncWorker(QObject):
                 target_times,
                 reference_id=self._reference.source_id,
                 target_id=self._target.source_id,
+                tolerance=self._tolerance,
             )
         if method is AlignmentMethod.SHIFT:
             # The rate the affine fit produced is not reportable over this span;
@@ -174,6 +189,34 @@ class SyncWorker(QObject):
                 fit=dataclasses.replace(proposal.fit, method=AlignmentMethod.UNVALIDATED),
             )
         return proposal
+
+    def _restricted(self, times: np.ndarray) -> np.ndarray:
+        """Keep only the reference events inside the requested window.
+
+        The *target* is deliberately not trimmed. Restricting the reference
+        says which evidence to fit from; trimming the target as well would
+        also throw away the partners those events need, and turn a narrower
+        question into a worse answer.
+        """
+        if self._restrict_to is None or not len(times):
+            return times
+        start, end = self._restrict_to
+        kept = times[(times >= start) & (times <= end)]
+        if len(kept) < 2:
+            raise SyncEvidenceError(
+                f"Only {len(kept)} reference event(s) fall between {start:.3f} s and "
+                f"{end:.3f} s. Widen the window, or clear it to fit over everything."
+            )
+        return kept
+
+    def _record_restriction(self, proposal: SyncProposal) -> SyncProposal:
+        """Carry the window into the result, because it changes what it claims."""
+        if self._restrict_to is None:
+            return proposal
+        return dataclasses.replace(
+            proposal,
+            fit=dataclasses.replace(proposal.fit, restricted_to=self._restrict_to),
+        )
 
     def _reconciliation(
         self, reference_times: np.ndarray, target_times: np.ndarray

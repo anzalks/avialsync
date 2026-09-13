@@ -2163,6 +2163,11 @@ class MainWindow(QMainWindow):
             offset_stderr=entry.offset_stderr,
             ambiguity_margin=entry.ambiguity_margin,
             method=AlignmentMethod(entry.method),
+            restricted_to=(
+                (entry.restricted_to[0], entry.restricted_to[1])
+                if len(entry.restricted_to) == 2
+                else None
+            ),
         ).describe()
 
     # ── Overlays (D-090) ─────────────────────────────────────────────
@@ -3253,6 +3258,7 @@ class MainWindow(QMainWindow):
             target_count=fit.target_count,
             offset_stderr=fit.offset_stderr,
             ambiguity_margin=fit.ambiguity_margin,
+            restricted_to=list(fit.restricted_to) if fit.restricted_to else [],
             matches=[
                 {
                     "reference_time": match.reference_time,

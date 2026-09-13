@@ -89,6 +89,12 @@ class SyncProvenance:
     #: nothing connected the two; the record is kept rather than deleted so the
     #: user can see what the alignment *was*, and that it is no longer that.
     superseded_by: str = ""
+    #: The window of reference time the fit was computed over (schema v9), when
+    #: the user restricted it. Persisted because it changes what the mapping
+    #: claims: outside this span the alignment is an extension of a trend that
+    #: was measured elsewhere, and a reader who cannot see the window cannot
+    #: know that.
+    restricted_to: list[float] = dataclasses.field(default_factory=list)
     matches: list[dict[str, float]] = dataclasses.field(default_factory=list)
     exact_master: list[float] | np.ndarray = dataclasses.field(default_factory=list)
     exact_source: list[float] | np.ndarray = dataclasses.field(default_factory=list)
@@ -250,6 +256,7 @@ class SessionState:
                 offset_stderr=float(item.get("offset_stderr", 0.0)),
                 ambiguity_margin=float(item.get("ambiguity_margin", 1.0)),
                 superseded_by=str(item.get("superseded_by", "")),
+                restricted_to=[float(value) for value in item.get("restricted_to", [])],
                 matches=[
                     {
                         "reference_time": float(match["reference_time"]),

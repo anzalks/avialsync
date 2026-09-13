@@ -237,3 +237,65 @@ def test_developer_context_menu_is_not_offered(qtbot) -> None:
     view = SyncEvidenceView()
     qtbot.addWidget(view)
     assert view._plot.getPlotItem().vb.menu is None
+
+
+class TestTheManagedContextMenu:
+    """Disabling the stock menu was the holding position, not the answer.
+
+    pyqtgraph's own offers Transforms, Downsample, Average and Alpha beside
+    Export -- a second, undocumented control surface over a scientific decision
+    (rule 15). Export is the half worth keeping: saving a picture of the
+    evidence does not change what was judged.
+    """
+
+    def test_the_stock_menu_is_gone(self, qtbot) -> None:
+        nav, _, plot = _nav(qtbot)
+        nav.install_menu(plot, exporter=lambda: None)
+
+        assert plot.getPlotItem().vb.menu is None
+
+    def test_navigation_and_export_are_offered(self, qtbot) -> None:
+        nav, _, plot = _nav(qtbot)
+        nav.install_menu(plot, exporter=lambda: None)
+
+        labels = [action.text() for action in nav._menus[0].actions() if action.text()]
+        assert "Fit all" in labels
+        assert any("Export" in label for label in labels)
+
+    def test_nothing_that_alters_what_is_drawn_is_offered(self, qtbot) -> None:
+        nav, _, plot = _nav(qtbot)
+        nav.install_menu(plot, exporter=lambda: None)
+
+        labels = " ".join(action.text() for action in nav._menus[0].actions())
+        for banned in ("Downsample", "Average", "Transforms", "Alpha"):
+            assert banned not in labels
+
+    def test_export_is_wired_to_the_caller(self, qtbot) -> None:
+        nav, _, plot = _nav(qtbot)
+        called: list[bool] = []
+        nav.install_menu(plot, exporter=lambda: called.append(True))
+
+        export = next(a for a in nav._menus[0].actions() if "Export" in a.text())
+        export.trigger()
+
+        assert called == [True]
+
+    def test_the_menu_actions_drive_the_same_view(self, qtbot) -> None:
+        """One authority: the menu and the buttons are the same methods."""
+        nav, view_box, plot = _nav(qtbot)
+        nav.install_menu(plot, exporter=lambda: None)
+        nav.set_home_range((0.0, 500.0), (-2.0, 2.0))
+        view_box.setRange(xRange=(10.0, 11.0), yRange=(-0.01, 0.01), padding=0)
+
+        fit_all = next(a for a in nav._menus[0].actions() if a.text() == "Fit all")
+        fit_all.trigger()
+
+        low, high = view_box.viewRange()[0]
+        assert low <= 0.0 and high >= 500.0
+
+    def test_the_menu_is_held_not_only_parented(self, qtbot) -> None:
+        """The connection lambda is otherwise its only reference."""
+        nav, _, plot = _nav(qtbot)
+        nav.install_menu(plot, exporter=lambda: None)
+
+        assert nav._menus
