@@ -71362,7 +71362,7 @@
       "label": "generate_frame_strobe()",
       "file_type": "code",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L621",
+      "source_location": "L626",
       "_origin": "ast"
     },
     {
@@ -71370,7 +71370,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L666",
+      "source_location": "L671",
       "_origin": "ast"
     },
     {
@@ -71422,19 +71422,19 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_make_fixtures_rationale_518",
+      "id": "tools_make_fixtures_rationale_524",
       "label": "Build an Open Ephys session that declares its own wall clock.      ``openephys_m",
       "file_type": "rationale",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L518",
+      "source_location": "L524",
       "_origin": "ast"
     },
     {
-      "id": "tools_make_fixtures_rationale_630",
+      "id": "tools_make_fixtures_rationale_635",
       "label": "Write the camera's exposure strobe as a DAQ would have recorded it.      The sam",
       "file_type": "rationale",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L630",
+      "source_location": "L635",
       "_origin": "ast"
     },
     {
@@ -240720,7 +240720,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L621",
+      "source_location": "L626",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240731,7 +240731,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L621",
+      "source_location": "L626",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240741,7 +240741,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L666",
+      "source_location": "L671",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240752,7 +240752,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L618",
+      "source_location": "L623",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240763,7 +240763,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L672",
+      "source_location": "L677",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240774,7 +240774,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L674",
+      "source_location": "L679",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240785,7 +240785,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L692",
+      "source_location": "L697",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240796,7 +240796,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L715",
+      "source_location": "L720",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240807,7 +240807,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L729",
+      "source_location": "L734",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240818,7 +240818,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L732",
+      "source_location": "L737",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240829,7 +240829,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L743",
+      "source_location": "L748",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240840,7 +240840,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L746",
+      "source_location": "L754",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -240905,22 +240905,22 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_make_fixtures_rationale_518",
+      "source": "tools_make_fixtures_rationale_524",
       "target": "tools_make_fixtures_generate_demo_session",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L518",
+      "source_location": "L524",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_make_fixtures_rationale_630",
+      "source": "tools_make_fixtures_rationale_635",
       "target": "tools_make_fixtures_generate_frame_strobe",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L630",
+      "source_location": "L635",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297426,7 +297426,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/make_fixtures.py",
-      "source_location": "L610",
+      "source_location": "L615",
       "weight": 1.0,
       "_origin": "ast"
     },
