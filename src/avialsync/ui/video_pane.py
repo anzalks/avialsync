@@ -37,6 +37,8 @@ from PySide6.QtGui import (
     QMouseEvent,
     QPainter,
     QPaintEvent,
+    QPalette,
+    QPen,
     QResizeEvent,
     QWheelEvent,
 )
@@ -488,6 +490,37 @@ class VideoSurface(QWidget):
             ),
             image,
         )
+        self._draw_view_readout(painter)
+
+    def _draw_view_readout(self, painter: QPainter) -> None:
+        """State the zoom and how far the view has been panned off centre.
+
+        Only once either has been changed: a pane showing the whole frame
+        unpanned is the default, and captioning that would put text on every
+        video for no information. The same reasoning, and the same corner, as
+        the 3D pane's orbit readout -- a view you arrived at by dragging is
+        otherwise recorded only as a picture.
+        """
+        if self._zoom == 1.0 and self._pan.isNull():
+            return
+        readout = self.view_readout()
+        painter.setPen(QPen(self.palette().color(QPalette.ColorRole.WindowText), 1))
+        metrics = painter.fontMetrics()
+        painter.drawText(
+            max(6, self.width() - metrics.horizontalAdvance(readout) - 8),
+            self.height() - 8,
+            readout,
+        )
+
+    def view_readout(self) -> str:
+        """Zoom and pan offset as text. Separate from painting so it can be
+        asserted on, as the 3D pane's readout is.
+
+        The offset is in *displayed pixels* from centred, which is the frame the
+        gesture happens in; expressing it in source pixels would change meaning
+        with the zoom that produced it.
+        """
+        return f"{self._zoom:.2f}×  x {self._pan.x():+.0f}  y {self._pan.y():+.0f}"
 
 
 class VideoPane(VideoTimingMixin, QWidget):

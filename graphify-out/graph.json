@@ -30586,7 +30586,7 @@
       "label": ".point_count()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L294",
+      "source_location": "L295",
       "_origin": "ast"
     },
     {
@@ -30594,7 +30594,7 @@
       "label": ".point_names()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L299",
+      "source_location": "L300",
       "_origin": "ast"
     },
     {
@@ -30602,7 +30602,7 @@
       "label": ".positions()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L304",
+      "source_location": "L305",
       "_origin": "ast"
     },
     {
@@ -30610,7 +30610,7 @@
       "label": ".up_axis()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L309",
+      "source_location": "L310",
       "_origin": "ast"
     },
     {
@@ -30618,7 +30618,7 @@
       "label": ".up_inverted()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L314",
+      "source_location": "L315",
       "_origin": "ast"
     },
     {
@@ -30626,7 +30626,7 @@
       "label": ".set_up_axis()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L318",
+      "source_location": "L319",
       "_origin": "ast"
     },
     {
@@ -30634,7 +30634,7 @@
       "label": "._to_view()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L336",
+      "source_location": "L338",
       "_origin": "ast"
     },
     {
@@ -30642,7 +30642,7 @@
       "label": ".set_readers()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L341",
+      "source_location": "L343",
       "_origin": "ast"
     },
     {
@@ -30650,7 +30650,7 @@
       "label": ".set_skeleton()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L366",
+      "source_location": "L369",
       "_origin": "ast"
     },
     {
@@ -30658,7 +30658,7 @@
       "label": ".set_bone_mode()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L379",
+      "source_location": "L382",
       "_origin": "ast"
     },
     {
@@ -30666,7 +30666,7 @@
       "label": ".bone_mode()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L385",
+      "source_location": "L388",
       "_origin": "ast"
     },
     {
@@ -30674,7 +30674,7 @@
       "label": ".declared_skeleton()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L390",
+      "source_location": "L393",
       "_origin": "ast"
     },
     {
@@ -30682,7 +30682,7 @@
       "label": ".inferred_skeleton()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L395",
+      "source_location": "L398",
       "_origin": "ast"
     },
     {
@@ -30690,7 +30690,7 @@
       "label": ".skeleton_edges()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L400",
+      "source_location": "L403",
       "_origin": "ast"
     },
     {
@@ -30698,7 +30698,7 @@
       "label": ".skeleton_is_derived()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L405",
+      "source_location": "L408",
       "_origin": "ast"
     },
     {
@@ -30706,7 +30706,7 @@
       "label": "._infer_skeleton()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L409",
+      "source_location": "L412",
       "_origin": "ast"
     },
     {
@@ -30714,7 +30714,7 @@
       "label": "._refresh_bones()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L437",
+      "source_location": "L440",
       "_origin": "ast"
     },
     {
@@ -30722,7 +30722,7 @@
       "label": ".set_cursor()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L454",
+      "source_location": "L457",
       "_origin": "ast"
     },
     {
@@ -30730,7 +30730,7 @@
       "label": ".fit_current_pose()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L472",
+      "source_location": "L475",
       "_origin": "ast"
     },
     {
@@ -30738,7 +30738,7 @@
       "label": ".reset_view()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L484",
+      "source_location": "L496",
       "_origin": "ast"
     },
     {
@@ -30746,7 +30746,7 @@
       "label": "._expand_scene_bounds()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L490",
+      "source_location": "L502",
       "_origin": "ast"
     },
     {
@@ -30754,7 +30754,7 @@
       "label": "._update_camera_bounds()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L505",
+      "source_location": "L520",
       "_origin": "ast"
     },
     {
@@ -30762,7 +30762,7 @@
       "label": "._camera_basis()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L510",
+      "source_location": "L525",
       "_origin": "ast"
     },
     {
@@ -30770,7 +30770,7 @@
       "label": "._target_size()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L523",
+      "source_location": "L538",
       "_origin": "ast"
     },
     {
@@ -30778,7 +30778,7 @@
       "label": "._project()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L530",
+      "source_location": "L545",
       "_origin": "ast"
     },
     {
@@ -30786,7 +30786,7 @@
       "label": "._project_view()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L536",
+      "source_location": "L551",
       "_origin": "ast"
     },
     {
@@ -30794,7 +30794,7 @@
       "label": ".changeEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L555",
+      "source_location": "L570",
       "_origin": "ast"
     },
     {
@@ -30810,7 +30810,7 @@
       "label": ".paintEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L567",
+      "source_location": "L582",
       "_origin": "ast"
     },
     {
@@ -30826,7 +30826,7 @@
       "label": ".render_scene()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L573",
+      "source_location": "L588",
       "_origin": "ast"
     },
     {
@@ -30842,7 +30842,7 @@
       "label": "._draw_skeleton()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L627",
+      "source_location": "L642",
       "_origin": "ast"
     },
     {
@@ -30858,7 +30858,7 @@
       "label": "._bone_width()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L660",
+      "source_location": "L675",
       "_origin": "ast"
     },
     {
@@ -30866,7 +30866,7 @@
       "label": "._draw_grid()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L666",
+      "source_location": "L681",
       "_origin": "ast"
     },
     {
@@ -30874,7 +30874,23 @@
       "label": "._draw_corner_axes()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L702",
+      "source_location": "L717",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_orientation_readout",
+      "label": "._draw_orientation_readout()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L741",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_orientation_readout",
+      "label": "._orientation_readout()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L760",
       "_origin": "ast"
     },
     {
@@ -30882,7 +30898,7 @@
       "label": ".mousePressEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L723",
+      "source_location": "L773",
       "_origin": "ast"
     },
     {
@@ -30898,7 +30914,7 @@
       "label": ".mouseMoveEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L731",
+      "source_location": "L781",
       "_origin": "ast"
     },
     {
@@ -30906,7 +30922,7 @@
       "label": ".mouseReleaseEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L746",
+      "source_location": "L796",
       "_origin": "ast"
     },
     {
@@ -30914,7 +30930,7 @@
       "label": ".wheelEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L754",
+      "source_location": "L804",
       "_origin": "ast"
     },
     {
@@ -30930,7 +30946,7 @@
       "label": ".mouseDoubleClickEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L761",
+      "source_location": "L811",
       "_origin": "ast"
     },
     {
@@ -30938,7 +30954,7 @@
       "label": "_qcolor()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L770",
+      "source_location": "L820",
       "_origin": "ast"
     },
     {
@@ -30946,7 +30962,7 @@
       "label": "Tracking3DPane",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L775",
+      "source_location": "L825",
       "_origin": "ast"
     },
     {
@@ -30954,7 +30970,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L778",
+      "source_location": "L828",
       "_origin": "ast"
     },
     {
@@ -30962,7 +30978,7 @@
       "label": ".set_readers()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L845",
+      "source_location": "L895",
       "_origin": "ast"
     },
     {
@@ -30970,7 +30986,7 @@
       "label": "._refresh_status()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L854",
+      "source_location": "L904",
       "_origin": "ast"
     },
     {
@@ -30978,7 +30994,7 @@
       "label": "._sync_up_axis_combo()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L873",
+      "source_location": "L923",
       "_origin": "ast"
     },
     {
@@ -30986,7 +31002,7 @@
       "label": "._on_up_axis_selected()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L882",
+      "source_location": "L932",
       "_origin": "ast"
     },
     {
@@ -30994,7 +31010,7 @@
       "label": ".set_up_axis()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L890",
+      "source_location": "L940",
       "_origin": "ast"
     },
     {
@@ -31002,7 +31018,7 @@
       "label": ".set_skeleton()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L895",
+      "source_location": "L945",
       "_origin": "ast"
     },
     {
@@ -31010,7 +31026,7 @@
       "label": ".set_bone_mode()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L900",
+      "source_location": "L950",
       "_origin": "ast"
     },
     {
@@ -31018,7 +31034,7 @@
       "label": "._on_bone_mode_selected()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L910",
+      "source_location": "L960",
       "_origin": "ast"
     },
     {
@@ -31026,7 +31042,7 @@
       "label": ".set_cursor()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L918",
+      "source_location": "L968",
       "_origin": "ast"
     },
     {
@@ -31034,7 +31050,7 @@
       "label": "._fit_view()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L922",
+      "source_location": "L972",
       "_origin": "ast"
     },
     {
@@ -31118,371 +31134,395 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_295",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_296",
       "label": "Number of complete XYZ points available to the view.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L295",
+      "source_location": "L296",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_300",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_301",
       "label": "Names of complete XYZ coordinate triplets.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L300",
+      "source_location": "L301",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_305",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_306",
       "label": "Copy of the currently sampled XYZ positions, including NaN placeholders.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L305",
+      "source_location": "L306",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_310",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_311",
       "label": "Index of the world axis currently rendered upward.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L310",
+      "source_location": "L311",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_315",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_316",
       "label": "Whether larger values on :attr:`up_axis` render downward.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L315",
+      "source_location": "L316",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_319",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_320",
       "label": "Choose which world axis renders upward, and its direction.          Setting this",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L319",
+      "source_location": "L320",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_337",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_339",
       "label": "Rotate world coordinates so the anatomical vertical is view +Z.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L337",
+      "source_location": "L339",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_342",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_344",
       "label": "Select complete XYZ triplets and retain only their mmap-backed arrays.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L342",
+      "source_location": "L344",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_367",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_370",
       "label": "Set the skeleton edges the data itself declared.          Each edge is a ``(name",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L367",
+      "source_location": "L370",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_380",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_383",
       "label": "Choose between declared, derived, and no skeleton.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L380",
+      "source_location": "L383",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_386",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_389",
       "label": "Which skeleton the view is currently drawing.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L386",
+      "source_location": "L389",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_391",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_394",
       "label": "Copy of the skeleton the session declared, before name resolution.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L391",
+      "source_location": "L394",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_396",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_399",
       "label": "The geometry-derived estimate for the loaded points.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L396",
+      "source_location": "L399",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_401",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_404",
       "label": "Edges the view draws right now, parent first where a flow is known.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L401",
+      "source_location": "L404",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_406",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_409",
       "label": "Whether the drawn skeleton came from geometry rather than the data.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L406",
+      "source_location": "L409",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_410",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_413",
       "label": "Derive topology per source, from the strided samples taken on load.          Per",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L410",
+      "source_location": "L413",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_438",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_441",
       "label": "Resolve the mode into the edge list and taper depths the painter uses.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L438",
+      "source_location": "L441",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_455",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_458",
       "label": "Sample and display the pose nearest to the master-clock time.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L455",
+      "source_location": "L458",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_473",
-      "label": "Fit the camera to the valid points at the current master time.",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_476",
+      "label": "Fit the camera to the valid points at the current master time.          Fitting",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L473",
+      "source_location": "L476",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_485",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_497",
       "label": "Restore the default orbit and fit the current pose.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L485",
+      "source_location": "L497",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_524",
-      "label": "Resolve a render target, defaulting to the widget's own size.",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_503",
+      "label": "Widen the camera bounds to include the current pose, unless held.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L524",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_533",
-      "label": "Project world points to screen; the anatomical vertical maps to screen up.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L533",
+      "source_location": "L503",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_tracking_3d_pane_rationale_539",
-      "label": "Project points already expressed in view space (see :meth:`_to_view`).",
+      "label": "Resolve a render target, defaulting to the widget's own size.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
       "source_location": "L539",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_556",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_548",
+      "label": "Project world points to screen; the anatomical vertical maps to screen up.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L548",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_554",
+      "label": "Project points already expressed in view space (see :meth:`_to_view`).",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L554",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_571",
       "label": "Repaint when the appearance changes.          Qt repaints its own widgets on a p",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L556",
+      "source_location": "L571",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_568",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_583",
       "label": "Draw a bounded current pose; trajectory history is never rendered here.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L568",
+      "source_location": "L583",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_574",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_589",
       "label": "Draw the current pose into a target of arbitrary size.          The single paint",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L574",
+      "source_location": "L589",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_633",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_648",
       "label": "Draw the bones in force, tapering a derived skeleton along its flow.          A",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L633",
+      "source_location": "L648",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_661",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_676",
       "label": "Thin a bone as it runs further from the root it was flowed out from.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L661",
+      "source_location": "L676",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_667",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_682",
       "label": "Draw a faint ground-plane grid behind the pose.          Faint *relative to its",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L667",
+      "source_location": "L682",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_703",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_718",
       "label": "Draw a compact orientation indicator in the bottom-left corner.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L703",
+      "source_location": "L718",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_724",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_742",
+      "label": "State the orbit in numbers, beside the axes it applies to.          The triad sh",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L742",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_761",
+      "label": "The orbit as text. Separate from painting so it can be asserted on.          Azi",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L761",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_774",
       "label": "Begin orbiting on a primary-button drag.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L724",
+      "source_location": "L774",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_732",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_782",
       "label": "Orbit around the stable scene bounds.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L732",
+      "source_location": "L782",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_747",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_797",
       "label": "Finish an orbit gesture.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L747",
+      "source_location": "L797",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_755",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_805",
       "label": "Zoom around the current scene center.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L755",
+      "source_location": "L805",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_762",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_812",
       "label": "Fit the current pose on double click.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L762",
+      "source_location": "L812",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_771",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_821",
       "label": "Construct QColor from an RGB tuple.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L771",
+      "source_location": "L821",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_776",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_826",
       "label": "Timeline-synchronized 3D tracking pane.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L776",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_846",
-      "label": "Use complete XYZ channel triplets from the active cached readers.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L846",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_855",
-      "label": "Say how many points are loaded, and where their bones came from.          The pr",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L855",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_874",
-      "label": "Reflect the canvas's current orientation without re-triggering it.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L874",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_883",
-      "label": "Pin an explicit vertical axis chosen by the user.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L883",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_891",
-      "label": "Pin which source axis renders upward (see :meth:`Tracking3DCanvas.set_up_axis`).",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L891",
+      "source_location": "L826",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_tracking_3d_pane_rationale_896",
-      "label": "Set the connectivity the session declared; empty falls back to detection.",
+      "label": "Use complete XYZ channel triplets from the active cached readers.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
       "source_location": "L896",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_901",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_905",
+      "label": "Say how many points are loaded, and where their bones came from.          The pr",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L905",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_924",
+      "label": "Reflect the canvas's current orientation without re-triggering it.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L924",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_933",
+      "label": "Pin an explicit vertical axis chosen by the user.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L933",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_941",
+      "label": "Pin which source axis renders upward (see :meth:`Tracking3DCanvas.set_up_axis`).",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L941",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_946",
+      "label": "Set the connectivity the session declared; empty falls back to detection.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L946",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_951",
       "label": "Pin which skeleton the view draws (see :class:`BoneMode`).",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L901",
+      "source_location": "L951",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_911",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_961",
       "label": "Apply the skeleton mode the user chose in the header.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L911",
+      "source_location": "L961",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_tracking_3d_pane_rationale_919",
+      "id": "src_avialsync_ui_tracking_3d_pane_rationale_969",
       "label": "Update from the same master-clock value used by video and 2D plots.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L919",
+      "source_location": "L969",
       "_origin": "ast"
     },
     {
@@ -67762,7 +67802,7 @@
       "label": "_tracking_readers()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L14",
+      "source_location": "L15",
       "_origin": "ast"
     },
     {
@@ -67778,7 +67818,7 @@
       "label": "test_complete_xyz_triplets_follow_master_cursor()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "_origin": "ast"
     },
     {
@@ -67786,7 +67826,7 @@
       "label": "test_incomplete_xy_points_are_not_presented_as_3d()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L53",
+      "source_location": "L54",
       "_origin": "ast"
     },
     {
@@ -67794,7 +67834,7 @@
       "label": "test_out_of_range_pose_has_no_stale_coordinates()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L63",
+      "source_location": "L64",
       "_origin": "ast"
     },
     {
@@ -67802,7 +67842,7 @@
       "label": "test_mouse_drag_orbits_and_fit_restores_default()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L74",
+      "source_location": "L75",
       "_origin": "ast"
     },
     {
@@ -67810,7 +67850,7 @@
       "label": "_anatomical_readers()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L99",
+      "source_location": "L100",
       "_origin": "ast"
     },
     {
@@ -67818,7 +67858,7 @@
       "label": "test_head_renders_above_toes()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L124",
+      "source_location": "L125",
       "_origin": "ast"
     },
     {
@@ -67826,7 +67866,7 @@
       "label": "test_up_axis_override_is_respected()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L148",
+      "source_location": "L149",
       "_origin": "ast"
     },
     {
@@ -67834,7 +67874,7 @@
       "label": "test_unrecognised_landmarks_keep_neutral_default()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L164",
+      "source_location": "L165",
       "_origin": "ast"
     },
     {
@@ -67842,7 +67882,7 @@
       "label": "test_main_window_places_3d_view_beside_video_grid()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L174",
+      "source_location": "L175",
       "_origin": "ast"
     },
     {
@@ -67850,7 +67890,7 @@
       "label": "_rigid_chain_readers()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L191",
+      "source_location": "L192",
       "_origin": "ast"
     },
     {
@@ -67858,7 +67898,7 @@
       "label": "test_skeleton_is_detected_when_the_data_declares_none()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L222",
+      "source_location": "L223",
       "_origin": "ast"
     },
     {
@@ -67866,7 +67906,7 @@
       "label": "test_detected_bones_flow_outward_from_the_top()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L239",
+      "source_location": "L240",
       "_origin": "ast"
     },
     {
@@ -67874,7 +67914,7 @@
       "label": "test_declared_topology_wins_over_detection()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L251",
+      "source_location": "L252",
       "_origin": "ast"
     },
     {
@@ -67882,7 +67922,7 @@
       "label": "test_declared_names_resolve_through_a_loader_prefix()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L263",
+      "source_location": "L264",
       "_origin": "ast"
     },
     {
@@ -67890,7 +67930,7 @@
       "label": "test_an_ambiguous_declared_name_is_skipped_not_guessed()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L279",
+      "source_location": "L280",
       "_origin": "ast"
     },
     {
@@ -67898,7 +67938,7 @@
       "label": "test_bones_can_be_turned_off_and_forced_to_detected()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L296",
+      "source_location": "L297",
       "_origin": "ast"
     },
     {
@@ -67906,7 +67946,7 @@
       "label": "test_a_session_without_a_skeleton_clears_the_previous_one()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L314",
+      "source_location": "L315",
       "_origin": "ast"
     },
     {
@@ -67914,7 +67954,71 @@
       "label": "test_detected_skeleton_survives_an_up_axis_change()",
       "file_type": "code",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L327",
+      "source_location": "L328",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_test_the_pane_states_its_orbit_in_numbers",
+      "label": "test_the_pane_states_its_orbit_in_numbers()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L341",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_test_the_orbit_readout_wraps_a_full_turn",
+      "label": "test_the_orbit_readout_wraps_a_full_turn()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L368",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "label": "TestTheScaleHoldsOnceFitted",
+      "file_type": "code",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L381",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_canvas",
+      "label": "._canvas()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L390",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_fitting_holds_the_radius",
+      "label": ".test_fitting_holds_the_radius()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L405",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_the_centre_holds_too",
+      "label": ".test_the_centre_holds_too()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L418",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_before_fitting_the_view_still_finds_the_pose",
+      "label": ".test_before_fitting_the_view_still_finds_the_pose()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L431",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_new_tracking_releases_the_hold",
+      "label": ".test_new_tracking_releases_the_hold()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L439",
       "_origin": "ast"
     },
     {
@@ -67926,107 +68030,163 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_100",
+      "id": "tests_test_ui_tracking_3d_rationale_101",
       "label": "Build a pose whose vertical axis is Y and grows downward.      Mirrors the real",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L100",
+      "source_location": "L101",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_125",
+      "id": "tests_test_ui_tracking_3d_rationale_126",
       "label": "The 3D view must orient anatomy head-up, not use a fixed Z-up axis.      The ref",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L125",
+      "source_location": "L126",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_149",
+      "id": "tests_test_ui_tracking_3d_rationale_150",
       "label": "An explicit choice pins the orientation against later auto-detection.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L149",
+      "source_location": "L150",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_165",
+      "id": "tests_test_ui_tracking_3d_rationale_166",
       "label": "Without head/foot landmarks the view must not guess an orientation.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L165",
+      "source_location": "L166",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_196",
+      "id": "tests_test_ui_tracking_3d_rationale_197",
       "label": "An animal whose segments hold their length while the whole body moves.      Dist",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L196",
+      "source_location": "L197",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_223",
+      "id": "tests_test_ui_tracking_3d_rationale_224",
       "label": "Pose with no declared topology still shows bones, marked as detected (D-082).",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L223",
+      "source_location": "L224",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_240",
+      "id": "tests_test_ui_tracking_3d_rationale_241",
       "label": "Detection reports a direction, rooted on the view's anatomical vertical.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L240",
+      "source_location": "L241",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_252",
+      "id": "tests_test_ui_tracking_3d_rationale_253",
       "label": "A session that names its own bones is never second-guessed.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L252",
+      "source_location": "L253",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_264",
+      "id": "tests_test_ui_tracking_3d_rationale_265",
       "label": "A body part the cache kept prefixed still gets its declared bone drawn.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L264",
+      "source_location": "L265",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_280",
+      "id": "tests_test_ui_tracking_3d_rationale_281",
       "label": "Two points could answer to 'head', so that edge is dropped rather than picked.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L280",
+      "source_location": "L281",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_297",
+      "id": "tests_test_ui_tracking_3d_rationale_298",
       "label": "The header pins the choice; a scientist can refuse a derived skeleton.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L297",
+      "source_location": "L298",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_315",
+      "id": "tests_test_ui_tracking_3d_rationale_316",
       "label": "Loading a second session must not leave the first one's bones on screen.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L315",
+      "source_location": "L316",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ui_tracking_3d_rationale_328",
+      "id": "tests_test_ui_tracking_3d_rationale_329",
       "label": "Re-orienting the view re-roots the flow instead of losing the bones.",
       "file_type": "rationale",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L328",
+      "source_location": "L329",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_rationale_342",
+      "label": "A screenshot records orientation only as a picture.      The axis triad shows wh",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L342",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_rationale_369",
+      "label": "Dragging past 360 degrees must not report 400.",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L369",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_rationale_382",
+      "label": "A point the rig holds still must not drift as the animal moves.      Scene bound",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L382",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_rationale_391",
+      "label": "Return the canvas *and* its pane: `qtbot.addWidget` holds weakly, so         a h",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L391",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_rationale_419",
+      "label": "Otherwise a fixed point slides even at a constant scale.",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L419",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_rationale_432",
+      "label": "The hold is something Fit View applies, not the default state.",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L432",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_tracking_3d_rationale_440",
+      "label": "A different recording is a different scene; its own fit must win.          Also",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L440",
       "_origin": "ast"
     },
     {
@@ -70770,7 +70930,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L443",
+      "source_location": "L458",
       "_origin": "ast"
     },
     {
@@ -70838,11 +70998,11 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_266",
+      "id": "tools_generate_session_screenshot_rationale_267",
       "label": "Open ``session_dir``, record ``frames`` of playback, and write the loop.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L266",
+      "source_location": "L267",
       "_origin": "ast"
     },
     {
@@ -148459,7 +148619,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L294",
+      "source_location": "L295",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148469,7 +148629,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L299",
+      "source_location": "L300",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148479,7 +148639,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L304",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148490,7 +148650,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L304",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148500,7 +148660,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L309",
+      "source_location": "L310",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148510,7 +148670,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L314",
+      "source_location": "L315",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148520,7 +148680,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L318",
+      "source_location": "L319",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148530,7 +148690,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L336",
+      "source_location": "L338",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148541,7 +148701,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L336",
+      "source_location": "L338",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148551,7 +148711,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L341",
+      "source_location": "L343",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148562,7 +148722,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L341",
+      "source_location": "L343",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148572,7 +148732,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L366",
+      "source_location": "L369",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148582,7 +148742,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L379",
+      "source_location": "L382",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148593,7 +148753,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L379",
+      "source_location": "L382",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148603,7 +148763,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L385",
+      "source_location": "L388",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148614,7 +148774,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L385",
+      "source_location": "L388",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148624,7 +148784,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L390",
+      "source_location": "L393",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148634,7 +148794,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L395",
+      "source_location": "L398",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148645,7 +148805,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L395",
+      "source_location": "L398",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148655,7 +148815,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L400",
+      "source_location": "L403",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148665,7 +148825,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L405",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148675,7 +148835,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L409",
+      "source_location": "L412",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148685,7 +148845,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L437",
+      "source_location": "L440",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148695,7 +148855,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L454",
+      "source_location": "L457",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148705,7 +148865,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L472",
+      "source_location": "L475",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148715,7 +148875,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L484",
+      "source_location": "L496",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148725,7 +148885,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L490",
+      "source_location": "L502",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148735,7 +148895,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L505",
+      "source_location": "L520",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148745,7 +148905,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L510",
+      "source_location": "L525",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148756,7 +148916,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L510",
+      "source_location": "L525",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148766,7 +148926,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L523",
+      "source_location": "L538",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148776,7 +148936,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L530",
+      "source_location": "L545",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148787,7 +148947,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L530",
+      "source_location": "L545",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148797,7 +148957,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L536",
+      "source_location": "L551",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148808,7 +148968,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L536",
+      "source_location": "L551",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148818,7 +148978,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L555",
+      "source_location": "L570",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148829,7 +148989,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L555",
+      "source_location": "L570",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148839,7 +148999,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L567",
+      "source_location": "L582",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148850,7 +149010,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L567",
+      "source_location": "L582",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148860,7 +149020,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L573",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148871,7 +149031,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L573",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148881,7 +149041,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L627",
+      "source_location": "L642",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148892,7 +149052,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L627",
+      "source_location": "L642",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148903,7 +149063,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L627",
+      "source_location": "L642",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148913,7 +149073,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L660",
+      "source_location": "L675",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148923,7 +149083,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L666",
+      "source_location": "L681",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148934,7 +149094,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L666",
+      "source_location": "L681",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148945,7 +149105,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L666",
+      "source_location": "L681",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148955,7 +149115,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L702",
+      "source_location": "L717",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148966,7 +149126,38 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L702",
+      "source_location": "L717",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_orientation_readout",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L741",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_orientation_readout",
+      "target": "src_avialsync_ui_tracking_3d_pane_py_qpainter",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L741",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_orientation_readout",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L760",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148976,7 +149167,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L723",
+      "source_location": "L773",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148987,7 +149178,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L723",
+      "source_location": "L773",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -148997,7 +149188,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L731",
+      "source_location": "L781",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149008,7 +149199,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L731",
+      "source_location": "L781",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149018,7 +149209,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L746",
+      "source_location": "L796",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149029,7 +149220,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L746",
+      "source_location": "L796",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149039,7 +149230,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L754",
+      "source_location": "L804",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149050,7 +149241,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L754",
+      "source_location": "L804",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149060,7 +149251,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L761",
+      "source_location": "L811",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149071,7 +149262,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L761",
+      "source_location": "L811",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149081,7 +149272,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L770",
+      "source_location": "L820",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149091,7 +149282,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L775",
+      "source_location": "L825",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149101,7 +149292,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L775",
+      "source_location": "L825",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149111,7 +149302,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L778",
+      "source_location": "L828",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149122,7 +149313,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L778",
+      "source_location": "L828",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149132,7 +149323,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L845",
+      "source_location": "L895",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149143,7 +149334,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L845",
+      "source_location": "L895",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149153,7 +149344,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L854",
+      "source_location": "L904",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149163,7 +149354,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L873",
+      "source_location": "L923",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149173,7 +149364,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L882",
+      "source_location": "L932",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149183,7 +149374,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L890",
+      "source_location": "L940",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149193,7 +149384,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L895",
+      "source_location": "L945",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149203,7 +149394,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L900",
+      "source_location": "L950",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149214,7 +149405,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L900",
+      "source_location": "L950",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149224,7 +149415,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L910",
+      "source_location": "L960",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149234,7 +149425,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L918",
+      "source_location": "L968",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149244,7 +149435,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L922",
+      "source_location": "L972",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149332,7 +149523,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L327",
+      "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149343,7 +149534,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L332",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149354,7 +149545,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L333",
+      "source_location": "L335",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149365,7 +149556,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L334",
+      "source_location": "L336",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149376,7 +149567,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L343",
+      "source_location": "L345",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149387,7 +149578,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L357",
+      "source_location": "L360",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149398,7 +149589,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L362",
+      "source_location": "L365",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149409,7 +149600,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L363",
+      "source_location": "L366",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149420,7 +149611,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L364",
+      "source_location": "L367",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149431,7 +149622,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L377",
+      "source_location": "L380",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149442,7 +149633,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L382",
+      "source_location": "L385",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149453,7 +149644,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L428",
+      "source_location": "L431",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149464,7 +149655,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L435",
+      "source_location": "L438",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149475,7 +149666,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L459",
+      "source_location": "L462",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149486,7 +149677,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L469",
+      "source_location": "L472",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149497,7 +149688,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L474",
+      "source_location": "L485",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149508,7 +149699,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L480",
+      "source_location": "L492",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149519,7 +149710,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L488",
+      "source_location": "L500",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149530,7 +149721,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L491",
+      "source_location": "L506",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149541,7 +149732,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L503",
+      "source_location": "L518",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149552,7 +149743,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L534",
+      "source_location": "L549",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149563,7 +149754,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L534",
+      "source_location": "L549",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149574,7 +149765,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L545",
+      "source_location": "L560",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149585,7 +149776,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L546",
+      "source_location": "L561",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149596,7 +149787,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L570",
+      "source_location": "L585",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149607,7 +149798,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L571",
+      "source_location": "L586",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149618,7 +149809,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L585",
+      "source_location": "L600",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149629,7 +149820,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L596",
+      "source_location": "L611",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149640,7 +149831,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L600",
+      "source_location": "L615",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149651,7 +149842,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L606",
+      "source_location": "L621",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149662,7 +149853,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L619",
+      "source_location": "L634",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149673,7 +149864,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L654",
+      "source_location": "L669",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149684,7 +149875,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L691",
+      "source_location": "L706",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149695,7 +149886,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L705",
+      "source_location": "L721",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149706,7 +149897,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L713",
+      "source_location": "L729",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149717,7 +149908,29 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L719",
+      "source_location": "L735",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_corner_axes",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_orientation_readout",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L739",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_orientation_readout",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_orientation_readout",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L755",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149728,7 +149941,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L764",
+      "source_location": "L814",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149739,7 +149952,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L787",
+      "source_location": "L837",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149750,67 +149963,12 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L841",
+      "source_location": "L891",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_readers",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_refresh_status",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L848",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_readers",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_sync_up_axis_combo",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L850",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_readers",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_fit_current_pose",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L852",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_on_up_axis_selected",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_up_axis",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L888",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_up_axis",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_sync_up_axis_combo",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L893",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_skeleton",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_refresh_status",
       "relation": "calls",
       "context": "call",
@@ -149821,13 +149979,68 @@
       "_origin": "ast"
     },
     {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_readers",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_sync_up_axis_combo",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L900",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_readers",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_fit_current_pose",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L902",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_on_up_axis_selected",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_up_axis",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L938",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_up_axis",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_sync_up_axis_combo",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L943",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_skeleton",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_refresh_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L948",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_bone_mode",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_refresh_status",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L908",
+      "source_location": "L958",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149838,7 +150051,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L915",
+      "source_location": "L965",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149849,7 +150062,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L916",
+      "source_location": "L966",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149860,7 +150073,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L923",
+      "source_location": "L973",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -149965,228 +150178,218 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_295",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_296",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_point_count",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L295",
+      "source_location": "L296",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_300",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_301",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_point_names",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L300",
+      "source_location": "L301",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_305",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_306",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_positions",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L305",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_310",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_311",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_up_axis",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L310",
+      "source_location": "L311",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_315",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_316",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_up_inverted",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L315",
+      "source_location": "L316",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_319",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_320",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_set_up_axis",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L319",
+      "source_location": "L320",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_337",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_339",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_to_view",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L337",
+      "source_location": "L339",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_342",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_344",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_set_readers",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L342",
+      "source_location": "L344",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_367",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_370",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_set_skeleton",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L367",
+      "source_location": "L370",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_380",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_383",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_set_bone_mode",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L380",
+      "source_location": "L383",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_386",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_389",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_bone_mode",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L386",
+      "source_location": "L389",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_391",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_394",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_declared_skeleton",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L391",
+      "source_location": "L394",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_396",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_399",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_inferred_skeleton",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L396",
+      "source_location": "L399",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_401",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_404",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_skeleton_edges",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L401",
+      "source_location": "L404",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_406",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_409",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_skeleton_is_derived",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L406",
+      "source_location": "L409",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_410",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_413",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_infer_skeleton",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L410",
+      "source_location": "L413",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_438",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_441",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_refresh_bones",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L438",
+      "source_location": "L441",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_455",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_458",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_set_cursor",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L455",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_473",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_476",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_fit_current_pose",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L473",
+      "source_location": "L476",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_485",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_497",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_reset_view",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L485",
+      "source_location": "L497",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_524",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_target_size",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_503",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_expand_scene_bounds",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L524",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_533",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_project",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L533",
+      "source_location": "L503",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_tracking_3d_pane_rationale_539",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_project_view",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_target_size",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
@@ -150195,198 +150398,188 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_556",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_548",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_project",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L548",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_554",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_project_view",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L554",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_571",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_changeevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L556",
+      "source_location": "L571",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_568",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_583",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_paintevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L568",
+      "source_location": "L583",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_574",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_589",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_render_scene",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L574",
+      "source_location": "L589",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_633",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_648",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_skeleton",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L633",
+      "source_location": "L648",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_661",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_676",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_bone_width",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L661",
+      "source_location": "L676",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_667",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_682",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_grid",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L667",
+      "source_location": "L682",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_703",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_718",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_corner_axes",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L703",
+      "source_location": "L718",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_724",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_742",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_orientation_readout",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L742",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_761",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_orientation_readout",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L761",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_774",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_mousepressevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L724",
+      "source_location": "L774",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_732",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_782",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_mousemoveevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L732",
+      "source_location": "L782",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_747",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_797",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_mousereleaseevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L747",
+      "source_location": "L797",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_755",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_805",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_wheelevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L755",
+      "source_location": "L805",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_762",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_812",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_mousedoubleclickevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L762",
+      "source_location": "L812",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_771",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_821",
       "target": "src_avialsync_ui_tracking_3d_pane_qcolor",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L771",
+      "source_location": "L821",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_776",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_826",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L776",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_846",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_readers",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L846",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_855",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_refresh_status",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L855",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_874",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_sync_up_axis_combo",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L874",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_883",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_on_up_axis_selected",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L883",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_891",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_up_axis",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L891",
+      "source_location": "L826",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_tracking_3d_pane_rationale_896",
-      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_skeleton",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_readers",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
@@ -150395,32 +150588,82 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_901",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_905",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_refresh_status",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L905",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_924",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_sync_up_axis_combo",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L924",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_933",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_on_up_axis_selected",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L933",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_941",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_up_axis",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L941",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_946",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_skeleton",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L946",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_951",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_bone_mode",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L901",
+      "source_location": "L951",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_911",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_961",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_on_bone_mode_selected",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L911",
+      "source_location": "L961",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_tracking_3d_pane_rationale_919",
+      "source": "src_avialsync_ui_tracking_3d_pane_rationale_969",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane_set_cursor",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L919",
+      "source_location": "L969",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231558,8 +231801,8 @@
     },
     {
       "source": "tests_test_ui_tracking_3d",
-      "target": "pyside6_qtcore",
-      "relation": "imports_from",
+      "target": "pytest",
+      "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
@@ -231569,7 +231812,7 @@
     },
     {
       "source": "tests_test_ui_tracking_3d",
-      "target": "pyside6_qtwidgets",
+      "target": "pyside6_qtcore",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -231580,18 +231823,18 @@
     },
     {
       "source": "tests_test_ui_tracking_3d",
-      "target": "src_avialsync_core_pyramid",
+      "target": "pyside6_qtwidgets",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L9",
+      "source_location": "L8",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_ui_tracking_3d",
-      "target": "src_avialsync_ui_tracking_3d_pane",
+      "target": "src_avialsync_core_pyramid",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -231602,7 +231845,7 @@
     },
     {
       "source": "tests_test_ui_tracking_3d",
-      "target": "src_avialsync_ui_tracking_skeleton",
+      "target": "src_avialsync_ui_tracking_3d_pane",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -231613,11 +231856,22 @@
     },
     {
       "source": "tests_test_ui_tracking_3d",
+      "target": "src_avialsync_ui_tracking_skeleton",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d",
       "target": "tests_test_ui_tracking_3d_tracking_readers",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231628,7 +231882,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231639,7 +231893,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231649,7 +231903,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231660,7 +231914,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231670,7 +231924,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L53",
+      "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231681,7 +231935,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L53",
+      "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231691,7 +231945,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L63",
+      "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231702,7 +231956,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L63",
+      "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231712,7 +231966,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L74",
+      "source_location": "L75",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231723,7 +231977,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L74",
+      "source_location": "L75",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231733,7 +231987,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L99",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231744,7 +231998,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L99",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231755,7 +232009,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L99",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231765,7 +232019,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L124",
+      "source_location": "L125",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231776,7 +232030,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L124",
+      "source_location": "L125",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231786,7 +232040,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L148",
+      "source_location": "L149",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231797,7 +232051,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L148",
+      "source_location": "L149",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231807,7 +232061,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L164",
+      "source_location": "L165",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231818,7 +232072,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L164",
+      "source_location": "L165",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231828,7 +232082,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L174",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231838,7 +232092,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L191",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231849,7 +232103,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L191",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231860,7 +232114,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L191",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231870,7 +232124,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L222",
+      "source_location": "L223",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231881,7 +232135,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L222",
+      "source_location": "L223",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231891,7 +232145,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L239",
+      "source_location": "L240",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231902,7 +232156,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L239",
+      "source_location": "L240",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231912,7 +232166,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L251",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231923,7 +232177,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L251",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231933,7 +232187,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L263",
+      "source_location": "L264",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231944,7 +232198,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L263",
+      "source_location": "L264",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231954,7 +232208,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L279",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231965,7 +232219,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L279",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231975,7 +232229,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L296",
+      "source_location": "L297",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231986,7 +232240,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L296",
+      "source_location": "L297",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231996,7 +232250,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L314",
+      "source_location": "L315",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232007,7 +232261,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L314",
+      "source_location": "L315",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232017,7 +232271,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L327",
+      "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232028,7 +232282,87 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L327",
+      "source_location": "L328",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d",
+      "target": "tests_test_ui_tracking_3d_test_the_pane_states_its_orbit_in_numbers",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L341",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d",
+      "target": "tests_test_ui_tracking_3d_test_the_orbit_readout_wraps_a_full_turn",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L368",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L381",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_canvas",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L390",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_fitting_holds_the_radius",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L405",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_the_centre_holds_too",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L418",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_before_fitting_the_view_still_finds_the_pose",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L431",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_new_tracking_releases_the_hold",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L439",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232039,7 +232373,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L33",
+      "source_location": "L34",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232050,7 +232384,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L40",
+      "source_location": "L41",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232061,7 +232395,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L56",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232072,7 +232406,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L66",
+      "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232083,7 +232417,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L79",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232094,7 +232428,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L121",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232105,7 +232439,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L134",
+      "source_location": "L135",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232116,7 +232450,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L153",
+      "source_location": "L154",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232127,7 +232461,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L168",
+      "source_location": "L169",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232138,7 +232472,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L219",
+      "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232149,7 +232483,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L226",
+      "source_location": "L227",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232160,7 +232494,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L243",
+      "source_location": "L244",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232171,7 +232505,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L256",
+      "source_location": "L257",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232182,7 +232516,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L269",
+      "source_location": "L270",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232193,7 +232527,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L285",
+      "source_location": "L286",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232204,7 +232538,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L301",
+      "source_location": "L302",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232215,7 +232549,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L319",
+      "source_location": "L320",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232226,7 +232560,51 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L331",
+      "source_location": "L332",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_fitting_holds_the_radius",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_canvas",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L406",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_the_centre_holds_too",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_canvas",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L420",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_before_fitting_the_view_still_finds_the_pose",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_canvas",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L433",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_new_tracking_releases_the_hold",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_canvas",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L445",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232241,132 +232619,202 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_100",
+      "source": "tests_test_ui_tracking_3d_rationale_101",
       "target": "tests_test_ui_tracking_3d_anatomical_readers",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L100",
+      "source_location": "L101",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_125",
+      "source": "tests_test_ui_tracking_3d_rationale_126",
       "target": "tests_test_ui_tracking_3d_test_head_renders_above_toes",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L125",
+      "source_location": "L126",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_149",
+      "source": "tests_test_ui_tracking_3d_rationale_150",
       "target": "tests_test_ui_tracking_3d_test_up_axis_override_is_respected",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L149",
+      "source_location": "L150",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_165",
+      "source": "tests_test_ui_tracking_3d_rationale_166",
       "target": "tests_test_ui_tracking_3d_test_unrecognised_landmarks_keep_neutral_default",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L165",
+      "source_location": "L166",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_196",
+      "source": "tests_test_ui_tracking_3d_rationale_197",
       "target": "tests_test_ui_tracking_3d_rigid_chain_readers",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L196",
+      "source_location": "L197",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_223",
+      "source": "tests_test_ui_tracking_3d_rationale_224",
       "target": "tests_test_ui_tracking_3d_test_skeleton_is_detected_when_the_data_declares_none",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L223",
+      "source_location": "L224",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_240",
+      "source": "tests_test_ui_tracking_3d_rationale_241",
       "target": "tests_test_ui_tracking_3d_test_detected_bones_flow_outward_from_the_top",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L240",
+      "source_location": "L241",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_252",
+      "source": "tests_test_ui_tracking_3d_rationale_253",
       "target": "tests_test_ui_tracking_3d_test_declared_topology_wins_over_detection",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L252",
+      "source_location": "L253",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_264",
+      "source": "tests_test_ui_tracking_3d_rationale_265",
       "target": "tests_test_ui_tracking_3d_test_declared_names_resolve_through_a_loader_prefix",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L264",
+      "source_location": "L265",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_280",
+      "source": "tests_test_ui_tracking_3d_rationale_281",
       "target": "tests_test_ui_tracking_3d_test_an_ambiguous_declared_name_is_skipped_not_guessed",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L280",
+      "source_location": "L281",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_297",
+      "source": "tests_test_ui_tracking_3d_rationale_298",
       "target": "tests_test_ui_tracking_3d_test_bones_can_be_turned_off_and_forced_to_detected",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L297",
+      "source_location": "L298",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_315",
+      "source": "tests_test_ui_tracking_3d_rationale_316",
       "target": "tests_test_ui_tracking_3d_test_a_session_without_a_skeleton_clears_the_previous_one",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L315",
+      "source_location": "L316",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ui_tracking_3d_rationale_328",
+      "source": "tests_test_ui_tracking_3d_rationale_329",
       "target": "tests_test_ui_tracking_3d_test_detected_skeleton_survives_an_up_axis_change",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L328",
+      "source_location": "L329",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_rationale_342",
+      "target": "tests_test_ui_tracking_3d_test_the_pane_states_its_orbit_in_numbers",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L342",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_rationale_369",
+      "target": "tests_test_ui_tracking_3d_test_the_orbit_readout_wraps_a_full_turn",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L369",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_rationale_382",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L382",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_rationale_391",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_canvas",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L391",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_rationale_419",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_the_centre_holds_too",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L419",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_rationale_432",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_before_fitting_the_view_still_finds_the_pose",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L432",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_rationale_440",
+      "target": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_test_new_tracking_releases_the_hold",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L440",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238953,7 +239401,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L443",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -238997,7 +239445,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L354",
+      "source_location": "L355",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239008,7 +239456,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L416",
+      "source_location": "L431",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239019,7 +239467,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L438",
+      "source_location": "L453",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239030,7 +239478,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L519",
+      "source_location": "L540",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -239115,12 +239563,12 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_266",
+      "source": "tools_generate_session_screenshot_rationale_267",
       "target": "tools_generate_session_screenshot_capture",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L266",
+      "source_location": "L267",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257375,7 +257823,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L270",
+      "source_location": "L271",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257386,7 +257834,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L285",
+      "source_location": "L286",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -269022,6 +269470,56 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "target": "src_avialsync_core_pyramid_pyramidbuilder",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L10",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "target": "src_avialsync_core_pyramid_pyramidreader",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L10",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L11",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "target": "src_avialsync_ui_tracking_skeleton_bonemode",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L12",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted",
+      "target": "src_avialsync_ui_main_window_mainwindow",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L176",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_undo_stubpane",
       "target": "src_avialsync_ui_main_window_mainwindow",
       "relation": "uses",
@@ -274641,7 +275139,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L346",
+      "source_location": "L348",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274653,7 +275151,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L346",
+      "source_location": "L348",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274665,7 +275163,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L352",
+      "source_location": "L354",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274677,7 +275175,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L422",
+      "source_location": "L425",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274689,7 +275187,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L439",
+      "source_location": "L442",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274701,7 +275199,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L451",
+      "source_location": "L454",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274713,7 +275211,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L611",
+      "source_location": "L626",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274725,7 +275223,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L611",
+      "source_location": "L626",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274737,7 +275235,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L617",
+      "source_location": "L632",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274749,7 +275247,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L648",
+      "source_location": "L663",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274761,7 +275259,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L654",
+      "source_location": "L669",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274773,7 +275271,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L675",
+      "source_location": "L690",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274785,7 +275283,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L677",
+      "source_location": "L692",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274797,7 +275295,19 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L719",
+      "source_location": "L735",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas_draw_orientation_readout",
+      "target": "qpen",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/avialsync/ui/tracking_3d_pane.py",
+      "source_location": "L756",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274809,7 +275319,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L781",
+      "source_location": "L831",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274821,7 +275331,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L788",
+      "source_location": "L838",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274833,7 +275343,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L796",
+      "source_location": "L846",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274845,7 +275355,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/tracking_3d_pane.py",
-      "source_location": "L863",
+      "source_location": "L913",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -294981,7 +295491,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L32",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -294993,7 +295503,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L37",
+      "source_location": "L38",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295005,7 +295515,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L54",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295017,7 +295527,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L64",
+      "source_location": "L65",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295029,7 +295539,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L75",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295041,7 +295551,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L117",
+      "source_location": "L118",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295053,7 +295563,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L130",
+      "source_location": "L131",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295065,7 +295575,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L150",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295077,7 +295587,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L166",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295089,7 +295599,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L177",
+      "source_location": "L178",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295101,7 +295611,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L178",
+      "source_location": "L179",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295113,7 +295623,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L217",
+      "source_location": "L218",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295125,7 +295635,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L224",
+      "source_location": "L225",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295137,7 +295647,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L241",
+      "source_location": "L242",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295149,7 +295659,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L253",
+      "source_location": "L254",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295161,7 +295671,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L265",
+      "source_location": "L266",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295173,7 +295683,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L281",
+      "source_location": "L282",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295185,7 +295695,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L298",
+      "source_location": "L299",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295197,7 +295707,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L316",
+      "source_location": "L317",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295209,7 +295719,43 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_ui_tracking_3d.py",
-      "source_location": "L329",
+      "source_location": "L330",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_test_the_pane_states_its_orbit_in_numbers",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L353",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_test_the_orbit_readout_wraps_a_full_turn",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L374",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_tracking_3d_testthescaleholdsoncefitted_canvas",
+      "target": "src_avialsync_ui_tracking_3d_pane_tracking3dpane",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_ui_tracking_3d.py",
+      "source_location": "L396",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295881,7 +296427,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L272",
+      "source_location": "L273",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -295893,7 +296439,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L401",
+      "source_location": "L386",
       "weight": 1.0,
       "_origin": "ast"
     },

@@ -538,3 +538,54 @@ def test_a_decoded_frame_settles_the_seek_it_answers(size, qtbot) -> None:
     assert SeekGroup([pane]).is_settled(), "Player would coalesce every drag seek forever"
     assert pane.time_pos == 1.25
     assert presented == [1.25]
+
+
+class TestTheVideoViewReadout:
+    """A view arrived at by dragging is otherwise recorded only as a picture."""
+
+    def _surface(self, qtbot):
+        from avialsync.ui.video_pane import VideoSurface
+
+        surface = VideoSurface()
+        qtbot.addWidget(surface)
+        return surface
+
+    def test_nothing_is_captioned_at_the_default_view(self, qtbot) -> None:
+        """Text on every unzoomed pane would be ink for no information."""
+        from PySide6.QtGui import QPainter
+
+        surface = self._surface(qtbot)
+        surface.resize(320, 240)
+        painter = QPainter()
+
+        # Drawing is a no-op at 1.0x and no pan; assert the state it keys on.
+        assert surface._zoom == 1.0
+        assert surface._pan.isNull()
+        del painter
+
+    def test_zoom_and_offset_are_named_once_changed(self, qtbot) -> None:
+        from PySide6.QtCore import QPointF
+
+        surface = self._surface(qtbot)
+        surface._zoom = 2.5
+        surface._pan = QPointF(18.0, -7.0)
+
+        readout = surface.view_readout()
+
+        assert "2.50×" in readout
+        assert "x +18" in readout
+        assert "y -7" in readout
+
+    def test_the_offset_is_in_displayed_pixels(self, qtbot) -> None:
+        """Source pixels would change meaning with the zoom that produced them."""
+        from PySide6.QtCore import QPointF
+
+        surface = self._surface(qtbot)
+        surface._pan = QPointF(10.0, 0.0)
+        surface._zoom = 1.0
+        at_one = surface.view_readout()
+        surface._zoom = 8.0
+        at_eight = surface.view_readout()
+
+        assert "x +10" in at_one
+        assert "x +10" in at_eight

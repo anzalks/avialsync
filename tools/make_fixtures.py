@@ -620,7 +620,8 @@ def generate_demo_session(out_path: pathlib.Path, tracking_src: pathlib.Path) ->
 
 def generate_frame_strobe(
     out_path: pathlib.Path,
-    video_path: pathlib.Path,
+    fps: float,
+    frame_count: int,
     *,
     offset: float = 0.25,
     width: float = 0.004,
@@ -642,15 +643,14 @@ def generate_frame_strobe(
     """
     import bisect
 
-    from avialsync.loaders.video_standard import VideoStandardLoader
-
-    loader = VideoStandardLoader()
-    loader.open(video_path, {})
-    frames = loader.frame_times()
-    if frames is None or not len(frames):
-        raise RuntimeError(f"{video_path.name} reported no frame timestamps.")
-
-    rises = [float(frame) + offset for frame in frames]
+    # The frame times are computed from the rate this generator just encoded
+    # at, not read back out of the file. Opening the video would build its
+    # sidecar cache as a side effect, and that cache records the file's mtime
+    # -- so generating the fixtures twice produced two different `meta.json`
+    # files and CI's determinism check failed on a number that is not about
+    # the fixture at all. The camera is CFR by construction here, so the rate
+    # is exact.
+    rises = [index / fps + offset for index in range(frame_count)]
     step = 1.0 / rate
     samples = int((rises[-1] + width + 0.2) / step)
 
@@ -740,7 +740,7 @@ def main() -> None:
     shutil.copy(sig_dir / "signal_base.csv", sample_dir / "signal_base.csv")
     shutil.copy(sig_dir / "signal_base.json", sample_dir / "signal_base.json")
     shutil.copy(sig_dir / "tracking_dlc.csv", sample_dir / "tracking_dlc.csv")
-    generate_frame_strobe(sample_dir / "frame_triggers.csv", sample_dir / "camera_1.mp4")
+    generate_frame_strobe(sample_dir / "frame_triggers.csv", fps, frames)
 
     # 6. A session that declares its own wall clock, for the overview animation.
     generate_demo_session(fixtures_dir / "demo_session", sig_dir / "tracking_dlc.csv")

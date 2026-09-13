@@ -183,6 +183,20 @@ def _tracked_points(pane: object) -> list[tuple[float, float]]:
     return points
 
 
+def _set_pane_view(pane: object, zoom: float, pan_x: float, pan_y: float) -> None:
+    """Put one camera at an exact zoom and pan, as the pane reports them.
+
+    Reaching past the public surface for the same reason the 3D orbit does:
+    zooming and panning are gestures, and replaying gestures to land on a known
+    view is less exact than naming the view.
+    """
+    surface = pane.surface  # type: ignore[attr-defined]
+    surface._zoom = zoom
+    surface._pan = QPointF(pan_x, pan_y)
+    surface._clamp_pan()
+    surface.update()
+
+
 def _frame_pane_on_limbs(pane: object, zoom: float, crowded_zoom: float) -> None:
     """Magnify one video pane and hang its topmost marker off the pane's top edge."""
     surface = pane.surface  # type: ignore[attr-defined]
@@ -261,6 +275,9 @@ def capture(
     azimuth_deg: float | None = None,
     elevation_deg: float | None = None,
     pose_zoom: float | None = None,
+    plot_span: float = 10.0,
+    video_views: list[tuple[float, float, float]] | None = None,
+    pose_pan: tuple[float, float] | None = None,
     video_zoom: float = 1.0,
     crowded_zoom: float = 1.0,
 ) -> None:
@@ -375,6 +392,15 @@ def capture(
     settle_for(3.0)
     wait_until_quiet()
 
+    # Pin the plot window, for the same reason the splitter ratios are pinned:
+    # nothing in this script set it, so it was whatever the sweep control had
+    # settled on when the capture happened to look -- ten seconds in one run
+    # and the whole sixty-second recording in the next, where the trace
+    # collapses into an unreadable picket fence. A documentation image has to
+    # be a property of the recording, not of when the shutter fell.
+    window.plot_pane._sweep_control.set_window_duration(plot_span)
+    settle()
+
     # Drop the notification strip before recording. Loading a session posts
     # "Imported encoder_log.txt" and friends, and since D-107 those queue and
     # wait to be dismissed rather than fading -- so the hero image captured a
@@ -408,6 +434,9 @@ def capture(
         window.tracking_3d_pane.canvas._azimuth = math.radians(azimuth_deg)
     if elevation_deg is not None:
         window.tracking_3d_pane.canvas._elevation = math.radians(elevation_deg)
+    if pose_pan is not None:
+        window.tracking_3d_pane.canvas.reset_pan()
+        window.tracking_3d_pane.canvas.pan_by(QPointF(*pose_pan))
     if pose_zoom is not None:
         # After Fit View, which resets it to 1.0 -- so this is a deliberate
         # magnification of the fitted pose rather than a fight with it.
@@ -426,7 +455,15 @@ def capture(
     # is derived from the overlay's own markers at the frame being recorded: the
     # topmost one — the head bar, in this rig — is hung at the top centre of the
     # pane, which lands the skeleton below it in every camera at once.
-    if video_zoom > 1.0:
+    if video_views:
+        # An explicit view per camera, in pane order. The automatic framing
+        # above aims at the limbs and is the right default, but a view someone
+        # arrived at by hand is not reproducible by re-deriving it -- so these
+        # are the numbers the panes themselves print, fed straight back.
+        for pane, view in zip(window.video_grid.visible_panes(), video_views, strict=False):
+            _set_pane_view(pane, *view)
+        settle()
+    elif video_zoom > 1.0:
         for pane in window.video_grid.visible_panes():
             _frame_pane_on_limbs(pane, video_zoom, crowded_zoom)
         settle()
@@ -453,6 +490,22 @@ def capture(
     write_gif(captured, out_path, duration, colors)
     window.close()
     settle()
+
+
+def _triple(value: str) -> tuple[float, float, float]:
+    """Parse ``ZOOM,X,Y`` as the pane prints it."""
+    parts = [float(part) for part in value.replace("x", "").split(",")]
+    if len(parts) != 3:
+        raise SystemExit(f"--video-view wants ZOOM,X,Y; got {value!r}")
+    return parts[0], parts[1], parts[2]
+
+
+def _pair(value: str) -> tuple[float, float]:
+    """Parse ``X,Y`` as the 3D pane prints it."""
+    parts = [float(part) for part in value.split(",")]
+    if len(parts) != 2:
+        raise SystemExit(f"--pose-pan wants X,Y; got {value!r}")
+    return parts[0], parts[1]
 
 
 def main() -> None:
@@ -491,6 +544,28 @@ def main() -> None:
         type=float,
         default=None,
         help="3D camera elevation in degrees; 0 puts the ground plane edge-on",
+    )
+    parser.add_argument(
+        "--video-view",
+        action="append",
+        default=None,
+        metavar="ZOOM,X,Y",
+        help=(
+            "exact view for one camera, in pane order; repeat once per pane. "
+            "These are the figures each pane prints in its corner."
+        ),
+    )
+    parser.add_argument(
+        "--pose-pan",
+        default=None,
+        metavar="X,Y",
+        help="3D pane pan offset in pixels, as the pane prints it",
+    )
+    parser.add_argument(
+        "--plot-span",
+        type=float,
+        default=10.0,
+        help="seconds of signal shown in the plot pane while capturing",
     )
     parser.add_argument(
         "--pose-zoom",
@@ -551,6 +626,9 @@ def main() -> None:
         args.azimuth,
         args.elevation,
         args.pose_zoom,
+        args.plot_span,
+        [_triple(value) for value in args.video_view] if args.video_view else None,
+        _pair(args.pose_pan) if args.pose_pan else None,
         args.video_zoom,
         args.crowded_zoom,
     )

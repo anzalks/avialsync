@@ -290,6 +290,12 @@ class Tracking3DCanvas(QWidget):
         self._has_scene_bounds = False
         self._bounds_held = False
         self._drag_origin: QPoint | None = None
+        #: Middle-button pan, in screen pixels from the fitted centre. Held in
+        #: screen space rather than world space because the gesture is a screen
+        #: one: a drag of ten pixels should move the scene ten pixels whatever
+        #: the zoom, which is how the video panes behave.
+        self._pan = QPointF()
+        self._pan_origin: QPoint | None = None
 
     @property
     def point_count(self) -> int:
@@ -491,6 +497,7 @@ class Tracking3DCanvas(QWidget):
         self._bounds_held = True
         self._update_camera_bounds()
         self._zoom = 1.0
+        self._pan = QPointF()
         self.update()
 
     def reset_view(self) -> None:
@@ -563,8 +570,8 @@ class Tracking3DCanvas(QWidget):
         scale = 0.38 * min(target_width, target_height) * self._zoom / self._radius
         screen = np.column_stack((relative @ right, relative @ up))
         screen *= scale
-        screen[:, 0] += target_width / 2.0
-        screen[:, 1] = target_height / 2.0 - screen[:, 1]
+        screen[:, 0] += target_width / 2.0 + self._pan.x()
+        screen[:, 1] = target_height / 2.0 - screen[:, 1] + self._pan.y()
         return screen, relative @ direction
 
     def changeEvent(self, event: QEvent) -> None:
@@ -764,22 +771,47 @@ class Tracking3DCanvas(QWidget):
         so after a few passes the raw angle is several thousand degrees and
         naming it that way would be arithmetic rather than a bearing.
         """
+        centre = (
+            f"  x {self._pan.x():+.0f}  y {self._pan.y():+.0f}" if not self._pan.isNull() else ""
+        )
         return (
             f"az {math.degrees(self._azimuth) % 360:.0f}°  "
             f"el {math.degrees(self._elevation):.0f}°  "
-            f"{self._zoom:.2f}×"
+            f"{self._zoom:.2f}×{centre}"
         )
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        """Begin orbiting on a primary-button drag."""
+        """Begin orbiting on a primary-button drag, or panning on the wheel click."""
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_origin = event.position().toPoint()
             event.accept()
             return
+        if event.button() == Qt.MouseButton.MiddleButton:
+            # The same gesture the video panes use, so one habit works on every
+            # view in the window rather than one per pane.
+            self._pan_origin = event.position().toPoint()
+            event.accept()
+            return
         super().mousePressEvent(event)
 
+    def pan_by(self, delta: QPointF) -> None:
+        """Slide the projected scene by *delta* screen pixels."""
+        self._pan += delta
+        self.update()
+
+    def reset_pan(self) -> None:
+        """Put the scene back in the middle of the pane."""
+        self._pan = QPointF()
+        self.update()
+
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        """Orbit around the stable scene bounds."""
+        """Orbit on a held left button, or pan on a held middle one."""
+        if self._pan_origin is not None and event.buttons() & Qt.MouseButton.MiddleButton:
+            position = event.position().toPoint()
+            self.pan_by(QPointF(position - self._pan_origin))
+            self._pan_origin = position
+            event.accept()
+            return
         if self._drag_origin is None or not event.buttons() & Qt.MouseButton.LeftButton:
             super().mouseMoveEvent(event)
             return
@@ -794,9 +826,13 @@ class Tracking3DCanvas(QWidget):
         event.accept()
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        """Finish an orbit gesture."""
+        """Finish an orbit or a pan gesture."""
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_origin = None
+            event.accept()
+            return
+        if event.button() == Qt.MouseButton.MiddleButton and self._pan_origin is not None:
+            self._pan_origin = None
             event.accept()
             return
         super().mouseReleaseEvent(event)

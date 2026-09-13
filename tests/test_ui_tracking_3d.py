@@ -449,3 +449,73 @@ class TestTheScaleHoldsOnceFitted:
         canvas.set_readers([])
 
         assert not canvas._bounds_held
+
+
+class TestPanningThe3DView:
+    """The wheel-click drag the video panes already use, on the pose too.
+
+    One habit should work on every view in the window rather than one per
+    pane; before this the 3D scene could only be orbited, never slid.
+    """
+
+    def _canvas(self, qtbot):
+        from avialsync.ui.tracking_3d_pane import Tracking3DPane
+
+        pane = Tracking3DPane()
+        qtbot.addWidget(pane)
+        return pane.canvas, pane
+
+    def test_panning_moves_the_projection(self, qtbot) -> None:
+        from PySide6.QtCore import QPointF
+
+        canvas, _pane = self._canvas(qtbot)
+        canvas._positions = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=float)
+        canvas._valid = np.ones(2, dtype=bool)
+        canvas.fit_current_pose()
+        before, _ = canvas._project(canvas._positions)
+
+        canvas.pan_by(QPointF(25.0, -10.0))
+        after, _ = canvas._project(canvas._positions)
+
+        assert after[:, 0] == pytest.approx(before[:, 0] + 25.0)
+        assert after[:, 1] == pytest.approx(before[:, 1] - 10.0)
+
+    def test_a_pan_is_a_screen_gesture_not_a_world_one(self, qtbot) -> None:
+        """Ten pixels of drag moves ten pixels whatever the zoom, as in video."""
+        from PySide6.QtCore import QPointF
+
+        canvas, _pane = self._canvas(qtbot)
+        canvas._positions = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=float)
+        canvas._valid = np.ones(2, dtype=bool)
+        canvas.fit_current_pose()
+        canvas._zoom = 4.0
+        before, _ = canvas._project(canvas._positions)
+
+        canvas.pan_by(QPointF(10.0, 0.0))
+        after, _ = canvas._project(canvas._positions)
+
+        assert after[:, 0] == pytest.approx(before[:, 0] + 10.0)
+
+    def test_fitting_recentres(self, qtbot) -> None:
+        from PySide6.QtCore import QPointF
+
+        canvas, _pane = self._canvas(qtbot)
+        canvas._positions = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=float)
+        canvas._valid = np.ones(2, dtype=bool)
+        canvas.pan_by(QPointF(40.0, 40.0))
+
+        canvas.fit_current_pose()
+
+        assert canvas._pan.isNull()
+
+    def test_the_readout_names_the_offset_only_once_panned(self, qtbot) -> None:
+        from PySide6.QtCore import QPointF
+
+        canvas, _pane = self._canvas(qtbot)
+        assert "x " not in canvas._orientation_readout()
+
+        canvas.pan_by(QPointF(12.0, -5.0))
+
+        readout = canvas._orientation_readout()
+        assert "x +12" in readout
+        assert "y -5" in readout
