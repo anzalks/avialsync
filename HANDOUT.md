@@ -753,6 +753,32 @@ Accepted evidence also goes stale: `_record_mapping_change` now calls
 five frames used to leave the session reporting the old fit's residual for a
 mapping it had stopped using. The record is annotated, never dropped.
 
+### 0-segv. A window the test never registered dies after the tests pass
+
+`tests/test_sync_golden.py` built a `MainWindow`, showed it, closed it, and
+never registered it with `qtbot` or destroyed it. `close()` runs `closeEvent`
+and so joins the decode threads, but it does **not** destroy the window — that
+was left to the interpreter's own shutdown, where it races Qt's, and the
+process died with SIGSEGV *after* pytest had already printed "3 passed". Green
+run, exit code 139.
+
+`qtbot.addWidget(win)` plus an explicit `deleteLater()` and one
+`processEvents()` in the fixture teardown fixes it: destroy the window while an
+event loop still exists to destroy it in. If a Qt test file ends in a segfault
+with every test passing, look at what its fixtures never destroyed before
+looking at the code under test.
+
+### 0-clock. A clock time is not a timestamp
+
+`09:35:40` is nine hours after *some* midnight. `csv_loader._anchor_date_string`
+takes the date from the wizard, else from the session's declared
+`session_start_time` (which is precisely the date the recording happened on),
+else 1970-01-01 — which is not a claim about anything and leaves the samples at
+seconds-since-midnight, hours from any source whose clock starts at zero.
+`anchor_date_is_a_guess()` reports that last case. `import_controller` puts the
+session's start into every import config, so a mixed session does not ask the
+user to retype a date the application already holds.
+
 ### 0-nav. `qtbot.addWidget` holds its widgets weakly
 
 A helper that builds a `PlotWidget`, registers it with `qtbot.addWidget`, and

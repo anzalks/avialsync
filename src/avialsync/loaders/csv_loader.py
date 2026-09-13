@@ -161,6 +161,45 @@ class CSVLoader(TimeSeriesSource):
             return "time_of_day"
         return "numeric"
 
+    def _anchor_date_string(self) -> str:
+        """The date a time-of-day column belongs to.
+
+        A clock time is not a timestamp: "09:35:40" is nine hours and change
+        after *some* midnight, and which midnight decides where the recording
+        lands. Three sources, in order of how much they actually know:
+
+        1. What the user typed in the import wizard.
+        2. The session's own start, when one has been declared -- which is
+           NWB's `session_start_time` and is precisely the date this recording
+           happened on.
+        3. 1970-01-01, which is not a claim about anything. It leaves the
+           samples at seconds-since-midnight, so a mid-morning recording sits
+           nine hours from a video that starts at zero.
+
+        The third is reported rather than assumed silently: it is the case
+        where nothing knows the date, and the user is the only one who can.
+        """
+        explicit = str(self._config.get("anchor_date", "") or "").strip()
+        if explicit:
+            return explicit
+
+        session_start = float(self._config.get("session_start_time", 0.0) or 0.0)
+        if session_start > 0.0:
+            return (
+                datetime.datetime.fromtimestamp(session_start, tz=datetime.UTC).date().isoformat()
+            )
+        return "1970-01-01"
+
+    def anchor_date_is_a_guess(self) -> bool:
+        """Whether this file's clock times were placed without a date to go on.
+
+        True means the samples sit at seconds-since-midnight: internally
+        consistent, and hours away from anything whose clock starts at zero.
+        """
+        if str(self._config.get("anchor_date", "") or "").strip():
+            return False
+        return not float(self._config.get("session_start_time", 0.0) or 0.0) > 0.0
+
     def _epoch_unit_from_format(self, fmt: str) -> str:
         """Extract epoch unit from wizard format like 'epoch_ms'."""
         if fmt == "epoch_ms":
@@ -221,7 +260,7 @@ class CSVLoader(TimeSeriesSource):
             return dt_series.cast(pl.Int64).cast(pl.Float64).to_numpy() / 1e9
 
         elif category == "time_of_day":
-            anchor_str = self._config.get("anchor_date", "1970-01-01")
+            anchor_str = self._anchor_date_string()
             anchor_date = datetime.datetime.strptime(anchor_str, "%Y-%m-%d").date()
 
             strp_fmt = None

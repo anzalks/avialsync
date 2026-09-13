@@ -37,15 +37,23 @@ def _fixture_frame_time(frame_index: int) -> float:
 
 
 @pytest.fixture
-def app_with_main_window(qapp: QApplication) -> MainWindow:
+def app_with_main_window(qapp: QApplication, qtbot) -> MainWindow:
     """Fixture providing an initialized main window."""
     win = MainWindow()
+    qtbot.addWidget(win)
     win.show()
     yield win
     # Qt may already have deleted it: pytest-qt runs processEvents()
     # after the call phase, which executes pending deleteLater()s.
     if isValid(win):
         win.close()
+        # Closing runs `closeEvent` and so joins the decode threads, but it does
+        # not destroy the window. Left to the interpreter's own shutdown, that
+        # destruction races Qt's, and the process dies with SIGSEGV after the
+        # tests have already reported green -- which is exactly what it was
+        # doing. Destroy it here, while an event loop still exists to do it in.
+        win.deleteLater()
+        qapp.processEvents()
 
 
 def _capture_frame(pane) -> np.ndarray | None:

@@ -141,6 +141,14 @@ def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[
     # `QObject | None`, and that narrowing does not survive into a nested
     # function -- so reading it back inside `_wire` costs an assert and three
     # `attr-defined` errors rather than buying anything.
+    # The session's declared zero travels with the import. A loader reading
+    # clock times -- "09:35:40" -- needs a date to place them on, and when the
+    # session already knows when it happened, asking the user again is asking
+    # them to retype what the application has. An explicit anchor from the
+    # wizard always wins; the loader decides.
+    config = dict(config)
+    config.setdefault("session_start_time", window.session_start_time)
+
     worker = ImportWorker(path, config, loader_cls)
     window._import_worker = worker
 

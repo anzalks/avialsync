@@ -248,3 +248,67 @@ def test_too_few_rows_to_judge_reports_no_rate(tmp_path: Path) -> None:
     loader.open(path, {"time_col": "time", "separator": ",", "time_unit": "s"})
 
     assert loader.channels()[0].rate_hz is None
+
+
+class TestPlacingAClockTimeOnADate:
+    """ "09:35:40" is nine hours after *some* midnight, and which one matters."""
+
+    def _write(self, path: Path) -> Path:
+        path.write_text("t,v\n09:35:40,1.0\n09:35:41,2.0\n09:35:42,3.0\n", encoding="utf-8")
+        return path
+
+    def _times(self, path: Path, config: dict) -> np.ndarray:
+        loader = CSVLoader()
+        loader.open(path, {"time_col": "t", "time_format": "time_of_day", **config})
+        times, _ = next(loader.read_chunks("v"))
+        return times
+
+    def test_an_explicit_anchor_is_used(self, tmp_path: Path) -> None:
+        times = self._times(
+            self._write(tmp_path / "a.csv"),
+            {"anchor_date": "2026-01-09", "timezone": "UTC"},
+        )
+        assert times[0] > 1_700_000_000.0
+
+    def test_the_session_supplies_one_when_it_knows(self, tmp_path: Path) -> None:
+        """Asking the user again is asking them to retype what the app has."""
+        times = self._times(
+            self._write(tmp_path / "b.csv"),
+            {"session_start_time": 1_768_000_000.0, "timezone": "UTC"},
+        )
+        assert times[0] > 1_700_000_000.0
+
+    def test_an_explicit_anchor_beats_the_session(self, tmp_path: Path) -> None:
+        explicit = self._times(
+            self._write(tmp_path / "c.csv"),
+            {
+                "anchor_date": "2020-06-01",
+                "session_start_time": 1_768_000_000.0,
+                "timezone": "UTC",
+            },
+        )
+        assert explicit[0] < 1_600_000_000.0
+
+    def test_with_neither_it_stays_at_seconds_since_midnight(self, tmp_path: Path) -> None:
+        """Not a claim about anything, and the loader can say so."""
+        path = self._write(tmp_path / "d.csv")
+        loader = CSVLoader()
+        loader.open(path, {"time_col": "t", "time_format": "time_of_day", "timezone": "UTC"})
+        times, _ = next(loader.read_chunks("v"))
+
+        assert times[0] == pytest.approx(34_540.0, abs=1.0)
+        assert loader.anchor_date_is_a_guess()
+
+    def test_a_dated_import_is_not_a_guess(self, tmp_path: Path) -> None:
+        path = self._write(tmp_path / "e.csv")
+        loader = CSVLoader()
+        loader.open(
+            path,
+            {
+                "time_col": "t",
+                "time_format": "time_of_day",
+                "anchor_date": "2026-01-09",
+                "timezone": "UTC",
+            },
+        )
+        assert not loader.anchor_date_is_a_guess()
