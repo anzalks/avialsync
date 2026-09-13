@@ -384,10 +384,24 @@ def _camera_items(
         if sidecar is not None:
             config["frame_timestamps"] = str(sidecar)
         else:
+            # Without a sidecar nothing else consumes `start_time`: the video
+            # loader reads it only while building a per-frame mapping from one,
+            # and returns before touching it otherwise. So a camera whose
+            # filename declares a wall-clock start was placed at zero anyway,
+            # which is precisely what this function exists to prevent and what
+            # its own docstring promises it does not do.
+            #
+            # `t_source = t_master + offset`, so a camera that begins two
+            # seconds into the recording is reached from master zero at minus
+            # two: the offset is the negation of the master time of its first
+            # frame.
+            config["offset"] = -start_time
             logger.info(
-                "No frame timestamp sidecar for %s; its container's nominal rate is all "
-                "the timing evidence there is.",
+                "No frame timestamp sidecar for %s; placing it at %.3f s from its "
+                "filename, with its container's nominal rate as the only other timing "
+                "evidence.",
                 video.name,
+                start_time,
             )
         items.append(
             SessionItem(

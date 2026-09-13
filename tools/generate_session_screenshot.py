@@ -1,13 +1,21 @@
-"""Capture a short looping animation of a real session folder opened through its plugin.
+"""Capture a short looping animation of a session folder opened through its plugin.
 
-Run with, for example::
+Run with no arguments to photograph the generated fixture session::
+
+    conda run -n avialsync python tools/generate_session_screenshot.py
+
+or pass a recording folder to photograph that instead::
 
     conda run -n avialsync python tools/generate_session_screenshot.py /path/to/09-35-24
 
-Unlike ``tools/generate_demo_screenshots.py``, which uses the checked-in sample
-session and therefore reproduces from a clean clone, this one photographs
-whatever recording folder you point it at. The path is an argument and never
-hardcoded: field data lives outside the repository and differs per lab.
+The default is a fixture, and that is the point. This used to *require* a real
+recording folder, so the one animation at the top of the README and the docs
+could only be rebuilt by whoever had the field data on their machine -- and
+AGENTS.md rule 5 is explicit that tooling must not assume the user's private
+data is available. ``tools/make_fixtures.py`` now generates ``demo_session``: an
+Open Ephys tree that declares its own wall clock, with a camera placed by the
+time in its filename, so the animation reproduces from a clean clone and still
+exercises the real intake rather than a staged arrangement.
 
 It drives the real intake — session plugin discovery, the layout it returns, and
 the ordinary per-source load path — so what is captured is what a user gets by
@@ -46,7 +54,11 @@ from PySide6.QtWidgets import QApplication
 from screenshot_kit import pin_appearance, pin_layout
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "_static" / "screenshots" / "aol_session_overview.gif"
+DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "_static" / "screenshots" / "session_overview.gif"
+
+#: The generated session used when no folder is named. Not AOL-specific, which
+#: is why the output file is no longer named as though it were.
+DEFAULT_SESSION = REPOSITORY_ROOT / "tests" / "fixtures" / "demo_session"
 
 #: Longest we wait for one exact seek to reach every pane before capturing anyway.
 SEEK_TIMEOUT_SECONDS = 5.0
@@ -430,7 +442,13 @@ def capture(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("session_dir", type=Path, help="recording folder to open")
+    parser.add_argument(
+        "session_dir",
+        type=Path,
+        nargs="?",
+        default=DEFAULT_SESSION,
+        help="recording folder to open (default: the generated fixture session)",
+    )
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--width", type=int, default=1600, help="window width while capturing")
     parser.add_argument("--height", type=int, default=1000, help="window height while capturing")

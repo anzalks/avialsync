@@ -494,7 +494,7 @@ def generate_openephys_binary(out_path: pathlib.Path, duration: float = 60.0) ->
         json.dump(oebin, f, indent=4)
 
 
-_GENERATED_SUBDIRS = {"videos", "signals", "openephys_mock", "sample_session"}
+_GENERATED_SUBDIRS = {"videos", "signals", "openephys_mock", "sample_session", "demo_session"}
 
 
 def _clean_generated(fixtures_dir: pathlib.Path) -> None:
@@ -503,6 +503,119 @@ def _clean_generated(fixtures_dir: pathlib.Path) -> None:
         p = fixtures_dir / name
         if p.exists():
             shutil.rmtree(p)
+
+
+#: Local wall-clock start of the generated demo session. Fixed rather than
+#: "now", so the GIF and its screenshots are byte-comparable between runs.
+DEMO_SESSION_LOCAL_START = "2026-01-09_09-35-24"
+#: The rig's UTC offset, recovered by the loader from the difference between the
+#: directory name above and the epoch written into ``sync_messages.txt``. +1 h
+#: is a real zone and is not the machine's own, so a wrong assumption shows up.
+DEMO_SESSION_UTC_OFFSET_HOURS = 1
+
+
+def generate_demo_session(out_path: pathlib.Path, tracking_src: pathlib.Path) -> None:
+    """Build an Open Ephys session that declares its own wall clock.
+
+    ``openephys_mock`` cannot serve this purpose and should not be bent into it.
+    It has no ``sync_messages.txt``, so it declares no absolute instant, so
+    ``_RecordingClock`` cannot place a camera against it -- and a session
+    overview with no video in it does not show the thing this application is
+    for, which is several sources moving on one clock. It is also depended on by
+    tests that assert the *unclocked* path, which is worth keeping.
+
+    So this is a second, complete session: a record directory named in local
+    time, a ``sync_messages.txt`` naming the same instant in UTC, and a camera
+    whose filename carries its own start. The loader recovers the rig's UTC
+    offset from the difference between the first two and places the camera by
+    the third -- exercising the real intake rather than a staged arrangement.
+    """
+    import datetime
+    import json
+
+    record_dir = out_path / DEMO_SESSION_LOCAL_START / "Record Node 104"
+    exp_dir = record_dir / "experiment1" / "recording1"
+    cont_dir = exp_dir / "continuous" / "Acquisition_Board-100.Rhythm_Data"
+    cont_dir.mkdir(parents=True, exist_ok=True)
+
+    fs = 30000.0
+    duration = 10.0
+    num_samples = int(duration * fs)
+    num_channels = 4
+    t = np.arange(num_samples) / fs
+    data = np.zeros((num_samples, num_channels), dtype=np.int16)
+    for index in range(num_channels):
+        data[:, index] = (np.sin(2 * np.pi * 2.0 * (index + 1) * t) * 1000).astype(np.int16)
+    (cont_dir / "continuous.dat").write_bytes(data.tobytes())
+    np.save(cont_dir / "timestamps.npy", np.arange(num_samples, dtype=np.int64))
+
+    oebin = {
+        "continuous": [
+            {
+                "folder_name": "Acquisition_Board-100.Rhythm_Data/",
+                "sample_rate": fs,
+                "source_processor_name": "Acquisition Board",
+                "source_processor_id": 100,
+                "stream_name": "Rhythm Data",
+                "recorded_processor": "Record Node",
+                "recorded_processor_id": 104,
+                "num_channels": num_channels,
+                "channels": [
+                    {
+                        "channel_name": f"CH{i + 1}",
+                        "description": "Continuous Channel",
+                        "identifier": f"continuous.{i}",
+                        "history": "Acquisition Board-100",
+                        "bit_volts": 0.195,
+                        "units": "uV",
+                    }
+                    for i in range(num_channels)
+                ],
+            }
+        ],
+        "events": [],
+        "spikes": [],
+    }
+    (exp_dir / "structure.oebin").write_text(json.dumps(oebin, indent=4), encoding="utf-8")
+
+    # The one absolute instant in the format. Written as UTC milliseconds for
+    # the same moment the directory name states in local time, so the loader can
+    # recover the offset between them rather than assuming a zone.
+    local_start = datetime.datetime.strptime(DEMO_SESSION_LOCAL_START, "%Y-%m-%d_%H-%M-%S")
+    utc_start = local_start - datetime.timedelta(hours=DEMO_SESSION_UTC_OFFSET_HOURS)
+    software_ms = int(utc_start.replace(tzinfo=datetime.UTC).timestamp() * 1000)
+    (exp_dir / "sync_messages.txt").write_text(
+        f"Software Time: {software_ms}@1000Hz\n"
+        "Start Time for Record Node 104 (Acquisition Board-100) - Rhythm Data @30000Hz: 0\n",
+        encoding="utf-8",
+    )
+
+    # A camera that started two seconds into the recording, named the way an
+    # acquisition machine names one. The loader parses the time out of the
+    # filename and places it; nothing here declares an offset.
+    #
+    # Beside the record directory, not inside it: `_camera_items` excludes
+    # anything under the record-node tree, because a video in there is part of
+    # the acquisition's own output rather than a camera recorded alongside it.
+    camera_start = local_start + datetime.timedelta(seconds=2)
+    camera_name = f"camera_side_{camera_start.strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
+
+    # Drawn by the demo generator, not copied from `videos/`. Those are frame-
+    # index test patterns for the golden sync tests: near-black by design, with
+    # the frame number encoded in a strip. Correct for asserting which frame is
+    # displayed, and useless as a picture of the application working -- a video
+    # pane showing black is what the overview animation used to be made of.
+    from avialsync.demo import _generate_video
+
+    _generate_video(
+        out_path / camera_name,
+        lambda _value, _message: None,
+        lambda: False,
+        0,
+        100,
+        duration=8.0,
+    )
+    shutil.copy(tracking_src, out_path / f"{pathlib.Path(camera_name).stem}_tracking.csv")
 
 
 def generate_frame_strobe(
@@ -628,6 +741,9 @@ def main() -> None:
     shutil.copy(sig_dir / "signal_base.json", sample_dir / "signal_base.json")
     shutil.copy(sig_dir / "tracking_dlc.csv", sample_dir / "tracking_dlc.csv")
     generate_frame_strobe(sample_dir / "frame_triggers.csv", sample_dir / "camera_1.mp4")
+
+    # 6. A session that declares its own wall clock, for the overview animation.
+    generate_demo_session(fixtures_dir / "demo_session", sig_dir / "tracking_dlc.csv")
 
     # Copy OpenEphys to examples/data for user testing
     example_openephys = pathlib.Path("examples/data/openephys_mock")

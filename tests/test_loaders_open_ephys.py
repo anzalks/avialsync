@@ -1164,3 +1164,45 @@ def test_a_broken_recording_is_reported_rather_than_dropped(tmp_path: Path) -> N
     # The good recording contributes its streams; the broken one contributes
     # nothing at all, rather than the orphaned event item it used to leave behind.
     assert sum(1 for item in layout.items if item.label.startswith("board")) == 1
+
+
+def test_a_camera_without_a_sidecar_is_still_placed_by_its_filename(
+    session_dir: Path,
+) -> None:
+    """`start_time` alone never reached anything that could place the camera.
+
+    The video loader reads it only while building a per-frame mapping from a
+    timestamp sidecar, and returns before touching it when there is none -- so
+    a camera whose filename declares a wall-clock start was dropped at zero,
+    which is exactly what `_camera_items` exists to prevent.
+    """
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.loaders.open_ephys_session import OpenEphysSessionSource
+
+    layout = OpenEphysSessionSource().scan(session_dir, LoaderRegistry())
+    camera = next(item for item in layout.items if item.path.suffix == ".avi")
+
+    assert "frame_timestamps" not in camera.config
+    assert camera.config["start_time"] != 0.0
+    # t_source = t_master + offset, so the offset is the negation of the master
+    # time of the camera's first frame.
+    assert camera.config["offset"] == pytest.approx(-camera.config["start_time"])
+
+
+def test_a_camera_with_a_sidecar_is_left_to_its_per_frame_mapping(
+    session_dir: Path,
+) -> None:
+    """The exact mapping consumes `start_time` itself; an offset would double it."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.loaders.open_ephys_session import OpenEphysSessionSource
+
+    camera = next(p for p in session_dir.iterdir() if p.suffix == ".avi")
+    camera.with_suffix(".csv").write_text(
+        "frame_number,timestamp\n0,0.0\n1,0.04\n", encoding="utf-8"
+    )
+
+    layout = OpenEphysSessionSource().scan(session_dir, LoaderRegistry())
+    item = next(i for i in layout.items if i.path.suffix == ".avi")
+
+    assert "frame_timestamps" in item.config
+    assert "offset" not in item.config
