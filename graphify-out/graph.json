@@ -77262,11 +77262,19 @@
       "_origin": "ast"
     },
     {
+      "id": "docs_plugin_guide_say_where_your_timestamps_start_never_where_the_source_should_go",
+      "label": "Say where your timestamps start, never where the source should go",
+      "file_type": "document",
+      "source_file": "docs/plugin-guide.md",
+      "source_location": "L112",
+      "_origin": "ast"
+    },
+    {
       "id": "docs_plugin_guide_naming_your_format",
       "label": "Naming your format",
       "file_type": "document",
       "source_file": "docs/plugin-guide.md",
-      "source_location": "L107",
+      "source_location": "L162",
       "_origin": "ast"
     },
     {
@@ -77274,7 +77282,7 @@
       "label": "Optional: single-pass bulk ingest",
       "file_type": "document",
       "source_file": "docs/plugin-guide.md",
-      "source_location": "L114",
+      "source_location": "L169",
       "_origin": "ast"
     },
     {
@@ -77282,7 +77290,7 @@
       "label": "Optional: messages the recording carries",
       "file_type": "document",
       "source_file": "docs/plugin-guide.md",
-      "source_location": "L133",
+      "source_location": "L188",
       "_origin": "ast"
     },
     {
@@ -77290,7 +77298,7 @@
       "label": "Video plugins",
       "file_type": "document",
       "source_file": "docs/plugin-guide.md",
-      "source_location": "L174",
+      "source_location": "L229",
       "_origin": "ast"
     },
     {
@@ -77298,7 +77306,7 @@
       "label": "Trigger plugins",
       "file_type": "document",
       "source_file": "docs/plugin-guide.md",
-      "source_location": "L188",
+      "source_location": "L243",
       "_origin": "ast"
     },
     {
@@ -251217,12 +251225,22 @@
       "_origin": "ast"
     },
     {
+      "source": "docs_plugin_guide_session_plugins",
+      "target": "docs_plugin_guide_say_where_your_timestamps_start_never_where_the_source_should_go",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/plugin-guide.md",
+      "source_location": "L112",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "docs_plugin_guide_plugin_guide",
       "target": "docs_plugin_guide_naming_your_format",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/plugin-guide.md",
-      "source_location": "L107",
+      "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -251232,7 +251250,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/plugin-guide.md",
-      "source_location": "L114",
+      "source_location": "L169",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -251242,7 +251260,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/plugin-guide.md",
-      "source_location": "L133",
+      "source_location": "L188",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -251252,7 +251270,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/plugin-guide.md",
-      "source_location": "L174",
+      "source_location": "L229",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -251262,7 +251280,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/plugin-guide.md",
-      "source_location": "L188",
+      "source_location": "L243",
       "weight": 1.0,
       "_origin": "ast"
     },
