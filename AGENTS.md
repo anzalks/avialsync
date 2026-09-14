@@ -191,43 +191,44 @@ ALL project commands must be prefixed with `conda run -n <env>`. Never run proje
 commands (pytest, ruff, mypy, pip, avialsync) without this prefix — the system Python
 may differ from the env Python.
 
-**The env is `avialview`, and check it before you use it.** This paragraph has now
-been wrong in both directions, which is the reason it insists you verify rather
-than read. It named `avialview` for several phases, was corrected to `avialsync`,
-and `avialsync` does not exist on the primary development machine either —
-`conda env list` there shows `base`, `avialsync_test`, and `avialview`, and it is
-**`avialview`** that holds the editable install pointing at this working tree. The
-env is named after the repository directory, not after the package; the rebrand
-renamed the package and left the directory and the env alone. `avialsync_test`
-holds a stale non-editable copy and is not the development env.
+**The env is `avialsync`, and check it before you use it.** This paragraph has now
+been wrong three times, in both directions, which is the reason it insists you
+verify rather than read. It named `avialview` for several phases, was corrected
+to `avialsync`, was corrected back to `avialview`, and as of 2026-09-14
+`conda env list` has no `avialview` at all: the envs holding an editable install
+pointing at this working tree are **`avialsync`** (Python 3.12, the one to use),
+`avialsync311` (Python 3.11, for checking the lower bound of the supported
+range), and `kinochronix` (a leftover of the previous name). `avialsync_test`
+points at a different checkout entirely (`~/Documents/avialsync`) and is not the
+development env.
 
 Verify rather than trust this paragraph:
-`conda run -n avialview python -c "import avialsync; print(avialsync.__file__)"`
+`conda run -n avialsync python -c "import avialsync; print(avialsync.__file__)"`
 must resolve to `src/avialsync/` in this working tree. If it does not, run
-`conda env list` and find the one that does — and then correct this paragraph in
+`conda env list` and find the one that does -- and then correct this paragraph in
 the same commit as whatever else you were doing, because the next agent pays for
 it otherwise.
 
 ```bash
-conda run -n avialview pip install -e .[dev]          # setup
-conda run -n avialview python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
-QT_QPA_PLATFORM=offscreen conda run -n avialview pytest -x -q   # tests
-conda run -n avialview pytest --benchmark-only                   # perf budgets
-conda run -n avialview avialsync                                # run the app
-conda run -n avialview avialsync open tests/fixtures/sample_session/
+conda run -n avialsync pip install -e .[dev]          # setup
+conda run -n avialsync python tools/make_fixtures.py  # generate test videos + signals (needs ffmpeg in PATH)
+QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q   # tests
+conda run -n avialsync pytest --benchmark-only                   # perf budgets
+conda run -n avialsync avialsync                                # run the app
+conda run -n avialsync avialsync open tests/fixtures/sample_session/
 
 # Type checking — run BOTH; strict mode applies only to core/
-conda run -n avialview mypy src/avialsync/core    # strict (enforced)
-conda run -n avialview mypy src/avialsync          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
+conda run -n avialsync mypy src/avialsync/core    # strict (enforced)
+conda run -n avialsync mypy src/avialsync          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
 
 # Lint + format
-conda run -n avialview ruff check --fix . && conda run -n avialview ruff format .
+conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format .
 
 # Documentation images. NOT under QT_QPA_PLATFORM=offscreen -- the offscreen
 # plugin draws a menu bar inside the window that no real user sees.
-conda run -n avialview python tools/generate_demo_screenshots.py
-conda run -n avialview python tools/generate_guide_screenshots.py
-conda run -n avialview python tools/generate_session_screenshot.py <recording folder>
+conda run -n avialsync python tools/generate_demo_screenshots.py
+conda run -n avialsync python tools/generate_guide_screenshots.py
+conda run -n avialsync python tools/generate_session_screenshot.py <recording folder>
 ```
 
 ## Task protocol for agents
