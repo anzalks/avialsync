@@ -274,19 +274,17 @@ class TestItSurvivesTheSession:
 
         assert SessionState.load(out).triggers == []
 
-    def test_restoring_re_reads_the_trains(self, window: MainWindow, tmp_path: Path) -> None:
+    def test_restoring_re_reads_the_trains(self, window: MainWindow, tmp_path: Path, qtbot) -> None:
         from avialsync.core.session import TriggerEntry
 
         path = _write_daq(tmp_path / "ttl.csv")
         window.restore_trigger_sources([TriggerEntry(path=str(path), config=self._config())])
 
-        # The read is a job, so drain it before asserting on the result.
-        from PySide6.QtWidgets import QApplication
+        # The read is a job on its own thread, so wait for it on the clock
+        # rather than by spinning: a loaded runner needs more than a few
+        # microseconds of event loop to get the worker scheduled.
+        qtbot.waitUntil(lambda: str(path) in window._trigger_trains, timeout=10_000)
 
-        for _ in range(200):
-            QApplication.processEvents()
-            if window._trigger_trains:
-                break
         assert window._trigger_trains[str(path)][0].kind is TriggerKind.FRAME_STROBE
 
     def test_a_trigger_file_that_has_gone_says_so(self, window: MainWindow, tmp_path: Path) -> None:
