@@ -624,6 +624,45 @@ _start_data_import(path)
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
 > traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
 
+### 0-offset. A source offset has two domains, and mixing them moves things by decades
+
+A source's TimeMap offset is `MainWindow.base_offset(source_id)` — what placed
+it against the session zero, near 1.77e9 for anything carrying wall-clock time
+— plus the hand correction the sidebar spin box shows. `effective_offset()` and
+`user_offset()` convert between them and are the only places that should.
+
+Which domain a value is in follows from where it came from:
+
+| Value | Domain |
+|---|---|
+| The sidebar spin boxes, `sidebar.sensor_mapping()` / `video_mapping()` | residual |
+| `MainWindow._recorded_mappings`, every undo command | residual |
+| `pane.time_map.offset`, `plot_pane.set_source_mapping`, `_video_time_mappings` | whole mapping |
+| `set_video_coverage(offset=…)`, a saved session's `offset`, `fit.offset` | whole mapping |
+
+The placement used to be a local inside `set_video_coverage`, so nothing
+downstream knew a camera had been moved 1.77e9 s to reach master zero. The
+pane's TimeMap never heard it (master zero decoded against frames stamped
+1.77e9 — "No Footage" everywhere), and the first hand nudge replaced the whole
+mapping with the nudge. On the time-series side the placement was handed
+straight to a spin box ranged at a day, which clamped it to 86400 s in silence
+and then saved the clamp (D-026). Both are covered by
+`tests/test_alignment_controls.py`.
+
+### 0-bounds. The master timeline is derived from coverage, never accumulated
+
+`MainWindow._recompute_bounds()` unions the spans registered in the overview
+strip. It replaced `_update_bounds(t0, t1)`, which folded each new span into
+the running bounds and so could only ever grow: moving a source back to where
+it started left the session as long as the widest position it had passed
+through. With keyboard tracking on the spin boxes, typing `86400` walked the
+session through 8, 86, 864, 8640 and 86400 and kept the last.
+
+Two rules follow. **Register coverage before recomputing** — the strip is the
+authority, so it has to hold the new span first. And **a source that goes away
+must clear its span** (`set_source_coverage(path, 0.0, 0.0, kind)`), or the
+timeline keeps reserving room for it.
+
 ### 0-wizard. The alignment wizard is non-modal, and a test cannot `exec()` around it
 
 It used to run under `exec()`, which blocked the window it was asking the user

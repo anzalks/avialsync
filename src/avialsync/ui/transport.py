@@ -207,6 +207,21 @@ class TimelineOverview(QWidget):
             self._coverage[source_id] = (t0, t1, kind, group)
         self._on_evidence_changed()
 
+    def coverage_span(self) -> tuple[float, float] | None:
+        """Return the master-time extent of every registered source, or None.
+
+        This is the registry the master bounds are derived from, so it has to
+        answer from what is loaded *now*: a span that grew while a source was
+        misplaced has to come back when the source is put right, and one whose
+        source has been removed must stop counting.
+        """
+        if not self._coverage:
+            return None
+        return (
+            min(span[0] for span in self._coverage.values()),
+            max(span[1] for span in self._coverage.values()),
+        )
+
     def set_ttl_events(self, events: list[float | tuple[float, str]] | tuple[float, ...]) -> None:
         """Display accepted sync matches with inspectable provenance text."""
         self._ttl_events = _normalise_events(events)
@@ -970,6 +985,10 @@ class Transport(QWidget):
         angle and would otherwise repeat one span down the whole strip.
         """
         self.overview.set_coverage(source_id, t0, t1, kind, group)
+
+    def coverage_span(self) -> tuple[float, float] | None:
+        """Return the master-time extent of every registered source, or None."""
+        return self.overview.coverage_span()
 
     def set_ttl_events(self, events: list[float | tuple[float, str]] | tuple[float, ...]) -> None:
         """Show accepted synchronization events in the overview strip."""

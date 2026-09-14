@@ -119,7 +119,12 @@ def build_session_state(window: MainWindow) -> SessionState:
             w = item.widget()
             if isinstance(w, SensorInfoWidget):
                 ins = window._inspections.get(w.path)
-                offset, drift_ppm = w.mapping()
+                # The spin box shows a residual; a session stores the whole
+                # mapping, so it reopens correctly whatever declares the zero
+                # next time. Saving the spin's value alone would drop a
+                # wall-clock source's placement on every save-and-reopen.
+                user_offset, drift_ppm = w.mapping()
+                offset = window.effective_offset(w.path, user_offset)
                 sensors.append(
                     SensorEntry(
                         path=w.path,
@@ -374,6 +379,10 @@ def reset_session(window: MainWindow) -> None:
     window._video_time_mappings.clear()
     window._sync_provenance.clear()
     window._session_start_time = 0.0
+    # Placements belong to the session zero that produced them; carrying them
+    # into the next session would place its sources against an epoch it never
+    # declared.
+    window._source_base_offsets.clear()
     window._trigger_trains.clear()
     window._trigger_configs.clear()
     window._pending_exact_mappings.clear()

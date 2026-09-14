@@ -18,7 +18,6 @@ from PySide6.QtCore import QThread, QTimer
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.errors import FileUnreadableError, LoaderContractError, SourceOpenError
 from avialsync.core.inspection import SourceInspection
-from avialsync.core.session_time import rebase_offset
 from avialsync.core.source import TimeSeriesSource
 
 if TYPE_CHECKING:
@@ -239,12 +238,20 @@ def on_import_finished(
     # NWB's zero. A source carrying wall-clock time is placed against the
     # session reference instead of sitting 1.7e9 seconds from a
     # container-relative video, which is how the master timeline came to be
-    # fifty-four years long with two short islands at its ends. Only when
-    # nothing more specific was asked for: an explicit offset, from the wizard
-    # or a restored session, always wins.
+    # fifty-four years long with two short islands at its ends.
+    #
+    # The placement is kept apart from whatever the user or the wizard asked
+    # for, and only the latter reaches the sidebar. Adding them into one number
+    # is what made `set_sensor_mapping` hand an `epoch_ms` file's 1.77e9 to a
+    # spin box ranged at a day: it clamped to 86400 s, silently, and that clamp
+    # was then what the session saved (D-026).
+    base = window.declare_base_offset(path, bounds[0])
     if offset == 0.0:
-        window.adopt_session_start(bounds[0])
-        offset = rebase_offset(bounds[0], window.session_start_time)
+        # Nothing more specific was asked for, so the placement is the mapping.
+        # An explicit offset -- from the wizard, a drop, or a restored session
+        # -- is already the whole mapping and wins.
+        offset = base
+    user_offset = window.user_offset(path, offset)
 
     if role in ("overlay2d", "pose3d"):
         # Pose data drives the video overlay and the 3D view. It is not
@@ -270,13 +277,14 @@ def on_import_finished(
         # once every row exists.
         mapped = window.plot_pane.source_bounds(Path(cache_dir)) or bounds
         window._pending_bounds_sources[path] = Path(cache_dir)
-    window._update_bounds(mapped[0], mapped[1])
     window.transport.set_source_coverage(
         path, mapped[0], mapped[1], "data", window.coverage_group_for(path)
     )
+    window._recompute_bounds()
     window.sidebar.add_sensor(path, channels)
-    if offset or drift_ppm:
-        window.sidebar.set_sensor_mapping(path, offset, drift_ppm)
+    if user_offset or drift_ppm:
+        window.sidebar.set_sensor_mapping(path, user_offset, drift_ppm)
+    window._recorded_mappings[path] = (user_offset, drift_ppm)
 
     if isinstance(inspection, SourceInspection):
         window._inspections[path] = inspection

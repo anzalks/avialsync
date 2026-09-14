@@ -4165,3 +4165,65 @@ samples used where per-event timestamps are needed).
 can only show the quality of an answer cannot tell you the answer is to the wrong question.** The
 accept button is now gated on the correspondence panel's question — are these the right pairs —
 and the residual panel is what it always was, a measure of precision once correctness is settled.
+
+---
+
+## 2026-09 · D-109 · A source's placement and its hand correction are two numbers, and the timeline is derived
+
+Reported as "the time aligning options push things too much in time or make them disappear instead
+of moving them around". Entering a number in a sidebar offset field sent the master timeline tens
+of thousands of seconds out and left the video panes on the "No Footage" placeholder. Five defects
+sat in that one path, and four of them are the same mistake: **a quantity with two meanings carried
+in one number, with no conversion at the seam.**
+
+**Two domains, named.** A source's `TimeMap` offset is `MainWindow.base_offset(source_id)` — what
+placed it against the session zero, D-088's NWB reference, near 1.77e9 for anything carrying
+wall-clock time — **plus** the hand correction the sidebar shows. `effective_offset()` and
+`user_offset()` are the only conversions, and `_source_base_offsets` is the only record of a
+placement. The sidebar, `_recorded_mappings` and every undo command are in the residual domain; the
+panes, the readers, `_video_time_mappings`, a saved session's `offset` and a fit's are in the whole-
+mapping domain.
+
+The placement previously lived as a local inside `set_video_coverage`. Nothing downstream knew a
+camera had been moved 1.77e9 s to reach master zero: the pane's own `TimeMap` never received it, so
+it decoded master zero against frames stamped 1.77e9 and showed no footage anywhere in the visible
+range, and the first hand nudge overwrote the whole mapping with the nudge. On the time-series side
+the placement was handed to a spin box ranged at a day, which clamped it to 86400 s in silence and
+then saved the clamp — the exact corruption D-026 exists to forbid, still live because the guard
+was written against the control's range rather than against what the control was being asked to
+hold.
+
+**The timeline is derived, not accumulated.** `_update_bounds(t0, t1)` folded each span into the
+running bounds, so the master timeline could only ever grow. Moving a source back left the session
+as long as the widest position it had passed through, and nothing in the UI could shrink it again.
+`_recompute_bounds()` unions the spans registered in the overview strip — which already keys one
+per source and drops the ones that go away — so the strip is the single authority (rule 15) and
+"put it back" works. Two obligations come with that: register coverage *before* recomputing, and
+clear a span when its source is removed.
+
+**Controls commit decisions, not keystrokes.** The offset and drift spin boxes tracked the
+keyboard, so typing `86400` applied 8, 86, 864, 8640 and 86400 — five complete re-alignments, of
+which the accumulating bounds kept the widest forever. `setKeyboardTracking(False)` leaves every
+gesture that means "I have decided" (Return, Tab, focus loss, arrows, step buttons) and drops the
+digits in between. This is general: **a control wired to expensive, stateful work must not fire
+mid-gesture.**
+
+**Moving a source redraws it.** A video offset change ended in `clock.play(); clock.pause()`, which
+notifies no subscriber, so the pane kept the frame chosen under the old mapping and the edit looked
+like it had not taken. It seeks the clock's current time instead, as the drift path always did.
+
+**Never silently substitute.** `sidebar._show_value` widens a spin box's range rather than clamping
+into it. The declared range is the right one to *type* in; a value arriving from a restored session
+or an accepted fit is shown as it is. A control that cannot express a value must not report its own
+limit as the user's answer (D-026).
+
+**Alternatives rejected.** Widening `_OFFSET_LIMIT_S` to hold an epoch — a ±2e9 range at six
+decimals cannot express a 4 ms nudge usably, and it would put the placement back into a number the
+user edits. Keeping the running union and subtracting on change — the union has no memory of which
+span belonged to whom, which is why it could not shrink. Debouncing the spin boxes on a timer — a
+timer makes the commit point unpredictable rather than principled, and Qt already has the
+principled one.
+
+**The generalisable lesson.** **A number whose meaning depends on where it came from needs the
+conversion at the seam, or every call site becomes the seam.** Four of these five defects were
+call sites that had quietly chosen the wrong domain, and none of them looked wrong in isolation.

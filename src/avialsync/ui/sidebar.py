@@ -67,6 +67,41 @@ def _children_of(item: QTreeWidgetItem) -> list[QTreeWidgetItem]:
 #: Channel count above which the per-source filter is worth its own row.
 _FILTER_THRESHOLD = 8
 
+
+def _commit_on_edit(spin: QDoubleSpinBox) -> None:
+    """Emit one value per edit, not one per keystroke.
+
+    Qt spin boxes track the keyboard by default, so typing ``123`` emits 1,
+    then 12, then 123. Each of those is a complete re-alignment of a source:
+    three remaps, three coverage updates, and -- while the master timeline was
+    still an accumulator -- three permanent stretches of it. Typing a
+    four-digit offset walked the session through every prefix of it and kept
+    the widest.
+
+    Off, the value commits on Return, on Tab, on focus loss, and on the arrow
+    keys and the step buttons, which is every gesture that means "I have
+    decided". The digits in between are not decisions.
+    """
+    spin.setKeyboardTracking(False)
+
+
+def _show_value(spin: QDoubleSpinBox, value: float) -> None:
+    """Display *value* in *spin*, widening its range rather than clamping.
+
+    A Qt spin box silently substitutes its own limit for anything outside its
+    range, and `mapping()` then reports the substitute as fact -- which is how
+    a session came to be saved with an offset nobody chose (D-026). These
+    controls carry a hand correction, so the declared range is the right one to
+    *type* in; a value that arrives from a restored session or an accepted fit
+    is shown as it is, whatever it is.
+    """
+    value = float(value)
+    minimum, maximum = spin.minimum(), spin.maximum()
+    if value < minimum or value > maximum:
+        spin.setRange(min(minimum, value), max(maximum, value))
+    spin.setValue(value)
+
+
 #: Range of the per-source offset controls, in seconds. A full day either way.
 #:
 #: It was +/-1 hour, which silently truncated any session whose sources carry a
@@ -192,6 +227,7 @@ class SensorInfoWidget(QFrame):
         self.offset_spin.setToolTip(
             tr("Shift this source against the master clock. Cached samples are never rewritten.")
         )
+        _commit_on_edit(self.offset_spin)
         self.offset_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Offset:"), self.offset_spin)
 
@@ -206,6 +242,7 @@ class SensorInfoWidget(QFrame):
         self.drift_spin.setToolTip(
             tr("Rate difference between this source's clock and master time.")
         )
+        _commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Drift:"), self.drift_spin)
         layout.addLayout(sync_form)
@@ -451,7 +488,7 @@ class SensorInfoWidget(QFrame):
         """Show a restored mapping without re-emitting it back to the caller."""
         for spin, value in ((self.offset_spin, offset), (self.drift_spin, drift_ppm)):
             blocked = spin.blockSignals(True)
-            spin.setValue(float(value))
+            _show_value(spin, value)
             spin.blockSignals(blocked)
 
     def mapping(self) -> tuple[float, float]:
@@ -614,6 +651,7 @@ class VideoInfoWidget(QFrame):
         self.offset_spin.setToolTip(
             tr("Shift this camera against the master clock. The recording is never rewritten.")
         )
+        _commit_on_edit(self.offset_spin)
         self.offset_spin.valueChanged.connect(self._on_offset_changed)
         sync_form.addRow(tr("Offset:"), self.offset_spin)
 
@@ -632,6 +670,7 @@ class VideoInfoWidget(QFrame):
         self.drift_spin.setToolTip(
             tr("Rate difference between this camera's clock and master time.")
         )
+        _commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Drift:"), self.drift_spin)
         layout.addLayout(sync_form)
@@ -674,7 +713,7 @@ class VideoInfoWidget(QFrame):
         for spin, value in ((self.offset_spin, offset), (self.drift_spin, drift_ppm)):
             blocked = spin.blockSignals(True)
             try:
-                spin.setValue(float(value))
+                _show_value(spin, value)
             finally:
                 spin.blockSignals(blocked)
 
@@ -687,7 +726,7 @@ class VideoInfoWidget(QFrame):
         """
         blocked = self.offset_spin.blockSignals(True)
         try:
-            self.offset_spin.setValue(offset)
+            _show_value(self.offset_spin, offset)
         finally:
             self.offset_spin.blockSignals(blocked)
 
@@ -980,6 +1019,22 @@ class SidebarPane(QWidget):
         """Return the displayed offset for *path*, or 0.0 when not loaded."""
         widget = self._video_widgets.get(path)
         return widget.offset_spin.value() if widget is not None else 0.0
+
+    def set_video_mapping(self, path: str, offset: float, drift_ppm: float) -> None:
+        """Show a video's offset and drift together, without re-emitting either.
+
+        `set_video_offset` moves one control; this moves both, for the callers
+        that have a whole mapping to show -- a restored session, an accepted
+        fit -- and would otherwise leave the drift reading the previous one's.
+        """
+        widget = self._video_widgets.get(path)
+        if widget is not None:
+            widget.set_mapping(offset, drift_ppm)
+
+    def video_mapping(self, path: str) -> tuple[float, float]:
+        """Return the displayed ``(offset_s, drift_ppm)`` for *path*."""
+        widget = self._video_widgets.get(path)
+        return widget.mapping() if widget is not None else (0.0, 0.0)
 
     def set_video_visible(self, path: str, visible: bool) -> None:
         """Set a video's visibility checkbox without re-emitting it."""

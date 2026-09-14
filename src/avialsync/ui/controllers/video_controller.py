@@ -23,7 +23,6 @@ from PySide6.QtCore import QThread, QTimer
 
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.inspection import SourceInspection
-from avialsync.core.session_time import rebase_offset
 from avialsync.core.source import VideoSource
 from avialsync.core.timeline import TimeMap
 
@@ -119,15 +118,24 @@ def set_video_coverage(
     exact_master: np.ndarray | None = None,
     exact_source: np.ndarray | None = None,
 ) -> None:
-    """Project media bounds through its TimeMap before drawing master-time coverage."""
+    """Project media bounds through its TimeMap before drawing master-time coverage.
+
+    *offset* is the whole source-to-master mapping, never the residual the
+    sidebar shows: this is called with a saved session's mapping, an accepted
+    fit's, or nothing at all. The sidebar handlers add the session placement
+    back before they call it.
+    """
     # A container that records absolute time -- machine-vision formats and the
     # AOL session loader do -- is placed against the session zero like any
     # other wall-clock source, rather than dragging the timeline out to 1.7e9.
-    # Only when it has no mapping of its own; an accepted fit or a typed offset
-    # always wins.
+    #
+    # The placement is *recorded*, not just applied. It used to live and die as
+    # a local in this function, so nothing downstream knew a camera had been
+    # moved 1.77e9 s to reach master zero: the pane's own TimeMap never heard,
+    # and the first hand nudge overwrote the whole mapping with the nudge.
+    base = window.declare_base_offset(path, source_bounds[0])
     if offset == 0.0 and drift_ppm == 0.0 and exact_master is None:
-        window.adopt_session_start(source_bounds[0])
-        offset = rebase_offset(source_bounds[0], window.session_start_time)
+        offset = base
 
     if exact_master is not None and exact_source is not None and len(exact_master) >= 2:
         master_bounds = (float(exact_master[0]), float(exact_master[-1]))
@@ -139,8 +147,11 @@ def set_video_coverage(
         )
     window._video_source_bounds[path] = source_bounds
     window._video_time_mappings[path] = (offset, drift_ppm)
-    window._update_bounds(*master_bounds)
+    # Coverage first: the master timeline is derived from the registered spans,
+    # so re-placing a camera has to replace its span before the bounds are
+    # recomputed, or the timeline keeps the span it had at the old offset.
     window.transport.set_source_coverage(path, *master_bounds, "video")
+    window._recompute_bounds()
 
 
 def on_video_opened(
@@ -260,14 +271,28 @@ def create_video_pane(
     pane.source_format_detected.connect(
         lambda fmt, path=original_path: window._on_source_format_detected(path, fmt)
     )
-    if offset or drift_ppm or exact_mapping is not None:
+    # From the one place that knows the whole mapping. `set_video_coverage` has
+    # just placed this file against the session zero, and a wall-clock camera
+    # whose pane never heard that placement decodes at master time zero against
+    # frames stamped 1.77e9 -- which is to say it shows the "No Footage"
+    # placeholder and looks like it failed to open.
+    effective, effective_drift = window._video_time_mappings.get(original_path, (offset, drift_ppm))
+    if effective or effective_drift or exact_mapping is not None:
         window.video_grid.set_sync_mapping(
             original_path,
-            offset,
-            drift_ppm,
+            effective,
+            effective_drift,
             exact_master,
             exact_source,
         )
+    # The spin box carries the hand correction alone. Showing the placement in
+    # it would clamp at a day and then save the clamp (D-026); showing zero
+    # while a restored session carried a real correction would lose it on the
+    # next save.
+    residual = window.user_offset(original_path, effective)
+    if residual or effective_drift:
+        window.sidebar.set_video_mapping(original_path, residual, effective_drift)
+    window._recorded_mappings[original_path] = (residual, effective_drift)
     window._video_fps[original_path] = loader.fps()
     frame_times = loader.frame_times()
     pane.set_frame_times(frame_times)

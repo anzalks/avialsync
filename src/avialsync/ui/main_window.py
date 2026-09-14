@@ -57,7 +57,7 @@ from avialsync.core.session import (
     SyncProvenance,
     TriggerEntry,
 )
-from avialsync.core.session_time import reference_epoch
+from avialsync.core.session_time import rebase_offset, reference_epoch
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
 from avialsync.core.triggers import TriggerKind
@@ -322,6 +322,16 @@ class MainWindow(QMainWindow):
         #: 0.0 until a source carrying wall-clock time declares it; see
         #: `core/session_time.py`.
         self._session_start_time: float = 0.0
+        #: What placed each source against the session zero, by path. Zero for
+        #: any source whose own clock already starts at its recording.
+        #:
+        #: A source's TimeMap offset is this plus what the sidebar shows, and
+        #: the split is the whole point: an `epoch_ms` file is placed at about
+        #: 1.77e9, which no usable spin box can express, while the hand
+        #: correction a user makes on top of it is a few frames. Keeping them
+        #: in one number meant the offset control either clamped the placement
+        #: (silently, to 86400 -- D-026) or was wiped by the first nudge.
+        self._source_base_offsets: dict[str, float] = {}
         #: Trigger trains the user has loaded and typed, by file path. Evidence
         #: for the alignment wizard, not data: nothing here is ever plotted.
         self._trigger_trains: dict[str, list[Any]] = {}
@@ -995,10 +1005,10 @@ class MainWindow(QMainWindow):
             if span is None:
                 continue
             self._pending_bounds_sources.pop(path, None)
-            self._update_bounds(span[0], span[1])
             self.transport.set_source_coverage(
                 path, span[0], span[1], "data", self.coverage_group_for(path)
             )
+            self._recompute_bounds()
 
     def _on_rows_pending(self, remaining: int) -> None:
         """Say that rows are still appearing, so a partial plot is not read as all of it."""
@@ -1116,6 +1126,40 @@ class MainWindow(QMainWindow):
         self._session_start_time = reference
         self._publish_session_epoch()
         return reference
+
+    def declare_base_offset(self, source_id: str, source_start: float) -> float:
+        """Place a source against the session zero and remember what that took.
+
+        Returns the base offset: what its TimeMap needs before any hand
+        correction, so that a file whose own clock reads 1.77e9 at the
+        session's zero runs from master zero like everything else.
+        """
+        self.adopt_session_start(source_start)
+        base = rebase_offset(source_start, self.session_start_time)
+        self._source_base_offsets[source_id] = base
+        return base
+
+    def base_offset(self, source_id: str) -> float:
+        """The session placement for *source_id*, or 0.0 for a relative source."""
+        return self._source_base_offsets.get(source_id, 0.0)
+
+    def effective_offset(self, source_id: str, user_offset: float) -> float:
+        """The TimeMap offset for *source_id* given what the sidebar shows.
+
+        The sidebar owns a residual and nothing else. Adding the placement here
+        -- in one function, for video and time series alike -- is what stops a
+        hand nudge from replacing a wall-clock source's placement with the
+        nudge itself and throwing the source decades off the timeline.
+        """
+        return self.base_offset(source_id) + float(user_offset)
+
+    def user_offset(self, source_id: str, effective: float) -> float:
+        """The residual to show in the sidebar for an absolute *effective* offset.
+
+        The inverse of :meth:`effective_offset`, for the paths that are handed
+        a whole mapping: a restored session, and an accepted alignment fit.
+        """
+        return float(effective) - self.base_offset(source_id)
 
     def _publish_session_epoch(self) -> None:
         """Give every time-displaying surface the epoch of master zero.
@@ -2931,14 +2975,25 @@ class MainWindow(QMainWindow):
         video_controller.on_video_pane_ready(self)
 
     def _on_video_offset_changed(self, path: str, offset: float) -> None:
+        """Move one camera by hand. *offset* is the sidebar residual, not the map.
+
+        The pane gets the residual plus this source's session placement. Giving
+        it the residual alone is how a wall-clock camera used to vanish on its
+        first nudge: 1.77e9 of placement was replaced by the two seconds the
+        user typed, and the pane went looking for a frame five decades away.
+        """
         _, drift = self._recorded_mappings.get(path, (0.0, 0.0))
         self._record_mapping_change(path, offset, drift)
-        self.video_grid.set_offset(path, offset)
+        effective = self.effective_offset(path, offset)
+        self.video_grid.set_offset(path, effective)
         if path in self._video_source_bounds:
-            _, drift_ppm = self._video_time_mappings.get(path, (0.0, 0.0))
-            self._set_video_coverage(path, self._video_source_bounds[path], offset, drift_ppm)
-        self.clock.play()
-        self.clock.pause()
+            self._set_video_coverage(path, self._video_source_bounds[path], effective, drift)
+        # The frame on screen was chosen under the old mapping, so it is now
+        # the wrong one. This used to be `clock.play(); clock.pause()`, which
+        # notifies no subscriber and left the pane showing that stale frame
+        # until the user happened to scrub -- the change looked like it had not
+        # taken.
+        self.player.seek(self.clock.state.t, exact=True)
 
     # ── Trigger evidence (WP-D) ──────────────────────────────────────
 
@@ -3102,9 +3157,10 @@ class MainWindow(QMainWindow):
         if drift_ppm == previous_drift:
             return  # `_on_video_offset_changed` already handled the position.
         self._record_mapping_change(path, offset, drift_ppm)
-        self.video_grid.set_sync_mapping(path, offset, drift_ppm, None, None)
+        effective = self.effective_offset(path, offset)
+        self.video_grid.set_sync_mapping(path, effective, drift_ppm, None, None)
         if path in self._video_source_bounds:
-            self._set_video_coverage(path, self._video_source_bounds[path], offset, drift_ppm)
+            self._set_video_coverage(path, self._video_source_bounds[path], effective, drift_ppm)
         self.player.seek(self.clock.state.t, exact=True)
 
     def restore_trigger_sources(self, entries: list[TriggerEntry]) -> None:
@@ -3299,12 +3355,17 @@ class MainWindow(QMainWindow):
             AcceptSyncCommand(
                 source_id=target_path,
                 before=self._recorded_mappings.get(target_path, (0.0, 0.0)),
-                after=(fit.offset, fit.drift_ppm),
+                after=(self.user_offset(target_path, fit.offset), fit.drift_ppm),
                 evidence=provenance,
                 before_evidence=previous_provenance,
             )
         )
-        self._recorded_mappings[target_path] = (fit.offset, fit.drift_ppm)
+        # A fit is an absolute mapping; the sidebar and the undo record both
+        # work in residuals, so it is converted once, here, and the control the
+        # user would nudge next now shows what the fit actually left them at.
+        accepted_residual = self.user_offset(target_path, fit.offset)
+        self.sidebar.set_video_mapping(target_path, accepted_residual, fit.drift_ppm)
+        self._recorded_mappings[target_path] = (accepted_residual, fit.drift_ppm)
         self.refresh_alignment_badges()
         self.transport.set_status(f"Aligned · {fit.describe()}", "info")
         self.transport.set_ttl_events(
@@ -3344,6 +3405,13 @@ class MainWindow(QMainWindow):
             entry for entry in self._sync_provenance if entry.target_id != path
         ]
         self.video_grid.remove_pane(path)
+        # The master timeline is the union of the loaded sources, so a camera
+        # that is gone must stop claiming a span -- otherwise removing the one
+        # source that reached out to 400 s leaves the timeline 400 s long.
+        self._video_source_bounds.pop(path, None)
+        self._video_time_mappings.pop(path, None)
+        self.transport.set_source_coverage(path, 0.0, 0.0, "video")
+        self._recompute_bounds()
         self._refresh_empty_state()
 
     def _on_sensor_remove_requested(self, path: str) -> None:
@@ -3358,6 +3426,7 @@ class MainWindow(QMainWindow):
         self.sidebar.remove_sensor(path)
         self.message_store.remove_source(path)
         self.transport.set_source_coverage(path, 0.0, 0.0, "data")
+        self._recompute_bounds()
 
     def _on_sensor_mapping_changed(self, path: str, offset: float, drift_ppm: float) -> None:
         """Re-align one time-series source against the master clock.
@@ -3369,16 +3438,23 @@ class MainWindow(QMainWindow):
         if cache_dir is None:
             return
         self._record_mapping_change(path, offset, drift_ppm)
-        self.plot_pane.set_source_mapping(cache_dir, offset, drift_ppm)
+        # *offset* is the sidebar residual; the readers need the whole mapping,
+        # session placement included, or a wall-clock source jumps back to its
+        # raw epoch the moment the user touches the control.
+        effective = self.effective_offset(path, offset)
+        self.plot_pane.set_source_mapping(cache_dir, effective, drift_ppm)
         # A note moves with the samples it describes; leaving it behind would
         # put an experimenter's "stimulus on" beside the wrong trace.
-        self.message_store.set_source_mapping(path, offset, drift_ppm)
+        self.message_store.set_source_mapping(path, effective, drift_ppm)
         bounds = self.plot_pane.source_bounds(cache_dir)
         if bounds is not None:
+            # Coverage first, then bounds: the timeline is derived from the
+            # registered spans, so it has to see this source's new one rather
+            # than the span it had before the user moved it.
             self.transport.set_source_coverage(
                 path, bounds[0], bounds[1], "data", self.coverage_group_for(path)
             )
-            self._update_bounds(bounds[0], bounds[1])
+            self._recompute_bounds()
         self.readout_panel.set_cursor(self.clock.state.t)
 
     def _on_channel_remove_requested(self, path: str, channel: str) -> None:
@@ -3574,17 +3650,36 @@ class MainWindow(QMainWindow):
     def _on_import_error(self, err_msg: str) -> None:
         import_controller.on_import_error(self, err_msg)
 
-    def _update_bounds(self, t0: float, t1: float) -> None:
-        if self.clock.state.bounds == (0.0, 0.0):
-            new_bounds = (t0, t1)
-        else:
-            curr_t0, curr_t1 = self.clock.state.bounds
-            new_bounds = (
-                min(curr_t0, t0),
-                max(curr_t1, t1),
-            )
+    def _recompute_bounds(self) -> None:
+        """Derive the master timeline from the sources that are loaded now.
 
-        self.clock.set_bounds(*new_bounds)
-        self.plot_pane.set_timeline_bounds(*new_bounds)
-        self.transport.set_bounds(*new_bounds)
-        self.transport.set_time(new_bounds[0])
+        Bounds used to be a running union that only ever grew, and the offset
+        controls are what made that visible: every intermediate value a user
+        typed stretched the timeline and none of them ever came back. Typing
+        86400 into an offset field left the session 86400 s long around a
+        twenty-second recording, with every camera off the visible range and
+        the panes showing "No Footage" -- the source had been put back, and the
+        timeline had not heard.
+
+        The overview strip already keys one span per source and drops the ones
+        that go away, so it -- not an accumulator -- is what the bounds are
+        derived from (rule 15: one authority per user-visible concept).
+        """
+        # An empty registry means the last source has been removed, and the
+        # timeline goes back to what it is before anything is loaded. It cannot
+        # mean "not loaded yet": every caller registers its span first.
+        self._apply_bounds(self.transport.coverage_span() or (0.0, 0.0))
+
+    def _apply_bounds(self, bounds: tuple[float, float]) -> None:
+        """Publish one master-time range to the clock and everything drawing it.
+
+        The playhead is redrawn at the time the clock actually holds. It used
+        to be redrawn at the new *start*, which moved the transport readout,
+        the slider and the overview cursor to a time playback was not at: the
+        next click on the slider then seeked relative to a position the user
+        had never chosen.
+        """
+        self.clock.set_bounds(*bounds)
+        self.plot_pane.set_timeline_bounds(*bounds)
+        self.transport.set_bounds(*bounds)
+        self.transport.set_time(self.clock.state.t)

@@ -486,7 +486,7 @@ def test_drop_real_video_completes_async_open(
     monkeypatch.setattr(main_window.sidebar, "set_video_loader", lambda *args: None)
     monkeypatch.setattr(main_window.sidebar, "set_video_pane", lambda *args: None)
     monkeypatch.setattr(main_window.sidebar, "set_video_inspection", lambda *args: None)
-    monkeypatch.setattr(main_window, "_update_bounds", lambda *args: None)
+    monkeypatch.setattr(main_window, "_recompute_bounds", lambda *args: None)
 
     main_window._load_video(video)
 
@@ -520,7 +520,7 @@ def test_video_sidebar_summary_receives_probed_codec(
     monkeypatch.setattr(main_window.sidebar, "set_video_loader", lambda *_args: None)
     monkeypatch.setattr(main_window.sidebar, "set_video_pane", lambda *_args: None)
     monkeypatch.setattr(main_window.sidebar, "set_video_inspection", lambda *_args: None)
-    monkeypatch.setattr(main_window, "_update_bounds", lambda *_args: None)
+    monkeypatch.setattr(main_window, "_recompute_bounds", lambda *_args: None)
     synchronize_pane = MagicMock()
     monkeypatch.setattr(main_window.player, "seek", synchronize_pane)
 

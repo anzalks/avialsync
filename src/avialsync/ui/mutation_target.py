@@ -97,10 +97,16 @@ class WindowMutationTarget:
                 window._on_sensor_mapping_changed(source_id, offset, drift_ppm)
 
     def source_mapping(self, source_id: str) -> tuple[float, float]:
+        """The mapping in the domain :meth:`set_source_mapping` replays into.
+
+        That is the sidebar's: a hand correction on top of the session
+        placement. Reading the whole mapping out of `_video_time_mappings`
+        here and replaying it as a residual added the placement twice, which
+        for a wall-clock camera is 1.77e9 s of "undo".
+        """
         window = self._window
         if source_id in window.video_grid.pane_paths():
-            offset, drift_ppm = window._video_time_mappings.get(source_id, (0.0, 0.0))
-            return (window.sidebar.video_offset(source_id) or offset, drift_ppm)
+            return window.sidebar.video_mapping(source_id)
         return window.sidebar.sensor_mapping(source_id)
 
     # ── annotations ──────────────────────────────────────────────────
@@ -207,9 +213,13 @@ class WindowMutationTarget:
         """
         window = self._window
         with self.replaying():
-            window.video_grid.set_offset(source_id, offset)
+            # The command carries the residual the sidebar shows; the pane and
+            # the coverage registry want the whole mapping.
+            effective = window.effective_offset(source_id, offset)
+            window.video_grid.set_offset(source_id, effective)
             window.sidebar.set_video_offset(source_id, offset)
-            window._video_time_mappings[source_id] = (offset, drift_ppm)
+            window._video_time_mappings[source_id] = (effective, drift_ppm)
+            window._recorded_mappings[source_id] = (offset, drift_ppm)
             window._sync_provenance = [
                 entry for entry in window._sync_provenance if entry.target_id != source_id
             ]
