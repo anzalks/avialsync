@@ -61,11 +61,27 @@ class MyRigSession(SessionSource):
 
     def scan(self, path: Path, registry) -> SessionLayout:
         items = [
-            SessionItem(video, registry.find_best_loader(video), {"offset": -start})
+            SessionItem(
+                video,
+                registry.find_best_loader(video),
+                source_epoch=start,  # when this camera's first frame was exposed
+            )
             for video, start in cameras(path)
         ]
-        items.append(SessionItem(path / "wheel.csv", MyEncoderLoader, {"role": ""}))
-        return SessionLayout(items=items, anchor_epoch=..., camera_fps=...)
+        items.append(
+            SessionItem(
+                path / "wheel.csv",
+                MyEncoderLoader,
+                {"role": ""},
+                source_epoch=midnight,  # its timestamps count from midnight
+            )
+        )
+        return SessionLayout(
+            items=items,
+            session_epoch=min(start for _video, start in cameras(path)),
+            anchor_epoch=...,
+            camera_fps=...,
+        )
 ```
 
 ```toml
@@ -78,12 +94,45 @@ keep it cheap — a marker file or a name pattern, not a directory walk. `scan`
 runs off the UI thread and may read files.
 
 Return session-wide settings as `SessionLayout` fields, not as extra items:
-`anchor_epoch` (the UTC instant relative timestamps are measured from — it also
-switches the display to wall-clock time), `camera_fps`, and `skeleton` (body-part
-pairs; declaring them takes precedence over the skeleton the 3D view otherwise
-detects from pairwise rigidity, D-082). Set a
+`session_epoch` (the UTC instant you want master-clock zero to be — usually when
+the recording started), `anchor_epoch` (the UTC instant relative timestamps are
+measured from — it also switches the display to wall-clock time), `camera_fps`,
+and `skeleton` (body-part pairs; declaring them takes precedence over the
+skeleton the 3D view otherwise detects from pairwise rigidity, D-082). Set a
 `SessionItem.loader` of `None` to let capability resolution pick one, which is
 what you should do for ordinary video.
+
+`session_epoch` and `anchor_epoch` are commonly different, and both are useful:
+a rig whose logs are written as seconds since midnight has an `anchor_epoch` of
+that midnight, while its master zero is the instant the cameras started, hours
+later. Declare `session_epoch` rather than letting it be derived — sources load
+concurrently, so a derived zero would depend on which file happened to finish
+first.
+
+### Say where your timestamps start, never where the source should go
+
+`SessionItem.source_epoch` is the **UTC instant your file's `t=0` is**, and it is
+the only timing question a session has to answer. The application derives the
+placement from it (`session_zero - source_epoch`), so you never compute an
+offset:
+
+| Your file's timestamps are… | Declare |
+|---|---|
+| seconds from its own first frame (a video container) | that frame's UTC instant |
+| seconds since midnight | that midnight |
+| Unix epoch seconds already | `0.0`, or nothing — they are recognised |
+| something with no knowable instant | nothing; it keeps its own zero |
+
+**Always declare an absolute instant.** A session-relative number declares
+nothing: 34526 is equally 09:35:26 and a nine-hour elapsed time, and the
+application cannot tell which you meant.
+
+**Never put a placement in `config`.** `config` is hashed into the sidecar cache
+key, so an offset there lets a re-placement invalidate the samples underneath it
+— and it lands in the offset control the user nudges by hand, which is how an
+AOL session came to open with -34526 s already typed into every camera (D-110).
+`source_epoch` is a `SessionItem` field for exactly that reason, as `label` and
+`coverage_group` are.
 
 **If your scan leaves something out, say so in `warnings`.** A folder holding one
 unreadable recording beside three good ones should still yield the three — do not
@@ -95,10 +144,16 @@ is not (D-085).
 return SessionLayout(items=items, warnings=[f"{name} could not be read — {why}"])
 ```
 
-`config` reaches the loader as its import config. Two keys are interpreted by
-the application: `role` routes a source away from the plot rows — `"pose3d"` to
-the 3D view, `"overlay2d"` (with `overlay_video`) to that camera's overlay —
-and `offset` shifts the source onto master time.
+`config` reaches the loader as its import config, and is hashed into the sidecar
+cache key — so put what the loader needs to *read* the file there, and nothing
+about where the file belongs in time. One key is interpreted by the application:
+`role` routes a source away from the plot rows — `"pose3d"` to the 3D view,
+`"overlay2d"` (with `overlay_video`) to that camera's overlay.
+
+A bare `offset` in `config` still works, and means the whole source-to-master
+mapping rather than a correction on top of a placement. Prefer `source_epoch`:
+it composes with the session zero, survives a source being re-placed, and leaves
+the offset control free for what the user actually uses it for.
 
 If your scanner raises, the folder falls back to per-file scanning and the
 reason appears in **Help → Diagnostics**; a broken plugin never makes a folder
