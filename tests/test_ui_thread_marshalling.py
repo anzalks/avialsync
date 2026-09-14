@@ -49,7 +49,12 @@ def _thread_of_delivery(qtbot, connect) -> QThread:
     connect(emitter, anchor, lambda _payload: seen.append(QThread.currentThread()))
 
     thread.started.connect(emitter.run)
-    emitter.finished.connect(thread.quit)
+    # Deliberately *not* `emitter.finished.connect(thread.quit)`. That raced the
+    # case this file exists to pin: a queued connection with no receiver is
+    # posted to the worker's own event loop, so quitting that loop from the same
+    # signal is a race between dispatching the call and tearing down the loop it
+    # is sitting in. The `finally` below quits the thread once the delivery has
+    # been observed, which is teardown rather than part of the measurement.
     thread.start()
     try:
         qtbot.waitUntil(lambda: bool(seen), timeout=5_000)
