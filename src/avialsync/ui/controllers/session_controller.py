@@ -29,6 +29,7 @@ from avialsync.core.session import (
 from avialsync.ui import recovery
 from avialsync.ui.controllers import corrections_controller
 from avialsync.ui.i18n import tr
+from avialsync.ui.job_manager import on_ui_thread
 from avialsync.ui.recent_files import add_recent, get_recent
 
 if TYPE_CHECKING:
@@ -223,8 +224,11 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
     # `_save_in_progress` latched, which blocks every later save for the rest
     # of the session.
     def _wire(thread: QThread) -> None:
-        worker.finished.connect(on_finished)
-        worker.error.connect(on_error)
+        # Wrapped: both are closures rather than slots on a QObject, so a plain
+        # connection would run them in the worker thread and set the status bar
+        # and the recovery state from there (D-051).
+        worker.finished.connect(on_ui_thread(on_finished, window))
+        worker.error.connect(on_ui_thread(on_error, window))
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
@@ -280,8 +284,11 @@ def start_session_load(window: MainWindow, path: Path) -> None:
     # connection made afterwards exists — the window would keep "Loading
     # session…" forever and never restore anything.
     def _wire(thread: QThread) -> None:
-        worker.finished.connect(on_finished)
-        worker.error.connect(on_error)
+        # Wrapped: `on_finished` calls `_restore_session`, which rebuilds rows
+        # and panes. As a bare closure it is a direct connection and all of
+        # that would be built in the worker thread (D-051).
+        worker.finished.connect(on_ui_thread(on_finished, window))
+        worker.error.connect(on_ui_thread(on_error, window))
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)

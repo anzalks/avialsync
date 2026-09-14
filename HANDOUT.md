@@ -1768,12 +1768,15 @@ was blocked, a load stuck on "Loading session…" forever, and an export with no
 
 ```python
 def _wire(thread: QThread) -> None:
-    worker.finished.connect(on_finished)
-    worker.error.connect(on_error)
+    worker.finished.connect(on_ui_thread(on_finished, window))
+    worker.error.connect(on_ui_thread(on_error, window))
 
 
 window._run_job(worker, configure=_wire)
 ```
+
+(`on_ui_thread` is not decoration — see trap 32 for why a bare closure here runs
+on the worker thread.)
 
 Do not call `thread.start()` yourself afterwards; `JobManager` already did, and `JobManager` also
 already connects `finished`/`error`/`cancelled` to `thread.quit`.
@@ -1784,3 +1787,43 @@ main thread needs to reach the next line. It presented as an intermittent CI fai
 ubuntu-24.04 / Python 3.12 only. Reproduced in WSL against that same image: 2 of 12 full-suite
 runs failed, 0 of 14 after the fix. Do not chase a job that "sometimes does nothing" through the
 worker — check where its signals are connected first.
+
+### 32. A job's completion handler must be a QObject's slot, or be wrapped (D-051)
+Connecting a worker's `finished`/`error` to a **closure** gives a *direct* connection. A plain
+function is not a `QObject`, so Qt has no receiver whose thread it could queue into and calls it in
+the thread that emitted — the worker. Every widget that handler touches is then touched from a
+worker thread:
+
+```python
+def on_finished(state):
+    window._restore_session(state)  # builds rows and panes...
+
+
+worker.finished.connect(on_finished)  # WRONG: ...on the worker thread
+```
+
+It does not raise. Qt refuses the illegal operations one at a time and prints
+`QObject: Cannot create children for a parent that is in a different thread`, so the symptom is
+warnings in the log, a half-built widget, or an eventual crash — never a traceback at the call site.
+
+**`Qt.QueuedConnection` is not the fix.** With no context object the *sender* supplies the thread
+affinity, so the call is merely queued back into the worker thread it was trying to leave.
+`tests/test_ui_thread_marshalling.py` pins this, because it is the obvious wrong repair.
+
+**Correct form** — either connect a bound method of a real `QObject` (`window._on_import_finished`,
+`thread.quit`), which Qt queues already, or wrap the closure:
+
+```python
+from avialsync.ui.job_manager import on_ui_thread
+
+worker.finished.connect(on_ui_thread(on_finished, window))
+```
+
+The wrapper is parented to the window and dies with it. `tests/test_ui_thread_marshalling.py`
+walks every module under `src/avialsync/` and fails on a worker signal connected to a lambda or a
+bare name, so a reintroduction is caught in CI rather than in a warning nobody reads.
+
+**How it was found:** a CI failure on macOS / Python 3.11 whose captured Qt log carried those
+cross-thread warnings. They were incidental to that failure — it was a separate race in the test —
+but the warnings were real, and four call sites had it: the trigger read, the changes export, and
+both session save and session load.

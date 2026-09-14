@@ -31,6 +31,7 @@ from avialsync.ui.export_dialog import (
     ExportItem,
 )
 from avialsync.ui.i18n import tr
+from avialsync.ui.job_manager import on_ui_thread
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -158,9 +159,12 @@ def export_changes(window: MainWindow) -> None:
     # Wired inside `configure`: `_run_job` returns an already-running thread, so
     # a fast export can finish before a connection made afterwards exists and
     # the user is never told (HANDOUT.md trap 31).
+    # `on_finished`/`on_error` are closures, not slots on a QObject, so they
+    # would be called directly in the worker thread and raise the notification
+    # from there (D-051). `on_ui_thread` gives them a receiver on the window.
     def _wire(thread: QThread) -> None:
-        worker.finished.connect(on_finished)
-        worker.error.connect(on_error)
+        worker.finished.connect(on_ui_thread(on_finished, window))
+        worker.error.connect(on_ui_thread(on_error, window))
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
 

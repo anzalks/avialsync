@@ -31,9 +31,9 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Protocol
+from typing import Protocol, cast
 
-from PySide6.QtCore import QObject, QThread, QTimer, Signal
+from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 
 
 class BackgroundWorker(Protocol):
@@ -122,6 +122,50 @@ def _drop_finished_threads() -> None:
             finished = True
         if finished and job in _ABANDONED:
             _ABANDONED.remove(job)
+
+
+class _OnUiThread(QObject):
+    """Wrap a plain callable so a worker's signal reaches it on the UI thread.
+
+    Connecting ``worker.finished`` straight to a function or a lambda gives a
+    *direct* connection. A plain callable is not a ``QObject``, so Qt has no
+    receiver whose thread it could queue into, and runs it in the thread that
+    emitted — the worker. Every widget the callback then touches is touched
+    from there, which is the failure D-051 describes.
+
+    ``Qt.QueuedConnection`` does not fix it: with no context object the
+    *sender* supplies the thread affinity, so the call is merely queued back
+    into the worker thread.
+
+    Wrapping supplies the missing receiver. ``_fire`` is emitted on the worker
+    thread, but this object is parented to *anchor* and so lives on the UI
+    thread, which makes that delivery queued and runs ``fn`` where the widgets
+    are. The wrapper is owned by *anchor* and dies with it.
+    """
+
+    _fire = Signal(object)
+
+    def __init__(self, fn: Callable[..., None], anchor: QObject) -> None:
+        super().__init__(anchor)
+        self._fn = fn
+        self._fire.connect(self._deliver)
+
+    @Slot(object)
+    def _deliver(self, args: object) -> None:
+        self._fn(*cast(tuple, args))
+
+    def __call__(self, *args: object) -> None:
+        self._fire.emit(args)
+
+
+def on_ui_thread(fn: Callable[..., None], anchor: QObject) -> Callable[..., None]:
+    """Return *fn* wrapped so a worker signal delivers it on *anchor*'s thread.
+
+    Use for any completion handler that is a closure rather than a slot on a
+    real ``QObject``; a bound method of a widget already gets a queued
+    connection and needs nothing.
+    """
+    return _OnUiThread(fn, anchor)
 
 
 class JobState(Enum):

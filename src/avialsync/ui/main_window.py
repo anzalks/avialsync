@@ -84,7 +84,7 @@ from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
 from avialsync.ui.feedback.text_dialog import show_text
 from avialsync.ui.i18n import tr
-from avialsync.ui.job_manager import JobManager
+from avialsync.ui.job_manager import JobManager, on_ui_thread
 from avialsync.ui.levels_panel import LevelsPanel
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
 from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_for
@@ -3007,12 +3007,19 @@ class MainWindow(QMainWindow):
 
         def configure(_thread: QThread) -> None:
             # Connected before the thread runs: a worker that finishes first
-            # would otherwise emit into nothing (D-062).
+            # would otherwise emit into nothing (D-062). Wrapped because a
+            # lambda is not a QObject, so the connection would be direct and
+            # both handlers would touch widgets from the worker thread (D-051).
             worker.finished.connect(
-                lambda results: self._on_trigger_trains_read(str(path), results)
+                on_ui_thread(lambda results: self._on_trigger_trains_read(str(path), results), self)
             )
             worker.error.connect(
-                lambda message: self.report_failure(FileUnreadableError(f"{path.name}: {message}"))
+                on_ui_thread(
+                    lambda message: self.report_failure(
+                        FileUnreadableError(f"{path.name}: {message}")
+                    ),
+                    self,
+                )
             )
 
         self._run_job(worker, label=f"Reading triggers from {path.name}", configure=configure)
