@@ -624,6 +624,32 @@ _start_data_import(path)
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
 > traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
 
+### 0-epoch. A loader declares where its zero is; it never declares a placement
+
+`SessionItem.source_epoch` is the Unix epoch a file's timestamps count from,
+and it is the only timing question a loader has to answer. Placement is derived
+from it — `session_zero - source_epoch`, in `core/session_time.placement_offset`
+— so a loader never computes an offset and never puts one in `config`.
+
+| The file's timestamps are… | It declares |
+|---|---|
+| seconds from its own first frame (a container) | that frame's absolute instant |
+| seconds since midnight (a MATLAB log) | that midnight |
+| Unix time already (`epoch_ms`) | `0.0`, or nothing — the magnitude guess finds it |
+| something with no known instant | nothing; it keeps its own zero |
+
+Two rules. **It goes in the `SessionItem` field, never in `config`** — config is
+hashed into the sidecar cache key, and a source's placement must not be able to
+invalidate the samples underneath it. And **a declaration is always absolute**:
+34526 is equally 09:35:26 and a nine-hour elapsed time, so a session-relative
+number declares nothing at all.
+
+`SessionLayout.session_epoch` is where the session puts master zero. It is
+separate from `anchor_epoch` and commonly different — an AOL recording measures
+its logs from midnight while its master zero is when the cameras started, nine
+hours later. The session declares it because deriving it from whichever source
+loads first would make the timeline's origin depend on probe timing.
+
 ### 0-offset. A source offset has two domains, and mixing them moves things by decades
 
 A source's TimeMap offset is `MainWindow.base_offset(source_id)` — what placed

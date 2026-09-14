@@ -625,6 +625,7 @@ class AOLSessionSource(SessionSource):
     def scan(self, path: Path, registry: Any) -> SessionLayout:
         manifest = build_manifest(path)
         anchor_epoch = _anchor_epoch(manifest)
+        session_epoch = _session_epoch(manifest, anchor_epoch)
 
         items: list[SessionItem] = []
         items.extend(_video_items(manifest, anchor_epoch, registry))
@@ -643,6 +644,7 @@ class AOLSessionSource(SessionSource):
         return SessionLayout(
             items=items,
             anchor_epoch=anchor_epoch,
+            session_epoch=session_epoch,
             camera_fps=manifest.camera_fps,
             skeleton=manifest.skeleton,
         )
@@ -666,6 +668,40 @@ def _rebased(start_epoch: float, anchor_epoch: float) -> float:
     return start_epoch
 
 
+def _session_epoch(manifest: AOLManifest, anchor_epoch: float) -> float:
+    """When this recording began, in Unix time -- the session's master zero.
+
+    The earliest camera start, because that is the instant a person means by
+    "the start of the session"; the logs that run a fraction of a second either
+    side of it land where they truly are, which is what a master clock is for.
+
+    Declared here rather than derived from whichever source loads first: probes
+    finish concurrently, so a derived zero would make the timeline's origin
+    depend on disk timing, and two opens of one folder could number their
+    timestamps differently.
+    """
+    if anchor_epoch <= 0.0:
+        return 0.0
+    starts = [epoch for epoch in manifest.video_start_epochs.values() if epoch > 0.0]
+    starts.extend(epoch for epoch in manifest.camera_start_epochs.values() if epoch > 0.0)
+    if not starts:
+        return 0.0
+    return float(min(starts))
+
+
+def _absolute(rebased_start: float, anchor_epoch: float) -> float | None:
+    """Undo :func:`_rebased`: a seconds-since-midnight start back to Unix time.
+
+    The session's own axis is seconds since midnight, which is convenient for
+    reading a log and useless as a declaration -- 34526 is equally a time of
+    day and a nine-hour elapsed time, and nothing downstream can tell which.
+    A source epoch is always absolute for exactly that reason.
+    """
+    if anchor_epoch <= 0.0:
+        return None
+    return float(anchor_epoch) + float(rebased_start)
+
+
 def _start_epoch_for(manifest: AOLManifest, video: Path) -> float:
     for vid_path, epoch in manifest.video_start_epochs.items():
         if Path(vid_path).name.lower() == video.name.lower():
@@ -682,10 +718,24 @@ def _video_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) -> l
             logger.warning("No loader found for AOL video %s", video.name)
             continue
         start_epoch = _rebased(_start_epoch_for(manifest, video), anchor_epoch)
-        config: dict[str, Any] = {"offset": -start_epoch}
+        config: dict[str, Any] = {}
         if manifest.camera_fps > 0:
             config["fps"] = manifest.camera_fps
-        items.append(SessionItem(video, loader_cls, config, label=f"{video.name} — camera"))
+        items.append(
+            SessionItem(
+                video,
+                loader_cls,
+                config,
+                label=f"{video.name} — camera",
+                # A container counts from its own first frame, so the instant
+                # that frame was exposed is this file's zero. Declared rather
+                # than pre-baked as `config["offset"]`: an offset in the config
+                # is a placement the user then owns and must not touch, and it
+                # showed up in the sidebar as a five-digit number to be nudged
+                # around (D-110).
+                source_epoch=_absolute(start_epoch, anchor_epoch),
+            )
+        )
     return items
 
 
@@ -715,6 +765,9 @@ def _eks_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionItem]:
                 # to tell which drives the 3D view and which paint a video.
                 label=f"{eks_file.name} — 3D pose",
                 coverage_group=VIDEO_DERIVED_COVERAGE_GROUP,
+                # Emitted as `frame/fps + start_epoch`, and `start_epoch` is
+                # rebased, so this file's axis counts from midnight.
+                source_epoch=anchor_epoch or None,
             )
         )
     return items
@@ -744,7 +797,6 @@ def _pose_2d_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) ->
                 loader_cls,
                 {
                     "fps": manifest.camera_fps,
-                    "offset": -start_epoch,
                     "auto_resolved": True,
                     "_is_frame_indexed": True,
                     # The overlay draws points only. Pose exports carry ~9
@@ -760,6 +812,9 @@ def _pose_2d_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) ->
                 },
                 label=f"{track.path.name} — 2D pose over {track.camera}",
                 coverage_group=VIDEO_DERIVED_COVERAGE_GROUP,
+                # Frame-indexed against its own camera, so its zero is that
+                # camera's first frame -- the same instant the video declares.
+                source_epoch=_absolute(start_epoch, anchor_epoch),
             )
         )
     return items
@@ -812,6 +867,9 @@ def _video_extraction_items(manifest: AOLManifest, anchor_epoch: float) -> list[
                 config,
                 label=f"{export.path.name} - {export.camera} {metrics}",
                 coverage_group=VIDEO_DERIVED_COVERAGE_GROUP,
+                # Whichever axis the file turns out to carry, the loader lands
+                # it on this session's seconds-since-midnight one.
+                source_epoch=anchor_epoch or None,
             )
         )
     return items
@@ -848,6 +906,9 @@ def _metric_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionIte
                     f"{metric_file.metric.replace('_', ' ')}"
                 ),
                 coverage_group=VIDEO_DERIVED_COVERAGE_GROUP,
+                # Emitted as `frame/fps + start_epoch`, which is rebased: this
+                # file's axis counts from midnight.
+                source_epoch=anchor_epoch or None,
             )
         )
     return items
@@ -868,6 +929,11 @@ def _encoder_items(manifest: AOLManifest) -> list[SessionItem]:
             AOLEncoderLoader,
             config,
             label=f"{manifest.encoder_file.name} — rotary encoder",
+            # MATLAB writes HH:MM:SS:mmm and the loader keeps that axis, so
+            # these timestamps count from midnight on the session's date. The
+            # loader is right not to add the anchor itself; declaring it is how
+            # the rest of the application finds out.
+            source_epoch=_anchor_epoch(manifest) or None,
         )
     ]
 

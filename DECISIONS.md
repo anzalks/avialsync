@@ -4227,3 +4227,67 @@ principled one.
 **The generalisable lesson.** **A number whose meaning depends on where it came from needs the
 conversion at the seam, or every call site becomes the seam.** Four of these five defects were
 call sites that had quietly chosen the wrong domain, and none of them looked wrong in isolation.
+
+---
+
+## 2026-09 · D-110 · A loader declares where its zero is, and placement is derived
+
+An AOL session opened with about **−34526 s** already in every camera's offset field. That number
+is not a correction, it is a coordinate: 34526.312 s is 09:35:26, and the session deliberately puts
+video, encoder, EKS and ROI exports on one seconds-since-midnight axis so four unrelated formats
+share a reference. Nothing was mis-aligned *between* the sources — they agree to ~0.2 s, which is
+why "the encoder was recorded the same day as the videos" is exactly right. What was wrong is that
+the shared axis started nine hours before the recording, and the nine hours were parked in the
+control the user nudges by hand.
+
+**The model.** Every timestamp is seconds since *some* instant. A source declares which instant, as
+a Unix epoch, and that is the only timing question it answers:
+
+    offset = session_zero − source_epoch
+
+`core/session_time.py` holds it — `source_epoch_for`, `unix_start`, `placement_offset` — and one
+expression covers every time base this application meets: a container counting from its own first
+frame declares that frame's instant; a MATLAB log counting from midnight declares that midnight; an
+`epoch_ms` CSV declares `0.0`, or declares nothing and is recognised by the existing four-decade
+magnitude guess; a file with no knowable instant declares nothing and keeps its own zero, which is
+the honest answer and the previous behaviour.
+
+**A declaration is always absolute**, because 34526 is equally a time of day and a nine-hour
+elapsed time and no threshold can separate them — `ABSOLUTE_EPOCH_FLOOR`'s docstring said so before
+this entry existed. A loader that knows the date does not have to guess; declaring is how it tells
+anyone else.
+
+**It is a `SessionItem` field, never a `config` key.** Config is hashed into the sidecar cache key,
+so a placement in config can invalidate the samples underneath it — re-placing a recording is a
+mapping change and must stay one (architecture rule 8). `label` and `coverage_group` are fields for
+the same reason.
+
+**One session zero.** There were two: `_session_start_time` (NWB, drove placement) and
+`_session_anchor_epoch` (AOL, written straight into `transport.set_t_epoch`). The AOL path fed only
+the second, so the clock read correct wall time while the placement machinery believed the session
+had no wall clock at all — and every AOL source therefore carried its own 34526 s by hand. The drop
+path now adopts through `adopt_session_start`, and `SessionLayout.session_epoch` lets the session
+declare master zero explicitly rather than have it derived from whichever probe finished first.
+`anchor_epoch` keeps its own meaning (what session-relative timestamps are measured from) and the
+two are commonly different.
+
+**Result.** An AOL session opens at master zero with 0.000 s in every offset field, the transport
+reads 09:35:26 UTC because the epoch is known, and the encoder sits 0.23 s before the cameras —
+where it truly starts. The offset control is free for what it is for: a few-frame nudge.
+
+**Alternatives rejected.** A method on the source ABCs (`source_epoch()`) — it breaks every existing
+third-party plugin for no gain the `SessionItem` field does not already give, and a session-supplied
+item has no loader instance to ask at scan time. Lowering `ABSOLUTE_EPOCH_FLOOR` to catch
+seconds-since-midnight — the two populations overlap completely, so it would misplace any recording
+longer than 1.16 days and guess wrong on any shorter one. Keeping `config["offset"]` and adding the
+declaration beside it — two authorities for one placement, and they would double-count.
+
+**Cost, taken deliberately.** Removing `config["offset"]` from AOL video and 2D-pose items changes
+their cache key, so those sidecars rebuild once. Video frame-time caches key on path/size/mtime only
+and are unaffected.
+
+**The generalisable lesson.** **Ask a source what it knows, not what it should do.** A loader can
+answer "my timestamps count from this instant" from the file in front of it; it cannot answer "what
+offset should I have" without knowing about every other source in the session. The first question
+composes and the second does not, and the −34526 was what the second question looked like once six
+loaders had each answered it separately.

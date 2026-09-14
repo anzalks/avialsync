@@ -383,6 +383,7 @@ def reset_session(window: MainWindow) -> None:
     # into the next session would place its sources against an epoch it never
     # declared.
     window._source_base_offsets.clear()
+    window._declared_source_epochs.clear()
     window._trigger_trains.clear()
     window._trigger_configs.clear()
     window._pending_exact_mappings.clear()

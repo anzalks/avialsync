@@ -94,9 +94,15 @@ def test_metric_items_time_align_to_the_same_camera_epoch_as_video(
     video_item = next(item for item in layout.items if item.path.name == "EyeCam.mp4")
     metric_item = next(item for item in layout.items if item.path.name == "111__motion_index.mat")
 
-    # Video's config carries offset = -start_epoch; the metric loader carries
-    # start_epoch directly (frame-indexed, like EKS). Both must agree.
-    np.testing.assert_allclose(-video_item.config["offset"], metric_item.config["start_epoch"])
+    # Same invariant as before D-110, through the declaration that replaced the
+    # pre-baked offset: the video declares its camera's absolute first frame,
+    # while the metric declares midnight and carries the camera's rebased start
+    # in its own config. Adding those two must land on the video's instant --
+    # which is what "timed against the same camera epoch" means.
+    np.testing.assert_allclose(
+        metric_item.source_epoch + metric_item.config["start_epoch"],
+        video_item.source_epoch,
+    )
 
 
 def test_metric_file_in_unmatched_camera_folder_still_loads(tmp_path: Path) -> None:

@@ -7,8 +7,11 @@ import pytest
 from avialsync.core.session_time import (
     ABSOLUTE_EPOCH_FLOOR,
     is_absolute,
+    placement_offset,
     rebase_offset,
     reference_epoch,
+    source_epoch_for,
+    unix_start,
 )
 
 
@@ -84,3 +87,58 @@ class TestPlacingASourceAgainstIt:
         assert video_master_start == pytest.approx(0.0)
         # Which is the whole point: a span of minutes, not of decades.
         assert abs(sensor_master_start - video_master_start) < 1.0
+
+
+class TestEveryTimeBaseThroughOneFormula:
+    """A source declares what its zero is; placement is arithmetic after that.
+
+    The four bases this application meets, and the one expression that places
+    all of them: ``offset = session_zero - source_epoch``.
+    """
+
+    #: 2026-05-08 00:00 UTC, the anchor date of the reference AOL session.
+    MIDNIGHT = 1_778_198_400.0
+    #: 09:35:26.312 on that date, when its cameras started.
+    CAMERA_START = MIDNIGHT + 34_526.312
+
+    def test_a_container_relative_source_declares_nothing(self) -> None:
+        assert source_epoch_for(0.0) is None
+        assert placement_offset(source_epoch_for(0.0), self.CAMERA_START) == 0.0
+
+    def test_unix_timestamps_are_recognised_without_a_declaration(self) -> None:
+        """The magnitude guess, which is all a loader that says nothing gets."""
+        assert source_epoch_for(1_768_000_000.0) == 0.0
+
+    def test_a_declaration_beats_the_guess(self) -> None:
+        """34526 is a time of day *and* a plausible elapsed time; only the file knows."""
+        assert source_epoch_for(34_526.312) is None, "no threshold can tell these apart"
+        assert source_epoch_for(34_526.312, declared=self.MIDNIGHT) == self.MIDNIGHT
+
+    def test_a_camera_counting_from_its_first_frame_lands_at_zero(self) -> None:
+        epoch = source_epoch_for(0.0, declared=self.CAMERA_START)
+        offset = placement_offset(epoch, self.CAMERA_START)
+
+        assert offset == pytest.approx(0.0)
+
+    def test_a_log_counting_from_midnight_lands_beside_it(self) -> None:
+        """The encoder starts 0.23 s before the cameras, and must say so."""
+        epoch = source_epoch_for(34_526.082, declared=self.MIDNIGHT)
+        offset = placement_offset(epoch, self.CAMERA_START)
+
+        # t_master = t_source - offset
+        assert 34_526.082 - offset == pytest.approx(-0.23, abs=1e-3)
+
+    def test_an_epoch_csv_still_lands_at_zero(self) -> None:
+        """The case that worked before must go on working through the new path."""
+        reference = 1_768_000_000.0
+        epoch = source_epoch_for(reference)
+        offset = placement_offset(epoch, reference)
+
+        assert reference - offset == pytest.approx(0.0)
+
+    def test_a_session_with_no_declared_zero_places_nothing(self) -> None:
+        assert placement_offset(self.MIDNIGHT, 0.0) == 0.0
+
+    def test_unix_start_answers_only_when_the_source_knows(self) -> None:
+        assert unix_start(34_526.082, self.MIDNIGHT) == pytest.approx(self.CAMERA_START - 0.23)
+        assert unix_start(12.0, None) is None

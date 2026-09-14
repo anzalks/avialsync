@@ -57,7 +57,12 @@ from avialsync.core.session import (
     SyncProvenance,
     TriggerEntry,
 )
-from avialsync.core.session_time import rebase_offset, reference_epoch
+from avialsync.core.session_time import (
+    placement_offset,
+    reference_epoch,
+    source_epoch_for,
+    unix_start,
+)
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
 from avialsync.core.triggers import TriggerKind
@@ -332,6 +337,9 @@ class MainWindow(QMainWindow):
         #: in one number meant the offset control either clamped the placement
         #: (silently, to 86400 -- D-026) or was wiped by the first nudge.
         self._source_base_offsets: dict[str, float] = {}
+        #: Unix epoch of each source's own t=0, where a session declared one.
+        #: Keyed by path like the other per-item declarations a session makes.
+        self._declared_source_epochs: dict[str, float] = {}
         #: Trigger trains the user has loaded and typed, by file path. Evidence
         #: for the alignment wizard, not data: nothing here is ever plotted.
         self._trigger_trains: dict[str, list[Any]] = {}
@@ -1127,15 +1135,32 @@ class MainWindow(QMainWindow):
         self._publish_session_epoch()
         return reference
 
-    def declare_base_offset(self, source_id: str, source_start: float) -> float:
+    def declare_base_offset(
+        self, source_id: str, source_start: float, source_epoch: float | None = None
+    ) -> float:
         """Place a source against the session zero and remember what that took.
 
-        Returns the base offset: what its TimeMap needs before any hand
-        correction, so that a file whose own clock reads 1.77e9 at the
-        session's zero runs from master zero like everything else.
+        *source_epoch* is the Unix epoch of the source's own t=0, when the
+        loader or the session knows it. Left out, it is guessed from the
+        magnitude of *source_start*, which recognises timestamps that are
+        already Unix time and nothing else -- see
+        `core/session_time.source_epoch_for`.
+
+        Returns the base offset: what this source's TimeMap needs before any
+        hand correction, so that a file counting from midnight and one counting
+        from its first frame both run from master zero.
         """
-        self.adopt_session_start(source_start)
-        base = rebase_offset(source_start, self.session_start_time)
+        if source_epoch is None:
+            # Looked up rather than passed in, so that a caller cannot forget
+            # it: every import path funnels through here, and a path that
+            # silently skipped the declaration would place its source at the
+            # wrong instant with nothing to show for it.
+            source_epoch = self._declared_source_epochs.get(source_id)
+        epoch = source_epoch_for(source_start, source_epoch)
+        started = unix_start(source_start, epoch)
+        if started is not None:
+            self.adopt_session_start(started)
+        base = placement_offset(epoch, self.session_start_time)
         self._source_base_offsets[source_id] = base
         return base
 

@@ -119,12 +119,28 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     window._session_coverage_groups = {
         str(item.path): item.coverage_group for item in layout.items if item.coverage_group
     }
+    # What instant each file's timestamps count from. The session is the only
+    # thing that knows -- a camera counts from its own first frame, a MATLAB
+    # log from midnight -- and declaring it is what lets every one of them be
+    # placed on one clock without anybody typing an offset (D-110).
+    window._declared_source_epochs = {
+        str(item.path): float(item.source_epoch)
+        for item in layout.items
+        if item.source_epoch is not None
+    }
 
-    if layout.anchor_epoch > 0.0:
-        # The session knows what absolute instant its timestamps are relative
-        # to, so times become readable wall clock rather than seconds-from-zero.
-        window.plot_pane.set_time_mode(TimeDisplayMode.UTC, layout.anchor_epoch)
-        window.transport.set_t_epoch(layout.anchor_epoch)
+    # The session sees every item at once, so it -- not whichever probe happens
+    # to finish first -- declares where master zero is. Through
+    # `adopt_session_start`, because that is the one authority for the session
+    # zero: this used to write `transport.set_t_epoch` directly and leave
+    # `_session_start_time` at 0.0, so the clock read correct wall time while
+    # the placement machinery believed the session had no wall clock at all and
+    # left every AOL source to carry its own 34526 s by hand (D-110).
+    declared = layout.session_epoch or layout.anchor_epoch
+    if declared > 0.0:
+        window.adopt_session_start(declared)
+        # Times become readable wall clock rather than seconds-from-zero.
+        window._set_time_mode(TimeDisplayMode.UTC)
 
     # Set unconditionally, including to nothing: a session that declares no
     # skeleton must not inherit the previous one's bones, and an empty list is

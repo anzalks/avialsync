@@ -79,7 +79,10 @@ def test_export_items_carry_both_timing_reference_points(session_with_exports: P
 
     assert item.config["anchor_epoch"] == layout.anchor_epoch
     # The camera's rebased start is the same one its own video is placed at.
-    np.testing.assert_allclose(item.config["start_epoch"], -video.config["offset"])
+    # Stated through the declared epochs since D-110 removed the pre-baked
+    # offset: the export counts from midnight plus its camera's rebased start,
+    # and the video counts from that camera's absolute first frame.
+    np.testing.assert_allclose(item.source_epoch + item.config["start_epoch"], video.source_epoch)
 
 
 def test_a_known_camera_start_is_what_the_export_is_timed_from(

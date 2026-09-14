@@ -173,6 +173,24 @@ class SessionItem:
     #: every pyramid underneath it.
     coverage_group: str = ""
 
+    #: Unix epoch of this item's own t=0 -- the instant its timestamps count
+    #: from. ``None`` means the item makes no claim and keeps its own zero.
+    #:
+    #: This is the one thing a session has to say for its files to land on a
+    #: shared clock, and it is one number rather than a placement per item
+    #: because placement is derived: ``session_zero - source_epoch``
+    #: (`core/session_time.py`). A camera whose container counts from its first
+    #: frame declares that frame's absolute instant; a log written as seconds
+    #: since midnight declares midnight; a file already in Unix time declares
+    #: ``0.0``. Each is a fact about the file, which is why a loader can answer
+    #: it and the application cannot.
+    #:
+    #: Not part of ``config``, for the same reason :attr:`label` is not: config
+    #: is hashed into the sidecar cache key, and a source's placement must not
+    #: be able to invalidate the samples underneath it. Re-placing a recording
+    #: is a mapping change and must stay one (architecture rule 8).
+    source_epoch: float | None = None
+
 
 @dataclass(frozen=True)
 class SessionLayout:
@@ -188,7 +206,21 @@ class SessionLayout:
 
     #: UTC epoch that session-relative timestamps are measured from. ``0.0``
     #: means the session declares no absolute anchor and times stay relative.
+    #:
+    #: Distinct from :attr:`session_epoch`, and the two are commonly different:
+    #: an AOL recording measures its logs from midnight while its master zero
+    #: is the instant the cameras started, nine hours later.
     anchor_epoch: float = 0.0
+
+    #: Unix epoch this session wants master-clock zero to be. ``0.0`` leaves it
+    #: to be derived from whichever source declares one first.
+    #:
+    #: Declared by the session because only the session sees every item at
+    #: once. Derivation is order-dependent -- probes finish concurrently -- so
+    #: without this the timeline's origin would depend on which file happened
+    #: to load fastest, and two opens of one folder could number their
+    #: timestamps differently.
+    session_epoch: float = 0.0
 
     #: Nominal camera rate shared by the session's video and frame-indexed
     #: sources. ``0.0`` means unknown; sources then resolve their own.
