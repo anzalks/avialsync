@@ -35,7 +35,30 @@ FONT_LARGE = "large"
 _system_palettes: dict[int, QPalette] = {}
 _palette_listeners_installed: set[int] = set()
 _applying_palette: set[int] = set()
-_macos_accent: QColor | None = None
+
+
+class _NoAccent:
+    """macOS was asked and has no explicit accent preference.
+
+    A distinct value rather than a second flag beside `_macos_accent`: one memo
+    means one thing to clear, so `_macos_accent = None` stays the whole way to
+    invalidate the cache and a caller cannot reset half of it.
+    """
+
+    __slots__ = ()
+
+
+#: Sentinel for "asked, and the answer was nothing".
+_NO_ACCENT = _NoAccent()
+
+#: The macOS accent preference: a colour, `_NO_ACCENT` when the user has set
+#: none, or None when it has not been read since the last appearance change.
+#:
+#: "No explicit accent" is a real answer and by far the common one -- the key is
+#: unset until someone picks a colour in System Settings -- so it is cached as
+#: firmly as a colour. Storing only successes meant re-deriving it by forking
+#: `defaults` on every call, from inside paint paths (D-111).
+_macos_accent: QColor | _NoAccent | None = None
 _system_fonts: dict[int, QFont] = {}
 _font_scales: dict[int, float] = {}
 _BASE_FONT_PROPERTY = "avialsync_base_font"
@@ -288,8 +311,17 @@ def system_accent(palette: QPalette) -> QColor:
     """
     global _macos_accent
     if sys.platform == "darwin":
-        if _macos_accent is not None:
+        if isinstance(_macos_accent, QColor):
             return QColor(_macos_accent)
+        if _macos_accent is _NO_ACCENT:
+            # Already asked, and the user has no explicit accent. That is the
+            # default configuration, so this is the usual branch -- and before
+            # it existed every caller paid a `fork`+`exec` for the same answer.
+            # `evidence_color` sits in the plot repaint path, which made a
+            # 128-row zoom spawn processes (D-111).
+            return _accent(palette)
+        # Set before the call, not after: every exit from here has asked.
+        _macos_accent = _NO_ACCENT
         try:
             # The one subprocess in this codebase that does not splat
             # `runtime.no_window_kwargs()`, and deliberately: it is unreachable
@@ -758,6 +790,7 @@ def _install_system_appearance_listener(app: QApplication) -> None:
         no palette change at all, so following only the palette meant the System
         preference sat on whichever appearance was current at launch.
         """
+        global _macos_accent
         if app_id in _applying_palette or current_preference() != THEME_SYSTEM:
             return
         _macos_accent = None

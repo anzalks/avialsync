@@ -506,13 +506,18 @@ def fit_sync_events(
 
     drift_ppm = (best_scale - 1.0) * 1_000_000.0
     residuals = target[best_pairs[:, 1]] - (best_scale * reference[best_pairs[:, 0]] + best_offset)
+    # Gathered and converted in three vectorised steps rather than indexed per
+    # match: `reference[ref_idx]` inside the loop built a numpy scalar for every
+    # one of ten thousand events, and `float()` then unwrapped it again.
+    # `tolist()` produces the Python floats directly.
     matches = tuple(
-        SyncMatch(
-            reference_time=float(reference[ref_idx]),
-            target_time=float(target[target_idx]),
-            residual=float(residual),
+        SyncMatch(reference_time=ref_time, target_time=target_time, residual=residual)
+        for ref_time, target_time, residual in zip(
+            reference[best_pairs[:, 0]].tolist(),
+            target[best_pairs[:, 1]].tolist(),
+            residuals.tolist(),
+            strict=True,
         )
-        for (ref_idx, target_idx), residual in zip(best_pairs, residuals, strict=True)
     )
     rms = float(np.sqrt(np.mean(np.square(residuals))))
     fit = SyncFit(
@@ -661,8 +666,33 @@ def _match_pairs(
 
 
 def _fit_affine(reference: np.ndarray, target: np.ndarray) -> tuple[float, float]:
-    slope, offset = np.polyfit(reference, target, 1)
-    return float(slope), float(offset)
+    """Least-squares straight line through matched pairs, in closed form.
+
+    The same fit ``np.polyfit(reference, target, 1)`` returns, without building
+    a Vandermonde matrix and running an SVD to get two numbers. The search
+    evaluates this once per candidate lag -- several hundred times for one
+    preview -- so the SVD was a quarter of the whole fit's cost.
+
+    Centring before the solve is what makes the closed form safe here rather
+    than the textbook trap it is when written as raw normal equations: matched
+    event times are large and closely spaced (a 5000 s train of 0.5 s pulses),
+    so ``sum(x*x)`` would square away most of the mantissa while
+    ``sum(dx*dx)`` about the mean does not.
+    """
+    reference = np.asarray(reference, dtype=np.float64)
+    target = np.asarray(target, dtype=np.float64)
+    ref_mean = reference.mean()
+    target_mean = target.mean()
+    d_ref = reference - ref_mean
+    variance = float(d_ref @ d_ref)
+    if variance <= 0.0:
+        # Every matched event at one instant: no line through them has a
+        # defined slope, so keep the rate and let the offset carry the shift.
+        # `polyfit` answered this with a RankWarning and a NaN slope, which
+        # propagated into a mapping rather than being caught here.
+        return 1.0, float(target_mean - ref_mean)
+    slope = float(d_ref @ (target - target_mean)) / variance
+    return slope, float(target_mean - slope * ref_mean)
 
 
 def _ambiguity_margin(

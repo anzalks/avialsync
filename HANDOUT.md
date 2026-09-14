@@ -624,6 +624,19 @@ _start_data_import(path)
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
 > traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
 
+### 0-fork. Nothing a repaint can reach may shell out, and a miss must be cached
+
+`theme.system_accent` reads macOS's accent preference with `defaults read`. It
+memoises the colour in `_macos_accent` **and the fact that it asked** in
+`_macos_accent_probed`, because the key is unset on a stock Mac and caching only
+successes meant re-forking on every call — from inside `evidence_color` and the
+transport painter, so a 128-row zoom spawned processes (D-111). Both names are
+cleared together by the two appearance-change handlers, and both need a `global`
+in each: assigning without one makes them locals and invalidates nothing.
+
+If you add anything that probes the platform, cache the miss as well as the hit,
+and keep `subprocess` out of anything a paint or a range change can reach.
+
 ### 0-epoch. A loader declares where its zero is; it never declares a placement
 
 `SessionItem.source_epoch` is the Unix epoch a file's timestamps count from,

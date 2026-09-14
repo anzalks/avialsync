@@ -4291,3 +4291,43 @@ answer "my timestamps count from this instant" from the file in front of it; it 
 offset should I have" without knowing about every other source in the session. The first question
 composes and the second does not, and the −34526 was what the second question looked like once six
 loaders had each answered it separately.
+
+---
+
+## 2026-09 · D-111 · A negative answer is cached as firmly as a positive one
+
+Four performance budgets were over — two plot-pane zooms, a pyramid window refresh, and the sync
+fit preview — and had been for long enough to read as the cost of the feature. They were not. Three
+of the four were one bug, and it was not in any of the code they measure.
+
+**`system_accent` forked a process on every call, on the default Mac.** It reads the user's accent
+colour with `defaults read -g AppleAccentColor` and memoised the result — but only on success. That
+key does not exist until someone picks a colour in System Settings, so on a stock machine the read
+raised, the `except` fell through to the palette, and **nothing was cached**. The next call forked
+again. `evidence_color` and the transport's painter both call it, so a 128-row zoom spawned 2
+processes per frame: `fork`+`exec`+`poll` was 45 % of the callback, and removing it alone took the
+zoom from 2.216 s to 0.997 s over 40 iterations and put three budgets back under their ceilings.
+
+The rule, stated generally: **a cache that stores only successes is not a cache, it is a retry
+loop.** "The user has no explicit accent" is a real answer and the common one; it deserved a memo
+of its own. `_macos_accent_probed` is that memo, cleared by the same two appearance-change handlers
+that clear the colour — and one of those handlers assigned both names without a `global`, which
+would have made them locals and invalidated nothing.
+
+**`_fit_affine` ran an SVD to fit a straight line.** `np.polyfit(x, y, 1)` builds a Vandermonde
+matrix and calls `lstsq` for two numbers, and the lag search evaluates it once per candidate —
+about 570 times per preview, a quarter of the fit's cost. The closed form is exact to 1.3e-15 in
+slope against polyfit, four orders tighter than the 1e-5 ppm the fit's own tests assert. Centring
+about the mean before the solve is what makes it safe rather than the textbook trap: matched event
+times are large and closely spaced, so `sum(x*x)` squares away the mantissa where `sum(dx*dx)` does
+not. It also fixes a real defect — coincident events gave polyfit a rank-deficient system, a
+`RankWarning`, and a **NaN slope that propagated into a TimeMap**; that case now returns unit rate.
+
+**Not raising a budget.** Every number in BLUEPRINT.md's table stands untouched. A budget that is
+adjusted to fit the code it governs has stopped being a budget, and three of these four were
+measuring a subprocess rather than the work they name.
+
+**The generalisable lesson.** **A budget that has been over for a long time is evidence about the
+code, not about the budget.** These were read as the irreducible cost of 128 linked ViewBoxes —
+the benchmark's own docstring says as much — and the profile disagreed in the first thirty seconds.
+Profile before believing a ceiling is inherent.
