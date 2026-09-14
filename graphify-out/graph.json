@@ -15914,7 +15914,7 @@
       "label": "available_exports()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L46",
+      "source_location": "L47",
       "_origin": "ast"
     },
     {
@@ -15922,7 +15922,7 @@
       "label": "_corrected_indices()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L103",
+      "source_location": "L104",
       "_origin": "ast"
     },
     {
@@ -15930,7 +15930,7 @@
       "label": "_annotation_target()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L107",
+      "source_location": "L108",
       "_origin": "ast"
     },
     {
@@ -15946,7 +15946,7 @@
       "label": "export_changes()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L121",
+      "source_location": "L122",
       "_origin": "ast"
     },
     {
@@ -15954,7 +15954,7 @@
       "label": "_job_for()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L170",
+      "source_location": "L174",
       "_origin": "ast"
     },
     {
@@ -15966,35 +15966,35 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_changes_export_controller_rationale_47",
+      "id": "src_avialsync_ui_controllers_changes_export_controller_rationale_48",
       "label": "List every artifact this session's own work could be written as.      Only what",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L47",
+      "source_location": "L48",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_changes_export_controller_rationale_108",
+      "id": "src_avialsync_ui_controllers_changes_export_controller_rationale_109",
       "label": "Default the annotation CSV beside the session, or beside the first camera.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L108",
+      "source_location": "L109",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_changes_export_controller_rationale_122",
+      "id": "src_avialsync_ui_controllers_changes_export_controller_rationale_123",
       "label": "Write the session's annotations and corrected tracking data.      One command fo",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L122",
+      "source_location": "L123",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_changes_export_controller_rationale_171",
+      "id": "src_avialsync_ui_controllers_changes_export_controller_rationale_175",
       "label": "Turn a chosen artifact into a job carrying only plain data.      Everything the",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L171",
+      "source_location": "L175",
       "_origin": "ast"
     },
     {
@@ -16922,7 +16922,7 @@
       "label": "_disconnect()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L40",
+      "source_location": "L41",
       "_origin": "ast"
     },
     {
@@ -16930,7 +16930,7 @@
       "label": "restore_geometry()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L51",
+      "source_location": "L52",
       "_origin": "ast"
     },
     {
@@ -16938,7 +16938,7 @@
       "label": "save_geometry()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L80",
+      "source_location": "L81",
       "_origin": "ast"
     },
     {
@@ -16946,7 +16946,7 @@
       "label": "build_session_state()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L96",
+      "source_location": "L97",
       "_origin": "ast"
     },
     {
@@ -16954,7 +16954,7 @@
       "label": "save_session()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L169",
+      "source_location": "L170",
       "_origin": "ast"
     },
     {
@@ -16962,7 +16962,7 @@
       "label": "start_session_save()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L184",
+      "source_location": "L185",
       "_origin": "ast"
     },
     {
@@ -16978,7 +16978,7 @@
       "label": "open_session()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L246",
+      "source_location": "L250",
       "_origin": "ast"
     },
     {
@@ -16986,7 +16986,7 @@
       "label": "start_session_load()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L259",
+      "source_location": "L263",
       "_origin": "ast"
     },
     {
@@ -16994,7 +16994,7 @@
       "label": "reset_session()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L299",
+      "source_location": "L306",
       "_origin": "ast"
     },
     {
@@ -17002,7 +17002,7 @@
       "label": "on_session_load_error()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L405",
+      "source_location": "L412",
       "_origin": "ast"
     },
     {
@@ -17010,7 +17010,7 @@
       "label": "restore_session()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L411",
+      "source_location": "L418",
       "_origin": "ast"
     },
     {
@@ -17018,7 +17018,7 @@
       "label": "autosave()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L533",
+      "source_location": "L540",
       "_origin": "ast"
     },
     {
@@ -17026,7 +17026,7 @@
       "label": "offer_pending_recovery()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L552",
+      "source_location": "L559",
       "_origin": "ast"
     },
     {
@@ -17034,7 +17034,7 @@
       "label": "restore_pending_recovery()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L585",
+      "source_location": "L592",
       "_origin": "ast"
     },
     {
@@ -17042,7 +17042,7 @@
       "label": "_write_recovery_snapshot()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L611",
+      "source_location": "L618",
       "_origin": "ast"
     },
     {
@@ -17050,7 +17050,7 @@
       "label": "write_session_snapshot()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L637",
+      "source_location": "L644",
       "_origin": "ast"
     },
     {
@@ -17058,7 +17058,7 @@
       "label": "autosave_before_close()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L656",
+      "source_location": "L663",
       "_origin": "ast"
     },
     {
@@ -17066,7 +17066,7 @@
       "label": "rebuild_recent_menu()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L669",
+      "source_location": "L676",
       "_origin": "ast"
     },
     {
@@ -17074,7 +17074,7 @@
       "label": "open_recent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L682",
+      "source_location": "L689",
       "_origin": "ast"
     },
     {
@@ -17086,83 +17086,83 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_session_controller_rationale_41",
+      "id": "src_avialsync_ui_controllers_session_controller_rationale_42",
       "label": "Detach a result handler when a reset makes its work obsolete.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L41",
+      "source_location": "L42",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_session_controller_rationale_97",
+      "id": "src_avialsync_ui_controllers_session_controller_rationale_98",
       "label": "Snapshot current app state into a SessionState.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L97",
+      "source_location": "L98",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_session_controller_rationale_300",
+      "id": "src_avialsync_ui_controllers_session_controller_rationale_307",
       "label": "Return the workspace to its empty, ready-to-open state.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L300",
+      "source_location": "L307",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_session_controller_rationale_412",
+      "id": "src_avialsync_ui_controllers_session_controller_rationale_419",
       "label": "Load all sources from a SessionState object.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L412",
+      "source_location": "L419",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_session_controller_rationale_534",
+      "id": "src_avialsync_ui_controllers_session_controller_rationale_541",
       "label": "Silently autosave, to the session file or to the recovery snapshot.      Runs on",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L534",
+      "source_location": "L541",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_session_controller_rationale_553",
+      "id": "src_avialsync_ui_controllers_session_controller_rationale_560",
       "label": "Offer unsaved work from a previous run, if there is any. Non-modal.      The oth",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L553",
+      "source_location": "L560",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_session_controller_rationale_586",
+      "id": "src_avialsync_ui_controllers_session_controller_rationale_593",
       "label": "Load a recovery snapshot into the window, as an ordinary session restore.      T",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L586",
+      "source_location": "L593",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_session_controller_rationale_612",
+      "id": "src_avialsync_ui_controllers_session_controller_rationale_619",
       "label": "Persist unsaved work for an untitled session. Returns whether it wrote.      An",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L612",
+      "source_location": "L619",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_session_controller_rationale_638",
+      "id": "src_avialsync_ui_controllers_session_controller_rationale_645",
       "label": "Write the session synchronously, if one is open.      Threading this is not an o",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L638",
+      "source_location": "L645",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_session_controller_rationale_657",
+      "id": "src_avialsync_ui_controllers_session_controller_rationale_664",
       "label": "Flush a final synchronous autosave before the window closes.      A threaded sav",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L657",
+      "source_location": "L664",
       "_origin": "ast"
     },
     {
@@ -19462,11 +19462,59 @@
       "_origin": "ast"
     },
     {
+      "id": "src_avialsync_ui_job_manager_onuithread",
+      "label": "_OnUiThread",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L127",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_job_manager_py_qobject",
+      "label": "QObject",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_job_manager_onuithread_init",
+      "label": ".__init__()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L148",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_job_manager_onuithread_deliver",
+      "label": "._deliver()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L154",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_job_manager_onuithread_call",
+      "label": ".__call__()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L157",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_job_manager_on_ui_thread",
+      "label": "on_ui_thread()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L161",
+      "_origin": "ast"
+    },
+    {
       "id": "src_avialsync_ui_job_manager_jobstate",
       "label": "JobState",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L127",
+      "source_location": "L171",
       "_origin": "ast"
     },
     {
@@ -19482,7 +19530,7 @@
       "label": "Job",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L136",
+      "source_location": "L180",
       "_origin": "ast"
     },
     {
@@ -19490,7 +19538,7 @@
       "label": ".elapsed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L147",
+      "source_location": "L191",
       "_origin": "ast"
     },
     {
@@ -19498,7 +19546,7 @@
       "label": ".can_cancel()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L150",
+      "source_location": "L194",
       "_origin": "ast"
     },
     {
@@ -19506,15 +19554,7 @@
       "label": "JobManager",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L155",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_job_manager_py_qobject",
-      "label": "QObject",
-      "file_type": "code",
-      "source_file": "",
-      "source_location": "",
+      "source_location": "L199",
       "_origin": "ast"
     },
     {
@@ -19522,7 +19562,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L161",
+      "source_location": "L205",
       "_origin": "ast"
     },
     {
@@ -19530,7 +19570,7 @@
       "label": ".start()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L171",
+      "source_location": "L215",
       "_origin": "ast"
     },
     {
@@ -19538,7 +19578,7 @@
       "label": ".jobs()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L223",
+      "source_location": "L267",
       "_origin": "ast"
     },
     {
@@ -19546,7 +19586,7 @@
       "label": ".is_busy()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L227",
+      "source_location": "L271",
       "_origin": "ast"
     },
     {
@@ -19554,7 +19594,7 @@
       "label": ".stalled_jobs()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L230",
+      "source_location": "L274",
       "_origin": "ast"
     },
     {
@@ -19562,7 +19602,7 @@
       "label": ".status_text()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L234",
+      "source_location": "L278",
       "_origin": "ast"
     },
     {
@@ -19570,7 +19610,7 @@
       "label": ".cancel_all()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L250",
+      "source_location": "L294",
       "_origin": "ast"
     },
     {
@@ -19578,7 +19618,7 @@
       "label": ".shutdown()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L256",
+      "source_location": "L300",
       "_origin": "ast"
     },
     {
@@ -19586,7 +19626,7 @@
       "label": "._request_cancel()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L298",
+      "source_location": "L342",
       "_origin": "ast"
     },
     {
@@ -19594,7 +19634,7 @@
       "label": "._note_progress()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L308",
+      "source_location": "L352",
       "_origin": "ast"
     },
     {
@@ -19602,7 +19642,7 @@
       "label": "._check_for_stalls()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L319",
+      "source_location": "L363",
       "_origin": "ast"
     },
     {
@@ -19610,7 +19650,7 @@
       "label": "._on_thread_finished()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L330",
+      "source_location": "L374",
       "_origin": "ast"
     },
     {
@@ -19647,98 +19687,114 @@
     },
     {
       "id": "src_avialsync_ui_job_manager_rationale_128",
-      "label": "What a background job is doing, from the user's point of view.",
+      "label": "Wrap a plain callable so a worker's signal reaches it on the UI thread.      Con",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
       "source_location": "L128",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_137",
+      "id": "src_avialsync_ui_job_manager_rationale_162",
+      "label": "Return *fn* wrapped so a worker signal delivers it on *anchor*'s thread.      Us",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L162",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_job_manager_rationale_172",
+      "label": "What a background job is doing, from the user's point of view.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L172",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_job_manager_rationale_181",
       "label": "One unit of background work, owned for its whole lifetime.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L137",
+      "source_location": "L181",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_151",
+      "id": "src_avialsync_ui_job_manager_rationale_195",
       "label": "Whether the worker offers a cooperative cancel.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L151",
+      "source_location": "L195",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_156",
+      "id": "src_avialsync_ui_job_manager_rationale_200",
       "label": "Owns every background worker/thread pair and reports their state.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L156",
+      "source_location": "L200",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_177",
+      "id": "src_avialsync_ui_job_manager_rationale_221",
       "label": "Own *worker* on a new thread and start it.          ``configure`` runs after the",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L177",
+      "source_location": "L221",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_224",
+      "id": "src_avialsync_ui_job_manager_rationale_268",
       "label": "Every job currently owned, newest last.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L224",
+      "source_location": "L268",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_231",
+      "id": "src_avialsync_ui_job_manager_rationale_275",
       "label": "Jobs that have gone quiet for longer than the watchdog allows.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L231",
+      "source_location": "L275",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_235",
+      "id": "src_avialsync_ui_job_manager_rationale_279",
       "label": "A one-line summary for the transport status area.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L235",
+      "source_location": "L279",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_251",
+      "id": "src_avialsync_ui_job_manager_rationale_295",
       "label": "Ask every cancellable job to stop; never blocks.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L251",
+      "source_location": "L295",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_257",
+      "id": "src_avialsync_ui_job_manager_rationale_301",
       "label": "Stop everything and return the labels that had to be abandoned.          Always",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L257",
+      "source_location": "L301",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_309",
+      "id": "src_avialsync_ui_job_manager_rationale_353",
       "label": "Refresh the watchdog clock for whichever job reported.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L309",
+      "source_location": "L353",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_job_manager_rationale_331",
+      "id": "src_avialsync_ui_job_manager_rationale_375",
       "label": "Drop finished threads without relying on sender() identity (D-051).",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L331",
+      "source_location": "L375",
       "_origin": "ast"
     },
     {
@@ -21386,7 +21442,7 @@
       "label": "._on_trigger_trains_read()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3021",
+      "source_location": "L3028",
       "_origin": "ast"
     },
     {
@@ -21394,7 +21450,7 @@
       "label": "._source_coverage()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3040",
+      "source_location": "L3047",
       "_origin": "ast"
     },
     {
@@ -21402,7 +21458,7 @@
       "label": "._evidence_span()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3070",
+      "source_location": "L3077",
       "_origin": "ast"
     },
     {
@@ -21410,7 +21466,7 @@
       "label": "._on_video_mapping_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3084",
+      "source_location": "L3091",
       "_origin": "ast"
     },
     {
@@ -21418,7 +21474,7 @@
       "label": ".restore_trigger_sources()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3103",
+      "source_location": "L3110",
       "_origin": "ast"
     },
     {
@@ -21426,7 +21482,7 @@
       "label": "._open_sync_wizard()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3127",
+      "source_location": "L3134",
       "_origin": "ast"
     },
     {
@@ -21434,7 +21490,7 @@
       "label": "._on_sync_wizard_accepted()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3196",
+      "source_location": "L3203",
       "_origin": "ast"
     },
     {
@@ -21442,7 +21498,7 @@
       "label": "._release_sync_wizard()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3202",
+      "source_location": "L3209",
       "_origin": "ast"
     },
     {
@@ -21450,7 +21506,7 @@
       "label": "._seek_to_evidence()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3210",
+      "source_location": "L3217",
       "_origin": "ast"
     },
     {
@@ -21458,7 +21514,7 @@
       "label": "._accept_sync_proposal()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3220",
+      "source_location": "L3227",
       "_origin": "ast"
     },
     {
@@ -21466,7 +21522,7 @@
       "label": "._on_video_remove_requested()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3326",
+      "source_location": "L3333",
       "_origin": "ast"
     },
     {
@@ -21474,7 +21530,7 @@
       "label": "._on_sensor_remove_requested()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3342",
+      "source_location": "L3349",
       "_origin": "ast"
     },
     {
@@ -21482,7 +21538,7 @@
       "label": "._on_sensor_mapping_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3355",
+      "source_location": "L3362",
       "_origin": "ast"
     },
     {
@@ -21490,7 +21546,7 @@
       "label": "._on_channel_remove_requested()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3377",
+      "source_location": "L3384",
       "_origin": "ast"
     },
     {
@@ -21498,7 +21554,7 @@
       "label": "._on_channel_visibility_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3381",
+      "source_location": "L3388",
       "_origin": "ast"
     },
     {
@@ -21506,7 +21562,7 @@
       "label": "._focused_video_path()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3387",
+      "source_location": "L3394",
       "_origin": "ast"
     },
     {
@@ -21514,7 +21570,7 @@
       "label": "._select_video()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3413",
+      "source_location": "L3420",
       "_origin": "ast"
     },
     {
@@ -21522,7 +21578,7 @@
       "label": "._pane_for()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3426",
+      "source_location": "L3433",
       "_origin": "ast"
     },
     {
@@ -21530,7 +21586,7 @@
       "label": "._on_source_format_detected()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3432",
+      "source_location": "L3439",
       "_origin": "ast"
     },
     {
@@ -21538,7 +21594,7 @@
       "label": "._on_display_levels_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3439",
+      "source_location": "L3446",
       "_origin": "ast"
     },
     {
@@ -21546,7 +21602,7 @@
       "label": "._on_auto_levels_requested()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3448",
+      "source_location": "L3455",
       "_origin": "ast"
     },
     {
@@ -21554,7 +21610,7 @@
       "label": "._on_channel_group_visibility_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3458",
+      "source_location": "L3465",
       "_origin": "ast"
     },
     {
@@ -21562,7 +21618,7 @@
       "label": "._on_plot_channel_close_requested()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3482",
+      "source_location": "L3489",
       "_origin": "ast"
     },
     {
@@ -21570,7 +21626,7 @@
       "label": "._on_video_visibility_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3486",
+      "source_location": "L3493",
       "_origin": "ast"
     },
     {
@@ -21578,7 +21634,7 @@
       "label": "._open_video()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3494",
+      "source_location": "L3501",
       "_origin": "ast"
     },
     {
@@ -21586,7 +21642,7 @@
       "label": "._open_data()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3500",
+      "source_location": "L3507",
       "_origin": "ast"
     },
     {
@@ -21594,7 +21650,7 @@
       "label": "._start_data_import()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3505",
+      "source_location": "L3512",
       "_origin": "ast"
     },
     {
@@ -21602,7 +21658,7 @@
       "label": "._resolve_tracking_fps()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3513",
+      "source_location": "L3520",
       "_origin": "ast"
     },
     {
@@ -21610,7 +21666,7 @@
       "label": "._enqueue_import()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3516",
+      "source_location": "L3523",
       "_origin": "ast"
     },
     {
@@ -21618,7 +21674,7 @@
       "label": "._start_import()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3519",
+      "source_location": "L3526",
       "_origin": "ast"
     },
     {
@@ -21626,7 +21682,7 @@
       "label": "._on_import_thread_finished()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3523",
+      "source_location": "L3530",
       "_origin": "ast"
     },
     {
@@ -21634,7 +21690,7 @@
       "label": "._rebind_frame_indexed_sources()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3526",
+      "source_location": "L3533",
       "_origin": "ast"
     },
     {
@@ -21642,7 +21698,7 @@
       "label": "._on_import_finished()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3529",
+      "source_location": "L3536",
       "_origin": "ast"
     },
     {
@@ -21650,7 +21706,7 @@
       "label": "._register_tracking_source()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3544",
+      "source_location": "L3551",
       "_origin": "ast"
     },
     {
@@ -21658,7 +21714,7 @@
       "label": "._refresh_pose_3d()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3558",
+      "source_location": "L3565",
       "_origin": "ast"
     },
     {
@@ -21666,7 +21722,7 @@
       "label": "._update_tracking_pane_visibility()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3561",
+      "source_location": "L3568",
       "_origin": "ast"
     },
     {
@@ -21674,7 +21730,7 @@
       "label": "._refresh_overlays()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3564",
+      "source_location": "L3571",
       "_origin": "ast"
     },
     {
@@ -21682,7 +21738,7 @@
       "label": "._on_import_error()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3567",
+      "source_location": "L3574",
       "_origin": "ast"
     },
     {
@@ -21690,7 +21746,7 @@
       "label": "._update_bounds()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3570",
+      "source_location": "L3577",
       "_origin": "ast"
     },
     {
@@ -22422,147 +22478,147 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3022",
+      "id": "src_avialsync_ui_main_window_rationale_3029",
       "label": "Register read trains as evidence the alignment wizard can offer.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3022",
+      "source_location": "L3029",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3041",
+      "id": "src_avialsync_ui_main_window_rationale_3048",
       "label": "Every loaded source's span, and how much of it evidence reaches.          Answer",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3041",
+      "source_location": "L3048",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3071",
+      "id": "src_avialsync_ui_main_window_rationale_3078",
       "label": "First and last accepted sync point for *path*, or None.          Superseded evid",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3071",
+      "source_location": "L3078",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3085",
+      "id": "src_avialsync_ui_main_window_rationale_3092",
       "label": "Re-map one camera against the master clock, rate included.          `_on_video_o",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3085",
+      "source_location": "L3092",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3104",
+      "id": "src_avialsync_ui_main_window_rationale_3111",
       "label": "Re-read every trigger file a restored session declared.          Re-read rather",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3104",
+      "source_location": "L3111",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3128",
+      "id": "src_avialsync_ui_main_window_rationale_3135",
       "label": "Open evidence-based TTL/frame-event alignment for loaded sources.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3128",
+      "source_location": "L3135",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3197",
+      "id": "src_avialsync_ui_main_window_rationale_3204",
       "label": "Apply what the user accepted, once they have finished looking.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3197",
+      "source_location": "L3204",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3203",
+      "id": "src_avialsync_ui_main_window_rationale_3210",
       "label": "Drop the window's reference once the dialog has closed.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3203",
+      "source_location": "L3210",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3211",
+      "id": "src_avialsync_ui_main_window_rationale_3218",
       "label": "Put the master clock on a clicked event, so the footage can be seen.          Th",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3211",
+      "source_location": "L3218",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3221",
+      "id": "src_avialsync_ui_main_window_rationale_3228",
       "label": "Apply an explicitly accepted proposal and retain reproducible provenance.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3221",
+      "source_location": "L3228",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3356",
+      "id": "src_avialsync_ui_main_window_rationale_3363",
       "label": "Re-align one time-series source against the master clock.          This only cha",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3356",
+      "source_location": "L3363",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3378",
+      "id": "src_avialsync_ui_main_window_rationale_3385",
       "label": "Remove only this source's row — another file may use the same name.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3378",
+      "source_location": "L3385",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3388",
+      "id": "src_avialsync_ui_main_window_rationale_3395",
       "label": "The camera an action without an explicit target should act on.          In order",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3388",
+      "source_location": "L3395",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3414",
+      "id": "src_avialsync_ui_main_window_rationale_3421",
       "label": "Remember the camera the user just interacted with.          Any interaction coun",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3414",
+      "source_location": "L3421",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3433",
+      "id": "src_avialsync_ui_main_window_rationale_3440",
       "label": "Show or hide the levels panel according to what this file turned out to be.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3433",
+      "source_location": "L3440",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3449",
+      "id": "src_avialsync_ui_main_window_rationale_3456",
       "label": "Choose black and white from the frame currently on screen.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3449",
+      "source_location": "L3456",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3461",
+      "id": "src_avialsync_ui_main_window_rationale_3468",
       "label": "Show or hide a whole group of channels as one undoable action.          One comm",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3461",
+      "source_location": "L3468",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_main_window_rationale_3483",
+      "id": "src_avialsync_ui_main_window_rationale_3490",
       "label": "Route a plot-row close through the owning source's visibility checkbox.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3483",
+      "source_location": "L3490",
       "_origin": "ast"
     },
     {
@@ -67678,6 +67734,150 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_ui_thread_marshalling",
+      "label": "test_ui_thread_marshalling.py",
+      "file_type": "code",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_emitter",
+      "label": "_Emitter",
+      "file_type": "code",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L32",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_py_qobject",
+      "label": "QObject",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_emitter_run",
+      "label": ".run()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L37",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_thread_of_delivery",
+      "label": "_thread_of_delivery()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L41",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_py_qthread",
+      "label": "QThread",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_test_a_wrapped_handler_runs_on_the_ui_thread",
+      "label": "test_a_wrapped_handler_runs_on_the_ui_thread()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L62",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_test_a_bare_closure_does_not",
+      "label": "test_a_bare_closure_does_not()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L71",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_test_a_queued_connection_is_not_the_fix",
+      "label": "test_a_queued_connection_is_not_the_fix()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L78",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_unmarshalled_worker_connections",
+      "label": "_unmarshalled_worker_connections()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L92",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_py_path",
+      "label": "Path",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_test_no_worker_signal_is_connected_to_a_bare_callable",
+      "label": "test_no_worker_signal_is_connected_to_a_bare_callable()",
+      "file_type": "code",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L121",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_rationale_1",
+      "label": "Completion handlers run on the UI thread, whatever thread emitted them.  Connect",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_rationale_33",
+      "label": "Stands in for a worker: lives on another thread and emits from there.",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L33",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_rationale_42",
+      "label": "Run an emitter on its own thread; return the thread its handler ran in.",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L42",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_rationale_72",
+      "label": "Why the wrapper exists, not a behaviour anything should rely on.",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L72",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_rationale_79",
+      "label": "With no context object the sender supplies the affinity, so this     queues the",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L79",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ui_thread_marshalling_rationale_93",
+      "label": "Return ``(line, signal)`` for worker connections made to a bare callable.      A",
+      "file_type": "rationale",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L93",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_ui_time_format",
       "label": "test_ui_time_format.py",
       "file_type": "code",
@@ -75051,6 +75251,14 @@
       "file_type": "document",
       "source_file": "HANDOUT.md",
       "source_location": "L1751",
+      "_origin": "ast"
+    },
+    {
+      "id": "handout_32_a_job_s_completion_handler_must_be_a_qobject_s_slot_or_be_wrapped_d_051",
+      "label": "32. A job's completion handler must be a QObject's slot, or be wrapped (D-051)",
+      "file_type": "document",
+      "source_file": "HANDOUT.md",
+      "source_location": "L1791",
       "_origin": "ast"
     },
     {
@@ -113565,12 +113773,23 @@
     },
     {
       "source": "src_avialsync_ui_controllers_changes_export_controller",
+      "target": "src_avialsync_ui_job_manager",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_controllers_changes_export_controller",
       "target": "src_avialsync_ui_main_window",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113580,7 +113799,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L46",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113591,7 +113810,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L46",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113602,7 +113821,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L46",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113612,7 +113831,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L103",
+      "source_location": "L104",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113623,7 +113842,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L103",
+      "source_location": "L104",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113633,7 +113852,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L107",
+      "source_location": "L108",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113644,7 +113863,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L107",
+      "source_location": "L108",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113655,7 +113874,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L107",
+      "source_location": "L108",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113665,7 +113884,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L121",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113676,7 +113895,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L121",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113686,7 +113905,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L170",
+      "source_location": "L174",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113697,7 +113916,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L170",
+      "source_location": "L174",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113708,7 +113927,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L170",
+      "source_location": "L174",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113719,7 +113938,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L55",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113730,7 +113949,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L61",
+      "source_location": "L62",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113741,7 +113960,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L66",
+      "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113752,7 +113971,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L91",
+      "source_location": "L92",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113763,7 +113982,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L111",
+      "source_location": "L112",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113774,7 +113993,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L127",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113785,7 +114004,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L141",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113796,7 +114015,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L191",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -113811,42 +114030,42 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_changes_export_controller_rationale_47",
+      "source": "src_avialsync_ui_controllers_changes_export_controller_rationale_48",
       "target": "src_avialsync_ui_controllers_changes_export_controller_available_exports",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L47",
+      "source_location": "L48",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_changes_export_controller_rationale_108",
+      "source": "src_avialsync_ui_controllers_changes_export_controller_rationale_109",
       "target": "src_avialsync_ui_controllers_changes_export_controller_annotation_target",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L108",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_changes_export_controller_rationale_122",
+      "source": "src_avialsync_ui_controllers_changes_export_controller_rationale_123",
       "target": "src_avialsync_ui_controllers_changes_export_controller_export_changes",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L122",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_changes_export_controller_rationale_171",
+      "source": "src_avialsync_ui_controllers_changes_export_controller_rationale_175",
       "target": "src_avialsync_ui_controllers_changes_export_controller_job_for",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L171",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116622,7 +116841,7 @@
     },
     {
       "source": "src_avialsync_ui_controllers_session_controller",
-      "target": "src_avialsync_ui_recent_files",
+      "target": "src_avialsync_ui_job_manager",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -116633,12 +116852,23 @@
     },
     {
       "source": "src_avialsync_ui_controllers_session_controller",
+      "target": "src_avialsync_ui_recent_files",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/controllers/session_controller.py",
+      "source_location": "L33",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_controllers_session_controller",
       "target": "src_avialsync_ui_main_window",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L35",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116648,7 +116878,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L40",
+      "source_location": "L41",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116658,7 +116888,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L51",
+      "source_location": "L52",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116669,7 +116899,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L51",
+      "source_location": "L52",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116679,7 +116909,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L80",
+      "source_location": "L81",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116690,7 +116920,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L80",
+      "source_location": "L81",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116700,7 +116930,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L96",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116711,7 +116941,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L96",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116722,7 +116952,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L96",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116732,7 +116962,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L169",
+      "source_location": "L170",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116743,7 +116973,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L169",
+      "source_location": "L170",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116753,7 +116983,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L184",
+      "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116764,7 +116994,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L184",
+      "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116775,7 +117005,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L184",
+      "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116785,7 +117015,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L246",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116796,7 +117026,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L246",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116806,7 +117036,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L259",
+      "source_location": "L263",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116817,7 +117047,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L259",
+      "source_location": "L263",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116828,7 +117058,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L259",
+      "source_location": "L263",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116838,7 +117068,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L299",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116849,7 +117079,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L299",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116859,7 +117089,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L405",
+      "source_location": "L412",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116870,7 +117100,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L405",
+      "source_location": "L412",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116880,7 +117110,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L411",
+      "source_location": "L418",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116891,7 +117121,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L411",
+      "source_location": "L418",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116902,7 +117132,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L411",
+      "source_location": "L418",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116912,7 +117142,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L533",
+      "source_location": "L540",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116923,7 +117153,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L533",
+      "source_location": "L540",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116933,7 +117163,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L552",
+      "source_location": "L559",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116944,7 +117174,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L552",
+      "source_location": "L559",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116954,7 +117184,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L585",
+      "source_location": "L592",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116965,7 +117195,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L585",
+      "source_location": "L592",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116976,7 +117206,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L585",
+      "source_location": "L592",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116986,7 +117216,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L611",
+      "source_location": "L618",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -116997,7 +117227,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L611",
+      "source_location": "L618",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117007,7 +117237,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L637",
+      "source_location": "L644",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117018,7 +117248,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L637",
+      "source_location": "L644",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117028,7 +117258,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L656",
+      "source_location": "L663",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117039,7 +117269,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L656",
+      "source_location": "L663",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117049,7 +117279,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L669",
+      "source_location": "L676",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117060,7 +117290,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L669",
+      "source_location": "L676",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117070,7 +117300,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L682",
+      "source_location": "L689",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117081,7 +117311,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L682",
+      "source_location": "L689",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117092,7 +117322,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L150",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117103,7 +117333,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L181",
+      "source_location": "L182",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117114,7 +117344,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L256",
+      "source_location": "L260",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117125,7 +117355,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L311",
+      "source_location": "L318",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117136,7 +117366,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L431",
+      "source_location": "L438",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117147,7 +117377,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L547",
+      "source_location": "L554",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117158,7 +117388,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L575",
+      "source_location": "L582",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117169,7 +117399,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L580",
+      "source_location": "L587",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117180,7 +117410,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L601",
+      "source_location": "L608",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117191,7 +117421,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L649",
+      "source_location": "L656",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117202,7 +117432,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L666",
+      "source_location": "L673",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117213,7 +117443,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L677",
+      "source_location": "L684",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117224,7 +117454,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L683",
+      "source_location": "L690",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -117239,102 +117469,102 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_session_controller_rationale_41",
+      "source": "src_avialsync_ui_controllers_session_controller_rationale_42",
       "target": "src_avialsync_ui_controllers_session_controller_disconnect",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L41",
+      "source_location": "L42",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_session_controller_rationale_97",
+      "source": "src_avialsync_ui_controllers_session_controller_rationale_98",
       "target": "src_avialsync_ui_controllers_session_controller_build_session_state",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L97",
+      "source_location": "L98",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_session_controller_rationale_300",
+      "source": "src_avialsync_ui_controllers_session_controller_rationale_307",
       "target": "src_avialsync_ui_controllers_session_controller_reset_session",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L300",
+      "source_location": "L307",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_session_controller_rationale_412",
+      "source": "src_avialsync_ui_controllers_session_controller_rationale_419",
       "target": "src_avialsync_ui_controllers_session_controller_restore_session",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L412",
+      "source_location": "L419",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_session_controller_rationale_534",
+      "source": "src_avialsync_ui_controllers_session_controller_rationale_541",
       "target": "src_avialsync_ui_controllers_session_controller_autosave",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L534",
+      "source_location": "L541",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_session_controller_rationale_553",
+      "source": "src_avialsync_ui_controllers_session_controller_rationale_560",
       "target": "src_avialsync_ui_controllers_session_controller_offer_pending_recovery",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L553",
+      "source_location": "L560",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_session_controller_rationale_586",
+      "source": "src_avialsync_ui_controllers_session_controller_rationale_593",
       "target": "src_avialsync_ui_controllers_session_controller_restore_pending_recovery",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L586",
+      "source_location": "L593",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_session_controller_rationale_612",
+      "source": "src_avialsync_ui_controllers_session_controller_rationale_619",
       "target": "src_avialsync_ui_controllers_session_controller_write_recovery_snapshot",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L612",
+      "source_location": "L619",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_session_controller_rationale_638",
+      "source": "src_avialsync_ui_controllers_session_controller_rationale_645",
       "target": "src_avialsync_ui_controllers_session_controller_write_session_snapshot",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L638",
+      "source_location": "L645",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_session_controller_rationale_657",
+      "source": "src_avialsync_ui_controllers_session_controller_rationale_664",
       "target": "src_avialsync_ui_controllers_session_controller_autosave_before_close",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L657",
+      "source_location": "L664",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122447,11 +122677,93 @@
     },
     {
       "source": "src_avialsync_ui_job_manager",
-      "target": "src_avialsync_ui_job_manager_jobstate",
+      "target": "src_avialsync_ui_job_manager_onuithread",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
       "source_location": "L127",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager_onuithread",
+      "target": "src_avialsync_ui_job_manager_py_qobject",
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L127",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager_onuithread",
+      "target": "src_avialsync_ui_job_manager_onuithread_init",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L148",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager_onuithread_init",
+      "target": "src_avialsync_ui_job_manager_py_qobject",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L148",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager_onuithread",
+      "target": "src_avialsync_ui_job_manager_onuithread_deliver",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L154",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager_onuithread",
+      "target": "src_avialsync_ui_job_manager_onuithread_call",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L157",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager",
+      "target": "src_avialsync_ui_job_manager_on_ui_thread",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L161",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager_on_ui_thread",
+      "target": "src_avialsync_ui_job_manager_py_qobject",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L161",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager",
+      "target": "src_avialsync_ui_job_manager_jobstate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L171",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122461,7 +122773,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L127",
+      "source_location": "L171",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122471,7 +122783,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L136",
+      "source_location": "L180",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122481,7 +122793,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L147",
+      "source_location": "L191",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122491,7 +122803,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L150",
+      "source_location": "L194",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122501,7 +122813,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L155",
+      "source_location": "L199",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122511,7 +122823,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L155",
+      "source_location": "L199",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122521,7 +122833,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L161",
+      "source_location": "L205",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122532,7 +122844,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L161",
+      "source_location": "L205",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122542,7 +122854,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L171",
+      "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122553,7 +122865,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L171",
+      "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122564,7 +122876,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L171",
+      "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122574,7 +122886,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L223",
+      "source_location": "L267",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122585,7 +122897,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L223",
+      "source_location": "L267",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122595,7 +122907,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L227",
+      "source_location": "L271",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122605,7 +122917,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L230",
+      "source_location": "L274",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122616,7 +122928,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L230",
+      "source_location": "L274",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122626,7 +122938,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L234",
+      "source_location": "L278",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122636,7 +122948,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L250",
+      "source_location": "L294",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122646,7 +122958,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L256",
+      "source_location": "L300",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122656,7 +122968,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L298",
+      "source_location": "L342",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122667,7 +122979,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L298",
+      "source_location": "L342",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122677,7 +122989,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L308",
+      "source_location": "L352",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122687,7 +122999,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L319",
+      "source_location": "L363",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122697,7 +123009,29 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L330",
+      "source_location": "L374",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager_onuithread_init",
+      "target": "src_avialsync_ui_job_manager_jobmanager_init",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L149",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager_on_ui_thread",
+      "target": "src_avialsync_ui_job_manager_onuithread",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L168",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122708,7 +123042,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L186",
+      "source_location": "L230",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122719,7 +123053,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L187",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122730,7 +123064,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L188",
+      "source_location": "L232",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122741,7 +123075,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L189",
+      "source_location": "L233",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122752,7 +123086,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L236",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122763,7 +123097,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L253",
+      "source_location": "L297",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122774,7 +123108,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L267",
+      "source_location": "L311",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122785,7 +123119,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L299",
+      "source_location": "L343",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -122831,7 +123165,7 @@
     },
     {
       "source": "src_avialsync_ui_job_manager_rationale_128",
-      "target": "src_avialsync_ui_job_manager_jobstate",
+      "target": "src_avialsync_ui_job_manager_onuithread",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
@@ -122840,112 +123174,132 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_137",
+      "source": "src_avialsync_ui_job_manager_rationale_162",
+      "target": "src_avialsync_ui_job_manager_on_ui_thread",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L162",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager_rationale_172",
+      "target": "src_avialsync_ui_job_manager_jobstate",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/job_manager.py",
+      "source_location": "L172",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_job_manager_rationale_181",
       "target": "src_avialsync_ui_job_manager_job",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L137",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_151",
+      "source": "src_avialsync_ui_job_manager_rationale_195",
       "target": "src_avialsync_ui_job_manager_job_can_cancel",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L151",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_156",
+      "source": "src_avialsync_ui_job_manager_rationale_200",
       "target": "src_avialsync_ui_job_manager_jobmanager",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L156",
+      "source_location": "L200",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_177",
+      "source": "src_avialsync_ui_job_manager_rationale_221",
       "target": "src_avialsync_ui_job_manager_jobmanager_start",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L177",
+      "source_location": "L221",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_224",
+      "source": "src_avialsync_ui_job_manager_rationale_268",
       "target": "src_avialsync_ui_job_manager_jobmanager_jobs",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L224",
+      "source_location": "L268",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_231",
+      "source": "src_avialsync_ui_job_manager_rationale_275",
       "target": "src_avialsync_ui_job_manager_jobmanager_stalled_jobs",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L231",
+      "source_location": "L275",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_235",
+      "source": "src_avialsync_ui_job_manager_rationale_279",
       "target": "src_avialsync_ui_job_manager_jobmanager_status_text",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L235",
+      "source_location": "L279",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_251",
+      "source": "src_avialsync_ui_job_manager_rationale_295",
       "target": "src_avialsync_ui_job_manager_jobmanager_cancel_all",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L251",
+      "source_location": "L295",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_257",
+      "source": "src_avialsync_ui_job_manager_rationale_301",
       "target": "src_avialsync_ui_job_manager_jobmanager_shutdown",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L257",
+      "source_location": "L301",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_309",
+      "source": "src_avialsync_ui_job_manager_rationale_353",
       "target": "src_avialsync_ui_job_manager_jobmanager_note_progress",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L309",
+      "source_location": "L353",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_job_manager_rationale_331",
+      "source": "src_avialsync_ui_job_manager_rationale_375",
       "target": "src_avialsync_ui_job_manager_jobmanager_on_thread_finished",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/job_manager.py",
-      "source_location": "L331",
+      "source_location": "L375",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126114,7 +126468,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3021",
+      "source_location": "L3028",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126124,7 +126478,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3040",
+      "source_location": "L3047",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126135,7 +126489,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3040",
+      "source_location": "L3047",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126145,7 +126499,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3070",
+      "source_location": "L3077",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126155,7 +126509,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3084",
+      "source_location": "L3091",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126165,7 +126519,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3103",
+      "source_location": "L3110",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126176,7 +126530,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3103",
+      "source_location": "L3110",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126186,7 +126540,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3127",
+      "source_location": "L3134",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126196,7 +126550,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3196",
+      "source_location": "L3203",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126206,7 +126560,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3202",
+      "source_location": "L3209",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126216,7 +126570,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3210",
+      "source_location": "L3217",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126226,7 +126580,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3220",
+      "source_location": "L3227",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126236,7 +126590,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3326",
+      "source_location": "L3333",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126246,7 +126600,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3342",
+      "source_location": "L3349",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126256,7 +126610,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3355",
+      "source_location": "L3362",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126266,7 +126620,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3377",
+      "source_location": "L3384",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126276,7 +126630,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3381",
+      "source_location": "L3388",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126286,7 +126640,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3387",
+      "source_location": "L3394",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126296,7 +126650,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3413",
+      "source_location": "L3420",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126306,7 +126660,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3426",
+      "source_location": "L3433",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126316,7 +126670,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3432",
+      "source_location": "L3439",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126326,7 +126680,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3439",
+      "source_location": "L3446",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126336,7 +126690,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3448",
+      "source_location": "L3455",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126346,7 +126700,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3458",
+      "source_location": "L3465",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126356,7 +126710,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3482",
+      "source_location": "L3489",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126366,7 +126720,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3486",
+      "source_location": "L3493",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126376,7 +126730,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3494",
+      "source_location": "L3501",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126386,7 +126740,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3500",
+      "source_location": "L3507",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126396,7 +126750,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3505",
+      "source_location": "L3512",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126407,7 +126761,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3505",
+      "source_location": "L3512",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126418,7 +126772,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3505",
+      "source_location": "L3512",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126428,7 +126782,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3513",
+      "source_location": "L3520",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126438,7 +126792,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3516",
+      "source_location": "L3523",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126449,7 +126803,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3516",
+      "source_location": "L3523",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126460,7 +126814,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3516",
+      "source_location": "L3523",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126470,7 +126824,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3519",
+      "source_location": "L3526",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126481,7 +126835,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3519",
+      "source_location": "L3526",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126492,7 +126846,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3519",
+      "source_location": "L3526",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126502,7 +126856,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3523",
+      "source_location": "L3530",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126512,7 +126866,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3526",
+      "source_location": "L3533",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126522,7 +126876,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3529",
+      "source_location": "L3536",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126532,7 +126886,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3544",
+      "source_location": "L3551",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126543,7 +126897,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3544",
+      "source_location": "L3551",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126553,7 +126907,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3558",
+      "source_location": "L3565",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126563,7 +126917,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3561",
+      "source_location": "L3568",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126573,7 +126927,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3564",
+      "source_location": "L3571",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126583,7 +126937,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3567",
+      "source_location": "L3574",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -126593,7 +126947,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3570",
+      "source_location": "L3577",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127660,7 +128014,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3018",
+      "source_location": "L3025",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127671,7 +128025,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3028",
+      "source_location": "L3035",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127682,7 +128036,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3038",
+      "source_location": "L3045",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127693,7 +128047,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3051",
+      "source_location": "L3058",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127704,7 +128058,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3052",
+      "source_location": "L3059",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127715,7 +128069,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3054",
+      "source_location": "L3061",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127726,7 +128080,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3097",
+      "source_location": "L3104",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127737,7 +128091,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3100",
+      "source_location": "L3107",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127748,7 +128102,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3111",
+      "source_location": "L3118",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127759,7 +128113,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3125",
+      "source_location": "L3132",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127770,7 +128124,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3161",
+      "source_location": "L3168",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127781,7 +128135,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3186",
+      "source_location": "L3193",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127792,7 +128146,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3191",
+      "source_location": "L3198",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127803,7 +128157,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3192",
+      "source_location": "L3199",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127814,7 +128168,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3200",
+      "source_location": "L3207",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127825,7 +128179,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3238",
+      "source_location": "L3245",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127836,7 +128190,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3246",
+      "source_location": "L3253",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127847,7 +128201,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3291",
+      "source_location": "L3298",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127858,7 +128212,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3301",
+      "source_location": "L3308",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127869,7 +128223,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3307",
+      "source_location": "L3314",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127880,7 +128234,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3327",
+      "source_location": "L3334",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127891,7 +128245,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3327",
+      "source_location": "L3334",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127902,7 +128256,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3340",
+      "source_location": "L3347",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127913,7 +128267,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3343",
+      "source_location": "L3350",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127924,7 +128278,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3343",
+      "source_location": "L3350",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127935,7 +128289,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3349",
+      "source_location": "L3356",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127946,7 +128300,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3364",
+      "source_location": "L3371",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127957,7 +128311,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3372",
+      "source_location": "L3379",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127968,7 +128322,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3374",
+      "source_location": "L3381",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127979,7 +128333,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3382",
+      "source_location": "L3389",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -127990,7 +128344,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3422",
+      "source_location": "L3429",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128001,7 +128355,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3423",
+      "source_location": "L3430",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128012,7 +128366,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3436",
+      "source_location": "L3443",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128023,7 +128377,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3442",
+      "source_location": "L3449",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128034,7 +128388,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3450",
+      "source_location": "L3457",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128045,7 +128399,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3456",
+      "source_location": "L3463",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128056,7 +128410,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3471",
+      "source_location": "L3478",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128067,7 +128421,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3487",
+      "source_location": "L3494",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128078,7 +128432,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3489",
+      "source_location": "L3496",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128089,7 +128443,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3498",
+      "source_location": "L3505",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128100,7 +128454,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3498",
+      "source_location": "L3505",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128111,7 +128465,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3503",
+      "source_location": "L3510",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128122,7 +128476,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3503",
+      "source_location": "L3510",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128133,7 +128487,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3539",
+      "source_location": "L3546",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -128144,7 +128498,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3540",
+      "source_location": "L3547",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129059,182 +129413,182 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3022",
+      "source": "src_avialsync_ui_main_window_rationale_3029",
       "target": "src_avialsync_ui_main_window_mainwindow_on_trigger_trains_read",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3022",
+      "source_location": "L3029",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3041",
+      "source": "src_avialsync_ui_main_window_rationale_3048",
       "target": "src_avialsync_ui_main_window_mainwindow_source_coverage",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3041",
+      "source_location": "L3048",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3071",
+      "source": "src_avialsync_ui_main_window_rationale_3078",
       "target": "src_avialsync_ui_main_window_mainwindow_evidence_span",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3071",
+      "source_location": "L3078",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3085",
+      "source": "src_avialsync_ui_main_window_rationale_3092",
       "target": "src_avialsync_ui_main_window_mainwindow_on_video_mapping_changed",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3085",
+      "source_location": "L3092",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3104",
+      "source": "src_avialsync_ui_main_window_rationale_3111",
       "target": "src_avialsync_ui_main_window_mainwindow_restore_trigger_sources",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3104",
+      "source_location": "L3111",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3128",
+      "source": "src_avialsync_ui_main_window_rationale_3135",
       "target": "src_avialsync_ui_main_window_mainwindow_open_sync_wizard",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3128",
+      "source_location": "L3135",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3197",
+      "source": "src_avialsync_ui_main_window_rationale_3204",
       "target": "src_avialsync_ui_main_window_mainwindow_on_sync_wizard_accepted",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3197",
+      "source_location": "L3204",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3203",
+      "source": "src_avialsync_ui_main_window_rationale_3210",
       "target": "src_avialsync_ui_main_window_mainwindow_release_sync_wizard",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3203",
+      "source_location": "L3210",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3211",
+      "source": "src_avialsync_ui_main_window_rationale_3218",
       "target": "src_avialsync_ui_main_window_mainwindow_seek_to_evidence",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3211",
+      "source_location": "L3218",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3221",
+      "source": "src_avialsync_ui_main_window_rationale_3228",
       "target": "src_avialsync_ui_main_window_mainwindow_accept_sync_proposal",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3221",
+      "source_location": "L3228",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3356",
+      "source": "src_avialsync_ui_main_window_rationale_3363",
       "target": "src_avialsync_ui_main_window_mainwindow_on_sensor_mapping_changed",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3356",
+      "source_location": "L3363",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3378",
+      "source": "src_avialsync_ui_main_window_rationale_3385",
       "target": "src_avialsync_ui_main_window_mainwindow_on_channel_remove_requested",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3378",
+      "source_location": "L3385",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3388",
+      "source": "src_avialsync_ui_main_window_rationale_3395",
       "target": "src_avialsync_ui_main_window_mainwindow_focused_video_path",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3388",
+      "source_location": "L3395",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3414",
+      "source": "src_avialsync_ui_main_window_rationale_3421",
       "target": "src_avialsync_ui_main_window_mainwindow_select_video",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3414",
+      "source_location": "L3421",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3433",
+      "source": "src_avialsync_ui_main_window_rationale_3440",
       "target": "src_avialsync_ui_main_window_mainwindow_on_source_format_detected",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3433",
+      "source_location": "L3440",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3449",
+      "source": "src_avialsync_ui_main_window_rationale_3456",
       "target": "src_avialsync_ui_main_window_mainwindow_on_auto_levels_requested",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3449",
+      "source_location": "L3456",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3461",
+      "source": "src_avialsync_ui_main_window_rationale_3468",
       "target": "src_avialsync_ui_main_window_mainwindow_on_channel_group_visibility_changed",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3461",
+      "source_location": "L3468",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_main_window_rationale_3483",
+      "source": "src_avialsync_ui_main_window_rationale_3490",
       "target": "src_avialsync_ui_main_window_mainwindow_on_plot_channel_close_requested",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3483",
+      "source_location": "L3490",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -231917,6 +232271,321 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "ast",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L18",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "pathlib",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L19",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "pytest",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L21",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "pyside6_qtcore",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L22",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "src_avialsync_ui_job_manager",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "tests_test_ui_thread_marshalling_emitter",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L32",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_emitter",
+      "target": "tests_test_ui_thread_marshalling_py_qobject",
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L32",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_emitter",
+      "target": "tests_test_ui_thread_marshalling_emitter_run",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L37",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "tests_test_ui_thread_marshalling_thread_of_delivery",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_thread_of_delivery",
+      "target": "tests_test_ui_thread_marshalling_py_qthread",
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "tests_test_ui_thread_marshalling_test_a_wrapped_handler_runs_on_the_ui_thread",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "tests_test_ui_thread_marshalling_test_a_bare_closure_does_not",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "tests_test_ui_thread_marshalling_test_a_queued_connection_is_not_the_fix",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L78",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "tests_test_ui_thread_marshalling_unmarshalled_worker_connections",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L92",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_unmarshalled_worker_connections",
+      "target": "tests_test_ui_thread_marshalling_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L92",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling",
+      "target": "tests_test_ui_thread_marshalling_test_no_worker_signal_is_connected_to_a_bare_callable",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L121",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_test_no_worker_signal_is_connected_to_a_bare_callable",
+      "target": "tests_test_ui_thread_marshalling_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L121",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_thread_of_delivery",
+      "target": "tests_test_ui_thread_marshalling_py_qobject",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_thread_of_delivery",
+      "target": "tests_test_ui_thread_marshalling_emitter",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L44",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_thread_of_delivery",
+      "target": "tests_test_ui_thread_marshalling_py_qthread",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L45",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_test_a_wrapped_handler_runs_on_the_ui_thread",
+      "target": "tests_test_ui_thread_marshalling_thread_of_delivery",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L63",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_test_a_bare_closure_does_not",
+      "target": "tests_test_ui_thread_marshalling_thread_of_delivery",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L73",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_test_a_queued_connection_is_not_the_fix",
+      "target": "tests_test_ui_thread_marshalling_thread_of_delivery",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L81",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_test_no_worker_signal_is_connected_to_a_bare_callable",
+      "target": "tests_test_ui_thread_marshalling_unmarshalled_worker_connections",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L122",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_rationale_1",
+      "target": "tests_test_ui_thread_marshalling",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_rationale_33",
+      "target": "tests_test_ui_thread_marshalling_emitter",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L33",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_rationale_42",
+      "target": "tests_test_ui_thread_marshalling_thread_of_delivery",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L42",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_rationale_72",
+      "target": "tests_test_ui_thread_marshalling_test_a_bare_closure_does_not",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L72",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_rationale_79",
+      "target": "tests_test_ui_thread_marshalling_test_a_queued_connection_is_not_the_fix",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ui_thread_marshalling_rationale_93",
+      "target": "tests_test_ui_thread_marshalling_unmarshalled_worker_connections",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L93",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_ui_time_format",
       "target": "datetime",
       "relation": "imports",
@@ -246083,6 +246752,16 @@
       "_origin": "ast"
     },
     {
+      "source": "handout_performance_budgets_engineering_certified_where",
+      "target": "handout_32_a_job_s_completion_handler_must_be_a_qobject_s_slot_or_be_wrapped_d_051",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "HANDOUT.md",
+      "source_location": "L1791",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "migration_pyav",
       "target": "migration_pyav_migration_pyav_md_libmpv_pyav_and_a_pip_only_install",
       "relation": "contains",
@@ -251466,12 +252145,23 @@
     },
     {
       "source": "src_avialsync_ui_controllers_changes_export_controller",
+      "target": "src_avialsync_ui_job_manager_on_ui_thread",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_controllers_changes_export_controller",
       "target": "src_avialsync_ui_main_window_mainwindow",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -251482,7 +252172,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L146",
+      "source_location": "L147",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -251493,7 +252183,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L176",
+      "source_location": "L180",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -251504,7 +252194,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L176",
+      "source_location": "L180",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -251515,7 +252205,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L176",
+      "source_location": "L180",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -252082,12 +252772,23 @@
     },
     {
       "source": "src_avialsync_ui_controllers_session_controller",
-      "target": "src_avialsync_ui_recent_files_add_recent",
+      "target": "src_avialsync_ui_job_manager_on_ui_thread",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
       "source_location": "L32",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_controllers_session_controller",
+      "target": "src_avialsync_ui_recent_files_add_recent",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/controllers/session_controller.py",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -252098,7 +252799,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L32",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -252109,7 +252810,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L35",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -252120,7 +252821,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L98",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -252131,7 +252832,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L192",
+      "source_location": "L193",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -252142,7 +252843,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L260",
+      "source_location": "L264",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -252153,7 +252854,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L442",
+      "source_location": "L449",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -252164,7 +252865,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L482",
+      "source_location": "L489",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -252175,7 +252876,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L499",
+      "source_location": "L506",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -252186,7 +252887,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L512",
+      "source_location": "L519",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -253248,6 +253949,17 @@
     },
     {
       "source": "src_avialsync_ui_main_window",
+      "target": "src_avialsync_ui_job_manager_on_ui_thread",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/main_window.py",
+      "source_location": "L87",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_main_window",
       "target": "src_avialsync_ui_levels_panel_levelspanel",
       "relation": "imports",
       "context": "import",
@@ -253693,7 +254405,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3129",
+      "source_location": "L3136",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -253704,7 +254416,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3129",
+      "source_location": "L3136",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -253715,7 +254427,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3134",
+      "source_location": "L3141",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -253726,7 +254438,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3222",
+      "source_location": "L3229",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -253737,7 +254449,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3347",
+      "source_location": "L3354",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -256630,7 +257342,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L57",
+      "source_location": "L58",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -256641,7 +257353,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L130",
+      "source_location": "L131",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -256652,7 +257364,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L134",
+      "source_location": "L135",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -256663,7 +257375,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L148",
+      "source_location": "L149",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_controllers_changes_export_controller_export_changes",
+      "target": "src_avialsync_ui_job_manager_on_ui_thread",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
+      "source_location": "L166",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -256674,7 +257397,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L183",
+      "source_location": "L187",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -256685,7 +257408,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L184",
+      "source_location": "L188",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -256696,7 +257419,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L190",
+      "source_location": "L194",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -256707,7 +257430,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L199",
+      "source_location": "L203",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257235,7 +257958,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L105",
+      "source_location": "L106",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257246,7 +257969,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L123",
+      "source_location": "L124",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257257,7 +257980,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L137",
+      "source_location": "L138",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257268,7 +257991,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L157",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257279,7 +258002,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L194",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257290,7 +258013,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L203",
+      "source_location": "L204",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257301,7 +258024,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L216",
+      "source_location": "L217",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_controllers_session_controller_start_session_save",
+      "target": "src_avialsync_ui_job_manager_on_ui_thread",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/controllers/session_controller.py",
+      "source_location": "L230",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257312,7 +258046,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L263",
+      "source_location": "L267",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257323,7 +258057,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L271",
+      "source_location": "L275",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257334,7 +258068,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L276",
+      "source_location": "L280",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_controllers_session_controller_start_session_load",
+      "target": "src_avialsync_ui_job_manager_on_ui_thread",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/controllers/session_controller.py",
+      "source_location": "L290",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257345,7 +258090,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L408",
+      "source_location": "L415",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257356,7 +258101,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L444",
+      "source_location": "L451",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257367,7 +258112,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L484",
+      "source_location": "L491",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257378,7 +258123,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L516",
+      "source_location": "L523",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257389,7 +258134,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L572",
+      "source_location": "L579",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257400,7 +258145,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L597",
+      "source_location": "L604",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257411,7 +258156,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L653",
+      "source_location": "L660",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257422,7 +258167,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L671",
+      "source_location": "L678",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257433,7 +258178,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L673",
+      "source_location": "L680",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257444,7 +258189,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L689",
+      "source_location": "L696",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -263462,7 +264207,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3129",
+      "source_location": "L3136",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -263472,7 +264217,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3129",
+      "source_location": "L3136",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -263482,7 +264227,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3129",
+      "source_location": "L3136",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -263492,7 +264237,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3129",
+      "source_location": "L3136",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -263502,7 +264247,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3134",
+      "source_location": "L3141",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -263512,7 +264257,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3134",
+      "source_location": "L3141",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -263522,7 +264267,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3222",
+      "source_location": "L3229",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -263532,7 +264277,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3222",
+      "source_location": "L3229",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -263542,7 +264287,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3347",
+      "source_location": "L3354",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -263552,7 +264297,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3347",
+      "source_location": "L3354",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -272634,7 +273379,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L119",
+      "source_location": "L120",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274218,7 +274963,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3027",
+      "source_location": "L3034",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274230,7 +274975,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3049",
+      "source_location": "L3056",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274242,7 +274987,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3114",
+      "source_location": "L3121",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274254,7 +274999,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3137",
+      "source_location": "L3144",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274266,7 +275011,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3151",
+      "source_location": "L3158",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274278,7 +275023,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3178",
+      "source_location": "L3185",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274290,7 +275035,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3185",
+      "source_location": "L3192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274302,7 +275047,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3198",
+      "source_location": "L3205",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274314,7 +275059,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3200",
+      "source_location": "L3207",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274326,7 +275071,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3224",
+      "source_location": "L3231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274338,7 +275083,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3292",
+      "source_location": "L3299",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274350,7 +275095,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3327",
+      "source_location": "L3334",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274362,7 +275107,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3343",
+      "source_location": "L3350",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274374,7 +275119,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3349",
+      "source_location": "L3356",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274386,7 +275131,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3379",
+      "source_location": "L3386",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274398,7 +275143,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3382",
+      "source_location": "L3389",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274410,7 +275155,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3383",
+      "source_location": "L3390",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274422,7 +275167,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3434",
+      "source_location": "L3441",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274434,7 +275179,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3440",
+      "source_location": "L3447",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274446,7 +275191,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3468",
+      "source_location": "L3475",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274458,7 +275203,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3472",
+      "source_location": "L3479",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274470,7 +275215,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/main_window.py",
-      "source_location": "L3488",
+      "source_location": "L3495",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -296171,6 +296916,18 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_ui_thread_marshalling_test_a_wrapped_handler_runs_on_the_ui_thread",
+      "target": "src_avialsync_ui_job_manager_on_ui_thread",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_ui_thread_marshalling.py",
+      "source_location": "L65",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_ui_time_format_testformattimerelative_test_zero",
       "target": "src_avialsync_ui_time_format_format_time",
       "relation": "calls",
@@ -297582,7 +298339,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L76",
+      "source_location": "L77",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297594,7 +298351,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L80",
+      "source_location": "L81",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297606,7 +298363,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L92",
+      "source_location": "L93",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297618,7 +298375,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L187",
+      "source_location": "L191",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297630,7 +298387,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/changes_export_controller.py",
-      "source_location": "L195",
+      "source_location": "L199",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297678,7 +298435,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L165",
+      "source_location": "L166",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297690,7 +298447,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L308",
+      "source_location": "L315",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297702,7 +298459,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L425",
+      "source_location": "L432",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297714,7 +298471,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L453",
+      "source_location": "L460",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297726,7 +298483,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L486",
+      "source_location": "L493",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297738,7 +298495,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L506",
+      "source_location": "L513",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297750,7 +298507,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L566",
+      "source_location": "L573",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297762,7 +298519,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L593",
+      "source_location": "L600",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297774,7 +298531,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L603",
+      "source_location": "L610",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297786,7 +298543,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L631",
+      "source_location": "L638",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297798,7 +298555,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L632",
+      "source_location": "L639",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -297810,7 +298567,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/session_controller.py",
-      "source_location": "L634",
+      "source_location": "L641",
       "weight": 1.0,
       "_origin": "ast"
     },
