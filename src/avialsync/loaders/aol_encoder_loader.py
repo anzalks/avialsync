@@ -3,7 +3,10 @@
 Parses MATLAB-generated encoder_log.txt files with space-separated columns:
     HH:MM:SS:mmm  counter  position  velocity
 
-Only the velocity channel is imported.
+Two channels are imported: the velocity, and the position unwrapped into a
+cumulative angle (``encoder_angle``, degrees). The angle is what hand-placed
+3D markers rotate by with the wheel: it counts whole turns exactly, where
+integrating the velocity drifts.
 
 Master-time axis (do not "fix" this without reading DECISIONS.md):
     Within an auto-detected AOL session, encoder timestamps are emitted as
@@ -50,6 +53,9 @@ _TIME_RE = re.compile(r"^(\d{2}):(\d{2}):(\d{2}):(\d{3})$")
 
 _CHUNK_SIZE = 50_000
 _VELOCITY_CHANNEL = "encoder_velocity"
+_ANGLE_CHANNEL = "encoder_angle"
+#: Column holding each channel's value in a log line.
+_COLUMN = {_VELOCITY_CHANNEL: 3, _ANGLE_CHANNEL: 2}
 # A backward jump larger than half a day is a date rollover, not bad data.
 _ROLLOVER_THRESHOLD_S = 43_200.0
 _SECONDS_PER_DAY = 86_400.0
@@ -115,14 +121,17 @@ class AOLEncoderLoader(TimeSeriesSource):
             )
 
     def channels(self) -> list[ChannelInfo]:
-        """Return a single velocity channel.
+        """Return the velocity and the unwrapped angle.
 
         ``rate_hz`` stays ``None``: the logger writes at roughly 1 kHz but only
         millisecond resolution, so repeated timestamps are collapsed on ingest
         and the effective interval is genuinely irregular.
         """
         return [
-            ChannelInfo(name=_VELOCITY_CHANNEL, unit="deg/s", dtype="Float64", rate_hz=None),
+            # RPM: six times its integral tracks the angle to within ~1 deg per
+            # minute of recording, where deg/s would be off sixfold.
+            ChannelInfo(name=_VELOCITY_CHANNEL, unit="rpm", dtype="Float64", rate_hz=None),
+            ChannelInfo(name=_ANGLE_CHANNEL, unit="deg", dtype="Float64", rate_hz=None),
         ]
 
     @staticmethod
@@ -141,8 +150,14 @@ class AOLEncoderLoader(TimeSeriesSource):
         carries them, so chronology checks and duplicate collapsing behave
         identically whether two samples land in one chunk or straddle two.
         """
-        if ch != _VELOCITY_CHANNEL:
-            raise MissingColumnError(ch, [_VELOCITY_CHANNEL])
+        if ch not in _COLUMN:
+            raise MissingColumnError(ch, list(_COLUMN))
+        column = _COLUMN[ch]
+        # The position wraps at 360; the angle channel carries it on, so a
+        # wheel that has turned three times reads 1080 rather than 0. A step of
+        # more than half a turn in one millisecond is a wrap, never motion.
+        angle_previous: float | None = None
+        angle_total = 0.0
 
         if self._path is None:
             raise SourceOpenError(
@@ -185,13 +200,25 @@ class AOLEncoderLoader(TimeSeriesSource):
                     t_sec -= first_t
 
                 try:
-                    velocity = float(parts[3])
+                    value = float(parts[column])
                 except ValueError:
-                    logger.warning("Unparseable velocity at line %d: %s", line_no, parts[3])
+                    logger.warning("Unparseable %s at line %d: %s", ch, line_no, parts[column])
                     continue
+                if ch == _ANGLE_CHANNEL:
+                    if angle_previous is None:
+                        angle_total = value
+                    else:
+                        step = value - angle_previous
+                        if step > 180.0:
+                            step -= 360.0
+                        elif step < -180.0:
+                            step += 360.0
+                        angle_total += step
+                    angle_previous = value
+                    value = angle_total
 
                 times.append(unwrap.advance(t_sec))
-                values.append(velocity)
+                values.append(value)
 
                 if len(times) >= _CHUNK_SIZE:
                     chunk, pending = self._finish_chunk(times, values, pending, row_offset)

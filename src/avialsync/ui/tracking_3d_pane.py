@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt
 from PySide6.QtGui import (
+    QAction,
     QColor,
     QMouseEvent,
     QPainter,
@@ -31,6 +32,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skeleton
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.action_button import ActionButton
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import neutral_on_canvas
 from avialsync.ui.tracking_colors import color_for_point, register_points
@@ -42,6 +44,12 @@ from avialsync.ui.tracking_skeleton import (
 )
 
 _MAX_LABELS = 24
+#: Hand-placed markers are hollow and wider than a tracked point, matching the
+#: ring the video overlay draws, so the two are never read as the same kind.
+_CUSTOM_RADIUS = 7
+
+#: ``t_master -> [(name, xyz)]``: the hand-placed markers on the frame at *t*.
+CustomPointSource = Callable[[float], list[tuple[str, np.ndarray]]]
 _SAMPLE_TOLERANCE_S = 0.1
 
 # ── Achromatic structure, stated as distance from the canvas ─────────────
@@ -261,6 +269,9 @@ class Tracking3DCanvas(QWidget):
         self._positions = np.empty((0, 3), dtype=np.float64)
         self._valid = np.empty(0, dtype=bool)
         self._time = 0.0
+        #: Hand-placed 3D markers: where to ask, and what it said at ``_time``.
+        self._custom_source: CustomPointSource | None = None
+        self._custom_points: list[tuple[str, np.ndarray]] = []
 
         # Topology the data declared, and topology derived from its geometry.
         # They are kept apart so a declared skeleton is never diluted by a
@@ -301,6 +312,24 @@ class Tracking3DCanvas(QWidget):
     def point_count(self) -> int:
         """Number of complete XYZ points available to the view."""
         return len(self._names)
+
+    @property
+    def custom_count(self) -> int:
+        """Hand-placed 3D markers shown at the current time."""
+        return len(self._custom_points)
+
+    def set_custom_point_source(self, source: CustomPointSource | None) -> None:
+        """Ask *source* for the hand-placed markers every time the cursor moves."""
+        self._custom_source = source
+        self.set_cursor(self._time)
+
+    def _drawn_positions(self) -> np.ndarray:
+        """Every position on screen now: valid tracked points, then custom ones."""
+        tracked = self._positions[self._valid]
+        if not self._custom_points:
+            return tracked
+        custom = np.asarray([xyz for _, xyz in self._custom_points], dtype=np.float64)
+        return np.vstack((tracked.reshape(-1, 3), custom))
 
     @property
     def point_names(self) -> tuple[str, ...]:
@@ -475,6 +504,13 @@ class Tracking3DCanvas(QWidget):
                 self._positions[position_index] = values
                 position_index += 1
         self._valid = np.all(np.isfinite(self._positions), axis=1)
+        self._custom_points = []
+        if self._custom_source is not None:
+            self._custom_points = [
+                (name, np.asarray(xyz, dtype=np.float64))
+                for name, xyz in self._custom_source(t_master)
+                if np.all(np.isfinite(xyz))
+            ]
         self._expand_scene_bounds()
         self.update()
 
@@ -488,7 +524,7 @@ class Tracking3DCanvas(QWidget):
         nothing in the view said why. Fit View means fit to this and stay
         there; loading different tracking releases the hold.
         """
-        valid_positions = self._to_view(self._positions[self._valid])
+        valid_positions = self._to_view(self._drawn_positions())
         if len(valid_positions) == 0:
             return
         self._scene_min = np.min(valid_positions, axis=0)
@@ -510,7 +546,7 @@ class Tracking3DCanvas(QWidget):
         """Widen the camera bounds to include the current pose, unless held."""
         if self._bounds_held:
             return
-        valid_positions = self._to_view(self._positions[self._valid])
+        valid_positions = self._to_view(self._drawn_positions())
         if len(valid_positions) == 0:
             return
         current_min = np.min(valid_positions, axis=0)
@@ -607,6 +643,10 @@ class Tracking3DCanvas(QWidget):
         self._draw_grid(painter, width, height, palette)
 
         valid_indices = np.flatnonzero(self._valid)
+        if len(valid_indices) == 0 and self._custom_points:
+            self._draw_custom_points(painter, width, height, palette)
+            self._draw_corner_axes(painter, width, height)
+            return
         if len(valid_indices) == 0:
             painter.setPen(palette.color(QPalette.ColorRole.PlaceholderText))
             message = (
@@ -644,7 +684,28 @@ class Tracking3DCanvas(QWidget):
                 painter.setPen(label_color)
                 painter.drawText(round(float(x)) + 7, round(float(y)) - 5, self._names[point_index])
 
+        self._draw_custom_points(painter, width, height, palette)
         self._draw_corner_axes(painter, width, height)
+
+    def _draw_custom_points(
+        self, painter: QPainter, width: int, height: int, palette: QPalette
+    ) -> None:
+        """Hand-placed markers: hollow rings on top of the pose, always named."""
+        if not self._custom_points:
+            return
+        positions = np.asarray([xyz for _, xyz in self._custom_points], dtype=np.float64)
+        screen, _ = self._project(positions, width, height)
+        outline = QPen(neutral_on_canvas(palette, _POINT_OUTLINE_WEIGHT), 4)
+        label_color = palette.color(QPalette.ColorRole.Text)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        for (name, _), (x, y) in zip(self._custom_points, screen, strict=True):
+            centre = QPoint(round(float(x)), round(float(y)))
+            painter.setPen(outline)
+            painter.drawEllipse(centre, _CUSTOM_RADIUS, _CUSTOM_RADIUS)
+            painter.setPen(QPen(_qcolor(color_for_point(name)), 2))
+            painter.drawEllipse(centre, _CUSTOM_RADIUS, _CUSTOM_RADIUS)
+            painter.setPen(label_color)
+            painter.drawText(centre.x() + _CUSTOM_RADIUS + 2, centre.y() - 5, name)
 
     def _draw_skeleton(
         self,
@@ -921,12 +982,26 @@ class Tracking3DPane(QWidget):
         header_layout.addWidget(self.up_axis_combo, 2, 0)
         header_layout.addWidget(self.bone_combo, 2, 1)
         header_layout.addWidget(self.fit_button, 2, 2)
+        # Filled by install_reprojection_action with the View -> Overlays
+        # action, so the button and the menu entry are one command (rule 15).
+        # Beside the title: it is about the videos, not about this view.
+        self.reprojection_button = ActionButton(header)
+        self.reprojection_button.hide()
+        header_layout.addWidget(self.reprojection_button, 0, 2)
         header_layout.setColumnStretch(0, 1)
         header_layout.setColumnStretch(1, 1)
 
         self.canvas = Tracking3DCanvas(self)
         layout.addWidget(header)
         layout.addWidget(self.canvas, 1)
+
+    def install_reprojection_action(self, action: QAction) -> None:
+        """Show the 3D -> 2D reprojection toggle, driven by its overlay action."""
+        self.reprojection_button.set_action(action)
+        self.reprojection_button.setAccessibleDescription(
+            tr("Project the 3D points back onto every camera through the calibration")
+        )
+        self.reprojection_button.show()
 
     def set_readers(self, readers: list[MappedChannelReader]) -> None:
         """Use complete XYZ channel triplets from the active cached readers."""

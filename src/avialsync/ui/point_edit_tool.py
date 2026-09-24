@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "PointEditMixin",
+    "CUSTOM_MARKER_SOURCE",
     "CORRECTION_RADIUS",
     "HANDLE_RADIUS",
     "HIT_RADIUS",
@@ -47,6 +48,12 @@ HIT_RADIUS = 14
 #: Ring drawn around a point the Changes panel has navigated to. Wider than
 #: both, so it reads as "this one" rather than as another marker.
 REVISIT_RADIUS = 14
+
+#: ``PointKey.source_id`` of a hand-placed 3D marker. A custom marker belongs to
+#: no pose file, so its key names this instead; a drag of one leaves on
+#: ``custom_point_moved`` rather than ``point_moved``, and never reaches the
+#: correction store.
+CUSTOM_MARKER_SOURCE = "<custom-marker>"
 
 
 @dataclass
@@ -72,6 +79,10 @@ class PointEditMixin(QWidget):
     #: The canvas does not apply it: the window routes it through the command
     #: bus so the correction is undoable and marks the document dirty (rule 14).
     point_moved = Signal(object)
+    #: ``(name, frame, x, y)`` when a hand-placed 3D marker has been dragged.
+    custom_point_moved = Signal(str, int, float, float)
+    #: ``(x, y)`` in video pixels: a left click while placing a 3D marker.
+    marker_clicked = Signal(float, float)
 
     # ── supplied by the host canvas ──────────────────────────────────
     tracks: list[OverlayTrack]
@@ -80,6 +91,9 @@ class PointEditMixin(QWidget):
         raise NotImplementedError
 
     def _video_scale(self) -> tuple[float, float, float] | None:  # pragma: no cover - host
+        raise NotImplementedError
+
+    def _resolve_custom(self) -> list[ResolvedPoint]:  # pragma: no cover - host
         raise NotImplementedError
 
     # ── state ────────────────────────────────────────────────────────
@@ -96,6 +110,8 @@ class PointEditMixin(QWidget):
         #: gesture, and with nine markers on screen landing on the right frame
         #: is only half the answer.
         self._highlight: PointKey | None = None
+        #: Placing a new 3D marker: a left click anywhere names its position.
+        self._place_mode = False
 
     def set_point_edits(self, edits: PointEditStore | None) -> None:
         """Adopt the session's correction store, or drop it."""
@@ -114,11 +130,28 @@ class PointEditMixin(QWidget):
         if enabled == self._edit_mode:
             return
         self._edit_mode = enabled
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, not enabled)
-        self.setMouseTracking(enabled)
         self._drag = None
         self._hover = None
-        if enabled:
+        self._capture_mouse()
+
+    def set_place_mode(self, enabled: bool) -> None:
+        """Take a left click anywhere as the position of a new 3D marker.
+
+        Same capture as edit mode -- everything else still reaches the video
+        surface -- but a click places rather than grabs.
+        """
+        enabled = bool(enabled)
+        if enabled == self._place_mode:
+            return
+        self._place_mode = enabled
+        self._capture_mouse()
+
+    def _capture_mouse(self) -> None:
+        """Take the pointer while either mode is on, and give it back after."""
+        active = self._edit_mode or self._place_mode
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, not active)
+        self.setMouseTracking(active)
+        if active:
             self.setCursor(Qt.CursorShape.CrossCursor)
         else:
             self.unsetCursor()
@@ -205,8 +238,11 @@ class PointEditMixin(QWidget):
         best: ResolvedPoint | None = None
         best_distance = float(HIT_RADIUS)
         best_is_ensemble = False
-        for track in self.tracks:
-            for point in self._resolve(track):
+        candidates = [(track.is_ensemble, self._resolve(track)) for track in self.tracks]
+        # A hand-placed marker is drawn on top of everything, so it wins ties.
+        candidates.append((True, self._resolve_custom()))
+        for is_ensemble, points in candidates:
+            for point in points:
                 if point.key is None:
                     continue
                 dx = offset_x + point.x * scale - widget_x
@@ -215,13 +251,25 @@ class PointEditMixin(QWidget):
                 if distance > HIT_RADIUS:
                     continue
                 better = distance < best_distance or (
-                    track.is_ensemble and not best_is_ensemble and distance <= best_distance
+                    is_ensemble and not best_is_ensemble and distance <= best_distance
                 )
                 if better:
                     best = point
                     best_distance = distance
-                    best_is_ensemble = track.is_ensemble
+                    best_is_ensemble = is_ensemble
         return best
+
+    def custom_marker_at(self, widget_x: float, widget_y: float) -> ResolvedPoint | None:
+        """The hand-placed 3D marker under *(widget_x, widget_y)*, if any.
+
+        DLC points are deliberately not candidates: this is what the pane's
+        context menu asks before offering to delete a marker, and a model's
+        prediction is not the user's to delete.
+        """
+        point = self.point_at(widget_x, widget_y)
+        if point is None or point.key is None or point.key.source_id != CUSTOM_MARKER_SOURCE:
+            return None
+        return point
 
     def _to_video(self, widget_x: float, widget_y: float) -> tuple[float, float] | None:
         """Convert widget coordinates to video pixels, clamped to the frame."""
@@ -258,6 +306,13 @@ class PointEditMixin(QWidget):
         QApplication.sendEvent(surface, event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
+        if self._place_mode and event.button() == Qt.MouseButton.LeftButton:
+            position = event.position()
+            placed = self._to_video(position.x(), position.y())
+            if placed is not None:
+                self.marker_clicked.emit(float(placed[0]), float(placed[1]))
+            event.accept()
+            return
         if not self._edit_mode or event.button() != Qt.MouseButton.LeftButton:
             self._forward(event)
             return
@@ -268,7 +323,10 @@ class PointEditMixin(QWidget):
             # mode behaves as it does everywhere else.
             self._forward(event)
             return
-        before = self._edits.get(point.key) if self._edits is not None else None
+        if point.key.source_id == CUSTOM_MARKER_SOURCE:
+            before: tuple[float, float] | None = (point.x, point.y)
+        else:
+            before = self._edits.get(point.key) if self._edits is not None else None
         self._drag = _Drag(
             key=point.key, name=point.name, before=before, position=(point.x, point.y)
         )
@@ -310,6 +368,9 @@ class PointEditMixin(QWidget):
         if drag.before is not None and drag.before == after:
             # A click that put the point back exactly where it already was is
             # not an edit; pushing it would add an undo step that does nothing.
+            return
+        if drag.key.source_id == CUSTOM_MARKER_SOURCE:
+            self.custom_point_moved.emit(drag.key.point, drag.key.index, after[0], after[1])
             return
         self.point_moved.emit(PointMove(key=drag.key, before=drag.before, after=after))
 

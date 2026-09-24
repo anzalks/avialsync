@@ -87,6 +87,28 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         ),
     ),
     OverlayLayer(
+        overlay_id="tracking.custom_markers",
+        label="Hand-placed 3D markers",
+        group="Tracking",
+        default_visible=True,
+        description=(
+            "Markers you placed with Add 3D Marker, drawn as hollow rings so "
+            "they are never mistaken for the model's own points."
+        ),
+    ),
+    OverlayLayer(
+        overlay_id="tracking.reprojection",
+        label="3D reprojection",
+        group="Tracking",
+        # Off by default: it needs a calibration, and switching it on is what
+        # asks for one.
+        default_visible=False,
+        description=(
+            "The 3D points projected back into each camera through the "
+            "calibration, drawn as crosses beside the 2D tracking."
+        ),
+    ),
+    OverlayLayer(
         overlay_id="tracking.edit_handles",
         label="Fix Tracker handles",
         group="Tracking",

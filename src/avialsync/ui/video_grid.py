@@ -44,6 +44,10 @@ class VideoGrid(QWidget):
     #: A finished "Fix Tracker" drag in any pane, as a
     #: :class:`~avialsync.core.point_edits.PointMove`.
     point_moved = Signal(object)
+    #: ``(path, x, y)``: a click placing a new 3D marker in one camera.
+    marker_clicked = Signal(str, float, float)
+    #: ``(path, name, frame, x, y)``: a hand-placed 3D marker was dragged.
+    custom_point_moved = Signal(str, str, int, float, float)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -64,6 +68,13 @@ class VideoGrid(QWidget):
         #: state the rest of the grid is in, not in the default one.
         self._point_edits: object | None = None
         self._point_edit_mode = False
+        #: Hand-placed 3D markers per camera path, and whether a new one is
+        #: being placed; held for a pane built later, as above.
+        self._custom_markers: dict[str, dict[int, list[tuple[str, float, float]]]] = {}
+        self._marker_place_mode = False
+        #: ``(path, t_master) -> [(name, x, y)]``: 3D points projected into a camera.
+        self._reprojection: Callable[[str, float], list] | None = None
+        self._riding: Callable[[str, float], list] | None = None
 
         self._layout = QGridLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
@@ -231,6 +242,55 @@ class VideoGrid(QWidget):
         for pane in self.panes:
             pane.paint_canvas.update()
 
+    def set_custom_markers(
+        self, path: str, markers: dict[int, list[tuple[str, float, float]]]
+    ) -> None:
+        """Hand-placed 3D markers for the pane showing *path* only."""
+        self._custom_markers[path] = markers
+        if path in self._paths:
+            self.panes[self._paths.index(path)].set_custom_markers(markers)
+
+    def set_reprojection_source(self, source: Callable[[str, float], list] | None) -> None:
+        """One projection function for every pane, each asking for its own camera."""
+        self._reprojection = source
+        for path, pane in zip(self._paths, self.panes, strict=False):
+            pane.set_reprojection_source(self._reprojection_for(path))
+
+    def set_riding_source(self, source: Callable[[str, float], list] | None) -> None:
+        """One function for every pane: markers the wheel carried off their frame."""
+        self._riding = source
+        for path, pane in zip(self._paths, self.panes, strict=False):
+            pane.set_riding_source(self._riding_for(path))
+
+    def _riding_for(self, path: str) -> Callable[[float], list] | None:
+        source = self._riding
+        if source is None:
+            return None
+        return lambda t: source(path, t)
+
+    def _reprojection_for(self, path: str) -> Callable[[float], list] | None:
+        source = self._reprojection
+        if source is None:
+            return None
+        return lambda t: source(path, t)
+
+    def set_marker_place_mode(self, enabled: bool) -> None:
+        """Turn 3D-marker placement on or off in every pane at once."""
+        self._marker_place_mode = bool(enabled)
+        for pane in self.panes:
+            pane.set_marker_place_mode(self._marker_place_mode)
+
+    def custom_marker_at(self, path: str, global_pos: object) -> tuple[str, int] | None:
+        """``(name, frame)`` of the hand-placed marker under a screen position."""
+        if path not in self._paths:
+            return None
+        canvas = self.panes[self._paths.index(path)].paint_canvas
+        local = canvas.mapFromGlobal(global_pos)
+        point = canvas.custom_marker_at(float(local.x()), float(local.y()))
+        if point is None or point.key is None:
+            return None
+        return point.key.point, point.key.index
+
     def highlight_point(self, key: object) -> None:
         """Ring one coordinate on whichever pane holds it, clearing the rest."""
         for pane in self.panes:
@@ -254,6 +314,10 @@ class VideoGrid(QWidget):
         pane = VideoPane(self)
         pane.double_clicked.connect(self._on_pane_double_clicked)
         pane.point_moved.connect(self.point_moved)
+        pane.marker_clicked.connect(lambda x, y, _p=path: self.marker_clicked.emit(_p, x, y))
+        pane.custom_point_moved.connect(
+            lambda name, frame, x, y, _p=path: self.custom_point_moved.emit(_p, name, frame, x, y)
+        )
         # Forward right-click with path so MainWindow can build a context menu.
         if on_file_loaded is not None:
             pane.file_loaded.connect(on_file_loaded)
@@ -272,6 +336,14 @@ class VideoGrid(QWidget):
             pane.set_point_edits(self._point_edits)
         if self._point_edit_mode:
             pane.set_point_edit_mode(True)
+        if path in self._custom_markers:
+            pane.set_custom_markers(self._custom_markers[path])
+        if self._marker_place_mode:
+            pane.set_marker_place_mode(True)
+        if self._reprojection is not None:
+            pane.set_reprojection_source(self._reprojection_for(path))
+        if self._riding is not None:
+            pane.set_riding_source(self._riding_for(path))
         pane.open(media_path or path)
         if self._batch_depth == 0:
             self._relayout()

@@ -178,6 +178,22 @@ class WindowMutationTarget:
             if window.point_edits.set(PointKey(source_id, point, index), position):
                 window._persist_point_edits(source_id)
 
+    def set_custom_marker(self, name: str, frame: int, marker: object) -> None:
+        """Place, move, or delete a hand-placed 3D marker, then write its files.
+
+        The single funnel for add, drag, delete, undo and redo alike, so the
+        marker files are written from here and never from the store's
+        observers -- reading them back in must not echo them out (D-099).
+        """
+        from avialsync.core.custom_markers import CustomMarker
+        from avialsync.ui.controllers import custom_marker_controller
+
+        window = self._window
+        value = marker if isinstance(marker, CustomMarker) else None
+        with self.replaying():
+            if window.custom_markers.set(name, frame, value):
+                custom_marker_controller.persist(window)
+
     # ── sources ──────────────────────────────────────────────────────
 
     def add_source(self, record: SourceRecord) -> None:

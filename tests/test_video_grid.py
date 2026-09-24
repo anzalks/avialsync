@@ -15,6 +15,8 @@ def test_file_loaded_callback_is_connected_before_playback(monkeypatch, qapp) ->
         right_clicked = Signal(object)
         file_loaded = Signal()
         point_moved = Signal(object)
+        marker_clicked = Signal(float, float)
+        custom_point_moved = Signal(str, int, float, float)
 
         def __init__(self, parent: QWidget) -> None:
             super().__init__(parent)
@@ -46,6 +48,8 @@ def test_unchecked_video_stays_hidden_through_relayout(monkeypatch, qtbot) -> No
         right_clicked = Signal(object)
         file_loaded = Signal()
         point_moved = Signal(object)
+        marker_clicked = Signal(float, float)
+        custom_point_moved = Signal(str, int, float, float)
 
         def __init__(self, parent: QWidget) -> None:
             super().__init__(parent)
@@ -79,6 +83,8 @@ class _RecordingPane(QWidget):
     right_clicked = Signal(object)
     file_loaded = Signal()
     point_moved = Signal(object)
+    marker_clicked = Signal(float, float)
+    custom_point_moved = Signal(str, int, float, float)
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
@@ -104,6 +110,18 @@ class _RecordingPane(QWidget):
 
     def set_point_edit_mode(self, enabled: bool) -> None:
         self.point_edit_mode = enabled
+
+    def set_custom_markers(self, _markers: dict) -> None:
+        return
+
+    def set_marker_place_mode(self, _enabled: bool) -> None:
+        return
+
+    def set_reprojection_source(self, _source: object) -> None:
+        return
+
+    def set_riding_source(self, _source: object) -> None:
+        return
 
 
 def test_overlay_tracks_wait_for_a_pane_that_does_not_exist_yet(monkeypatch, qtbot) -> None:

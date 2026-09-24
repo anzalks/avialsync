@@ -44,6 +44,7 @@ class FakeTarget:
         self.channel_visible: dict[tuple[str, str], bool] = {}
         self.overlay_visible: dict[tuple[str, str | None], bool] = {}
         self.tracked_points: dict[tuple[str, str, int], tuple[float, float] | None] = {}
+        self.custom_markers: dict[tuple[str, int], Any] = {}
         self.sources: dict[str, SourceRecord] = {}
         self.sync_evidence: dict[str, Any] = {}
         self.cleared = 0
@@ -81,6 +82,12 @@ class FakeTarget:
             self.tracked_points.pop(key, None)
         else:
             self.tracked_points[key] = position
+
+    def set_custom_marker(self, name: str, frame: int, marker: Any) -> None:
+        if marker is None:
+            self.custom_markers.pop((name, frame), None)
+        else:
+            self.custom_markers[(name, frame)] = marker
 
     def add_source(self, record: SourceRecord) -> None:
         self.sources[record.source_id] = record

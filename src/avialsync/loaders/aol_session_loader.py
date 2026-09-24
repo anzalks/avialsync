@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from avialsync.core.custom_markers import is_custom_marker_path
 from avialsync.core.source import SessionItem, SessionLayout, SessionSource
 
 logger = logging.getLogger(__name__)
@@ -272,11 +273,14 @@ def build_manifest(session_dir: Path) -> AOLManifest:
         for sub in pose_3d.iterdir():
             if sub.is_dir():
                 for csv_file in sub.glob("*_eks*.csv"):
-                    manifest.eks_files.append(csv_file)
+                    # `_eks.custom_markers.csv` is our own output and matches.
+                    if not is_custom_marker_path(csv_file):
+                        manifest.eks_files.append(csv_file)
 
     # Also check directly in session dir
     for csv_file in session_dir.glob("*_eks*.csv"):
-        manifest.eks_files.append(csv_file)
+        if not is_custom_marker_path(csv_file):
+            manifest.eks_files.append(csv_file)
 
     manifest.eks_files.sort()
 

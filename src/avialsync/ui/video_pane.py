@@ -14,6 +14,7 @@ rather than by a tuned control loop.
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
@@ -545,6 +546,10 @@ class VideoPane(VideoTimingMixin, QWidget):
     #: :class:`~avialsync.core.point_edits.PointMove`. Forwarded from the paint
     #: canvas so callers wire to the pane rather than reaching into its chrome.
     point_moved = Signal(object)
+    #: ``(x, y)``: a click placing a new 3D marker (forwarded, as above).
+    marker_clicked = Signal(float, float)
+    #: ``(name, frame, x, y)``: a hand-placed 3D marker was dragged.
+    custom_point_moved = Signal(str, int, float, float)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -817,6 +822,26 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Ring one tracked coordinate, or clear the ring when *key* is None."""
         self.paint_canvas.set_highlighted_point(key)
 
+    def set_custom_markers(self, markers: dict[int, list[tuple[str, float, float]]]) -> None:
+        """Hand-placed 3D markers seen by this camera, keyed by video frame."""
+        self.paint_canvas.set_custom_markers(markers)
+
+    def set_reprojection_source(
+        self, source: Callable[[float], list[tuple[str, float, float]]] | None
+    ) -> None:
+        """Where this camera asks for 3D points projected into its pixels."""
+        self.paint_canvas.set_reprojection_source(source)
+
+    def set_riding_source(
+        self, source: Callable[[float], list[tuple[str, float, float]]] | None
+    ) -> None:
+        """Where this camera asks for markers the wheel carried off their frame."""
+        self.paint_canvas.set_riding_source(source)
+
+    def set_marker_place_mode(self, enabled: bool) -> None:
+        """Take the next left click as a new 3D marker's position in this camera."""
+        self.paint_canvas.set_place_mode(enabled)
+
     def _queue_osd_update(self, t: float, fps: float) -> None:
         """Queue at most one UI-thread OSD/overlay update, retaining the newest frame."""
         with self._osd_lock:
@@ -901,6 +926,10 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.paint_canvas.set_point_labels_visible(visibility.get("tracking.point_labels", False))
         self.paint_canvas.set_corrections_visible(visibility.get("tracking.corrections", True))
         self.paint_canvas.set_legend_visible(visibility.get("tracking.legend", True))
+        self.paint_canvas.set_custom_markers_visible(
+            visibility.get("tracking.custom_markers", True)
+        )
+        self.paint_canvas.set_reprojection_visible(visibility.get("tracking.reprojection", False))
 
         self.lbl_osd.setVisible(visibility.get("camera.osd", True))
         # Through set_label so an empty name stays hidden either way: a pane
@@ -950,6 +979,8 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Create the paint canvas, name/OSD labels, and placeholder overlay."""
         self.paint_canvas = PaintCanvas(self)
         self.paint_canvas.point_moved.connect(self.point_moved)
+        self.paint_canvas.marker_clicked.connect(self.marker_clicked)
+        self.paint_canvas.custom_point_moved.connect(self.custom_point_moved)
         self._grid.addWidget(self.paint_canvas, 0, 0)
 
         # Set up overlay

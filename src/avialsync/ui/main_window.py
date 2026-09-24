@@ -49,6 +49,7 @@ from avialsync.core.commands import (
     SetSourceVisibleCommand,
     SetTrackedPointCommand,
 )
+from avialsync.core.custom_markers import CustomMarkerStore
 from avialsync.core.document import Document, SourceRecord
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
@@ -77,6 +78,7 @@ from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
 from avialsync.ui.controllers import (
     changes_export_controller,
     corrections_controller,
+    custom_marker_controller,
     drop_controller,
     export_controller,
     import_controller,
@@ -263,6 +265,14 @@ class MainWindow(QMainWindow):
         #: themselves and their caches are never written.
         self.point_edits = PointEditStore()
         self.point_edits.observe(self._on_point_edits_changed)
+        #: Hand-placed 3D markers (Add 3D Marker), written beside the pose
+        #: files like corrections; the calibration that triangulates them; and
+        #: the placement in progress, if any.
+        self.custom_markers = CustomMarkerStore()
+        self.custom_markers.observe(self._on_custom_markers_changed)
+        self._calibration_state: custom_marker_controller.CalibrationState | None = None
+        self._marker_placement: custom_marker_controller.Placement | None = None
+        self._announced_marker_files = False
         #: Where each source's corrections went. "session" only ever means
         #: writing beside the pose file failed, never a preference.
         self._point_edit_storage: dict[str, str] = {}
@@ -407,7 +417,24 @@ class MainWindow(QMainWindow):
         self.video_grid = VideoGrid(self)
         self.video_grid.set_point_edits(self.point_edits)
         self.video_grid.point_moved.connect(self._on_tracked_point_moved)
+        self.video_grid.marker_clicked.connect(
+            lambda path, x, y: custom_marker_controller.on_clicked(self, path, x, y)
+        )
+        self.video_grid.custom_point_moved.connect(
+            lambda path, name, frame, x, y: custom_marker_controller.on_moved(
+                self, path, name, frame, x, y
+            )
+        )
         self.tracking_3d_pane = Tracking3DPane(self)
+        self.tracking_3d_pane.canvas.set_custom_point_source(
+            lambda t: custom_marker_controller.points_at(self, t)
+        )
+        self.video_grid.set_reprojection_source(
+            lambda path, t: custom_marker_controller.reprojected(self, path, t)
+        )
+        self.video_grid.set_riding_source(
+            lambda path, t: custom_marker_controller.riding_in(self, path, t)
+        )
         self.plot_pane = PlotPane(self)
         self.transport = Transport(self)
         self.data_streams = self.transport.detach_data_streams()
@@ -1845,6 +1872,25 @@ class MainWindow(QMainWindow):
         _reg(self._act_fix_tracker, "Edit")
         self.transport.install_fix_tracker_action(self._act_fix_tracker)
 
+        # Add 3D Marker: name a point, click it in every camera, triangulate.
+        # Checked while a placement is in progress; unchecking cancels it. Same
+        # one-QAction-drives-menu-and-button shape as Fix Tracker (rule 15).
+        self._act_add_marker = self._edit_menu.addAction(tr("Add 3D Marker"))
+        self._act_add_marker.setCheckable(True)
+        self._act_add_marker.setToolTip(
+            tr("Name a new marker and click it once in each camera to place it in 3D")
+        )
+        self._act_add_marker.toggled.connect(
+            lambda checked: custom_marker_controller.toggled(self, checked)
+        )
+        self._require(
+            self._act_add_marker,
+            lambda: len(self.video_grid.pane_paths()) >= 2,
+            tr("Load at least two camera videos to place a 3D marker"),
+        )
+        _reg(self._act_add_marker, "Edit")
+        self.transport.install_add_marker_action(self._act_add_marker)
+
         # ── Align ─────────────────────────────────────────────────────
         # Promoted out of File. Alignment is not a file operation -- it is the
         # reason this application exists, and it sat between Open Sensor Data
@@ -1939,6 +1985,9 @@ class MainWindow(QMainWindow):
         # registry so a new overlay cannot ship without one (D-090).
         self._overlays_menu = view_menu.addMenu(tr("Overlays"))
         self._build_overlays_menu(_reg)
+        self.tracking_3d_pane.install_reprojection_action(
+            self._overlay_actions[custom_marker_controller.REPROJECTION_OVERLAY]
+        )
         view_menu.addSeparator()
 
         # Workspaces: a session is looked at in more than one way, and
@@ -2283,6 +2332,10 @@ class MainWindow(QMainWindow):
         """Apply an overlay change and record it as undoable."""
         if not self.overlay_state.set_visible(overlay_id, visible, camera):
             return
+        if overlay_id == custom_marker_controller.REPROJECTION_OVERLAY and camera is None:
+            # Switching reprojection on needs a calibration; this asks for one
+            # and switches it back off if the user declines.
+            custom_marker_controller.reprojection_toggled(self, visible)
         layer = layer_for(overlay_id)
         self._record(
             SetOverlayVisibleCommand(
@@ -2322,6 +2375,8 @@ class MainWindow(QMainWindow):
         not the mode you made them in.
         """
         enabled = bool(enabled)
+        if enabled and self._marker_placement is not None:
+            custom_marker_controller.cancel(self, tr("3D marker not added."))
         if enabled and self.clock.state.playing:
             # Same route the K shortcut takes, so the transport button, the
             # player, and the clock stay in agreement.
@@ -2380,6 +2435,12 @@ class MainWindow(QMainWindow):
         panel = getattr(self, "changes_panel", None)
         if panel is not None:
             panel.refresh()
+
+    def _on_custom_markers_changed(self, key: object) -> None:
+        """Repaint every pane and the 3D view after a marker changed or loaded."""
+        del key
+        if getattr(self, "tracking_3d_pane", None) is not None:
+            custom_marker_controller.refresh(self)
 
     def _locate_correction(self, key: object) -> tuple[float, str, int] | None:
         """Place a correction on the master clock, a camera, and a frame.
@@ -2643,6 +2704,19 @@ class MainWindow(QMainWindow):
 
         menu = QMenu(self)
 
+        # Delete a hand-placed 3D marker under the pointer. Only outside Fix
+        # Tracker, which owns the gesture on points, and only for markers the
+        # user placed: a model's prediction is not theirs to delete.
+        act_delete_marker = None
+        marker_hit = None
+        if not self.video_grid.point_edit_mode:
+            marker_hit = self.video_grid.custom_marker_at(path, pos)
+        if marker_hit is not None:
+            act_delete_marker = menu.addAction(
+                tr("Delete 3D marker {name}").format(name=marker_hit[0])
+            )
+            menu.addSeparator()
+
         act_fs = menu.addAction(tr("Fullscreen this camera"))
         act_snap = menu.addAction(tr("Snapshot this camera"))
 
@@ -2666,6 +2740,9 @@ class MainWindow(QMainWindow):
         act_copy = menu.addAction(tr("Copy frame info"))
 
         chosen = menu.exec(pos)
+        if act_delete_marker is not None and chosen == act_delete_marker and marker_hit:
+            custom_marker_controller.delete(self, marker_hit[0], marker_hit[1])
+            return
         if chosen in camera_actions:
             overlay_id = camera_actions[chosen]
             self._on_overlay_toggled(overlay_id, chosen.isChecked(), camera=path)

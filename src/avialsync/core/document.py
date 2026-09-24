@@ -36,7 +36,10 @@ from __future__ import annotations
 import dataclasses
 import time
 from collections.abc import Callable, Iterator, Sequence
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from avialsync.core.custom_markers import CustomMarker
 
 __all__ = [
     "MAX_LOG_ENTRIES",
@@ -128,6 +131,14 @@ class MutationTarget(Protocol):
         ``index`` is the sample index within *source_id*; ``position`` is in
         that recording's own video pixels.  The imported file and its cache are
         never written -- see :mod:`avialsync.core.point_edits`.
+        """
+
+    def set_custom_marker(self, name: str, frame: int, marker: CustomMarker | None) -> None:
+        """Place, move, or remove one hand-placed 3D marker.
+
+        *marker* carries its per-camera clicks and its triangulated position,
+        both resolved before the command was built, so replaying it needs no
+        calibration. None removes the marker from every camera and the 3D view.
         """
 
     def add_source(self, record: SourceRecord) -> None:

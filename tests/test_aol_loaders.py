@@ -117,8 +117,7 @@ class TestAOLEncoderLoader:
         loader = AOLEncoderLoader()
         loader.open(tmp_encoder_log, {})
         channels = loader.channels()
-        assert len(channels) == 1
-        assert channels[0].name == "encoder_velocity"
+        assert [channel.name for channel in channels] == ["encoder_velocity", "encoder_angle"]
 
     def test_read_chunks(self, tmp_encoder_log: Path) -> None:
         from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader

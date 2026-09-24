@@ -4331,3 +4331,54 @@ measuring a subprocess rather than the work they name.
 code, not about the budget.** These were read as the irreducible cost of 128 linked ViewBoxes —
 the benchmark's own docstring says as much — and the profile disagreed in the first thirty seconds.
 Profile before believing a ceiling is inherent.
+
+---
+
+## 2026-09 · D-112 · A hand-placed 3D marker is triangulated through a calibration the session names
+
+**What.** Add 3D Marker (Edit menu, and a button beside Fix Tracker) asks for a name, then takes one
+click per camera on the current frame, triangulates the clicks with the rig's calibration, and shows
+the result in every pane and in the 3D view as a hollow ring, never a filled dot, so it cannot be
+read as the model's output. It is then a regular point: Fix Tracker drags it (re-triangulated on
+release, one undo step), and with Fix Tracker off the pane's context menu deletes it from every view.
+Add, move, and delete are one `SetCustomMarkerCommand` carrying whole before/after markers, so undo
+restores the 3D position without re-solving.
+
+**Calibration is named, not copied.** `pose-3d/calibration_ref.txt` lists the videos and one path to
+a `calibration.toml`, which is how a lab with one rig and many experiments keeps one calibration:
+the ref file is copied between experiment folders, the `.toml` stays where it is. When nothing is
+found, the user chooses Import (writes the ref file pointing at a `.toml` they pick) or Compute.
+
+**Compute fits the cameras from the session's own data.** anipose triangulated the 3D pose from each
+camera's 2D tracking, so the pairs to recover each camera are already on disk. A DLT gives the
+starting point and a robust least-squares fit refines a zero-skew pinhole, the model OpenCV (and so
+anipose) reads. On the reference session this reprojects at 4–7 px, and re-triangulating the 2D
+tracking with it lands within a median 0.5 (p90 1.4) of anipose's own 3D, in its units. **The
+intrinsics it writes are not physical**: a few centimetres of animal seen from tens of centimetres
+do not separate focal length from principal point, and a fitted distortion term only made the
+solution wander, so none is fitted. `metadata.fitted_by = "avialsync"` records this. An imported
+calibration keeps its full distortion model; fisheye is refused, not approximated.
+
+**Storage follows D-099.** The clicks are the authority, in a DLC-layout
+`<Camera>_eks.custom_markers.csv` beside each camera's 2D pose file; the triangulated result is
+derived, in an anipose-layout `_eks.custom_markers.csv` beside the 3D file. Both are written from the
+mutation funnel (`WindowMutationTarget.set_custom_marker`), never from store observers, and neither
+pose file is ever opened for writing.
+
+**One frame only, for now.** A marker exists on the frame it was placed on. Carrying markers across
+frames, with values between keyframes interpolated from the encoder, is the next step and is why the
+store is keyed by `(name, frame)` rather than by name.
+
+
+**Reprojection (3D → 2D).** The 3D pane's header carries a toggle bound to the `tracking.reprojection`
+overlay's own View-menu action (rule 15): on, every 3D point on screen -- anipose's and the
+hand-placed ones -- is projected into each camera through the calibration and drawn as a cross, a
+third glyph beside the dot and the ring. Switching it on without a calibration asks the same
+Import / Compute question as Add 3D Marker; declining switches it back off. Checked against the
+lab's real `calibration.toml`: it reprojects the anipose 3D onto the 2D tracking at 10.4 / 5.4 /
+4.7 px (Face / Front / Side) against the fit's 7.4 / 4.1 / 4.1, and triangulating Face+Front with
+each lands 0.69 vs 0.81 (median) from anipose's 3D -- while the fitted FaceCam sits three times too
+close with a third of the focal length. That is the depth/focal ambiguity stated above, measured:
+use a fitted file for projecting and triangulating, never for camera geometry. The real file also
+shows a side video split into two 540-px cameras (`SideCam`, `MirrorSideCam`); cameras are matched
+to videos by name, so the mirror half is simply not drawn.

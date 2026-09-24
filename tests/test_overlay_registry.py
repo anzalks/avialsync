@@ -25,6 +25,8 @@ EXPECTED_INVENTORY = {
     "tracking.point_labels",
     "tracking.legend",
     "tracking.corrections",
+    "tracking.custom_markers",
+    "tracking.reprojection",
     "tracking.edit_handles",
     "camera.name",
     "camera.osd",

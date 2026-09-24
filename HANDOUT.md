@@ -433,6 +433,11 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
 | `core/point_edits.py` | Hand corrections to tracked points, in memory — sparse overrides keyed by `(source, body part, sample index)`. HEADLESS. **Never writes the pose file or its cache** (D-099) | `PointEditStore`, `PointKey`, `PointMove` |
 | `core/point_edit_sidecar.py` | Where those corrections live: `<pose file>.avialfix.csv` beside the source, written on every edit. Commented header, atomic replace, emptied never deleted (D-099) | `sidecar_path()`, `is_correction_path()`, `read()`, `write()` |
+| `core/calibration.py` | Multi-camera calibration in anipose's `calibration.toml` form (OpenCV model, no OpenCV). Linear triangulation, and fitting a camera from 3D↔2D pairs when the file is lost — a fitted camera **projects** correctly but its intrinsics are not physical (D-112) | `CameraModel`, `Calibration`, `read_calibration()`, `write_calibration()`, `triangulate()`, `fit_camera()` |
+| `core/calibration_ref.py` | Which calibration a session uses: `pose-3d/calibration_ref.txt` (video names + one `.toml` path), copied between experiments from the same rig; falls back to `calibration.toml` in `pose-3d/` or the session folder (D-112) | `locate()`, `read_ref()`, `write_ref()`, `camera_names()`, `pose3d_dir_for()` |
+| `core/custom_markers.py` | Hand-placed 3D markers: store keyed `(name, frame)`, plus their files — `<Cam>_eks.custom_markers.csv` (DLC layout, the clicks, **the authority**) beside each 2D pose file and `_eks.custom_markers.csv` (anipose layout, derived) beside the 3D one. HEADLESS (D-112) | `CustomMarker`, `CustomMarkerStore`, `write_2d()`, `read_2d()`, `write_3d()`, `read_3d()`, `is_custom_marker_path()` |
+| `ui/controllers/custom_marker_controller.py` | Add 3D Marker end to end: name → calibration (resolve / import / compute) → one click per camera → triangulate → `SetCustomMarkerCommand`. Also drag re-triangulation, delete, persistence and adoption (D-112) | `toggled()`, `on_clicked()`, `on_moved()`, `delete()`, `persist()`, `adopt()`, `points_at()` |
+| `engine/calibration_worker.py` | Fits the missing `calibration.toml` off the UI thread from the 3D pose + each camera's 2D pose, joined on frame and body part; writes it and `calibration_ref.txt` in `pose-3d/` (D-112) | `CalibrationFitWorker`, `CameraFitInput` |
 | `ui/controllers/corrections_controller.py` | Sidecar first, session as the fallback; adopts a pose file's corrections on import and reports a count that does not match. **Also the sample-index ↔ video-frame conversion** (D-099) | `persist()`, `adopt()`, `frame_for()`, `index_for()`, `corrections_by_frame()`, `labeled_frames()` |
 | `core/pose_export.py` | A corrected copy of a pose file for analysis: streamed, scorer renamed, corrected likelihood forced to 1.0 (D-100) | `write_corrected_copy()`, `corrected_copy_path()`, `SCORER_SUFFIX` |
 | `core/dlc_export.py` | Corrected frames as DLC labeled data for retraining; whole pose per frame, blank never `0,0` (D-100) | `write_labeled_data()`, `LabeledFrame`, `collected_data_path()` |
@@ -1102,6 +1107,13 @@ and then every correction lands a hundred frames early. `corrections_controller.
 run **after** the source is registered in `_overlay_sources`. `index_for()` returns `None` for a
 frame the file does not cover rather than snapping to the nearest row, which would move the point to
 another moment entirely.
+
+### 0c-custom. Our marker files match the globs that find pose data (D-112)
+`_eks.custom_markers.csv` matches the AOL manifest's `*_eks*.csv`, and every marker file is a
+DLC- or anipose-shaped CSV the tracking loaders claim. `is_custom_marker_path()` is consulted
+beside `is_correction_path()` in `LoaderRegistry.find_best_loader`, the drop scan, and the AOL
+manifest. A new place that discovers pose CSVs must consult both, or reopening a session offers
+the user's own markers back to them as a fourth camera's tracking.
 
 ### 0c-septies. Export writers do not create the folder you typed (D-100)
 A missing parent directory means the path has a typo in it; creating it hides the mistake instead of

@@ -356,6 +356,9 @@ def register_tracking_source(
             for channel in channels
         ]
         window._refresh_pose_3d()
+        from avialsync.ui.controllers import custom_marker_controller
+
+        custom_marker_controller.adopt(window)
         return
 
     video = str(config.get("overlay_video", ""))
@@ -399,6 +402,10 @@ def register_tracking_source(
     # published, so the pane's first paint is already the corrected one.
     window._adopt_point_edits(path)
     window._refresh_overlays(video)
+    # Markers placed on this recording, now that its camera's pose file is known.
+    from avialsync.ui.controllers import custom_marker_controller
+
+    custom_marker_controller.adopt(window)
 
 
 def calibrate_overlay_timing(window: MainWindow, video: str) -> None:
@@ -462,7 +469,7 @@ def update_tracking_pane_visibility(window: MainWindow) -> None:
     An always-present empty pane keeps a quarter of the media width and raises
     the window's minimum width for sessions that have no tracking data.
     """
-    has_points = window.tracking_3d_pane.canvas.point_count > 0
+    has_points = window.tracking_3d_pane.canvas.point_count > 0 or len(window.custom_markers) > 0
     if window.tracking_3d_pane.isVisible() == has_points:
         return
     window.tracking_3d_pane.setVisible(has_points)

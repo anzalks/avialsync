@@ -27,7 +27,7 @@ from avialsync.core.session import (
     VideoEntry,
 )
 from avialsync.ui import recovery
-from avialsync.ui.controllers import corrections_controller
+from avialsync.ui.controllers import corrections_controller, custom_marker_controller
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
 from avialsync.ui.recent_files import add_recent, get_recent
@@ -392,6 +392,10 @@ def reset_session(window: MainWindow) -> None:
     window._overlay_sources.clear()
     window._pose_3d_sources.clear()
     window.point_edits.clear()
+    custom_marker_controller.cancel(window)
+    window.custom_markers.clear()
+    window._calibration_state = None
+    window._announced_marker_files = False
     window._point_edit_storage.clear()
     window._expected_correction_counts.clear()
     window._announced_correction_files.clear()

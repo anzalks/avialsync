@@ -81,3 +81,13 @@ class ExportError(AvialSyncError):
     That difference is the whole message, so it earns its own type rather than
     reaching the generic presenter.
     """
+
+
+class CalibrationError(AvialSyncError):
+    """Raised when a camera calibration cannot be read, resolved, or fitted.
+
+    Distinct from :class:`SourceOpenError`: the recordings are fine, but
+    nothing places their cameras in one 3D frame, so a point clicked in each
+    view cannot be triangulated. The recovery is always the same pair of
+    choices -- point at a calibration file, or fit one from the tracking.
+    """

@@ -614,6 +614,8 @@ class TimelineEvidence(QWidget):
         # not look like its neighbours (see ui/action_button.py).
         self.fix_tracker_button = ActionButton(self)
         header.addWidget(self.fix_tracker_button)
+        self.add_marker_button = ActionButton(self)
+        header.addWidget(self.add_marker_button)
         header.addStretch(1)
         self.snapshot_button = QPushButton("Snapshot", self)
         self.snapshot_button.setToolTip(tr("Export snapshot (Ctrl+E)"))
@@ -661,6 +663,13 @@ class TimelineEvidence(QWidget):
         self.fix_tracker_button.set_action(action)
         self.fix_tracker_button.setAccessibleDescription(
             tr("Toggle dragging of tracked points in every video pane")
+        )
+
+    def install_add_marker_action(self, action: QAction) -> None:
+        """Show the Add 3D Marker toggle beside Fix Tracker, driven by its QAction."""
+        self.add_marker_button.set_action(action)
+        self.add_marker_button.setAccessibleDescription(
+            tr("Name a new marker, then click it once in each camera to place it in 3D")
         )
 
     def toggle_collapsed(self) -> None:
@@ -916,6 +925,10 @@ class Transport(QWidget):
     def ab_in(self) -> None:
         """Set the A/B loop in-point at the current slider position (public, D-022.1)."""
         self._on_ab_in()
+
+    def install_add_marker_action(self, action: QAction) -> None:
+        """Forward the Add 3D Marker action to the Data Streams header."""
+        self.evidence.install_add_marker_action(action)
 
     def install_fix_tracker_action(self, action: QAction) -> None:
         """Expose the Fix Tracker toggle in the Data Streams header."""

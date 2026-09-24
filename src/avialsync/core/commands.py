@@ -18,6 +18,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
+from avialsync.core.custom_markers import CustomMarker
 from avialsync.core.document import MarkerRecord, MutationTarget, SourceRecord
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "SetChannelGroupVisibleCommand",
     "SetOverlayVisibleCommand",
     "SetTrackedPointCommand",
+    "SetCustomMarkerCommand",
     "AcceptSyncCommand",
     "AddSourceCommand",
     "RemoveSourceCommand",
@@ -286,6 +288,37 @@ class SetTrackedPointCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_tracked_point(self.source_id, self.point, self.index, self.before)
+
+
+@dataclasses.dataclass
+class SetCustomMarkerCommand:
+    """Add, move, or delete one hand-placed 3D marker on one frame.
+
+    ``before`` and ``after`` are whole markers -- a handful of floats, the
+    clicks plus the triangulated point -- so undoing a move restores the 3D
+    position it had without triangulating again. ``None`` on either side is
+    "no marker": ``before=None`` is an add, ``after=None`` a delete.
+    """
+
+    name: str
+    frame: int
+    before: CustomMarker | None
+    after: CustomMarker | None
+    command_id: str = "tracking.custom_marker"
+
+    @property
+    def label(self) -> str:
+        if self.before is None:
+            return f"Add 3D marker {self.name} at frame {self.frame}"
+        if self.after is None:
+            return f"Delete 3D marker {self.name} at frame {self.frame}"
+        return f"Move 3D marker {self.name} at frame {self.frame}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_custom_marker(self.name, self.frame, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_custom_marker(self.name, self.frame, self.before)
 
 
 @dataclasses.dataclass
