@@ -4768,3 +4768,17 @@ pattern. The window draws a preview (`_wheel_diameter_preview`) without recordin
 a drag is neither dozens of undo steps nor a file write per pixel. Releasing or typing commits
 one `SetWheelCommand`, and `merge_with` joins a run of diameter-only steps (held arrow keys)
 into one undo step.
+
+---
+
+## 2026-09 · D-129 · Bar cylinders in 3D only; the camera views keep plain lines
+
+D-128 drew a translucent band of the projected diameter over every camera, and a flat thick
+stroke in the 3D view. The user asked for plain bar lines on the videos, where the footage itself
+shows the bars, and the flat stroke read as a strip, not a bar. The camera views are back to
+D-113's thin lines, and `bar_widths` went with the band, since nothing else used it. In the 3D
+view, `ui/cylinder_paint.py` draws each bar as a cylinder. In the orthographic view its outline
+is a band exactly one diameter wide, shaded dark at the edges and light down the middle, and
+closed by end faces drawn as ellipses whose short axis is the diameter times how far the bar
+points toward the viewer. Bars are painted back to front, so a nearer bar covers a farther one.
+The bar diameter, its slider and its storage are unchanged from D-128.

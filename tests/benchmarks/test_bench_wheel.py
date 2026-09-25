@@ -15,7 +15,6 @@ from avialsync.core.wheel import (
     EncoderBinding,
     WheelCheck,
     WheelSpec,
-    bar_widths,
     fit_issue,
     project_bars,
 )
@@ -81,20 +80,6 @@ def test_bench_wheel_bars_for_one_frame(benchmark) -> None:
     benchmark(frame)
     mean = _mean(benchmark)
     assert mean <= _FRAME_BUDGET_S, f"wheel frame {mean * 1000:.2f} ms exceeds 2 ms"
-
-
-def test_bench_wheel_bars_with_a_diameter_for_one_frame(benchmark) -> None:
-    """One frame's bars and their projected diameters in three cameras (D-128)."""
-
-    def frame() -> None:
-        ends = TRUTH.bar_ends(123.4)
-        for camera in CAMERAS.values():
-            project_bars(TRUTH, ends, camera)
-            bar_widths(ends, 8.0, camera)
-
-    benchmark(frame)
-    mean = _mean(benchmark)
-    assert mean <= _FRAME_BUDGET_S, f"wheel frame with widths {mean * 1000:.2f} ms exceeds 2 ms"
 
 
 def test_bench_project_six_clicked_ends_into_a_missing_view(benchmark) -> None:

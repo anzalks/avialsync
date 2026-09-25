@@ -24,9 +24,6 @@ from avialsync.core.wheel import (
     WheelCheck,
     WheelSpec,
     WheelStore,
-    bar_widths,
-    camera_centre,
-    facing,
     fit_issue,
     project_bars,
 )
@@ -325,36 +322,6 @@ def test_ends_clicked_the_other_way_round_are_named() -> None:
     clicks[3] = EndClick(right.bar, LEFT, right.views)
     with pytest.raises(WheelFitError, match="opposite order"):
         fit_wheel(WheelSpec("wheel", 36), clicks, CAMERAS)
-
-
-def _silhouette_width(first: np.ndarray, second: np.ndarray, diameter: float, camera) -> float:
-    """The truth: a dense ring round the bar's middle, measured across the bar's image."""
-    axis = (second - first) / np.linalg.norm(second - first)
-    helper = np.eye(3)[int(np.argmin(np.abs(axis)))]
-    u = np.cross(axis, helper)
-    u /= np.linalg.norm(u)
-    v = np.cross(axis, u)
-    angles = np.linspace(0.0, 2.0 * np.pi, 720, endpoint=False)
-    ring = (first + second) / 2.0 + (diameter / 2.0) * (
-        np.outer(np.cos(angles), u) + np.outer(np.sin(angles), v)
-    )
-    pixels = camera.project(ring)
-    a, b = camera.project(np.vstack((first, second)))
-    along = (b - a) / np.linalg.norm(b - a)
-    across = np.array([-along[1], along[0]])
-    offsets = pixels @ across
-    return float(offsets.max() - offsets.min())
-
-
-def test_bar_widths_match_the_projected_cylinder() -> None:
-    """Each bar's drawn width is its cylinder's silhouette in the image (D-128)."""
-    ends = TRUTH.bar_ends()
-    camera = CAMERAS["Front"]
-    widths = bar_widths(ends, 8.0, camera)
-    for index in np.flatnonzero(facing(TRUTH, ends, camera_centre(camera))):
-        truth = _silhouette_width(ends[index, 0], ends[index, 1], 8.0, camera)
-        assert widths[index] == pytest.approx(truth, rel=0.03), index
-    assert np.all(bar_widths(ends, 16.0, camera) == pytest.approx(2 * widths, rel=0.01))
 
 
 def test_the_bar_diameter_travels_in_the_wheel_file(tmp_path) -> None:

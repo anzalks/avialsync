@@ -456,8 +456,7 @@ def test_dragging_the_diameter_previews_and_releasing_commits_once(
     assert len(window.document) == depth
     preview = window._wheel_diameter_preview["wheel"]
     assert preview > 0
-    bars = wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0).bars
-    assert max(bar.width for bar in bars) > 1.0, "the preview is drawn"
+    assert wheel_display.scene(window, 0.0)[0][2] == pytest.approx(preview), "drawn in 3D"
 
     slider.setSliderDown(False)
 

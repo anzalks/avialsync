@@ -33,6 +33,7 @@ from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skeleton
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.action_button import ActionButton
+from avialsync.ui.cylinder_paint import draw_cylinders
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import neutral_on_canvas
 from avialsync.ui.tracking_colors import color_for_point, register_points
@@ -715,10 +716,12 @@ class Tracking3DCanvas(QWidget):
         self._draw_corner_axes(painter, width, height)
 
     def _draw_wheels(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
-        """Each wheel: its bars, and the two rims through their ends; dashed until accepted."""
+        """Each wheel: its bars, and the two rims through their ends; dashed until accepted.
+
+        With a bar diameter set, the bars are solid cylinders (D-128) drawn over
+        the rims, so a rim is seen passing behind the bars it joins.
+        """
         color = neutral_on_canvas(palette, _WHEEL_WEIGHT)
-        body_color = QColor(color)
-        body_color.setAlpha(80)
         # The view is orthographic, so one world length is one screen length.
         target_width, target_height = self._target_size(width, height)
         pixels_per_unit = 0.38 * min(target_width, target_height) * self._zoom / self._radius
@@ -726,23 +729,35 @@ class Tracking3DCanvas(QWidget):
             count = len(ends)
             if count == 0:
                 continue
-            screen, _ = self._project(ends.reshape(-1, 3), width, height)
+            screen, depth = self._project(ends.reshape(-1, 3), width, height)
             points = [QPointF(float(x), float(y)) for x, y in screen]
-            if diameter and diameter * pixels_per_unit > 1.0:
-                body = QPen(body_color, diameter * pixels_per_unit)
-                body.setCapStyle(Qt.PenCapStyle.FlatCap)
-                painter.setPen(body)
-                for bar in range(count):
-                    painter.drawLine(points[2 * bar], points[2 * bar + 1])
+            bar_width = (diameter or 0.0) * pixels_per_unit
+            solid = bar_width > 1.0
             pen = QPen(color, 1)
             if preview:
                 pen.setStyle(Qt.PenStyle.DashLine)
             painter.setPen(pen)
-            for bar in range(count):
-                painter.drawLine(points[2 * bar], points[2 * bar + 1])
+            painter.setBrush(Qt.BrushStyle.NoBrush)
             for side in (0, 1):
                 rim = [points[2 * bar + side] for bar in range(count)]
                 painter.drawPolyline([*rim, rim[0]])
+            if solid:
+                pairs = screen.reshape(-1, 2, 2)
+                depths = depth.reshape(-1, 2)
+                draw_cylinders(
+                    painter,
+                    pairs[:, 0],
+                    pairs[:, 1],
+                    depths[:, 0],
+                    depths[:, 1],
+                    np.linalg.norm(ends[:, 1] - ends[:, 0], axis=1),
+                    bar_width,
+                    color,
+                )
+                continue
+            painter.setPen(pen)
+            for bar in range(count):
+                painter.drawLine(points[2 * bar], points[2 * bar + 1])
 
     def _draw_custom_points(
         self, painter: QPainter, width: int, height: int, palette: QPalette

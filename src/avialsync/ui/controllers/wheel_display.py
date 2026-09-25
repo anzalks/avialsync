@@ -34,7 +34,6 @@ from avialsync.core.wheel import (
     EncoderBinding,
     Wheel,
     WheelGeometry,
-    bar_widths,
     fit_issue,
     project_bars,
 )
@@ -211,10 +210,8 @@ def _bars(
     ends: np.ndarray,
     camera: CameraModel,
     preview: bool,
-    diameter: float | None = None,
 ) -> list[WheelBar]:
     pixels, in_front, facing = project_bars(geometry, ends, camera)
-    widths = bar_widths(ends, diameter, camera) if diameter else np.zeros(len(ends))
     return [
         WheelBar(
             float(pixels[i, 0, 0]),
@@ -224,7 +221,6 @@ def _bars(
             facing=bool(facing[i]),
             preview=preview,
             first=i == 0,
-            width=float(widths[i]),
         )
         for i in range(len(ends))
         if in_front[i]
@@ -261,7 +257,7 @@ def pane_drawing(window: MainWindow, video: str, t_master: float) -> WheelDrawin
             continue
         ends = _ends(window, wheel, t_master)
         if ends is not None:
-            bars += _bars(wheel.geometry, ends, camera, False, diameter(window, wheel))
+            bars += _bars(wheel.geometry, ends, camera, preview=False)
     if not bars and not clicks and not projections and not prompt:
         return None
     return WheelDrawing(tuple(bars), clicks, projections, prompt)

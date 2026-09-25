@@ -33,9 +33,7 @@ from avialsync.ui.i18n import tr
 __all__ = ["WheelBar", "WheelDrawing", "draw_wheel", "draw_wheel_clicks"]
 
 _UNDERLAY = QColor(0, 0, 0, 170)
-#: A bar's body when its diameter is set: light, and see-through, so the edges
-#: of the real bar stay visible to line it up against.
-_BODY = QColor(255, 255, 255, 70)
+
 _BAR = QColor(235, 235, 235, 230)
 _HIDDEN = QColor(235, 235, 235, 70)
 _CLICK_RADIUS = 5
@@ -56,8 +54,6 @@ class WheelBar:
     preview: bool = False
     #: Bar 0, the first one clicked.
     first: bool = False
-    #: The bar's diameter in video pixels at its middle; 0 when none is set.
-    width: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -107,13 +103,6 @@ def draw_wheel(
         if not bar.preview and not (show_facing if bar.facing else show_hidden):
             continue
         start, end = screen(bar.x1, bar.y1), screen(bar.x2, bar.y2)
-        if bar.facing and bar.width * scale > 1.0:
-            # The bar's body, as wide as its diameter projects: what the slider
-            # is matched against. Translucent, so the video shows through.
-            body = QPen(_BODY, bar.width * scale)
-            body.setCapStyle(Qt.PenCapStyle.FlatCap)
-            painter.setPen(body)
-            painter.drawLine(start, end)
         if bar.facing:
             painter.setPen(_pen(_UNDERLAY, 3.5, bar.preview))
             painter.drawLine(start, end)

@@ -63,7 +63,6 @@ __all__ = [
     "WheelStore",
     "camera_centre",
     "facing",
-    "bar_widths",
     "project_bars",
 ]
 
@@ -287,9 +286,9 @@ class Wheel:
     binding: EncoderBinding | None = None
     #: The calibration file the clicks were triangulated with.
     calibration: str = ""
-    #: Each bar's diameter, in the calibration's units, set by eye against the
-    #: video with the Wheels tab's slider; None until then. Display only: the
-    #: fit is to bar centre lines and does not use it.
+    #: Each bar's diameter, in the calibration's units, set by eye with the
+    #: Wheels tab's slider; None until then. Drawn as cylinders in the 3D view
+    #: only. Display only: the fit is to bar centre lines and does not use it.
     bar_diameter: float | None = None
 
     @property
@@ -388,25 +387,6 @@ def facing(geometry: WheelGeometry, ends: np.ndarray, viewer: np.ndarray) -> np.
     cosine = np.einsum("ij,ij->i", radial, towards) / np.where(norms > 0, norms, 1.0)
     visible: np.ndarray = cosine >= _FACING_LIMIT
     return visible
-
-
-def bar_widths(ends: np.ndarray, diameter: float, camera: CameraModel) -> np.ndarray:
-    """Each bar's diameter as *camera* sees it, in pixels, at the bar's middle.
-
-    A bar is a cylinder, so its image width is its diameter across the line of
-    sight: the offset used is perpendicular to both the bar and the ray from
-    the camera to it, which projects at full length whatever the bar's slant.
-    """
-    first, second = ends[:, 0, :], ends[:, 1, :]
-    middle = (first + second) / 2.0
-    ray = middle - camera_centre(camera)
-    across = np.cross(second - first, ray)
-    norm = np.linalg.norm(across, axis=1, keepdims=True)
-    across = np.divide(across, norm, out=np.zeros_like(across), where=norm > 0)
-    near = camera.project(middle - across * (diameter / 2.0))
-    far = camera.project(middle + across * (diameter / 2.0))
-    widths: np.ndarray = np.linalg.norm(far - near, axis=1)
-    return widths
 
 
 def project_bars(
