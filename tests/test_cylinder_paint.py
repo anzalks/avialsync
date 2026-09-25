@@ -76,7 +76,7 @@ def test_bars_are_painted_back_to_front(qapp, monkeypatch) -> None:
     assert painted == [2.0, 3.0, 1.0], "farthest (smallest depth) first"
 
 
-def _coverage(qtbot, wheels: list) -> int:
+def _scene(qtbot, wheels: list) -> np.ndarray:
     canvas = Tracking3DCanvas()
     qtbot.addWidget(canvas)
     canvas._center = np.zeros(3)
@@ -87,14 +87,26 @@ def _coverage(qtbot, wheels: list) -> int:
     painter = QPainter(image)
     canvas.render_scene(painter, 300, 300)
     painter.end()
-    background = image.pixelColor(2, 2).rgb()
-    pixels = np.frombuffer(image.constBits(), dtype=np.uint32).reshape(300, 300)
-    return int(np.count_nonzero(pixels != np.uint32(background)))
+    return np.frombuffer(image.constBits(), dtype=np.uint32).reshape(300, 300).copy()
+
+
+def _coverage(qtbot, wheel: tuple) -> int:
+    """Pixels *wheel* changes, against the same scene with a wheel of no bars.
+
+    Not against an empty scene: with no wheel at all the view prints its
+    "Load tracking channels" placeholder, and that text is as many pixels as
+    the platform's font makes it -- enough on Windows to pull a subtraction
+    from it below the ratio this measures.
+    """
+    empty = _scene(qtbot, [(np.empty((0, 2, 3)), False, None)])
+    return int(np.count_nonzero(_scene(qtbot, [wheel]) != empty))
 
 
 def test_the_3d_view_draws_solid_bars_once_a_diameter_is_set(qtbot) -> None:
-    grid = _coverage(qtbot, [])
-    lines = _coverage(qtbot, [(TRUTH.bar_ends(), False, None)]) - grid
-    solid = _coverage(qtbot, [(TRUTH.bar_ends(), False, 6.0)]) - grid
+    lines = _coverage(qtbot, (TRUTH.bar_ends(), False, None))
+    solid = _coverage(qtbot, (TRUTH.bar_ends(), False, 6.0))
     assert lines > 0
-    assert solid > 3 * lines, (lines, solid)
+    # Both scenes draw the rims, so the ratio is well short of the bars' own
+    # (2.3 here, on every platform). A bar that stayed a line would leave only
+    # the rims -- below 1.
+    assert solid > 2 * lines, (lines, solid)
