@@ -4701,3 +4701,16 @@ reprojection button, which used to keep its old state after an undo.
 View → **Fit All Videos** (`Ctrl+Shift+0`, plus a Data Streams header button) sets every camera
 back to 1.00× with no pan, as each pane's own reset does. The plots' **Fit all** is unchanged:
 it fits their Y range, and the two are named differently so they cannot be mistaken.
+
+---
+
+## 2026-09 · D-125 · A reopened session's wheel draws on every camera
+
+Wheels and markers read back from disk are drawn through the calibration, and
+`calibration_quietly` loaded it only when a wheel or marker file was read. On reopening, the
+camera panes arrive one at a time. If fewer than two were open at that moment, no calibration
+loaded. If two were, it covered only those two and then returned early for good, so the third
+camera never drew the wheel, even with View → Overlays → Wheel model checked. Two changes fix
+it. Each time a camera pane is added while wheels or markers exist, the quiet load is retried
+and both are redrawn. A calibration that covers fewer cameras than are now open is re-read
+for them, keeping the same calibration file.

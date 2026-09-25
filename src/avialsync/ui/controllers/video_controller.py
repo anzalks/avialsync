@@ -25,6 +25,11 @@ from avialsync.core.errors import SourceOpenError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import VideoSource
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.controllers import (
+    calibration_controller,
+    custom_marker_controller,
+    wheel_display,
+)
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -266,6 +271,12 @@ def create_video_pane(
     # A camera opened after a layer was switched off must not come up showing
     # it, and a restored session must not flash the defaults first (D-090).
     window._apply_overlays_to_new_pane(original_path)
+    # Wheels and markers read back before this camera opened are drawn through
+    # the calibration, which may now cover it: extend it, then draw them here.
+    if len(window.wheels) or len(window.custom_markers):
+        calibration_controller.calibration_quietly(window)
+        wheel_display.refresh(window)
+        custom_marker_controller.refresh(window)
     # The pane reports what the recording turned out to be once it has decoded
     # a frame; the levels panel sizes itself from that rather than guessing.
     pane.source_format_detected.connect(

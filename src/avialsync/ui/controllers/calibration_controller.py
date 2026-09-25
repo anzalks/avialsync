@@ -114,29 +114,36 @@ def calibration_quietly(window: MainWindow) -> None:
     For drawing only -- markers and wheels read back from disk -- so a miss is
     silent: the user has not asked for anything yet. Tried once per set of open
     videos, since panes arrive one at a time. Never called while painting.
+
+    A calibration taken while only some cameras were open is extended as the
+    rest open: a session reopened used to calibrate the first two panes and
+    then never the third, so a wheel read back was drawn on two cameras only.
     """
-    if window._calibration_state is not None:
-        return
+    state = window._calibration_state
     videos = tuple(rig_paths.open_videos(window))
+    if state is not None and set(videos) <= set(state.cameras):
+        return
     if len(videos) < 2 or _QUIET_TRIED.get(id(window)) == videos:
         return
     _QUIET_TRIED[id(window)] = videos
     folder = rig_paths.pose3d_dir(window)
     link = calibration_ref.locate(folder) if folder is not None else None
-    if link is None or not link.calibration.is_file():
+    path = state.path if state is not None else link.calibration if link is not None else None
+    if path is None or not path.is_file():
         return
     try:
-        calibration = read_calibration(link.calibration)
+        calibration = read_calibration(path)
     except CalibrationError:
         return
-    names = calibration_ref.camera_names(calibration, list(videos), link.sources)
+    sources = link.sources if link is not None else ()
+    names = calibration_ref.camera_names(calibration, list(videos), sources)
     cameras = {
         video: model
         for video, name in names.items()
         if (model := calibration.camera(name)) is not None
     }
-    if len(cameras) >= 2:
-        window._calibration_state = CalibrationState(path=link.calibration, cameras=cameras)
+    if len(cameras) >= 2 and (state is None or len(cameras) > len(state.cameras)):
+        window._calibration_state = CalibrationState(path=path, cameras=cameras)
 
 
 def resolve_calibration(window: MainWindow) -> bool:

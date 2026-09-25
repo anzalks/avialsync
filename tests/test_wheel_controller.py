@@ -18,11 +18,14 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
+from avialsync.core.calibration import Calibration, write_calibration
 from avialsync.core.commands import SetWheelCommand
 from avialsync.core.wheel import EncoderBinding, WheelSpec, project_bars
 from avialsync.core.wheel_file import read_wheels, wheel_path
 from avialsync.ui import recovery
 from avialsync.ui.controllers import (
+    calibration_controller,
+    rig_paths,
     wheel_controller,
     wheel_display,
     wheel_edits,
@@ -560,3 +563,25 @@ def test_wheels_on_disk_are_adopted_once(window: MainWindow, monkeypatch, pose3d
     window.wheels.clear()
     wheel_files.adopt(window)
     assert window.wheels.get("wheel") == wheel
+
+
+def test_a_camera_opened_later_joins_the_quiet_calibration(
+    qapp: QApplication, qtbot, monkeypatch, tmp_path: Path
+) -> None:
+    """Reopening a session: panes arrive one by one, and the last must draw too."""
+    folder = tmp_path / "pose-3d"
+    folder.mkdir()
+    write_calibration(folder / "calibration.toml", Calibration(cameras=tuple(CAMERAS.values())))
+    win = MainWindow()
+    qtbot.addWidget(win)
+    open_now = [VIDEOS["Front"], VIDEOS["Left"]]
+    monkeypatch.setattr(rig_paths, "open_videos", lambda _w: list(open_now))
+    monkeypatch.setattr(rig_paths, "pose3d_dir", lambda _w: folder)
+
+    calibration_controller.calibration_quietly(win)
+    assert set(win._calibration_state.cameras) == set(open_now)
+
+    open_now.append(VIDEOS["Right"])
+    calibration_controller.calibration_quietly(win)
+    assert set(win._calibration_state.cameras) == set(VIDEOS.values())
+    win.close()
