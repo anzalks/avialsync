@@ -68,5 +68,8 @@ Dropping a folder, or several files together, opens a batch import. Each row is 
 loader AvialSync picked for it; confirm or change the choice, then import them in one pass rather
 than answering the same wizard repeatedly.
 
+A single file that AvialSync cannot identify also opens this review, where you can choose an
+installed loader for it.
+
 If a session folder is recognised by a [session plugin](../plugin-guide.md), it is laid out
 automatically instead — including the shared time base — and you are not asked at all.

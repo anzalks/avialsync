@@ -366,6 +366,17 @@ class TimeSeriesSource(_Nameable, ABC):
         """
         return False
 
+    @classmethod
+    def pose_roles(cls) -> tuple[str, ...]:
+        """Return pose uses this loader can support in a manual import.
+
+        An empty tuple preserves the v1 plugin default. A loader that supplies
+        coordinate channels may offer ``pose3d`` and/or ``overlay2d``; the user
+        still declares which meaning this recording gives the file. Session
+        plugins can supply the same roles in :attr:`SessionItem.config`.
+        """
+        return ()
+
 
 class VideoSource(_Nameable, ABC):
     """Frozen v1 plugin contract for video sources.

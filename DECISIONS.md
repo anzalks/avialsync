@@ -4818,3 +4818,21 @@ through one reference camera for placing, drawing and the zero reference. `bar_e
 the angle in degrees. The turn is sign × ratio × (reading now − reading on the labelled frame).
 Its one unstated assumption, that the encoder channel is an angle in degrees, is what Ratio
 exists to correct.
+
+---
+
+## 2026-09 · D-132 · Pose roles are generic; recording plugins supply their own assignments
+
+A tracking file's coordinate columns say what it can carry, but not whether it is the 3D pose,
+a camera's 2D overlay, or data to plot. `TimeSeriesSource.pose_roles()` declares which pose
+uses a loader supports. Direct imports offer those uses in the import review; 2D requires a
+named video. The selected `role` and `overlay_video` travel in import config and are replayed
+on session restore. A recording plugin may declare them in its `SessionItem.config`, as AOL
+already does. AOL retains its own file detection, camera pairing and wheel hints. A declared
+pose without complete coordinate groups falls back to plotted channels with a warning.
+
+Wheel files belong to the recording, not to the presence of a tracking source. Opening a video
+also discovers saved wheels in the recording's `pose-3d/` directory through a registered worker;
+the nearest shared parent of open cameras names that folder for generic recordings. Existing
+in-memory wheels take precedence over a read that finishes later. Placing a new wheel still
+requires calibrated camera views and the user's clicks; tracking is optional.

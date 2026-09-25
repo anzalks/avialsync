@@ -32,6 +32,7 @@ class BatchImportDialog(QDialog):
         parent: QWidget | None = None,
         labels: Mapping[str, str] | None = None,
         kinds: Mapping[str, str] | None = None,
+        video_paths: Sequence[str] = (),
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Review Import Candidates"))
@@ -62,11 +63,30 @@ class BatchImportDialog(QDialog):
         self._candidates = sorted(candidates, key=sort_key)
         self._registry = LoaderRegistry()
         self._build_category_map()
+        self._video_paths = list(
+            dict.fromkeys(
+                [
+                    *video_paths,
+                    *(
+                        str(path)
+                        for path, loader, _ in self._candidates
+                        if loader is not None and issubclass(loader, VideoSource)
+                    ),
+                    *(
+                        str(config["overlay_video"])
+                        for _, _, config in self._candidates
+                        if config and config.get("overlay_video")
+                    ),
+                ]
+            )
+        )
 
         layout = QVBoxLayout(self)
 
-        self._table = QTableWidget(len(self._candidates), 2)
-        self._table.setHorizontalHeaderLabels(["File / Group", "Detected Type"])
+        self._table = QTableWidget(len(self._candidates), 3)
+        self._table.setHorizontalHeaderLabels(
+            [tr("File / Group"), tr("Detected Type"), tr("Use as")]
+        )
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self._table.horizontalHeader().setSectionResizeMode(
             1, QHeaderView.ResizeMode.ResizeToContents
@@ -76,6 +96,7 @@ class BatchImportDialog(QDialog):
         layout.addWidget(self._table)
 
         self._combos: list[QComboBox] = []
+        self._role_combos: list[QComboBox] = []
 
         for row, (path, default_loader, _config) in enumerate(self._candidates):
             name_item = QTableWidgetItem(self._row_name(path))
@@ -116,6 +137,15 @@ class BatchImportDialog(QDialog):
             combo.setCurrentIndex(default_index)
             self._table.setCellWidget(row, 1, combo)
             self._combos.append(combo)
+            role_combo = QComboBox(self._table)
+            role_combo.setAccessibleName(tr("Use for {file}").format(file=path.name))
+            role_combo.setAccessibleDescription(
+                tr("Choose data channels, 3D pose, or 2D pose for a named camera video")
+            )
+            self._table.setCellWidget(row, 2, role_combo)
+            self._role_combos.append(role_combo)
+            combo.currentIndexChanged.connect(lambda _index, at=row: self._update_roles(at))
+            self._update_roles(row)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -142,13 +172,53 @@ class BatchImportDialog(QDialog):
             for alias in loader.display_aliases():
                 self._categories.append((alias, loader))
 
+    def _update_roles(self, row: int) -> None:
+        """Offer only pose uses the chosen loader declares, with a camera target."""
+        combo = self._role_combos[row]
+        loader = self._combos[row].currentData()
+        config = self._candidates[row][2] or {}
+        previous = combo.currentData()
+        wanted = (
+            previous
+            if previous is not None
+            else [
+                config.get("role", ""),
+                config.get("overlay_video", ""),
+            ]
+        )
+        combo.clear()
+        combo.addItem(tr("Data channels"), ["", ""])
+        if isinstance(loader, type) and issubclass(loader, TimeSeriesSource):
+            roles = loader.pose_roles()
+            if "pose3d" in roles or config.get("role") == "pose3d":
+                combo.addItem(tr("3D pose"), ["pose3d", ""])
+            if "overlay2d" in roles or config.get("role") == "overlay2d":
+                for video in self._video_paths:
+                    combo.addItem(
+                        tr("2D pose on {video}").format(video=Path(video).name),
+                        ["overlay2d", video],
+                    )
+        index = combo.findData(wanted)
+        combo.setCurrentIndex(index if index >= 0 else 0)
+        combo.setEnabled(combo.count() > 1)
+
     def get_selections(
         self,
     ) -> list[tuple[Path, type[TimeSeriesSource | VideoSource], dict | None]]:
         """Return the user-approved (Path, Loader, Config) tuples."""
         results = []
-        for (path, _, config), combo in zip(self._candidates, self._combos, strict=True):
+        for (path, _, config), combo, role_combo in zip(
+            self._candidates, self._combos, self._role_combos, strict=True
+        ):
             loader_cls = combo.currentData()
             if loader_cls is not None:
-                results.append((path, loader_cls, config))
+                role, video = role_combo.currentData()
+                chosen = dict(config or {})
+                chosen.pop("role", None)
+                chosen.pop("overlay_video", None)
+                if role:
+                    chosen["role"] = role
+                if video:
+                    chosen["overlay_video"] = video
+                results.append((path, loader_cls, chosen if chosen or config is not None else None))
         return results

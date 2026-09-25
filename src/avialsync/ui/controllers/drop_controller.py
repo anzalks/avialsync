@@ -174,7 +174,19 @@ def on_drop_scan_finished(
         return
 
     if len(candidates) == 1:
-        # Bypass dialog for single files only
+        # An unclaimed file must stay selectable in the review. This also
+        # covers File → Open Data, which enters through the drop scanner.
+        # A standalone pose-capable file still needs the user's declaration:
+        # the loader can parse coordinates but cannot know which camera or
+        # whether this recording treats them as 2D or 3D evidence.
+        _, loader_cls, config = candidates[0]
+        if loader_cls is None or (
+            issubclass(loader_cls, TimeSeriesSource)
+            and loader_cls.pose_roles()
+            and not (config or {}).get("role")
+        ):
+            window._process_drop_candidates(candidates)
+            return
         for path, loader_cls, config in candidates:
             if loader_cls is not None:
                 window.video_grid.begin_batch_add()
@@ -221,6 +233,7 @@ def process_drop_candidates(
         window,
         labels=window._session_item_labels,
         kinds=window._session_item_kinds,
+        video_paths=window.video_grid.pane_paths(),
     )
     if dialog.exec() == QDialog.DialogCode.Accepted:
         selections = dialog.get_selections()

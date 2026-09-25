@@ -21,6 +21,11 @@ class TrackingLoader(TimeSeriesSource):
     def display_name(cls) -> str:
         return "Tracking Data (2D/3D)"
 
+    @classmethod
+    def pose_roles(cls) -> tuple[str, ...]:
+        """DLC and LightningPose files can carry 2D or 3D coordinates."""
+        return ("overlay2d", "pose3d")
+
     def __init__(self) -> None:
         self._path: Path | None = None
         self._config: dict[str, Any] = {}

@@ -19,11 +19,21 @@ from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.errors import FileUnreadableError, LoaderContractError, SourceOpenError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import TimeSeriesSource
+from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
 
 logger = logging.getLogger(__name__)
+
+
+def _has_pose_coordinates(channels: list[str], axes: tuple[str, ...]) -> bool:
+    """Whether one point has every coordinate required by a declared pose role."""
+    names = set(channels)
+    return any(
+        name.endswith("_x") and all(f"{name[:-2]}_{axis}" in names for axis in axes)
+        for name in channels
+    )
 
 
 # ── Time-series intake ───────────────────────────────────────────────
@@ -34,6 +44,8 @@ def start_data_import(
     path: Path,
     loader_cls: type[TimeSeriesSource] | None = None,
     pre_config: dict | None = None,
+    *,
+    restoring: bool = False,
 ) -> None:
     if loader_cls is None:
         discovered_loader = window._registry.find_best_loader(path)
@@ -61,13 +73,15 @@ def start_data_import(
     config = pre_config or {}
 
     if getattr(loader_cls, "needs_import_wizard", lambda: False)():
-        if not config.get("auto_resolved"):
+        if not restoring and not config.get("auto_resolved"):
             from avialsync.ui.import_wizard import ImportWizard
 
             wizard = ImportWizard(path, window)
             if wizard.exec() != ImportWizard.DialogCode.Accepted:
                 return
-            config = wizard.config()
+            # The import review may have assigned a pose role or camera before
+            # this loader asks how to parse its time column. Keep that choice.
+            config = {**config, **wizard.config()}
     elif config.get("_is_frame_indexed") or loader_cls().is_frame_indexed():
         if not config.get("auto_resolved") and "fps" not in config:
             fps, ok = window._resolve_tracking_fps()
@@ -234,6 +248,27 @@ def on_import_finished(
             offset = float(inspection.import_config["offset"])
         if "drift_ppm" in inspection.import_config and drift_ppm == 0.0:
             drift_ppm = float(inspection.import_config["drift_ppm"])
+
+    if role in ("pose3d", "overlay2d"):
+        required = ("x", "y", "z") if role == "pose3d" else ("x", "y")
+        target = (
+            inspection.import_config.get("overlay_video")
+            if isinstance(inspection, SourceInspection)
+            else None
+        )
+        if not _has_pose_coordinates(channels, required) or (role == "overlay2d" and not target):
+            window.notifications.show_warning(
+                tr(
+                    "{file} has no usable {kind} coordinates; its channels were plotted instead."
+                ).format(
+                    file=Path(path).name,
+                    kind=tr("3D pose") if role == "pose3d" else tr("2D pose"),
+                )
+            )
+            if isinstance(inspection, SourceInspection):
+                inspection.import_config.pop("role", None)
+                inspection.import_config.pop("overlay_video", None)
+            role = ""
 
     # NWB's zero. A source carrying wall-clock time is placed against the
     # session reference instead of sitting 1.7e9 seconds from a

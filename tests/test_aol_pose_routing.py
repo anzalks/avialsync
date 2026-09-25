@@ -281,6 +281,30 @@ def test_non_pose_sources_still_plot(tmp_path: Path, qtbot, monkeypatch) -> None
     window.close()
 
 
+def test_generic_pose_without_required_coordinates_is_plotted(
+    tmp_path: Path, qtbot, monkeypatch
+) -> None:
+    """A mistaken manual role must not silently discard a readable channel."""
+    from avialsync.ui.main_window import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
+    window = MainWindow()
+    qtbot.addWidget(window)
+
+    _finish_import(
+        window,
+        str(tmp_path / "points.csv"),
+        tmp_path / "points.avialcache",
+        ["speed"],
+        {"role": "pose3d"},
+    )
+
+    assert [channel.name for channel in window.plot_pane.channels] == ["speed"]
+    assert not window._pose_3d_sources
+    assert "role" not in window._inspections[str(tmp_path / "points.csv")].import_config
+    window.close()
+
+
 def test_every_camera_is_painted_even_when_its_pane_is_built_last(
     tmp_path: Path, qtbot, monkeypatch
 ) -> None:

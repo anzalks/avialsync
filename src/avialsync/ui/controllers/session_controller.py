@@ -521,14 +521,21 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
             # Import is asynchronous, so the accepted mapping is held until
             # the worker reports the cache back (see _on_import_finished).
             window._pending_sensor_mappings[str(p)] = (se.offset, se.drift_ppm)
-            window._start_data_import(p)
+            config = dict(se.import_config)
+            overlay_target = config.get("overlay_video")
+            if isinstance(overlay_target, str):
+                config["overlay_video"] = relink_map.get(overlay_target, overlay_target)
+            if config:
+                window._start_data_import(p, pre_config=config, restoring=True)
+            else:
+                window._start_data_import(p)
             if se.loader_id or se.import_report:
                 from avialsync.core.inspection import ImportReport
 
                 ins = SourceInspection(
                     path=str(p),
                     loader_id=se.loader_id,
-                    import_config=dict(se.import_config),
+                    import_config=config,
                     import_report=(
                         ImportReport.from_dict(se.import_report) if se.import_report else None
                     ),

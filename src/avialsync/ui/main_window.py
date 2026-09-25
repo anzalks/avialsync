@@ -297,6 +297,7 @@ class MainWindow(QMainWindow):
         self._wheel_checking: str | None = None
         self._wheel_cache: dict[str, tuple[object, Any]] = {}
         self._announced_wheel_files: set[str] = set()
+        self._wheel_adopt_folders: set[Path] = set()
         self._session_rotary: Any = None
         #: One callable, so the grid can tell "no wheel" from "same wheel source".
         self._wheel_pane_source: Callable[[str, float], object] = lambda path, t: (
@@ -3822,15 +3823,17 @@ class MainWindow(QMainWindow):
     def _open_data(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Open Sensor/Ephys Data")
         if path:
-            self._start_data_import(Path(path))
+            self.open_path(Path(path))
 
     def _start_data_import(
         self,
         path: Path,
         loader_cls: type[TimeSeriesSource] | None = None,
         pre_config: dict | None = None,
+        *,
+        restoring: bool = False,
     ) -> None:
-        import_controller.start_data_import(self, path, loader_cls, pre_config)
+        import_controller.start_data_import(self, path, loader_cls, pre_config, restoring=restoring)
 
     def _resolve_tracking_fps(self) -> tuple[float, bool]:
         return import_controller.resolve_tracking_fps(self)

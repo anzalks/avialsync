@@ -203,6 +203,12 @@ Tracking files use the existing import path. Every complete channel triplet name
 `point_y`, and `point_z` becomes one point in the 3D pane; incomplete triplets remain ordinary
 time-series plots. The 3D pane does not guess connections between points.
 
+When importing a tracking file directly, choose **Use as → 3D pose** to load its XYZ points as
+pose data, or choose **2D pose on [camera]** to draw XY points over that video. **Data channels**
+keeps the file in the plots. Load the camera videos first if you want to choose a 2D overlay
+target. A session plugin can make these choices for the recording; AOL supplies its own pose
+roles and camera matches. Your choice is saved with the session and used when it reopens.
+
 - Drag with the left mouse button to orbit.
 - Use the mouse wheel to zoom.
 - Select **Fit View**, or double-click the view, to frame the current pose again.
@@ -322,7 +328,9 @@ A constant delay between the encoder and the cameras goes in the wheel's **Encod
 seconds. It is the encoder's own offset, the same number as its row in the **Sources** tab. It
 therefore moves the encoder's plots with the wheel, and is one undo step. Adjust it while
 watching the bars on a frame where the wheel is turning. Each wheel is saved as
-`pose-3d/<name>.wheel.toml`, beside the 3D pose, and is read back when the session is opened again.
+`pose-3d/<name>.wheel.toml` in the recording folder, beside a 3D pose when there is one. It is
+read back when the recording's videos open, even if no tracking file is loaded. For cameras in
+separate subfolders, `pose-3d/` is under their shared recording folder.
 
 The Add Wheel dialog can remember the last **bar count, 3D units and radius** in AvialSync's
 preferences for future wheels. On the first use, leave **Remember this setup** checked if you want

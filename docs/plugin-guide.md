@@ -153,6 +153,13 @@ about where the file belongs in time. One key is interpreted by the application:
 `role` routes a source away from the plot rows — `"pose3d"` to the 3D view,
 `"overlay2d"` (with `overlay_video`) to that camera's overlay.
 
+For a direct file import, a `TimeSeriesSource` that can yield coordinate channels can override
+`pose_roles()` to offer `"pose3d"` and/or `"overlay2d"` in the import review. The default is
+empty, so existing plugins keep their current behavior. The user chooses the role and, for 2D,
+the target video. A session scanner can declare the same choice in each `SessionItem.config`;
+the review starts with that choice selected. The application checks for complete `_x/_y` or
+`_x/_y/_z` channel groups after import and plots the channels if the declared pose is unusable.
+
 A bare `offset` in `config` still works, and means the whole source-to-master
 mapping rather than a correction on top of a placement. Prefer `source_epoch`:
 it composes with the session zero, survives a source being re-placed, and leaves

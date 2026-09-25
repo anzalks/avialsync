@@ -1,4 +1,4 @@
-"""Where a wheel is kept: written from the mutation funnel, read back as pose data loads.
+"""Where a wheel is kept: written from mutations, read when a recording opens.
 
 Split from :mod:`avialsync.ui.controllers.wheel_controller` (D-113). The file
 format is :mod:`avialsync.core.wheel_file`; this decides *when* and *where*:
@@ -6,7 +6,7 @@ format is :mod:`avialsync.core.wheel_file`; this decides *when* and *where*:
 * **Written only from the mutation funnel** (``WindowMutationTarget.set_wheel``),
   so reading a file back never echoes it straight out again -- D-099's rule.
 * **Read back without rolling anything back**: a wheel already in the session
-  wins over its file, because this runs again as each pose source registers.
+  wins over its file, including when it was placed while a read was running.
 * **A damaged file costs that wheel only** and is named once (rule 10).
 """
 
@@ -15,10 +15,15 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from avialsync.core.wheel_file import read_wheels, write_removed, write_wheel
+from PySide6.QtCore import QThread
+
+from avialsync.core.wheel import Wheel
+from avialsync.core.wheel_file import write_removed, write_wheel
+from avialsync.engine.wheel_file_worker import WheelFileReadWorker
 from avialsync.ui.controllers import calibration_controller as calibration
 from avialsync.ui.controllers import rig_paths
 from avialsync.ui.i18n import tr
+from avialsync.ui.job_manager import on_ui_thread
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -53,16 +58,41 @@ def persist(window: MainWindow, name: str) -> None:
 
 
 def adopt(window: MainWindow) -> None:
-    """Read the wheels kept beside whatever pose data is loaded now.
+    """Read saved wheels when a video or pose source identifies their folder.
 
-    What is already in the session wins over the file: this runs as each pose
-    source registers, and a wheel edited since would otherwise be rolled back
-    by its own older copy.
+    One job per folder in this session; later panes and pose files share its
+    result. Existing in-memory edits win if the read finishes after an edit.
     """
     folder = rig_paths.pose3d_dir(window)
-    if folder is None:
+    if folder is None or folder in window._wheel_adopt_folders:
         return
-    wheels, unreadable = read_wheels(folder)
+    window._wheel_adopt_folders.add(folder)
+    generation = window._session_generation
+    worker = WheelFileReadWorker(folder)
+
+    def on_finished(wheels: list[Wheel], unreadable: list[str]) -> None:
+        if generation != window._session_generation:
+            return
+        _accept_read(window, wheels, unreadable)
+
+    def on_error(message: str) -> None:
+        if generation != window._session_generation:
+            return
+        window._wheel_adopt_folders.discard(folder)
+        window.notifications.show_warning(
+            tr("Saved wheels in {folder} could not be read.").format(folder=folder.name),
+            details=message,
+        )
+
+    def _wire(_thread: QThread) -> None:
+        worker.finished.connect(on_ui_thread(on_finished, window))
+        worker.error.connect(on_ui_thread(on_error, window))
+
+    window._run_job(worker, label=tr("Reading saved wheels"), configure=_wire)
+
+
+def _accept_read(window: MainWindow, wheels: list[Wheel], unreadable: list[str]) -> None:
+    """Merge a completed read without replacing any wheel already in memory."""
     for file_name in unreadable:
         if file_name not in window._announced_wheel_files:
             window._announced_wheel_files.add(file_name)

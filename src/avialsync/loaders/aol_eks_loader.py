@@ -35,6 +35,11 @@ class AOLEksLoader(TimeSeriesSource):
     def display_name(cls) -> str:
         return "AOL 3D Tracking"
 
+    @classmethod
+    def pose_roles(cls) -> tuple[str, ...]:
+        """The CSV shape can be a 2D camera track or a 3D pose."""
+        return ("overlay2d", "pose3d")
+
     def __init__(self) -> None:
         self._path: Path | None = None
         self._config: dict[str, Any] = {}

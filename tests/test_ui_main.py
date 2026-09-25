@@ -266,6 +266,53 @@ def test_session_restore_calls_data_import(main_window: MainWindow) -> None:
         mock_import.assert_called_once_with(csv_path)
 
 
+def test_session_restore_replays_manual_pose_role_and_camera(
+    main_window: MainWindow, tmp_path: Path
+) -> None:
+    video = tmp_path / "camera.mp4"
+    pose = tmp_path / "points.csv"
+    video.touch()
+    pose.touch()
+    config = {"role": "overlay2d", "overlay_video": str(video), "fps": 30.0}
+    state = SessionState(sensors=[SensorEntry(path=str(pose), import_config=config)])
+
+    with patch.object(main_window, "_start_data_import") as mock_import:
+        main_window._restore_session(state)
+
+    mock_import.assert_called_once_with(pose, pre_config=config, restoring=True)
+
+
+def test_loader_wizard_keeps_pose_role_chosen_in_import_review(
+    main_window: MainWindow, tmp_path: Path
+) -> None:
+    path = tmp_path / "points.csv"
+    config = {"role": "overlay2d", "overlay_video": str(tmp_path / "camera.mp4")}
+
+    with (
+        patch("avialsync.ui.import_wizard.ImportWizard") as wizard_class,
+        patch.object(main_window, "_enqueue_import") as enqueue,
+    ):
+        wizard = wizard_class.return_value
+        wizard.exec.return_value = wizard_class.DialogCode.Accepted
+        wizard.config.return_value = {"time_col": "time"}
+        main_window._start_data_import(path, CSVLoader, config)
+
+    enqueue.assert_called_once_with(path, CSVLoader, {**config, "time_col": "time"})
+
+
+def test_single_unclaimed_file_reaches_import_review(
+    main_window: MainWindow, tmp_path: Path
+) -> None:
+    """An unknown file remains available for a manually chosen loader."""
+    path = tmp_path / "recording.xyz"
+    candidates = [(path, None, None)]
+
+    with patch.object(main_window, "_process_drop_candidates") as review:
+        main_window._on_drop_scan_finished(candidates, SessionLayout())
+
+    review.assert_called_once_with(candidates)
+
+
 @pytest.mark.parametrize(
     ("suffix", "loader_class", "target"),
     [

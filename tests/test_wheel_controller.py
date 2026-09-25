@@ -11,6 +11,7 @@ against ground truth in ``test_wheel.py``, whose synthetic rig these tests reuse
 from __future__ import annotations
 
 import dataclasses
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,8 +21,9 @@ from shiboken6 import isValid
 
 from avialsync.core.calibration import Calibration, write_calibration
 from avialsync.core.commands import SetWheelCommand
-from avialsync.core.wheel import EncoderBinding, WheelSpec, project_bars
-from avialsync.core.wheel_file import read_wheels, wheel_path
+from avialsync.core.wheel import EncoderBinding, Wheel, WheelSpec, project_bars
+from avialsync.core.wheel_file import read_wheels, wheel_path, write_wheel
+from avialsync.core.wheel_fit import fit_wheel
 from avialsync.ui import recovery
 from avialsync.ui.controllers import (
     calibration_controller,
@@ -563,6 +565,41 @@ def test_wheels_on_disk_are_adopted_once(window: MainWindow, monkeypatch, pose3d
     window.wheels.clear()
     wheel_files.adopt(window)
     assert window.wheels.get("wheel") == wheel
+
+
+def test_video_only_recording_rediscovers_its_saved_wheel(qapp, qtbot, tmp_path: Path) -> None:
+    """A generic recording needs no pose-source callback to find its sidecar."""
+    video = tmp_path / "camera_1.mp4"
+    shutil.copyfile(Path("tests/fixtures/videos/camera_1.mp4"), video)
+    spec = WheelSpec("wheel", 36)
+    clicks = clicks_for([0, 1])
+    wheel = Wheel(spec, FRAME, clicks, fit_wheel(spec, clicks, CAMERAS))
+    write_wheel(tmp_path / "pose-3d", wheel)
+    win = MainWindow()
+    qtbot.addWidget(win)
+
+    win._load_video(video)
+    qtbot.waitUntil(lambda: win.wheels.get("wheel") is not None, timeout=10_000)
+
+    assert not win._pose_3d_sources
+    assert win.wheels.get("wheel") == wheel
+    win.close()
+
+
+def test_generic_cameras_and_tracking_share_one_wheel_folder(tmp_path: Path) -> None:
+    recording = tmp_path / "recording"
+    videos = [
+        str(recording / "front" / "camera.mp4"),
+        str(recording / "side" / "camera.mp4"),
+    ]
+    window = SimpleNamespace(
+        video_grid=SimpleNamespace(pane_paths=lambda: videos),
+        _pose_3d_sources={},
+    )
+
+    assert rig_paths.pose3d_dir(window) == recording / "pose-3d"
+    window._pose_3d_sources = {str(recording / "tracking" / "points.csv"): []}
+    assert rig_paths.pose3d_dir(window) == recording / "pose-3d"
 
 
 def test_a_camera_opened_later_joins_the_quiet_calibration(

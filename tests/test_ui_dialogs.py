@@ -332,6 +332,20 @@ def test_batch_dialog_returns_the_selected_loader_for_each_file(
     assert config == {"time_col": "t"}
 
 
+def test_unclaimed_file_can_use_a_manually_selected_loader(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    from avialsync.loaders.csv_loader import CSVLoader
+
+    path = tmp_path / "recording.xyz"
+    dialog = BatchImportDialog([(path, None, None)])
+    qtbot.addWidget(dialog)
+    combo = dialog._combos[0]
+    combo.setCurrentIndex(combo.findData(CSVLoader))
+
+    assert dialog.get_selections() == [(path, CSVLoader, None)]
+
+
 def test_batch_dialog_preserves_each_files_own_config(
     qapp: QApplication, qtbot, tmp_path: Path
 ) -> None:
@@ -348,3 +362,37 @@ def test_batch_dialog_preserves_each_files_own_config(
 
     configs = [config for _path, _loader, config in dialog.get_selections()]
     assert configs == [{"time_col": "t_a"}, {"time_col": "t_b"}]
+
+
+def test_manual_tracking_can_be_assigned_to_a_camera_or_the_3d_view(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    path = tmp_path / "points.csv"
+    video = str(tmp_path / "camera.mp4")
+    dialog = BatchImportDialog([(path, TrackingLoader, None)], video_paths=[video])
+    qtbot.addWidget(dialog)
+    roles = dialog._role_combos[0]
+
+    roles.setCurrentIndex(roles.findData(["pose3d", ""]))
+    assert dialog.get_selections() == [(path, TrackingLoader, {"role": "pose3d"})]
+
+    roles.setCurrentIndex(roles.findData(["overlay2d", video]))
+    assert dialog.get_selections() == [
+        (path, TrackingLoader, {"role": "overlay2d", "overlay_video": video})
+    ]
+
+
+def test_session_pose_declaration_remains_selected_in_import_review(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    from avialsync.loaders.aol_eks_loader import AOLEksLoader
+
+    path = tmp_path / "points_eks.csv"
+    video = str(tmp_path / "camera.mp4")
+    config = {"role": "overlay2d", "overlay_video": video, "fps": 30.0}
+    dialog = BatchImportDialog([(path, AOLEksLoader, config)], video_paths=[video])
+    qtbot.addWidget(dialog)
+
+    assert dialog.get_selections() == [(path, AOLEksLoader, config)]

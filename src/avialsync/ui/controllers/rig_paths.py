@@ -30,13 +30,30 @@ def open_videos(window: MainWindow) -> list[str]:
 
 
 def pose3d_dir(window: MainWindow) -> Path | None:
-    """The session's ``pose-3d`` folder: the 3D pose's, else one beside the videos."""
-    if window._pose_3d_sources:
-        return calibration_ref.pose3d_dir_for(next(iter(window._pose_3d_sources)))
+    """The recording's pose folder, shared by video-only and tracked imports."""
     videos = open_videos(window)
-    if videos:
-        return calibration_ref.pose3d_dir_for(Path(videos[0]).parent)
-    return None
+    video_root = _video_root(videos)
+    if window._pose_3d_sources:
+        source = Path(next(iter(window._pose_3d_sources)))
+        owned = calibration_ref.pose3d_dir_for(source)
+        if owned.name.lower() == calibration_ref.POSE_3D_DIR:
+            return owned
+        if video_root is None or source == video_root or video_root in source.parents:
+            return (video_root or owned) / calibration_ref.POSE_3D_DIR
+        return owned
+    return video_root / calibration_ref.POSE_3D_DIR if video_root is not None else None
+
+
+def _video_root(videos: list[str]) -> Path | None:
+    """Nearest shared parent of the cameras, without inventing a filesystem root."""
+    if not videos:
+        return None
+    first = Path(videos[0]).parent
+    parents = [Path(video).parent for video in videos[1:]]
+    for candidate in (first, *first.parents):
+        if all(candidate == parent or candidate in parent.parents for parent in parents):
+            return first if candidate == candidate.parent else candidate
+    return first
 
 
 def pose_2d_file(window: MainWindow, video: str) -> Path | None:

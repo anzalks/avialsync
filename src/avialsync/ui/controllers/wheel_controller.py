@@ -432,4 +432,5 @@ def reset(window: MainWindow) -> None:
     window._wheel_refits.clear()
     window._wheel_diameter_preview.clear()
     window._announced_wheel_files.clear()
+    window._wheel_adopt_folders.clear()
     window._session_rotary = None
