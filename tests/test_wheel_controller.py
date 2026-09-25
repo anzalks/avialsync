@@ -170,7 +170,7 @@ def test_discard_clicks_exits_without_wheel(window: MainWindow, monkeypatch) -> 
 
 def test_wheel_button_uses_the_edit_action(window: MainWindow, monkeypatch) -> None:
     """The new entry point has one label, tooltip, state and command."""
-    button = window.transport.evidence.add_wheel_button
+    button = window.view_toolbar.add_wheel_button
     assert button.action is window._act_add_wheel
     assert button.text() == window._act_add_wheel.text()
     assert button.toolTip() == window._act_add_wheel.toolTip()

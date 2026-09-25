@@ -6,7 +6,6 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, QRegularExpression, QSettings, Qt, QTimer, Signal
 from PySide6.QtGui import (
-    QAction,
     QColor,
     QFontDatabase,
     QKeyEvent,
@@ -31,7 +30,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.ui.action_button import ActionButton
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import (
     evidence_color,
@@ -579,12 +577,13 @@ class TimelineOverview(QWidget):
 
 
 class TimelineEvidence(QWidget):
-    """Titled, collapsible Data Streams shell for named TimelineOverview lanes."""
+    """Titled, collapsible Data Streams shell for named TimelineOverview lanes.
 
-    snapshot_requested = Signal()
-    reset_zoom_requested = Signal()
-    flag_requested = Signal()
-    fullscreen_requested = Signal()
+    Its controls sit *below* the lanes, above the play controls: each group of
+    controls under the thing it acts on. The video tools, Flag Frame among
+    them, moved to :class:`~avialsync.ui.view_toolbar.ViewToolbar`, under the
+    video panes (D-126).
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -603,36 +602,7 @@ class TimelineEvidence(QWidget):
         self.collapse_button.setToolTip(tr("Hide or show the Data Streams lanes"))
         self.collapse_button.clicked.connect(self.toggle_collapsed)
         header.addWidget(self.collapse_button)
-        self.flag_button = QPushButton("Flag Frame", self)
-        self.flag_button.setToolTip(tr("Flag the current frame (M)"))
-        self.flag_button.clicked.connect(self.flag_requested.emit)
-        header.addWidget(self.flag_button)
-        # Filled by install_fix_tracker_action once the window has built the
-        # QAction; kept in the layout from the start so adding it later does
-        # not shuffle the row. A push button like the ones either side of it --
-        # a QToolButton with a default action is Qt's shortcut for this and does
-        # not look like its neighbours (see ui/action_button.py).
-        self.fix_tracker_button = ActionButton(self)
-        header.addWidget(self.fix_tracker_button)
-        self.add_marker_button = ActionButton(self)
-        header.addWidget(self.add_marker_button)
-        self.add_wheel_button = ActionButton(self)
-        header.addWidget(self.add_wheel_button)
         header.addStretch(1)
-        self.snapshot_button = QPushButton("Snapshot", self)
-        self.snapshot_button.setToolTip(tr("Export snapshot (Ctrl+E)"))
-        self.snapshot_button.clicked.connect(self.snapshot_requested.emit)
-        header.addWidget(self.snapshot_button)
-        self.fit_videos_button = ActionButton(self)
-        header.addWidget(self.fit_videos_button)
-        self.fullscreen_button = QPushButton("Fullscreen Toggle", self)
-        self.fullscreen_button.setToolTip(tr("Toggle the active video pane fullscreen (F11)"))
-        self.fullscreen_button.clicked.connect(self.fullscreen_requested.emit)
-        header.addWidget(self.fullscreen_button)
-        self.reset_zoom_button = QPushButton("Reset Zoom", self)
-        self.reset_zoom_button.setToolTip(tr("Reset plot zoom to all loaded data (Ctrl+0)"))
-        self.reset_zoom_button.clicked.connect(self.reset_zoom_requested.emit)
-        header.addWidget(self.reset_zoom_button)
         self._status_label = QLabel(self)
         self._status_label.setAccessibleName(tr("Application status"))
         self._status_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -651,44 +621,11 @@ class TimelineEvidence(QWidget):
         self._status_clear_timer.setSingleShot(True)
         self._status_clear_timer.timeout.connect(self._clear_status)
         header.addWidget(self._status_label)
-        layout.addLayout(header)
         self.overview = TimelineOverview(self)
         layout.addWidget(self.overview)
+        layout.addLayout(header)
         collapsed = bool(self._settings.value("timeline_evidence/collapsed", False, type=bool))
         self.set_collapsed(collapsed, persist=False)
-
-    def install_fix_tracker_action(self, action: QAction) -> None:
-        """Show the Fix Tracker toggle, driven by the menu's own QAction.
-
-        The label, tooltip and checked state come from the action, so the button
-        cannot drift out of step with the menu entry that does the same thing
-        (architecture rule 15).
-        """
-        self.fix_tracker_button.set_action(action)
-        self.fix_tracker_button.setAccessibleDescription(
-            tr("Toggle dragging of tracked points in every video pane")
-        )
-
-    def install_add_marker_action(self, action: QAction) -> None:
-        """Show the Add 3D Marker toggle beside Fix Tracker, driven by its QAction."""
-        self.add_marker_button.set_action(action)
-        self.add_marker_button.setAccessibleDescription(
-            tr("Name a new marker, then click it once in each camera to place it in 3D")
-        )
-
-    def install_fit_videos_action(self, action: QAction) -> None:
-        """Show Fit All Videos beside Fullscreen Toggle, driven by the View menu's QAction."""
-        self.fit_videos_button.set_action(action)
-        self.fit_videos_button.setAccessibleDescription(
-            tr("Set every camera back to its whole frame, zoom 1.00x and no pan")
-        )
-
-    def install_add_wheel_action(self, action: QAction) -> None:
-        """Show Add Wheel beside Add 3D Marker, driven by the same menu QAction."""
-        self.add_wheel_button.set_action(action)
-        self.add_wheel_button.setAccessibleDescription(
-            tr("Click both ends of two or three bars in at least two calibrated cameras")
-        )
 
     def toggle_collapsed(self) -> None:
         self.set_collapsed(not self.overview.isHidden())
@@ -698,7 +635,7 @@ class TimelineEvidence(QWidget):
         return self._status_label.text().removeprefix("Status: ")
 
     def set_status(self, message: str, severity: str = "info") -> None:
-        """Show active work beside Reset Zoom and clear non-active messages shortly after."""
+        """Show active work in the Data Streams row and clear non-active messages shortly after."""
         self._status_severity = severity
         self._status_label.setText(f"Status: {message}")
         self._status_label.setStyleSheet(
@@ -761,21 +698,19 @@ class Transport(QWidget):
     A/B loop, rate control, and inline time display / jump.
 
     New signals (D-022):
-      snapshot_requested   — snapshot button or Ctrl+E
-      fullscreen_requested — fullscreen button or F11
       jump_requested(float)— jump ±Ns (negative = back)
+
+    Snapshot and Fullscreen moved to the ViewToolbar under the videos, and the
+    Data Streams "Reset Zoom" -- a twin of the plots' own Reset -- was removed
+    (D-126).
     """
 
     play_toggled = Signal(bool)
     seek_requested = Signal(float, bool)  # t, exact
     rate_changed = Signal(float)
     frame_step_requested = Signal(int)  # -1 or +1
-    annotate_requested = Signal()
     ab_loop_changed = Signal(object, object)  # t_in|None, t_out|None
-    snapshot_requested = Signal()
-    fullscreen_requested = Signal()
     jump_requested = Signal(float)  # delta in seconds
-    reset_zoom_requested = Signal()
 
     # Ordered playback-rate steps (J/K/L model, D-022.4)
     _RATE_STEPS = [0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 10.0]
@@ -796,10 +731,6 @@ class Transport(QWidget):
         self.overview.viewport_seek_requested.connect(
             lambda t, exact: self.seek_requested.emit(t, exact)
         )
-        self.evidence.snapshot_requested.connect(self.snapshot_requested.emit)
-        self.evidence.reset_zoom_requested.connect(self.reset_zoom_requested.emit)
-        self.evidence.flag_requested.connect(self.annotate_requested.emit)
-        self.evidence.fullscreen_requested.connect(self.fullscreen_requested.emit)
         self._root_layout.addWidget(self.evidence)
         self._root_layout.addLayout(self._timeline_layout)
         self._root_layout.addLayout(self._controls_layout)
@@ -944,22 +875,6 @@ class Transport(QWidget):
         """Set the A/B loop in-point at the current slider position (public, D-022.1)."""
         self._on_ab_in()
 
-    def install_add_marker_action(self, action: QAction) -> None:
-        """Forward the Add 3D Marker action to the Data Streams header."""
-        self.evidence.install_add_marker_action(action)
-
-    def install_fit_videos_action(self, action: QAction) -> None:
-        """Forward the Fit All Videos action to the Data Streams header."""
-        self.evidence.install_fit_videos_action(action)
-
-    def install_add_wheel_action(self, action: QAction) -> None:
-        """Forward the Add Wheel action to the Data Streams header."""
-        self.evidence.install_add_wheel_action(action)
-
-    def install_fix_tracker_action(self, action: QAction) -> None:
-        """Expose the Fix Tracker toggle in the Data Streams header."""
-        self.evidence.install_fix_tracker_action(action)
-
     def detach_data_streams(self) -> TimelineEvidence:
         """Detach Data Streams so the main workspace splitter can own its height."""
         index = self._root_layout.indexOf(self.evidence)
@@ -1011,7 +926,7 @@ class Transport(QWidget):
         return self.evidence.status_text()
 
     def set_status(self, message: str, severity: str = "info") -> None:
-        """Show compact, non-blocking status text beside Reset Zoom."""
+        """Show compact, non-blocking status text in the Data Streams row."""
         self.evidence.set_status(message, severity)
 
     def set_source_coverage(

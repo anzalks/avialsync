@@ -5,6 +5,7 @@ from PySide6.QtCore import QPoint, Qt
 
 from avialsync.ui.theme import status_color
 from avialsync.ui.transport import Transport
+from avialsync.ui.view_toolbar import ViewToolbar
 
 
 def test_seek_row_orders_playhead_ab_end_time_and_rate_controls(qtbot) -> None:
@@ -21,19 +22,18 @@ def test_seek_row_orders_playhead_ab_end_time_and_rate_controls(qtbot) -> None:
     assert transport._end_time_label.geometry().right() < transport._ab_in_btn.geometry().x()
     assert transport._ab_clear_btn.geometry().x() < transport._speed_label.geometry().x()
     assert transport._speed_label.geometry().right() < transport.rate_combo.geometry().x()
-    assert transport.evidence.reset_zoom_button.geometry().x() > transport.slider.geometry().x()
+    # D-126: the Data Streams controls sit under the lanes they act on.
+    evidence = transport.evidence
+    assert evidence.collapse_button.geometry().top() >= evidence.overview.geometry().bottom()
 
 
-def test_transport_status_and_reset_signal(qtbot) -> None:
-    """Status updates do not block controls and reset has one explicit signal."""
+def test_transport_status_does_not_block_controls(qtbot) -> None:
+    """Status updates do not block controls. Reset belongs to the plots (D-126)."""
     transport = Transport()
     qtbot.addWidget(transport)
-    reset_requests: list[bool] = []
-    transport.reset_zoom_requested.connect(lambda: reset_requests.append(True))
 
     transport.set_bounds(0.0, 62.5)
     transport.set_status("Importing sensor data 62%", "busy")
-    transport.evidence.reset_zoom_button.click()
 
     assert transport._end_time_label.text() == "00:01:02.500"
     assert transport.evidence._status_label.text() == "Status: Importing sensor data 62%"
@@ -43,7 +43,6 @@ def test_transport_status_and_reset_signal(qtbot) -> None:
     label = transport.evidence._status_label
     assert status_color(label.palette(), "busy").name() in label.styleSheet()
     assert status_color(label.palette(), "busy") != status_color(label.palette(), "error")
-    assert reset_requests == [True]
     assert transport.play_btn.focusPolicy() == Qt.FocusPolicy.TabFocus
 
 
@@ -75,15 +74,15 @@ def test_play_pause_text_never_changes_seek_bar_geometry(qtbot) -> None:
 
 
 def test_flag_button_emits_annotation_request(qtbot) -> None:
-    """Flag lives in the Data Streams header and retains the annotation action."""
-    transport = Transport()
-    qtbot.addWidget(transport)
+    """Flag lives with the video tools (D-126) and retains the annotation request."""
+    toolbar = ViewToolbar()
+    qtbot.addWidget(toolbar)
     requests: list[bool] = []
-    transport.annotate_requested.connect(lambda: requests.append(True))
+    toolbar.flag_requested.connect(lambda: requests.append(True))
 
-    transport.evidence.flag_button.click()
+    toolbar.flag_button.click()
 
-    assert transport.evidence.flag_button.text() == "Flag Frame"
+    assert toolbar.flag_button.text() == "Flag Frame"
     assert requests == [True]
 
 
@@ -92,12 +91,13 @@ def test_data_streams_header_buttons_have_explanatory_tooltips(qtbot) -> None:
     transport = Transport()
     qtbot.addWidget(transport)
 
+    toolbar = ViewToolbar()
+    qtbot.addWidget(toolbar)
     for button in (
         transport.evidence.collapse_button,
-        transport.evidence.flag_button,
-        transport.evidence.snapshot_button,
-        transport.evidence.fullscreen_button,
-        transport.evidence.reset_zoom_button,
+        toolbar.flag_button,
+        toolbar.snapshot_button,
+        toolbar.fullscreen_button,
     ):
         assert button.toolTip()
 

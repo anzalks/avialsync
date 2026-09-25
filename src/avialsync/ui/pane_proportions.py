@@ -148,6 +148,10 @@ class PaneProportions(QObject):
             raise ValueError("splitter default weights must include something positive")
         self._fractions[splitter] = tuple(max(0.0, weight) / total for weight in weights)
 
+    def fractions(self, splitter: QSplitter) -> tuple[float, ...] | None:
+        """The ratio held for *splitter*, or None before it has one."""
+        return self._fractions.get(splitter)
+
     def record_all(self) -> None:
         """Adopt the current ratio of every managed splitter.
 

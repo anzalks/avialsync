@@ -32,7 +32,7 @@ def _zoomed_surface(window: MainWindow) -> VideoSurface:
 
 
 def test_fit_all_videos_is_greyed_until_a_video_is_open(window: MainWindow) -> None:
-    button = window.transport.evidence.fit_videos_button
+    button = window.view_toolbar.fit_videos_button
     assert button.text() == window._act_fit_videos.text() == "Fit All Videos"
     assert not button.isEnabled()
     assert "no videos" in button.toolTip()
@@ -43,7 +43,7 @@ def test_fit_all_videos_button_resets_every_camera(window: MainWindow, monkeypat
     monkeypatch.setattr(window.video_grid, "panes", [SimpleNamespace(surface=s) for s in surfaces])
     monkeypatch.setattr(window.video_grid, "pane_paths", lambda: ["/rec/a.mp4", "/rec/b.mp4"])
     window._refresh_action_availability()
-    button = window.transport.evidence.fit_videos_button
+    button = window.view_toolbar.fit_videos_button
     assert button.isEnabled()
 
     button.click()

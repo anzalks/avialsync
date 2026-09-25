@@ -434,7 +434,7 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
 def test_the_menu_entry_and_the_button_are_the_same_action(window: MainWindow) -> None:
     """Rule 15: a menu item and its button may not be named independently."""
     action = window._act_fix_tracker
-    button = window.transport.evidence.fix_tracker_button
+    button = window.view_toolbar.fix_tracker_button
 
     assert button.action is action
     assert button.text() == action.text()
@@ -450,14 +450,14 @@ def test_the_button_looks_like_the_ones_beside_it(window: MainWindow) -> None:
     """
     from PySide6.QtWidgets import QPushButton
 
-    header = window.transport.evidence
-    assert isinstance(header.fix_tracker_button, QPushButton)
-    assert isinstance(header.flag_button, QPushButton)
+    toolbar = window.view_toolbar
+    assert isinstance(toolbar.fix_tracker_button, QPushButton)
+    assert isinstance(toolbar.snapshot_button, QPushButton)
 
 
 def test_the_button_and_the_menu_stay_in_step(window: MainWindow) -> None:
     """Either one may be used; neither may end up showing the other's state."""
-    button = window.transport.evidence.fix_tracker_button
+    button = window.view_toolbar.fix_tracker_button
 
     window._act_fix_tracker.setChecked(True)
     assert button.isChecked() is True

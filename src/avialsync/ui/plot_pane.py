@@ -122,7 +122,6 @@ class PlotPane(QWidget):
         self.fit_all_button = self._plot_header.fit_all_button
         self.row_height_combo = self._plot_header.row_height_combo
         self.reset_button = self._plot_header.reset_button
-        _layout.addWidget(self._plot_header)
 
         self.graphics_layout = pg.GraphicsLayoutWidget()
         self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -150,6 +149,9 @@ class PlotPane(QWidget):
         self.window_unit_combo = self._sweep_control.unit_combo
         self.window_slider = self._sweep_control.slider
         self.window_value_label = self._sweep_control.value_label
+        # Every plot control sits under the plots it acts on, then the shared
+        # time span: the same rule as the video and Data Streams rows (D-126).
+        _layout.addWidget(self._plot_header)
         _layout.addWidget(self._sweep_control)
         self._resize_refresh_timer = QTimer(self)
         self._resize_refresh_timer.setSingleShot(True)

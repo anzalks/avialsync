@@ -110,6 +110,7 @@ from avialsync.ui.tracking_3d_pane import Tracking3DPane
 from avialsync.ui.transport import Transport
 from avialsync.ui.ui_heartbeat import UiHeartbeat
 from avialsync.ui.video_grid import VideoGrid
+from avialsync.ui.view_toolbar import ViewToolbar
 from avialsync.ui.wheel_panel import WheelPanel
 from avialsync.ui.wheel_tab import WheelTab
 
@@ -126,6 +127,9 @@ _HIGHLIGHT_MS = 4000
 #: the panes still follow the edge continuously (~60 Hz) while the relayout runs
 #: once per frame instead of once per pixel.
 _PANE_RESIZE_COALESCE_MS = 16
+#: An empty plot stack or Data Streams lane's share while nothing is loaded:
+#: effectively its minimum, which the proportion store enforces (D-127).
+_EMPTY_PLACEHOLDER_SHARE = 0.001
 
 #: Keys that drive the playhead and must reach it from anywhere in the window.
 #: Qt offers each of these to the focused widget first, and text editors accept
@@ -458,7 +462,7 @@ class MainWindow(QMainWindow):
         self.plot_pane = PlotPane(self)
         self.transport = Transport(self)
         self.data_streams = self.transport.detach_data_streams()
-        self.transport.reset_zoom_requested.connect(self.plot_pane.reset_zoom)
+        self.view_toolbar = ViewToolbar(self)
         self.plot_pane.view_window_changed.connect(self.transport.set_plot_viewport)
         self.plot_pane.seek_requested.connect(self._on_plot_seek_requested)
 
@@ -586,7 +590,16 @@ class MainWindow(QMainWindow):
 
         self._media_splitter = PaneSplitter(Qt.Orientation.Horizontal)
         self._media_splitter.setAccessibleName(tr("Video and 3D tracking splitter"))
-        self._media_splitter.addWidget(self.video_grid)
+        # The video tools sit directly under the videos they act on (D-126),
+        # beside the 3D pane rather than under it: the 3D pane's own header is
+        # taller, so the row costs no height on a small display.
+        self._video_column = QWidget()
+        video_column_layout = QVBoxLayout(self._video_column)
+        video_column_layout.setContentsMargins(0, 0, 0, 0)
+        video_column_layout.setSpacing(0)
+        video_column_layout.addWidget(self.video_grid, 1)
+        video_column_layout.addWidget(self.view_toolbar)
+        self._media_splitter.addWidget(self._video_column)
         self._media_splitter.addWidget(self.tracking_3d_pane)
         self._media_splitter.setStretchFactor(0, 2)
         self._media_splitter.setStretchFactor(1, 1)
@@ -624,9 +637,11 @@ class MainWindow(QMainWindow):
         # the established video/plot/Data Streams height allocation.
         for pane in (
             self._left_tabs,
+            self._video_column,
             self.video_grid,
             self.tracking_3d_pane,
             self.plot_pane,
+            self.view_toolbar,
             self.data_streams,
             self.transport,
         ):
@@ -683,7 +698,11 @@ class MainWindow(QMainWindow):
         # Feedback surface: activity in the status bar, outcomes in the strip.
         self._install_feedback_surface()
 
-        # Empty state, over the video area until a recording is opened.
+        # Empty state, over the video area until a recording is opened. Its
+        # layout (D-127) waits for the saved one to be restored first, so the
+        # layout kept for later is the user's, not the defaults.
+        self._empty_layout_saved: dict[QSplitter, tuple[float, ...] | None] | None = None
+        self._empty_layout_ready = False
         self._install_empty_state()
 
         # Drag and Drop
@@ -691,12 +710,14 @@ class MainWindow(QMainWindow):
 
         # Restore geometry
         self._restore_geometry()
+        self._empty_layout_ready = True
+        self._refresh_empty_state()
 
         # Transport signals (D-022)
         self.transport.ab_loop_changed.connect(self._on_ab_loop_changed)
-        self.transport.annotate_requested.connect(self._on_annotate_requested)
-        self.transport.snapshot_requested.connect(self._export_snapshot)
-        self.transport.fullscreen_requested.connect(self._toggle_fullscreen)
+        self.view_toolbar.flag_requested.connect(self._on_annotate_requested)
+        self.view_toolbar.snapshot_requested.connect(self._export_snapshot)
+        self.view_toolbar.fullscreen_requested.connect(self._toggle_fullscreen)
         self.transport.jump_requested.connect(self._on_jump_requested)
 
         # Video pane right-click context menu (D-022)
@@ -868,12 +889,41 @@ class MainWindow(QMainWindow):
             return
         nothing_loaded = not self.video_grid.pane_paths() and not self._sensor_cache_dirs
         empty_state.setVisible(nothing_loaded)
+        if self._empty_layout_ready:
+            self._apply_empty_layout(nothing_loaded)
         # The grid's floor stays where `VideoGrid` set it, in every state. It
         # was raised to the empty state's own minimum here for one commit, so
         # five stacked controls would stop drawing as 2 px slivers; that made
         # the whole window unable to shrink below ~505 px tall and took the
         # 640x480 workspace guarantee with it. `EmptyState` scrolls instead, so
         # it survives a short video area without dictating a window minimum.
+
+    def _apply_empty_layout(self, empty: bool) -> None:
+        """Give the drop target the room while nothing is loaded (D-127).
+
+        An empty plot stack and empty Data Streams lanes are placeholders, and
+        a restored layout could leave them most of the window with the drop
+        target squeezed above. Until something is open they are held at their
+        minimum; the ratios they had come back with the first recording.
+        """
+        splitters: tuple[QSplitter, ...] = (self._v_splitter, self._content_splitter)
+        if empty:
+            if self._empty_layout_saved is None:
+                self._empty_layout_saved = {
+                    splitter: self._pane_proportions.fractions(splitter) for splitter in splitters
+                }
+            for splitter in splitters:
+                # The minimum is enforced by the distribution, so a tiny share
+                # is "as small as the pane allows", on any platform's fonts.
+                self._pane_proportions.set_fractions(splitter, (1.0, _EMPTY_PLACEHOLDER_SHARE))
+        elif self._empty_layout_saved is not None:
+            saved, self._empty_layout_saved = self._empty_layout_saved, None
+            for splitter, fractions in saved.items():
+                if fractions is not None:
+                    self._pane_proportions.set_fractions(splitter, fractions)
+        else:
+            return
+        self._pane_proportions.reapply()
 
     def _launch_demo(self) -> None:
         """Generate and open the sample session.
@@ -1894,7 +1944,7 @@ class MainWindow(QMainWindow):
         )
         self._act_fix_tracker.toggled.connect(self._toggle_point_edit_mode)
         _reg(self._act_fix_tracker, "Edit")
-        self.transport.install_fix_tracker_action(self._act_fix_tracker)
+        self.view_toolbar.install_fix_tracker_action(self._act_fix_tracker)
 
         # Add 3D Marker: name a point, click it in every camera, triangulate.
         # Checked while a placement is in progress; unchecking cancels it. Same
@@ -1913,7 +1963,7 @@ class MainWindow(QMainWindow):
             tr("Load at least two camera videos to place a 3D marker"),
         )
         _reg(self._act_add_marker, "Edit")
-        self.transport.install_add_marker_action(self._act_add_marker)
+        self.view_toolbar.install_add_marker_action(self._act_add_marker)
 
         # Add Wheel: declare a running wheel, click both ends of a few of its
         # bars, and the rest are generated and turned by the encoder (D-113).
@@ -1931,7 +1981,7 @@ class MainWindow(QMainWindow):
             tr("Load at least two camera videos to place a wheel"),
         )
         _reg(self._act_add_wheel, "Edit")
-        self.transport.install_add_wheel_action(self._act_add_wheel)
+        self.view_toolbar.install_add_wheel_action(self._act_add_wheel)
         self.wheel_tab.install_add_action(self._act_add_wheel)
 
         # ── Align ─────────────────────────────────────────────────────
@@ -2067,7 +2117,7 @@ class MainWindow(QMainWindow):
             lambda: bool(self.video_grid.pane_paths()),
             tr("There are no videos to fit until one is loaded."),
         )
-        self.transport.install_fit_videos_action(self._act_fit_videos)
+        self.view_toolbar.install_fit_videos_action(self._act_fit_videos)
 
         # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS (D-022.2)
         self._act_fullscreen = view_menu.addAction(tr("Toggle Pane Fullscreen"))

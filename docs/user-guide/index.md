@@ -97,6 +97,14 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 
 ## Useful controls
 
+Controls sit under what they act on. Under the videos: **Flag Frame**, **Fix Tracker**, **Add 3D
+Marker**, **Add Wheel…**, **Snapshot**, **Fit All Videos** and **Fullscreen Toggle**. Under the
+plots: the live presentation, **Fit all**, **Rows**, **Reset** and the time span. Under the Data
+Streams lanes: **Hide** and the status line. Then the play controls.
+
+Before anything is open, the drop area takes almost the whole window and the empty plot and Data
+Streams areas stay small. The layout you had comes back when the first recording opens.
+
 - **Flag Frame** creates an annotation at the current time. It appears in the **Changes** tab
   alongside any tracking corrections you have made.
 - **Snapshot** writes a figure of the current moment for notes or reports: every displayed camera
@@ -115,7 +123,8 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 - Select the small **×** beside a plot to hide it. This unchecks the same channel in the left panel.
 - Unchecking a video or plot keeps it loaded but hidden through window resizing, grid changes, and
   fullscreen toggles. Hidden videos are paused until shown again, then resynchronize automatically.
-- **Reset Zoom** expands the shared plot window to the full loaded timeline.
+- **Reset** under the plots (**View → Reset Plot Zoom**, `Ctrl+0`) expands the shared plot window
+  to the full loaded timeline.
 - **A/B** marks a time range for inspection or export.
 - After accepting exact frame-trigger alignment, exact scrubs, pause, and frame-step land on those
   trigger timestamps for every synchronized video.
@@ -125,7 +134,7 @@ Use tooltips by resting the pointer over any button if you are unsure what it do
 ## Correcting a tracked point
 
 Pose estimates are sometimes wrong: an occluded nose lands on the wall, or a marker swaps between
-two animals. Select **Fix Tracker** in the Data Streams header, or **Edit → Fix Tracker**
+two animals. Select **Fix Tracker** under the videos, or **Edit → Fix Tracker**
 (`Ctrl+Shift+T`), to correct one by hand.
 
 - Every video view accepts corrections while the mode is on, and playback stops so the frame you

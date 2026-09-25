@@ -21,6 +21,7 @@ from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.ui.transport import Transport
+from avialsync.ui.view_toolbar import ViewToolbar
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -64,17 +65,21 @@ def test_jump_fwd_btn_emits_jump_requested(transport: Transport) -> None:
     assert received == [1.0], "Jump-fwd button must emit jump_requested(+1.0)"
 
 
-def test_snapshot_btn_emits_snapshot_requested(transport: Transport) -> None:
+def test_snapshot_btn_emits_snapshot_requested(qtbot) -> None:
+    toolbar = ViewToolbar()
+    qtbot.addWidget(toolbar)
     fired: list[Any] = []
-    transport.snapshot_requested.connect(lambda: fired.append(1))
-    transport.evidence.snapshot_button.click()
+    toolbar.snapshot_requested.connect(lambda: fired.append(1))
+    toolbar.snapshot_button.click()
     assert fired, "Snapshot button must emit snapshot_requested"
 
 
-def test_fullscreen_btn_emits_fullscreen_requested(transport: Transport) -> None:
+def test_fullscreen_btn_emits_fullscreen_requested(qtbot) -> None:
+    toolbar = ViewToolbar()
+    qtbot.addWidget(toolbar)
     fired: list[Any] = []
-    transport.fullscreen_requested.connect(lambda: fired.append(1))
-    transport.evidence.fullscreen_button.click()
+    toolbar.fullscreen_requested.connect(lambda: fired.append(1))
+    toolbar.fullscreen_button.click()
     assert fired, "Fullscreen button must emit fullscreen_requested"
 
 

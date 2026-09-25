@@ -140,8 +140,8 @@ def test_second_camera_enables_marker_and_wheel_buttons_after_pane_creation(
     window: MainWindow, monkeypatch
 ) -> None:
     """A queued probe can build its pane after the last source-loaded callback."""
-    marker = window.transport.evidence.add_marker_button
-    wheel = window.transport.evidence.add_wheel_button
+    marker = window.view_toolbar.add_marker_button
+    wheel = window.view_toolbar.add_wheel_button
     assert not marker.isEnabled() and not wheel.isEnabled()
     monkeypatch.setattr(
         video_controller,

@@ -89,11 +89,12 @@ def save_geometry(window: MainWindow) -> None:
         "splitter/horizontal",
         window._h_splitter.saveState(),
     )
-    settings.setValue(
-        "splitter/vertical",
-        window._v_splitter.saveState(),
-    )
-    settings.setValue("splitter/content", window._content_splitter.saveState())
+    # While nothing is loaded the plots and Data Streams are held at their
+    # minimum for the drop target (D-127); that is not a layout the user chose,
+    # so the one they did choose stays saved instead.
+    if window._empty_layout_saved is None:
+        settings.setValue("splitter/vertical", window._v_splitter.saveState())
+        settings.setValue("splitter/content", window._content_splitter.saveState())
     settings.setValue("splitter/media", window._media_splitter.saveState())
     settings.setValue("inspector/tab", window._left_tabs.currentIndex())
 

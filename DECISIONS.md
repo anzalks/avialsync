@@ -4714,3 +4714,38 @@ camera never drew the wheel, even with View → Overlays → Wheel model checked
 it. Each time a camera pane is added while wheels or markers exist, the quiet load is retried
 and both are redrawn. A calibration that covers fewer cameras than are now open is re-read
 for them, keeping the same calibration file.
+
+---
+
+## 2026-09 · D-126 · Controls sit under what they act on
+
+The Data Streams header had become the place every button went. It held Flag Frame, Fix
+Tracker, Add 3D Marker, Add Wheel, Snapshot, Fit All Videos, Fullscreen Toggle and Reset Zoom,
+beside the lanes' own Hide, far from the videos and plots those buttons act on. Controls are now
+grouped under their subject, top to bottom:
+
+* **Videos**, then `ui/view_toolbar.py`: Flag Frame (it marks the frame on screen), Fix Tracker,
+  Add 3D Marker, Add Wheel…, Snapshot, Fit All Videos and Fullscreen Toggle. The toolbar spans the
+  video column only, beside the 3D view, whose header is taller. The row therefore costs no
+  height, keeping the 640×480 guarantee (`test_ui_layout_resize.py`).
+* **Plots**, then their controls row (Live, Fit all, Rows, Reset) and the time span. The plots'
+  controls moved from above the rows to below them.
+* **Data Streams lanes**, then Hide and the status line.
+* **Play controls.**
+
+The Data Streams "Reset Zoom" was a twin of the plots' own Reset: the same command under a second
+label (rule 15). It is removed rather than moved. Snapshot and Fullscreen keep their plain
+buttons; making them `ActionButton`s would rename them to their menu entries' longer labels.
+This supersedes where D-027, D-112 and D-113 put the placement buttons, not what they do.
+
+---
+
+## 2026-09 · D-127 · An empty window belongs to the drop target
+
+At first launch, a restored layout could give most of the height to an empty plot area and
+empty Data Streams lanes, squeezing "Drop recordings here" into a scrolling band above them. While
+nothing is loaded, `_apply_empty_layout` pins both placeholders to their minimum through the
+proportion store, which enforces each pane's minimum on any platform's fonts. The ratios held
+before, restored from settings, come back with the first recording. `save_geometry` does not
+save the vertical and content splitters in this state, so the empty arrangement never replaces
+the user's own.
