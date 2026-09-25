@@ -429,7 +429,6 @@ def reset(window: MainWindow) -> None:
     window._wheel_checking = None
     window.wheels.clear()
     window._wheel_cache.clear()
-    window._wheel_readers.clear()
     window._wheel_refits.clear()
     window._wheel_diameter_preview.clear()
     window._announced_wheel_files.clear()

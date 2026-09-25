@@ -4799,3 +4799,22 @@ is drawn in. The slider's range is the bar spacing in those units, the box shows
 significant figures, and the fit report names the ratio ("1 cm = 13.8 calibration units"). A
 diameter saved under D-128 was in calibration units and must be set again. When the measured
 radius was used in the fit, the ratio is 1 and nothing changes.
+
+---
+
+## 2026-09 · D-131 · The wheel reads the encoder through the plot's own reader
+
+The wheel took the encoder source's live `TimeMap` from its plot rows but opened a second
+`PyramidReader` on the same cache and took the *nearest* sample. The Values tab takes the last
+sample at or before the time. The two paths agreed to within one sample, but they were two
+authorities for one number (rule 15). When a user asked whether the wheel used the values the
+plots show, the answer was "almost". `wheel_display.sample` now finds the plot row for the bound
+channel and calls its `MappedChannelReader.sample_at`, exactly as the Values tab does. A test
+checks it against ground truth: an encoder at 36°/s, offset 0.12 s through the Sources path,
+reads 36 × (t + 0.12) and equals the plotted value.
+
+The rest of the chain was audited at the same time and holds. A frame number becomes a time
+through one reference camera for placing, drawing and the zero reference. `bar_ends` turns by
+the angle in degrees. The turn is sign × ratio × (reading now − reading on the labelled frame).
+Its one unstated assumption, that the encoder channel is an angle in degrees, is what Ratio
+exists to correct.

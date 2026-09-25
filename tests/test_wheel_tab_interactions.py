@@ -17,7 +17,6 @@ from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.core.pyramid import PyramidBuilder
-from avialsync.core.timeline import TimeMap
 from avialsync.core.wheel import EncoderBinding, WheelSpec
 from avialsync.core.wheel_file import read_wheels
 from avialsync.ui.controllers import wheel_controller, wheel_display
@@ -190,15 +189,39 @@ def test_generating_the_wheel_is_announced_once(window: MainWindow, monkeypatch)
 # ── Done Labelling and Discard Clicks ───────────────────────────────
 
 
+def _load_encoder(window: MainWindow, tmp_path: Path, times, values) -> None:
+    """An encoder imported as the app does: cached, plotted, and registered as a source."""
+    cache = tmp_path / "encoder.avialcache"
+    cache.mkdir()
+    PyramidBuilder(cache, "angle").build_and_save(times, values)
+    window.sidebar.add_sensor("encoder.csv", ["angle"])
+    window._sensor_cache_dirs["encoder.csv"] = cache
+    window.plot_pane.load_channels(cache, ["angle"], source_id="encoder.csv")
+    window.plot_pane.wait_for_pending_rows()
+
+
+def test_the_wheel_reads_the_same_synced_encoder_values_as_the_plots(
+    window: MainWindow, tmp_path: Path
+) -> None:
+    """Ground truth: 36 degrees per second, read after a 0.12 s offset from Sources."""
+    times = np.arange(0.0, 10.0, 0.001)
+    _load_encoder(window, tmp_path, times, 36.0 * times)
+    window.sidebar.set_sensor_mapping("encoder.csv", 0.12, 0.0)
+    window._on_sensor_mapping_changed("encoder.csv", 0.12, 0.0)
+    row = next(r for r in window.plot_pane.channels if r.reader.channel_id == "angle")
+
+    for t_master in (1.0, 2.3456, 7.0005):
+        wheel_value = wheel_display.sample(window, ("encoder.csv", "angle"), t_master)
+        assert wheel_value == row.reader.sample_at(t_master)[1], "the value the plots show"
+        assert wheel_value == pytest.approx(36.0 * (t_master + 0.12), abs=0.037), "one sample"
+
+
 def test_done_labelling_reads_the_encoder_from_its_real_cache(
     window: MainWindow, monkeypatch, tmp_path: Path, pose3d: Path
 ) -> None:
-    """No stub between the button and the encoder's pyramid: the path a user takes."""
-    cache = tmp_path / "encoder.avialcache"
-    cache.mkdir()
+    """No stub between the button and the encoder: the plot rows a user loads."""
     times = np.linspace(-1.0, 1.0, 201)
-    PyramidBuilder(cache, "angle").build_and_save(times, 30.0 + 10.0 * times)
-    monkeypatch.setattr(wheel_display, "_encoder_map", lambda _w, _s: (cache, TimeMap()))
+    _load_encoder(window, tmp_path, times, 30.0 + 10.0 * times)
     _two_bars(window, monkeypatch, channel=("encoder.csv", "angle"))
 
     window.wheel_panel._accept.click()

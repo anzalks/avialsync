@@ -296,7 +296,6 @@ class MainWindow(QMainWindow):
         self._wheel_diameter_preview: dict[str, float] = {}
         self._wheel_checking: str | None = None
         self._wheel_cache: dict[str, tuple[object, Any]] = {}
-        self._wheel_readers: dict[tuple[str, str], Any] = {}
         self._announced_wheel_files: set[str] = set()
         self._session_rotary: Any = None
         #: One callable, so the grid can tell "no wheel" from "same wheel source".

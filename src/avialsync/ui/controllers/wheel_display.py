@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from avialsync.core.calibration import CameraModel
-from avialsync.core.pyramid import PyramidReader
+from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.timeline import TimeMap
 from avialsync.core.wheel import (
     EncoderBinding,
@@ -119,22 +119,36 @@ def _encoder_map(window: MainWindow, source_id: str) -> tuple[Path, TimeMap] | N
     return None
 
 
+def _channel_reader(window: MainWindow, channel: tuple[str, str]) -> MappedChannelReader | None:
+    """The plot's own reader for this encoder channel -- the one the Values tab reads."""
+    cache_dir = window._sensor_cache_dirs.get(channel[0])
+    if cache_dir is None:
+        return None
+    for row in window.plot_pane.channels:
+        if row.reader.cache_dir == cache_dir and row.reader.channel_id == channel[1]:
+            return row.reader
+    return None
+
+
 def sample(window: MainWindow, channel: tuple[str, str], t_master: float) -> float | None:
-    """The encoder reading at *t_master*, or None where it has none."""
-    found = _encoder_map(window, channel[0])
-    if found is None:
-        return None
-    cache_dir, time_map = found
-    key = (str(cache_dir), channel[1])
-    reader = window._wheel_readers.get(key)
+    """The encoder reading at *t_master*, or None where it has none.
+
+    Read through the plot row's own reader, exactly as the Values tab reads it
+    (``sample_at``: the last sample at or before the time, through the source's
+    live offset and drift). One path to the synced values, so the wheel can
+    never turn by a number the plots and Values tab do not show.
+    """
+    reader = _channel_reader(window, channel)
     if reader is None:
-        reader = window._wheel_readers[key] = PyramidReader(cache_dir, channel[1])
-    try:
-        value = float(reader.value_at(time_map.to_source(t_master)))
-    except (OSError, ValueError, KeyError):
-        logger.warning("Could not read %s from %s", channel[1], cache_dir, exc_info=True)
         return None
-    return value if math.isfinite(value) else None
+    try:
+        found = reader.sample_at(t_master)
+    except (OSError, ValueError, KeyError):
+        logger.warning("Could not read %s from %s", channel[1], channel[0], exc_info=True)
+        return None
+    if found is None or not math.isfinite(found[1]):
+        return None
+    return found[1]
 
 
 def encoder_binding(
