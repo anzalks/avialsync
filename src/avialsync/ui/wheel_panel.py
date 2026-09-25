@@ -21,6 +21,7 @@ given; :mod:`avialsync.ui.controllers.wheel_controller` does the work.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -39,6 +40,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.wheel import Wheel, WheelSpec
+from avialsync.ui.bar_diameter_field import BarDiameterField
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_bold
 from avialsync.ui.wheel_dialogs import bar_count_spin, radius_spin, unit_items
@@ -143,6 +145,8 @@ class _WheelRow(QFrame):
         form.addRow(tr("Direction"), self.direction)
         form.addRow(tr("Ratio"), self.ratio)
         form.addRow(tr("Encoder offset"), self.offset)
+        self.diameter = BarDiameterField(self)
+        form.addRow(tr("Bar diameter"), self.diameter)
         layout.addLayout(form)
 
         buttons = QGridLayout()
@@ -171,6 +175,8 @@ class _WheelRow(QFrame):
         self.offset.valueChanged.connect(
             lambda value: panel.encoder_offset_changed.emit(name, float(value))
         )
+        self.diameter.previewed.connect(lambda v: panel.bar_diameter_previewed.emit(name, v))
+        self.diameter.committed.connect(lambda v: panel.bar_diameter_changed.emit(name, v))
 
     def _build_encoder_fields(self) -> None:
         """Direction, ratio and offset of the encoder that turns this wheel."""
@@ -231,6 +237,11 @@ class _WheelRow(QFrame):
             _set_quietly(self.direction, "setCurrentIndex", 0 if binding.sign > 0 else 1)
             _set_quietly(self.ratio, "setValue", binding.ratio)
         self.verify.setText(tr("Click a Bar End…") if checking else tr("Verify Here"))
+        geometry = wheel.geometry
+        # Up to the gap between neighbouring bar centres: bars thicker than
+        # that would overlap, so no real wheel is past the end of the slider.
+        spacing = 2.0 * geometry.radius * math.sin(math.pi / geometry.bar_count)
+        self.diameter.show_value(wheel.bar_diameter, spacing, wheel.spec.units)
 
 
 class WheelPanel(QGroupBox):
@@ -251,6 +262,10 @@ class WheelPanel(QGroupBox):
     binding_changed = Signal(str, float, float)
     #: ``(name, offset_s)`` for the encoder source that turns wheel *name*.
     encoder_offset_changed = Signal(str, float)
+    #: ``(name, diameter)`` while its slider is dragged: draw it, record nothing.
+    bar_diameter_previewed = Signal(str, float)
+    #: ``(name, diameter)`` to keep; 0 is "not set".
+    bar_diameter_changed = Signal(str, float)
     verify_requested = Signal(str)
     replace_requested = Signal(str)
     remove_requested = Signal(str)

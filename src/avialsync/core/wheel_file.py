@@ -84,6 +84,7 @@ def write_wheel(folder: Path | str, wheel: Wheel) -> Path:
             ("frame", wheel.frame),
             ("flipped", wheel.flipped),
             ("calibration", wheel.calibration),
+            ("bar_diameter", wheel.bar_diameter),
             ("removed", False),
         ],
     )
@@ -258,6 +259,7 @@ def _parse(document: Mapping[str, Any]) -> Wheel | None:
         clicks=clicks,
         fit=_parse_fit(document, geometry),
         flipped=bool(head.get("flipped", False)),
+        bar_diameter=None if head.get("bar_diameter") is None else float(head["bar_diameter"]),
         binding=_parse_binding(document),
         calibration=str(head.get("calibration", "")),
     )

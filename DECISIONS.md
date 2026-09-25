@@ -4749,3 +4749,22 @@ proportion store, which enforces each pane's minimum on any platform's fonts. Th
 before, restored from settings, come back with the first recording. `save_geometry` does not
 save the vertical and content splitters in this state, so the empty arrangement never replaces
 the user's own.
+
+---
+
+## 2026-09 · D-128 · A wheel's bar diameter is set by eye and drawn at its projected width
+
+The clicks are on bar centre lines, so they cannot measure how thick a bar is. The user sets it
+instead: each placed wheel's row has a **Bar diameter** slider, from 0 to the gap between bar
+centres, beyond which bars would overlap. The slider sits beside a number in the 3D units. Every
+camera draws each bar as a translucent band as wide as its diameter projects there. That width
+is `core/wheel.py::bar_widths`, the offset perpendicular to both the bar and the ray to it, which
+the tests check against the projected cylinder's silhouette. The 3D view draws the same band at
+its own scale. Sliding until the band matches the real bars reads off their diameter.
+
+`Wheel.bar_diameter` is display-only: fitting ignores it, it is kept across Re-place, and it is
+saved in the wheel file, where a missing value reads as not set. Dragging follows Fix Tracker's
+pattern. The window draws a preview (`_wheel_diameter_preview`) without recording anything, so
+a drag is neither dozens of undo steps nor a file write per pixel. Releasing or typing commits
+one `SetWheelCommand`, and `merge_with` joins a run of diameter-only steps (held arrow keys)
+into one undo step.

@@ -436,3 +436,51 @@ def test_encoder_offset_is_greyed_without_a_loaded_encoder(window: MainWindow, m
     place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
     window.wheel_panel._accept.click()
     assert not window.wheel_panel._rows["wheel"].offset.isEnabled()
+
+
+# ── bar diameter (D-128) ─────────────────────────────────────────────
+
+
+def test_dragging_the_diameter_previews_and_releasing_commits_once(
+    window: MainWindow, monkeypatch, pose3d: Path
+) -> None:
+    place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
+    window.wheel_panel._accept.click()
+    slider = window.wheel_panel._rows["wheel"].diameter.slider
+    depth = len(window.document)
+
+    slider.setSliderDown(True)
+    slider.setSliderPosition(100)
+
+    assert window.wheels.get("wheel").bar_diameter is None, "a drag records nothing"
+    assert len(window.document) == depth
+    preview = window._wheel_diameter_preview["wheel"]
+    assert preview > 0
+    bars = wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0).bars
+    assert max(bar.width for bar in bars) > 1.0, "the preview is drawn"
+
+    slider.setSliderDown(False)
+
+    wheel = window.wheels.get("wheel")
+    assert wheel.bar_diameter == pytest.approx(preview)
+    assert len(window.document) == depth + 1
+    assert read_wheels(pose3d)[0] == [wheel]
+    assert window._wheel_diameter_preview == {}
+    assert wheel_display.scene(window, 0.0)[0][2] == pytest.approx(preview)
+
+    assert window.document.undo(window._mutations)
+    assert window.wheels.get("wheel").bar_diameter is None
+
+
+def test_a_typed_diameter_is_kept_and_zero_clears_it(window: MainWindow, monkeypatch) -> None:
+    place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
+    window.wheel_panel._accept.click()
+    field = window.wheel_panel._rows["wheel"].diameter
+    assert field.spin.text() == "Not set"
+
+    field.spin.setValue(5.0)
+    assert window.wheels.get("wheel").bar_diameter == pytest.approx(5.0)
+    assert window.wheel_panel._rows["wheel"].diameter.spin.value() == pytest.approx(5.0)
+
+    field.spin.setValue(0.0)
+    assert window.wheels.get("wheel").bar_diameter is None

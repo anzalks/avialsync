@@ -292,6 +292,8 @@ class MainWindow(QMainWindow):
         self._wheel_placement: wheel_placement.Placement | None = None
         #: The spec each placed wheel is being re-fitted to in the background.
         self._wheel_refits: dict[str, WheelSpec] = {}
+        #: A bar-diameter slider being dragged: drawn, not yet a command (D-128).
+        self._wheel_diameter_preview: dict[str, float] = {}
         self._wheel_checking: str | None = None
         self._wheel_cache: dict[str, tuple[object, Any]] = {}
         self._wheel_readers: dict[tuple[str, str], Any] = {}

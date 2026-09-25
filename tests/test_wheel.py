@@ -13,6 +13,7 @@ import math
 import numpy as np
 import pytest
 
+from avialsync.core.commands import SetWheelCommand
 from avialsync.core.errors import WheelFitError
 from avialsync.core.wheel import (
     LEFT,
@@ -23,11 +24,20 @@ from avialsync.core.wheel import (
     WheelCheck,
     WheelSpec,
     WheelStore,
+    bar_widths,
+    camera_centre,
+    facing,
     fit_issue,
     project_bars,
 )
 from avialsync.core.wheel_check import check, observed_turn, settle_sign
-from avialsync.core.wheel_file import is_wheel_path, read_wheels, write_removed, write_wheel
+from avialsync.core.wheel_file import (
+    is_wheel_path,
+    read_wheels,
+    wheel_path,
+    write_removed,
+    write_wheel,
+)
 from avialsync.core.wheel_fit import fit_wheel
 from tests.wheel_fixture import CAMERAS, TRUTH, clicks_for
 
@@ -315,3 +325,58 @@ def test_ends_clicked_the_other_way_round_are_named() -> None:
     clicks[3] = EndClick(right.bar, LEFT, right.views)
     with pytest.raises(WheelFitError, match="opposite order"):
         fit_wheel(WheelSpec("wheel", 36), clicks, CAMERAS)
+
+
+def _silhouette_width(first: np.ndarray, second: np.ndarray, diameter: float, camera) -> float:
+    """The truth: a dense ring round the bar's middle, measured across the bar's image."""
+    axis = (second - first) / np.linalg.norm(second - first)
+    helper = np.eye(3)[int(np.argmin(np.abs(axis)))]
+    u = np.cross(axis, helper)
+    u /= np.linalg.norm(u)
+    v = np.cross(axis, u)
+    angles = np.linspace(0.0, 2.0 * np.pi, 720, endpoint=False)
+    ring = (first + second) / 2.0 + (diameter / 2.0) * (
+        np.outer(np.cos(angles), u) + np.outer(np.sin(angles), v)
+    )
+    pixels = camera.project(ring)
+    a, b = camera.project(np.vstack((first, second)))
+    along = (b - a) / np.linalg.norm(b - a)
+    across = np.array([-along[1], along[0]])
+    offsets = pixels @ across
+    return float(offsets.max() - offsets.min())
+
+
+def test_bar_widths_match_the_projected_cylinder() -> None:
+    """Each bar's drawn width is its cylinder's silhouette in the image (D-128)."""
+    ends = TRUTH.bar_ends()
+    camera = CAMERAS["Front"]
+    widths = bar_widths(ends, 8.0, camera)
+    for index in np.flatnonzero(facing(TRUTH, ends, camera_centre(camera))):
+        truth = _silhouette_width(ends[index, 0], ends[index, 1], 8.0, camera)
+        assert widths[index] == pytest.approx(truth, rel=0.03), index
+    assert np.all(bar_widths(ends, 16.0, camera) == pytest.approx(2 * widths, rel=0.01))
+
+
+def test_the_bar_diameter_travels_in_the_wheel_file(tmp_path) -> None:
+    fit = fit_wheel(WheelSpec("wheel", 36), clicks_for([0, 1]), CAMERAS)
+    wheel = Wheel(WheelSpec("wheel", 36), 7, clicks_for([0, 1]), fit, bar_diameter=6.5)
+    write_wheel(tmp_path, wheel)
+    assert read_wheels(tmp_path)[0] == [wheel]
+    plain = dataclasses.replace(wheel, bar_diameter=None)
+    write_wheel(tmp_path, plain)
+    assert "bar_diameter" not in wheel_path(tmp_path, "wheel").read_text()
+    assert read_wheels(tmp_path)[0] == [plain], "a file without it reads as not set"
+
+
+def test_diameter_steps_merge_into_one_undo_step() -> None:
+    fit = fit_wheel(WheelSpec("wheel", 36), clicks_for([0, 1]), CAMERAS)
+    base = Wheel(WheelSpec("wheel", 36), 7, clicks_for([0, 1]), fit)
+    thin = dataclasses.replace(base, bar_diameter=4.0)
+    thick = dataclasses.replace(base, bar_diameter=5.0)
+    merged = SetWheelCommand("wheel", base, thin).merge_with(SetWheelCommand("wheel", thin, thick))
+    assert merged == SetWheelCommand("wheel", base, thick)
+    refit = dataclasses.replace(thick, flipped=True)
+    assert (
+        SetWheelCommand("wheel", thin, thick).merge_with(SetWheelCommand("wheel", thick, refit))
+        is None
+    ), "a re-fit after it stays its own step"

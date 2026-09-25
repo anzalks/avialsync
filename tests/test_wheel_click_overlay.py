@@ -4,7 +4,7 @@ from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import QWidget
 
 from avialsync.ui.video_overlay import PaintCanvas
-from avialsync.ui.wheel_overlay import WheelDrawing
+from avialsync.ui.wheel_overlay import WheelBar, WheelDrawing
 
 
 def test_a_new_end_click_is_painted_on_its_camera(qtbot) -> None:
@@ -60,3 +60,22 @@ def test_projected_end_has_a_distinct_visible_mark(qtbot) -> None:
 
     assert image.pixelColor(50, 45).alpha() > 0
     assert image.pixelColor(5, 80).alpha() == 0
+
+
+def test_a_bar_with_a_diameter_is_drawn_that_thick(qtbot) -> None:
+    """The body is what the slider is matched against, so it must be visible."""
+    parent = QWidget()
+    parent.video_size = (100, 100)
+    qtbot.addWidget(parent)
+    canvas = PaintCanvas(parent)
+    canvas.resize(100, 100)
+    canvas.set_wheel_source(
+        lambda _t: WheelDrawing(bars=(WheelBar(20.0, 50.0, 80.0, 50.0, width=20.0),))
+    )
+    image = QImage(100, 100, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0)
+
+    canvas.render(image)
+
+    assert image.pixelColor(50, 42).alpha() > 0, "8 px off the centre line, inside the body"
+    assert image.pixelColor(50, 70).alpha() == 0, "20 px off it, outside"

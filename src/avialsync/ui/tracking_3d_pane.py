@@ -50,8 +50,9 @@ _CUSTOM_RADIUS = 7
 
 #: ``t_master -> [(name, xyz)]``: the hand-placed markers on the frame at *t*.
 CustomPointSource = Callable[[float], list[tuple[str, np.ndarray]]]
-#: ``t_master -> [(ends (N, 2, 3), preview)]``: every wheel's bars at *t* (D-113).
-WheelSceneSource = Callable[[float], list[tuple[np.ndarray, bool]]]
+#: ``t_master -> [(ends (N, 2, 3), preview, bar diameter)]``: every wheel's bars at *t*
+#: (D-113); the diameter, in world units, is None until one is set (D-128).
+WheelSceneSource = Callable[[float], list[tuple[np.ndarray, bool, float | None]]]
 #: A wheel is structure, not a tracked point: achromatic, and behind the pose.
 _WHEEL_WEIGHT = 0.40
 _SAMPLE_TOLERANCE_S = 0.1
@@ -278,7 +279,7 @@ class Tracking3DCanvas(QWidget):
         self._custom_points: list[tuple[str, np.ndarray]] = []
         #: Wheels: where to ask, and what it said at ``_time``.
         self._wheel_source: WheelSceneSource | None = None
-        self._wheels: list[tuple[np.ndarray, bool]] = []
+        self._wheels: list[tuple[np.ndarray, bool, float | None]] = []
 
         # Topology the data declared, and topology derived from its geometry.
         # They are kept apart so a declared skeleton is never diluted by a
@@ -716,12 +717,23 @@ class Tracking3DCanvas(QWidget):
     def _draw_wheels(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
         """Each wheel: its bars, and the two rims through their ends; dashed until accepted."""
         color = neutral_on_canvas(palette, _WHEEL_WEIGHT)
-        for ends, preview in self._wheels:
+        body_color = QColor(color)
+        body_color.setAlpha(80)
+        # The view is orthographic, so one world length is one screen length.
+        target_width, target_height = self._target_size(width, height)
+        pixels_per_unit = 0.38 * min(target_width, target_height) * self._zoom / self._radius
+        for ends, preview, diameter in self._wheels:
             count = len(ends)
             if count == 0:
                 continue
             screen, _ = self._project(ends.reshape(-1, 3), width, height)
             points = [QPointF(float(x), float(y)) for x, y in screen]
+            if diameter and diameter * pixels_per_unit > 1.0:
+                body = QPen(body_color, diameter * pixels_per_unit)
+                body.setCapStyle(Qt.PenCapStyle.FlatCap)
+                painter.setPen(body)
+                for bar in range(count):
+                    painter.drawLine(points[2 * bar], points[2 * bar + 1])
             pen = QPen(color, 1)
             if preview:
                 pen.setStyle(Qt.PenStyle.DashLine)

@@ -28,7 +28,15 @@ from avialsync.ui.job_manager import on_ui_thread
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
 
-__all__ = ["edit_binding", "edit_encoder_offset", "edit_spec", "remove", "spec_from"]
+__all__ = [
+    "edit_bar_diameter",
+    "edit_binding",
+    "edit_encoder_offset",
+    "edit_spec",
+    "preview_bar_diameter",
+    "remove",
+    "spec_from",
+]
 
 
 def spec_from(name: str, bars: int, units: str, radius: float) -> WheelSpec:
@@ -112,6 +120,28 @@ def edit_encoder_offset(window: MainWindow, name: str, offset: float) -> None:
         return
     window.sidebar.set_sensor_mapping(binding.source_id, offset, drift)
     window._on_sensor_mapping_changed(binding.source_id, offset, drift)
+
+
+def preview_bar_diameter(window: MainWindow, name: str, diameter: float) -> None:
+    """Draw *name*'s bars at *diameter* while its slider is dragged; record nothing."""
+    window._wheel_diameter_preview[name] = diameter
+    display.refresh(window)
+
+
+def edit_bar_diameter(window: MainWindow, name: str, diameter: float) -> None:
+    """Keep *diameter* for *name*'s bars (0 clears it), as one undo step (D-128).
+
+    Held arrow keys arrive as a run of values; ``SetWheelCommand`` merges a run
+    of diameter-only changes, so the run is one step.
+    """
+    window._wheel_diameter_preview.pop(name, None)
+    wheel = window.wheels.get(name)
+    value = diameter if diameter > 0 else None
+    if wheel is None or wheel.bar_diameter == value:
+        display.refresh(window)
+        return
+    changed = dataclasses.replace(wheel, bar_diameter=value)
+    window.document.execute(SetWheelCommand(name, wheel, changed), window._mutations)
 
 
 def remove(window: MainWindow, name: str) -> None:

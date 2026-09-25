@@ -30,7 +30,14 @@ import numpy as np
 from avialsync.core.calibration import CameraModel
 from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
-from avialsync.core.wheel import EncoderBinding, Wheel, WheelGeometry, fit_issue, project_bars
+from avialsync.core.wheel import (
+    EncoderBinding,
+    Wheel,
+    WheelGeometry,
+    bar_widths,
+    fit_issue,
+    project_bars,
+)
 from avialsync.core.wheel_check import settle_sign
 from avialsync.ui.controllers import rig_paths
 from avialsync.ui.controllers.wheel_placement import Marks, Placement, placement_view
@@ -200,9 +207,14 @@ def _ends(window: MainWindow, wheel: Wheel, t_master: float) -> np.ndarray | Non
 
 
 def _bars(
-    geometry: WheelGeometry, ends: np.ndarray, camera: CameraModel, preview: bool
+    geometry: WheelGeometry,
+    ends: np.ndarray,
+    camera: CameraModel,
+    preview: bool,
+    diameter: float | None = None,
 ) -> list[WheelBar]:
     pixels, in_front, facing = project_bars(geometry, ends, camera)
+    widths = bar_widths(ends, diameter, camera) if diameter else np.zeros(len(ends))
     return [
         WheelBar(
             float(pixels[i, 0, 0]),
@@ -212,6 +224,7 @@ def _bars(
             facing=bool(facing[i]),
             preview=preview,
             first=i == 0,
+            width=float(widths[i]),
         )
         for i in range(len(ends))
         if in_front[i]
@@ -248,23 +261,28 @@ def pane_drawing(window: MainWindow, video: str, t_master: float) -> WheelDrawin
             continue
         ends = _ends(window, wheel, t_master)
         if ends is not None:
-            bars += _bars(wheel.geometry, ends, camera, preview=False)
+            bars += _bars(wheel.geometry, ends, camera, False, diameter(window, wheel))
     if not bars and not clicks and not projections and not prompt:
         return None
     return WheelDrawing(tuple(bars), clicks, projections, prompt)
 
 
-def scene(window: MainWindow, t_master: float) -> list[tuple[np.ndarray, bool]]:
-    """Every wheel's bars for the 3D view: ``(ends, preview)``."""
-    out: list[tuple[np.ndarray, bool]] = []
+def diameter(window: MainWindow, wheel: Wheel) -> float | None:
+    """The bar diameter to draw: the slider's while it is dragged, else the wheel's."""
+    return window._wheel_diameter_preview.get(wheel.name, wheel.bar_diameter)
+
+
+def scene(window: MainWindow, t_master: float) -> list[tuple[np.ndarray, bool, float | None]]:
+    """Every wheel's bars for the 3D view: ``(ends, preview, bar diameter)``."""
+    out: list[tuple[np.ndarray, bool, float | None]] = []
     placement = _placement_on_screen(window, t_master)
     if placement is not None and placement.fit is not None:
-        out.append((placement.fit.geometry.bar_ends(), True))
+        out.append((placement.fit.geometry.bar_ends(), True, None))
     replacing = window._wheel_placement.replacing if window._wheel_placement else None
     for wheel in window.wheels:
         ends = None if wheel.name == replacing else _ends(window, wheel, t_master)
         if ends is not None:
-            out.append((ends, False))
+            out.append((ends, False, diameter(window, wheel)))
     return out
 
 

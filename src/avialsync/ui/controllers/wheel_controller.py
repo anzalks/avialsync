@@ -275,6 +275,8 @@ def accept(window: MainWindow) -> None:
         flipped=placement.flipped,
         binding=display.encoder_binding(window, placement, previous),
         calibration=str(state.path) if state is not None else "",
+        # Re-placing re-fits the centre lines; the bars' thickness is unchanged.
+        bar_diameter=previous.bar_diameter if previous is not None else None,
     )
     cancel(window)
     window.document.execute(SetWheelCommand(wheel.name, previous, wheel), window._mutations)
@@ -411,6 +413,8 @@ def connect_panel(window: MainWindow) -> None:
     panel.spec_changed.connect(lambda n, b, u, r: edits.edit_spec(window, n, b, u, r))
     panel.binding_changed.connect(lambda n, s, r: edits.edit_binding(window, n, s, r))
     panel.encoder_offset_changed.connect(lambda n, o: edits.edit_encoder_offset(window, n, o))
+    panel.bar_diameter_previewed.connect(lambda n, d: edits.preview_bar_diameter(window, n, d))
+    panel.bar_diameter_changed.connect(lambda n, d: edits.edit_bar_diameter(window, n, d))
     panel.verify_requested.connect(lambda n: start_checking(window, n))
     panel.replace_requested.connect(lambda n: replace(window, n))
     panel.remove_requested.connect(lambda n: edits.remove(window, n))
@@ -427,5 +431,6 @@ def reset(window: MainWindow) -> None:
     window._wheel_cache.clear()
     window._wheel_readers.clear()
     window._wheel_refits.clear()
+    window._wheel_diameter_preview.clear()
     window._announced_wheel_files.clear()
     window._session_rotary = None

@@ -323,6 +323,13 @@ class SetCustomMarkerCommand:
         target.set_custom_marker(self.name, self.frame, self.before)
 
 
+def _diameter_only(before: Any, after: Any) -> bool:
+    """Whether *after* is *before* with only its bar diameter changed."""
+    if before is None or after is None or before == after:
+        return False
+    return bool(dataclasses.replace(before, bar_diameter=after.bar_diameter) == after)
+
+
 @dataclasses.dataclass
 class SetWheelCommand:
     """Add, re-fit, or remove one wheel (D-113).
@@ -350,6 +357,23 @@ class SetWheelCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_wheel(self.name, self.before)
+
+    def merge_with(self, other: object) -> SetWheelCommand | None:
+        """Coalesce a run of bar-diameter steps into one undo step.
+
+        Only a change of ``bar_diameter`` and nothing else merges, and only when
+        it continues from where this one left off: arrow keys held on the
+        diameter field are one adjustment, but a re-fit after it is not.
+        """
+        if not isinstance(other, SetWheelCommand) or other.name != self.name:
+            return None
+        if other.before != self.after:
+            return None
+        if not (
+            _diameter_only(self.before, self.after) and _diameter_only(other.before, other.after)
+        ):
+            return None
+        return dataclasses.replace(self, after=other.after)
 
 
 @dataclasses.dataclass

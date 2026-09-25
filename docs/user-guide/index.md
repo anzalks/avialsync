@@ -308,6 +308,11 @@ same switches as those View → Overlays entries. Bar count,
 units, radius, direction and ratio can be changed in the Wheels tab at any time; each change
 re-fits the wheel from your original clicks and is one undo step.
 
+**Bar diameter** sets how thick the bars are drawn, in the 3D units. Drag the slider until the light
+band drawn along each bar is as wide as the real bar in the video, in any camera and in the 3D view.
+The number beside it is then the bars' diameter. Dragging only previews; releasing the slider or
+typing a value keeps it, as one undo step, and it is saved with the wheel. 0 means not set.
+
 A constant delay between the encoder and the cameras goes in the wheel's **Encoder offset**, in
 seconds. It is the encoder's own offset, the same number as its row in the **Sources** tab. It
 therefore moves the encoder's plots with the wheel, and is one undo step. Adjust it while
