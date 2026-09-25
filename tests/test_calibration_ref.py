@@ -117,3 +117,14 @@ def test_a_windows_path_is_kept_as_written(tmp_path) -> None:
     )
     link = calibration_ref.read_ref(ref)
     assert link is not None and str(link.calibration).startswith("\\\\rigserver")
+
+
+def test_a_rooted_path_without_a_drive_is_kept_as_written(tmp_path) -> None:
+    """``\\rigs\\rig.toml`` names the drive root, not a folder under this one.
+
+    Joined onto the reference folder, Windows would hand it the folder's own
+    drive letter, and POSIX would bury it under the folder.
+    """
+    ref = _ref(tmp_path / "pose-3d", "# 3d rotation matrix location\n\\rigs\\rig.toml\n")
+    link = calibration_ref.read_ref(ref)
+    assert link is not None and link.calibration == Path("\\rigs\\rig.toml")

@@ -92,10 +92,11 @@ def _parse_path(line: str, base: Path) -> Path:
     quoted = _QUOTED.findall(line)
     text = (quoted[-1] if quoted else line).strip()
     candidate = Path(text)
-    # A reference written on Windows travels with the folder: ``C:/rigs/...``
-    # or ``\\server\share\...`` is absolute there, and joining it onto this
-    # folder elsewhere would report a path nobody wrote.
-    if candidate.is_absolute() or PureWindowsPath(text).drive:
+    # A reference travels between platforms with the folder: ``C:/rigs/...``
+    # or ``\\server\share\...`` is absolute on Windows, and ``/rigs/...`` has
+    # no drive there. Joining either onto this folder would report a path
+    # nobody wrote (on Windows, ``/rigs`` would pick up the folder's ``C:``).
+    if candidate.is_absolute() or PureWindowsPath(text).anchor:
         return candidate
     return base / candidate
 
