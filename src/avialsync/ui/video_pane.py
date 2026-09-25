@@ -67,6 +67,7 @@ from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_font_family
 from avialsync.ui.video_overlay import PaintCanvas
 from avialsync.ui.video_timing import VideoTimingMixin, displayed_frame_rate, format_video_osd
+from avialsync.ui.wheel_overlay import WheelDrawing
 
 logger = logging.getLogger(__name__)
 
@@ -832,11 +833,9 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Where this camera asks for 3D points projected into its pixels."""
         self.paint_canvas.set_reprojection_source(source)
 
-    def set_riding_source(
-        self, source: Callable[[float], list[tuple[str, float, float]]] | None
-    ) -> None:
-        """Where this camera asks for markers the wheel carried off their frame."""
-        self.paint_canvas.set_riding_source(source)
+    def set_wheel_source(self, source: Callable[[float], WheelDrawing | None] | None) -> None:
+        """Where this camera asks for the wheel model, projected into its pixels."""
+        self.paint_canvas.set_wheel_source(source)
 
     def set_marker_place_mode(self, enabled: bool) -> None:
         """Take the next left click as a new 3D marker's position in this camera."""
@@ -930,6 +929,9 @@ class VideoPane(VideoTimingMixin, QWidget):
             visibility.get("tracking.custom_markers", True)
         )
         self.paint_canvas.set_reprojection_visible(visibility.get("tracking.reprojection", False))
+        self.paint_canvas.set_wheel_visible(
+            visibility.get("tracking.wheel", True), visibility.get("tracking.wheel_hidden", False)
+        )
 
         self.lbl_osd.setVisible(visibility.get("camera.osd", True))
         # Through set_label so an empty name stays hidden either way: a pane

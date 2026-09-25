@@ -192,6 +192,79 @@ time-series plots. The 3D pane does not guess connections between points.
 - Use the mouse wheel to zoom.
 - Select **Fit View**, or double-click the view, to frame the current pose again.
 
+## Placing a 3D marker
+
+When you need a point the pose model was not trained on — a landmark on the rig, say — choose
+**Edit → Add 3D Marker** (or the button beside Fix Tracker). Name the marker, then click it once in
+each camera on the current frame. When every calibrated camera has a click, the marker is placed in
+3D and drawn as a **hollow ring** in every camera and in the 3D view, so it is never mistaken for
+the model's own points. Adding it is one undo step.
+
+- With **Fix Tracker** on, drag a marker to move it; it is re-placed in 3D when you let go.
+- With Fix Tracker off, right-click a marker and choose **Delete 3D marker**.
+- A marker exists on the frame it was placed on.
+
+Markers are saved beside the pose files they extend — `<Camera>_eks.custom_markers.csv` next to each
+camera's 2D pose file (in `pose-3d/` for a camera without one) and `_eks.custom_markers.csv` next to
+the 3D pose — and are read back when the session is opened again. The pose files themselves are never
+written.
+
+### The cameras' calibration
+
+A 3D marker, a wheel, and reprojection all need the calibration anipose made for your rig. AvialSync
+looks for `pose-3d/calibration_ref.txt` (a small file naming the `.toml` and the videos it covers),
+then `calibration.toml` in `pose-3d/`, then in the session folder. If none is found when you place a
+marker or a wheel, you choose:
+
+- **Import…** — point at an existing `calibration.toml`. A `calibration_ref.txt` naming it is written
+  in `pose-3d/`; copy that file to other experiments filmed with the same rig.
+- **Compute** — fit one from this session's 3D pose and its 2D tracking. It projects correctly, but
+  its lens numbers are not physical, so use it for projecting and placing points, not for camera
+  geometry.
+
+Nothing is overwritten: an existing `calibration_ref.txt` is kept under a dated name, and a fitted
+calibration never takes the name of a file already there.
+
+### Checking the 3D pose against the video
+
+**View → Overlays → 3D reprojection** (also the button in the 3D pane's header) projects every 3D
+point back into each camera as a **cross**, beside the 2D tracking's dot: the gap between the two is
+the reconstruction's error on that body part. Switching it on without a calibration does not stop
+you; a message offers **Choose Calibration…**.
+
+## Placing a running wheel
+
+When the animal runs on a wheel, **Edit → Add Wheel…** draws the wheel's bars over every camera and
+in the 3D view, turned from frame to frame by the wheel's encoder. It needs at least two cameras and
+their calibration (the same one Add 3D Marker uses).
+
+1. Give the wheel a name, the **number of bars on the whole wheel**, and the encoder channel that
+   turns it. An AOL session fills in the channel for you. The bar count is required: two or three
+   neighbouring bars show the spacing between bars, and only the count turns that spacing into the
+   wheel's size.
+2. Optionally set the **3D units** (the units your calibration was made in, usually mm) and the
+   **radius to the bar centres**, measured on the rig. With both, AvialSync uses your radius and
+   also reports the radius the clicks imply; if they disagree by more than a few percent, check
+   the units and the bar count.
+3. Click **both ends of two or three neighbouring bars**, in every camera that sees them, on the
+   current frame. Click the end on the same side of the wheel first on every bar. An end clicked
+   in every camera moves on by itself; **Next End** moves on once it is clicked in two.
+4. From the second bar on, the whole wheel is drawn **dashed** as a preview, and the **Wheels**
+   section of the sidebar shows how far the clicks sit from it. Use **Flip Side** if the wheel is
+   drawn on the wrong side of the bars, **Undo Click** to take a click back, and **Accept** to add
+   the wheel. Accept is one undo step.
+
+Until you check it, the direction the encoder turns the wheel is **assumed**. Go to a frame a few
+turns away, select **Verify Here** in the Wheels section, and click any bar end in any camera. Two
+such checks measure the direction; the Wheels section says which it is and how far off the checks
+were.
+
+The wheel's bars are thin lines, never points, so they are not mistaken for tracking. Bars behind
+the side plate are hidden unless you turn on **View → Overlays → Wheel bars out of sight**. Bar count,
+units, radius, direction and ratio can be changed in the Wheels section at any time; each change
+re-fits the wheel from your original clicks and is one undo step. Each wheel is saved as
+`pose-3d/<name>.wheel.toml`, beside the 3D pose, and is read back when the session is opened again.
+
 ## Appearance and font size
 
 Use **View → Theme** to choose System, Dark, or Light, and **View → Font Size** to select a

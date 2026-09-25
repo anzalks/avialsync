@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from avialsync.core.custom_markers import CustomMarker
+    from avialsync.core.wheel import Wheel
 
 __all__ = [
     "MAX_LOG_ENTRIES",
@@ -139,6 +140,14 @@ class MutationTarget(Protocol):
         *marker* carries its per-camera clicks and its triangulated position,
         both resolved before the command was built, so replaying it needs no
         calibration. None removes the marker from every camera and the 3D view.
+        """
+
+    def set_wheel(self, name: str, wheel: Wheel | None) -> None:
+        """Place, re-fit, or remove one wheel (D-113).
+
+        *wheel* carries its clicks, its fit, and its encoder binding, all
+        resolved before the command was built, so replaying it needs neither the
+        calibration nor the encoder. None removes it from every view.
         """
 
     def add_source(self, record: SourceRecord) -> None:

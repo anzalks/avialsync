@@ -30,6 +30,7 @@ from collections.abc import Callable
 from avialsync.core.errors import (
     AvialSyncError,
     CacheError,
+    CalibrationError,
     CodecUnsupportedError,
     ExportError,
     FileUnreadableError,
@@ -39,6 +40,7 @@ from avialsync.core.errors import (
     SourceOpenError,
     SyncAmbiguityError,
     SyncEvidenceError,
+    WheelFitError,
 )
 
 __all__ = ["Recovery", "PresentedError", "present", "presentation_for"]
@@ -236,6 +238,34 @@ def _export(error: BaseException) -> PresentedError:
             "folder permissions, and that the destination is still reachable."
         ),
         recoveries=(RETRY, OPEN_LOG, COPY_DIAGNOSTICS),
+        details=str(error),
+    )
+
+
+@_register(CalibrationError)
+def _calibration(error: BaseException) -> PresentedError:
+    return PresentedError(
+        title="The camera calibration could not be used",
+        cause=(
+            "Nothing places these cameras in one 3D frame, so points clicked in "
+            "each view cannot be combined. Your recordings are unchanged. Point at "
+            "the rig's calibration.toml, or fit one from this session's tracking."
+        ),
+        recoveries=(RETRY, COPY_DIAGNOSTICS),
+        details=str(error),
+    )
+
+
+@_register(WheelFitError)
+def _wheel_fit(error: BaseException) -> PresentedError:
+    return PresentedError(
+        title="The clicked bars do not determine a wheel",
+        cause=(
+            "No wheel was added and nothing was changed. Click both ends of two or "
+            "three neighbouring bars, each in at least two cameras, and check the "
+            "bar count."
+        ),
+        recoveries=(RETRY,),
         details=str(error),
     )
 

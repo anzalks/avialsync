@@ -97,6 +97,29 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         ),
     ),
     OverlayLayer(
+        overlay_id="tracking.wheel",
+        label="Wheel model",
+        group="Tracking",
+        default_visible=True,
+        description=(
+            "Bars generated from a wheel you placed with Add Wheel, turned by its "
+            "encoder: drawn as thin lines, never as points, because they are a "
+            "model rather than anything the tracker saw."
+        ),
+    ),
+    OverlayLayer(
+        overlay_id="tracking.wheel_hidden",
+        label="Wheel bars out of sight",
+        group="Tracking",
+        # Off by default: behind the side plate they clutter the animal, and
+        # whether a bar is hidden is itself the model's estimate.
+        default_visible=False,
+        description=(
+            "The wheel's bars a camera cannot see -- behind the side plate or "
+            "under nearer bars -- drawn faint."
+        ),
+    ),
+    OverlayLayer(
         overlay_id="tracking.reprojection",
         label="3D reprojection",
         group="Tracking",

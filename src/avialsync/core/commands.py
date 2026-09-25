@@ -20,6 +20,7 @@ from typing import Any
 
 from avialsync.core.custom_markers import CustomMarker
 from avialsync.core.document import MarkerRecord, MutationTarget, SourceRecord
+from avialsync.core.wheel import Wheel
 
 __all__ = [
     "SetSourceMappingCommand",
@@ -32,6 +33,7 @@ __all__ = [
     "SetOverlayVisibleCommand",
     "SetTrackedPointCommand",
     "SetCustomMarkerCommand",
+    "SetWheelCommand",
     "AcceptSyncCommand",
     "AddSourceCommand",
     "RemoveSourceCommand",
@@ -319,6 +321,35 @@ class SetCustomMarkerCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_custom_marker(self.name, self.frame, self.before)
+
+
+@dataclasses.dataclass
+class SetWheelCommand:
+    """Add, re-fit, or remove one wheel (D-113).
+
+    ``before`` and ``after`` are whole wheels -- clicks, fit, and binding, a few
+    dozen floats -- so undoing a re-fit restores the geometry it had without
+    fitting again. ``None`` on either side is "no wheel".
+    """
+
+    name: str
+    before: Wheel | None
+    after: Wheel | None
+    command_id: str = "tracking.wheel"
+
+    @property
+    def label(self) -> str:
+        if self.before is None:
+            return f"Add wheel {self.name}"
+        if self.after is None:
+            return f"Remove wheel {self.name}"
+        return f"Change wheel {self.name}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_wheel(self.name, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_wheel(self.name, self.before)
 
 
 @dataclasses.dataclass

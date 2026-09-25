@@ -25,7 +25,8 @@ from PySide6.QtWidgets import QApplication, QWidget
 from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
 
 if TYPE_CHECKING:
-    from avialsync.ui.video_overlay import OverlayTrack, ResolvedPoint
+    from avialsync.ui.marker_overlay import ResolvedPoint
+    from avialsync.ui.video_overlay import OverlayTrack
 
 __all__ = [
     "PointEditMixin",

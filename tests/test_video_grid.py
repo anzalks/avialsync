@@ -120,7 +120,7 @@ class _RecordingPane(QWidget):
     def set_reprojection_source(self, _source: object) -> None:
         return
 
-    def set_riding_source(self, _source: object) -> None:
+    def set_wheel_source(self, _source: object) -> None:
         return
 
 

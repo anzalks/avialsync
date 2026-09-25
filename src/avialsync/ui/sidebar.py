@@ -885,6 +885,14 @@ class SidebarPane(QWidget):
         self._scroll_area.setWidget(scroll_content)
         main_layout.addWidget(self._scroll_area)
 
+    def add_section(self, widget: QWidget) -> None:
+        """Append a section below the sources, above the trailing stretch.
+
+        For a section another module owns -- the Wheels section (D-113) -- so
+        this file does not grow a panel it does not otherwise need to know.
+        """
+        self.content_layout.insertWidget(self.content_layout.count() - 1, widget)
+
     def add_video(self, path: str, metadata: dict) -> None:
         """Add a video info widget to the sidebar."""
         if path in self._video_widgets:

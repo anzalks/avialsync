@@ -193,6 +193,26 @@ class SessionItem:
 
 
 @dataclass(frozen=True)
+class RotaryHint:
+    """A wheel the session knows is there, and the channel that turns it (D-113).
+
+    A presentation hint like :attr:`SessionLayout.skeleton`: it pre-fills the
+    Add Wheel dialog and is never applied on its own. The rig's semantics --
+    which channel is the cumulative angle, how many bars the wheel has -- belong
+    to the plugin that knows the rig, not to UI code guessing from channel names.
+
+    ``source`` is the item carrying ``channel``; ``bar_count``, ``radius`` and
+    ``units`` are 0 / 0.0 / "" when the session does not say.
+    """
+
+    channel: str
+    source: Path | None = None
+    bar_count: int = 0
+    radius: float = 0.0
+    units: str = ""
+
+
+@dataclass(frozen=True)
 class SessionLayout:
     """What a recording folder contains, plus the settings that span it.
 
@@ -228,6 +248,9 @@ class SessionLayout:
 
     #: Body-part pairs to draw as a skeleton over pose data, if any.
     skeleton: list[tuple[str, str]] | None = None
+
+    #: A running wheel and the encoder channel that turns it, if the rig has one.
+    rotary: RotaryHint | None = None
 
     #: What the scan could not lay out, in the user's words rather than the log's.
     #: A scanner must not fail a whole folder because one recording in it is

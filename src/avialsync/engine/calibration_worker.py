@@ -118,8 +118,9 @@ def _pairs(
 class CalibrationFitWorker(QObject):
     """Fit every camera, write ``calibration.toml`` and ``calibration_ref.txt``."""
 
-    #: ``(calibration path, one-line summary per camera)``
-    finished = Signal(str, str)
+    #: ``(calibration path, one-line summary per camera, where the previous
+    #: calibration_ref.txt was kept -- "" when there was none)``
+    finished = Signal(str, str, str)
     error = Signal(str)
 
     def __init__(
@@ -164,12 +165,13 @@ class CalibrationFitWorker(QObject):
             self._folder.mkdir(parents=True, exist_ok=True)
             target = self._folder / calibration_ref.CALIBRATION_NAME
             if target.exists():
-                # Never over a calibration someone else made; `locate` had not
-                # found it, so it is not the one in force here either.
-                target = self._folder / "calibration_fitted.toml"
+                # Never over a calibration someone else made -- nor over an
+                # earlier fit: each fit gets a name of its own.
+                target = calibration_ref.unused_name(self._folder / "calibration_fitted.toml")
             write_calibration(target, calibration)
+            kept = calibration_ref.keep_aside(self._folder)
             calibration_ref.write_ref(self._folder, self._sources, target)
-            self.finished.emit(str(target), "; ".join(summary))
+            self.finished.emit(str(target), "; ".join(summary), str(kept) if kept else "")
         except (AvialSyncError, OSError, ValueError, pl.exceptions.PolarsError) as error:
             logger.warning("Calibration fit failed", exc_info=True)
             self.error.emit(str(error))

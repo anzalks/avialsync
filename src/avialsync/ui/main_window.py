@@ -67,6 +67,7 @@ from avialsync.core.session_time import (
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
 from avialsync.core.triggers import TriggerKind
+from avialsync.core.wheel import WheelStore
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
@@ -76,6 +77,7 @@ from avialsync.ui.accessibility import apply_accessibility, install_show_time_sw
 from avialsync.ui.annotations import AnnotationStore, Marker
 from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
 from avialsync.ui.controllers import (
+    calibration_controller,
     changes_export_controller,
     corrections_controller,
     custom_marker_controller,
@@ -84,6 +86,8 @@ from avialsync.ui.controllers import (
     import_controller,
     session_controller,
     video_controller,
+    wheel_controller,
+    wheel_display,
 )
 from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.empty_state import EmptyState
@@ -105,6 +109,7 @@ from avialsync.ui.tracking_3d_pane import Tracking3DPane
 from avialsync.ui.transport import Transport
 from avialsync.ui.ui_heartbeat import UiHeartbeat
 from avialsync.ui.video_grid import VideoGrid
+from avialsync.ui.wheel_panel import WheelPanel
 
 logger = logging.getLogger(__name__)
 
@@ -270,9 +275,24 @@ class MainWindow(QMainWindow):
         #: the placement in progress, if any.
         self.custom_markers = CustomMarkerStore()
         self.custom_markers.observe(self._on_custom_markers_changed)
-        self._calibration_state: custom_marker_controller.CalibrationState | None = None
+        self._calibration_state: calibration_controller.CalibrationState | None = None
         self._marker_placement: custom_marker_controller.Placement | None = None
         self._announced_marker_files = False
+        #: Wheels placed with Add Wheel (D-113), the one being placed, the one
+        #: whose encoder the next click checks, and what drawing them needs:
+        #: bars per frame, encoder readers, and the session's own hint.
+        self.wheels = WheelStore()
+        self.wheels.observe(self._on_wheels_changed)
+        self._wheel_placement: wheel_display.Placement | None = None
+        self._wheel_checking: str | None = None
+        self._wheel_cache: dict[str, tuple[object, Any]] = {}
+        self._wheel_readers: dict[tuple[str, str], Any] = {}
+        self._announced_wheel_files: set[str] = set()
+        self._session_rotary: Any = None
+        #: One callable, so the grid can tell "no wheel" from "same wheel source".
+        self._wheel_pane_source: Callable[[str, float], object] = lambda path, t: (
+            wheel_display.pane_drawing(self, path, t)
+        )
         #: Where each source's corrections went. "session" only ever means
         #: writing beside the pose file failed, never a preference.
         self._point_edit_storage: dict[str, str] = {}
@@ -417,9 +437,7 @@ class MainWindow(QMainWindow):
         self.video_grid = VideoGrid(self)
         self.video_grid.set_point_edits(self.point_edits)
         self.video_grid.point_moved.connect(self._on_tracked_point_moved)
-        self.video_grid.marker_clicked.connect(
-            lambda path, x, y: custom_marker_controller.on_clicked(self, path, x, y)
-        )
+        self.video_grid.marker_clicked.connect(self._on_marker_clicked)
         self.video_grid.custom_point_moved.connect(
             lambda path, name, frame, x, y: custom_marker_controller.on_moved(
                 self, path, name, frame, x, y
@@ -430,11 +448,9 @@ class MainWindow(QMainWindow):
             lambda t: custom_marker_controller.points_at(self, t)
         )
         self.video_grid.set_reprojection_source(
-            lambda path, t: custom_marker_controller.reprojected(self, path, t)
+            lambda path, t: calibration_controller.reprojected(self, path, t)
         )
-        self.video_grid.set_riding_source(
-            lambda path, t: custom_marker_controller.riding_in(self, path, t)
-        )
+        self.tracking_3d_pane.canvas.set_wheel_source(lambda t: wheel_display.scene(self, t))
         self.plot_pane = PlotPane(self)
         self.transport = Transport(self)
         self.data_streams = self.transport.detach_data_streams()
@@ -483,6 +499,9 @@ class MainWindow(QMainWindow):
         from avialsync.ui.sidebar import SidebarPane
 
         self.sidebar = SidebarPane(self)
+        self.wheel_panel = WheelPanel(self.sidebar)
+        self.sidebar.add_section(self.wheel_panel)
+        wheel_controller.connect_panel(self)
         self.sidebar.open_video_requested.connect(self._open_video)
         self.sidebar.open_sensor_requested.connect(self._open_data)
         self.sidebar.reset_session_requested.connect(self._reset_session)
@@ -1891,6 +1910,23 @@ class MainWindow(QMainWindow):
         _reg(self._act_add_marker, "Edit")
         self.transport.install_add_marker_action(self._act_add_marker)
 
+        # Add Wheel: declare a running wheel, click both ends of a few of its
+        # bars, and the rest are generated and turned by the encoder (D-113).
+        # Checked while one is being placed; unchecking cancels it. Its numbers
+        # are edited in the sidebar's Wheels section, and nowhere else.
+        self._act_add_wheel = self._edit_menu.addAction(tr("Add Wheel…"))
+        self._act_add_wheel.setCheckable(True)
+        self._act_add_wheel.setToolTip(
+            tr("Click both ends of a few neighbouring bars to place a running wheel in 3D")
+        )
+        self._act_add_wheel.toggled.connect(lambda checked: wheel_controller.toggled(self, checked))
+        self._require(
+            self._act_add_wheel,
+            lambda: len(self.video_grid.pane_paths()) >= 2,
+            tr("Load at least two camera videos to place a wheel"),
+        )
+        _reg(self._act_add_wheel, "Edit")
+
         # ── Align ─────────────────────────────────────────────────────
         # Promoted out of File. Alignment is not a file operation -- it is the
         # reason this application exists, and it sat between Open Sensor Data
@@ -1986,7 +2022,7 @@ class MainWindow(QMainWindow):
         self._overlays_menu = view_menu.addMenu(tr("Overlays"))
         self._build_overlays_menu(_reg)
         self.tracking_3d_pane.install_reprojection_action(
-            self._overlay_actions[custom_marker_controller.REPROJECTION_OVERLAY]
+            self._overlay_actions[calibration_controller.REPROJECTION_OVERLAY]
         )
         view_menu.addSeparator()
 
@@ -2332,10 +2368,6 @@ class MainWindow(QMainWindow):
         """Apply an overlay change and record it as undoable."""
         if not self.overlay_state.set_visible(overlay_id, visible, camera):
             return
-        if overlay_id == custom_marker_controller.REPROJECTION_OVERLAY and camera is None:
-            # Switching reprojection on needs a calibration; this asks for one
-            # and switches it back off if the user declines.
-            custom_marker_controller.reprojection_toggled(self, visible)
         layer = layer_for(overlay_id)
         self._record(
             SetOverlayVisibleCommand(
@@ -2346,6 +2378,10 @@ class MainWindow(QMainWindow):
             )
         )
         self._apply_overlay_state()
+        if overlay_id == calibration_controller.REPROJECTION_OVERLAY:
+            # Draws with the calibration in force, or offers to find one; never
+            # a dialog in front of a checkbox or Show All (rule 11).
+            calibration_controller.reprojection_toggled(self, visible)
 
     def _set_all_overlays(self, visible: bool) -> None:
         for layer in OVERLAY_LAYERS:
@@ -2377,6 +2413,9 @@ class MainWindow(QMainWindow):
         enabled = bool(enabled)
         if enabled and self._marker_placement is not None:
             custom_marker_controller.cancel(self, tr("3D marker not added."))
+        if enabled:
+            wheel_controller.cancel(self, tr("Wheel not added."))
+            wheel_controller.stop_checking(self)
         if enabled and self.clock.state.playing:
             # Same route the K shortcut takes, so the transport button, the
             # player, and the clock stay in agreement.
@@ -2435,6 +2474,20 @@ class MainWindow(QMainWindow):
         panel = getattr(self, "changes_panel", None)
         if panel is not None:
             panel.refresh()
+
+    def _on_wheels_changed(self, name: object) -> None:
+        """Repaint every view and the Wheels section after a wheel changed or loaded."""
+        del name
+        if getattr(self, "wheel_panel", None) is not None:
+            wheel_display.refresh(self)
+
+    def _on_marker_clicked(self, path: str, x: float, y: float) -> None:
+        """A placement click in a pane: a wheel's, when one is being placed or checked.
+
+        Otherwise a 3D marker's. The two placements never run at once.
+        """
+        if not wheel_controller.on_clicked(self, path, x, y):
+            custom_marker_controller.on_clicked(self, path, x, y)
 
     def _on_custom_markers_changed(self, key: object) -> None:
         """Repaint every pane and the 3D view after a marker changed or loaded."""

@@ -9,7 +9,6 @@ window turns into a reversible command against
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -19,8 +18,9 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
 from avialsync.core.point_edits import PointKey
-from avialsync.ui.point_edit_tool import CUSTOM_MARKER_SOURCE, PointEditMixin
+from avialsync.ui.marker_overlay import MarkerOverlayMixin, ResolvedPoint
 from avialsync.ui.tracking_colors import color_for_point
+from avialsync.ui.wheel_overlay import draw_wheel
 
 _ENSEMBLE_COLOR = (0, 255, 255)
 _MODEL_COLORS = (
@@ -32,14 +32,6 @@ _MODEL_COLORS = (
 )
 _ENSEMBLE_RADIUS = 4
 _MODEL_RADIUS = 2
-#: A hand-placed 3D marker is a hollow ring, wider than a prediction, so it is
-#: never read as the model's own output (the 3D view draws it the same way).
-_CUSTOM_RADIUS = 6
-_CUSTOM_DIAMETER = _CUSTOM_RADIUS * 2
-#: Half-length of a reprojected 3D point's cross: a third glyph, beside the
-#: tracked dot and the hand-placed ring, so the three are told apart by shape
-#: rather than by colour alone (AGENTS rule 17).
-_REPROJECTION_ARM = 5
 #: Point-label text. Small and offset off the marker so it never hides the very
 #: coordinate it is naming.
 _LABEL_POINT_SIZE = 8
@@ -67,28 +59,6 @@ class OverlayTrack:
     likelihood: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
-class ResolvedPoint:
-    """Where one body part is right now, and what identifies it.
-
-    Painting and hit-testing both go through this, so the handle the user
-    grabs is by construction the marker they can see — there is no second
-    place that decides where a point is.
-    """
-
-    name: str
-    x: float
-    y: float
-    color: tuple[int, int, int]
-    #: ``None`` when the reader carries no source identity, which is the loose
-    #: ``set_readers`` path.  Such a point is drawn but cannot be corrected,
-    #: because there would be nothing stable to key the correction to.
-    key: PointKey | None
-    corrected: bool
-    #: A hand-placed 3D marker rather than a prediction.
-    custom: bool = False
-
-
 def track_color(index: int, *, is_ensemble: bool) -> tuple[int, int, int]:
     """Return a stable colour for an overlaid prediction source."""
     if is_ensemble:
@@ -96,12 +66,13 @@ def track_color(index: int, *, is_ensemble: bool) -> tuple[int, int, int]:
     return _MODEL_COLORS[index % len(_MODEL_COLORS)]
 
 
-class PaintCanvas(PointEditMixin):
+class PaintCanvas(MarkerOverlayMixin):
     """Paint the current tracking points without obscuring video.
 
-    The "Fix Tracker" gesture lives in :class:`PointEditMixin`; this class owns
-    what is drawn and where each point resolves to, which is what the mixin
-    hit-tests against.
+    The "Fix Tracker" gesture lives in :class:`PointEditMixin`; hand-placed
+    markers, reprojection and the wheel in :class:`MarkerOverlayMixin`. This
+    class owns the tracking drawn and where each point resolves to, which is
+    what the gesture hit-tests against.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -120,15 +91,8 @@ class PaintCanvas(PointEditMixin):
         #: checking a track needs to do (D-090).
         self._points_visible = True
         self._corrections_visible = True
-        #: Hand-placed 3D markers seen by this camera: frame -> ``(name, x, y)``.
-        self._custom: dict[int, list[tuple[str, float, float]]] = {}
-        self._custom_visible = True
-        #: ``t_master -> [(name, x, y)]``: 3D points projected into this camera.
-        self._reprojection: Callable[[float], list[tuple[str, float, float]]] | None = None
-        self._reprojection_visible = False
-        #: ``t_master -> [(name, x, y)]``: markers carried off their frame by the wheel.
-        self._riding: Callable[[float], list[tuple[str, float, float]]] | None = None
         self._init_point_editing()
+        self._init_marker_overlay()
 
     def set_readers(self, readers: list[Any]) -> None:
         """Draw a single unnamed track from loose ``*_x``/``*_y`` readers.
@@ -157,134 +121,6 @@ class PaintCanvas(PointEditMixin):
         """Show or hide the ring marking hand-corrected coordinates."""
         self._corrections_visible = bool(visible)
         self.update()
-
-    def set_custom_markers(self, markers: dict[int, list[tuple[str, float, float]]]) -> None:
-        """Replace this camera's hand-placed 3D markers, keyed by video frame."""
-        self._custom = {int(frame): list(points) for frame, points in markers.items()}
-        self.update()
-
-    def set_reprojection_source(
-        self, source: Callable[[float], list[tuple[str, float, float]]] | None
-    ) -> None:
-        """Where to ask for 3D points projected into this camera."""
-        self._reprojection = source
-        self.update()
-
-    def set_riding_source(
-        self, source: Callable[[float], list[tuple[str, float, float]]] | None
-    ) -> None:
-        """Where to ask for hand-placed markers carried to this frame by the wheel."""
-        self._riding = source
-        self.update()
-
-    def set_reprojection_visible(self, visible: bool) -> None:
-        """Show or hide the 3D points projected back into this camera."""
-        self._reprojection_visible = bool(visible)
-        self.update()
-
-    def _draw_reprojection(
-        self, painter: QPainter, scale: float, offset_x: float, offset_y: float
-    ) -> None:
-        """Draw each reprojected 3D point as a cross in its body part's colour."""
-        if self._reprojection is None:
-            return
-        arm = _REPROJECTION_ARM
-        for name, px, py in self._reprojection(self.t):
-            x = int(offset_x + px * scale)
-            y = int(offset_y + py * scale)
-            color = QColor(*color_for_point(name))
-            for pen in (QPen(QColor(0, 0, 0, 200), 4), QPen(color, 2)):
-                painter.setPen(pen)
-                painter.drawLine(x - arm, y, x + arm, y)
-                painter.drawLine(x, y - arm, x, y + arm)
-
-    def set_custom_markers_visible(self, visible: bool) -> None:
-        """Show or hide the hand-placed 3D markers on this camera."""
-        self._custom_visible = bool(visible)
-        self.update()
-
-    def _current_frame(self) -> int | None:
-        """The frame this pane shows now -- the one a custom marker is keyed by."""
-        record = getattr(self.parent(), "frame_record_at", None)
-        if record is None:
-            return None
-        try:
-            return int(record(self.t)[0])
-        except (TypeError, ValueError):
-            return None
-
-    def _resolve_custom(self) -> list[ResolvedPoint]:
-        """Every hand-placed marker on the frame on screen, drag applied."""
-        resolved: list[ResolvedPoint] = []
-        if self._riding is not None:
-            # Display-only: no key, so neither Fix Tracker nor the context
-            # menu can take hold of a copy the wheel carried here.
-            for name, x, y in self._riding(self.t):
-                resolved.append(
-                    ResolvedPoint(
-                        name=name,
-                        x=x,
-                        y=y,
-                        color=color_for_point(name),
-                        key=None,
-                        corrected=False,
-                        custom=True,
-                    )
-                )
-        if not self._custom:
-            return resolved
-        frame = self._current_frame()
-        if frame is None:
-            return resolved
-        for name, x, y in self._custom.get(frame, ()):
-            key = PointKey(CUSTOM_MARKER_SOURCE, name, frame)
-            if self._drag is not None and self._drag.key == key:
-                x, y = self._drag.position
-            resolved.append(
-                ResolvedPoint(
-                    name=name,
-                    x=float(x),
-                    y=float(y),
-                    color=color_for_point(name),
-                    key=key,
-                    corrected=False,
-                    custom=True,
-                )
-            )
-        return resolved
-
-    def _draw_custom(
-        self, painter: QPainter, scale: float, offset_x: float, offset_y: float
-    ) -> None:
-        """Draw hand-placed 3D markers as hollow rings, on top of predictions."""
-        label_font = painter.font()
-        label_font.setPointSize(_LABEL_POINT_SIZE)
-        label_font.setBold(True)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        for point in self._resolve_custom():
-            x = offset_x + point.x * scale
-            y = offset_y + point.y * scale
-            color = QColor(*point.color)
-            # Dark underlay first: a 2 px ring alone vanishes over pale fur.
-            painter.setPen(QPen(QColor(0, 0, 0, 200), 4))
-            painter.drawEllipse(
-                int(x) - _CUSTOM_RADIUS,
-                int(y) - _CUSTOM_RADIUS,
-                _CUSTOM_RADIUS * 2,
-                _CUSTOM_RADIUS * 2,
-            )
-            painter.setPen(QPen(color, 2))
-            painter.drawEllipse(
-                int(x) - _CUSTOM_RADIUS,
-                int(y) - _CUSTOM_RADIUS,
-                _CUSTOM_RADIUS * 2,
-                _CUSTOM_RADIUS * 2,
-            )
-            if self._edit_mode and point.key is not None:
-                self.draw_handle(painter, color, x, y, held=point.key == self._hover)
-                painter.setBrush(Qt.BrushStyle.NoBrush)
-            # Always named: there is no model legend to say what a ring is.
-            self._draw_point_label(painter, label_font, color, point.name, x, y)
 
     def set_legend_visible(self, visible: bool) -> None:
         """Show or hide the per-track legend."""
@@ -406,9 +242,13 @@ class PaintCanvas(PointEditMixin):
         del event
         # Edit mode overrides a hidden points layer: a mode whose whole purpose
         # is grabbing markers must not start with nothing on screen to grab.
-        if not self._points_visible and not self._edit_mode:
-            return
-        if not self.readers and not self.tracks and not self._custom and self._riding is None:
+        draw_points = (self._points_visible or self._edit_mode) and bool(
+            self.readers or self.tracks or self._custom
+        )
+        # The wheel is its own layer, not a kind of point: hiding the tracking
+        # must not hide the wheel the animal is running on, or the reverse.
+        wheel = self._wheel(self.t) if self._wheel is not None else None
+        if not draw_points and wheel is None:
             return
         geometry = self._video_scale()
         if geometry is None:
@@ -417,6 +257,20 @@ class PaintCanvas(PointEditMixin):
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        if wheel is not None:
+            # Under the tracking, so a bar never hides the paw standing on it.
+            draw_wheel(
+                painter,
+                wheel,
+                scale,
+                offset_x,
+                offset_y,
+                show_facing=self._wheel_visible,
+                show_hidden=self._wheel_hidden_visible,
+            )
+        if not draw_points:
+            return
 
         if self.tracks:
             drawn: list[tuple[str, tuple[int, int, int]]] = []
@@ -434,7 +288,7 @@ class PaintCanvas(PointEditMixin):
         if self._reprojection_visible:
             self._draw_reprojection(painter, scale, offset_x, offset_y)
 
-        if (self._custom or self._riding is not None) and (self._custom_visible or self._edit_mode):
+        if self._custom and (self._custom_visible or self._edit_mode):
             self._draw_custom(painter, scale, offset_x, offset_y)
 
     def _draw_track(
@@ -569,5 +423,5 @@ class PaintCanvas(PointEditMixin):
         overlay are the common case.
         """
         self.t = t
-        if self.readers or self.tracks or self._custom or self._riding is not None:
+        if self.readers or self.tracks or self._custom or self._wheel is not None:
             self.update()

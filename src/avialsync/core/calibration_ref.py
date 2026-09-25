@@ -29,11 +29,12 @@ then one in the session folder itself -- where anipose users keep it.
 
 from __future__ import annotations
 
+import datetime as _datetime
 import os
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from avialsync.core.calibration import Calibration
 
@@ -45,6 +46,8 @@ __all__ = [
     "pose3d_dir_for",
     "read_ref",
     "write_ref",
+    "keep_aside",
+    "unused_name",
     "locate",
     "camera_names",
 ]
@@ -89,7 +92,12 @@ def _parse_path(line: str, base: Path) -> Path:
     quoted = _QUOTED.findall(line)
     text = (quoted[-1] if quoted else line).strip()
     candidate = Path(text)
-    return candidate if candidate.is_absolute() else base / candidate
+    # A reference written on Windows travels with the folder: ``C:/rigs/...``
+    # or ``\\server\share\...`` is absolute there, and joining it onto this
+    # folder elsewhere would report a path nobody wrote.
+    if candidate.is_absolute() or PureWindowsPath(text).drive:
+        return candidate
+    return base / candidate
 
 
 def read_ref(path: Path | str) -> CalibrationLink | None:
@@ -128,6 +136,32 @@ def write_ref(folder: Path | str, sources: Sequence[str], calibration: Path | st
     temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
     os.replace(temporary, target)
     return target
+
+
+def keep_aside(folder: Path | str) -> Path | None:
+    """Move an existing ``calibration_ref.txt`` aside under a dated name; where it went.
+
+    Labs edit these by hand and copy them between experiments, so replacing
+    one outright -- even one naming a file that no longer exists -- loses what
+    it said. Renamed, not copied: the new file takes the name and the old one
+    keeps its content. None when there was nothing to keep.
+    """
+    current = Path(folder) / REF_NAME
+    if not current.exists():
+        return None
+    stamp = _datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    target = unused_name(Path(folder) / f"calibration_ref.{stamp}.txt")
+    current.rename(target)
+    return target
+
+
+def unused_name(path: Path) -> Path:
+    """*path*, or ``stem-2.suffix``, ``stem-3.suffix`` ... -- whichever does not exist yet."""
+    candidate, index = path, 2
+    while candidate.exists():
+        candidate = path.with_name(f"{path.stem}-{index}{path.suffix}")
+        index += 1
+    return candidate
 
 
 def locate(pose3d_dir: Path | str) -> CalibrationLink | None:

@@ -97,8 +97,11 @@ Return session-wide settings as `SessionLayout` fields, not as extra items:
 `session_epoch` (the UTC instant you want master-clock zero to be — usually when
 the recording started), `anchor_epoch` (the UTC instant relative timestamps are
 measured from — it also switches the display to wall-clock time), `camera_fps`,
-and `skeleton` (body-part pairs; declaring them takes precedence over the
-skeleton the 3D view otherwise detects from pairwise rigidity, D-082). Set a
+`skeleton` (body-part pairs; declaring them takes precedence over the
+skeleton the 3D view otherwise detects from pairwise rigidity, D-082), and
+`rotary` (a `RotaryHint` naming the channel that carries a running wheel's
+cumulative angle in degrees, and the wheel's bar count and radius when your rig
+records them, D-113 — it pre-fills Add Wheel and is never applied on its own). Set a
 `SessionItem.loader` of `None` to let capability resolution pick one, which is
 what you should do for ordinary video.
 

@@ -4382,3 +4382,133 @@ close with a third of the focal length. That is the depth/focal ambiguity stated
 use a fitted file for projecting and triangulating, never for camera geometry. The real file also
 shows a side video split into two 540-px cameras (`SideCam`, `MirrorSideCam`); cameras are matched
 to videos by name, so the mirror half is simply not drawn.
+
+---
+
+## 2026-09 · D-113 · A running wheel is declared, fitted from a few clicked bars, and checked, never assumed
+
+**What.** Edit → Add Wheel… asks for a name, the number of bars on the whole wheel, the 3D units,
+an optional radius and the encoder channel; the user then clicks both ends of two or three
+neighbouring bars in every camera that sees them, on one frame. The rest of the wheel is generated
+from those clicks and drawn in every camera and the 3D view, turned from frame to frame by the
+encoder. It replaces the riding-the-wheel code that shipped with D-112, which treated *every*
+hand-placed marker as bolted to a wheel, took the axle from the least-spread direction of the
+marker cloud, the direction from marker names ending in `L`/`R`, and the encoder from a hardcoded
+`encoder_angle` among the plotted channels. D-112's "one frame only" is true again for markers.
+
+**The bar count is an input, because the radius is not measurable from neighbours.** Two or three
+neighbouring bars span a short arc: on a 10 cm wheel with bars 10° apart they bow ~1.5 mm off a
+straight line, about the click error, so a radius from their curvature is off by tens of percent.
+With the count N, the gap between neighbours gives `r = gap / (2 sin(π/N))`, which the same error
+moves by a few percent. On the synthetic rig (`tests/wheel_fixture.py`) three bars recover the
+radius within 1 % and reproject at 0.4 px. The old eigenvector axle fails exactly here: for three
+neighbouring bars the least spread is *radial*, not along the axle, and the wheel spins about the
+wrong axis.
+
+**The fit.** Each bar's two ends are triangulated; the axle is the mean of the bar directions (all
+parallel to it), the width their mean length; the centre is found in the plane across the axle with
+the radius from the gap (or the typed one). Two bars fit two mirrored wheels: both are refined, the
+better reprojection wins, and when the costs are within 1.5× the one farther from the cameras is
+taken — the bars a camera sees face it. Flip picks the other. The refinement is in **pixels**: one
+least-squares over pose, centre, radius and width so every generated end lands on its click in
+every camera (robust loss, 3 px scale). A bar clicked end-first the other way round is refused by
+name, since it would cancel the axle out of the mean. A typed radius is used only with declared
+units — anipose records none, and a radius in cm against a calibration in mm is a wheel a tenth the
+size — and the radius the clicks imply is reported beside it.
+
+**Turning.** `turn = sign · ratio · (angle(frame) − angle(reference frame))`, both read at the
+**presentation time of the frame on screen** (rule 6), through the encoder's **live** plot-row
+`TimeMap`, so re-aligning the encoder moves the wheel with it and the reference frame stays at zero.
+Without an encoder, or where it has no reading, the wheel is not drawn off its own frame rather than
+drawn somewhere invented.
+
+**The direction is measured, not assumed.** A click on any bar end, in one camera, on another frame
+is a check. Bars are identical, so a check fixes the turn only modulo one bar gap, and is
+*informative* only once the encoder has moved at least a gap. Two informative checks within a sixth
+of a gap, with the other sign clearly worse, set `measured`; until then the panel says "assumed".
+The ratio is typed (1 for an encoder on the axle) and a typed direction clears `measured`.
+
+**Seen as a model.** Bars are thin neutral lines — a shape nothing else on a frame uses (dots are
+tracking, rings are markers, crosses are reprojection; rule 17) — under the tracking, with bar 0
+ticked so a turn can be followed. Two layers: `tracking.wheel` (on) and `tracking.wheel_hidden`
+(bars behind the plate, off, faint — "hidden" is the model's estimate). A placement is dashed until
+Accepted, and drawn whatever the layers say, as Fix Tracker shows hidden points.
+
+**Where it is edited and kept.** The dialog is the first answer; afterwards the **sidebar's Wheels
+section is the only editor** (rule 15) — the 3D view shows a wheel and never edits one. Review is
+non-modal there (Accept / Flip / Undo Click / Go to Frame / Cancel). Accept, a re-fit, a check and a
+removal are each one `SetWheelCommand` carrying whole wheels. Each wheel is `pose-3d/<name>.wheel.toml`
+(D-099's rule: beside the data, written from the mutation funnel): the clicks are the authority; the
+geometry, fit report, binding and checks are stored so reading it back needs no calibration. A
+removed wheel keeps its file, marked `removed = true`. Generated bars are never written into
+`_eks.custom_markers.csv`.
+
+**The rig's semantics come from its plugin.** `SessionLayout.rotary` (`RotaryHint`) names the
+channel and, when `trial_config.yml` has `hardware: wheel_bar_count / wheel_radius /
+wheel_radius_units`, the wheel's numbers. It only pre-fills the dialog. The 3D units are declared
+per wheel rather than written into `calibration_ref.txt`, which labs edit by hand and which this
+feature should not rewrite.
+
+**Cost.** Fit with six bars and a typed radius: 9 ms; one frame's bars for three cameras: 0.26 ms;
+settling three checks: 10 ms (`tests/benchmarks/test_bench_wheel.py`). The fit runs on a click and
+stays on the UI thread, under the 30 ms ceiling. Bars are generated once per frame shown and cached
+by frame index; panes only project them; no file is read on the paint path.
+
+**Not done, deliberately.** A placed wheel's clicked ends are not draggable — Re-place clicks them
+again with the same settings and swaps the wheel in as one step. The ratio is not fitted: the
+modulo-one-gap aliasing makes a fitted ratio untrustworthy from a few checks.
+
+---
+
+## 2026-09 · D-114 · D-112 brought into line: no modal from a switch, nothing overwritten, the encoder's unit measured
+
+A review of the D-112 branch against AGENTS.md found these; each is now fixed and pinned by a test.
+
+**Reprojection never opens a dialog from a switch (rule 11).** Switching `tracking.reprojection`
+on without a calibration used to open the Import/Compute modal -- from the View-menu checkbox, from
+a pane's context menu, and from **Show All**, none of which asks for a dialog. Declining it then
+switched the overlay off from inside the toggle, recording an "off" before the outer "on" and
+leaving the undo history out of step with the state (rule 14). Now the switch is recorded once,
+the overlay stays on (it draws nothing without a calibration), and a notification offers "Choose
+Calibration…". The question itself is asked only for a gesture that needs a calibration: Add 3D
+Marker, Add Wheel, or that action.
+
+**Calibration failures go through the presenter (rule 12).** `CalibrationError` has its own
+presentation, and the controllers call `report_failure` with it; no exception text is shown as the
+message. `WheelFitError` (D-113) likewise.
+
+**Nothing in a data folder is overwritten.** Importing or fitting a calibration used to replace an
+existing `calibration_ref.txt` -- which labs edit by hand -- and a second fit replaced the first
+`calibration_fitted.toml`. Now an existing reference is renamed to `calibration_ref.<date>.txt`
+before the new one is written, and a fitted file takes the first unused name
+(`calibration_fitted.toml`, `-2`, `-3` …). A reference naming a Windows path (`C:/…`,
+`\\server\…`) is kept as written instead of being joined onto the local folder, so the broken
+link is reported by the name the lab wrote.
+
+**Markers never beside a raw video.** A camera without a 2D pose file had its markers written as
+`<video>.custom_markers.csv` in the recording folder. They now go to `pose-3d/<Camera>.custom_markers.csv`;
+a file the first build left beside a video is still read until the new one exists.
+
+**The encoder's velocity is rpm, measured.** D-112 relabelled `encoder_velocity` from `deg/s` to
+`rpm` with no record. Checked on the lab's 09-35-24 session (read only): over 60.9 s the unwrapped
+position changes 1157.6° while the velocity column integrates to 192.45, a ratio of 6.015; six
+10-second windows give 5.98–6.04. 1 rpm is 6 °/s, so the column is rpm and the old label was
+wrong by that factor. `encoder_angle` (the position unwrapped into cumulative degrees) is the
+channel a wheel is turned by (D-113).
+
+**Module size.** `custom_marker_controller.py` (783 lines) is split into
+`rig_paths.py` (the one frame-on-screen authority and the recording's paths),
+`calibration_controller.py` (resolve / import / fit / reproject) and the marker flow;
+`video_overlay.py` and `video_grid.py`, which D-112 pushed past 500, hand their marker,
+reprojection and wheel code to `marker_overlay.py` and `video_grid_overlays.py`. The encoder's
+`read_chunks` is split into line parsing and chunking, with the turn unwrap its own class.
+
+**The 3D pane stays one video column wide.** The reprojection button sat alone in the header's
+last column, whose width then set the pane's minimum; `test_tracking_pane_appears_once_a_source_has_triplets`
+had failed since D-112. It now spans the two columns the Bones and Fit View controls hold.
+
+**Tests the D-112 code shipped without**: `test_calibration.py`, `test_calibration_ref.py`,
+`test_custom_markers.py`, `test_calibration_worker.py` (synthetic rig; the fit reprojects within
+3 px of the cameras that made the tracking), `test_custom_marker_controller.py` (place, drag,
+delete, undo, files, adoption, and the no-modal guarantees), and the encoder's unit and unwrap in
+`test_aol_loaders.py`.

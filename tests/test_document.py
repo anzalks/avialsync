@@ -45,6 +45,7 @@ class FakeTarget:
         self.overlay_visible: dict[tuple[str, str | None], bool] = {}
         self.tracked_points: dict[tuple[str, str, int], tuple[float, float] | None] = {}
         self.custom_markers: dict[tuple[str, int], Any] = {}
+        self.wheels: dict[str, Any] = {}
         self.sources: dict[str, SourceRecord] = {}
         self.sync_evidence: dict[str, Any] = {}
         self.cleared = 0
@@ -88,6 +89,12 @@ class FakeTarget:
             self.custom_markers.pop((name, frame), None)
         else:
             self.custom_markers[(name, frame)] = marker
+
+    def set_wheel(self, name: str, wheel: Any) -> None:
+        if wheel is None:
+            self.wheels.pop(name, None)
+        else:
+            self.wheels[name] = wheel
 
     def add_source(self, record: SourceRecord) -> None:
         self.sources[record.source_id] = record

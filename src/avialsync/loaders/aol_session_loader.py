@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from avialsync.core.custom_markers import is_custom_marker_path
-from avialsync.core.source import SessionItem, SessionLayout, SessionSource
+from avialsync.core.source import RotaryHint, SessionItem, SessionLayout, SessionSource
 
 logger = logging.getLogger(__name__)
 
@@ -651,6 +651,7 @@ class AOLSessionSource(SessionSource):
             session_epoch=session_epoch,
             camera_fps=manifest.camera_fps,
             skeleton=manifest.skeleton,
+            rotary=_rotary_hint(manifest),
         )
 
 
@@ -916,6 +917,44 @@ def _metric_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionIte
             )
         )
     return items
+
+
+def _hardware_number(hardware: object, key: str) -> float:
+    """A positive number from ``trial_config.yml``'s hardware section, else 0.0."""
+    if not isinstance(hardware, dict):
+        return 0.0
+    try:
+        value = float(str(hardware.get(key, "")).strip().strip("'\""))
+    except ValueError:
+        return 0.0
+    return value if value > 0 else 0.0
+
+
+def _rotary_hint(manifest: AOLManifest) -> RotaryHint | None:
+    """The running wheel the encoder turns, for the Add Wheel dialog (D-113).
+
+    The encoder log's unwrapped angle is the channel; the wheel's bar count and
+    radius come from ``hardware: wheel_bar_count / wheel_radius /
+    wheel_radius_units`` in ``trial_config.yml`` when the lab has written them
+    there, and are otherwise left for the user to enter once.
+    """
+    from avialsync.loaders.aol_encoder_loader import ANGLE_CHANNEL
+
+    if manifest.encoder_file is None:
+        return None
+    hardware = manifest.trial_config.get("hardware", {})
+    units = (
+        str(hardware.get("wheel_radius_units", "")).strip().strip("'\"")
+        if isinstance(hardware, dict)
+        else ""
+    )
+    return RotaryHint(
+        channel=ANGLE_CHANNEL,
+        source=manifest.encoder_file,
+        bar_count=int(_hardware_number(hardware, "wheel_bar_count")),
+        radius=_hardware_number(hardware, "wheel_radius"),
+        units=units if units in ("mm", "cm", "m") else "",
+    )
 
 
 def _encoder_items(manifest: AOLManifest) -> list[SessionItem]:

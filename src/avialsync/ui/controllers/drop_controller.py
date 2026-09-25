@@ -146,6 +146,9 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     # skeleton must not inherit the previous one's bones, and an empty list is
     # what hands the 3D view over to its own detection (D-082).
     window.tracking_3d_pane.set_skeleton(list(layout.skeleton or []))
+    # Likewise the wheel: which channel turns it is the rig's to say, and it
+    # only pre-fills Add Wheel -- it is never applied on its own (D-113).
+    window._session_rotary = layout.rotary
 
     # A scan that left something out has to say so on screen.  The log already
     # holds the detail; what belongs here is the fact that the session in front

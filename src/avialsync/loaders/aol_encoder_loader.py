@@ -53,9 +53,11 @@ _TIME_RE = re.compile(r"^(\d{2}):(\d{2}):(\d{2}):(\d{3})$")
 
 _CHUNK_SIZE = 50_000
 _VELOCITY_CHANNEL = "encoder_velocity"
-_ANGLE_CHANNEL = "encoder_angle"
+#: The unwrapped, cumulative wheel angle in degrees. Public: the AOL session
+#: declares it as the channel that turns the running wheel (D-113).
+ANGLE_CHANNEL = "encoder_angle"
 #: Column holding each channel's value in a log line.
-_COLUMN = {_VELOCITY_CHANNEL: 3, _ANGLE_CHANNEL: 2}
+_COLUMN = {_VELOCITY_CHANNEL: 3, ANGLE_CHANNEL: 2}
 # A backward jump larger than half a day is a date rollover, not bad data.
 _ROLLOVER_THRESHOLD_S = 43_200.0
 _SECONDS_PER_DAY = 86_400.0
@@ -131,7 +133,7 @@ class AOLEncoderLoader(TimeSeriesSource):
             # RPM: six times its integral tracks the angle to within ~1 deg per
             # minute of recording, where deg/s would be off sixfold.
             ChannelInfo(name=_VELOCITY_CHANNEL, unit="rpm", dtype="Float64", rate_hz=None),
-            ChannelInfo(name=_ANGLE_CHANNEL, unit="deg", dtype="Float64", rate_hz=None),
+            ChannelInfo(name=ANGLE_CHANNEL, unit="deg", dtype="Float64", rate_hz=None),
         ]
 
     @staticmethod
@@ -152,81 +154,25 @@ class AOLEncoderLoader(TimeSeriesSource):
         """
         if ch not in _COLUMN:
             raise MissingColumnError(ch, list(_COLUMN))
-        column = _COLUMN[ch]
-        # The position wraps at 360; the angle channel carries it on, so a
-        # wheel that has turned three times reads 1080 rather than 0. A step of
-        # more than half a turn in one millisecond is a wrap, never motion.
-        angle_previous: float | None = None
-        angle_total = 0.0
-
         if self._path is None:
             raise SourceOpenError(
                 "Encoder source used before open(). Call open(path, config) first."
             )
 
-        # `auto_resolved` -- not `anchor_date` -- is the reliable signal that this
-        # is an AOL-session auto-import: drop_worker sets it on every candidate it
-        # produces, whereas it also sets `anchor_date` whenever the session has
-        # one, so `anchor_date` presence cannot distinguish the two paths (D-052).
-        is_manual = not bool(self._config.get("auto_resolved", False))
-        first_t: float | None = None
-
         times: list[float] = []
         values: list[float] = []
         row_offset = 0
-        # Carried across chunk boundaries.
-        unwrap = _MidnightUnwrapper()
         pending: tuple[float, float] | None = None
-
-        with open(self._path, encoding="utf-8") as f:
-            for line_no, line in enumerate(f, start=1):
-                line = line.strip()
-                if not line:
-                    continue
-
-                parts = line.split()
-                if len(parts) < 4:
-                    logger.warning("Skipping malformed encoder line %d: %s", line_no, line[:60])
-                    continue
-
-                t_sec = self._parse_wall_clock(parts[0])
-                if np.isnan(t_sec):
-                    logger.warning("Unparseable timestamp at line %d: %s", line_no, parts[0])
-                    continue
-
-                if is_manual:
-                    if first_t is None:
-                        first_t = t_sec
-                    t_sec -= first_t
-
-                try:
-                    value = float(parts[column])
-                except ValueError:
-                    logger.warning("Unparseable %s at line %d: %s", ch, line_no, parts[column])
-                    continue
-                if ch == _ANGLE_CHANNEL:
-                    if angle_previous is None:
-                        angle_total = value
-                    else:
-                        step = value - angle_previous
-                        if step > 180.0:
-                            step -= 360.0
-                        elif step < -180.0:
-                            step += 360.0
-                        angle_total += step
-                    angle_previous = value
-                    value = angle_total
-
-                times.append(unwrap.advance(t_sec))
-                values.append(value)
-
-                if len(times) >= _CHUNK_SIZE:
-                    chunk, pending = self._finish_chunk(times, values, pending, row_offset)
-                    if chunk is not None:
-                        yield chunk
-                    row_offset += len(times)
-                    times.clear()
-                    values.clear()
+        for t_sec, value in self._samples(self._path, ch):
+            times.append(t_sec)
+            values.append(value)
+            if len(times) >= _CHUNK_SIZE:
+                chunk, pending = self._finish_chunk(times, values, pending, row_offset)
+                if chunk is not None:
+                    yield chunk
+                row_offset += len(times)
+                times.clear()
+                values.clear()
 
         if times:
             chunk, pending = self._finish_chunk(times, values, pending, row_offset)
@@ -239,6 +185,49 @@ class AOLEncoderLoader(TimeSeriesSource):
                 np.asarray([pending[0]], dtype=np.float64),
                 np.asarray([pending[1]], dtype=np.float64),
             )
+
+    def _samples(self, path: Path, ch: str) -> Iterator[tuple[float, float]]:
+        """Every readable ``(seconds, value)`` of *ch*, in file order, unwrapped.
+
+        Time is unwrapped past midnight; the angle past each full turn. A line
+        that cannot be read is logged and skipped, never fatal (rule 10).
+        """
+        column = _COLUMN[ch]
+        # `auto_resolved` -- not `anchor_date` -- is the reliable signal that this
+        # is an AOL-session auto-import: drop_worker sets it on every candidate it
+        # produces, whereas it also sets `anchor_date` whenever the session has
+        # one, so `anchor_date` presence cannot distinguish the two paths (D-052).
+        is_manual = not bool(self._config.get("auto_resolved", False))
+        first_t: float | None = None
+        # Carried across chunk boundaries.
+        clock = _MidnightUnwrapper()
+        turns = _TurnUnwrapper() if ch == ANGLE_CHANNEL else None
+
+        with open(path, encoding="utf-8") as f:
+            for line_no, line in enumerate(f, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split()
+                if len(parts) < 4:
+                    logger.warning("Skipping malformed encoder line %d: %s", line_no, line[:60])
+                    continue
+                t_sec = self._parse_wall_clock(parts[0])
+                if np.isnan(t_sec):
+                    logger.warning("Unparseable timestamp at line %d: %s", line_no, parts[0])
+                    continue
+                if is_manual:
+                    if first_t is None:
+                        first_t = t_sec
+                    t_sec -= first_t
+                try:
+                    value = float(parts[column])
+                except ValueError:
+                    logger.warning("Unparseable %s at line %d: %s", ch, line_no, parts[column])
+                    continue
+                if turns is not None:
+                    value = turns.advance(value)
+                yield clock.advance(t_sec), value
 
     @classmethod
     def _finish_chunk(
@@ -292,6 +281,33 @@ class AOLEncoderLoader(TimeSeriesSource):
         mask = np.ones(len(t), dtype=bool)
         mask[:-1] = dt > 0
         return t[mask], v[mask]
+
+
+class _TurnUnwrapper:
+    """Carry a position that wraps at 360 degrees on into a cumulative angle.
+
+    A wheel that has turned three times reads 1080, not 0 (D-112). A step of
+    more than half a turn between two samples a millisecond apart is a wrap,
+    never motion: the wheel would have to spin at over 80 000 rpm.
+    """
+
+    def __init__(self) -> None:
+        self._previous: float | None = None
+        self._total = 0.0
+
+    def advance(self, position: float) -> float:
+        """Return the cumulative angle after *position*."""
+        if self._previous is None:
+            self._total = position
+        else:
+            step = position - self._previous
+            if step > 180.0:
+                step -= 360.0
+            elif step < -180.0:
+                step += 360.0
+            self._total += step
+        self._previous = position
+        return self._total
 
 
 class _MidnightUnwrapper:

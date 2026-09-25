@@ -139,6 +139,45 @@ class TestAOLEncoderLoader:
         # Velocity values should match the last column
         np.testing.assert_allclose(v_arr[0], -0.038, atol=0.001)
 
+    def test_velocity_is_labelled_rpm(self, tmp_encoder_log: Path) -> None:
+        """The column is rpm: on a real recording six times its integral tracked the
+        unwrapped position to 0.25 % (1157.6 deg over 60.9 s), where deg/s is off sixfold."""
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        loader = AOLEncoderLoader()
+        loader.open(tmp_encoder_log, {})
+        units = {channel.name: channel.unit for channel in loader.channels()}
+        assert units == {"encoder_velocity": "rpm", "encoder_angle": "deg"}
+
+    def test_the_angle_counts_whole_turns(self, tmp_path: Path) -> None:
+        """Position wraps at 360; the angle channel carries on through every wrap."""
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        positions = [350.0, 355.0, 2.0, 9.0, 358.0, 1.0]
+        lines = [
+            f"09:35:26:{100 + index:03d} {index} {position} 0.0"
+            for index, position in enumerate(positions)
+        ]
+        log = tmp_path / "encoder_log.txt"
+        log.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        loader = AOLEncoderLoader()
+        loader.open(log, {})
+        values = np.concatenate([v for _, v in loader.read_chunks("encoder_angle")])
+        np.testing.assert_allclose(values, [350.0, 355.0, 362.0, 369.0, 358.0, 361.0])
+
+    def test_an_unreadable_line_costs_only_that_line(self, tmp_path: Path) -> None:
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        log = tmp_path / "encoder_log.txt"
+        log.write_text(
+            "09:35:26:100 1 10.0 1.0\ngarbage\n09:35:26:1xx 2 11.0 1.0\n09:35:26:102 3 12.0 1.0\n",
+            encoding="utf-8",
+        )
+        loader = AOLEncoderLoader()
+        loader.open(log, {})
+        values = np.concatenate([v for _, v in loader.read_chunks("encoder_angle")])
+        np.testing.assert_allclose(values, [10.0, 12.0])
+
     def test_read_chunks_invalid_channel(self, tmp_encoder_log: Path) -> None:
         """Unknown channels raise the typed core error, not a bare KeyError."""
         from avialsync.core.errors import MissingColumnError

@@ -91,3 +91,13 @@ class CalibrationError(AvialSyncError):
     view cannot be triangulated. The recovery is always the same pair of
     choices -- point at a calibration file, or fit one from the tracking.
     """
+
+
+class WheelFitError(AvialSyncError):
+    """Raised when the clicked bars do not determine a wheel.
+
+    The recordings and the calibration are fine; the clicks are not enough, or
+    contradict each other -- one bar end seen by a single camera, two clicks on
+    the same bar, a bar count that does not fit the spacing clicked. The
+    recovery is always more or better clicks, never a guessed wheel.
+    """

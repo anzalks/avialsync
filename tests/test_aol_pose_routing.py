@@ -534,3 +534,60 @@ def test_an_unrecognised_rig_gets_no_default_bones(aol_session: Path) -> None:
     manifest = build_manifest(aol_session)
 
     assert manifest.skeleton == []
+
+
+# ── the wheel the encoder turns (D-113) ──────────────────────────────
+
+
+def test_the_encoder_is_declared_as_the_wheel_it_turns(aol_session: Path) -> None:
+    """Which channel turns the wheel is the rig plugin's to say, not the UI's to guess."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.core.source import RotaryHint
+
+    encoder = aol_session / "encoder_log.txt"
+    encoder.write_text("09:35:26:312 1 10.0 0.0\n", encoding="utf-8")
+    (aol_session / "trial_config.yml").write_text(
+        "hardware:\n  camera_fps: 230.0\n  wheel_bar_count: 36\n"
+        "  wheel_radius: 95.5\n  wheel_radius_units: mm\n",
+        encoding="utf-8",
+    )
+
+    layout = AOLSessionSource().scan(aol_session, LoaderRegistry())
+
+    assert layout.rotary == RotaryHint("encoder_angle", encoder, 36, 95.5, "mm")
+
+
+def test_a_wheel_the_config_does_not_describe_is_left_for_the_user(aol_session: Path) -> None:
+    from avialsync.core.registry import LoaderRegistry
+
+    (aol_session / "encoder_log.txt").write_text("09:35:26:312 1 10.0 0.0\n", encoding="utf-8")
+
+    rotary = AOLSessionSource().scan(aol_session, LoaderRegistry()).rotary
+
+    assert rotary is not None
+    assert (rotary.bar_count, rotary.radius, rotary.units) == (0, 0.0, "")
+
+
+def test_no_encoder_declares_no_wheel(aol_session: Path) -> None:
+    from avialsync.core.registry import LoaderRegistry
+
+    assert AOLSessionSource().scan(aol_session, LoaderRegistry()).rotary is None
+
+
+def test_the_wheel_hint_reaches_the_window(aol_session: Path, qtbot, monkeypatch) -> None:
+    """It pre-fills Add Wheel; nothing is placed until the user places it."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.ui.controllers.drop_controller import apply_session_layout
+    from avialsync.ui.main_window import MainWindow
+
+    (aol_session / "encoder_log.txt").write_text("09:35:26:312 1 10.0 0.0\n", encoding="utf-8")
+    layout = AOLSessionSource().scan(aol_session, LoaderRegistry())
+
+    monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
+    window = MainWindow()
+    qtbot.addWidget(window)
+    apply_session_layout(window, layout)
+
+    assert window._session_rotary == layout.rotary
+    assert len(window.wheels) == 0
+    window.close()

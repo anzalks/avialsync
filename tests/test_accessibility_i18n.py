@@ -231,8 +231,10 @@ def test_the_shipped_dialogs_name_their_controls(window: MainWindow, qtbot) -> N
     whose glyph is not in ``GLYPH_NAMES``.
     """
     from avialsync.ui.command_palette import CommandPalette
+    from avialsync.ui.custom_marker_dialogs import CalibrationSourceDialog, _MarkerNameDialog
     from avialsync.ui.preferences_dialog import PreferencesDialog
     from avialsync.ui.shortcuts_dialog import ShortcutsDialog
+    from avialsync.ui.wheel_dialogs import _WheelSetupDialog
 
     grouped: dict[str, list] = {}
     for action in window._all_actions:
@@ -242,6 +244,9 @@ def test_the_shipped_dialogs_name_their_controls(window: MainWindow, qtbot) -> N
         PreferencesDialog(window),
         ShortcutsDialog(grouped, window),
         CommandPalette(list(window._all_actions), window),
+        _MarkerNameDialog((), "", window),
+        CalibrationSourceDialog("/rec/pose-3d", window),
+        _WheelSetupDialog((), None, [("enc.txt", "encoder_angle", "encoder_angle")], window),
     ):
         qtbot.addWidget(dialog)
         dialog.show()
@@ -298,6 +303,15 @@ def test_the_new_modules_are_fully_wrapped() -> None:
     """Whatever the legacy backlog, work added in this phase carries its own."""
     from avialsync.ui.i18n import untranslated_calls
 
-    for name in ("empty_state.py", "levels_panel.py", "command_palette.py"):
+    for name in (
+        "empty_state.py",
+        "levels_panel.py",
+        "command_palette.py",
+        "custom_marker_dialogs.py",
+        "wheel_dialogs.py",
+        "wheel_panel.py",
+        "wheel_overlay.py",
+        "marker_overlay.py",
+    ):
         path = Path("src/avialsync/ui") / name
         assert untranslated_calls(path) == [], f"{name} has unwrapped user-facing text"

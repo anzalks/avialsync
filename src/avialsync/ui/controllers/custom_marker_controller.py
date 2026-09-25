@@ -3,10 +3,8 @@
 The flow, end to end:
 
 1. The action asks for a name (:mod:`avialsync.ui.custom_marker_dialogs`).
-2. The calibration is resolved (:mod:`avialsync.core.calibration_ref`). When
-   there is none the user imports one -- which writes ``calibration_ref.txt``
-   naming it -- or has one fitted from the session's own tracking in a
-   background job (:mod:`avialsync.engine.calibration_worker`).
+2. The calibration is resolved, imported or fitted
+   (:mod:`avialsync.ui.controllers.calibration_controller`).
 3. Every pane takes a left click as the marker's position, in any order;
    clicking a pane again re-places it there. Playback is paused, as for Fix
    Tracker, and the marker belongs to the frame on screen.
@@ -17,9 +15,9 @@ Afterwards a marker is a regular point: Fix Tracker drags it (re-triangulating
 on release), and with Fix Tracker off the pane's context menu deletes it.
 
 **Where markers live.** Beside the data, never in it (D-099's rule, applied
-here): a DLC-layout CSV per camera next to that camera's 2D pose file, and an
-anipose-layout CSV next to the 3D pose file (see
-:mod:`avialsync.core.custom_markers`). They are written on every change, from
+here): a DLC-layout CSV per camera next to that camera's 2D pose file (in
+``pose-3d/`` for a camera without one), and an anipose-layout CSV next to the
+3D pose file (see :mod:`avialsync.core.custom_markers`). They are written on every change, from
 the mutation funnel, and read back as pose sources are imported.
 
 **Frames.** A marker is keyed by the video frame the panes show when it is
@@ -32,38 +30,26 @@ mixing two instants in one triangulation.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
-from PySide6.QtCore import QThread
-from PySide6.QtWidgets import QFileDialog
-from scipy.spatial.transform import Rotation
 
-from avialsync.core import calibration_ref, custom_markers
-from avialsync.core.calibration import CameraModel, read_calibration, triangulate
-from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core import custom_markers
+from avialsync.core.calibration import triangulate
 from avialsync.core.commands import SetCustomMarkerCommand
 from avialsync.core.custom_markers import CustomMarker
 from avialsync.core.errors import CalibrationError
-from avialsync.ui.custom_marker_dialogs import (
-    COMPUTE,
-    IMPORT,
-    ask_calibration_source,
-    ask_marker_name,
-)
+from avialsync.ui.controllers import calibration_controller as calibration
+from avialsync.ui.controllers import rig_paths
+from avialsync.ui.custom_marker_dialogs import ask_marker_name
 from avialsync.ui.i18n import tr
-from avialsync.ui.job_manager import on_ui_thread
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
 
 logger = logging.getLogger(__name__)
-
-#: The overlay layer drawing 3D points projected back into each camera.
-REPROJECTION_OVERLAY = "tracking.reprojection"
 
 
 @dataclass
@@ -76,273 +62,27 @@ class Placement:
     clicks: dict[str, tuple[float, float]] = field(default_factory=dict)
 
 
-@dataclass
-class CalibrationState:
-    """The calibration in force, and which camera each video path is."""
-
-    path: Path
-    cameras: dict[str, CameraModel]
-
-
 # ── where things are ─────────────────────────────────────────────────
 
 
-def camera_name(video: str) -> str:
-    """The name a marker file and a fitted calibration give a video's camera."""
-    return Path(video).stem
-
-
-def _videos(window: MainWindow) -> list[str]:
-    return list(window.video_grid.pane_paths())
-
-
-def _pose3d_dir(window: MainWindow) -> Path | None:
-    if window._pose_3d_sources:
-        return calibration_ref.pose3d_dir_for(next(iter(window._pose_3d_sources)))
-    videos = _videos(window)
-    if videos:
-        return calibration_ref.pose3d_dir_for(Path(videos[0]).parent)
-    return None
-
-
-def _pose_2d_file(window: MainWindow, video: str) -> Path | None:
-    """The 2D pose file drawn over *video* -- the ensemble when there are several."""
-    entries = window._overlay_sources.get(video, {})
-    for source_id, entry in entries.items():
-        if entry.get("is_ensemble"):
-            return Path(source_id)
-    return Path(next(iter(entries))) if entries else None
-
-
 def _marker_file_2d(window: MainWindow, video: str) -> Path:
-    pose = _pose_2d_file(window, video)
-    return custom_markers.marker_file_for(pose if pose is not None else Path(video))
+    """Beside the camera's 2D pose file; in ``pose-3d/`` when it has none.
+
+    Never beside the video itself: a recording folder is the acquisition's, and
+    ``pose-3d/`` is where this session's derived files already go.
+    """
+    pose = rig_paths.pose_2d_file(window, video)
+    if pose is not None:
+        return custom_markers.marker_file_for(pose)
+    folder = rig_paths.pose3d_dir(window) or Path(video).parent
+    return folder / f"{rig_paths.camera_name(video)}{custom_markers.MARKER_SUFFIX}"
 
 
 def _marker_file_3d(window: MainWindow) -> Path | None:
     if window._pose_3d_sources:
         return custom_markers.marker_file_for(next(iter(window._pose_3d_sources)))
-    folder = _pose3d_dir(window)
+    folder = rig_paths.pose3d_dir(window)
     return None if folder is None else folder / f"pose{custom_markers.MARKER_SUFFIX}"
-
-
-def frame_at(window: MainWindow, t_master: float) -> int | None:
-    """The video frame the panes show at *t_master*, from the first calibrated one."""
-    state = window._calibration_state
-    videos = _videos(window)
-    ordered = [v for v in videos if state is not None and v in state.cameras] or videos
-    if not ordered:
-        return None
-    pane = window.video_grid.panes[videos.index(ordered[0])]
-    return int(pane.frame_record_at(t_master)[0])
-
-
-# ── calibration ──────────────────────────────────────────────────────
-
-
-def _load_calibration(window: MainWindow, path: Path, sources: tuple[str, ...]) -> bool:
-    """Adopt the calibration at *path*; report and return False if it is unusable."""
-    try:
-        calibration = read_calibration(path)
-    except CalibrationError as error:
-        window.notifications.show_error(tr("The calibration could not be used"), details=str(error))
-        return False
-    videos = _videos(window)
-    names = calibration_ref.camera_names(calibration, videos, sources)
-    cameras = {
-        video: model
-        for video, name in names.items()
-        if (model := calibration.camera(name)) is not None
-    }
-    if len(cameras) < 2:
-        window.notifications.show_error(
-            tr("The calibration does not match these cameras"),
-            details=tr("{file} names {names}; the videos are {videos}.").format(
-                file=path.name,
-                names=", ".join(calibration.names),
-                videos=", ".join(Path(v).name for v in videos),
-            ),
-        )
-        return False
-    window._calibration_state = CalibrationState(path=path, cameras=cameras)
-    missing = [Path(v).name for v in videos if v not in cameras]
-    if missing:
-        window.notifications.show_warning(
-            tr("{videos} are not in the calibration; markers will skip them.").format(
-                videos=", ".join(missing)
-            )
-        )
-    return True
-
-
-#: Video sets a quiet lookup has already been tried for, per window.
-_QUIET_TRIED: dict[int, tuple[str, ...]] = {}
-
-
-def _calibration_quietly(window: MainWindow) -> None:
-    """Load the session's calibration without asking or reporting anything.
-
-    For drawing only -- markers read back from disk, carried by the wheel --
-    so a miss is silent: the user has not asked for anything yet. Tried once
-    per set of open videos, since panes arrive one at a time.
-    """
-    if window._calibration_state is not None:
-        return
-    videos = tuple(_videos(window))
-    if len(videos) < 2 or _QUIET_TRIED.get(id(window)) == videos:
-        return
-    _QUIET_TRIED[id(window)] = videos
-    folder = _pose3d_dir(window)
-    link = calibration_ref.locate(folder) if folder is not None else None
-    if link is None or not link.calibration.is_file():
-        return
-    try:
-        calibration = read_calibration(link.calibration)
-    except CalibrationError:
-        return
-    names = calibration_ref.camera_names(calibration, list(videos), link.sources)
-    cameras = {
-        video: model
-        for video, name in names.items()
-        if (model := calibration.camera(name)) is not None
-    }
-    if len(cameras) >= 2:
-        window._calibration_state = CalibrationState(path=link.calibration, cameras=cameras)
-
-
-def _resolve_calibration(window: MainWindow) -> bool:
-    """Use the calibration already found, or look for one; False if none."""
-    if window._calibration_state is not None:
-        return True
-    folder = _pose3d_dir(window)
-    if folder is None:
-        return False
-    link = calibration_ref.locate(folder)
-    if link is None:
-        return False
-    if not link.calibration.is_file():
-        window.notifications.show_warning(
-            tr("{ref} names {path}, which does not exist.").format(
-                ref=link.ref_file.name if link.ref_file else calibration_ref.REF_NAME,
-                path=link.calibration,
-            )
-        )
-        return False
-    return _load_calibration(window, link.calibration, link.sources)
-
-
-def _import_calibration(window: MainWindow, folder: Path) -> bool:
-    chosen, _ = QFileDialog.getOpenFileName(
-        window, tr("Choose calibration.toml"), str(folder), tr("Calibration (*.toml)")
-    )
-    if not chosen:
-        return False
-    sources = tuple(Path(v).name for v in _videos(window))
-    if not _load_calibration(window, Path(chosen), sources):
-        return False
-    try:
-        written = calibration_ref.write_ref(folder, sources, chosen)
-    except OSError as error:
-        window.notifications.show_warning(
-            tr("The calibration is in use, but {file} could not be written.").format(
-                file=calibration_ref.REF_NAME
-            ),
-            details=str(error),
-        )
-        return True
-    window.notifications.show_success(
-        tr("Calibration linked in {file}. Copy it to other experiments from this rig.").format(
-            file=written
-        )
-    )
-    return True
-
-
-def _compute_calibration(
-    window: MainWindow,
-    folder: Path,
-    on_ready: Callable[[], None],
-    on_cancel: Callable[[], None],
-) -> None:
-    """Fit a calibration in the background, then call *on_ready* (or *on_cancel*)."""
-    from avialsync.engine.calibration_worker import CalibrationFitWorker, CameraFitInput
-
-    if not window._pose_3d_sources:
-        window.notifications.show_error(
-            tr("A calibration cannot be computed"),
-            details=tr("Fitting one needs the session's 3D pose file, and none is loaded."),
-        )
-        on_cancel()
-        return
-    inputs = []
-    for video, pane in zip(_videos(window), window.video_grid.panes, strict=False):
-        pose = _pose_2d_file(window, video)
-        size = getattr(pane, "video_size", None)
-        if pose is None or not size:
-            continue
-        inputs.append(CameraFitInput(camera_name(video), (int(size[0]), int(size[1])), pose))
-    if len(inputs) < 2:
-        window.notifications.show_error(
-            tr("A calibration cannot be computed"),
-            details=tr("Fitting one needs 2D tracking in at least two cameras."),
-        )
-        on_cancel()
-        return
-    worker = CalibrationFitWorker(
-        Path(next(iter(window._pose_3d_sources))),
-        inputs,
-        folder,
-        [Path(v).name for v in _videos(window)],
-    )
-
-    def on_finished(path: str, summary: str) -> None:
-        window.notifications.show_success(
-            tr("Calibration fitted and saved as {file} ({summary}).").format(
-                file=path, summary=summary
-            )
-        )
-        if _load_calibration(window, Path(path), ()):
-            on_ready()
-        else:
-            on_cancel()
-
-    def on_error(message: str) -> None:
-        window.notifications.show_error(tr("The calibration could not be fitted"), details=message)
-        on_cancel()
-
-    def _wire(thread: QThread) -> None:
-        worker.finished.connect(on_ui_thread(on_finished, window))
-        worker.error.connect(on_ui_thread(on_error, window))
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-
-    window._run_job(worker, label=tr("Fitting camera calibration"), configure=_wire)
-
-
-def acquire_calibration(
-    window: MainWindow, on_ready: Callable[[], None], on_cancel: Callable[[], None]
-) -> None:
-    """Make a calibration available, asking the user when there is none.
-
-    *on_ready* runs once one is loaded -- immediately, after an import, or when
-    a background fit finishes; *on_cancel* when the user declines or it fails.
-    Shared by Add 3D Marker and the 3D reprojection overlay, so both ask the
-    same question the same way.
-    """
-    if _resolve_calibration(window):
-        on_ready()
-        return
-    folder = _pose3d_dir(window)
-    if folder is None:
-        on_cancel()
-        return
-    choice = ask_calibration_source(window, str(folder))
-    if choice == IMPORT and _import_calibration(window, folder):
-        on_ready()
-    elif choice == COMPUTE:
-        _compute_calibration(window, folder, on_ready, on_cancel)
-    else:
-        on_cancel()
 
 
 # ── the placement gesture ────────────────────────────────────────────
@@ -375,7 +115,7 @@ def toggled(window: MainWindow, checked: bool) -> None:
     if name is None:
         _set_action_checked(window, False)
         return
-    acquire_calibration(
+    calibration.acquire_calibration(
         window,
         lambda: _begin_placement(window, name),
         lambda: _set_action_checked(window, False),
@@ -383,12 +123,17 @@ def toggled(window: MainWindow, checked: bool) -> None:
 
 
 def _begin_placement(window: MainWindow, name: str) -> None:
-    frame = frame_at(window, window.clock.state.t)
+    frame = rig_paths.frame_at(window, window.clock.state.t)
     if frame is None:
         _set_action_checked(window, False)
         return
     if window._act_fix_tracker.isChecked():
         window._act_fix_tracker.setChecked(False)
+    # Both take the same click; a wheel being placed or checked gives way.
+    from avialsync.ui.controllers import wheel_controller
+
+    wheel_controller.cancel(window, tr("Wheel not added."))
+    wheel_controller.stop_checking(window)
     if window.clock.state.playing:
         window.transport.play_toggled.emit(False)
     window._marker_placement = Placement(name=name, frame=frame)
@@ -439,7 +184,7 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> None:
             "warning",
         )
         return
-    frame = frame_at(window, window.clock.state.t)
+    frame = rig_paths.frame_at(window, window.clock.state.t)
     if frame is not None and frame != placement.frame:
         placement.frame = frame
         placement.clicks.clear()
@@ -449,7 +194,7 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> None:
         return
     marker = CustomMarker(name=placement.name, frame=placement.frame)
     for clicked, (cx, cy) in placement.clicks.items():
-        marker = marker.with_view(camera_name(clicked), cx, cy)
+        marker = marker.with_view(rig_paths.camera_name(clicked), cx, cy)
     solved = _triangulated(window, marker)
     cancel(window)
     if solved is None:
@@ -470,12 +215,14 @@ def _triangulated(window: MainWindow, marker: CustomMarker) -> CustomMarker | No
     state = window._calibration_state
     if state is None:
         return None
-    by_camera = {camera_name(video): model for video, model in state.cameras.items()}
+    by_camera = {rig_paths.camera_name(video): model for video, model in state.cameras.items()}
     views = [(by_camera[camera], (x, y)) for camera, x, y in marker.views if camera in by_camera]
     try:
         xyz, error = triangulate(views)
-    except CalibrationError as error_:
-        window.notifications.show_warning(str(error_))
+    except CalibrationError as failure:
+        window.report_failure(
+            failure, doing=tr("{name} could not be placed in 3D").format(name=marker.name)
+        )
         return None
     return CustomMarker(
         name=marker.name,
@@ -491,8 +238,8 @@ def on_moved(window: MainWindow, video: str, name: str, frame: int, x: float, y:
     before = window.custom_markers.get(name, frame)
     if before is None:
         return
-    moved = before.with_view(camera_name(video), x, y)
-    if not _resolve_calibration(window):
+    moved = before.with_view(rig_paths.camera_name(video), x, y)
+    if not calibration.resolve_calibration(window):
         # No calibration to re-solve with: keep the click, keep the old 3D
         # rather than dropping it, and say so.
         moved = CustomMarker(moved.name, moved.frame, moved.views, before.xyz, before.error)
@@ -519,8 +266,8 @@ def delete(window: MainWindow, name: str, frame: int) -> None:
 
 def refresh(window: MainWindow) -> None:
     """Push the store to every pane and the 3D view."""
-    for video in set(_videos(window)) | set(window._overlay_sources):
-        camera = camera_name(video)
+    for video in set(rig_paths.open_videos(window)) | set(window._overlay_sources):
+        camera = rig_paths.camera_name(video)
         by_frame: dict[int, list[tuple[str, float, float]]] = {}
         for marker in window.custom_markers:
             view = marker.view(camera)
@@ -531,184 +278,24 @@ def refresh(window: MainWindow) -> None:
     window._update_tracking_pane_visibility()
 
 
-# ── riding the wheel ─────────────────────────────────────────────────
-#
-# For now every custom marker is taken to be fixed to the wheel: on any frame
-# other than the one it was placed on, it is drawn rotated about the wheel's
-# axle by how far the encoder angle has turned since. The axle is read off the
-# markers themselves -- centre = their mean, direction = their least spread,
-# which for bars spread round a wheel is the axle -- and the encoder's positive
-# sense and 1:1 ratio were checked against the video (D-112). Rotated copies are
-# display-only; a marker is edited on its own frame.
-
-_ANGLE_CHANNEL = "encoder_angle"
-#: A rotated bar end facing further than this past the wheel's outline, as seen
-#: from a camera, is behind the side plate or under a nearer bar: not drawn.
-_FACING_LIMIT = -0.2
-
-
-def _angle_reader(window: MainWindow) -> MappedChannelReader | None:
-    for reader in window._plotted_readers:
-        if isinstance(reader, MappedChannelReader) and reader.channel_id == _ANGLE_CHANNEL:
-            return reader
-    return None
-
-
-def _angle_at(reader: MappedChannelReader, t_master: float) -> float | None:
-    value = float(reader.value_at(t_master))
-    return value if np.isfinite(value) else None
-
-
-def _frame_master_time(window: MainWindow, frame: int) -> float | None:
-    """Master time of *frame* on the reference camera (the one :func:`frame_at` uses)."""
-    videos = _videos(window)
-    state = window._calibration_state
-    ordered = [v for v in videos if state is not None and v in state.cameras] or videos
-    if not ordered:
-        return None
-    times = window._video_frame_times.get(ordered[0])
-    if times is None or not 0 <= frame < len(times):
-        return None
-    pane = window.video_grid.panes[videos.index(ordered[0])]
-    return float(pane.time_map.to_master(float(times[frame])))
-
-
-def _wheel_axis(points: np.ndarray) -> tuple[np.ndarray, np.ndarray] | None:
-    if len(points) < 3:
-        return None
-    centre = points.mean(axis=0)
-    _, vectors = np.linalg.eigh(np.cov((points - centre).T))
-    return centre, vectors[:, 0]
-
-
-def _riding(window: MainWindow, t_master: float) -> list[tuple[CustomMarker, np.ndarray, bool]]:
-    """Every marker's position at *t_master*: ``(marker, xyz, on_its_own_frame)``."""
-    solved = [m for m in window.custom_markers if m.xyz is not None]
-    if not solved:
-        return []
-    frame = frame_at(window, t_master)
-    reader = _angle_reader(window)
-    now = _angle_at(reader, t_master) if reader is not None else None
-    axis = _wheel_axis(np.asarray([m.xyz for m in solved], dtype=np.float64))
-    out: list[tuple[CustomMarker, np.ndarray, bool]] = []
-    reference_angles: dict[int, float | None] = {}
-    for marker in solved:
-        xyz = np.asarray(marker.xyz, dtype=np.float64)
-        if marker.frame == frame:
-            out.append((marker, xyz, True))
-            continue
-        if now is None or axis is None or reader is None:
-            continue
-        if marker.frame not in reference_angles:
-            t_ref = _frame_master_time(window, marker.frame)
-            reference_angles[marker.frame] = None if t_ref is None else _angle_at(reader, t_ref)
-        then = reference_angles[marker.frame]
-        if then is None:
-            continue
-        centre, direction = axis
-        rotation = Rotation.from_rotvec(
-            direction * np.radians(now - then) * _wheel_sense(solved, direction)
-        )
-        out.append((marker, rotation.apply(xyz - centre) + centre, False))
-    return out
-
-
-def _wheel_sense(solved: list[CustomMarker], direction: np.ndarray) -> float:
-    """+1 when the axle points from the L ends to the R ends, as on the reference rig.
-
-    The eigenvector's sign is arbitrary; the encoder's positive sense was
-    measured with the axle pointing L -> R, so it is re-oriented to match.
-    """
-    lefts = [m.xyz for m in solved if m.name.endswith("L")]
-    rights = [m.xyz for m in solved if m.name.endswith("R")]
-    if not lefts or not rights:
-        return 1.0
-    across = np.mean(np.asarray(rights), axis=0) - np.mean(np.asarray(lefts), axis=0)
-    return 1.0 if float(across @ direction) >= 0 else -1.0
-
-
 def points_at(window: MainWindow, t_master: float) -> list[tuple[str, np.ndarray]]:
-    """The 3D view's source of hand-placed markers at *t_master*, riding the wheel."""
-    if not len(window.custom_markers):
-        return []
-    return [(marker.name, xyz) for marker, xyz, _ in _riding(window, t_master)]
+    """The 3D view's hand-placed markers at *t_master*: those on the frame shown.
 
-
-def riding_in(window: MainWindow, video: str, t_master: float) -> list[tuple[str, float, float]]:
-    """Markers carried off their own frame by the wheel, projected into *video*."""
-    if not len(window.custom_markers):
-        return []
-    _calibration_quietly(window)
-    state = window._calibration_state
-    model = state.cameras.get(video) if state is not None else None
-    if model is None or not len(window.custom_markers):
-        return []
-    moved = [(m, xyz) for m, xyz, own in _riding(window, t_master) if not own]
-    if not moved:
-        return []
-    axis = _wheel_axis(np.asarray([xyz for _, xyz in moved]))
-    camera_centre = -model.rotation_matrix().T @ model.translation
-    videos = _videos(window)
-    size = window.video_grid.panes[videos.index(video)].video_size if video in videos else None
-    out: list[tuple[str, float, float]] = []
-    for marker, xyz in moved:
-        if axis is not None:
-            centre, direction = axis
-            radial = xyz - centre
-            radial -= (radial @ direction) * direction
-            to_camera = camera_centre - xyz
-            norm = np.linalg.norm(radial) * np.linalg.norm(to_camera)
-            if norm > 0 and float(radial @ to_camera) / norm < _FACING_LIMIT:
-                continue
-        if float(xyz @ model.rotation_matrix()[2] + model.translation[2]) <= 0:
-            continue
-        x, y = model.project(xyz)[0]
-        if size and not (0 <= x < size[0] and 0 <= y < size[1]):
-            continue
-        out.append((marker.name, float(x), float(y)))
-    return out
-
-
-def reprojected(window: MainWindow, video: str, t_master: float) -> list[tuple[str, float, float]]:
-    """Every 3D point at *t_master*, projected into *video*'s pixels.
-
-    The anipose pose as the 3D view is showing it, plus the hand-placed markers
-    on the frame, through this camera's calibration: drawn beside the 2D
-    tracking, the gap between the two is the reconstruction's error on that
-    body part. Empty until a calibration covers this camera.
+    A marker exists on the frame it was placed on and nowhere else (D-112). The
+    earlier behaviour -- every marker assumed bolted to a wheel and carried by
+    the encoder -- is the wheel model now (D-113), where it is declared,
+    fitted, and checked rather than assumed.
     """
-    state = window._calibration_state
-    model = state.cameras.get(video) if state is not None else None
-    if model is None:
+    if not len(window.custom_markers):
         return []
-    canvas = window.tracking_3d_pane.canvas
-    names = list(canvas.point_names)
-    positions = canvas.positions
-    for name, xyz in points_at(window, t_master):
-        names.append(name)
-        positions = np.vstack((positions.reshape(-1, 3), xyz.reshape(1, 3)))
-    if not names:
+    frame = rig_paths.frame_at(window, t_master)
+    if frame is None:
         return []
-    finite = np.all(np.isfinite(positions), axis=1)
-    # A point behind the camera projects to a mirror image in front of it.
-    depth = positions @ model.rotation_matrix()[2] + model.translation[2]
-    keep = finite & (depth > 0)
-    if not np.any(keep):
-        return []
-    pixels = model.project(positions[keep])
-    kept = [name for name, k in zip(names, keep, strict=True) if k]
-    return [(name, float(x), float(y)) for name, (x, y) in zip(kept, pixels, strict=True)]
-
-
-def reprojection_toggled(window: MainWindow, visible: bool) -> None:
-    """Switching the reprojection overlay on needs a calibration: find or ask."""
-    if not visible:
-        return
-
-    def _declined() -> None:
-        window._on_overlay_toggled(REPROJECTION_OVERLAY, False)
-
-    acquire_calibration(window, window.video_grid.refresh_point_edits, _declined)
+    return [
+        (marker.name, np.asarray(marker.xyz, dtype=np.float64))
+        for marker in window.custom_markers.at_frame(frame)
+        if marker.xyz is not None
+    ]
 
 
 def persist(window: MainWindow) -> None:
@@ -720,9 +307,12 @@ def persist(window: MainWindow) -> None:
     markers = list(window.custom_markers)
     written: list[Path] = []
     try:
-        for video in _videos(window):
+        for video in rig_paths.open_videos(window):
+            target_2d = _marker_file_2d(window, video)
+            # The pose-3d fallback may not exist yet; a pose file's folder does.
+            target_2d.parent.mkdir(parents=True, exist_ok=True)
             written.append(
-                custom_markers.write_2d(_marker_file_2d(window, video), camera_name(video), markers)
+                custom_markers.write_2d(target_2d, rig_paths.camera_name(video), markers)
             )
         target = _marker_file_3d(window)
         if target is not None:
@@ -751,9 +341,14 @@ def adopt(window: MainWindow) -> None:
     matter.
     """
     views: dict[tuple[str, int], list[tuple[str, float, float]]] = {}
-    for video in set(_videos(window)) | set(window._overlay_sources):
-        camera = camera_name(video)
-        for key, (x, y) in custom_markers.read_2d(_marker_file_2d(window, video)).items():
+    for video in set(rig_paths.open_videos(window)) | set(window._overlay_sources):
+        camera = rig_paths.camera_name(video)
+        source = _marker_file_2d(window, video)
+        if not source.exists():
+            # The first D-112 build wrote a camera without a pose file beside
+            # its video; read that until this camera's file is written anew.
+            source = custom_markers.marker_file_for(Path(video))
+        for key, (x, y) in custom_markers.read_2d(source).items():
             views.setdefault(key, []).append((camera, x, y))
     target = _marker_file_3d(window)
     solved = custom_markers.read_3d(target) if target is not None else {}
@@ -777,7 +372,7 @@ def adopt(window: MainWindow) -> None:
             )
         )
     # Markers on disk mean a calibration was in use: pick it up now, without
-    # asking, so the wheel can carry them onto every camera from the first
-    # frame shown rather than only after Add 3D Marker is pressed.
-    _calibration_quietly(window)
+    # asking, so reprojection can draw them from the first frame shown rather
+    # than only after Add 3D Marker is pressed.
+    calibration.calibration_quietly(window)
     window.custom_markers.load(markers)

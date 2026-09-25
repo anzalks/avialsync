@@ -31,7 +31,6 @@ avialsync`` must not grow a native dependency for them (AGENTS.md tech stack).
 
 from __future__ import annotations
 
-import os
 import tomllib
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -42,6 +41,7 @@ from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation
 
 from avialsync.core.errors import CalibrationError
+from avialsync.core.toml_format import toml_value, write_atomic
 
 __all__ = [
     "CameraModel",
@@ -213,24 +213,6 @@ def read_calibration(path: Path | str) -> Calibration:
     )
 
 
-def _toml_value(value: object) -> str:
-    """Format one value the way anipose's own writer lays it out."""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, str):
-        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-        return f'"{escaped}"'
-    if isinstance(value, (int, np.integer)):
-        return str(int(value))
-    if isinstance(value, (float, np.floating)):
-        return repr(float(value))
-    if isinstance(value, np.ndarray):
-        return _toml_value(value.tolist())
-    if isinstance(value, (list, tuple)):
-        return "[ " + " ".join(f"{_toml_value(item)}," for item in value) + "]"
-    raise TypeError(f"Cannot write {type(value).__name__} to TOML")
-
-
 def write_calibration(path: Path | str, calibration: Calibration) -> Path:
     """Write *calibration* as an anipose ``calibration.toml``, atomically.
 
@@ -243,20 +225,17 @@ def write_calibration(path: Path | str, calibration: Calibration) -> Path:
     for index, camera in enumerate(calibration.cameras):
         lines += [
             f"[cam_{index}]",
-            f"name = {_toml_value(camera.name)}",
-            f"size = {_toml_value(list(camera.size))}",
-            f"matrix = {_toml_value(camera.matrix)}",
-            f"distortions = {_toml_value(camera.distortions)}",
-            f"rotation = {_toml_value(camera.rotation)}",
-            f"translation = {_toml_value(camera.translation)}",
+            f"name = {toml_value(camera.name)}",
+            f"size = {toml_value(list(camera.size))}",
+            f"matrix = {toml_value(camera.matrix)}",
+            f"distortions = {toml_value(camera.distortions)}",
+            f"rotation = {toml_value(camera.rotation)}",
+            f"translation = {toml_value(camera.translation)}",
             "",
         ]
     lines.append("[metadata]")
-    lines += [f"{key} = {_toml_value(value)}" for key, value in calibration.metadata.items()]
-    temporary = path.with_name(f".{path.name}.tmp")
-    temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
-    return path
+    lines += [f"{key} = {toml_value(value)}" for key, value in calibration.metadata.items()]
+    return write_atomic(path, lines)
 
 
 # ── triangulation ────────────────────────────────────────────────────

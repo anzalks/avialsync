@@ -194,6 +194,22 @@ class WindowMutationTarget:
             if window.custom_markers.set(name, frame, value):
                 custom_marker_controller.persist(window)
 
+    def set_wheel(self, name: str, wheel: object) -> None:
+        """Place, re-fit, or remove a wheel, then write its file (D-113).
+
+        The single funnel for add, re-fit, check, remove, undo and redo alike,
+        so the wheel's file is written from here and never from the store's
+        observers -- reading it back in must not echo it out (D-099).
+        """
+        from avialsync.core.wheel import Wheel
+        from avialsync.ui.controllers import wheel_files
+
+        window = self._window
+        value = wheel if isinstance(wheel, Wheel) else None
+        with self.replaying():
+            if window.wheels.set(name, value):
+                wheel_files.persist(window, name)
+
     # ── sources ──────────────────────────────────────────────────────
 
     def add_source(self, record: SourceRecord) -> None:
