@@ -310,20 +310,33 @@ def test_nothing_pending_offers_nothing(main_window, isolated_recovery_dir):
     assert main_window.notifications.isVisible() is False
 
 
-def test_declining_the_offer_leaves_the_snapshot_alone(main_window, isolated_recovery_dir):
-    """Dismiss is not discard.
-
-    The snapshot is the only copy of that work. A stray click on Dismiss must
-    not be what deletes it -- the next quit overwrites it in the ordinary way,
-    so nothing accumulates by leaving it.
-    """
+def test_dismissed_offer_stays_quiet_without_deleting_work(main_window, isolated_recovery_dir):
+    """The same unsaved work does not nag on every launch after Dismiss."""
     recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
     session_controller.offer_pending_recovery(main_window)
 
-    main_window.notifications.clear()
+    main_window.notifications._dismiss.click()
 
     assert recovery.read_recovery() is not None, "declining must not delete the work"
     assert main_window.notifications.isVisible() is False
+    assert session_controller.offer_pending_recovery(main_window) is False
+    recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
+    assert session_controller.offer_pending_recovery(main_window) is False
+
+    recovery.write_recovery({"videos": [{"path": "/data/cam2.mp4"}]}, None)
+    assert session_controller.offer_pending_recovery(main_window) is True
+
+
+def test_clearing_recovery_forgets_the_dismissal(isolated_recovery_dir):
+    state = {"videos": [{"path": "/data/cam1.mp4"}]}
+    recovery.write_recovery(state, None)
+    snapshot = recovery.pending_recovery()
+    assert snapshot is not None
+    recovery.dismiss_recovery(snapshot)
+    assert recovery.pending_recovery() is None
+    recovery.clear_recovery()
+    recovery.write_recovery(state, None)
+    assert recovery.pending_recovery() is not None
 
 
 def test_restoring_loads_the_work_and_marks_it_unsaved(main_window, isolated_recovery_dir):

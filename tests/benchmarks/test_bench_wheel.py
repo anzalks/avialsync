@@ -11,14 +11,20 @@ from __future__ import annotations
 
 import pytest
 
-from avialsync.core.wheel import EncoderBinding, WheelCheck, WheelSpec, project_bars
+from avialsync.core.wheel import EncoderBinding, WheelCheck, WheelSpec, fit_issue, project_bars
 from avialsync.core.wheel_check import settle_sign
-from avialsync.core.wheel_fit import fit_wheel
+from avialsync.core.wheel_fit import fit_labelled, fit_wheel
+from avialsync.ui.controllers.wheel_placement import Placement, estimate_missing
 from tests.wheel_fixture import CAMERAS, TRUTH, clicks_for
 
 _FIT_BUDGET_S = 0.030
 _FRAME_BUDGET_S = 0.002
 _CHECK_BUDGET_S = 0.030
+_PROJECTION_BUDGET_S = 0.005
+#: A labelled fit runs as a background job (D-123); the dashed preview should
+#: still follow the click that asked for it within a tenth of a second.
+_PREVIEW_BUDGET_S = 0.100
+_QUALITY_BUDGET_S = 0.00015
 
 
 def _mean(benchmark) -> float:
@@ -37,6 +43,26 @@ def test_bench_wheel_fit_six_bars_typed_radius(benchmark) -> None:
     assert mean <= _FIT_BUDGET_S, f"wheel fit {mean * 1000:.1f} ms exceeds 30 ms"
 
 
+def test_bench_fit_labelled_with_a_stepped_over_third_bar(benchmark) -> None:
+    """A skipped third bar, used as clicked (D-123): the worst plausible-input fit."""
+    spec = WheelSpec("wheel", 36, radius=100.0, units="mm")
+    clicks = clicks_for([0, 1, 3])
+    benchmark(fit_labelled, spec, clicks, CAMERAS)
+    mean = _mean(benchmark)
+    assert mean <= _PREVIEW_BUDGET_S, f"labelled fit {mean * 1000:.1f} ms exceeds 100 ms"
+
+
+def test_bench_fit_labelled_with_a_radius_in_the_wrong_units(benchmark) -> None:
+    """A typed radius ten times off: the typed fit, rejected, then the clicks' own."""
+    spec = WheelSpec("wheel", 36, radius=10.0, units="mm")
+    clicks = clicks_for([0, 1])
+    labelled = fit_labelled(spec, clicks, CAMERAS)
+    assert labelled.radius_from_clicks, "the benchmark must take the clicks' radius"
+    benchmark(fit_labelled, spec, clicks, CAMERAS)
+    mean = _mean(benchmark)
+    assert mean <= _PREVIEW_BUDGET_S, f"labelled fit {mean * 1000:.1f} ms exceeds 100 ms"
+
+
 def test_bench_wheel_bars_for_one_frame(benchmark) -> None:
     """Generate one frame's bars and project them into three cameras."""
 
@@ -48,6 +74,27 @@ def test_bench_wheel_bars_for_one_frame(benchmark) -> None:
     benchmark(frame)
     mean = _mean(benchmark)
     assert mean <= _FRAME_BUDGET_S, f"wheel frame {mean * 1000:.2f} ms exceeds 2 ms"
+
+
+def test_bench_project_six_clicked_ends_into_a_missing_view(benchmark) -> None:
+    """Projection happens after a click beside the fit, not during video paint."""
+    placement = Placement(WheelSpec("wheel", 36), None, 7)
+    for click in clicks_for([0, 1, 2]):
+        placement.clicks[(click.bar, click.side)] = click.without_view("Right")
+
+    benchmark(estimate_missing, placement, CAMERAS)
+
+    mean = _mean(benchmark)
+    assert mean <= _PROJECTION_BUDGET_S, f"six point projections took {mean * 1000:.2f} ms"
+
+
+def test_bench_fit_quality_on_each_displayed_frame(benchmark) -> None:
+    """A saved wheel's evidence check runs before each pane draws its bars."""
+    clicks = clicks_for([0, 1, 2])
+    fit = fit_wheel(WheelSpec("wheel", 36), clicks, CAMERAS)
+    benchmark(fit_issue, fit, clicks)
+    mean = _mean(benchmark)
+    assert mean <= _QUALITY_BUDGET_S, f"wheel quality check took {mean * 1e6:.0f} µs"
 
 
 def test_bench_wheel_settle_three_checks(benchmark) -> None:

@@ -23,6 +23,7 @@ from avialsync.core.wheel import (
     WheelCheck,
     WheelSpec,
     WheelStore,
+    fit_issue,
     project_bars,
 )
 from avialsync.core.wheel_check import check, observed_turn, settle_sign
@@ -81,6 +82,39 @@ def test_two_bars_pick_the_centre_beyond_them() -> None:
     assert flipped.geometry.centre[2] > 150.0, "the mirrored wheel sits above the bars"
 
 
+def test_two_cameras_and_two_complete_bars_are_enough() -> None:
+    """A missing view and a partly clicked third bar cannot block the fit."""
+    clicks = clicks_for([0, 1, 2])
+    complete = [click.without_view("Right") for click in clicks[:4]]
+    partial_third = clicks[4].without_view("Right")
+    cameras = {name: CAMERAS[name] for name in ("Front", "Left")}
+    fit = fit_wheel(WheelSpec("wheel", 36), [*complete, partial_third], cameras)
+    assert fit.indices == (0, 1)
+    assert len(fit.residuals) == 8
+    assert np.linalg.norm(np.subtract(fit.geometry.centre, TRUTH.centre)) < 10.0
+
+
+def test_fit_quality_rejects_barrel_like_mismatch() -> None:
+    """A solved model with large camera errors is not trusted as a wheel."""
+    clicks = clicks_for([0, 1])
+    fit = fit_wheel(WheelSpec("wheel", 36), clicks, CAMERAS)
+    assert fit_issue(fit, clicks) is None
+    far = dataclasses.replace(
+        fit,
+        residuals=tuple(dataclasses.replace(residual, pixels=60.0) for residual in fit.residuals),
+    )
+    assert fit_issue(far, clicks) == "clicks_far_from_fit"
+    shifted = []
+    for click in clicks:
+        x, y = next((x, y) for camera, x, y in click.views if camera == "Left")
+        shifted.append(click.with_view("Left", x + 60.0, y))
+    inconsistent = fit_wheel(WheelSpec("wheel", 36), shifted, CAMERAS)
+    assert fit_issue(inconsistent, shifted) == "clicks_far_from_fit"
+    # Fits no longer skip a slot (D-123), but a file written before could.
+    stepped = dataclasses.replace(fit, indices=(0, 2))
+    assert fit_issue(stepped, clicks) == "bars_not_neighbours"
+
+
 def test_a_typed_radius_is_checked_against_theclicks_for() -> None:
     spec = WheelSpec("wheel", 36, radius=100.0, units="mm")
     fit = fit_wheel(spec, clicks_for([0, 1, 2]), CAMERAS)
@@ -104,10 +138,19 @@ def test_a_radius_without_units_is_not_used() -> None:
     assert fit.geometry.radius == pytest.approx(100.0, rel=0.05)
 
 
-def test_a_stepped_over_bar_is_reported() -> None:
-    fit = fit_wheel(WheelSpec("wheel", 36), clicks_for([0, 1, 3]), CAMERAS)
-    assert fit.indices == (0, 1, 3)
-    assert fit.skipped
+def test_clicked_bars_are_taken_as_neighbours_in_click_order() -> None:
+    """D-123: the fit never re-derives slots; a skipped bar shows as click error."""
+    clean = fit_wheel(WheelSpec("wheel", 36), clicks_for([0, 1, 2]), CAMERAS)
+    stepped = fit_wheel(WheelSpec("wheel", 36), clicks_for([0, 1, 3]), CAMERAS)
+    assert [abs(i) for i in clean.indices] == [0, 1, 2]
+    assert [abs(i) for i in stepped.indices] == [0, 1, 2]
+    assert not stepped.skipped
+    assert stepped.max_px > 10 * clean.max_px
+
+
+def test_a_radius_ten_times_off_is_visible_in_the_implied_radius() -> None:
+    fit = fit_wheel(WheelSpec("wheel", 36, radius=10.0, units="mm"), clicks_for([0, 1]), CAMERAS)
+    assert fit.implied_radius == pytest.approx(TRUTH.radius, rel=0.02)
 
 
 def test_the_residuals_report_every_click() -> None:

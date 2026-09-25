@@ -3,7 +3,7 @@
 The panes are not decoded here -- which frame is on screen is stubbed to the
 frame the bars are clicked on -- because what is under test is the flow the
 window runs: clicks reaching the placement, the fit appearing in the Wheels
-section, Accept being one undo step, the file written from the mutation funnel,
+tab, Done Labelling being one undo step, the file written from the mutation funnel,
 and the encoder check settling the direction. The geometry itself is judged
 against ground truth in ``test_wheel.py``, whose synthetic rig these tests reuse.
 """
@@ -12,27 +12,34 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
+from avialsync.core.commands import SetWheelCommand
 from avialsync.core.wheel import EncoderBinding, WheelSpec, project_bars
 from avialsync.core.wheel_file import read_wheels, wheel_path
 from avialsync.ui import recovery
 from avialsync.ui.controllers import (
-    calibration_controller,
-    rig_paths,
     wheel_controller,
     wheel_display,
+    wheel_edits,
     wheel_files,
+    wheel_placement,
 )
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.wheel_dialogs import WheelSetup
 from tests.wheel_fixture import CAMERAS, TRUTH, clicks_for
-
-FRAME = 7
-VIDEOS = {name: f"/rec/{name}.mp4" for name in CAMERAS}
+from tests.wheel_window import (
+    FRAME,
+    VIDEOS,
+    build_window,
+    click_point,
+    place,
+    start_placing,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -58,31 +65,13 @@ def frame() -> dict[str, float]:
 def window(
     qapp: QApplication, qtbot, monkeypatch, pose3d: Path, frame: dict[str, float]
 ) -> MainWindow:
-    win = MainWindow()
-    qtbot.addWidget(win)
-    monkeypatch.setattr(rig_paths, "open_videos", lambda _w: list(VIDEOS.values()))
-    monkeypatch.setattr(rig_paths, "frame_at", lambda _w, _t: frame["now"])
-    monkeypatch.setattr(rig_paths, "pose3d_dir", lambda _w: pose3d)
-    monkeypatch.setattr(wheel_display, "frame_and_time", lambda _w, _t: (frame["now"], frame["t"]))
-    monkeypatch.setattr(wheel_display, "frame_master_time", lambda _w, f: float(f - FRAME))
-    win._calibration_state = calibration_controller.CalibrationState(
-        path=Path("calibration.toml"),
-        cameras={VIDEOS[name]: model for name, model in CAMERAS.items()},
-    )
+    win = build_window(qtbot, monkeypatch, pose3d, frame)
     yield win
     if isValid(win):
         win.close()
 
 
-def _place(window: MainWindow, slots: list[int], spec: WheelSpec, monkeypatch) -> None:
-    """Run Add Wheel with *spec*, clicking the bars in *slots* in every camera."""
-    monkeypatch.setattr(
-        wheel_controller, "ask_wheel_setup", lambda *_a: WheelSetup(spec, channel=None)
-    )
-    wheel_controller.toggled(window, True)
-    for click in clicks_for(slots):
-        for camera, x, y in click.views:
-            assert wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
+_place = place
 
 
 def test_clicking_two_bars_offers_a_wheel_to_accept(window: MainWindow, monkeypatch) -> None:
@@ -93,6 +82,87 @@ def test_clicking_two_bars_offers_a_wheel_to_accept(window: MainWindow, monkeypa
     assert not window.wheel_panel.isHidden()
     assert not window.wheel_panel._review.isHidden()
     assert window.wheel_panel._accept.isEnabled()
+    assert window._left_tabs.currentWidget() is window.wheel_tab
+    assert window.wheel_panel._accept.text() == "Done Labelling"
+
+
+def test_done_labelling_saves_and_exits_click_mode(window: MainWindow, monkeypatch) -> None:
+    _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
+    window.wheel_panel._accept.click()
+    assert window._wheel_placement is None
+    assert not window._act_add_wheel.isChecked()
+    assert window.wheels.get("wheel") is not None
+
+
+def test_a_poor_preview_is_drawn_and_can_be_finished(
+    window: MainWindow, monkeypatch, pose3d: Path
+) -> None:
+    """D-123: however poor the fit, the user sees it, and Done Labelling saves it."""
+    _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
+    placement = window._wheel_placement
+    assert placement is not None and placement.fit is not None
+    placement.fit = dataclasses.replace(
+        placement.fit,
+        residuals=tuple(
+            dataclasses.replace(residual, pixels=60.0) for residual in placement.fit.residuals
+        ),
+    )
+    wheel_display.refresh(window)
+    assert window.wheel_panel._accept.isEnabled()
+    summary = window.wheel_panel._summary.text()
+    assert summary.startswith("Poor fit.") and "saves this wheel as drawn" in summary
+    drawing = wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0)
+    assert drawing is not None and drawing.clicks and drawing.bars
+    assert wheel_display.scene(window, 0.0)
+
+    window.wheel_panel._accept.click()
+
+    wheel = window.wheels.get("wheel")
+    assert wheel is not None and window._wheel_placement is None
+    assert read_wheels(pose3d)[0] == [wheel], "the clicks reach the wheel file"
+    assert wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0).bars
+    assert wheel_display.scene(window, 0.0)
+    assert "fits your clicks poorly" in window.notifications.message
+    assert window.notifications.action_label == "Re-place"
+
+
+def test_a_poor_saved_wheel_is_drawn_and_can_be_replaced(window: MainWindow, monkeypatch) -> None:
+    _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
+    wheel_controller.accept(window)
+    wheel = window.wheels.get("wheel")
+    assert wheel is not None
+    poor_fit = dataclasses.replace(
+        wheel.fit,
+        residuals=tuple(dataclasses.replace(r, pixels=60.0) for r in wheel.fit.residuals),
+    )
+    poor = dataclasses.replace(wheel, fit=poor_fit)
+    window.document.execute(SetWheelCommand(wheel.name, wheel, poor), window._mutations)
+    assert wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0).bars
+    assert wheel_display.scene(window, 0.0)
+    row = window.wheel_panel._rows["wheel"]
+    assert row.fit.text().startswith("Poor fit.")
+    assert row.replace.isEnabled()
+
+
+def test_a_radius_in_the_wrong_units_gives_way_to_the_clicks(
+    window: MainWindow, monkeypatch
+) -> None:
+    """The reported case: a radius typed in cm against a calibration in mm."""
+    _place(window, [0, 1], WheelSpec("wheel", 36, radius=10.0, units="mm"), monkeypatch)
+    placement = window._wheel_placement
+    assert placement is not None and placement.fit is not None
+    assert placement.fit.geometry.radius == pytest.approx(TRUTH.radius, rel=0.02)
+    assert placement.quality_issue is None
+    summary = window.wheel_panel._summary.text()
+    assert "imply" in summary and "10× apart" in summary
+    assert wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0).bars
+
+
+def test_discard_clicks_exits_without_wheel(window: MainWindow, monkeypatch) -> None:
+    _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
+    window.wheel_panel._cancel.click()
+    assert window._wheel_placement is None
+    assert window.wheels.get("wheel") is None
 
 
 def test_wheel_button_uses_the_edit_action(window: MainWindow, monkeypatch) -> None:
@@ -114,8 +184,25 @@ def test_wheel_button_uses_the_edit_action(window: MainWindow, monkeypatch) -> N
     assert button.isChecked() and window._act_add_wheel.isChecked()
 
 
-def test_each_end_waits_for_all_three_views(window: MainWindow, monkeypatch) -> None:
-    """An early fit cannot commit a wheel with an incomplete third camera."""
+def test_projected_click_target_follows_display_scale() -> None:
+    """A projected diamond remains easy to click in a small or zoomed pane."""
+    scale = {"value": 0.25}
+    pane = SimpleNamespace(
+        paint_canvas=SimpleNamespace(width=lambda: 200, height=lambda: 150),
+        surface=SimpleNamespace(frame_geometry=lambda _w, _h: (scale["value"], 0, 0)),
+    )
+    window = SimpleNamespace(
+        video_grid=SimpleNamespace(pane_paths=lambda: ["camera.mp4"], panes=[pane])
+    )
+    assert wheel_display.projected_hit_radius(window, "camera.mp4") == 32.0
+    scale["value"] = 2.0
+    assert wheel_display.projected_hit_radius(window, "camera.mp4") == 4.0
+
+
+def test_two_views_project_into_the_third_without_inventing_a_click(
+    window: MainWindow, monkeypatch
+) -> None:
+    """Projection is feedback from triangulation, never another observation."""
     monkeypatch.setattr(
         wheel_controller,
         "ask_wheel_setup",
@@ -133,16 +220,96 @@ def test_each_end_waits_for_all_three_views(window: MainWindow, monkeypatch) -> 
         assert drawing is not None and drawing.clicks[-1][0] == "2b"
     placement = window._wheel_placement
     assert placement is not None and placement.step == 3
-    assert not window.wheel_panel._accept.isEnabled()
-    wheel_controller.accept(window)
-    assert window.wheels.get("wheel") is None
-    for camera, x, y in last.views[2:]:
-        wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
+    assert window.wheel_panel._accept.isEnabled()
+    camera, x, y = last.views[2]
+    drawing = wheel_display.pane_drawing(window, VIDEOS[camera], 0.0)
+    assert drawing is not None
+    assert drawing.projections[-1][0] == "2b"
+    assert all(label != "2b" for label, *_ in drawing.clicks)
+    assert len(placement.clicks[(1, "right")].views) == 2
+    wheel_controller.select_end(window, 0)
+    wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
     assert placement.step == 4
     assert window.wheel_panel._accept.isEnabled()
-    for video in VIDEOS.values():
-        drawing = wheel_display.pane_drawing(window, video, 0.0)
-        assert drawing is not None and len(drawing.clicks) == 4
+    drawing = wheel_display.pane_drawing(window, VIDEOS[camera], 0.0)
+    assert drawing is not None
+    assert all(label != "2b" for label, *_ in drawing.projections)
+    assert drawing.clicks[-1][0] == "2b"
+    wheel_controller.undo_click(window)
+    drawing = wheel_display.pane_drawing(window, VIDEOS[camera], 0.0)
+    assert drawing is not None and drawing.projections[-1][0] == "2b"
+    assert len(placement.clicks[(1, "right")].views) == 2
+
+
+def test_camera_first_order_can_complete_two_bars(
+    window: MainWindow, monkeypatch, pose3d: Path
+) -> None:
+    monkeypatch.setattr(
+        wheel_controller,
+        "ask_wheel_setup",
+        lambda *_a: WheelSetup(WheelSpec("wheel", 36), channel=None),
+    )
+    wheel_controller.toggled(window, True)
+    clicks = clicks_for([0, 1])
+    for camera in ("Front", "Left"):
+        for step, click in enumerate(clicks):
+            wheel_controller.select_end(window, step)
+            x, y = next((x, y) for name, x, y in click.views if name == camera)
+            wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
+        if camera == "Front":
+            assert window._wheel_placement is not None
+            assert not window._wheel_placement.estimates
+    placement = window._wheel_placement
+    assert placement is not None and placement.ready(set(CAMERAS))
+    assert window.wheel_panel._accept.isEnabled()
+    assert [button.text() for button in window.wheel_panel._point_buttons[:4]] == [
+        "1A  2/3",
+        "1B  2/3",
+        "2A  2/3",
+        "2B  2/3",
+    ]
+    window.wheel_panel._accept.click()
+    wheel = window.wheels.get("wheel")
+    assert wheel is not None
+    assert all(len(click.views) == 2 for click in wheel.clicks)
+    saved, _removed = read_wheels(pose3d)
+    assert saved == [wheel]
+    assert all(len(click.views) == 2 for click in saved[0].clicks)
+    assert len(wheel_display.pane_drawing(window, VIDEOS["Right"], 0.0).bars) > 3
+
+
+def test_next_point_keeps_a_single_camera_click_visible(window: MainWindow, monkeypatch) -> None:
+    monkeypatch.setattr(
+        wheel_controller,
+        "ask_wheel_setup",
+        lambda *_a: WheelSetup(WheelSpec("wheel", 36), channel=None),
+    )
+    wheel_controller.toggled(window, True)
+    clicks = clicks_for([0])
+    for step, click in enumerate(clicks):
+        x, y = next((x, y) for name, x, y in click.views if name == "Front")
+        wheel_controller.on_clicked(window, VIDEOS["Front"], x, y)
+        drawing = wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0)
+        assert drawing is not None and drawing.clicks[-1][0] == f"1{'ab'[step]}"
+        assert not drawing.projections
+        window.wheel_panel._next.click()
+    placement = window._wheel_placement
+    assert placement is not None and placement.step == 2
+    assert placement.count(0) == placement.count(1) == 1
+    assert not window.wheel_panel._accept.isEnabled()
+
+
+def test_missing_view_projection_matches_synthetic_truth() -> None:
+    click = clicks_for([0])[0]
+    placement = wheel_placement.Placement(WheelSpec("wheel", 36), None, FRAME)
+    placement.clicks[(0, click.side)] = click.without_view("Right")
+
+    wheel_placement.estimate_missing(placement, CAMERAS)
+
+    projected = placement.estimates[(0, click.side, "Right")]
+    actual = next((x, y) for name, x, y in click.views if name == "Right")
+    assert sum((a - b) ** 2 for a, b in zip(projected, actual, strict=True)) ** 0.5 < 3.0
+    assert len(placement.clicks[(0, click.side)].views) == 2
 
 
 def test_three_bars_is_the_maximum_guided_input(window: MainWindow, monkeypatch) -> None:
@@ -152,19 +319,91 @@ def test_three_bars_is_the_maximum_guided_input(window: MainWindow, monkeypatch)
     before = placement.ordered()
     wheel_controller.on_clicked(window, VIDEOS["Front"], 1.0, 2.0)
     assert placement.ordered() == before
-    assert "three bars" in window.wheel_panel._instruction.text().lower()
+    assert "review the fit" in window.wheel_panel._instruction.text().lower()
 
 
-def test_started_third_bar_blocks_accept(window: MainWindow, monkeypatch) -> None:
+def test_done_labelling_is_live_from_point_2b_through_all_three_bars(
+    window: MainWindow, monkeypatch, pose3d: Path
+) -> None:
+    """Two views per point: Done turns on with 2B's second view and stays on for bar 3."""
+    start_placing(window, monkeypatch)
+    panel = window.wheel_panel
+    enabled = []
+    for step, click in enumerate(clicks_for([0, 1, 2])):
+        panel._point_buttons[step].click()
+        for camera, x, y in click.views[:2]:
+            wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
+            enabled.append(panel._accept.isEnabled())
+        if step == 3:
+            assert "Bar 3 (3A, 3B) is optional" in panel._summary.text()
+    assert enabled == [False] * 7 + [True] * 5
+    placement = window._wheel_placement
+    assert placement is not None and placement.fit is not None
+    assert len(placement.fit.indices) == 3, "a complete third bar joins the fit"
+
+    panel._accept.click()
+
+    wheel = window.wheels.get("wheel")
+    assert wheel is not None and len(wheel.fit.indices) == 3 and len(wheel.clicks) == 6
+    assert read_wheels(pose3d)[0] == [wheel]
+    assert window._wheel_placement is None and not window._act_add_wheel.isChecked()
+    assert wheel_display.pane_drawing(window, VIDEOS["Right"], 0.0).bars
+
+
+def test_a_third_bar_clicked_backwards_is_left_out_and_done_stays_live(
+    window: MainWindow, monkeypatch, pose3d: Path
+) -> None:
+    """A third bar that cannot be fitted must not take Done Labelling away."""
+    start_placing(window, monkeypatch)
+    clicks = clicks_for([0, 1, 2])
+    for step, click in enumerate(clicks[:4]):
+        click_point(window, step, click.views)
+    # A and B swapped on bar 3: the fit refuses that bar, not the wheel.
+    click_point(window, 4, clicks[5].views)
+    click_point(window, 5, clicks[4].views)
+    placement = window._wheel_placement
+    assert placement is not None and placement.fit is not None
+    assert len(placement.fit.indices) == 2
+    assert "left out of the fit" in window.wheel_panel._summary.text()
+    assert window.wheel_panel._accept.isEnabled()
+
+    window.wheel_panel._accept.click()
+
+    wheel = window.wheels.get("wheel")
+    assert wheel is not None and len(wheel.clicks) == 6, "bar 3's clicks are kept"
+    assert len(wheel.fit.indices) == 2
+    assert read_wheels(pose3d)[0] == [wheel]
+    assert wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0).bars
+
+
+def test_a_stepped_over_third_bar_is_used_as_clicked(window: MainWindow, monkeypatch) -> None:
+    """Clicked bars are neighbours by declaration; a skipped one shows as click error."""
+    _place(window, [0, 1, 3], WheelSpec("wheel", 36), monkeypatch)
+    placement = window._wheel_placement
+    assert placement is not None and placement.fit is not None
+    assert sorted(abs(i) for i in placement.fit.indices) == [0, 1, 2]
+    assert placement.fit.max_px > 20.0, "the skipped bar cannot hide"
+    assert window.wheel_panel._accept.isEnabled()
+    assert wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0).bars
+
+
+def test_started_third_bar_does_not_block_two_complete_bars(
+    window: MainWindow, monkeypatch, pose3d: Path
+) -> None:
     _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
     click = clicks_for([0, 1, 2])[4]
     camera, x, y = click.views[0]
     wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
     placement = window._wheel_placement
     assert placement is not None and placement.fit is not None
-    assert not window.wheel_panel._accept.isEnabled()
-    wheel_controller.accept(window)
-    assert window.wheels.get("wheel") is None
+    assert window.wheel_panel._accept.isEnabled()
+    assert "incomplete third bar" in window.wheel_panel._summary.text().lower()
+    window.wheel_panel._accept.click()
+    wheel = window.wheels.get("wheel")
+    assert wheel is not None
+    assert len(wheel.fit.indices) == 2
+    assert len(wheel.clicks) == 5
+    assert read_wheels(pose3d)[0] == [wheel]
 
 
 def test_accept_is_one_undo_step_and_writes_the_file(
@@ -226,7 +465,7 @@ def test_cancel_discards_the_clicks(window: MainWindow, monkeypatch) -> None:
 def test_a_typed_radius_refits_as_one_step(window: MainWindow, monkeypatch) -> None:
     _place(window, [0, 1, 2], WheelSpec("wheel", 36), monkeypatch)
     wheel_controller.accept(window)
-    wheel_controller.edit_spec(window, "wheel", 36, "mm", 100.0)
+    wheel_edits.edit_spec(window, "wheel", 36, "mm", 100.0)
     wheel = window.wheels.get("wheel")
     assert wheel is not None and wheel.spec.radius == 100.0
     assert wheel.fit.implied_radius == pytest.approx(100.0, rel=0.05)

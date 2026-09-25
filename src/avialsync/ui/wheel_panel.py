@@ -1,26 +1,27 @@
-"""The sidebar's Wheels section: review a wheel being placed, edit one placed (D-113).
+"""The Wheels inspector tab: review a wheel being placed, edit one placed (D-113).
 
 **The one place a wheel's numbers are edited** (AGENTS rule 15). The Add Wheel
 dialog asks for the first answers; after that the bar count, units, radius,
-direction and ratio live here, beside the fit they produced -- the same shape as
-a source's offset and drift in the panels above. The 3D view shows a wheel but
+direction and ratio live here, beside the fit they produced. The 3D view shows a wheel but
 never edits one.
 
-**Non-modal review.** While a wheel is being clicked the section shows what is
+**Non-modal review.** While a wheel is being clicked the tab shows what is
 wanted next, the fit so far (click error, spacing, parallelism, the radius the
-clicks imply), and Accept / Flip / Undo Click / Cancel. Nothing is committed
-until Accept, and the videos stay usable the whole time (rule 11).
+clicks imply), and Done Labelling / Flip / Undo Click / Discard Clicks. Done
+Labelling is available from the moment bars 1 and 2 are labelled (D-122);
+nothing is committed until it is pressed, and the videos stay usable (rule 11).
 
 **Fields commit, keystrokes do not.** Every spin box has keyboard tracking off,
 so typing ``120`` re-fits once rather than for 1, 12 and 120 -- each re-fit is
 an undo step.
 
-Widgets only: the section emits what the user asked for and shows what it is
+Widgets only: the tab emits what the user asked for and shows what it is
 given; :mod:`avialsync.ui.controllers.wheel_controller` does the work.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from PySide6.QtCore import Signal
@@ -37,7 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.core.wheel import Wheel, WheelFit, WheelSpec
+from avialsync.core.wheel import EndClick, Wheel, WheelFit, WheelSpec, fit_issue
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_bold
 from avialsync.ui.wheel_dialogs import bar_count_spin, radius_spin, unit_items
@@ -59,15 +60,33 @@ class PlacementView:
     instruction: str
     #: The fit so far, or why there is none yet.
     summary: str
+    active_step: int
+    point_counts: tuple[int, ...]
+    camera_count: int
+    estimated_count: int
+    can_next: bool
     can_undo: bool
     can_flip: bool
     can_accept: bool
 
 
-def describe_fit(wheel_spec: WheelSpec, fit: WheelFit) -> str:
+def _unreliable(issue: str) -> str:
+    """Why :func:`fit_issue` doubts a fit, and what to check. It is still drawn (D-123)."""
+    cause = (
+        tr("The clicked bars do not sit in neighbouring slots.")
+        if issue == "bars_not_neighbours"
+        else tr("The wheel is far from your camera clicks.")
+    )
+    return tr(
+        "Poor fit. {cause} Check the clicked bar ends, the 3D units and the camera calibration."
+    ).format(cause=cause)
+
+
+def describe_fit(wheel_spec: WheelSpec, fit: WheelFit, clicks: Sequence[EndClick]) -> str:
     """The fit in one paragraph: size, click error, and anything to check."""
     units = f" {wheel_spec.units}" if wheel_spec.units else ""
     geometry = fit.geometry
+    issue = fit_issue(fit, clicks)
     parts = [
         tr("{bars} bars, radius {radius:.1f}{units}, width {width:.1f}{units}.").format(
             bars=geometry.bar_count,
@@ -86,6 +105,17 @@ def describe_fit(wheel_spec: WheelSpec, fit: WheelFit) -> str:
                 parallel=max(fit.parallel_deg, default=0.0),
             )
         )
+    typed = wheel_spec.known_radius
+    if (
+        typed is not None
+        and fit.implied_radius is None
+        and abs(geometry.radius - typed) > (_RADIUS_WARNING * typed)
+    ):
+        parts.append(
+            tr(
+                "Built from the radius your clicks imply, not the {typed:.1f}{units} entered."
+            ).format(typed=typed, units=units)
+        )
     if fit.implied_radius is not None and wheel_spec.radius:
         share = abs(fit.implied_radius - wheel_spec.radius) / wheel_spec.radius
         parts.append(
@@ -100,12 +130,6 @@ def describe_fit(wheel_spec: WheelSpec, fit: WheelFit) -> str:
                     "the calibration's scale."
                 ).format(share=share)
             )
-    if fit.skipped:
-        parts.append(
-            tr(
-                "The clicked bars are not neighbours ({slots}); check a bar was not stepped over."
-            ).format(slots=", ".join(str(i) for i in sorted(fit.indices)))
-        )
     if fit.ambiguous:
         parts.append(
             tr(
@@ -113,6 +137,8 @@ def describe_fit(wheel_spec: WheelSpec, fit: WheelFit) -> str:
                 "video, and Flip if the wheel is on the wrong side."
             )
         )
+    if issue is not None:
+        parts.insert(0, _unreliable(issue))
     return " ".join(parts)
 
 
@@ -261,11 +287,12 @@ class _WheelRow(QFrame):
 
     def show_wheel(self, wheel: Wheel, checking: bool) -> None:
         self.spec.show(wheel.spec)
-        self.fit.setText(describe_fit(wheel.spec, wheel.fit))
+        self.fit.setText(describe_fit(wheel.spec, wheel.fit, wheel.clicks))
         self.encoder.setText(describe_encoder(wheel))
         binding = wheel.binding
         for widget in (self.direction, self.ratio, self.verify):
             widget.setEnabled(binding is not None)
+        self.verify.setToolTip(tr("Click a bar end to test the encoder direction"))
         if binding is not None:
             _set_quietly(self.direction, "setCurrentIndex", 0 if binding.sign > 0 else 1)
             _set_quietly(self.ratio, "setValue", binding.ratio)
@@ -275,6 +302,8 @@ class _WheelRow(QFrame):
 class WheelPanel(QGroupBox):
     """Every wheel in the session, and the one being placed."""
 
+    point_requested = Signal(int)
+    next_end_requested = Signal()
     undo_click_requested = Signal()
     flip_requested = Signal()
     go_to_frame_requested = Signal()
@@ -319,17 +348,48 @@ class WheelPanel(QGroupBox):
         self._summary = _wrapped(frame)
         review.addWidget(self._review_title)
         review.addWidget(self._instruction)
+        review.addLayout(self._build_points(frame))
+        review.addLayout(self._build_actions(frame))
+        guide = _wrapped(frame)
+        guide.setText(
+            tr(
+                "Select any point to work camera by camera. Two camera clicks locate it in 3D. "
+                "Rings are clicks; dashed diamonds are projected estimates."
+            )
+        )
+        review.addWidget(guide)
+        self._evidence = _wrapped(frame)
+        review.addWidget(self._evidence)
         form = QFormLayout()
         self._review_spec = _SpecFields(frame, form)
-        review.addLayout(form)
-        review.addWidget(self._summary)
         for spin in (self._review_spec.bars, self._review_spec.radius):
             spin.valueChanged.connect(lambda _v: self._placement_edited())
         self._review_spec.units.currentIndexChanged.connect(lambda _i: self._placement_edited())
+        review.addLayout(form)
+        review.addWidget(self._summary)
+        return frame
 
+    def _build_points(self, frame: QFrame) -> QGridLayout:
+        """1A…3B: pick which end the next camera click places, and see its count."""
+        points = QGridLayout()
+        self._point_buttons: list[QPushButton] = []
+        for step in range(6):
+            label = f"{step // 2 + 1}{'AB'[step % 2]}"
+            description = tr("Select point {point} for the next camera click").format(point=label)
+            button = _button(label, description, frame)
+            button.setCheckable(True)
+            button.setAccessibleName(tr("Select wheel point {point}").format(point=label))
+            button.clicked.connect(lambda _checked, index=step: self.point_requested.emit(index))
+            points.addWidget(button, step // 2, step % 2)
+            self._point_buttons.append(button)
+        return points
+
+    def _build_actions(self, frame: QFrame) -> QGridLayout:
+        """Next Point, Undo Click, Flip Side, Go to Frame, Done Labelling, Discard Clicks."""
         grid = QGridLayout()
         buttons: list[QPushButton] = []
         for text, description, signal in (
+            (tr("Next Point"), tr("Select the next wheel bar endpoint"), self.next_end_requested),
             (tr("Undo Click"), tr("Take back the last click"), self.undo_click_requested),
             (
                 tr("Flip Side"),
@@ -341,9 +401,13 @@ class WheelPanel(QGroupBox):
                 tr("Return to the frame the bars are being clicked on"),
                 self.go_to_frame_requested,
             ),
-            (tr("Accept"), tr("Add this wheel; Undo removes it"), self.accept_requested),
             (
-                tr("Cancel"),
+                tr("Done Labelling"),
+                tr("Save this wheel and finish labelling; Undo removes it"),
+                self.accept_requested,
+            ),
+            (
+                tr("Discard Clicks"),
                 tr("Stop placing the wheel and discard the clicks"),
                 self.cancel_requested,
             ),
@@ -351,14 +415,14 @@ class WheelPanel(QGroupBox):
             button = _button(text, description, frame)
             button.clicked.connect(signal)
             buttons.append(button)
-        self._undo, self._flip, self._frame, self._accept, self._cancel = buttons
-        grid.addWidget(self._undo, 0, 0)
-        grid.addWidget(self._flip, 0, 1)
-        grid.addWidget(self._frame, 1, 0, 1, 2)
+        self._next, self._undo, self._flip, self._frame, self._accept, self._cancel = buttons
+        grid.addWidget(self._next, 0, 0)
+        grid.addWidget(self._undo, 0, 1)
+        grid.addWidget(self._flip, 1, 0)
+        grid.addWidget(self._frame, 1, 1)
         grid.addWidget(self._accept, 2, 0)
         grid.addWidget(self._cancel, 2, 1)
-        review.addLayout(grid)
-        return frame
+        return grid
 
     def _placement_edited(self) -> None:
         self.placement_spec_changed.emit(*self._review_spec.values())
@@ -373,10 +437,29 @@ class WheelPanel(QGroupBox):
             )
             self._instruction.setText(view.instruction)
             self._summary.setText(view.summary)
+            self._evidence.setText(
+                tr("{count} projected marks are estimates; only camera clicks are saved.").format(
+                    count=view.estimated_count
+                )
+                if view.estimated_count
+                else tr("A second camera click will project the point into missing views.")
+            )
+            for index, button in enumerate(self._point_buttons):
+                label = f"{index // 2 + 1}{'AB'[index % 2]}"
+                button.setText(f"{label}  {view.point_counts[index]}/{view.camera_count}")
+                blocked = button.blockSignals(True)
+                button.setChecked(index == view.active_step)
+                button.blockSignals(blocked)
+            self._next.setEnabled(view.can_next)
             self._review_spec.show(view.spec)
             self._undo.setEnabled(view.can_undo)
             self._flip.setEnabled(view.can_flip)
             self._accept.setEnabled(view.can_accept)
+            self._accept.setToolTip(
+                tr("Save this wheel and finish labelling as one undo step")
+                if view.can_accept
+                else view.summary
+            )
             self._review.show()
         self._update_visibility()
 

@@ -37,7 +37,8 @@ Headless (architecture rule 2). The model is here; fitting it is
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Callable, Iterable, Iterator
+import math
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -55,6 +56,7 @@ __all__ = [
     "WheelGeometry",
     "ClickResidual",
     "WheelFit",
+    "fit_issue",
     "WheelCheck",
     "EncoderBinding",
     "Wheel",
@@ -210,6 +212,30 @@ class WheelFit:
         """The clicked bars are not neighbours: one or more were stepped over."""
         ordered = sorted(self.indices)
         return any(b - a != 1 for a, b in zip(ordered, ordered[1:], strict=False))
+
+
+def fit_issue(fit: WheelFit, clicks: Sequence[EndClick]) -> str | None:
+    """Why a fitted wheel cannot yet be trusted as geometry, if anything.
+
+    Reprojection is judged against the clicked bar's image length, so the same
+    rule works for small and large source videos. A small pixel floor still
+    allows a short, distant bar to have ordinary click noise.
+    """
+    if fit.skipped:
+        return "bars_not_neighbours"
+    if not fit.residuals or not math.isfinite(fit.median_px):
+        return "clicks_far_from_fit"
+    points: dict[tuple[int, str], dict[str, tuple[float, float]]] = {}
+    for click in clicks:
+        for camera, x, y in click.views:
+            points.setdefault((click.bar, camera), {})[click.side] = (x, y)
+    spans = [
+        math.hypot(ends[LEFT][0] - ends[RIGHT][0], ends[LEFT][1] - ends[RIGHT][1])
+        for ends in points.values()
+        if LEFT in ends and RIGHT in ends
+    ]
+    limit = max(8.0, 0.05 * float(np.median(spans))) if spans else 8.0
+    return "clicks_far_from_fit" if fit.median_px > limit else None
 
 
 @dataclass(frozen=True)

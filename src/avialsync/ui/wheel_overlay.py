@@ -14,8 +14,8 @@ body part's, for the same reason.
 * Bar 0 -- the first bar clicked -- carries a small tick, so a turn can be
   followed by eye and checked against the footage.
 * While the wheel is being placed and before it is accepted, it is drawn
-  **dashed**: a proposal, not a result. The clicks so far are drawn as small
-  rings with their bar and end, since those are the evidence being fitted.
+  **dashed**: a proposal, not a result. Actual clicks are labelled rings;
+  projections into unclicked views are dashed diamonds labelled as projected.
 
 Painting only: what to draw arrives as a :class:`WheelDrawing`, already
 projected into this camera's pixels by the controller.
@@ -25,8 +25,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PySide6.QtCore import QPointF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
+
+from avialsync.ui.i18n import tr
 
 __all__ = ["WheelBar", "WheelDrawing", "draw_wheel", "draw_wheel_clicks"]
 
@@ -60,6 +62,10 @@ class WheelDrawing:
     bars: tuple[WheelBar, ...] = ()
     #: ``(label, x, y)`` per click of a placement in progress, e.g. ``("2b", x, y)``.
     clicks: tuple[tuple[str, float, float], ...] = ()
+    #: The 2D view of a point located by other cameras, not an observed click.
+    projections: tuple[tuple[str, float, float], ...] = ()
+    #: Placement cue in this camera, empty after placement.
+    prompt: str = ""
 
 
 def _pen(color: QColor, width: float, dashed: bool) -> QPen:
@@ -112,9 +118,29 @@ def draw_wheel(
 def draw_wheel_clicks(
     painter: QPainter, drawing: WheelDrawing, scale: float, offset_x: float, offset_y: float
 ) -> None:
-    """Draw placed end markers last so tracking cannot obscure the click evidence."""
+    """Draw real clicks and distinct projected estimates over the tracking."""
     painter.save()
     painter.setBrush(Qt.BrushStyle.NoBrush)
+    for label, x, y in drawing.projections:
+        projected_label = tr("{point} projected").format(point=label.upper())
+        centre = QPointF(offset_x + x * scale, offset_y + y * scale)
+        points = (
+            centre + QPointF(0, -_CLICK_RADIUS),
+            centre + QPointF(_CLICK_RADIUS, 0),
+            centre + QPointF(0, _CLICK_RADIUS),
+            centre + QPointF(-_CLICK_RADIUS, 0),
+        )
+        painter.setPen(_pen(_UNDERLAY, 3.0, True))
+        for start, end in zip(points, (*points[1:], points[0]), strict=True):
+            painter.drawLine(start, end)
+        painter.setPen(_pen(_BAR, 1.5, True))
+        for start, end in zip(points, (*points[1:], points[0]), strict=True):
+            painter.drawLine(start, end)
+        label_pos = centre + QPointF(_CLICK_RADIUS + 2, -_CLICK_RADIUS)
+        painter.setPen(_pen(_UNDERLAY, 1.5, False))
+        painter.drawText(label_pos + QPointF(1, 1), projected_label)
+        painter.setPen(_pen(_BAR, 1.5, False))
+        painter.drawText(label_pos, projected_label)
     for label, x, y in drawing.clicks:
         centre = QPointF(offset_x + x * scale, offset_y + y * scale)
         painter.setPen(_pen(_UNDERLAY, 3.0, False))
@@ -126,4 +152,15 @@ def draw_wheel_clicks(
         painter.drawText(label_pos + QPointF(1, 1), label)
         painter.setPen(_pen(_BAR, 1.5, False))
         painter.drawText(label_pos, label)
+    if drawing.prompt:
+        metrics = painter.fontMetrics()
+        available = max(0, painter.viewport().width() - 30)
+        if available:
+            cue = metrics.elidedText(drawing.prompt, Qt.TextElideMode.ElideRight, available)
+            box = QRectF(8, 8, metrics.horizontalAdvance(cue) + 14, metrics.height() + 8)
+            painter.setBrush(_UNDERLAY)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawRoundedRect(box, 4, 4)
+            painter.setPen(_pen(_BAR, 1.0, False))
+            painter.drawText(QPointF(15, 12 + metrics.ascent()), cue)
     painter.restore()

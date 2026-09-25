@@ -270,7 +270,7 @@ class PaintCanvas(MarkerOverlayMixin):
                 show_hidden=self._wheel_hidden_visible,
             )
         if not draw_points:
-            if wheel is not None and wheel.clicks:
+            if wheel is not None and (wheel.clicks or wheel.projections or wheel.prompt):
                 draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y)
             return
 
@@ -293,7 +293,7 @@ class PaintCanvas(MarkerOverlayMixin):
         if self._custom and (self._custom_visible or self._edit_mode):
             self._draw_custom(painter, scale, offset_x, offset_y)
 
-        if wheel is not None and wheel.clicks:
+        if wheel is not None and (wheel.clicks or wheel.projections or wheel.prompt):
             draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y)
 
     def _draw_track(

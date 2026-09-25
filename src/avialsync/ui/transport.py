@@ -678,7 +678,7 @@ class TimelineEvidence(QWidget):
         """Show Add Wheel beside Add 3D Marker, driven by the same menu QAction."""
         self.add_wheel_button.set_action(action)
         self.add_wheel_button.setAccessibleDescription(
-            tr("Click both ends of two or three neighbouring bars in each camera")
+            tr("Click both ends of two or three bars in at least two calibrated cameras")
         )
 
     def toggle_collapsed(self) -> None:

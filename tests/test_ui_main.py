@@ -83,6 +83,10 @@ def test_inspector_uses_compact_tabs_for_sources_values_messages_and_annotations
     assert main_window._left_tabs.widget(1) is main_window.readout_panel
     assert main_window._left_tabs.widget(2) is main_window.message_panel
     assert main_window._left_tabs.widget(3) is main_window.changes_panel
+    assert main_window._left_tabs.tabText(4) == "Wheels"
+    assert main_window._left_tabs.widget(4) is main_window.wheel_tab
+    assert main_window.wheel_panel.parentWidget() is not main_window.sidebar
+    assert main_window.wheel_tab.add_button.action is main_window._act_add_wheel
 
 
 def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow, qtbot) -> None:

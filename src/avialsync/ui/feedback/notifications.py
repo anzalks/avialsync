@@ -65,6 +65,7 @@ class _Pending:
     details: str
     action_label: str
     on_action: Callable[[], None] | None
+    on_dismiss: Callable[[], None] | None = None
 
     @property
     def is_transient(self) -> bool:
@@ -145,15 +146,16 @@ class NotificationStrip(QWidget):
         *,
         action_label: str = "",
         on_action: Callable[[], None] | None = None,
+        on_dismiss: Callable[[], None] | None = None,
     ) -> None:
         """Report a partial result, or offer one. Stays until dismissed.
 
         Pass *action_label* and *on_action* together to put one named button
         beside the message -- "Restore" for unsaved work found at launch. The
-        action is an offer, never a gate: dismissing the message declines it
-        and must leave whatever it was offering exactly where it was.
+        action is an offer, never a gate. *on_dismiss* lets an offer remember
+        that this version was declined without deleting the offered work.
         """
-        self._post(message, "warning", details, action_label, on_action)
+        self._post(message, "warning", details, action_label, on_action, on_dismiss)
 
     def show_error(self, message: str, details: str = "") -> None:
         """Report a failure. Stays until dismissed.
@@ -171,9 +173,10 @@ class NotificationStrip(QWidget):
         details: str,
         action_label: str = "",
         on_action: Callable[[], None] | None = None,
+        on_dismiss: Callable[[], None] | None = None,
     ) -> None:
         """Queue a message, and show it now if the strip is free to."""
-        posted = _Pending(message, severity, details, action_label, on_action)
+        posted = _Pending(message, severity, details, action_label, on_action, on_dismiss)
         if self._already_says(posted):
             return
 
@@ -225,15 +228,17 @@ class NotificationStrip(QWidget):
 
     # ── clearing ─────────────────────────────────────────────────────
 
-    def clear(self) -> None:
+    def clear(self, *, dismissed: bool = True) -> None:
         """Dismiss the current message and show the next one waiting.
 
-        Declining an offer is not the same as acting on it: this drops the
-        callback and says nothing to whoever posted it, so the thing being
-        offered stays where it is.
+        A dismissal callback runs only for Dismiss, not when the named action
+        is taken. The offer owner decides how to record the declined version.
         """
+        on_dismiss = self._current.on_dismiss if dismissed and self._current is not None else None
         self._timer.stop()
         self._current = None
+        if on_dismiss is not None:
+            on_dismiss()
         if self._queue:
             self._show(self._queue.popleft())
             return
@@ -265,7 +270,7 @@ class NotificationStrip(QWidget):
         would make the button do nothing.
         """
         callback = self._current.on_action if self._current is not None else None
-        self.clear()
+        self.clear(dismissed=False)
         if callback is not None:
             callback()
 

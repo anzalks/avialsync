@@ -13,7 +13,7 @@ rule 11 allows a modal for. It collects what the clicks cannot supply:
   plugin declared one (:class:`~avialsync.core.source.RotaryHint`), and
   "none" otherwise -- a wheel with no encoder is drawn on its own frame only.
 
-Everything here can be changed afterwards in the sidebar's Wheels panel; this
+Everything here can be changed afterwards in the Wheels inspector tab; this
 is the first answer, not the only one.
 """
 
@@ -24,6 +24,7 @@ from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -31,14 +32,17 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
+from avialsync.core.settings_schema import Setting, setting_for
 from avialsync.core.source import RotaryHint
 from avialsync.core.wheel import MIN_BAR_COUNT, UNITS, WheelSpec
 from avialsync.ui.i18n import tr
+from avialsync.ui.preferences_dialog import read_setting, write_setting
 
 __all__ = [
     "WheelSetup",
@@ -51,6 +55,34 @@ __all__ = [
 #: A wheel's name becomes a file name, ``<name>.wheel.toml``.
 _NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$")
 _MAX_BARS = 720
+
+
+def _setting(key: str) -> Setting:
+    setting = setting_for(key)
+    assert setting is not None
+    return setting
+
+
+_BAR_SETTING = _setting("wheel/bar_count")
+_UNITS_SETTING = _setting("wheel/units")
+_RADIUS_SETTING = _setting("wheel/radius")
+
+
+def _saved_details() -> tuple[int, str, float] | None:
+    """Return reusable setup only when its values are valid together."""
+    bars = int(read_setting(_BAR_SETTING))
+    units = str(read_setting(_UNITS_SETTING))
+    radius = float(read_setting(_RADIUS_SETTING))
+    if MIN_BAR_COUNT <= bars <= _MAX_BARS and units in ("", *UNITS):
+        return bars, units, radius if units and radius > 0 else 0.0
+    return None
+
+
+def _write_details(bars: int, units: str, radius: float) -> None:
+    """Save or forget the reusable values through the declared settings."""
+    write_setting(_BAR_SETTING, bars)
+    write_setting(_UNITS_SETTING, units)
+    write_setting(_RADIUS_SETTING, radius)
 
 
 @dataclass(frozen=True)
@@ -108,6 +140,8 @@ class _WheelSetupDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self._taken = {name.lower() for name in taken}
+        self._hint = hint
+        self._saved = _saved_details()
         self.setWindowTitle(tr("Add Wheel"))
         self.setAccessibleName(tr("Describe the wheel to place"))
         self.setAccessibleDescription(
@@ -116,10 +150,11 @@ class _WheelSetupDialog(QDialog):
         layout = QVBoxLayout(self)
         intro = QLabel(
             tr(
-                "You will click both ends of two or three neighbouring bars, in every "
-                "camera that sees them, on the current frame. Click the end on the "
-                "same side of the wheel first on every bar. The rest of the wheel is "
-                "generated from those clicks and the bar count."
+                "Click both ends of two or three neighbouring bars on the current frame. "
+                "Each end needs clicks in at least two calibrated cameras; the third view "
+                "can show a projected estimate. Use the point buttons to work across cameras "
+                "or finish one camera first. Keep the same end as A on every bar. The rest "
+                "of the wheel is generated from the clicks and the bar count."
             ),
             self,
         )
@@ -127,6 +162,7 @@ class _WheelSetupDialog(QDialog):
         layout.addWidget(intro)
 
         layout.addLayout(self._build_form(hint, channels))
+        self._build_saved_setup(layout, hint)
 
         self.problem = QLabel(self)
         self.problem.setWordWrap(True)
@@ -151,6 +187,40 @@ class _WheelSetupDialog(QDialog):
         self.units.currentIndexChanged.connect(self._on_units)
         self._on_units()
 
+    def _build_saved_setup(self, layout: QVBoxLayout, hint: RotaryHint | None) -> None:
+        """Say where the values came from, and offer to remember or forget them."""
+        self.saved_note = QLabel(self)
+        self.saved_note.setWordWrap(True)
+        self.saved_note.setText(
+            tr("Saved setup loaded. Check its units against this recording.")
+            if self._saved is not None and hint is None
+            else tr("This recording supplied wheel details; check them before clicking.")
+            if hint is not None
+            else tr(
+                "Only the bar count, units and radius can be remembered. "
+                "Clicks stay with the recording."
+            )
+        )
+        layout.addWidget(self.saved_note)
+        self.remember = QCheckBox(
+            tr("Update saved setup for future wheels")
+            if self._saved is not None
+            else tr("Remember this setup for future wheels"),
+            self,
+        )
+        self.remember.setChecked(self._saved is None and hint is None)
+        self.remember.setAccessibleDescription(
+            tr("Save bar count, units and radius in AvialSync preferences after starting clicks")
+        )
+        layout.addWidget(self.remember)
+        self.forget = QPushButton(tr("Forget saved setup"), self)
+        self.forget.setAccessibleDescription(
+            tr("Clear reusable wheel details; placed wheels in recordings are unaffected")
+        )
+        self.forget.setVisible(self._saved is not None)
+        self.forget.clicked.connect(self._forget_saved)
+        layout.addWidget(self.forget)
+
     def _build_form(
         self, hint: RotaryHint | None, channels: Sequence[tuple[str, str, str]]
     ) -> QFormLayout:
@@ -162,20 +232,27 @@ class _WheelSetupDialog(QDialog):
         )
         form.addRow(tr("Name"), self.name_edit)
 
-        self.bars = bar_count_spin(self, hint.bar_count if hint is not None else 0)
+        saved = self._saved if hint is None else None
+        self.bars = bar_count_spin(
+            self, hint.bar_count if hint is not None else saved[0] if saved else 0
+        )
         form.addRow(tr("Bars on the wheel"), self.bars)
 
         self.units = QComboBox(self)
         for label, unit in unit_items():
             self.units.addItem(label, unit)
-        self.units.setCurrentIndex(max(0, self.units.findData(hint.units if hint else "")))
+        self.units.setCurrentIndex(
+            max(0, self.units.findData(hint.units if hint else saved[1] if saved else ""))
+        )
         self.units.setAccessibleName(tr("3D units"))
         self.units.setAccessibleDescription(
             tr("The units the calibration's 3D coordinates are in; anipose does not record them")
         )
         form.addRow(tr("3D units"), self.units)
 
-        self.radius = radius_spin(self, hint.radius if hint is not None else 0.0, "")
+        self.radius = radius_spin(
+            self, hint.radius if hint is not None else saved[2] if saved else 0.0, ""
+        )
         form.addRow(tr("Radius to bar centres"), self.radius)
 
         form.addRow(tr("Turned by"), self._build_encoder(hint, channels))
@@ -210,6 +287,27 @@ class _WheelSetupDialog(QDialog):
         while name.lower() in self._taken:
             name, index = f"wheel{index}", index + 1
         return name
+
+    def _forget_saved(self) -> None:
+        _write_details(0, "", 0.0)
+        self._saved = None
+        hint = self._hint
+        self.bars.setValue(hint.bar_count if hint is not None else 0)
+        self.units.setCurrentIndex(max(0, self.units.findData(hint.units if hint else "")))
+        self.radius.setValue(hint.radius if hint is not None else 0.0)
+        self.remember.setText(tr("Remember this setup for future wheels"))
+        self.remember.setChecked(False)
+        self.forget.hide()
+        self.saved_note.setText(
+            tr("Saved setup forgotten. Placed wheels in recordings are unaffected.")
+        )
+
+    def accept(self) -> None:
+        """Commit the optional reusable setup when clicking starts."""
+        if self.remember.isChecked() and self.bars.value() >= MIN_BAR_COUNT:
+            units = str(self.units.currentData() or "")
+            _write_details(self.bars.value(), units, self.radius.value() if units else 0.0)
+        super().accept()
 
     def _on_units(self) -> None:
         units = str(self.units.currentData() or "")

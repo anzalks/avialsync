@@ -50,6 +50,7 @@ GROUP_ORDER = (
     "Plots",
     "Overlays",
     "Video Display",
+    "Wheel Setup",
     "Storage",
 )
 
@@ -132,6 +133,40 @@ SETTINGS: tuple[Setting, ...] = (
         help_text=(
             "For recordings deeper than 8 bits, pick black and white points "
             "from the first frame instead of showing the full range."
+        ),
+    ),
+    # ── Wheel Setup ───────────────────────────────────────────────────
+    Setting(
+        key="wheel/bar_count",
+        label="Remembered wheel bar count",
+        group="Wheel Setup",
+        default=0,
+        kind=int,
+        minimum=0,
+        maximum=720,
+        help_text=(
+            "A count of zero forgets the reusable setup. Placed wheels stay with their recordings."
+        ),
+    ),
+    Setting(
+        key="wheel/units",
+        label="Remembered wheel units",
+        group="Wheel Setup",
+        default="",
+        kind=str,
+        choices=("", "mm", "cm", "m"),
+        help_text="3D calibration units for the next wheel; check them against each recording.",
+    ),
+    Setting(
+        key="wheel/radius",
+        label="Remembered wheel radius",
+        group="Wheel Setup",
+        default=0.0,
+        kind=float,
+        minimum=0,
+        maximum=1_000_000,
+        help_text=(
+            "Radius to the bar centres in the remembered units; zero measures it from clicks."
         ),
     ),
     # ── Storage ──────────────────────────────────────────────────────

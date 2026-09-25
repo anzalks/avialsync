@@ -3,17 +3,21 @@
 1. **Declare.** Edit → Add Wheel… asks for a name, the bar count, the 3D units,
    an optional radius and the encoder channel (:mod:`avialsync.ui.wheel_dialogs`),
    pre-filled from the session plugin's :class:`~avialsync.core.source.RotaryHint`.
-2. **Click.** With the calibration resolved (the same Import / Compute question
-   as Add 3D Marker), every pane takes clicks: bar 1's first end, its second
-   end, then bar 2's, each in every calibrated camera. An end clicked in
-   every camera moves on by itself; two complete bars can be accepted, or a
-   third can be clicked to check the fit.
+2. **Click.** With the calibration resolved, the Wheels tab names six ends
+   (1A…3B), their real camera-click counts, and the selected point. Select
+   any point or use Next Point to work camera by camera; an end seen in all
+   cameras advances automatically. Two real views locate a point in 3D and
+   project it into any missing view. Projections are not fit evidence
+   (:mod:`avialsync.ui.controllers.wheel_placement`).
 3. **Review.** From two complete bars on, the wheel is fitted after every click
    (:func:`~avialsync.core.wheel.fit_wheel`, ~10 ms) and drawn dashed over
-   every camera and the 3D view, with its numbers in the sidebar's Wheels
-   section. Nothing is committed yet; Flip picks the mirrored wheel.
-4. **Accept** runs one :class:`~avialsync.core.commands.SetWheelCommand`, so
-   the wheel is one undo step and dirties the session (rule 14).
+   every camera and the 3D view, with its numbers in the Wheels tab.
+   Nothing is committed yet; Flip picks the mirrored wheel.
+4. **Done Labelling** is available from the moment bars 1 and 2 are labelled,
+   and stays so through an optional third bar. It runs one
+   :class:`~avialsync.core.commands.SetWheelCommand`, so the wheel is one undo
+   step and dirties the session (rule 14). An unreliable fit is saved with its
+   geometry hidden, never refused, so the clicks are not lost (D-122).
 5. **Turn.** On any other frame the wheel is turned by the encoder, read at the
    presentation time of the frame on screen -- never the clock's raw time, which
    sits anywhere inside that frame's interval (rule 6) -- and with the encoder's
@@ -22,7 +26,8 @@
    away tests the encoder's direction; two informative checks settle it
    (:mod:`avialsync.core.wheel_check`). Until then the panel says "assumed".
 
-What each view draws, per frame, is :mod:`avialsync.ui.controllers.wheel_display`.
+What each view draws, per frame, is :mod:`avialsync.ui.controllers.wheel_display`;
+changing a placed wheel's numbers is :mod:`avialsync.ui.controllers.wheel_edits`.
 """
 
 from __future__ import annotations
@@ -33,14 +38,24 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from avialsync.core.commands import SetWheelCommand
-from avialsync.core.errors import WheelFitError
-from avialsync.core.wheel import SIDES, EncoderBinding, EndClick, Wheel, WheelCheck, WheelSpec
+from avialsync.core.wheel import (
+    SIDES,
+    EndClick,
+    Wheel,
+    WheelCheck,
+    fit_issue,
+)
 from avialsync.core.wheel_check import settle_sign
-from avialsync.core.wheel_fit import fit_wheel
 from avialsync.ui.controllers import calibration_controller as calibration
 from avialsync.ui.controllers import custom_marker_controller as markers
 from avialsync.ui.controllers import rig_paths
 from avialsync.ui.controllers import wheel_display as display
+from avialsync.ui.controllers import wheel_edits as edits
+from avialsync.ui.controllers import wheel_generation as generation
+from avialsync.ui.controllers.wheel_placement import (
+    POINTS,
+    Placement,
+)
 from avialsync.ui.i18n import tr
 from avialsync.ui.wheel_dialogs import WheelSetup, ask_wheel_setup
 
@@ -107,9 +122,8 @@ def _begin(window: MainWindow, setup: WheelSetup, replacing: str | None) -> None
         return
     if window.clock.state.playing:
         window.transport.play_toggled.emit(False)
-    window._wheel_placement = display.Placement(
-        setup.spec, setup.channel, frame, replacing=replacing
-    )
+    window._wheel_placement = Placement(setup.spec, setup.channel, frame, replacing=replacing)
+    window._left_tabs.setCurrentWidget(window.wheel_tab)
     _set_checked(window, True)
     window.video_grid.set_marker_place_mode(True)
     display.refresh(window)
@@ -153,9 +167,12 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> bool:
         )
         return True
     camera = rig_paths.camera_name(video)
-    if placement.step >= 6:
+    near = placement.step_near(camera, x, y, display.projected_hit_radius(window, video))
+    if near is not None:
+        placement.step = near
+    if placement.step >= POINTS:
         window.transport.set_status(
-            tr("Three bars are complete. Review the fit and Accept."), "info"
+            tr("Select a point in the Wheels tab to place or correct another click."), "info"
         )
         return True
     key = placement.end
@@ -167,6 +184,22 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> bool:
         placement.step += 1
     _refit(window)
     return True
+
+
+def select_end(window: MainWindow, step: int) -> None:
+    """Choose a named endpoint, so camera-first and point-first orders both work."""
+    placement = window._wheel_placement
+    if placement is not None and 0 <= step < POINTS:
+        placement.step = step
+        display.refresh(window)
+
+
+def next_end(window: MainWindow) -> None:
+    """Advance to the next named point, even if this one needs another view later."""
+    placement = window._wheel_placement
+    if placement is not None and placement.step < POINTS - 1:
+        placement.step += 1
+        display.refresh(window)
 
 
 def undo_click(window: MainWindow) -> None:
@@ -197,28 +230,12 @@ def placement_spec_changed(window: MainWindow, bars: int, units: str, radius: fl
     placement = window._wheel_placement
     if placement is None:
         return
-    placement.spec = _spec(placement.spec.name, bars, units, radius)
+    placement.spec = edits.spec_from(placement.spec.name, bars, units, radius)
     _refit(window)
 
 
-def _spec(name: str, bars: int, units: str, radius: float) -> WheelSpec:
-    return WheelSpec(name, int(bars), radius if units and radius > 0 else None, units)
-
-
 def _refit(window: MainWindow) -> None:
-    placement = window._wheel_placement
-    if placement is not None:
-        try:
-            placement.fit = fit_wheel(
-                placement.spec,
-                placement.ordered(),
-                display.camera_models(window),
-                flipped=placement.flipped,
-            )
-            placement.problem = ""
-        except WheelFitError as error:
-            placement.fit, placement.problem = None, str(error)
-    display.refresh(window)
+    generation.refit(window)
 
 
 def go_to_frame(window: MainWindow) -> None:
@@ -230,36 +247,25 @@ def go_to_frame(window: MainWindow) -> None:
 
 
 def accept(window: MainWindow) -> None:
-    """Commit the wheel being placed, as one undo step."""
+    """Done Labelling: commit the wheel being placed, as one undo step.
+
+    Available once bars 1 and 2 are labelled. A fit :func:`fit_issue` rejects
+    is still saved and drawn -- the clicks are the user's work and the wheel
+    is what they built -- with a warning and a Re-place offer (D-122, D-123).
+    """
     placement = window._wheel_placement
     if placement is None or placement.fit is None:
         return
+    if placement.fitting:
+        window.transport.set_status(tr("The wheel is still being generated."), "info")
+        return
     if not placement.ready(set(display.camera_models(window))):
         window.transport.set_status(
-            tr("Click both ends of two or three bars in every calibrated camera first."),
+            tr("Click both ends of bars 1 and 2 in at least two calibrated cameras first."),
             "warning",
         )
         return
-    binding = None
-    if placement.channel is not None:
-        t = display.frame_master_time(window, placement.frame)
-        angle = display.sample(window, placement.channel, t) if t is not None else None
-        if angle is None:
-            window.notifications.show_warning(
-                tr("{channel} has no reading on frame {frame}, so the wheel will not turn.").format(
-                    channel=placement.channel[1], frame=placement.frame
-                )
-            )
-        else:
-            binding = EncoderBinding(placement.channel[0], placement.channel[1], angle)
     previous = window.wheels.get(placement.replacing or placement.spec.name)
-    if binding is not None and previous is not None and previous.binding is not None:
-        # Re-placing keeps the ratio and the checks: they are observations of
-        # the footage, still true of the new geometry, and re-settle against it.
-        binding = dataclasses.replace(
-            binding, ratio=previous.binding.ratio, checks=previous.binding.checks
-        )
-        binding = settle_sign(placement.fit.geometry, binding, display.camera_models(window))[0]
     state = window._calibration_state
     wheel = Wheel(
         spec=placement.spec,
@@ -267,18 +273,32 @@ def accept(window: MainWindow) -> None:
         clicks=placement.ordered(),
         fit=placement.fit,
         flipped=placement.flipped,
-        binding=binding,
+        binding=display.encoder_binding(window, placement, previous),
         calibration=str(state.path) if state is not None else "",
     )
     cancel(window)
     window.document.execute(SetWheelCommand(wheel.name, previous, wheel), window._mutations)
+    _announce(window, wheel)
+
+
+def _announce(window: MainWindow, wheel: Wheel) -> None:
+    """Say what Done Labelling saved, and what is still to check."""
+    if fit_issue(wheel.fit, wheel.clicks) is not None:
+        window.notifications.show_warning(
+            tr(
+                "Wheel {name} is saved and drawn, but it fits your clicks poorly ({px:.1f} px, "
+                "worst {worst:.1f} px). Re-place it to click its bar ends again."
+            ).format(name=wheel.name, px=wheel.fit.median_px, worst=wheel.fit.max_px),
+            action_label=tr("Re-place"),
+            on_action=lambda: replace(window, wheel.name),
+        )
     window.transport.set_status(
         tr("Wheel {name} added: clicks sit {px:.1f} px from it.").format(
             name=wheel.name, px=wheel.fit.median_px
         ),
         "info",
     )
-    if binding is not None and not binding.measured:
+    if wheel.binding is not None and not wheel.binding.measured:
         window.notifications.show_warning(
             tr("The direction {name} turns is assumed until checked against the video.").format(
                 name=wheel.name
@@ -286,7 +306,7 @@ def accept(window: MainWindow) -> None:
             action_label=tr("How to Verify"),
             on_action=lambda: window.transport.set_status(
                 tr(
-                    "Go a few turns away, press Verify Here in the Wheels panel, and click "
+                    "Go a few turns away, press Verify Here in the Wheels tab, and click "
                     "any bar end in any camera."
                 ),
                 "info",
@@ -364,55 +384,11 @@ def _check_click(window: MainWindow, video: str, x: float, y: float) -> None:
     window.transport.set_status(message, "info")
 
 
-# ── editing a placed wheel ───────────────────────────────────────────
-
-
-def edit_spec(window: MainWindow, name: str, bars: int, units: str, radius: float) -> None:
-    """Re-fit *name* from its own clicks with a changed bar count, units or radius."""
-    wheel = window.wheels.get(name)
-    if wheel is None:
-        return
-    spec = _spec(name, bars, units, radius)
-    if spec == wheel.spec:
-        return
-    calibration.calibration_quietly(window)
-    cameras = display.camera_models(window)
-    try:
-        fit = fit_wheel(spec, wheel.clicks, cameras, flipped=wheel.flipped)
-    except WheelFitError as error:
-        window.report_failure(error, doing=tr("Wheel {name} was not re-fitted").format(name=name))
-        display.refresh(window)
-        return
-    binding = wheel.binding
-    if binding is not None and binding.checks:
-        binding = settle_sign(fit.geometry, binding, cameras)[0]
-    changed = dataclasses.replace(wheel, spec=spec, fit=fit, binding=binding)
-    window.document.execute(SetWheelCommand(name, wheel, changed), window._mutations)
-
-
-def edit_binding(window: MainWindow, name: str, sign: float, ratio: float) -> None:
-    """A direction or ratio typed by hand: used as given, and no longer "measured"."""
-    wheel = window.wheels.get(name)
-    if wheel is None or wheel.binding is None:
-        return
-    binding = wheel.binding
-    if (sign, ratio) == (binding.sign, binding.ratio):
-        return
-    changed = dataclasses.replace(binding, sign=sign, ratio=ratio, measured=False)
-    window.document.execute(
-        SetWheelCommand(name, wheel, dataclasses.replace(wheel, binding=changed)),
-        window._mutations,
-    )
-
-
-def remove(window: MainWindow, name: str) -> None:
-    wheel = window.wheels.get(name)
-    if wheel is not None:
-        window.document.execute(SetWheelCommand(name, wheel, None), window._mutations)
+# ── re-placing a wheel (its other edits are wheel_edits) ─────────────
 
 
 def replace(window: MainWindow, name: str) -> None:
-    """Click *name*'s bars again with its settings; Accept swaps it in, one undo step."""
+    """Click *name*'s bars again; Done Labelling swaps it in as one undo step."""
     wheel = window.wheels.get(name)
     if wheel is None:
         return
@@ -422,19 +398,21 @@ def replace(window: MainWindow, name: str) -> None:
 
 
 def connect_panel(window: MainWindow) -> None:
-    """Route the Wheels section's requests here."""
+    """Route the Wheels tab's requests here."""
     panel = window.wheel_panel
+    panel.point_requested.connect(lambda step: select_end(window, step))
+    panel.next_end_requested.connect(lambda: next_end(window))
     panel.undo_click_requested.connect(lambda: undo_click(window))
     panel.flip_requested.connect(lambda: flip(window))
     panel.go_to_frame_requested.connect(lambda: go_to_frame(window))
     panel.accept_requested.connect(lambda: accept(window))
     panel.cancel_requested.connect(lambda: cancel(window, tr("Wheel not added.")))
     panel.placement_spec_changed.connect(lambda b, u, r: placement_spec_changed(window, b, u, r))
-    panel.spec_changed.connect(lambda n, b, u, r: edit_spec(window, n, b, u, r))
-    panel.binding_changed.connect(lambda n, s, r: edit_binding(window, n, s, r))
+    panel.spec_changed.connect(lambda n, b, u, r: edits.edit_spec(window, n, b, u, r))
+    panel.binding_changed.connect(lambda n, s, r: edits.edit_binding(window, n, s, r))
     panel.verify_requested.connect(lambda n: start_checking(window, n))
     panel.replace_requested.connect(lambda n: replace(window, n))
-    panel.remove_requested.connect(lambda n: remove(window, n))
+    panel.remove_requested.connect(lambda n: edits.remove(window, n))
 
 
 # ── a new session ────────────────────────────────────────────────────
@@ -447,5 +425,6 @@ def reset(window: MainWindow) -> None:
     window.wheels.clear()
     window._wheel_cache.clear()
     window._wheel_readers.clear()
+    window._wheel_refits.clear()
     window._announced_wheel_files.clear()
     window._session_rotary = None

@@ -28,6 +28,9 @@
   stays until you dismiss it. If more than one arrives at once, a count beside the message says how
   many are waiting and Dismiss brings up the next, so nothing is lost by being second. Failures
   keep their technical detail behind **Show details**.
+- **Unsaved work from a previous run** is offered once when a recoverable snapshot is found.
+  **Restore** opens it; **Dismiss** hides that version on later launches while keeping its safety
+  copy. If you later leave different unsaved work, a new offer can appear.
 - **A command that cannot run yet is greyed out, with the reason in its tooltip.** Nothing accepts
   a click and then tells you it could not act on it.
 
@@ -247,27 +250,58 @@ least two cameras and their calibration (the same one Add 3D Marker uses).
    **radius to the bar centres**, measured on the rig. With both, AvialSync uses your radius and
    also reports the radius the clicks imply; if they disagree by more than a few percent, check
    the units and the bar count.
-3. Click **both ends of two or three neighbouring bars**, in every calibrated camera, on the
-   current frame. Click the end on the same side of the wheel first on every bar. Each click
-   appears immediately as a labelled ring in that camera. The guide names the cameras still
-   needed for the current end and advances when each has a click. On a three-camera rig, each
-   end therefore needs three clicks before the next one begins.
-4. From the second bar on, the whole wheel is drawn **dashed** as a preview, and the **Wheels**
-   section of the sidebar shows how far the clicks sit from it. Use **Flip Side** if the wheel is
-   drawn on the wrong side of the bars, **Undo Click** to take a click back, and **Accept** to add
-   the wheel once all views have both ends of at least two bars. A third bar can improve the fit.
-   Accept is one undo step.
+3. The **Wheels** inspector tab opens when you start placing a wheel. It shows **1A, 1B, 2A, 2B** and optional **3A, 3B**, with a real-click count for
+   each. A and B are the two ends of one bar; keep A on the same side for every bar. Click the
+   selected point in a camera to place a labelled ring there. **Next Point** or any point button
+   changes which end the next click places, so you can work point by point across cameras or mark
+   all the points in one camera before moving to another. A camera cue names the selected point and
+   whether that camera has a click.
+4. Each end needs real clicks in **at least two calibrated cameras** to locate it in 3D. In an
+   unclicked view, AvialSync draws a **dashed diamond labelled “projected”** at the position
+   predicted by those clicks and the calibration. Click the diamond to replace the estimate with
+   a real observation. The projected point is never saved as a click or used as evidence for the
+   fit. If you have only one view of an end, select another point and return when a second view is
+   available; that end cannot be located in 3D yet.
+5. From the second bar on, the whole wheel is generated after each click and drawn **dashed** as
+   a preview. There is no separate Generate step. While it is generating, the Wheels tab says
+   **Generating wheel…**, and the status bar and **Tasks** panel show the job. A notification
+   says when the wheel is first generated, and the Wheels tab shows how far the clicks sit from it. Use **Flip Side** if the wheel is
+   drawn on the wrong side of the bars, **Undo Click** to take a click back, and **Done Labelling** to save
+   the wheel. **Done Labelling** becomes available when **2B** has its second camera click, that is,
+   once both ends of bars 1 and 2 have two camera clicks each. It stays available while you label
+   bar 3, which is optional and can improve the fit. You can finish with bar 3 only partly clicked:
+   those clicks are saved, and the fit uses the two complete bars. If a complete bar 3 does not
+   agree with bars 1 and 2, for example because its ends were clicked the other way round, the
+   Wheels tab says it was left out of the fit. Its clicks are still saved.
+   **Done Labelling** exits click mode and is one undo step; **Discard Clicks** exits without saving.
+
+The wheel is always drawn from exactly the bars you clicked, taken as neighbours in the order you
+clicked them, even when it fits poorly. A poor fit is labelled **Poor fit** in the Wheels tab, with
+how far your clicks sit from it; check the clicked bar ends, the 3D units and the calibration.
+**Done Labelling** still saves it, and a notification offers **Re-place**. If you entered a radius
+that contradicts your clicks, the wheel is built from the radius the clicks imply, and the tab
+says so. It also says when the two are about 10× or 100× apart, which usually means the **3D units**
+are wrong, for example cm entered for a calibration in mm. To fix a placed wheel, change its
+**3D units** or **Radius** in the Wheels tab: it is re-fitted from your original clicks.
 
 Until you check it, the direction the encoder turns the wheel is **assumed**. Go to a frame a few
-turns away, select **Verify Here** in the Wheels section, and click any bar end in any camera. Two
-such checks measure the direction; the Wheels section says which it is and how far off the checks
+turns away, select **Verify Here** in the Wheels tab, and click any bar end in any camera. Two
+such checks measure the direction; the Wheels tab says which it is and how far off the checks
 were.
 
 The wheel's bars are thin lines, never points, so they are not mistaken for tracking. Bars behind
 the side plate are hidden unless you turn on **View → Overlays → Wheel bars out of sight**. Bar count,
-units, radius, direction and ratio can be changed in the Wheels section at any time; each change
+units, radius, direction and ratio can be changed in the Wheels tab at any time; each change
 re-fits the wheel from your original clicks and is one undo step. Each wheel is saved as
 `pose-3d/<name>.wheel.toml`, beside the 3D pose, and is read back when the session is opened again.
+
+The Add Wheel dialog can remember the last **bar count, 3D units and radius** in AvialSync's
+preferences for future wheels. On the first use, leave **Remember this setup** checked if you want
+that convenience. On later uses, **Update saved setup** is an optional choice when these values
+change. A recording's wheel hint takes precedence, and encoder selection is checked against the
+channels loaded in that recording. Choose **Forget saved setup** in the dialog, or reset the wheel
+settings in **Preferences → Wheel Setup**, to clear those defaults. This does not remove any wheel
+already saved with a recording.
 
 ## Appearance and font size
 

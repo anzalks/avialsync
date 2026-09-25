@@ -4531,3 +4531,149 @@ The fit, generated geometry, encoder binding, undo command, and wheel file remai
 Availability refreshes when a video pane is actually created. Video probes finish out of order,
 and a later pane can be built from the queue after its probe callback has already run; refreshing
 only at probe completion left both marker and wheel buttons greyed out with three cameras visible.
+
+---
+
+## 2026-09 · D-116 · Wheel clicks are selectable evidence; missing views are projected, not filled
+
+D-115's requirement for every calibrated camera at every bar end made a missing or occluded view
+block the whole wheel, and the automatic sequence gave too little feedback about what the next
+click meant. The user may now select any of the six named endpoints in the Wheels panel, or use
+Next Point to work through one camera before the next. The selected point, its click count and the
+camera's state are visible while placing. A real click is a labelled ring.
+
+Two real camera clicks locate one endpoint in 3D. That point is projected into unclicked calibrated
+views as a dashed diamond labelled “projected”; clicking it makes a real observation. Projections
+are display estimates only: they do not enter `EndClick.views`, the fit, or the wheel file. One
+camera click cannot fix depth and produces no projected point. Accept needs both ends of at least
+two bars to have two real views each; a started third bar must meet the same rule. This replaces
+D-115's all-views gate while retaining its one-command Accept and D-113's fit.
+
+---
+
+## 2026-09 · D-117 · Wheel evidence travels with recordings; reusable setup lives in preferences
+
+A placed wheel, including its real camera clicks, fit, geometry and encoder binding, stays in
+`pose-3d/<name>.wheel.toml` (D-113). Clearing application preferences cannot erase that evidence.
+The reusable bar count, calibration units and optional measured radius live in the declared
+`wheel/*` QSettings preferences. Add Wheel offers one inline choice to remember a first setup or
+update an existing one; the dialog also offers Forget saved setup. A recording's `RotaryHint`
+takes precedence, and a wheel name and encoder source are chosen for each recording. Saved setup
+is labelled as reusable preferences rather than cache, because users may clear a cache at will.
+
+The wheel editor and review move from Sources into a scrollable Wheels inspector tab. Starting or
+re-placing a wheel selects that tab, so its point sequence and fit stay in view. Done Labelling
+saves the fitted wheel and exits click mode through the existing one-command Accept path;
+Discard Clicks exits without saving. The original Sources, Values, Messages and Changes tab
+indices are preserved so saved inspector positions remain meaningful.
+
+---
+
+## 2026-09 · D-118 · Dismissing recovery silences that work across launches
+
+D-105 kept a dismissed recovery snapshot as the only copy of unsaved work, but offered that same
+snapshot again at every launch. Dismiss now stores a fingerprint of its session path and state in
+the application data directory. `pending_recovery()` suppresses a snapshot with that fingerprint,
+even when another autosave writes the same state with a fresh timestamp. A different state is a new
+offer. The snapshot remains intact after Dismiss; Restore and Reset Session clear it. The generic
+notification strip accepts an optional dismissal callback and does not call it for the offered
+action, so Restore cannot accidentally mark its own snapshot as declined. This changes D-105's
+repeat-offer behavior while keeping its data-preservation rule.
+
+---
+
+## 2026-09 · D-119 · Two complete bars are enough to finish wheel labelling
+
+Done Labelling becomes available once both ends of bars 1 and 2 have real clicks in two calibrated
+cameras each and the fit succeeds. The third bar improves a fit when complete; starting it no
+longer blocks finishing. Its partial real clicks remain in the wheel file as observations, while
+`fit_wheel` uses only bars with both triangulated endpoints. Projected points stay display-only.
+This supersedes D-116's requirement to finish or undo a started third bar. The review explicitly
+states when an incomplete third bar is excluded from the fit.
+
+---
+
+## 2026-09 · D-120 · Wheel placement targets use displayed pixels
+
+Wheel click coordinates remain in source-video pixels for fitting and file evidence. The target
+for confirming a projected endpoint is eight displayed pixels across zoom levels: the controller
+uses the pane's current frame transform to convert that radius back to source pixels. A fixed
+source-pixel tolerance made the visible diamond hard to hit when several cameras were squeezed
+into narrow panes. The placement cue is elided to the pane width so it does not disappear past
+the edge; the full instruction remains in the Wheels tab.
+
+---
+
+## 2026-09 · D-121 · An inconsistent fit never becomes visible wheel geometry
+
+A numerically solved fit is not necessarily a credible wheel. A reported placement had a width
+many times its radius, large reprojection errors, and nonadjacent fitted slots; the UI saved and
+drew its dense generated bars as a long barrel. `core/wheel.py::fit_issue` now
+checks the fit against its own clicked evidence: bars declared adjacent must map to adjacent slots,
+and median reprojection error must stay within the larger of 8 source pixels or 5% of the clicked
+bar's median image length. The ratio adapts to video resolution; the floor allows ordinary click
+noise on a short distant bar. The same check governs review, Done Labelling, video and 3D drawing,
+and encoder verification. Existing wheel files and their clicks remain intact, but unreliable
+geometry is hidden and the Wheels tab explains how to Re-place it. This prevents a misleading
+model from being presented as accepted evidence while preserving the observations for correction.
+
+---
+
+## 2026-09 · D-122 · Done Labelling is live from bar 2's last point; bad fits are saved hidden
+
+Done Labelling becomes available as soon as both ends of bars 1 and 2 have real clicks in two
+calibrated cameras each and any fit exists. It stays available through an optional third bar.
+D-121's quality check no longer gates it. When `fit_issue` rejects the fit, Done Labelling still
+saves the wheel: its clicks go to the wheel file and its geometry stays hidden in video and 3D.
+Verify stays disabled, and a notification offers Re-place. The alternative was a greyed-out
+button whose only escape was Discard Clicks, which destroys the user's labelling. That is the
+refusal rule 10 forbids, and it loses evidence D-113 treats as the authority. D-121 still decides
+what is drawn and verified; it no longer decides what may be kept.
+
+A third bar can only help. `wheel_placement.fit_labelled` fits every bar whose ends are located.
+If that fit fails, for example because bar 3's ends were clicked in the opposite order, it
+fits bars 1 and 2 alone. It does the same when the fit fails `fit_issue` while bars 1 and 2 alone
+pass, for example because bar 3 was stepped over. The review says bar 3 was left out and why.
+Bar 3's clicks stay in the wheel file as observations, and re-fitting a placed wheel uses the
+same rule. The placement state and review text moved to `ui/controllers/wheel_placement.py`, and
+placed-wheel edits to `ui/controllers/wheel_edits.py`. That keeps each module under the
+AGENTS.md size limits.
+
+Generating the wheel is announced, not a separate step. The fit already runs after every click,
+in 10 to 20 ms, and draws the dashed preview. A Generate button would add a step without adding
+information, and a progress dialog for 20 ms of work is the modal rule 11 bans. The notification
+strip instead says when the first wheel is generated and when the preview becomes hidden. It
+says each change once, not on every click.
+
+---
+
+## 2026-09 · D-123 · The clicks decide the wheel, and it is always drawn
+
+A reported wheel was saved and then drawn nowhere. The Wheels tab said "Geometry hidden: the
+clicked bars do not form neighbouring slots", with a 12.5 cm radius, a 111.1 cm width and a
+139 px worst click. Three choices combined to cause this, and each is reversed here.
+
+**Clicked bars are neighbours in click order.** `_slots` rounded each bar's own angle to a slot.
+A typed radius in the wrong units, here cm against a calibration in mm, shrank the slot pitch
+tenfold and put bars clicked side by side about ten slots apart. The user was asked to click
+neighbours, so that is now taken as given; only the direction round the wheel comes from the
+geometry. A skipped bar shows as a large worst-click error instead of an invisible wheel.
+`WheelFit.skipped` and `fit_issue`'s `bars_not_neighbours` remain for wheel files written before.
+
+**A typed radius that contradicts the clicks gives way to them.** `fit_labelled` tries the clicks'
+own radius when the typed one yields no plausible fit. The review names both radii, and says so
+when they are about 10×, 100× or 1000× apart, the signature of wrong 3D units. D-113's typed
+radius still wins whenever it fits.
+
+**The wheel is always drawn, however poor.** D-121 hid geometry `fit_issue` doubted, in the video,
+in 3D and in Verify. The user could not see what their clicks had produced, so could not judge
+or correct it. `fit_issue` now only words the warning ("Poor fit. …") and the Re-place offer.
+
+The extra attempts took a fit to 55 ms, past rule 3's 30 ms. Fitting therefore moved to
+`engine/wheel_fit_worker.py`, started through `MainWindow._run_job` like any job. That registers
+it in the status bar and Tasks panel. One fit runs at a time, and a click during it is fitted
+when it returns. The Wheels tab shows "Generating wheel…", and Done Labelling waits for the fit
+of the latest clicks. There is no Generate button, and no progress popup: rule 11 bans the
+popup, and 50 ms of work needs no bar. A mirrored candidate that starts at least 50× worse than
+the best is refined only for Flip. Measured, genuine mirrors start within 2× of each other and
+hopeless ones 200× to 13000× apart. That keeps the six-bar fit at its old 9.5 ms.

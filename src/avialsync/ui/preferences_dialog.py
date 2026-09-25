@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -135,7 +136,7 @@ class PreferencesDialog(QDialog):
         layout.addWidget(tabs)
 
         for group, entries in settings_by_group().items():
-            tabs.addTab(self._build_page(entries), group)
+            tabs.addTab(self._build_page(entries), tr(group))
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.close)
@@ -169,23 +170,27 @@ class PreferencesDialog(QDialog):
             row.addWidget(editor, stretch=1)
 
             reset = QPushButton("Reset")
-            reset.setToolTip(f"Back to the default ({setting.default!r})")
-            reset.setAccessibleName(f"Reset {setting.label} to its default")
+            reset.setToolTip(
+                tr("Back to the default ({value})").format(value=repr(setting.default))
+            )
+            reset.setAccessibleName(
+                tr("Reset {label} to its default").format(label=tr(setting.label))
+            )
             reset.clicked.connect(lambda _checked, s=setting: self._reset(s))
             row.addWidget(reset)
 
             container = QWidget()
             container.setLayout(row)
-            label = QLabel(setting.label)
+            label = QLabel(tr(setting.label))
             if setting.help_text:
                 # The reason, not just the name: a setting whose effect is not
                 # obvious is one nobody dares change.
-                label.setToolTip(setting.help_text)
-                container.setToolTip(setting.help_text)
+                label.setToolTip(tr(setting.help_text))
+                container.setToolTip(tr(setting.help_text))
             form.addRow(label, container)
 
             if setting.help_text:
-                note = QLabel(setting.help_text)
+                note = QLabel(tr(setting.help_text))
                 note.setWordWrap(True)
                 note.setTextFormat(Qt.TextFormat.PlainText)
                 note.setEnabled(False)
@@ -202,7 +207,7 @@ class PreferencesDialog(QDialog):
         if setting.kind is bool:
             box = QCheckBox()
             box.setChecked(bool(value))
-            box.setAccessibleName(setting.label)
+            box.setAccessibleName(tr(setting.label))
             box.toggled.connect(lambda checked, s=setting: self._store_value(s, checked))
             return box
 
@@ -211,17 +216,27 @@ class PreferencesDialog(QDialog):
             combo.addItems(list(setting.choices))
             if str(value) in setting.choices:
                 combo.setCurrentText(str(value))
-            combo.setAccessibleName(setting.label)
+            combo.setAccessibleName(tr(setting.label))
             combo.currentTextChanged.connect(lambda text, s=setting: self._store_value(s, text))
             return combo
 
+        if setting.kind is float:
+            float_spin = QDoubleSpinBox()
+            float_spin.setRange(
+                setting.minimum if setting.minimum is not None else 0,
+                setting.maximum if setting.maximum is not None else 1_000_000,
+            )
+            float_spin.setValue(float(value))
+            float_spin.setAccessibleName(tr(setting.label))
+            float_spin.valueChanged.connect(lambda number, s=setting: self._store_value(s, number))
+            return float_spin
         spin = QSpinBox()
         spin.setRange(
             int(setting.minimum if setting.minimum is not None else 0),
             int(setting.maximum if setting.maximum is not None else 1_000_000),
         )
         spin.setValue(int(value))
-        spin.setAccessibleName(setting.label)
+        spin.setAccessibleName(tr(setting.label))
         spin.valueChanged.connect(lambda number, s=setting: self._store_value(s, number))
         return spin
 
@@ -254,6 +269,8 @@ class PreferencesDialog(QDialog):
                 editor.setChecked(bool(value))
             elif isinstance(editor, QComboBox):
                 editor.setCurrentText(str(value))
+            elif isinstance(editor, QDoubleSpinBox):
+                editor.setValue(float(value))
             elif isinstance(editor, QSpinBox):
                 editor.setValue(int(value))
         finally:

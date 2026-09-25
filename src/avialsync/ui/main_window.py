@@ -67,7 +67,7 @@ from avialsync.core.session_time import (
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
 from avialsync.core.triggers import TriggerKind
-from avialsync.core.wheel import WheelStore
+from avialsync.core.wheel import WheelSpec, WheelStore
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
@@ -88,6 +88,7 @@ from avialsync.ui.controllers import (
     video_controller,
     wheel_controller,
     wheel_display,
+    wheel_placement,
 )
 from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.empty_state import EmptyState
@@ -110,6 +111,7 @@ from avialsync.ui.transport import Transport
 from avialsync.ui.ui_heartbeat import UiHeartbeat
 from avialsync.ui.video_grid import VideoGrid
 from avialsync.ui.wheel_panel import WheelPanel
+from avialsync.ui.wheel_tab import WheelTab
 
 logger = logging.getLogger(__name__)
 
@@ -283,7 +285,9 @@ class MainWindow(QMainWindow):
         #: bars per frame, encoder readers, and the session's own hint.
         self.wheels = WheelStore()
         self.wheels.observe(self._on_wheels_changed)
-        self._wheel_placement: wheel_display.Placement | None = None
+        self._wheel_placement: wheel_placement.Placement | None = None
+        #: The spec each placed wheel is being re-fitted to in the background.
+        self._wheel_refits: dict[str, WheelSpec] = {}
         self._wheel_checking: str | None = None
         self._wheel_cache: dict[str, tuple[object, Any]] = {}
         self._wheel_readers: dict[tuple[str, str], Any] = {}
@@ -499,8 +503,8 @@ class MainWindow(QMainWindow):
         from avialsync.ui.sidebar import SidebarPane
 
         self.sidebar = SidebarPane(self)
-        self.wheel_panel = WheelPanel(self.sidebar)
-        self.sidebar.add_section(self.wheel_panel)
+        self.wheel_panel = WheelPanel()
+        self.wheel_tab = WheelTab(self.wheel_panel, self)
         wheel_controller.connect_panel(self)
         self.sidebar.open_video_requested.connect(self._open_video)
         self.sidebar.open_sensor_requested.connect(self._open_data)
@@ -564,6 +568,7 @@ class MainWindow(QMainWindow):
         self._left_tabs.addTab(self.readout_panel, tr("Values"))
         self._left_tabs.addTab(self.message_panel, tr("Messages"))
         self._left_tabs.addTab(self.changes_panel, tr("Changes"))
+        self._left_tabs.addTab(self.wheel_tab, tr("Wheels"))
         # Last tab: consulted when something is taking longer than expected,
         # which is not most of the time.
         self._left_tabs.addTab(self.jobs_panel, tr("Tasks"))
@@ -1913,7 +1918,7 @@ class MainWindow(QMainWindow):
         # Add Wheel: declare a running wheel, click both ends of a few of its
         # bars, and the rest are generated and turned by the encoder (D-113).
         # Checked while one is being placed; unchecking cancels it. Its numbers
-        # are edited in the sidebar's Wheels section, and nowhere else.
+        # are edited in the Wheels inspector tab, and nowhere else.
         self._act_add_wheel = self._edit_menu.addAction(tr("Add Wheel…"))
         self._act_add_wheel.setCheckable(True)
         self._act_add_wheel.setToolTip(
@@ -1927,6 +1932,7 @@ class MainWindow(QMainWindow):
         )
         _reg(self._act_add_wheel, "Edit")
         self.transport.install_add_wheel_action(self._act_add_wheel)
+        self.wheel_tab.install_add_action(self._act_add_wheel)
 
         # ── Align ─────────────────────────────────────────────────────
         # Promoted out of File. Alignment is not a file operation -- it is the
@@ -2477,7 +2483,7 @@ class MainWindow(QMainWindow):
             panel.refresh()
 
     def _on_wheels_changed(self, name: object) -> None:
-        """Repaint every view and the Wheels section after a wheel changed or loaded."""
+        """Repaint every view and the Wheels tab after a wheel changed or loaded."""
         del name
         if getattr(self, "wheel_panel", None) is not None:
             wheel_display.refresh(self)

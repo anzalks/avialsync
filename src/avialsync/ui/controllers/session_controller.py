@@ -585,9 +585,10 @@ def offer_pending_recovery(window: MainWindow) -> bool:
     either.
 
     An offer, never a gate: it is one line in the notification strip with a
-    Restore button beside it, and dismissing it declines without touching the
-    snapshot. Law 1 forbids blocking the user to tell them something, and a
-    launch-time "restore your work?" modal is exactly that.
+    Restore button beside it, and dismissing it records the declined version
+    without deleting the snapshot. Law 1 forbids blocking the user, and a
+    launch-time "restore your work?" modal is exactly that. Dismissing
+    remembers this version so it does not reappear on the next launch.
     """
     snapshot = recovery.pending_recovery()
     if snapshot is None:
@@ -604,6 +605,7 @@ def offer_pending_recovery(window: MainWindow) -> bool:
         message,
         action_label=tr("Restore"),
         on_action=lambda: restore_pending_recovery(window, snapshot),
+        on_dismiss=lambda: recovery.dismiss_recovery(snapshot),
     )
     return True
 

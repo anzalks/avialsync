@@ -13,6 +13,7 @@ Headless (architecture rule 2).
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -34,13 +35,18 @@ from avialsync.core.wheel import (
     WheelGeometry,
     WheelSpec,
     camera_centre,
+    fit_issue,
 )
 
-__all__ = ["fit_wheel"]
+__all__ = ["LabelledFit", "fit_labelled", "fit_wheel"]
 
 #: Two candidate centres whose fits cost within this factor are both plausible,
 #: and the choice between them is the cameras' rather than the residual's.
 _AMBIGUOUS_COST_RATIO = 1.5
+#: A mirrored candidate starting this many times worse than the best is not a
+#: real alternative (measured: ambiguous pairs start within 2x, hopeless ones
+#: 200x to 13000x apart), so it is not refined unless Flip asks for it.
+_HOPELESS_START_RATIO = 50.0
 #: Robust loss scale, in pixels: one careless click should not drag the wheel.
 _LOSS_SCALE_PX = 3.0
 
@@ -174,21 +180,23 @@ def _refine(problem: _Problem, start: np.ndarray, radius: float | None) -> tuple
 
 
 def _slots(
-    mids: np.ndarray, centre: np.ndarray, axle: np.ndarray, pitch: float
+    mids: np.ndarray, centre: np.ndarray, axle: np.ndarray
 ) -> tuple[np.ndarray, dict[int, int]]:
-    """Bar 0's direction, and each clicked bar's slot round the wheel."""
+    """Bar 0's direction, and each clicked bar's slot round the wheel.
+
+    The clicked bars *are* neighbours, in the order clicked: that is what the
+    user was asked to click, so it is taken as given rather than re-derived
+    from angles (D-123). Rounding each bar's own angle let a wrong radius or
+    unit scatter bars clicked side by side ten slots apart. Only the direction
+    round the wheel comes from the geometry.
+    """
     radial = mids - centre
     radial -= np.outer(radial @ axle, axle)
     zero = _unit(radial[0])
     quarter = np.cross(axle, zero)
     angles = np.arctan2(radial @ quarter, radial @ zero)
-    slots = [int(round(float(a) / pitch)) for a in angles]
-    if len(set(slots)) != len(slots):
-        raise WheelFitError(
-            "Two of the clicked bars land in the same slot of the wheel. Check the bar "
-            "count, or click neighbouring bars."
-        )
-    return zero, dict(enumerate(slots))
+    step = 1 if len(angles) < 2 or float(angles[1]) >= 0.0 else -1
+    return zero, {index: index * step for index in range(len(angles))}
 
 
 def _fit_candidate(
@@ -201,18 +209,17 @@ def _fit_candidate(
     radius: float,
     half_width: float,
     radius_fixed: bool,
-) -> tuple[np.ndarray, float, dict[int, int]]:
+) -> tuple[_Problem, np.ndarray, dict[int, int]]:
+    """One candidate's problem and linear starting point, not yet refined."""
     pitch = math.radians(spec.pitch)
-    zero, slots = _slots(mids, centre, axle, pitch)
+    zero, slots = _slots(mids, centre, axle)
     order = sorted({click.bar for click in clicks})
     slot_of = {bar: slots[index] for index, bar in enumerate(order) if index in slots}
     problem = _problem(clicks, cameras, slot_of, pitch)
     basis = np.column_stack((zero, np.cross(axle, zero), axle))
     rotvec = Rotation.from_matrix(basis).as_rotvec()
     tail = [half_width] if radius_fixed else [radius, half_width]
-    start = np.concatenate((rotvec, centre, tail))
-    params, cost = _refine(problem, start, radius if radius_fixed else None)
-    return params, cost, slot_of
+    return problem, np.concatenate((rotvec, centre, tail)), slot_of
 
 
 @dataclass
@@ -285,10 +292,10 @@ def fit_wheel(
     used = [click for click in clicks if click.bar in bars]
     start = _start(spec, bars)
     typed = spec.known_radius
-    candidates = []
+    prepared = []
     for centre in start.centres:
         try:
-            candidates.append(
+            prepared.append(
                 _fit_candidate(
                     spec,
                     used,
@@ -303,8 +310,9 @@ def fit_wheel(
             )
         except WheelFitError:
             continue
-    if not candidates:
+    if not prepared:
         raise WheelFitError("No wheel with this bar count fits the clicked bars.")
+    candidates = _refine_candidates(prepared, typed, flipped)
 
     chosen, ambiguous = _choose(candidates, typed, spec.bar_count, cameras, flipped)
     params, _, slot_of = candidates[chosen]
@@ -314,7 +322,35 @@ def fit_wheel(
         problem = _problem(used, cameras, slot_of, math.radians(spec.pitch))
         free, _ = _refine(problem, np.concatenate((params[:6], [typed, params[-1]])), None)
         implied = abs(float(free[6]))
-    return _report(geometry, used, cameras, bars, slot_of, implied, ambiguous, len(candidates))
+    return _report(geometry, used, cameras, bars, slot_of, implied, ambiguous, len(prepared))
+
+
+def _refine_candidates(
+    prepared: list[tuple[_Problem, np.ndarray, dict[int, int]]],
+    radius: float | None,
+    flipped: bool,
+) -> list[tuple[np.ndarray, float, dict[int, int]]]:
+    """Refine the candidates worth refining, the most promising first.
+
+    A candidate starting many times worse than the best is the mirror of a
+    wheel the bars already decide: genuinely ambiguous pairs start within a
+    few times of each other, a hopeless mirror hundreds of times apart. It is
+    refined only when the user asked for the mirror with Flip.
+    """
+    costs = [
+        float(0.5 * np.sum(_residuals(start, problem, radius) ** 2))
+        for problem, start, _ in prepared
+    ]
+    order = sorted(range(len(prepared)), key=costs.__getitem__)
+    floor = max(costs[order[0]], 1e-12)
+    out: list[tuple[np.ndarray, float, dict[int, int]]] = []
+    for index in order:
+        if out and not flipped and costs[index] > _HOPELESS_START_RATIO * floor:
+            continue
+        problem, start, slot_of = prepared[index]
+        params, cost = _refine(problem, start, radius)
+        out.append((params, cost, slot_of))
+    return out
 
 
 def _choose(
@@ -386,3 +422,63 @@ def _report(
         ambiguous=ambiguous,
         can_flip=candidates > 1,
     )
+
+
+#: Bars 1 and 2 -- the least a labelled wheel needs.
+_REQUIRED_BARS = 2
+
+
+@dataclass(frozen=True)
+class LabelledFit:
+    """The wheel a user's clicks describe, and what had to give way for it (D-122, D-123)."""
+
+    fit: WheelFit
+    #: Why bar 3 was left out of the fit -- the fit's own error, or "" when it
+    #: fitted but disagreed with bars 1 and 2. None when it was not left out.
+    dropped_third: str | None = None
+    #: Whether a typed radius contradicted the clicks and gave way to theirs.
+    radius_from_clicks: bool = False
+
+
+def fit_labelled(
+    spec: WheelSpec,
+    clicks: Sequence[EndClick],
+    cameras: Mapping[str, CameraModel],
+    *,
+    flipped: bool = False,
+) -> LabelledFit:
+    """Fit the wheel the clicks describe, trying less of the input only when it must.
+
+    In order, the first plausible fit (:func:`fit_issue`) winning: every located
+    bar with the typed radius; bars 1 and 2 alone; every bar with the radius
+    the clicks imply; bars 1 and 2 with it. When none is plausible, the first
+    fit that exists is returned -- the user sees it however poor. Raises
+    :class:`WheelFitError` only when no fit exists at all.
+    """
+    first = [click for click in clicks if click.bar < _REQUIRED_BARS]
+    free = dataclasses.replace(spec, radius=None) if spec.known_radius is not None else None
+    attempts: list[tuple[Sequence[EndClick], WheelSpec, bool]] = [(clicks, spec, False)]
+    if len(first) < len(clicks):
+        attempts.append((first, spec, True))
+    if free is not None:
+        attempts.append((clicks, free, False))
+        if len(first) < len(clicks):
+            attempts.append((first, free, True))
+    best: WheelFit | None = None
+    error: WheelFitError | None = None
+    for used, used_spec, dropped in attempts:
+        try:
+            fit = fit_wheel(used_spec, used, cameras, flipped=flipped)
+        except WheelFitError as failure:
+            error = error or failure
+            continue
+        best = best or fit
+        if fit_issue(fit, clicks) is None:
+            return LabelledFit(
+                fit,
+                dropped_third=(str(error) if error is not None else "") if dropped else None,
+                radius_from_clicks=used_spec is free,
+            )
+    if best is None:
+        raise error or WheelFitError("No wheel fits the clicked bars.")
+    return LabelledFit(best)
