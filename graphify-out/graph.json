@@ -8250,7 +8250,7 @@
       "label": ".name()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L295",
+      "source_location": "L296",
       "_origin": "ast"
     },
     {
@@ -8258,7 +8258,15 @@
       "label": ".geometry()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L300",
+      "source_location": "L301",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_wheel_wheel_world_per_unit",
+      "label": ".world_per_unit()",
+      "file_type": "code",
+      "source_file": "src/avialsync/core/wheel.py",
+      "source_location": "L306",
       "_origin": "ast"
     },
     {
@@ -8266,7 +8274,7 @@
       "label": "WheelStore",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L305",
+      "source_location": "L321",
       "_origin": "ast"
     },
     {
@@ -8274,7 +8282,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L313",
+      "source_location": "L329",
       "_origin": "ast"
     },
     {
@@ -8282,7 +8290,7 @@
       "label": ".__len__()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L317",
+      "source_location": "L333",
       "_origin": "ast"
     },
     {
@@ -8290,7 +8298,7 @@
       "label": ".__iter__()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L320",
+      "source_location": "L336",
       "_origin": "ast"
     },
     {
@@ -8298,7 +8306,7 @@
       "label": ".get()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L323",
+      "source_location": "L339",
       "_origin": "ast"
     },
     {
@@ -8306,7 +8314,7 @@
       "label": ".names()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L327",
+      "source_location": "L343",
       "_origin": "ast"
     },
     {
@@ -8314,7 +8322,7 @@
       "label": ".set()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L331",
+      "source_location": "L347",
       "_origin": "ast"
     },
     {
@@ -8322,7 +8330,7 @@
       "label": ".load()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L344",
+      "source_location": "L360",
       "_origin": "ast"
     },
     {
@@ -8330,7 +8338,7 @@
       "label": ".clear()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L349",
+      "source_location": "L365",
       "_origin": "ast"
     },
     {
@@ -8338,7 +8346,7 @@
       "label": ".observe()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L355",
+      "source_location": "L371",
       "_origin": "ast"
     },
     {
@@ -8346,7 +8354,7 @@
       "label": "._notify()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L365",
+      "source_location": "L381",
       "_origin": "ast"
     },
     {
@@ -8354,7 +8362,7 @@
       "label": "camera_centre()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L373",
+      "source_location": "L389",
       "_origin": "ast"
     },
     {
@@ -8362,7 +8370,7 @@
       "label": "facing()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L379",
+      "source_location": "L395",
       "_origin": "ast"
     },
     {
@@ -8370,7 +8378,7 @@
       "label": "project_bars()",
       "file_type": "code",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L392",
+      "source_location": "L408",
       "_origin": "ast"
     },
     {
@@ -8534,91 +8542,99 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_296",
+      "id": "src_avialsync_core_wheel_rationale_297",
       "label": "The wheel's name, which its file is named after.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L296",
+      "source_location": "L297",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_306",
+      "id": "src_avialsync_core_wheel_rationale_307",
+      "label": "Calibration units per unit of length the user enters (D-130).          A radius",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/core/wheel.py",
+      "source_location": "L307",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_wheel_rationale_322",
       "label": "Every wheel in the session, keyed by name.      Observers hear the name that cha",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L306",
+      "source_location": "L322",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_324",
+      "id": "src_avialsync_core_wheel_rationale_340",
       "label": "The wheel called *name*, or None.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L324",
+      "source_location": "L340",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_328",
+      "id": "src_avialsync_core_wheel_rationale_344",
       "label": "Every wheel name in use.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L328",
+      "source_location": "L344",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_332",
+      "id": "src_avialsync_core_wheel_rationale_348",
       "label": "Store *wheel* under *name*, or remove it; whether anything changed.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L332",
+      "source_location": "L348",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_345",
+      "id": "src_avialsync_core_wheel_rationale_361",
       "label": "Replace everything with *wheels*, as read back from disk.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L345",
+      "source_location": "L361",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_350",
+      "id": "src_avialsync_core_wheel_rationale_366",
       "label": "Forget every wheel (a new session).",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L350",
+      "source_location": "L366",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_356",
+      "id": "src_avialsync_core_wheel_rationale_372",
       "label": "Call *callback* after every change; returns a disposer.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L356",
+      "source_location": "L372",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_374",
+      "id": "src_avialsync_core_wheel_rationale_390",
       "label": "Where *camera* is, in world coordinates.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L374",
+      "source_location": "L390",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_380",
+      "id": "src_avialsync_core_wheel_rationale_396",
       "label": "``(N,)``: which bars face a camera at *viewer*, for ends from :meth:`bar_ends`.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L380",
+      "source_location": "L396",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_wheel_rationale_395",
+      "id": "src_avialsync_core_wheel_rationale_411",
       "label": "Project bar ends into *camera*.      Returns ``(pixels (N, 2, 2), in_front (N,),",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L395",
+      "source_location": "L411",
       "_origin": "ast"
     },
     {
@@ -17930,7 +17946,7 @@
       "label": "BarDiameterField",
       "file_type": "code",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L24",
+      "source_location": "L26",
       "_origin": "ast"
     },
     {
@@ -17946,7 +17962,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L32",
+      "source_location": "L34",
       "_origin": "ast"
     },
     {
@@ -17954,7 +17970,7 @@
       "label": ".show_value()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L59",
+      "source_location": "L60",
       "_origin": "ast"
     },
     {
@@ -17962,7 +17978,7 @@
       "label": "._preview()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L81",
+      "source_location": "L85",
       "_origin": "ast"
     },
     {
@@ -17970,7 +17986,7 @@
       "label": "._value_of()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L90",
+      "source_location": "L94",
       "_origin": "ast"
     },
     {
@@ -17978,7 +17994,7 @@
       "label": "._commit()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L93",
+      "source_location": "L97",
       "_origin": "ast"
     },
     {
@@ -17990,19 +18006,19 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_bar_diameter_field_rationale_25",
+      "id": "src_avialsync_ui_bar_diameter_field_rationale_27",
       "label": "A slider and a number for one wheel's bar diameter, in the calibration's units.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L25",
+      "source_location": "L27",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_bar_diameter_field_rationale_60",
+      "id": "src_avialsync_ui_bar_diameter_field_rationale_61",
       "label": "Show *value* on a scale up to *maximum*, the gap between bar centres.          I",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L60",
+      "source_location": "L61",
       "_origin": "ast"
     },
     {
@@ -21090,7 +21106,7 @@
       "label": "scene()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L271",
+      "source_location": "L276",
       "_origin": "ast"
     },
     {
@@ -21098,7 +21114,7 @@
       "label": "encoder_offsets()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L285",
+      "source_location": "L290",
       "_origin": "ast"
     },
     {
@@ -21106,7 +21122,7 @@
       "label": "refresh()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L295",
+      "source_location": "L300",
       "_origin": "ast"
     },
     {
@@ -21191,34 +21207,34 @@
     },
     {
       "id": "src_avialsync_ui_controllers_wheel_display_rationale_267",
-      "label": "The bar diameter to draw: the slider's while it is dragged, else the wheel's.",
+      "label": "The bar diameter to draw, in calibration units: the slider's while dragged.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
       "source_location": "L267",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_wheel_display_rationale_272",
+      "id": "src_avialsync_ui_controllers_wheel_display_rationale_277",
       "label": "Every wheel's bars for the 3D view: ``(ends, preview, bar diameter)``.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L272",
+      "source_location": "L277",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_wheel_display_rationale_286",
+      "id": "src_avialsync_ui_controllers_wheel_display_rationale_291",
       "label": "Each wheel's encoder source offset, as its Sources row shows it, when loaded.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L286",
+      "source_location": "L291",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_wheel_display_rationale_296",
+      "id": "src_avialsync_ui_controllers_wheel_display_rationale_301",
       "label": "Push wheels, the placement, and the panel to every view.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L296",
+      "source_location": "L301",
       "_origin": "ast"
     },
     {
@@ -42154,7 +42170,7 @@
       "label": "WheelPanel",
       "file_type": "code",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L247",
+      "source_location": "L250",
       "_origin": "ast"
     },
     {
@@ -42170,7 +42186,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L273",
+      "source_location": "L276",
       "_origin": "ast"
     },
     {
@@ -42178,7 +42194,7 @@
       "label": "._build_review()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L290",
+      "source_location": "L293",
       "_origin": "ast"
     },
     {
@@ -42186,7 +42202,7 @@
       "label": "._build_points()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L323",
+      "source_location": "L326",
       "_origin": "ast"
     },
     {
@@ -42202,7 +42218,7 @@
       "label": "._build_actions()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L338",
+      "source_location": "L341",
       "_origin": "ast"
     },
     {
@@ -42210,7 +42226,7 @@
       "label": "._placement_edited()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L378",
+      "source_location": "L381",
       "_origin": "ast"
     },
     {
@@ -42218,7 +42234,7 @@
       "label": ".show_placement()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L381",
+      "source_location": "L384",
       "_origin": "ast"
     },
     {
@@ -42226,7 +42242,7 @@
       "label": ".set_wheels()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L417",
+      "source_location": "L420",
       "_origin": "ast"
     },
     {
@@ -42234,7 +42250,7 @@
       "label": "._update_visibility()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L444",
+      "source_location": "L447",
       "_origin": "ast"
     },
     {
@@ -42286,51 +42302,51 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_wheel_panel_rationale_248",
+      "id": "src_avialsync_ui_wheel_panel_rationale_251",
       "label": "Every wheel in the session, and the one being placed.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L248",
+      "source_location": "L251",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_wheel_panel_rationale_291",
+      "id": "src_avialsync_ui_wheel_panel_rationale_294",
       "label": "The review shown while a wheel is being clicked: what next, the fit, the choices",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L291",
+      "source_location": "L294",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_wheel_panel_rationale_324",
+      "id": "src_avialsync_ui_wheel_panel_rationale_327",
       "label": "1A…3B: pick which end the next camera click places, and see its count.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L324",
+      "source_location": "L327",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_wheel_panel_rationale_339",
+      "id": "src_avialsync_ui_wheel_panel_rationale_342",
       "label": "Next Point, Undo Click, Flip Side, Go to Frame, Done Labelling, Discard Clicks.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L339",
+      "source_location": "L342",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_wheel_panel_rationale_382",
+      "id": "src_avialsync_ui_wheel_panel_rationale_385",
       "label": "Show the review for a wheel being placed, or hide it (None).",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L382",
+      "source_location": "L385",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_wheel_panel_rationale_423",
+      "id": "src_avialsync_ui_wheel_panel_rationale_426",
       "label": "Show every placed wheel, rebuilding rows only when the set of names changed.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L423",
+      "source_location": "L426",
       "_origin": "ast"
     },
     {
@@ -42450,7 +42466,7 @@
       "label": "describe_encoder()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/wheel_text.py",
-      "source_location": "L94",
+      "source_location": "L96",
       "_origin": "ast"
     },
     {
@@ -42478,11 +42494,11 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_wheel_text_rationale_95",
+      "id": "src_avialsync_ui_wheel_text_rationale_97",
       "label": "How the wheel turns, and how sure the direction is.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/wheel_text.py",
-      "source_location": "L95",
+      "source_location": "L97",
       "_origin": "ast"
     },
     {
@@ -78814,6 +78830,14 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_wheel_test_a_measured_radius_converts_typed_lengths_into_calibration_units",
+      "label": "test_a_measured_radius_converts_typed_lengths_into_calibration_units()",
+      "file_type": "code",
+      "source_file": "tests/test_wheel.py",
+      "source_location": "L352",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_wheel_rationale_1",
       "label": "The wheel fitted from a few clicked bars, against a wheel whose truth is known (",
       "file_type": "rationale",
@@ -78883,6 +78907,14 @@
       "file_type": "rationale",
       "source_file": "tests/test_wheel.py",
       "source_location": "L318",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_wheel_rationale_353",
+      "label": "Radius 10 entered, 100 fitted: one entered unit is ten calibration units (D-130)",
+      "file_type": "rationale",
+      "source_file": "tests/test_wheel.py",
+      "source_location": "L353",
       "_origin": "ast"
     },
     {
@@ -79702,6 +79734,14 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_wheel_tab_interactions_test_a_typed_diameter_is_in_the_measured_radius_units",
+      "label": "test_a_typed_diameter_is_in_the_measured_radius_units()",
+      "file_type": "code",
+      "source_file": "tests/test_wheel_tab_interactions.py",
+      "source_location": "L488",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_wheel_tab_interactions_rationale_1",
       "label": "Every control in the Wheels tab, driven the way a user drives it (D-113, D-116,",
       "file_type": "rationale",
@@ -79747,6 +79787,14 @@
       "file_type": "rationale",
       "source_file": "tests/test_wheel_tab_interactions.py",
       "source_location": "L379",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_wheel_tab_interactions_rationale_489",
+      "label": "The reported case: 12.5 cm measured, 172.9 fitted; 0.3 cm must not draw 13x too",
+      "file_type": "rationale",
+      "source_file": "tests/test_wheel_tab_interactions.py",
+      "source_location": "L489",
       "_origin": "ast"
     },
     {
@@ -84526,6 +84574,14 @@
       "_origin": "ast"
     },
     {
+      "id": "decisions_2026_09_d_130_a_typed_bar_diameter_is_a_real_length_scaled_by_the_wheel_itself",
+      "label": "2026-09 · D-130 · A typed bar diameter is a real length, scaled by the wheel itself",
+      "file_type": "document",
+      "source_file": "DECISIONS.md",
+      "source_location": "L4788",
+      "_origin": "ast"
+    },
+    {
       "id": "gemini",
       "label": "GEMINI.md",
       "file_type": "document",
@@ -87546,7 +87602,7 @@
       "label": "Appearance and font size",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L329",
+      "source_location": "L333",
       "_origin": "ast"
     },
     {
@@ -105675,7 +105731,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L295",
+      "source_location": "L296",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105685,7 +105741,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L300",
+      "source_location": "L301",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105696,7 +105752,17 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L300",
+      "source_location": "L301",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_wheel_wheel",
+      "target": "src_avialsync_core_wheel_wheel_world_per_unit",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/wheel.py",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105706,7 +105772,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L305",
+      "source_location": "L321",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105716,7 +105782,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L313",
+      "source_location": "L329",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105726,7 +105792,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L317",
+      "source_location": "L333",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105736,7 +105802,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L320",
+      "source_location": "L336",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105747,7 +105813,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L320",
+      "source_location": "L336",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105757,7 +105823,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L323",
+      "source_location": "L339",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105768,7 +105834,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L323",
+      "source_location": "L339",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105778,7 +105844,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L327",
+      "source_location": "L343",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105788,7 +105854,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L331",
+      "source_location": "L347",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105799,7 +105865,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L331",
+      "source_location": "L347",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105809,7 +105875,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L344",
+      "source_location": "L360",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105820,7 +105886,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L344",
+      "source_location": "L360",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105830,7 +105896,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L349",
+      "source_location": "L365",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105840,7 +105906,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L355",
+      "source_location": "L371",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105850,7 +105916,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L365",
+      "source_location": "L381",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105860,7 +105926,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L373",
+      "source_location": "L389",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105871,7 +105937,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L373",
+      "source_location": "L389",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105882,7 +105948,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L373",
+      "source_location": "L389",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105892,7 +105958,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L379",
+      "source_location": "L395",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105903,7 +105969,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L379",
+      "source_location": "L395",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105914,7 +105980,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L379",
+      "source_location": "L395",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105924,7 +105990,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L392",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105935,7 +106001,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L392",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105946,7 +106012,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L392",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105957,7 +106023,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L392",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105979,7 +106045,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L338",
+      "source_location": "L354",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105990,7 +106056,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L341",
+      "source_location": "L357",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -106001,7 +106067,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L347",
+      "source_location": "L363",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -106012,7 +106078,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L353",
+      "source_location": "L369",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -106023,7 +106089,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L381",
+      "source_location": "L397",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -106034,7 +106100,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L406",
+      "source_location": "L422",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -106045,7 +106111,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L406",
+      "source_location": "L422",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -106250,112 +106316,122 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_296",
+      "source": "src_avialsync_core_wheel_rationale_297",
       "target": "src_avialsync_core_wheel_wheel_name",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L296",
+      "source_location": "L297",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_306",
+      "source": "src_avialsync_core_wheel_rationale_307",
+      "target": "src_avialsync_core_wheel_wheel_world_per_unit",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/wheel.py",
+      "source_location": "L307",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_wheel_rationale_322",
       "target": "src_avialsync_core_wheel_wheelstore",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L306",
+      "source_location": "L322",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_324",
+      "source": "src_avialsync_core_wheel_rationale_340",
       "target": "src_avialsync_core_wheel_wheelstore_get",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L324",
+      "source_location": "L340",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_328",
+      "source": "src_avialsync_core_wheel_rationale_344",
       "target": "src_avialsync_core_wheel_wheelstore_names",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L328",
+      "source_location": "L344",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_332",
+      "source": "src_avialsync_core_wheel_rationale_348",
       "target": "src_avialsync_core_wheel_wheelstore_set",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L332",
+      "source_location": "L348",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_345",
+      "source": "src_avialsync_core_wheel_rationale_361",
       "target": "src_avialsync_core_wheel_wheelstore_load",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L345",
+      "source_location": "L361",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_350",
+      "source": "src_avialsync_core_wheel_rationale_366",
       "target": "src_avialsync_core_wheel_wheelstore_clear",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L350",
+      "source_location": "L366",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_356",
+      "source": "src_avialsync_core_wheel_rationale_372",
       "target": "src_avialsync_core_wheel_wheelstore_observe",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L356",
+      "source_location": "L372",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_374",
+      "source": "src_avialsync_core_wheel_rationale_390",
       "target": "src_avialsync_core_wheel_camera_centre",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L374",
+      "source_location": "L390",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_380",
+      "source": "src_avialsync_core_wheel_rationale_396",
       "target": "src_avialsync_core_wheel_facing",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L380",
+      "source_location": "L396",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_wheel_rationale_395",
+      "source": "src_avialsync_core_wheel_rationale_411",
       "target": "src_avialsync_core_wheel_project_bars",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/wheel.py",
-      "source_location": "L395",
+      "source_location": "L411",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129708,12 +129784,23 @@
     },
     {
       "source": "src_avialsync_ui_bar_diameter_field",
+      "target": "math",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/bar_diameter_field.py",
+      "source_location": "L13",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_bar_diameter_field",
       "target": "pyside6_qtcore",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L13",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129724,7 +129811,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L14",
+      "source_location": "L16",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129735,7 +129822,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L16",
+      "source_location": "L18",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129745,7 +129832,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L24",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129755,7 +129842,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L24",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129765,7 +129852,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L32",
+      "source_location": "L34",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129776,7 +129863,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L32",
+      "source_location": "L34",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129786,7 +129873,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L59",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129796,7 +129883,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L81",
+      "source_location": "L85",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129806,7 +129893,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L90",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129816,7 +129903,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L93",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129827,7 +129914,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L56",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129838,7 +129925,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L56",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129849,7 +129936,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L82",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -129864,22 +129951,22 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_bar_diameter_field_rationale_25",
+      "source": "src_avialsync_ui_bar_diameter_field_rationale_27",
       "target": "src_avialsync_ui_bar_diameter_field_bardiameterfield",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L25",
+      "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_bar_diameter_field_rationale_60",
+      "source": "src_avialsync_ui_bar_diameter_field_rationale_61",
       "target": "src_avialsync_ui_bar_diameter_field_bardiameterfield_show_value",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L60",
+      "source_location": "L61",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139428,7 +139515,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L271",
+      "source_location": "L276",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139439,7 +139526,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L271",
+      "source_location": "L276",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139450,7 +139537,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L271",
+      "source_location": "L276",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139460,7 +139547,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L285",
+      "source_location": "L290",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139471,7 +139558,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L285",
+      "source_location": "L290",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139481,7 +139568,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L295",
+      "source_location": "L300",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139492,7 +139579,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L295",
+      "source_location": "L300",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139701,7 +139788,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L274",
+      "source_location": "L279",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139712,7 +139799,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L279",
+      "source_location": "L284",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139723,7 +139810,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L281",
+      "source_location": "L286",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139734,7 +139821,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L309",
+      "source_location": "L314",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139745,7 +139832,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L312",
+      "source_location": "L317",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -139860,32 +139947,32 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_wheel_display_rationale_272",
+      "source": "src_avialsync_ui_controllers_wheel_display_rationale_277",
       "target": "src_avialsync_ui_controllers_wheel_display_scene",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L272",
+      "source_location": "L277",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_wheel_display_rationale_286",
+      "source": "src_avialsync_ui_controllers_wheel_display_rationale_291",
       "target": "src_avialsync_ui_controllers_wheel_display_encoder_offsets",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L286",
+      "source_location": "L291",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_wheel_display_rationale_296",
+      "source": "src_avialsync_ui_controllers_wheel_display_rationale_301",
       "target": "src_avialsync_ui_controllers_wheel_display_refresh",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L296",
+      "source_location": "L301",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188068,7 +188155,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L247",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188078,7 +188165,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L247",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188088,7 +188175,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L273",
+      "source_location": "L276",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188099,7 +188186,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L273",
+      "source_location": "L276",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188109,7 +188196,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L290",
+      "source_location": "L293",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188120,7 +188207,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L290",
+      "source_location": "L293",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188130,7 +188217,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L323",
+      "source_location": "L326",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188141,7 +188228,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L323",
+      "source_location": "L326",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188152,7 +188239,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L323",
+      "source_location": "L326",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188162,7 +188249,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L338",
+      "source_location": "L341",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188173,7 +188260,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L338",
+      "source_location": "L341",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188184,7 +188271,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L338",
+      "source_location": "L341",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188194,7 +188281,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L378",
+      "source_location": "L381",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188204,7 +188291,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L381",
+      "source_location": "L384",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188215,7 +188302,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L381",
+      "source_location": "L384",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188225,7 +188312,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L417",
+      "source_location": "L420",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188236,7 +188323,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L417",
+      "source_location": "L420",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188246,7 +188333,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L444",
+      "source_location": "L447",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188466,7 +188553,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L280",
+      "source_location": "L283",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188477,7 +188564,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L292",
+      "source_location": "L295",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188488,7 +188575,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L296",
+      "source_location": "L299",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188499,7 +188586,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L298",
+      "source_location": "L301",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188510,7 +188597,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L302",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188521,7 +188608,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L303",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188532,7 +188619,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L314",
+      "source_location": "L317",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188543,7 +188630,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L315",
+      "source_location": "L318",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188554,7 +188641,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L317",
+      "source_location": "L320",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188565,7 +188652,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L325",
+      "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188576,7 +188663,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L330",
+      "source_location": "L333",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188587,7 +188674,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L340",
+      "source_location": "L343",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188598,7 +188685,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L366",
+      "source_location": "L369",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188609,7 +188696,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L379",
+      "source_location": "L382",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188620,7 +188707,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L405",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188631,7 +188718,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L415",
+      "source_location": "L418",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188642,7 +188729,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L430",
+      "source_location": "L433",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188653,7 +188740,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L435",
+      "source_location": "L438",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188664,7 +188751,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L439",
+      "source_location": "L442",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188675,7 +188762,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L442",
+      "source_location": "L445",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -188740,62 +188827,62 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_wheel_panel_rationale_248",
+      "source": "src_avialsync_ui_wheel_panel_rationale_251",
       "target": "src_avialsync_ui_wheel_panel_wheelpanel",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L248",
+      "source_location": "L251",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_wheel_panel_rationale_291",
+      "source": "src_avialsync_ui_wheel_panel_rationale_294",
       "target": "src_avialsync_ui_wheel_panel_wheelpanel_build_review",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L291",
+      "source_location": "L294",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_wheel_panel_rationale_324",
+      "source": "src_avialsync_ui_wheel_panel_rationale_327",
       "target": "src_avialsync_ui_wheel_panel_wheelpanel_build_points",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L324",
+      "source_location": "L327",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_wheel_panel_rationale_339",
+      "source": "src_avialsync_ui_wheel_panel_rationale_342",
       "target": "src_avialsync_ui_wheel_panel_wheelpanel_build_actions",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L339",
+      "source_location": "L342",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_wheel_panel_rationale_382",
+      "source": "src_avialsync_ui_wheel_panel_rationale_385",
       "target": "src_avialsync_ui_wheel_panel_wheelpanel_show_placement",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L382",
+      "source_location": "L385",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_wheel_panel_rationale_423",
+      "source": "src_avialsync_ui_wheel_panel_rationale_426",
       "target": "src_avialsync_ui_wheel_panel_wheelpanel_set_wheels",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L423",
+      "source_location": "L426",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -189102,7 +189189,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_text.py",
-      "source_location": "L94",
+      "source_location": "L96",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -189113,7 +189200,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_text.py",
-      "source_location": "L94",
+      "source_location": "L96",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -189124,7 +189211,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_text.py",
-      "source_location": "L90",
+      "source_location": "L92",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -189159,12 +189246,12 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_wheel_text_rationale_95",
+      "source": "src_avialsync_ui_wheel_text_rationale_97",
       "target": "src_avialsync_ui_wheel_text_describe_encoder",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_text.py",
-      "source_location": "L95",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -272070,6 +272157,16 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_wheel",
+      "target": "tests_test_wheel_test_a_measured_radius_converts_typed_lengths_into_calibration_units",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_wheel.py",
+      "source_location": "L352",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_wheel_test_three_neighbouring_bars_recover_the_wheel",
       "target": "tests_test_wheel_angle",
       "relation": "calls",
@@ -272277,6 +272374,16 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_wheel.py",
       "source_location": "L318",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_wheel_rationale_353",
+      "target": "tests_test_wheel_test_a_measured_radius_converts_typed_lengths_into_calibration_units",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_wheel.py",
+      "source_location": "L353",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -274751,6 +274858,27 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_wheel_tab_interactions",
+      "target": "tests_test_wheel_tab_interactions_test_a_typed_diameter_is_in_the_measured_radius_units",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_wheel_tab_interactions.py",
+      "source_location": "L488",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_wheel_tab_interactions_test_a_typed_diameter_is_in_the_measured_radius_units",
+      "target": "src_avialsync_ui_main_window_mainwindow",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_wheel_tab_interactions.py",
+      "source_location": "L488",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_wheel_tab_interactions_test_review_fields_refit_the_placement",
       "target": "tests_test_wheel_tab_interactions_two_bars",
       "relation": "calls",
@@ -274895,6 +275023,16 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_wheel_tab_interactions.py",
       "source_location": "L379",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_wheel_tab_interactions_rationale_489",
+      "target": "tests_test_wheel_tab_interactions_test_a_typed_diameter_is_in_the_measured_radius_units",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_wheel_tab_interactions.py",
+      "source_location": "L489",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -284165,6 +284303,16 @@
       "_origin": "ast"
     },
     {
+      "source": "decisions_decisions_md_lightweight_adr_log",
+      "target": "decisions_2026_09_d_130_a_typed_bar_diameter_is_a_real_length_scaled_by_the_wheel_itself",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "DECISIONS.md",
+      "source_location": "L4788",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "gemini",
       "target": "gemini_gemini_md",
       "relation": "contains",
@@ -287990,7 +288138,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L329",
+      "source_location": "L333",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -291189,7 +291337,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L16",
+      "source_location": "L18",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -300143,7 +300291,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L301",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -300154,7 +300302,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/wheel_display.py",
-      "source_location": "L312",
+      "source_location": "L317",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -300957,7 +301105,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/wheel_text.py",
-      "source_location": "L98",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -301864,6 +302012,17 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_wheel_test_a_measured_radius_converts_typed_lengths_into_calibration_units",
+      "target": "tests_wheel_fixture_clicks_for",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_wheel.py",
+      "source_location": "L354",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_wheel_controller_test_two_views_project_into_the_third_without_inventing_a_click",
       "target": "tests_wheel_fixture_clicks_for",
       "relation": "calls",
@@ -302355,6 +302514,17 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_wheel_tab_interactions.py",
       "source_location": "L475",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_wheel_tab_interactions_test_a_typed_diameter_is_in_the_measured_radius_units",
+      "target": "tests_wheel_window_place",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_wheel_tab_interactions.py",
+      "source_location": "L490",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -318064,7 +318234,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L35",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -318076,7 +318246,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/bar_diameter_field.py",
-      "source_location": "L41",
+      "source_location": "L43",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323080,7 +323250,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L274",
+      "source_location": "L277",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323092,7 +323262,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L297",
+      "source_location": "L300",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323104,7 +323274,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L306",
+      "source_location": "L309",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323116,7 +323286,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L329",
+      "source_location": "L332",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323128,7 +323298,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L343",
+      "source_location": "L346",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323140,7 +323310,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/wheel_panel.py",
-      "source_location": "L387",
+      "source_location": "L390",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -345441,6 +345611,42 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_wheel_test_a_measured_radius_converts_typed_lengths_into_calibration_units",
+      "target": "src_avialsync_core_wheel_fit_fit_wheel",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_wheel.py",
+      "source_location": "L354",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_wheel_test_a_measured_radius_converts_typed_lengths_into_calibration_units",
+      "target": "src_avialsync_core_wheel_wheelspec",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_wheel.py",
+      "source_location": "L354",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_wheel_test_a_measured_radius_converts_typed_lengths_into_calibration_units",
+      "target": "src_avialsync_core_wheel_wheel",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_wheel.py",
+      "source_location": "L355",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_wheel_click_overlay_test_a_new_end_click_is_painted_on_its_camera",
       "target": "src_avialsync_ui_video_overlay_paintcanvas",
       "relation": "calls",
@@ -346541,6 +346747,18 @@
       "confidence_score": 1.0,
       "source_file": "tests/test_wheel_tab_interactions.py",
       "source_location": "L475",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_wheel_tab_interactions_test_a_typed_diameter_is_in_the_measured_radius_units",
+      "target": "src_avialsync_core_wheel_wheelspec",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_wheel_tab_interactions.py",
+      "source_location": "L490",
       "weight": 1.0,
       "_origin": "ast"
     },
