@@ -126,6 +126,11 @@ class VideoGrid(GridOverlayMixin, QWidget):
             return
         self.panes[index].apply_overlay_visibility(resolver(path))
 
+    def reset_all_views(self) -> None:
+        """Every pane back to its fitted, centred view: zoom 1.00x, no pan."""
+        for pane in self.panes:
+            pane.surface.reset_view()
+
     def pane_paths(self) -> list[str]:
         """Return a copy of the loaded video paths, parallel to self.panes."""
         return list(self._paths)

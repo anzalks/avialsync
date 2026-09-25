@@ -623,6 +623,8 @@ class TimelineEvidence(QWidget):
         self.snapshot_button.setToolTip(tr("Export snapshot (Ctrl+E)"))
         self.snapshot_button.clicked.connect(self.snapshot_requested.emit)
         header.addWidget(self.snapshot_button)
+        self.fit_videos_button = ActionButton(self)
+        header.addWidget(self.fit_videos_button)
         self.fullscreen_button = QPushButton("Fullscreen Toggle", self)
         self.fullscreen_button.setToolTip(tr("Toggle the active video pane fullscreen (F11)"))
         self.fullscreen_button.clicked.connect(self.fullscreen_requested.emit)
@@ -672,6 +674,13 @@ class TimelineEvidence(QWidget):
         self.add_marker_button.set_action(action)
         self.add_marker_button.setAccessibleDescription(
             tr("Name a new marker, then click it once in each camera to place it in 3D")
+        )
+
+    def install_fit_videos_action(self, action: QAction) -> None:
+        """Show Fit All Videos beside Fullscreen Toggle, driven by the View menu's QAction."""
+        self.fit_videos_button.set_action(action)
+        self.fit_videos_button.setAccessibleDescription(
+            tr("Set every camera back to its whole frame, zoom 1.00x and no pan")
         )
 
     def install_add_wheel_action(self, action: QAction) -> None:
@@ -938,6 +947,10 @@ class Transport(QWidget):
     def install_add_marker_action(self, action: QAction) -> None:
         """Forward the Add 3D Marker action to the Data Streams header."""
         self.evidence.install_add_marker_action(action)
+
+    def install_fit_videos_action(self, action: QAction) -> None:
+        """Forward the Fit All Videos action to the Data Streams header."""
+        self.evidence.install_fit_videos_action(action)
 
     def install_add_wheel_action(self, action: QAction) -> None:
         """Forward the Add Wheel action to the Data Streams header."""

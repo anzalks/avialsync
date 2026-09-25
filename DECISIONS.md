@@ -4677,3 +4677,27 @@ of the latest clicks. There is no Generate button, and no progress popup: rule 1
 popup, and 50 ms of work needs no bar. A mirrored candidate that starts at least 50× worse than
 the best is refined only for Flip. Measured, genuine mirrors start within 2× of each other and
 hopeless ones 200× to 13000× apart. That keeps the six-bar fit at its old 9.5 ms.
+
+---
+
+## 2026-09 · D-124 · A wheel's encoder latency is the encoder's own offset
+
+Users see a constant delay of about 0.12 s between the encoder and the cameras. The wheel's row
+in the Wheels tab now has an **Encoder offset** field. It is not a wheel-only latency: it edits
+the encoder source's own offset, the one its Sources row shows, through the same
+`set_sensor_mapping` and `_on_sensor_mapping_changed` path, so it is undoable. A delay kept on
+the wheel would give one source two timings (rule 1): the wheel would turn at one time while the
+encoder's plots showed another. With the shared offset they cannot disagree, and the wheel
+already reads the encoder through its live `TimeMap` (D-113). A change made in either place
+shows in both.
+
+The Wheels tab also carries **Wheel model** and **Wheel bars out of sight** check boxes. They
+are `ActionCheckBox`es on View → Overlays' own actions, a second way to reach one switch, not a
+second switch (rules 13 and 15). For followers to hear an undo, `_apply_overlay_state` no longer
+blocks those actions' signals. The resulting echo reaches `_on_overlay_toggled`, which ignores a
+state already held, so nothing is recorded twice. The same change fixes the 3D pane's
+reprojection button, which used to keep its old state after an undo.
+
+View → **Fit All Videos** (`Ctrl+Shift+0`, plus a Data Streams header button) sets every camera
+back to 1.00× with no pan, as each pane's own reset does. The plots' **Fit all** is unchanged:
+it fits their Y range, and the two are named differently so they cannot be mistaken.

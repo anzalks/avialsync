@@ -2031,6 +2031,9 @@ class MainWindow(QMainWindow):
         self.tracking_3d_pane.install_reprojection_action(
             self._overlay_actions[calibration_controller.REPROJECTION_OVERLAY]
         )
+        self.wheel_tab.install_overlay_actions(
+            self._overlay_actions["tracking.wheel"], self._overlay_actions["tracking.wheel_hidden"]
+        )
         view_menu.addSeparator()
 
         # Workspaces: a session is looked at in more than one way, and
@@ -2049,6 +2052,22 @@ class MainWindow(QMainWindow):
             lambda: bool(self.plot_pane.channels),
             tr("There are no plots to reset until data is loaded."),
         )
+
+        # Fit All Videos: every camera back to the whole frame, 1.00x, unpanned --
+        # what each pane's own reset button does, for all of them at once.
+        self._act_fit_videos = view_menu.addAction(tr("Fit All Videos"))
+        self._act_fit_videos.setShortcut(QKeySequence("Ctrl+Shift+0"))
+        self._act_fit_videos.setToolTip(
+            tr("Show every camera's whole frame again: zoom 1.00x, no pan (Ctrl+Shift+0)")
+        )
+        self._act_fit_videos.triggered.connect(self.video_grid.reset_all_views)
+        _reg(self._act_fit_videos, "View")
+        self._require(
+            self._act_fit_videos,
+            lambda: bool(self.video_grid.pane_paths()),
+            tr("There are no videos to fit until one is loaded."),
+        )
+        self.transport.install_fit_videos_action(self._act_fit_videos)
 
         # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS (D-022.2)
         self._act_fullscreen = view_menu.addAction(tr("Toggle Pane Fullscreen"))
@@ -2398,12 +2417,11 @@ class MainWindow(QMainWindow):
     def _apply_overlay_state(self) -> None:
         """Push resolved visibility to every pane and re-check the menu."""
         self.video_grid.set_overlay_visibility(self.overlay_state.visibility_for)
+        # Unblocked, so a button or check box following an action (the 3D pane's
+        # reprojection, the Wheels tab's wheel switches) hears an undo too. The
+        # echo is harmless: _on_overlay_toggled ignores a state already held.
         for overlay_id, action in getattr(self, "_overlay_actions", {}).items():
-            blocked = action.blockSignals(True)
-            try:
-                action.setChecked(self.overlay_state.is_visible(overlay_id))
-            finally:
-                action.blockSignals(blocked)
+            action.setChecked(self.overlay_state.is_visible(overlay_id))
 
     # ── Fix Tracker: correcting a predicted point by hand (D-099) ────
 
@@ -3622,6 +3640,10 @@ class MainWindow(QMainWindow):
             )
             self._recompute_bounds()
         self.readout_panel.set_cursor(self.clock.state.t)
+        if any(w.binding is not None and w.binding.source_id == path for w in self.wheels):
+            # The wheel turns by this encoder: redraw it, and show the new
+            # offset in its Wheels tab row as well as in Sources.
+            wheel_display.refresh(self)
 
     def _on_channel_remove_requested(self, path: str, channel: str) -> None:
         """Remove only this source's row — another file may use the same name."""

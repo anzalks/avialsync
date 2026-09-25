@@ -104,6 +104,9 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
   would have to scroll to see. It is composed rather than captured, so nothing is cut off at the
   edge of a pane and each camera is captioned with its own frame number, timecode, and format.
 - **Fullscreen Toggle** expands the selected video view.
+- **Fit All Videos** (**View → Fit All Videos**, `Ctrl+Shift+0`) sets every camera back to its
+  whole frame: zoom 1.00×, no pan. Each camera's own reset button does the same for one camera.
+  **Fit all** above the plots is different: it fits the plots' vertical range.
 - Set **Window limit** and choose `ms`, `s`, `min`, or `h`, then drag the single slider below the
   plots. The slider is linear within that limit and controls every row; rows do not have separate
   scroll or zoom controls. The number updates immediately, plot refreshes are capped at the display
@@ -290,9 +293,16 @@ such checks measure the direction; the Wheels tab says which it is and how far o
 were.
 
 The wheel's bars are thin lines, never points, so they are not mistaken for tracking. Bars behind
-the side plate are hidden unless you turn on **View → Overlays → Wheel bars out of sight**. Bar count,
+the side plate are hidden unless you turn on **View → Overlays → Wheel bars out of sight**. The
+**Wheel model** and **Wheel bars out of sight** check boxes at the top of the Wheels tab are the
+same switches as those View → Overlays entries. Bar count,
 units, radius, direction and ratio can be changed in the Wheels tab at any time; each change
-re-fits the wheel from your original clicks and is one undo step. Each wheel is saved as
+re-fits the wheel from your original clicks and is one undo step.
+
+A constant delay between the encoder and the cameras goes in the wheel's **Encoder offset**, in
+seconds. It is the encoder's own offset, the same number as its row in the **Sources** tab. It
+therefore moves the encoder's plots with the wheel, and is one undo step. Adjust it while
+watching the bars on a frame where the wheel is turning. Each wheel is saved as
 `pose-3d/<name>.wheel.toml`, beside the 3D pose, and is read back when the session is opened again.
 
 The Add Wheel dialog can remember the last **bar count, 3D units and radius** in AvialSync's

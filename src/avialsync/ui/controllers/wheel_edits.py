@@ -28,7 +28,7 @@ from avialsync.ui.job_manager import on_ui_thread
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
 
-__all__ = ["edit_binding", "edit_spec", "remove", "spec_from"]
+__all__ = ["edit_binding", "edit_encoder_offset", "edit_spec", "remove", "spec_from"]
 
 
 def spec_from(name: str, bars: int, units: str, radius: float) -> WheelSpec:
@@ -94,6 +94,24 @@ def edit_binding(window: MainWindow, name: str, sign: float, ratio: float) -> No
         SetWheelCommand(name, wheel, dataclasses.replace(wheel, binding=changed)),
         window._mutations,
     )
+
+
+def edit_encoder_offset(window: MainWindow, name: str, offset: float) -> None:
+    """Move *name*'s encoder source against the video, exactly as its Sources row does.
+
+    One authority for a source's timing (rule 1): the offset typed here is the
+    encoder's own, applied and undone through the same path, so the encoder's
+    plots and the wheel it turns cannot disagree about the latency.
+    """
+    wheel = window.wheels.get(name)
+    binding = wheel.binding if wheel is not None else None
+    if binding is None or window.sidebar.sensor_widget(binding.source_id) is None:
+        return
+    current, drift = window.sidebar.sensor_mapping(binding.source_id)
+    if offset == current:
+        return
+    window.sidebar.set_sensor_mapping(binding.source_id, offset, drift)
+    window._on_sensor_mapping_changed(binding.source_id, offset, drift)
 
 
 def remove(window: MainWindow, name: str) -> None:

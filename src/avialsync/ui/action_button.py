@@ -21,9 +21,9 @@ closure over the button would outlive it and fault on a dead C++ object.
 from __future__ import annotations
 
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QPushButton, QWidget
+from PySide6.QtWidgets import QCheckBox, QPushButton, QWidget
 
-__all__ = ["ActionButton"]
+__all__ = ["ActionButton", "ActionCheckBox"]
 
 
 class ActionButton(QPushButton):
@@ -88,6 +88,57 @@ class ActionButton(QPushButton):
         self.setEnabled(action.isEnabled())
         if not action.isCheckable():
             return
+        blocked = self.blockSignals(True)
+        try:
+            self.setChecked(action.isChecked())
+        finally:
+            self.blockSignals(blocked)
+
+
+class ActionCheckBox(QCheckBox):
+    """A check box that is a second way to reach a checkable ``QAction``.
+
+    The same contract as :class:`ActionButton` -- the action authors the text,
+    tooltip, enablement and checked state -- for a switch that reads as a
+    setting beside a panel's other fields, such as an overlay's View ->
+    Overlays entry repeated in the Wheels tab (rules 13 and 15).
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._action: QAction | None = None
+        self.hide()
+
+    @property
+    def action(self) -> QAction | None:
+        """The action this check box follows, if one has been set."""
+        return self._action
+
+    def set_action(self, action: QAction) -> None:
+        """Adopt *action*: follow its presentation, and trigger it when clicked."""
+        self._action = action
+        action.changed.connect(self._adopt)
+        action.toggled.connect(self._on_action_toggled)
+        self.clicked.connect(self._on_clicked)
+        self._adopt()
+        self.show()
+
+    def _on_clicked(self) -> None:
+        if self._action is None:
+            return
+        self._action.trigger()
+        self._adopt()
+
+    def _on_action_toggled(self, _checked: bool) -> None:
+        self._adopt()
+
+    def _adopt(self) -> None:
+        action = self._action
+        if action is None:
+            return
+        self.setText(action.text())
+        self.setToolTip(action.toolTip())
+        self.setEnabled(action.isEnabled())
         blocked = self.blockSignals(True)
         try:
             self.setChecked(action.isChecked())

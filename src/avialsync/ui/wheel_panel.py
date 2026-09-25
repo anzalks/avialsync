@@ -21,7 +21,7 @@ given; :mod:`avialsync.ui.controllers.wheel_controller` does the work.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from PySide6.QtCore import Signal
@@ -38,16 +38,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.core.wheel import EndClick, Wheel, WheelFit, WheelSpec, fit_issue
+from avialsync.core.wheel import Wheel, WheelSpec
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_bold
 from avialsync.ui.wheel_dialogs import bar_count_spin, radius_spin, unit_items
+from avialsync.ui.wheel_text import describe_encoder, describe_fit
 
-__all__ = ["PlacementView", "WheelPanel", "describe_fit", "describe_encoder"]
-
-#: Relative disagreement between a typed radius and the clicks' own, beyond
-#: which the numbers say so in words: units, bar count, or calibration scale.
-_RADIUS_WARNING = 0.07
+__all__ = ["PlacementView", "WheelPanel"]
 
 
 @dataclass(frozen=True)
@@ -68,97 +65,6 @@ class PlacementView:
     can_undo: bool
     can_flip: bool
     can_accept: bool
-
-
-def _unreliable(issue: str) -> str:
-    """Why :func:`fit_issue` doubts a fit, and what to check. It is still drawn (D-123)."""
-    cause = (
-        tr("The clicked bars do not sit in neighbouring slots.")
-        if issue == "bars_not_neighbours"
-        else tr("The wheel is far from your camera clicks.")
-    )
-    return tr(
-        "Poor fit. {cause} Check the clicked bar ends, the 3D units and the camera calibration."
-    ).format(cause=cause)
-
-
-def describe_fit(wheel_spec: WheelSpec, fit: WheelFit, clicks: Sequence[EndClick]) -> str:
-    """The fit in one paragraph: size, click error, and anything to check."""
-    units = f" {wheel_spec.units}" if wheel_spec.units else ""
-    geometry = fit.geometry
-    issue = fit_issue(fit, clicks)
-    parts = [
-        tr("{bars} bars, radius {radius:.1f}{units}, width {width:.1f}{units}.").format(
-            bars=geometry.bar_count,
-            radius=geometry.radius,
-            width=2 * geometry.half_width,
-            units=units,
-        ),
-        tr("Clicks sit {median:.1f} px from the wheel (worst {worst:.1f} px).").format(
-            median=fit.median_px, worst=fit.max_px
-        ),
-    ]
-    if fit.spacing_deg:
-        parts.append(
-            tr("Bars within {spacing:.1f}° of their slots, {parallel:.1f}° of the axle.").format(
-                spacing=max(abs(v) for v in fit.spacing_deg),
-                parallel=max(fit.parallel_deg, default=0.0),
-            )
-        )
-    typed = wheel_spec.known_radius
-    if (
-        typed is not None
-        and fit.implied_radius is None
-        and abs(geometry.radius - typed) > (_RADIUS_WARNING * typed)
-    ):
-        parts.append(
-            tr(
-                "Built from the radius your clicks imply, not the {typed:.1f}{units} entered."
-            ).format(typed=typed, units=units)
-        )
-    if fit.implied_radius is not None and wheel_spec.radius:
-        share = abs(fit.implied_radius - wheel_spec.radius) / wheel_spec.radius
-        parts.append(
-            tr("You entered {typed:.1f}{units}; the clicks imply {implied:.1f}{units}.").format(
-                typed=wheel_spec.radius, implied=fit.implied_radius, units=units
-            )
-        )
-        if share > _RADIUS_WARNING:
-            parts.append(
-                tr(
-                    "That is {share:.0%} apart: check the 3D units, the bar count, and "
-                    "the calibration's scale."
-                ).format(share=share)
-            )
-    if fit.ambiguous:
-        parts.append(
-            tr(
-                "A mirrored wheel fits almost as well. Check the bars drawn over the "
-                "video, and Flip if the wheel is on the wrong side."
-            )
-        )
-    if issue is not None:
-        parts.insert(0, _unreliable(issue))
-    return " ".join(parts)
-
-
-def describe_encoder(wheel: Wheel) -> str:
-    """How the wheel turns, and how sure the direction is."""
-    binding = wheel.binding
-    if binding is None:
-        return tr("Not turned by an encoder: drawn on frame {frame} only.").format(
-            frame=wheel.frame
-        )
-    direction = tr("forward") if binding.sign > 0 else tr("reverse")
-    if binding.measured:
-        state = tr("direction {direction}, measured from {count} checks.").format(
-            direction=direction, count=len(binding.checks)
-        )
-    else:
-        state = tr(
-            "direction {direction} is assumed. Verify on a frame a few turns away to measure it."
-        ).format(direction=direction)
-    return tr("Turned by {channel}; {state}").format(channel=binding.channel, state=state)
 
 
 def _button(text: str, description: str, parent: QWidget) -> QPushButton:
@@ -233,23 +139,10 @@ class _WheelRow(QFrame):
 
         form = QFormLayout()
         self.spec = _SpecFields(self, form)
-        self.direction = QComboBox(self)
-        self.direction.addItem(tr("Forward"), 1.0)
-        self.direction.addItem(tr("Reverse"), -1.0)
-        self.direction.setAccessibleName(tr("Encoder direction"))
-        self.direction.setAccessibleDescription(
-            tr("Which way the wheel turns as the encoder angle grows; Verify measures it")
-        )
-        self.ratio = QDoubleSpinBox(self)
-        self.ratio.setDecimals(4)
-        self.ratio.setRange(0.0001, 1000.0)
-        self.ratio.setKeyboardTracking(False)
-        self.ratio.setAccessibleName(tr("Encoder ratio"))
-        self.ratio.setAccessibleDescription(
-            tr("Wheel turns per encoder turn; 1 for an encoder on the axle")
-        )
+        self._build_encoder_fields()
         form.addRow(tr("Direction"), self.direction)
         form.addRow(tr("Ratio"), self.ratio)
+        form.addRow(tr("Encoder offset"), self.offset)
         layout.addLayout(form)
 
         buttons = QGridLayout()
@@ -275,6 +168,44 @@ class _WheelRow(QFrame):
         self.spec.units.currentIndexChanged.connect(lambda _i: self._spec_edited(panel))
         self.direction.currentIndexChanged.connect(lambda _i: self._binding_edited(panel))
         self.ratio.valueChanged.connect(lambda _v: self._binding_edited(panel))
+        self.offset.valueChanged.connect(
+            lambda value: panel.encoder_offset_changed.emit(name, float(value))
+        )
+
+    def _build_encoder_fields(self) -> None:
+        """Direction, ratio and offset of the encoder that turns this wheel."""
+        self.direction = QComboBox(self)
+        self.direction.addItem(tr("Forward"), 1.0)
+        self.direction.addItem(tr("Reverse"), -1.0)
+        self.direction.setAccessibleName(tr("Encoder direction"))
+        self.direction.setAccessibleDescription(
+            tr("Which way the wheel turns as the encoder angle grows; Verify measures it")
+        )
+        self.ratio = QDoubleSpinBox(self)
+        self.ratio.setDecimals(4)
+        self.ratio.setRange(0.0001, 1000.0)
+        self.ratio.setKeyboardTracking(False)
+        self.ratio.setAccessibleName(tr("Encoder ratio"))
+        self.ratio.setAccessibleDescription(
+            tr("Wheel turns per encoder turn; 1 for an encoder on the axle")
+        )
+        # The encoder source's own offset, the one in its Sources row: a
+        # constant encoder-to-camera latency is corrected there, so its plots
+        # move with the wheel rather than disagreeing with it (rule 1).
+        self.offset = QDoubleSpinBox(self)
+        self.offset.setDecimals(3)
+        self.offset.setRange(-3600.0, 3600.0)
+        self.offset.setSingleStep(0.01)
+        self.offset.setSuffix(" s")
+        self.offset.setKeyboardTracking(False)
+        self.offset.setAccessibleName(tr("Encoder offset"))
+        self.offset.setAccessibleDescription(
+            tr(
+                "Shift the encoder against the video, for a constant encoder-to-camera "
+                "latency. The same offset as the encoder's row in Sources, so its plots move too"
+            )
+        )
+        self.offset.setToolTip(self.offset.accessibleDescription())
 
     def _spec_edited(self, panel: WheelPanel) -> None:
         bars, units, radius = self.spec.values()
@@ -285,7 +216,7 @@ class _WheelRow(QFrame):
             self.name, float(self.direction.currentData()), float(self.ratio.value())
         )
 
-    def show_wheel(self, wheel: Wheel, checking: bool) -> None:
+    def show_wheel(self, wheel: Wheel, checking: bool, offset: float | None) -> None:
         self.spec.show(wheel.spec)
         self.fit.setText(describe_fit(wheel.spec, wheel.fit, wheel.clicks))
         self.encoder.setText(describe_encoder(wheel))
@@ -293,6 +224,9 @@ class _WheelRow(QFrame):
         for widget in (self.direction, self.ratio, self.verify):
             widget.setEnabled(binding is not None)
         self.verify.setToolTip(tr("Click a bar end to test the encoder direction"))
+        self.offset.setEnabled(offset is not None)
+        if offset is not None:
+            _set_quietly(self.offset, "setValue", offset)
         if binding is not None:
             _set_quietly(self.direction, "setCurrentIndex", 0 if binding.sign > 0 else 1)
             _set_quietly(self.ratio, "setValue", binding.ratio)
@@ -315,6 +249,8 @@ class WheelPanel(QGroupBox):
     spec_changed = Signal(str, int, str, float)
     #: ``(name, sign, ratio)``.
     binding_changed = Signal(str, float, float)
+    #: ``(name, offset_s)`` for the encoder source that turns wheel *name*.
+    encoder_offset_changed = Signal(str, float)
     verify_requested = Signal(str)
     replace_requested = Signal(str)
     remove_requested = Signal(str)
@@ -463,8 +399,17 @@ class WheelPanel(QGroupBox):
             self._review.show()
         self._update_visibility()
 
-    def set_wheels(self, wheels: list[Wheel], checking: str | None) -> None:
-        """Show every placed wheel, rebuilding rows only when the set of names changed."""
+    def set_wheels(
+        self,
+        wheels: list[Wheel],
+        checking: str | None,
+        offsets: Mapping[str, float] | None = None,
+    ) -> None:
+        """Show every placed wheel, rebuilding rows only when the set of names changed.
+
+        *offsets* maps a wheel's name to its encoder source's offset, when that
+        source is loaded; a wheel without one has its offset field greyed.
+        """
         names = [wheel.name for wheel in wheels]
         if set(names) != set(self._rows):
             for row in self._rows.values():
@@ -476,7 +421,9 @@ class WheelPanel(QGroupBox):
                 self._rows_layout.addWidget(row)
                 self._rows[name] = row
         for wheel in wheels:
-            self._rows[wheel.name].show_wheel(wheel, checking == wheel.name)
+            self._rows[wheel.name].show_wheel(
+                wheel, checking == wheel.name, (offsets or {}).get(wheel.name)
+            )
         self._update_visibility()
 
     def _update_visibility(self) -> None:

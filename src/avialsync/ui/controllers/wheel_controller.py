@@ -410,6 +410,7 @@ def connect_panel(window: MainWindow) -> None:
     panel.placement_spec_changed.connect(lambda b, u, r: placement_spec_changed(window, b, u, r))
     panel.spec_changed.connect(lambda n, b, u, r: edits.edit_spec(window, n, b, u, r))
     panel.binding_changed.connect(lambda n, s, r: edits.edit_binding(window, n, s, r))
+    panel.encoder_offset_changed.connect(lambda n, o: edits.edit_encoder_offset(window, n, o))
     panel.verify_requested.connect(lambda n: start_checking(window, n))
     panel.replace_requested.connect(lambda n: replace(window, n))
     panel.remove_requested.connect(lambda n: edits.remove(window, n))

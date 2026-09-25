@@ -370,3 +370,69 @@ def test_a_placed_wheels_refit_runs_in_the_background(
     assert window.wheels.get("wheel").spec.bar_count == 36, "not applied before the fit"
     qtbot.waitUntil(lambda: window.wheels.get("wheel").spec.bar_count == 40, timeout=10_000)
     qtbot.waitUntil(lambda: _idle(window), timeout=10_000)
+
+
+# ── showing the wheel, and the encoder's latency ─────────────────────
+
+
+def test_show_wheel_check_box_is_view_overlays_wheel_entry(window: MainWindow) -> None:
+    """One switch, reachable from two places: they cannot disagree (rules 13, 15)."""
+    box = window.wheel_tab.show_wheel
+    action = window._overlay_actions["tracking.wheel"]
+    assert box.text() == action.text() and box.isChecked()
+
+    box.click()
+    assert not action.isChecked()
+    assert not window.overlay_state.is_visible("tracking.wheel")
+
+    assert window.document.undo(window._mutations)
+    assert box.isChecked(), "undo reaches the check box as well as the menu"
+
+    action.trigger()
+    assert not box.isChecked(), "the menu reaches the check box"
+
+
+def test_out_of_sight_bars_check_box_follows_its_overlay(window: MainWindow) -> None:
+    box = window.wheel_tab.show_hidden_bars
+    assert not box.isChecked()
+    box.click()
+    assert window.overlay_state.is_visible("tracking.wheel_hidden")
+
+
+@pytest.fixture
+def encoder(window: MainWindow, tmp_path: Path) -> str:
+    path = "/rec/encoder_log.txt"
+    window.sidebar.add_sensor(path, ["encoder_angle"])
+    window._sensor_cache_dirs[path] = tmp_path / "encoder.avialcache"
+    return path
+
+
+def test_encoder_offset_field_is_the_encoders_own_offset(
+    window: MainWindow, monkeypatch, encoder: str
+) -> None:
+    place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
+    window.wheel_panel._accept.click()
+    wheel = window.wheels.get("wheel")
+    window.wheels.set(
+        "wheel",
+        dataclasses.replace(wheel, binding=EncoderBinding(encoder, "encoder_angle", 0.0)),
+    )
+    field = window.wheel_panel._rows["wheel"].offset
+    assert field.isEnabled() and field.value() == 0.0
+
+    field.setValue(0.12)
+
+    assert window.sidebar.sensor_mapping(encoder)[0] == pytest.approx(0.12)
+    assert window.document.undo(window._mutations)
+    assert window.sidebar.sensor_mapping(encoder)[0] == 0.0
+    assert window.wheel_panel._rows["wheel"].offset.value() == 0.0, "undo shows here too"
+
+    window.sidebar.set_sensor_mapping(encoder, -0.05, 0.0)
+    window._on_sensor_mapping_changed(encoder, -0.05, 0.0)
+    assert window.wheel_panel._rows["wheel"].offset.value() == pytest.approx(-0.05)
+
+
+def test_encoder_offset_is_greyed_without_a_loaded_encoder(window: MainWindow, monkeypatch) -> None:
+    place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
+    window.wheel_panel._accept.click()
+    assert not window.wheel_panel._rows["wheel"].offset.isEnabled()

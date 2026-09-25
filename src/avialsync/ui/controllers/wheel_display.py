@@ -268,6 +268,16 @@ def scene(window: MainWindow, t_master: float) -> list[tuple[np.ndarray, bool]]:
     return out
 
 
+def encoder_offsets(window: MainWindow) -> dict[str, float]:
+    """Each wheel's encoder source offset, as its Sources row shows it, when loaded."""
+    out = {}
+    for wheel in window.wheels:
+        binding = wheel.binding
+        if binding is not None and window.sidebar.sensor_widget(binding.source_id) is not None:
+            out[wheel.name] = window.sidebar.sensor_mapping(binding.source_id)[0]
+    return out
+
+
 def refresh(window: MainWindow) -> None:
     """Push wheels, the placement, and the panel to every view."""
     window._wheel_cache.clear()
@@ -281,7 +291,9 @@ def refresh(window: MainWindow) -> None:
     window.video_grid.refresh_point_edits()
     window.tracking_3d_pane.canvas.set_cursor(window.clock.state.t)
     window._update_tracking_pane_visibility()
-    window.wheel_panel.set_wheels(list(window.wheels), window._wheel_checking)
+    window.wheel_panel.set_wheels(
+        list(window.wheels), window._wheel_checking, encoder_offsets(window)
+    )
     view = (
         placement_view(placement, sorted(camera_models(window))) if placement is not None else None
     )

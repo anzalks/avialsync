@@ -30,7 +30,8 @@ from avialsync.core.errors import CalibrationError
 from avialsync.core.wheel import SIDES, EndClick, WheelFit, WheelSpec
 from avialsync.core.wheel_fit import LabelledFit
 from avialsync.ui.i18n import tr
-from avialsync.ui.wheel_panel import PlacementView, describe_fit
+from avialsync.ui.wheel_panel import PlacementView
+from avialsync.ui.wheel_text import describe_fit
 
 __all__ = [
     "POINTS",
