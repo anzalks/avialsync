@@ -55342,11 +55342,27 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_cylinder_paint_scene",
+      "label": "_scene()",
+      "file_type": "code",
+      "source_file": "tests/test_cylinder_paint.py",
+      "source_location": "L79",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_cylinder_paint_py_ndarray",
+      "label": "ndarray",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_cylinder_paint_coverage",
       "label": "_coverage()",
       "file_type": "code",
       "source_file": "tests/test_cylinder_paint.py",
-      "source_location": "L79",
+      "source_location": "L93",
       "_origin": "ast"
     },
     {
@@ -55354,7 +55370,7 @@
       "label": "test_the_3d_view_draws_solid_bars_once_a_diameter_is_set()",
       "file_type": "code",
       "source_file": "tests/test_cylinder_paint.py",
-      "source_location": "L95",
+      "source_location": "L105",
       "_origin": "ast"
     },
     {
@@ -55371,6 +55387,14 @@
       "file_type": "rationale",
       "source_file": "tests/test_cylinder_paint.py",
       "source_location": "L50",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_cylinder_paint_rationale_94",
+      "label": "Pixels *wheel* changes, against the same scene with a wheel of no bars.      Not",
+      "file_type": "rationale",
+      "source_file": "tests/test_cylinder_paint.py",
+      "source_location": "L94",
       "_origin": "ast"
     },
     {
@@ -218216,11 +218240,32 @@
     },
     {
       "source": "tests_test_cylinder_paint",
-      "target": "tests_test_cylinder_paint_coverage",
+      "target": "tests_test_cylinder_paint_scene",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_cylinder_paint.py",
       "source_location": "L79",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_cylinder_paint_scene",
+      "target": "tests_test_cylinder_paint_py_ndarray",
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_cylinder_paint.py",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_cylinder_paint",
+      "target": "tests_test_cylinder_paint_coverage",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_cylinder_paint.py",
+      "source_location": "L93",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -218230,7 +218275,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_cylinder_paint.py",
-      "source_location": "L95",
+      "source_location": "L105",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -218290,7 +218335,7 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_cylinder_paint_coverage",
+      "source": "tests_test_cylinder_paint_scene",
       "target": "tests_test_cylinder_paint_py_qimage",
       "relation": "calls",
       "context": "call",
@@ -218301,13 +218346,24 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_cylinder_paint_coverage",
+      "target": "tests_test_cylinder_paint_scene",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_cylinder_paint.py",
+      "source_location": "L101",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_cylinder_paint_test_the_3d_view_draws_solid_bars_once_a_diameter_is_set",
       "target": "tests_test_cylinder_paint_coverage",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_cylinder_paint.py",
-      "source_location": "L96",
+      "source_location": "L106",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -218328,6 +218384,16 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_cylinder_paint.py",
       "source_location": "L50",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_cylinder_paint_rationale_94",
+      "target": "tests_test_cylinder_paint_coverage",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_cylinder_paint.py",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -331893,7 +331959,7 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_cylinder_paint_coverage",
+      "source": "tests_test_cylinder_paint_scene",
       "target": "src_avialsync_ui_tracking_3d_pane_tracking3dcanvas",
       "relation": "calls",
       "context": "call",
