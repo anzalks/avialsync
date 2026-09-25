@@ -207,6 +207,8 @@ time-series plots. The 3D pane does not guess connections between points.
 - Use the mouse wheel to zoom.
 - Select **Fit View**, or double-click the view, to frame the current pose again.
 
+On a narrow window, scroll the 3D controls sideways to reach the axis, bones, and Fit View controls.
+
 ## Placing a 3D marker
 
 When you need a point the pose model was not trained on — a landmark on the rig, say — choose
@@ -249,7 +251,7 @@ you; a message offers **Choose Calibration…**.
 
 ## Placing a running wheel
 
-When the animal runs on a wheel, choose **Add Wheel…** beside **Add 3D Marker** in Data Streams
+When the animal runs on a wheel, choose **Add Wheel…** beside **Add 3D Marker** under the videos
 (or **Edit → Add Wheel…**). This uses the same calibrated camera-click workflow. It draws bars over
 every camera and in the 3D view, turned from frame to frame by the wheel's encoder. It needs at
 least two cameras and their calibration (the same one Add 3D Marker uses).

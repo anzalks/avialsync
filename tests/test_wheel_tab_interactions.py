@@ -17,12 +17,12 @@ from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.core.pyramid import PyramidBuilder
-from avialsync.core.wheel import EncoderBinding, WheelSpec
+from avialsync.core.wheel import EncoderBinding, WheelSpec, project_bars
 from avialsync.core.wheel_file import read_wheels
 from avialsync.ui.controllers import wheel_controller, wheel_display
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.wheel_dialogs import WheelSetup
-from tests.wheel_fixture import clicks_for
+from tests.wheel_fixture import CAMERAS, clicks_for
 from tests.wheel_window import FRAME, VIDEOS, build_window, click_point, place, start_placing
 
 
@@ -230,6 +230,36 @@ def test_done_labelling_reads_the_encoder_from_its_real_cache(
     assert wheel is not None and window._wheel_placement is None
     assert wheel.binding == EncoderBinding("encoder.csv", "angle", pytest.approx(30.0))
     assert read_wheels(pose3d)[0] == [wheel]
+
+
+def test_synced_encoder_turn_reprojects_the_same_bars_in_every_camera(
+    window: MainWindow, monkeypatch, tmp_path: Path, frame: dict[str, float]
+) -> None:
+    """The plot's value turns one 3D wheel, then each camera projects that wheel."""
+    times = np.arange(0.0, 10.0, 0.001)
+    _load_encoder(window, tmp_path, times, 36.0 * times)
+    window.sidebar.set_sensor_mapping("encoder.csv", 0.12, 0.0)
+    window._on_sensor_mapping_changed("encoder.csv", 0.12, 0.0)
+    _two_bars(window, monkeypatch, channel=("encoder.csv", "angle"))
+    window.wheel_panel._accept.click()
+    wheel = window.wheels.get("wheel")
+    assert wheel is not None
+
+    frame.update(now=FRAME + 1, t=2.3456)
+    reader = next(r.reader for r in window.plot_pane.channels if r.reader.channel_id == "angle")
+    turn = reader.sample_at(frame["t"])[1] - reader.sample_at(0.0)[1]
+    assert turn == pytest.approx(36.0 * frame["t"], abs=0.037)
+    expected = wheel.geometry.bar_ends(turn)
+    assert wheel_display.scene(window, frame["t"])[0][0] == pytest.approx(expected)
+    for name, camera in CAMERAS.items():
+        drawing = wheel_display.pane_drawing(window, VIDEOS[name], frame["t"])
+        assert drawing is not None
+        pixels, in_front, _facing = project_bars(wheel.geometry, expected, camera)
+        first = drawing.bars[0]
+        assert in_front[0]
+        assert (first.x1, first.y1, first.x2, first.y2) == pytest.approx(
+            (*pixels[0, 0], *pixels[0, 1])
+        )
 
 
 def test_done_labelling_without_an_encoder_reading_still_saves(

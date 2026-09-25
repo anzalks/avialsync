@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QSize, Qt
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -991,6 +992,20 @@ def _qcolor(rgb: tuple[int, int, int]) -> QColor:
     return QColor(*rgb)
 
 
+class _HeaderScrollArea(QScrollArea):
+    """Keep the whole control row tall enough when its horizontal bar appears."""
+
+    def sizeHint(self) -> QSize:
+        content = self.widget()
+        if content is None:
+            return super().sizeHint()
+        height = content.sizeHint().height() + self.horizontalScrollBar().sizeHint().height()
+        return QSize(0, height)
+
+    def minimumSizeHint(self) -> QSize:
+        return self.sizeHint()
+
+
 class Tracking3DPane(QWidget):
     """Timeline-synchronized 3D tracking pane."""
 
@@ -998,6 +1013,7 @@ class Tracking3DPane(QWidget):
         super().__init__(parent)
         self.setObjectName("tracking_3d_pane")
         self.setAccessibleName(tr("3D Tracking pane"))
+        self.setMinimumWidth(112)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1066,8 +1082,22 @@ class Tracking3DPane(QWidget):
         header_layout.setColumnStretch(0, 1)
         header_layout.setColumnStretch(1, 1)
 
+        # On a narrow display the camera controls cannot dictate the width of
+        # the whole media splitter. Keep them at a usable size and let the
+        # header scroll sideways instead of squeezing the video pane to zero.
+        self.header_scroll = _HeaderScrollArea(self)
+        self.header_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.header_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.header_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.header_scroll.setWidget(header)
+        self.header_scroll.setWidgetResizable(True)
+        self.header_scroll.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.header_scroll.horizontalScrollBar().setAccessibleName(
+            tr("Scroll the 3D controls sideways")
+        )
+
         self.canvas = Tracking3DCanvas(self)
-        layout.addWidget(header)
+        layout.addWidget(self.header_scroll)
         layout.addWidget(self.canvas, 1)
 
     def install_reprojection_action(self, action: QAction) -> None:

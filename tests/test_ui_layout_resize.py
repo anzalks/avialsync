@@ -165,6 +165,28 @@ def test_compact_viewport_keeps_every_workspace_surface_available(
     assert 0 < canvas.height() <= window.tracking_3d_pane.height()
 
 
+def test_wide_3d_controls_scroll_without_collapsing_video(
+    window: MainWindow, qapp: QApplication
+) -> None:
+    """A wider platform font must leave both sides of the media split visible."""
+    tracking = window.tracking_3d_pane
+    font = tracking.font()
+    font.setPointSize(15)
+    tracking.setFont(font)
+    tracking.setVisible(True)
+    window.resize(640, 480)
+    qapp.processEvents()
+    window._pane_proportions.reapply()
+    qapp.processEvents()
+
+    assert window.video_grid.width() > 0
+    assert tracking.canvas.width() > 0
+    assert tracking.header_scroll.horizontalScrollBar().maximum() > 0
+    header = tracking.title_label.parentWidget()
+    assert header is not None
+    assert tracking.header_scroll.viewport().height() >= header.height()
+
+
 #: The narrowest laptop panel the project supports. The window must fit inside
 #: one, since a minimum wider than the screen leaves it unresizable.
 #:
