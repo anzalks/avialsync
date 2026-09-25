@@ -234,9 +234,10 @@ you; a message offers **Choose Calibration…**.
 
 ## Placing a running wheel
 
-When the animal runs on a wheel, **Edit → Add Wheel…** draws the wheel's bars over every camera and
-in the 3D view, turned from frame to frame by the wheel's encoder. It needs at least two cameras and
-their calibration (the same one Add 3D Marker uses).
+When the animal runs on a wheel, choose **Add Wheel…** beside **Add 3D Marker** in Data Streams
+(or **Edit → Add Wheel…**). This uses the same calibrated camera-click workflow. It draws bars over
+every camera and in the 3D view, turned from frame to frame by the wheel's encoder. It needs at
+least two cameras and their calibration (the same one Add 3D Marker uses).
 
 1. Give the wheel a name, the **number of bars on the whole wheel**, and the encoder channel that
    turns it. An AOL session fills in the channel for you. The bar count is required: two or three
@@ -246,13 +247,16 @@ their calibration (the same one Add 3D Marker uses).
    **radius to the bar centres**, measured on the rig. With both, AvialSync uses your radius and
    also reports the radius the clicks imply; if they disagree by more than a few percent, check
    the units and the bar count.
-3. Click **both ends of two or three neighbouring bars**, in every camera that sees them, on the
-   current frame. Click the end on the same side of the wheel first on every bar. An end clicked
-   in every camera moves on by itself; **Next End** moves on once it is clicked in two.
+3. Click **both ends of two or three neighbouring bars**, in every calibrated camera, on the
+   current frame. Click the end on the same side of the wheel first on every bar. Each click
+   appears immediately as a labelled ring in that camera. The guide names the cameras still
+   needed for the current end and advances when each has a click. On a three-camera rig, each
+   end therefore needs three clicks before the next one begins.
 4. From the second bar on, the whole wheel is drawn **dashed** as a preview, and the **Wheels**
    section of the sidebar shows how far the clicks sit from it. Use **Flip Side** if the wheel is
    drawn on the wrong side of the bars, **Undo Click** to take a click back, and **Accept** to add
-   the wheel. Accept is one undo step.
+   the wheel once all views have both ends of at least two bars. A third bar can improve the fit.
+   Accept is one undo step.
 
 Until you check it, the direction the encoder turns the wheel is **assumed**. Go to a frame a few
 turns away, select **Verify Here** in the Wheels section, and click any bar end in any camera. Two

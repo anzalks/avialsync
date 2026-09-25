@@ -1926,6 +1926,7 @@ class MainWindow(QMainWindow):
             tr("Load at least two camera videos to place a wheel"),
         )
         _reg(self._act_add_wheel, "Edit")
+        self.transport.install_add_wheel_action(self._act_add_wheel)
 
         # ── Align ─────────────────────────────────────────────────────
         # Promoted out of File. Alignment is not a file operation -- it is the
@@ -3116,6 +3117,10 @@ class MainWindow(QMainWindow):
 
     def _create_video_pane(self, original_path: str, loader: object, media_path: str) -> None:
         video_controller.create_video_pane(self, original_path, loader, media_path)
+        # A probed video may wait behind another pane. Its eventual creation is
+        # what changes commands requiring two cameras, even though no new probe
+        # callback follows that event.
+        self._refresh_empty_state()
 
     @Slot(str, str)
     def _on_video_open_error(self, path: str, error: str) -> None:

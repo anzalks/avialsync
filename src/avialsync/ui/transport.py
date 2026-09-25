@@ -616,6 +616,8 @@ class TimelineEvidence(QWidget):
         header.addWidget(self.fix_tracker_button)
         self.add_marker_button = ActionButton(self)
         header.addWidget(self.add_marker_button)
+        self.add_wheel_button = ActionButton(self)
+        header.addWidget(self.add_wheel_button)
         header.addStretch(1)
         self.snapshot_button = QPushButton("Snapshot", self)
         self.snapshot_button.setToolTip(tr("Export snapshot (Ctrl+E)"))
@@ -670,6 +672,13 @@ class TimelineEvidence(QWidget):
         self.add_marker_button.set_action(action)
         self.add_marker_button.setAccessibleDescription(
             tr("Name a new marker, then click it once in each camera to place it in 3D")
+        )
+
+    def install_add_wheel_action(self, action: QAction) -> None:
+        """Show Add Wheel beside Add 3D Marker, driven by the same menu QAction."""
+        self.add_wheel_button.set_action(action)
+        self.add_wheel_button.setAccessibleDescription(
+            tr("Click both ends of two or three neighbouring bars in each camera")
         )
 
     def toggle_collapsed(self) -> None:
@@ -929,6 +938,10 @@ class Transport(QWidget):
     def install_add_marker_action(self, action: QAction) -> None:
         """Forward the Add 3D Marker action to the Data Streams header."""
         self.evidence.install_add_marker_action(action)
+
+    def install_add_wheel_action(self, action: QAction) -> None:
+        """Forward the Add Wheel action to the Data Streams header."""
+        self.evidence.install_add_wheel_action(action)
 
     def install_fix_tracker_action(self, action: QAction) -> None:
         """Expose the Fix Tracker toggle in the Data Streams header."""

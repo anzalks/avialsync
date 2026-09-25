@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QWidget
 from avialsync.core.point_edits import PointKey
 from avialsync.ui.marker_overlay import MarkerOverlayMixin, ResolvedPoint
 from avialsync.ui.tracking_colors import color_for_point
-from avialsync.ui.wheel_overlay import draw_wheel
+from avialsync.ui.wheel_overlay import draw_wheel, draw_wheel_clicks
 
 _ENSEMBLE_COLOR = (0, 255, 255)
 _MODEL_COLORS = (
@@ -270,6 +270,8 @@ class PaintCanvas(MarkerOverlayMixin):
                 show_hidden=self._wheel_hidden_visible,
             )
         if not draw_points:
+            if wheel is not None and wheel.clicks:
+                draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y)
             return
 
         if self.tracks:
@@ -290,6 +292,9 @@ class PaintCanvas(MarkerOverlayMixin):
 
         if self._custom and (self._custom_visible or self._edit_mode):
             self._draw_custom(painter, scale, offset_x, offset_y)
+
+        if wheel is not None and wheel.clicks:
+            draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y)
 
     def _draw_track(
         self,

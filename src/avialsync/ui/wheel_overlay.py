@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 
-__all__ = ["WheelBar", "WheelDrawing", "draw_wheel"]
+__all__ = ["WheelBar", "WheelDrawing", "draw_wheel", "draw_wheel_clicks"]
 
 _UNDERLAY = QColor(0, 0, 0, 170)
 _BAR = QColor(235, 235, 235, 230)
@@ -106,11 +106,24 @@ def draw_wheel(
         if bar.first and bar.facing:
             painter.setPen(_pen(_BAR, 1.5, False))
             painter.drawEllipse(start, _TICK, _TICK)
+    painter.restore()
+
+
+def draw_wheel_clicks(
+    painter: QPainter, drawing: WheelDrawing, scale: float, offset_x: float, offset_y: float
+) -> None:
+    """Draw placed end markers last so tracking cannot obscure the click evidence."""
+    painter.save()
+    painter.setBrush(Qt.BrushStyle.NoBrush)
     for label, x, y in drawing.clicks:
-        centre = screen(x, y)
+        centre = QPointF(offset_x + x * scale, offset_y + y * scale)
         painter.setPen(_pen(_UNDERLAY, 3.0, False))
         painter.drawEllipse(centre, _CLICK_RADIUS, _CLICK_RADIUS)
         painter.setPen(_pen(_BAR, 1.5, False))
         painter.drawEllipse(centre, _CLICK_RADIUS, _CLICK_RADIUS)
-        painter.drawText(centre + QPointF(_CLICK_RADIUS + 2, -_CLICK_RADIUS), label)
+        label_pos = centre + QPointF(_CLICK_RADIUS + 2, -_CLICK_RADIUS)
+        painter.setPen(_pen(_UNDERLAY, 1.5, False))
+        painter.drawText(label_pos + QPointF(1, 1), label)
+        painter.setPen(_pen(_BAR, 1.5, False))
+        painter.drawText(label_pos, label)
     painter.restore()

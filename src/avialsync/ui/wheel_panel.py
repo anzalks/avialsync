@@ -59,7 +59,6 @@ class PlacementView:
     instruction: str
     #: The fit so far, or why there is none yet.
     summary: str
-    can_next: bool
     can_undo: bool
     can_flip: bool
     can_accept: bool
@@ -276,7 +275,6 @@ class _WheelRow(QFrame):
 class WheelPanel(QGroupBox):
     """Every wheel in the session, and the one being placed."""
 
-    next_end_requested = Signal()
     undo_click_requested = Signal()
     flip_requested = Signal()
     go_to_frame_requested = Signal()
@@ -332,7 +330,6 @@ class WheelPanel(QGroupBox):
         grid = QGridLayout()
         buttons: list[QPushButton] = []
         for text, description, signal in (
-            (tr("Next End"), tr("Move on to the next bar end"), self.next_end_requested),
             (tr("Undo Click"), tr("Take back the last click"), self.undo_click_requested),
             (
                 tr("Flip Side"),
@@ -353,9 +350,13 @@ class WheelPanel(QGroupBox):
         ):
             button = _button(text, description, frame)
             button.clicked.connect(signal)
-            grid.addWidget(button, len(buttons) // 2, len(buttons) % 2)
             buttons.append(button)
-        self._next, self._undo, self._flip, self._frame, self._accept, self._cancel = buttons
+        self._undo, self._flip, self._frame, self._accept, self._cancel = buttons
+        grid.addWidget(self._undo, 0, 0)
+        grid.addWidget(self._flip, 0, 1)
+        grid.addWidget(self._frame, 1, 0, 1, 2)
+        grid.addWidget(self._accept, 2, 0)
+        grid.addWidget(self._cancel, 2, 1)
         review.addLayout(grid)
         return frame
 
@@ -373,7 +374,6 @@ class WheelPanel(QGroupBox):
             self._instruction.setText(view.instruction)
             self._summary.setText(view.summary)
             self._review_spec.show(view.spec)
-            self._next.setEnabled(view.can_next)
             self._undo.setEnabled(view.can_undo)
             self._flip.setEnabled(view.can_flip)
             self._accept.setEnabled(view.can_accept)

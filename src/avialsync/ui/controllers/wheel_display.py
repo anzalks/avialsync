@@ -75,6 +75,17 @@ class Placement:
     def ordered(self) -> tuple[EndClick, ...]:
         return tuple(self.clicks[key] for key in sorted(self.clicks))
 
+    def ready(self, cameras: set[str]) -> bool:
+        """Two or three whole bars, with both ends seen in every calibrated view."""
+        if len(cameras) < 2 or self.step not in (4, 6) or len(self.clicks) != self.step:
+            return False
+        return all(
+            {camera for camera, _, _ in self.clicks.get((bar, side), EndClick(bar, side)).views}
+            == cameras
+            for bar in range(self.step // 2)
+            for side in SIDES
+        )
+
 
 def _end_label(bar: int, side: str) -> str:
     return f"{bar + 1}{'ab'[SIDES.index(side)]}"
@@ -285,21 +296,21 @@ def _placement_view(window: MainWindow) -> PlacementView | None:
     if placement is None:
         return None
     cameras = sorted(camera_models(window))
-    bar, side = placement.end
-    click = placement.clicks.get((bar, side))
-    clicked = {c for c, _, _ in click.views} if click is not None else set()
-    remaining = [c for c in cameras if c not in clicked]
-    end = tr("first end") if side == SIDES[0] else tr("second end")
-    if remaining:
+    if placement.step >= 6:
+        instruction = tr("All three bars are marked in every camera. Review the fit and Accept.")
+    else:
+        bar, side = placement.end
+        click = placement.clicks.get((bar, side))
+        clicked = {c for c, _, _ in click.views} if click is not None else set()
+        remaining = [c for c in cameras if c not in clicked]
+        end = tr("first end") if side == SIDES[0] else tr("second end")
         instruction = tr("Bar {bar}, {end}: click it in {cameras}.").format(
             bar=bar + 1, end=end, cameras=", ".join(remaining)
         )
-    else:
-        instruction = tr("Bar {bar}, {end} is clicked in every camera.").format(
-            bar=bar + 1, end=end
-        )
-    if placement.fit is not None:
-        instruction += " " + tr("Accept, or click another neighbouring bar to check the fit.")
+        if placement.step == 4:
+            instruction = (
+                tr("Two bars complete. Review and Accept, or add a third bar.") + " " + instruction
+            )
     summary = (
         describe_fit(placement.spec, placement.fit)
         if placement.fit is not None
@@ -310,8 +321,7 @@ def _placement_view(window: MainWindow) -> PlacementView | None:
         frame=placement.frame,
         instruction=instruction,
         summary=summary,
-        can_next=len(clicked) >= 2,
         can_undo=bool(placement.history),
         can_flip=placement.fit is not None and placement.fit.can_flip,
-        can_accept=placement.fit is not None,
+        can_accept=placement.fit is not None and placement.ready(set(cameras)),
     )

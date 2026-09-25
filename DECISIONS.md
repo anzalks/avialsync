@@ -4512,3 +4512,22 @@ had failed since D-112. It now spans the two columns the Bones and Fit View cont
 3 px of the cameras that made the tracking), `test_custom_marker_controller.py` (place, drag,
 delete, undo, files, adoption, and the no-modal guarantees), and the encoder's unit and unwrap in
 `test_aol_loaders.py`.
+
+---
+
+## 2026-09 · D-115 · Wheel placement collects complete bars across the calibrated views
+
+The Data Streams header exposes Add Wheel beside Add 3D Marker, through the same QAction as the
+Edit menu. It uses the existing calibration and camera-click workflow, then the D-113 wheel fit;
+clicked ends remain wheel evidence in the wheel file rather than separate custom-marker records.
+
+The guided input is both ends of two or three neighbouring bars. Each end advances only after a
+click in every calibrated camera, and Accept is available only after all chosen bars are complete.
+On a three-camera rig this means all three views for every end. The older Next End shortcut that
+allowed a partial set of views is removed from the review panel. Clicks are labelled rings painted
+above tracking so the user can check where each camera's evidence landed before accepting the fit.
+The fit, generated geometry, encoder binding, undo command, and wheel file remain D-113's.
+
+Availability refreshes when a video pane is actually created. Video probes finish out of order,
+and a later pane can be built from the queue after its probe callback has already run; refreshing
+only at probe completion left both marker and wheel buttons greyed out with three cameras visible.

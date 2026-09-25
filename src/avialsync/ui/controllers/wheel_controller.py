@@ -5,8 +5,9 @@
    pre-filled from the session plugin's :class:`~avialsync.core.source.RotaryHint`.
 2. **Click.** With the calibration resolved (the same Import / Compute question
    as Add 3D Marker), every pane takes clicks: bar 1's first end, its second
-   end, then bar 2's, each in every camera that sees it. An end clicked in
-   every calibrated camera moves on by itself; Next End moves on once two have.
+   end, then bar 2's, each in every calibrated camera. An end clicked in
+   every camera moves on by itself; two complete bars can be accepted, or a
+   third can be clicked to check the fit.
 3. **Review.** From two complete bars on, the wheel is fitted after every click
    (:func:`~avialsync.core.wheel.fit_wheel`, ~10 ms) and drawn dashed over
    every camera and the 3D view, with its numbers in the sidebar's Wheels
@@ -152,6 +153,11 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> bool:
         )
         return True
     camera = rig_paths.camera_name(video)
+    if placement.step >= 6:
+        window.transport.set_status(
+            tr("Three bars are complete. Review the fit and Accept."), "info"
+        )
+        return True
     key = placement.end
     click = placement.clicks.get(key, EndClick(*key))
     previous = next(((vx, vy) for c, vx, vy in click.views if c == camera), None)
@@ -161,18 +167,6 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> bool:
         placement.step += 1
     _refit(window)
     return True
-
-
-def next_end(window: MainWindow) -> None:
-    placement = window._wheel_placement
-    if placement is None:
-        return
-    click = placement.clicks.get(placement.end)
-    if click is None or len(click.views) < 2:
-        window.transport.set_status(tr("Click this end in at least two cameras first."), "warning")
-        return
-    placement.step += 1
-    display.refresh(window)
 
 
 def undo_click(window: MainWindow) -> None:
@@ -239,6 +233,12 @@ def accept(window: MainWindow) -> None:
     """Commit the wheel being placed, as one undo step."""
     placement = window._wheel_placement
     if placement is None or placement.fit is None:
+        return
+    if not placement.ready(set(display.camera_models(window))):
+        window.transport.set_status(
+            tr("Click both ends of two or three bars in every calibrated camera first."),
+            "warning",
+        )
         return
     binding = None
     if placement.channel is not None:
@@ -424,7 +424,6 @@ def replace(window: MainWindow, name: str) -> None:
 def connect_panel(window: MainWindow) -> None:
     """Route the Wheels section's requests here."""
     panel = window.wheel_panel
-    panel.next_end_requested.connect(lambda: next_end(window))
     panel.undo_click_requested.connect(lambda: undo_click(window))
     panel.flip_requested.connect(lambda: flip(window))
     panel.go_to_frame_requested.connect(lambda: go_to_frame(window))

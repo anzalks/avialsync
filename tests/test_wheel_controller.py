@@ -92,6 +92,79 @@ def test_clicking_two_bars_offers_a_wheel_to_accept(window: MainWindow, monkeypa
     assert window._act_add_wheel.isChecked()
     assert not window.wheel_panel.isHidden()
     assert not window.wheel_panel._review.isHidden()
+    assert window.wheel_panel._accept.isEnabled()
+
+
+def test_wheel_button_uses_the_edit_action(window: MainWindow, monkeypatch) -> None:
+    """The new entry point has one label, tooltip, state and command."""
+    button = window.transport.evidence.add_wheel_button
+    assert button.action is window._act_add_wheel
+    assert button.text() == window._act_add_wheel.text()
+    assert button.toolTip() == window._act_add_wheel.toolTip()
+    assert button.isCheckable()
+    assert button.accessibleDescription()
+    monkeypatch.setattr(
+        wheel_controller,
+        "ask_wheel_setup",
+        lambda *_a: WheelSetup(WheelSpec("wheel", 36), channel=None),
+    )
+    window._act_add_wheel.setEnabled(True)
+    button.click()
+    assert window._wheel_placement is not None
+    assert button.isChecked() and window._act_add_wheel.isChecked()
+
+
+def test_each_end_waits_for_all_three_views(window: MainWindow, monkeypatch) -> None:
+    """An early fit cannot commit a wheel with an incomplete third camera."""
+    monkeypatch.setattr(
+        wheel_controller,
+        "ask_wheel_setup",
+        lambda *_a: WheelSetup(WheelSpec("wheel", 36), channel=None),
+    )
+    wheel_controller.toggled(window, True)
+    clicks = clicks_for([0, 1])
+    for click in clicks[:3]:
+        for camera, x, y in click.views:
+            wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
+    last = clicks[3]
+    for camera, x, y in last.views[:2]:
+        wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
+        drawing = wheel_display.pane_drawing(window, VIDEOS[camera], 0.0)
+        assert drawing is not None and drawing.clicks[-1][0] == "2b"
+    placement = window._wheel_placement
+    assert placement is not None and placement.step == 3
+    assert not window.wheel_panel._accept.isEnabled()
+    wheel_controller.accept(window)
+    assert window.wheels.get("wheel") is None
+    for camera, x, y in last.views[2:]:
+        wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
+    assert placement.step == 4
+    assert window.wheel_panel._accept.isEnabled()
+    for video in VIDEOS.values():
+        drawing = wheel_display.pane_drawing(window, video, 0.0)
+        assert drawing is not None and len(drawing.clicks) == 4
+
+
+def test_three_bars_is_the_maximum_guided_input(window: MainWindow, monkeypatch) -> None:
+    _place(window, [0, 1, 2], WheelSpec("wheel", 36), monkeypatch)
+    placement = window._wheel_placement
+    assert placement is not None and placement.step == 6
+    before = placement.ordered()
+    wheel_controller.on_clicked(window, VIDEOS["Front"], 1.0, 2.0)
+    assert placement.ordered() == before
+    assert "three bars" in window.wheel_panel._instruction.text().lower()
+
+
+def test_started_third_bar_blocks_accept(window: MainWindow, monkeypatch) -> None:
+    _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
+    click = clicks_for([0, 1, 2])[4]
+    camera, x, y = click.views[0]
+    wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
+    placement = window._wheel_placement
+    assert placement is not None and placement.fit is not None
+    assert not window.wheel_panel._accept.isEnabled()
+    wheel_controller.accept(window)
+    assert window.wheels.get("wheel") is None
 
 
 def test_accept_is_one_undo_step_and_writes_the_file(
