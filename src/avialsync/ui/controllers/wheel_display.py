@@ -264,8 +264,13 @@ def pane_drawing(window: MainWindow, video: str, t_master: float) -> WheelDrawin
 
 
 def diameter(window: MainWindow, wheel: Wheel) -> float | None:
-    """The bar diameter to draw: the slider's while it is dragged, else the wheel's."""
-    return window._wheel_diameter_preview.get(wheel.name, wheel.bar_diameter)
+    """The bar diameter to draw, in calibration units: the slider's while dragged.
+
+    The slider and the stored value are in the units the user measures in, so
+    both go through the wheel's own scale (D-130).
+    """
+    typed = window._wheel_diameter_preview.get(wheel.name, wheel.bar_diameter)
+    return None if typed is None else typed * wheel.world_per_unit
 
 
 def scene(window: MainWindow, t_master: float) -> list[tuple[np.ndarray, bool, float | None]]:

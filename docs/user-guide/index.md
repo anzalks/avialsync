@@ -308,8 +308,12 @@ same switches as those View → Overlays entries. Bar count,
 units, radius, direction and ratio can be changed in the Wheels tab at any time; each change
 re-fits the wheel from your original clicks and is one undo step.
 
-**Bar diameter** sets how thick the bars are, in the 3D units. In the 3D view the bars become solid
-cylinders of that diameter; the camera views keep their plain bar lines. Dragging only previews; releasing the slider or
+**Bar diameter** sets how thick the bars are. In the 3D view the bars become solid cylinders of
+that diameter; the camera views keep their plain bar lines. If you entered the wheel's radius as
+measured on the rig, type the diameter in the same real units, e.g. 0.3 for a 3 mm bar with the
+radius in cm. AvialSync converts it with the ratio between the radius you measured and the one your
+clicks imply, and the Wheels tab shows that ratio. Without a measured radius, the diameter is in the
+calibration's own units. Dragging only previews; releasing the slider or
 typing a value keeps it, as one undo step, and it is saved with the wheel. 0 means not set.
 
 A constant delay between the encoder and the cameras goes in the wheel's **Encoder offset**, in

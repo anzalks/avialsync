@@ -483,3 +483,21 @@ def test_a_typed_diameter_is_kept_and_zero_clears_it(window: MainWindow, monkeyp
 
     field.spin.setValue(0.0)
     assert window.wheels.get("wheel").bar_diameter is None
+
+
+def test_a_typed_diameter_is_in_the_measured_radius_units(window: MainWindow, monkeypatch) -> None:
+    """The reported case: 12.5 cm measured, 172.9 fitted; 0.3 cm must not draw 13x too thin."""
+    place(window, [0, 1], WheelSpec("wheel", 36, radius=10.0, units="cm"), monkeypatch)
+    window.wheel_panel._accept.click()
+    wheel = window.wheels.get("wheel")
+    scale = wheel.geometry.radius / 10.0
+    assert scale == pytest.approx(10.0, rel=0.02), "the clicks' radius, ten times the typed one"
+    field = window.wheel_panel._rows["wheel"].diameter
+    spacing = 2 * wheel.geometry.radius * np.sin(np.pi / 36)
+    assert field.spin.maximum() == pytest.approx(spacing / scale, rel=1e-3), "a slider in cm"
+
+    field.spin.setValue(0.5)
+
+    assert window.wheels.get("wheel").bar_diameter == pytest.approx(0.5)
+    assert wheel_display.scene(window, 0.0)[0][2] == pytest.approx(0.5 * scale)
+    assert "1 cm = " in window.wheel_panel._rows["wheel"].fit.text()

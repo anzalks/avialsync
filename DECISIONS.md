@@ -4782,3 +4782,20 @@ is a band exactly one diameter wide, shaded dark at the edges and light down the
 closed by end faces drawn as ellipses whose short axis is the diameter times how far the bar
 points toward the viewer. Bars are painted back to front, so a nearer bar covers a farther one.
 The bar diameter, its slider and its storage are unchanged from D-128.
+
+---
+
+## 2026-09 · D-130 · A typed bar diameter is a real length, scaled by the wheel itself
+
+With a measured radius of 12.5 cm and a fitted radius of 172.9 calibration units, a 3 mm bar typed
+as 0.3 drew 14 times too thin. D-128 took the diameter in calibration units, and D-123 builds the
+wheel from the radius the clicks imply whenever a typed one contradicts them. The user had to
+type calibration-space numbers, which looked "much too high" against a ruler.
+
+The two radii are the same length in two unit systems, so their ratio converts any length the
+user types. `Wheel.world_per_unit` (fitted ÷ measured radius; 1 with no measured radius) scales
+the stored `bar_diameter`, which is now in the measured radius's units, into the space the wheel
+is drawn in. The slider's range is the bar spacing in those units, the box shows four
+significant figures, and the fit report names the ratio ("1 cm = 13.8 calibration units"). A
+diameter saved under D-128 was in calibration units and must be set again. When the measured
+radius was used in the fit, the ratio is 1 and nothing changes.

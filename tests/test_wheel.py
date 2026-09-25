@@ -347,3 +347,12 @@ def test_diameter_steps_merge_into_one_undo_step() -> None:
         SetWheelCommand("wheel", thin, thick).merge_with(SetWheelCommand("wheel", thick, refit))
         is None
     ), "a re-fit after it stays its own step"
+
+
+def test_a_measured_radius_converts_typed_lengths_into_calibration_units() -> None:
+    """Radius 10 entered, 100 fitted: one entered unit is ten calibration units (D-130)."""
+    fit = fit_wheel(WheelSpec("wheel", 36), clicks_for([0, 1]), CAMERAS)
+    measured = Wheel(WheelSpec("wheel", 36, 10.0, "cm"), 7, clicks_for([0, 1]), fit)
+    assert measured.world_per_unit == pytest.approx(fit.geometry.radius / 10.0)
+    unmeasured = dataclasses.replace(measured, spec=WheelSpec("wheel", 36))
+    assert unmeasured.world_per_unit == 1.0, "no measured radius: typed as calibration units"

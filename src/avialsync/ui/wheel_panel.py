@@ -240,8 +240,11 @@ class _WheelRow(QFrame):
         geometry = wheel.geometry
         # Up to the gap between neighbouring bar centres: bars thicker than
         # that would overlap, so no real wheel is past the end of the slider.
+        # In the units the user types in, so converted back from the fit's.
         spacing = 2.0 * geometry.radius * math.sin(math.pi / geometry.bar_count)
-        self.diameter.show_value(wheel.bar_diameter, spacing, wheel.spec.units)
+        self.diameter.show_value(
+            wheel.bar_diameter, spacing / wheel.world_per_unit, wheel.spec.units
+        )
 
 
 class WheelPanel(QGroupBox):

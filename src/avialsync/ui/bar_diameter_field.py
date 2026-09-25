@@ -10,6 +10,8 @@ typing a value, commits it.
 
 from __future__ import annotations
 
+import math
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDoubleSpinBox, QHBoxLayout, QSlider, QWidget
 
@@ -43,7 +45,6 @@ class BarDiameterField(QWidget):
             tr("Slide until the drawn bars are as thick as the real ones in the video")
         )
         self.spin = QDoubleSpinBox(self)
-        self.spin.setDecimals(2)
         self.spin.setKeyboardTracking(False)
         self.spin.setSpecialValueText(tr("Not set"))
         self.spin.setAccessibleName(tr("Bar diameter"))
@@ -69,6 +70,9 @@ class BarDiameterField(QWidget):
         for widget in (self.slider, self.spin):
             widget.blockSignals(True)
         try:
+            # Four significant figures of the range: 0.1 mm on a cm scale,
+            # 0.01 on a mm one, rather than two decimals whatever the units.
+            self.spin.setDecimals(max(2, 3 - math.floor(math.log10(self._maximum))))
             self.spin.setRange(0.0, self._maximum)
             self.spin.setSingleStep(self._maximum / 100.0)
             self.spin.setSuffix(f" {units}" if units else "")

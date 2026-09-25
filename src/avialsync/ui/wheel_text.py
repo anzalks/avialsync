@@ -62,8 +62,10 @@ def describe_fit(wheel_spec: WheelSpec, fit: WheelFit, clicks: Sequence[EndClick
     ):
         parts.append(
             tr(
-                "Built from the radius your clicks imply, not the {typed:.1f}{units} entered."
-            ).format(typed=typed, units=units)
+                "Built from the radius your clicks imply, not the {typed:.1f}{units} entered. "
+                "Lengths you enter, such as the bar diameter, are scaled by that ratio: "
+                "1{units} = {ratio:.3g} calibration units."
+            ).format(typed=typed, units=units, ratio=geometry.radius / typed)
         )
     if fit.implied_radius is not None and wheel_spec.radius:
         share = abs(fit.implied_radius - wheel_spec.radius) / wheel_spec.radius

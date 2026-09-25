@@ -286,9 +286,10 @@ class Wheel:
     binding: EncoderBinding | None = None
     #: The calibration file the clicks were triangulated with.
     calibration: str = ""
-    #: Each bar's diameter, in the calibration's units, set by eye with the
-    #: Wheels tab's slider; None until then. Drawn as cylinders in the 3D view
-    #: only. Display only: the fit is to bar centre lines and does not use it.
+    #: Each bar's diameter, set with the Wheels tab's slider; None until then.
+    #: In the same units as the measured radius when one was entered -- real
+    #: lengths -- else in the calibration's; see :attr:`world_per_unit`. Drawn
+    #: as cylinders in the 3D view only. The fit does not use it (D-128, D-130).
     bar_diameter: float | None = None
 
     @property
@@ -300,6 +301,21 @@ class Wheel:
     def geometry(self) -> WheelGeometry:
         """The fitted geometry."""
         return self.fit.geometry
+
+    @property
+    def world_per_unit(self) -> float:
+        """Calibration units per unit of length the user enters (D-130).
+
+        A radius measured on the rig is a real length, and the fitted radius
+        is the same length in the calibration's units, so their ratio converts
+        every other length the user types -- the bar diameter -- into the space
+        the wheel is drawn in. With no measured radius there is nothing to
+        convert with, and a typed length is taken as calibration units.
+        """
+        measured = self.spec.known_radius
+        if measured is None or self.geometry.radius <= 0:
+            return 1.0
+        return self.geometry.radius / measured
 
 
 class WheelStore:
