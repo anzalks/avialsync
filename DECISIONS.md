@@ -4836,3 +4836,96 @@ also discovers saved wheels in the recording's `pose-3d/` directory through a re
 the nearest shared parent of open cameras names that folder for generic recordings. Existing
 in-memory wheels take precedence over a read that finishes later. Placing a new wheel still
 requires calibrated camera views and the user's clicks; tracking is optional.
+
+---
+
+## 2026-09 · D-133 · The recovery snapshot is unconditional; the launch-time offer is a preference
+
+**Context:** D-105 completed the launch bar D-089 specified, and the bar then appeared at nearly
+every launch. That is not a bug in the rule: `write_recovery` runs on every quit, and a dismissal is
+remembered per snapshot *content* (D-118), so work that changed since the last dismissal is
+correctly new work and correctly a new offer. For anyone who habitually works without saving —
+which is the user this whole feature exists for — the result is a sticky notification to clear by
+hand at the start of every session, in the one strip that also carries failures. A strip that has to
+be cleared before it can be read is the surface D-107 built, worn down.
+
+**Decision:** the snapshot stays unconditional. The *bar* is a declared preference,
+`storage/offer_recovery_at_launch`, **default off**, and the snapshot is reachable at any time from
+**File → Recover Unsaved Work…**, which greys out with its reason when there is nothing to recover.
+`MainWindow.__init__` still reads the snapshot on every launch and holds it in `_pending_recovery`;
+what the preference gates is only whether a message is posted. So the preference trades
+discoverability, not protection, and its help text says exactly that — the dialog renders help text
+as both the tooltip and an inline note, so there is nowhere for the distinction to hide.
+
+The dead switch it replaces is the other half of the decision. `storage/keep_recovery` shipped with
+WP-7 and no reader in `src/`, so a user could turn off the safety net and lose nothing but their
+confidence in the dialog; worse, honouring it as labelled would have contradicted D-089's
+"written unconditionally". A preference that cannot be honoured is removed, not implemented.
+
+**Alternatives rejected:** remembering the dismissal per *session* rather than per snapshot content
+(it silences genuinely new unsaved work, which is the one thing the fingerprint exists to avoid);
+making the bar transient so it self-clears (it is the only in-session route back to the work, and
+D-107 made sticky-vs-transient a statement about whether a message can be missed); gating the
+snapshot write instead of the message (the user asked to be un-notified, not unprotected, and
+D-089 forbids it); leaving the bar mandatory and the snapshot unreachable from a menu (that is the
+status quo, and it is why the preference was wanted).
+
+**Consequences:** `MainWindow` holds `_pending_recovery`, read once at launch rather than re-read
+by the File command's precondition — preconditions are re-answered on every source change and every
+menu that opens, and file IO does not belong on those events (rule 3). Every
+`recovery.clear_recovery()` in `session_controller` is now followed by `forget_pending_recovery`, or
+the held offer would outlive its file and put pre-reset work back over a workspace the user emptied
+on purpose. `tests/test_hot_exit.py` turns the preference on for every assertion about the strip and
+covers the quiet launch, the File command, and that a reset stops it offering.
+
+---
+
+## 2026-09 · D-134 · A success never queues behind another success
+
+**Context:** dropping three tracking files posted three "Imported <name>" lines. The strip shows one
+message and queues the rest (D-107), and each success waits out the six-second timer of the one
+before it, so a routine three-file import held the notification strip for eighteen seconds, showed
+"+2 more", and offered a Dismiss button for work that had already finished and was already listed
+in the sidebar. The queue exists so an unread *failure* cannot be evicted. Applying it to successes
+turned the one surface that must be worth reading into a surface that has to be cleared.
+
+**Decision:** only the newest success is kept. A success posted while another success is showing
+replaces it; a success posted while a failure holds the strip waits, but it replaces any success
+already waiting. Failures and offers are untouched — rule 1 still forbids displacing them, and no
+sticky message is ever dropped for another.
+
+**Alternatives rejected:** coalescing into "Imported 3 files" (it needs the strip to know which
+messages are the same *kind*, which is a second authority on message identity beside `same_as`);
+shortening the timer (it makes every success harder to read to fix a problem only bursts have);
+dropping import successes entirely (the feedback surface is the contract that long work reports
+somewhere, and the Tasks panel is not where a user looks for a result).
+
+**Consequences:** `NotificationStrip._forget_queued_successes` runs when a transient message is
+queued behind a sticky one. `tests/test_feedback_surface.py` covers the burst, the burst behind a
+failure, and that two failures with a success between them still both arrive.
+
+---
+
+## 2026-09 · D-135 · Preferences stays in the File menu on every platform
+
+**Context:** D-022.3 required a Preferences action to carry `PreferencesRole`, and it did. On macOS
+that role moves the item out of the File menu and into the *application* menu — which is named
+after the running process. AvialSync is a Python application people start from a conda env or a
+terminal, so the application menu reads "python", while the File menu, the command palette, the
+user guide and this repository's own documentation all say File → Preferences…. The result is a
+settings dialog the user cannot find in the menu it is documented to be in.
+
+**Decision:** the Preferences action carries `MenuRole.NoRole` and lives in the File menu on all
+three platforms, keeping `StandardKey.Preferences` (Cmd+, / Ctrl+,). Quit and About keep `QuitRole`
+and `AboutRole`: those two are in the application menu on macOS whatever it is called, they are
+where a Mac user's hand goes, and `QuitRole` is a notarization requirement (D-022.3).
+
+**Alternatives rejected:** renaming the application menu (on macOS it comes from the bundle, so it
+is right in a packaged `.app` and unreachable from a `pip install`, which is the case that fails);
+duplicating the item in both menus (two actions for one command, which rule 15 forbids); branching
+on whether the process is bundled (a platform branch whose behaviour the documentation then cannot
+state in one sentence).
+
+**Consequences:** `tests/test_interaction_standard.py` asserts the item is in the File menu, that
+its role is `NoRole`, and that Quit and About keep theirs. This supersedes the Preferences half of
+D-022.3, whose original line deferred the question because no settings dialog existed yet.

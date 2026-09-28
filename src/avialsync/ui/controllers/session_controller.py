@@ -26,6 +26,7 @@ from avialsync.core.session import (
     TriggerEntry,
     VideoEntry,
 )
+from avialsync.core.settings_schema import setting_for
 from avialsync.ui import recovery
 from avialsync.ui.controllers import (
     corrections_controller,
@@ -34,6 +35,7 @@ from avialsync.ui.controllers import (
 )
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
+from avialsync.ui.preferences_dialog import read_setting
 from avialsync.ui.recent_files import add_recent, get_recent
 
 if TYPE_CHECKING:
@@ -217,6 +219,7 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
         # pointless restore on the next launch and train them to dismiss the
         # bar without reading it.
         recovery.clear_recovery()
+        forget_pending_recovery(window)
         window._mark_session_saved()
         if not is_autosave:
             window.transport.set_status("")
@@ -323,6 +326,7 @@ def reset_session(window: MainWindow) -> None:
     # replace it with an empty workspace would destroy genuinely unsaved work
     # from before the reset. Clear it, do not overwrite it (D-089).
     recovery.clear_recovery()
+    forget_pending_recovery(window)
 
     for worker in list(window._video_load_jobs.values()):
         _disconnect(getattr(worker, "opened", None), window._on_video_opened)
@@ -583,8 +587,59 @@ def autosave(window: MainWindow) -> None:
     window._start_session_save(window._session_path, is_autosave=True)
 
 
+#: Whether the launch-time notification bar is posted at all. Off by default:
+#: the snapshot is written either way, so the choice is about being told, not
+#: about being protected (D-133).
+_OFFER_AT_LAUNCH = setting_for("storage/offer_recovery_at_launch")
+
+
+def offers_recovery_at_launch() -> bool:
+    """Whether the user asked to be told about unsaved work when launching."""
+    return bool(read_setting(_OFFER_AT_LAUNCH)) if _OFFER_AT_LAUNCH is not None else False
+
+
+def note_pending_recovery(window: MainWindow) -> bool:
+    """Record what unsaved work is available, and return whether there is any.
+
+    Read once, at launch, and held on the window: the File command's precondition
+    is re-answered on every source change and every menu that opens, and a
+    precondition that stats and parses a file each time is the kind of IO that
+    does not belong on those events (rule 3). The clear sites drop it with the
+    snapshot, so the command greys out when there is nothing behind it.
+    """
+    window._pending_recovery = recovery.pending_recovery()
+    window._refresh_action_availability()
+    return window._pending_recovery is not None
+
+
+def forget_pending_recovery(window: MainWindow) -> None:
+    """Drop the held snapshot once it no longer describes recoverable work.
+
+    Called beside every ``recovery.clear_recovery()``: a save, a reset, or a
+    completed restore all mean the File command must stop offering it, and an
+    offer that outlives its file would put old work back over the current
+    workspace.
+    """
+    window._pending_recovery = None
+    window._refresh_action_availability()
+
+
+def recover_unsaved_work(window: MainWindow) -> None:
+    """Restore the held snapshot, on the user's explicit request (D-133).
+
+    This is what keeps the launch-time bar optional. With the offer off, the
+    snapshot is still written on every quit and this command is how it is
+    reached, so turning the notification off costs discoverability and not the
+    work itself.
+    """
+    snapshot = window._pending_recovery
+    if snapshot is None:
+        return
+    restore_pending_recovery(window, snapshot)
+
+
 def offer_pending_recovery(window: MainWindow) -> bool:
-    """Offer unsaved work from a previous run, if there is any. Non-modal.
+    """Offer unsaved work from a previous run, if asked to. Non-modal.
 
     The other half of D-089. The snapshot has been written on every quit since
     that decision landed, but nothing ever offered it back, so the work was
@@ -597,9 +652,18 @@ def offer_pending_recovery(window: MainWindow) -> bool:
     without deleting the snapshot. Law 1 forbids blocking the user, and a
     launch-time "restore your work?" modal is exactly that. Dismissing
     remembers this version so it does not reappear on the next launch.
+
+    Silent unless the user turned the offer on (D-133). Every quit writes a
+    fresh snapshot, and a dismissal is remembered per snapshot content, so work
+    that changed since the last dismissal is correctly a new offer -- which for
+    anyone who works without saving is an offer at every launch, in a strip they
+    then clear by hand. The snapshot is always written and **File → Recover
+    Unsaved Work** always reaches it; only the unrequested bar is opt-in.
     """
-    snapshot = recovery.pending_recovery()
+    snapshot = window._pending_recovery if note_pending_recovery(window) else None
     if snapshot is None:
+        return False
+    if not offers_recovery_at_launch():
         return False
 
     when = time.strftime("%H:%M on %d %b", time.localtime(snapshot.recovered_at))
@@ -637,6 +701,7 @@ def restore_pending_recovery(window: MainWindow, snapshot: recovery.RecoverySnap
     window._session_path = Path(snapshot.session_path) if snapshot.session_path else None
     window._restore_session(state)
     recovery.clear_recovery()
+    forget_pending_recovery(window)
     # Restored work is unsaved work: it went back to the window, not to a file.
     window.document.mark_dirty()
     window.notifications.show_warning(
@@ -666,6 +731,7 @@ def _write_recovery_snapshot(window: MainWindow) -> bool:
         return False
     if recovery.is_empty_state(state):
         recovery.clear_recovery()
+        forget_pending_recovery(window)
         return False
     return recovery.write_recovery(state, None)
 

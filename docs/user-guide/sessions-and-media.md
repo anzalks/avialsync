@@ -103,24 +103,30 @@ something else.
   could not read rather than refusing the whole thing.
 - **Quitting always quits.** There is no "save your changes?" prompt in front of Open, a drag and
   drop, Open Recent, or the close button, and a wedged import cannot trap you in a window that
-  refuses to close. A recovery snapshot is written on quit and on each autosave instead, and the
-  next launch offers it back: a line in the notification strip naming when the work is from, with a
-  **Restore** button beside it. Restoring loads it as an unsaved session, so the title keeps its
-  `[*]` until you save it somewhere you chose. **Dismissing the offer declines it without deleting
-  anything** — the snapshot stays until a later quit replaces it in the ordinary way. The autosave
-  interval and whether a snapshot is kept at all are under **Preferences → Storage**.
+  refuses to close. A recovery snapshot is written on quit and on each autosave instead.
+  **File → Recover Unsaved Work…** loads it back whenever you want it — greyed out, with the reason
+  in its tooltip, when there is nothing to recover. Recovering loads the work as an unsaved session,
+  so the title keeps its `[*]` until you save it somewhere you chose.
+- **A launch is quiet unless you ask otherwise.** Because every quit writes a fresh snapshot, being
+  told about it at launch means a notification to clear most times you start the application, so
+  **Offer unsaved work at launch** under **Preferences → Storage** is off by default. Turning it on
+  adds a line to the notification strip naming when the work is from, with a **Restore** button
+  beside it; **dismissing that offer declines it without deleting anything**. Either way the
+  snapshot is written, kept, and reachable from the File menu — the preference changes whether you
+  are told, not whether you are protected.
 - **Long work is never modal.** Imports, proxy generation, and exports report in the status area and
   the **Tasks** tab, with a cancel where the work supports one, and you can keep using the window
   while they run.
 
 ## Preferences
 
-**File → Preferences…** collects everything configurable in one dialog, generated from the
+**File → Preferences…** — in the File menu on Windows, macOS and Linux alike, and on ⌘, / Ctrl+, —
+collects everything configurable in one dialog, generated from the
 application's own settings list, so each entry carries its explanation and its own **Reset to
 default**. It holds the theme and font size, the colour-vision-safe trace palette, whether the A–B
 range loops, live plot presentation, whether body-part names are drawn by default, whether display
-levels for high-bit-depth video are chosen automatically, the autosave interval, and whether a
-recovery snapshot is kept.
+levels for high-bit-depth video are chosen automatically, the autosave interval, and whether unsaved
+work from a previous run is offered at launch.
 
 The View menu still offers theme, font size, and time display directly; they are the same settings,
 not a second copy.

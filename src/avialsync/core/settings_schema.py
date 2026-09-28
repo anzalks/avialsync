@@ -184,14 +184,17 @@ SETTINGS: tuple[Setting, ...] = (
         ),
     ),
     Setting(
-        key="storage/keep_recovery",
-        label="Keep a recovery snapshot",
+        key="storage/offer_recovery_at_launch",
+        label="Offer unsaved work at launch",
         group="Storage",
-        default=True,
+        default=False,
         kind=bool,
         help_text=(
-            "Preserve unsaved work so closing never loses it. Turning this off "
-            "means an unsaved session is gone when the window closes."
+            "Off by default, so the notification strip starts empty. The recovery "
+            "snapshot is still written on every quit either way — nothing is lost, "
+            "and unsaved work from the last run is always reachable from "
+            "File → Recover Unsaved Work. Turn this on to be told about it in "
+            "the notification strip at the next launch instead of going looking."
         ),
     ),
 )

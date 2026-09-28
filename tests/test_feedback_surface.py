@@ -417,6 +417,62 @@ def test_a_failure_does_not_wait_out_a_success(qapp: QApplication, qtbot) -> Non
     assert strip.pending_count == 0, "the success is dropped, not queued behind the error"
 
 
+def test_a_burst_of_successes_is_one_line(qapp: QApplication, qtbot) -> None:
+    """Three dropped files were three messages, each waiting out the last (D-134).
+
+    The strip then carried a Dismiss button for work that had already finished
+    and was already visible in the sidebar, for eighteen seconds.
+    """
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+
+    strip.show_success("Imported FaceCam_eks.csv")
+    strip.show_success("Imported FrontCam_eks.csv")
+    strip.show_success("Imported SideCam_eks.csv")
+
+    assert strip.message == "Imported SideCam_eks.csv"
+    assert strip.pending_count == 0, "successes must not queue behind each other"
+    assert strip.is_sticky is False, "the last one still dismisses itself"
+
+
+def test_successes_do_not_pile_up_behind_a_failure(qapp: QApplication, qtbot) -> None:
+    """A failure on the strip must not turn every later success into a click.
+
+    Rule 1 still holds -- the failure is not displaced -- but only the newest
+    success waits behind it.
+    """
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_error("Could not import sensor.csv", details="OSError")
+
+    strip.show_success("Imported FaceCam_eks.csv")
+    strip.show_success("Imported SideCam_eks.csv")
+
+    assert strip.message == "Could not import sensor.csv"
+    assert strip.pending_count == 1
+
+    strip.clear()
+
+    assert strip.message == "Imported SideCam_eks.csv"
+    assert strip.pending_count == 0
+
+
+def test_a_failure_behind_a_failure_still_waits_its_turn(qapp: QApplication, qtbot) -> None:
+    """Coalescing is for successes only: no failure is ever dropped for another."""
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_error("First failure")
+    strip.show_success("Imported FaceCam_eks.csv")
+    strip.show_error("Second failure")
+
+    assert strip.pending_count == 2
+
+    strip.clear()
+    strip.clear()
+
+    assert strip.message == "Second failure"
+
+
 def test_dismissing_reveals_the_next_message(qapp: QApplication, qtbot) -> None:
     strip = NotificationStrip()
     qtbot.addWidget(strip)

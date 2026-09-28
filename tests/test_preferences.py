@@ -101,7 +101,7 @@ def test_a_written_setting_reads_back() -> None:
 
 def test_a_bool_stored_as_a_string_reads_as_a_bool() -> None:
     """QSettings returns strings on some platforms; "false" is otherwise true."""
-    setting = setting_for("storage/keep_recovery")
+    setting = setting_for("palette/colour_vision_safe")
     QSettings("AvialSync", "AvialSync").setValue(setting.key, "false")
     assert read_setting(setting) is False
 
@@ -123,7 +123,7 @@ def test_every_setting_gets_an_editor(dialog: PreferencesDialog) -> None:
 @pytest.mark.parametrize(
     ("key", "widget_type"),
     [
-        ("storage/keep_recovery", QCheckBox),
+        ("storage/offer_recovery_at_launch", QCheckBox),
         ("theme/preference", QComboBox),
         ("storage/autosave_minutes", QSpinBox),
     ],
@@ -133,16 +133,16 @@ def test_the_editor_matches_the_type(dialog: PreferencesDialog, key, widget_type
 
 
 def test_changing_an_editor_stores_it(dialog: PreferencesDialog) -> None:
-    editor = dialog._editors["storage/keep_recovery"]
-    editor.setChecked(False)
-    assert read_setting(setting_for("storage/keep_recovery")) is False
+    editor = dialog._editors["storage/offer_recovery_at_launch"]
+    editor.setChecked(True)
+    assert read_setting(setting_for("storage/offer_recovery_at_launch")) is True
 
 
 def test_changing_an_editor_reports_it(dialog: PreferencesDialog, qtbot) -> None:
     """The window applies a preference immediately rather than at close."""
     with qtbot.waitSignal(dialog.setting_changed, timeout=1000) as blocker:
-        dialog._editors["storage/keep_recovery"].setChecked(False)
-    assert blocker.args == ["storage/keep_recovery"]
+        dialog._editors["storage/offer_recovery_at_launch"].setChecked(True)
+    assert blocker.args == ["storage/offer_recovery_at_launch"]
 
 
 def test_reset_restores_one_default(dialog: PreferencesDialog) -> None:
@@ -166,10 +166,10 @@ def test_reset_all_restores_everything(dialog: PreferencesDialog) -> None:
 
 def test_reset_updates_the_visible_control(dialog: PreferencesDialog) -> None:
     """A control still showing the old value would lie about the setting."""
-    editor = dialog._editors["storage/keep_recovery"]
-    editor.setChecked(False)
-    dialog._reset(setting_for("storage/keep_recovery"))
-    assert editor.isChecked() is True
+    editor = dialog._editors["storage/offer_recovery_at_launch"]
+    editor.setChecked(True)
+    dialog._reset(setting_for("storage/offer_recovery_at_launch"))
+    assert editor.isChecked() is False
 
 
 # ── the report ───────────────────────────────────────────────────────

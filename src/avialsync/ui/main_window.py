@@ -103,6 +103,7 @@ from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_fo
 from avialsync.ui.pane_proportions import PaneProportions
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.readout_panel import ReadoutPanel
+from avialsync.ui.recovery import RecoverySnapshot
 from avialsync.ui.shortcut_overrides import apply_overrides
 from avialsync.ui.splitter import PaneSplitter
 from avialsync.ui.time_format import TimeDisplayMode
@@ -245,6 +246,11 @@ class MainWindow(QMainWindow):
 
         self._session_path: Path | None = None
         self._session_generation = 0
+        #: Unsaved work found in the app-data snapshot at launch, held so that
+        #: File → Recover Unsaved Work can enable itself without re-reading the
+        #: file on every precondition sweep (D-133). Set before `_setup_menu`,
+        #: which registers that precondition.
+        self._pending_recovery: RecoverySnapshot | None = None
 
         # The one place that knows whether this session has unsaved changes
         # (D-087). Dirty state, undo, and the autosave trigger all derive from
@@ -744,9 +750,10 @@ class MainWindow(QMainWindow):
         # Startup diagnostics (deferred so window shows first)
         QTimer.singleShot(500, self._run_diagnostics)
 
-        # Unsaved work from a previous run, offered rather than imposed. Posting
-        # is cheap -- one line in the notification strip; the restore itself
-        # only happens if the user asks for it (D-089).
+        # Unsaved work from a previous run is read once here and held, which is
+        # what enables File → Recover Unsaved Work. The notification bar on top
+        # of that is opt-in and off by default, so a launch is quiet unless the
+        # user asked to be told (D-089, D-133).
         session_controller.offer_pending_recovery(self)
 
         # Start player tick
@@ -1387,6 +1394,9 @@ class MainWindow(QMainWindow):
     def _autosave(self) -> None:
         session_controller.autosave(self)
 
+    def _recover_unsaved_work(self) -> None:
+        session_controller.recover_unsaved_work(self)
+
     def _autosave_before_close(self) -> None:
         session_controller.autosave_before_close(self)
 
@@ -1850,6 +1860,20 @@ class MainWindow(QMainWindow):
         act.triggered.connect(self._open_session)
         _reg(act, "File")
 
+        # The way to the recovery snapshot that does not depend on a launch-time
+        # notification. The snapshot is written on every quit whether or not the
+        # bar is offered, and it is not an `.avv` file, so Open Session cannot
+        # read it -- without this command, turning the offer off would put
+        # unsaved work out of reach (D-133).
+        act = file_menu.addAction(tr("Recover Unsaved Work…"))
+        act.triggered.connect(self._recover_unsaved_work)
+        _reg(act, "File")
+        self._require(
+            act,
+            lambda: self._pending_recovery is not None,
+            tr("No unsaved work from a previous run was found to recover."),
+        )
+
         file_menu.addSeparator()
 
         self._act_export_changes = file_menu.addAction(tr("Export Changes…"))
@@ -1904,11 +1928,15 @@ class MainWindow(QMainWindow):
 
         file_menu.addSeparator()
 
-        # Preferences — macOS PreferencesRole moves this to the app menu, the
-        # same treatment About and Quit already get (D-022.3).
+        # Preferences stays in the File menu on every platform (D-135).
+        # `PreferencesRole` moved it into the macOS application menu, which is
+        # named after the running process -- so anyone who starts AvialSync
+        # from a terminal or a conda env looks in "File", is told by our own
+        # documentation to look in "File", and finds it under a menu called
+        # "python". Cmd+, still works, and About and Quit keep their roles.
         act = file_menu.addAction(tr("Preferences…"))
         act.setShortcut(QKeySequence(QKeySequence.StandardKey.Preferences))
-        act.setMenuRole(QAction.MenuRole.PreferencesRole)
+        act.setMenuRole(QAction.MenuRole.NoRole)
         act.triggered.connect(self._show_preferences)
         _reg(act, "File")
 

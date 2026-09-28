@@ -24,6 +24,13 @@ Two rules make that impossible rather than unlikely:
    something the user asked for and already knows, so an incoming sticky
    message takes the strip from it immediately rather than waiting out its
    timer.  Successes queue behind stickies, never the other way round.
+3. **A success never queues behind another success (D-134).**  Dropping three
+   files posted three "Imported <name>" lines, each waiting out the one before
+   it, so a routine import held the strip for the better part of half a minute
+   and offered a Dismiss button for work that was already finished and already
+   visible in the sidebar.  Only the newest success is kept -- shown if the
+   strip is free, waiting if a failure holds it -- so a burst of successes is
+   one line, not a queue to clear.
 
 The pending count is shown beside the message, so a queue is never a silent
 one: the user can see that dismissing this reveals another.
@@ -182,14 +189,26 @@ class NotificationStrip(QWidget):
 
         if self._current is None:
             self._show(posted)
-        elif self._current.is_transient and not posted.is_transient:
-            # Rule 2: a self-dismissing success does not make a failure wait.
-            # The success is dropped rather than requeued -- it reports work
-            # the user asked for and has already seen succeed.
+        elif self._current.is_transient:
+            # Rules 2 and 3: a self-dismissing success makes nothing wait --
+            # not a failure, and not the next success either. It is dropped
+            # rather than requeued, because it reports work the user asked for
+            # and has already seen succeed.
             self._show(posted)
         elif len(self._queue) < _MAX_QUEUED:
+            if posted.is_transient:
+                self._forget_queued_successes()
             self._queue.append(posted)
         self._refresh_pending_count()
+
+    def _forget_queued_successes(self) -> None:
+        """Keep only the newest success waiting behind a sticky message.
+
+        A failure on the strip must not turn every import that finished while
+        it sat there into a line the user dismisses one at a time. The failure
+        itself is untouched: rule 1 still forbids displacing it.
+        """
+        self._queue = deque(pending for pending in self._queue if not pending.is_transient)
 
     def _already_says(self, posted: _Pending) -> bool:
         """Whether this message is showing or already waiting."""

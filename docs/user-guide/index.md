@@ -26,11 +26,13 @@
 - **The line at the bottom of the window** is where results appear: a finished export, a generated
   proxy, a file that could not be read. Successes clear themselves; anything you need to act on
   stays until you dismiss it. If more than one arrives at once, a count beside the message says how
-  many are waiting and Dismiss brings up the next, so nothing is lost by being second. Failures
-  keep their technical detail behind **Show details**.
-- **Unsaved work from a previous run** is offered once when a recoverable snapshot is found.
-  **Restore** opens it; **Dismiss** hides that version on later launches while keeping its safety
-  copy. If you later leave different unsaved work, a new offer can appear.
+  many are waiting and Dismiss brings up the next, so nothing is lost by being second. Successes do
+  not queue: importing three files leaves one line, not three to clear. Failures keep their
+  technical detail behind **Show details**.
+- **Unsaved work from a previous run** is kept in a recovery snapshot and loaded by
+  **File → Recover Unsaved Work…**. Being told about it at launch instead is a preference
+  (**Preferences → Storage → Offer unsaved work at launch**, off by default): with it on, **Restore**
+  opens the work and **Dismiss** hides that version on later launches while keeping its safety copy.
 - **A command that cannot run yet is greyed out, with the reason in its tooltip.** Nothing accepts
   a click and then tells you it could not act on it.
 

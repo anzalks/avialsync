@@ -517,8 +517,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/video_overlay.py` | Live pose overlay with named markers; resolves each point once for both painting and hit-testing (D-099) | `PaintCanvas`, `OverlayTrack`, `ResolvedPoint` |
 | `ui/point_edit_tool.py` | The "Fix Tracker" drag: hit test, grab, clamp, handles. `set_edit_mode()` makes markers draggable and emits `point_moved(PointMove)` — **it never writes the store itself** (D-099). `set_place_mode()` turns a left click into `marker_clicked(x, y)` for marker and wheel placement (D-112, D-113) | `PointEditMixin`, `point_at()`, `set_edit_mode()`, `set_place_mode()` |
 | `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown. **Every job now actually goes through it** — the four export registries, the import, the proxy and the video probes were migrated in D-107, and a raw `QThread` in `src/` fails `tests/test_feedback_surface.py` | `JobManager`, `Job`, `JobState`; reached through `MainWindow._run_job` |
-| `ui/feedback/notifications.py` | One message shown, the rest queued behind it (D-107). A sticky message is never displaced; a transient success never holds up a failure. The waiting count is shown, so a queue is never silent. An optional `on_dismiss` callback is distinct from the named action (D-118) | `NotificationStrip.show_success/show_warning/show_error()`, `clear()`, `clear_all()`, `pending_count` |
-| `ui/recovery.py` | App-data recovery snapshot and a fingerprint of the last dismissed offer. Dismiss preserves the snapshot and suppresses that state on later launches; changed work gets a new offer (D-118) | `write_recovery()`, `pending_recovery()`, `dismiss_recovery()`, `clear_recovery()` |
+| `ui/feedback/notifications.py` | One message shown, the rest queued behind it (D-107). A sticky message is never displaced; a transient success never holds up a failure, and never queues behind another success — only the newest one is kept, so a three-file import is one line rather than eighteen seconds of them (D-134). The waiting count is shown, so a queue is never silent. An optional `on_dismiss` callback is distinct from the named action (D-118) | `NotificationStrip.show_success/show_warning/show_error()`, `clear()`, `clear_all()`, `pending_count` |
+| `ui/recovery.py` | App-data recovery snapshot and a fingerprint of the last dismissed offer. Dismiss preserves the snapshot and suppresses that state on later launches; changed work gets a new offer (D-118). The snapshot is always written; only the launch-time bar is a preference, and File → Recover Unsaved Work reaches the snapshot without it (D-133) | `write_recovery()`, `pending_recovery()`, `dismiss_recovery()`, `clear_recovery()` |
 | `ui/feedback/text_dialog.py` | The one modal for text the user asked to see — scrolling, selectable, copyable. Replaced five ad-hoc `QMessageBox`es that disagreed about both (D-107) | `TextDialog`, `show_text()` |
 | `ui/feedback/error_presenter.py` | Typed exception → title + cause + named recoveries. `ExportError` is the newest entry; the enumeration test fails if a `core/errors.py` type has no presenter | `present()`, `presentation_for()`, `PresentedError`, `Recovery` |
 | `ui/ui_heartbeat.py` | Measures UI-thread stalls and reports them | `UiHeartbeat` |
@@ -538,7 +538,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/diagnostics.py` | Startup probe (hardware-decode support, disk speed) — async daemon thread | `run_startup_diagnostics()`, `probe_hwdec()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
 | `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable`. `SessionLayout.warnings` carries what a scan could not lay out, so a dropped recording is never silent (D-085). `TimeSeriesSource.pose_roles()` offers direct-import 2D/3D uses (D-132) | `SessionSource`, `SessionLayout` (incl. `warnings`), `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
-| `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files | `build_session_state()`, `restore_session()`, `start_session_save()` |
+| `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files. Also the recovery snapshot's UI side: `note_pending_recovery()` holds what a launch found, `offer_pending_recovery()` posts the opt-in bar, `recover_unsaved_work()` is the File command, `forget_pending_recovery()` drops the held offer beside every `clear_recovery()` (D-133) | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
 | `ui/snapshot_capture.py` | UI-thread capture for the snapshot figure (D-101): each camera re-rendered at its decoded resolution and cropped free of letterbox, the 3D pose re-projected, the whole channel stack rather than the scroll viewport | `capture_figure()`, `capture_pane_figure()`, `capture_video_tile()`, `capture_plot_image()`, `plot_aspect()` |
 | `ui/controllers/video_controller.py` | Bounded concurrent probes; serialized pane build (D-040); validates and installs loader-declared per-frame mappings (D-072) | `load_video()`, `create_video_pane()`, `_declared_exact_mapping()`, `MAX_VIDEO_PROBES` |
@@ -920,7 +920,12 @@ Verified against the tree, not inferred. Each has caused, or will cause, a wrong
    of the feature, so the snapshot was written faithfully and was unreachable. `MainWindow.__init__`
    calls `session_controller.offer_pending_recovery` now, and there is no Discard button — Dismiss
    keeps the only copy of unsaved work but records its content fingerprint in app data, so the same
-   work is not offered at every launch. Changed work gets a fresh offer (D-105, D-118).
+   work is not offered at every launch. Changed work gets a fresh offer (D-105, D-118). **The bar
+   itself is opt-in and off by default** (`storage/offer_recovery_at_launch`, D-133): every quit
+   writes a fresh snapshot and the fingerprint is per snapshot *content*, so anyone working without
+   saving got a legitimately new offer at nearly every launch. The snapshot is written and read
+   either way — `MainWindow._pending_recovery` holds what the launch found, and **File → Recover
+   Unsaved Work** restores it — so do not "fix" a quiet launch by posting the bar unconditionally.
 2. **Every layer drawn over video is reachable from View → Overlays** (WP-4, D-090).
    `PaintCanvas.set_point_labels_visible()` and `set_legend_visible()` were toggles with no
    production caller; they are driven by `ui/overlay_registry.py` now. Adding a new overlay means
@@ -1954,3 +1959,34 @@ bare name, so a reintroduction is caught in CI rather than in a warning nobody r
 cross-thread warnings. They were incidental to that failure — it was a separate race in the test —
 but the warnings were real, and four call sites had it: the trigger read, the changes export, and
 both session save and session load.
+
+### 33. A `QMenu` reached through `QAction.menu()` dies with the wrapper you drop (test-side)
+A helper that looks up a menu and returns its contents hands the caller objects whose owner it has
+already released:
+
+```python
+def _file_menu_actions(window):
+    for bar_act in window.menuBar().actions():
+        if bar_act.menu() and bar_act.text() == "File":
+            return list(bar_act.menu().actions())  # WRONG
+```
+
+The returned list is full of live-looking `QAction`s until the helper's frame goes away, and then
+every one of them answers `RuntimeError: Internal C++ object (QAction) already deleted` — because
+PySide deleted the real `QMenu` when the last Python wrapper referring to it was collected, and the
+actions went with it. Returning the menu alone is not enough either: it is the *owning action's*
+wrapper that keeps it alive, so `_file_menu()` in `tests/test_interaction_standard.py` returns
+`(bar_act, menu)` and the test holds both.
+
+It reads exactly like a torn-down window, which is the trap: the window is fine. Two unrelated
+symptoms in the same module were a genuine one — that fixture built a `MainWindow` without
+`qtbot.addWidget`, so pytest-qt never tore it down and the process **segfaulted at interpreter
+exit**, on code that predated the tests. Register every window with `qtbot`; it is not decoration.
+
+### 34. Preferences is in the File menu, and `PreferencesRole` is what took it away (D-135)
+`QAction.MenuRole.PreferencesRole` moves the item into the macOS *application* menu, which is named
+after the running process — "python" for anyone who starts AvialSync from a conda env, where the
+user guide, the command palette and the File menu all say File → Preferences…. The action carries
+`MenuRole.NoRole` for that reason and keeps `StandardKey.Preferences`. Quit and About keep
+`QuitRole` and `AboutRole` (D-022.3): those belong in the application menu whatever it is called,
+and `QuitRole` is a notarization requirement. Do not "restore" the role on the Preferences action.
