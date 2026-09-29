@@ -133,6 +133,40 @@ def _assert_no_stall_tail(samples: list[float], label: str) -> None:
     )
 
 
+#: A hard block -- the event loop stopping altogether -- on an otherwise calm
+#: machine.  Kept as a floor and never used alone: the heartbeat measures timer
+#: *lateness*, which is exactly what an over-subscribed machine produces while
+#: this application does nothing at all.  A run of the suite at load average 45
+#: failed this number with no defect behind it, and a test that fails for a
+#: reason outside the thing it names is a test people learn to re-run.
+_BLOCK_FLOOR_MS = 500.0
+
+#: How much worse than the machine's own idle jitter a working loop may be
+#: before it counts as blocking.  Twice: the shapes in
+#: `test_the_stall_detector_rejects_a_visible_stall` are an order of magnitude
+#: over their baseline, and the tail check is what catches everything subtler.
+_JITTER_HEADROOM = 2.0
+
+
+def _assert_did_not_block(worst: float, baseline: float, label: str) -> None:
+    """Assert the loop stalled no worse than the machine does when idle.
+
+    The comparison, not the constant, is the assertion: the same preemption
+    that inflates *worst* inflates the idle baseline measured beside it, so
+    what is left is the part this application is responsible for.
+    """
+    budget = max(_BLOCK_FLOOR_MS, baseline * _JITTER_HEADROOM)
+    assert worst <= budget, (
+        f"{label} stalled the UI for {worst:.0f} ms against a {budget:.0f} ms budget "
+        f"(this machine stalls {baseline:.0f} ms with nothing to do)"
+    )
+
+
+def _idle_stall(qapp: QApplication, iterations: int) -> float:
+    """The machine's own worst stall over a loop of the same length."""
+    return _measure(qapp, lambda _step: None, iterations=iterations)
+
+
 def _measure(qapp: QApplication, action, iterations: int) -> float:
     """Run *action* repeatedly and return the worst UI-thread stall in ms."""
     heartbeat = UiHeartbeat()
@@ -174,13 +208,28 @@ def _measure_each(qapp: QApplication, action, iterations: int) -> tuple[float, l
 
 
 def test_loading_many_channels_leaves_the_ui_responsive(
-    loaded_window: MainWindow, qapp: QApplication
+    loaded_window: MainWindow, qapp: QApplication, qtbot
 ) -> None:
+    """Thirty-two loaded channels must not cost the idle loop anything.
+
+    The baseline is an empty window rather than a constant, because the loop
+    being measured here *is* the idle one: against a fixed number this test
+    reports how busy the machine is, and against an empty window it reports
+    what loading the channels did, which is the thing it is named for.
+    """
     assert len(loaded_window.plot_pane.channels) == CHANNELS
 
     worst = _measure(qapp, lambda _step: None, iterations=20)
 
-    assert worst < 500.0, f"idle loop stalled {worst:.0f} ms with {CHANNELS} channels"
+    empty = MainWindow()
+    qtbot.addWidget(empty)
+    empty.show()
+    qapp.processEvents()
+    baseline = _measure(qapp, lambda _step: None, iterations=20)
+    if isValid(empty):
+        empty.close()
+
+    _assert_did_not_block(worst, baseline, f"the idle loop with {CHANNELS} channels")
 
 
 def test_scrubbing_across_a_dense_recording_does_not_block(
@@ -195,7 +244,7 @@ def test_scrubbing_across_a_dense_recording_does_not_block(
         iterations=60,
     )
 
-    assert worst < 500.0, f"scrubbing stalled the UI for {worst:.0f} ms"
+    _assert_did_not_block(worst, _idle_stall(qapp, 60), "scrubbing")
     _assert_no_stall_tail(samples, "scrubbing")
 
 
@@ -238,7 +287,7 @@ def test_repeated_resizes_do_not_block_the_ui(
         iterations=40,
     )
 
-    assert worst < 500.0, f"resizing stalled the UI for {worst:.0f} ms"
+    _assert_did_not_block(worst, _idle_stall(qapp, 40), "resizing")
     _assert_no_stall_tail(samples, "resizing")
 
 
@@ -255,7 +304,7 @@ def test_hiding_channels_does_not_block(loaded_window: MainWindow, qapp: QApplic
         iterations=40,
     )
 
-    assert worst < 500.0, f"toggling visibility stalled the UI for {worst:.0f} ms"
+    _assert_did_not_block(worst, _idle_stall(qapp, 40), "toggling channel visibility")
     _assert_no_stall_tail(samples, "toggling channel visibility")
 
 
@@ -309,6 +358,23 @@ def test_the_stall_detector_accepts_healthy_measurements(label: str, samples: li
 def test_the_stall_detector_rejects_a_visible_stall(label: str, samples: list[float]) -> None:
     with pytest.raises(AssertionError):
         _assert_no_stall_tail(samples, label)
+
+
+def test_a_real_block_still_fails_on_a_calm_machine() -> None:
+    """The floor has to hold, or the relative budget excuses everything."""
+    with pytest.raises(AssertionError, match="stalled the UI"):
+        _assert_did_not_block(5_000.0, baseline=2.0, label="a five-second block")
+
+
+def test_a_preempted_machine_does_not_fail_a_healthy_loop() -> None:
+    """900 ms of stall on a machine that stalls 700 ms doing nothing is the machine."""
+    _assert_did_not_block(900.0, baseline=700.0, label="scrubbing")
+
+
+def test_a_loop_far_worse_than_the_machine_still_fails() -> None:
+    """Preemption inflates both numbers; our own blocking inflates only one."""
+    with pytest.raises(AssertionError, match="stalled the UI"):
+        _assert_did_not_block(3_000.0, baseline=700.0, label="scrubbing")
 
 
 def test_percentile_interpolates_like_numpy() -> None:
