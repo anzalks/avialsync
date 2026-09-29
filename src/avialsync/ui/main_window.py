@@ -2792,6 +2792,7 @@ class MainWindow(QMainWindow):
             panel.panel.seek_requested.connect(lambda at: self.player.seek(at, exact=True))
             panel.panel.play_region_requested.connect(self._play_identity_region)
             panel.panel.apply_requested.connect(self._apply_identity_swap)
+            panel.panel.remove_requested.connect(self._remove_identity_swap)
             panel.panel.remove_all_requested.connect(
                 lambda: identity_view.remove_all(self, panel.panel.source_id())
             )
@@ -2878,6 +2879,31 @@ class MainWindow(QMainWindow):
                 frame=corrections_controller.frame_for(self, panel.source_id(), event.index),
             )
         )
+
+    def _remove_identity_swap(self) -> None:
+        """Reverse the swap in force where the video is.
+
+        The mirror of applying one, and deliberately as simple: the playhead
+        says which swap is meant, so removing never reaches back and changes
+        identities in a part of the recording the person is not looking at.
+        """
+        panel_window = self._identity_window
+        if panel_window is None or not isValid(panel_window):
+            return
+        panel = panel_window.panel
+        source_id = panel.source_id()
+        index = identity_view.index_at_time(self, source_id, self.clock.state.t)
+        if index is None:
+            return
+        event = identity_view.accepted_at(
+            self, source_id, panel.group_id(), panel.part(), index, panel.pair()
+        )
+        if event is None:
+            self.notifications.show_warning(
+                tr("No accepted swap is in force here, so there is nothing to reverse.")
+            )
+            return
+        identity_view.undo(self, source_id, event)
 
     def _refresh_identity_panel(self, source_id: str = "") -> None:
         """Start a registered braid job for the selected source, group and part."""

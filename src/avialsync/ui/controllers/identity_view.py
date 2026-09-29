@@ -234,6 +234,33 @@ def undo(window: MainWindow, source_id: str, event: SwapEvent) -> None:
     )
 
 
+def accepted_at(
+    window: MainWindow,
+    source_id: str,
+    group_id: str,
+    part: str,
+    index: int,
+    pair: tuple[str, str] | None = None,
+) -> SwapEvent | None:
+    """The accepted flip in force at *index*: the last one at or before it.
+
+    Which is what "remove this swap" means to somebody watching the video. The
+    alternative -- acting on whichever row the list had selected -- removed a
+    swap from earlier in the recording while they were looking at a later
+    frame, and the identities before the playhead changed under them.
+    """
+    wanted = set(pair) if pair else None
+    candidates = [
+        event
+        for event in window.identity_swaps.events_for(source_id)
+        if event.group == group_id
+        and event.index <= index
+        and event.moves(part)
+        and (wanted is None or set(event.lanes) == wanted)
+    ]
+    return max(candidates, key=lambda event: event.index, default=None)
+
+
 def remove_all(window: MainWindow, source_id: str) -> None:
     """Undo every accepted flip on one source, as a single step.
 

@@ -274,9 +274,10 @@ def test_accepted_selection_offers_remove_and_still_allows_applying(panel, qtbot
     assert panel._apply.isEnabled()
     assert panel._remove.isEnabled()
 
-    with qtbot.waitSignal(panel.undo_requested) as removed:
+    # Remove asks; the window answers with the swap in force at the playhead,
+    # which is the mirror of how applying picks its frame.
+    with qtbot.waitSignal(panel.remove_requested):
         panel._remove.click()
-    assert removed.args[0].index == FLIP
 
 
 def test_drag_must_start_on_a_lane_line(panel, qtbot) -> None:
@@ -474,3 +475,52 @@ def test_a_swap_exchanges_the_pair_that_is_selected(qtbot) -> None:
 
     assert event is not None
     assert set(event.lanes) == {"m3", "m4"}
+
+
+# ── navigation that cannot lose the recording ────────────────────────
+
+
+def test_neither_plot_can_be_scrolled_off_its_own_data(panel) -> None:
+    """A wheel notch must never leave the person with nothing and no way back."""
+    panel.show_model(_model())
+    low, high = panel._model.span()
+
+    for plot in (panel._braid, panel._separation):
+        view = plot.getPlotItem().getViewBox()
+        view.setXRange(high + 1000, high + 2000, padding=0)
+        (shown_low, shown_high), _ = view.viewRange()
+        assert shown_low < high + 100, "panned past the end of the recording"
+        assert shown_high > low - 100
+
+
+def test_identity_rows_are_not_a_navigable_axis(panel) -> None:
+    """They are identities, not a measurement: zooming them loses the lanes."""
+    panel.show_model(_model())
+
+    assert panel._braid.getPlotItem().getViewBox().state["mouseEnabled"] == [True, False]
+
+
+def test_reviewing_a_visible_crossing_does_not_re_frame_the_plot(panel) -> None:
+    """Clicking a crossing that is already on screen keeps the zoom it had."""
+    panel.show_model(_model(candidate=True))
+    view = panel._braid.getPlotItem().getViewBox()
+    times = _times()
+    view.setXRange(times[FLIP] - 3.0, times[FLIP] + 3.0, padding=0)
+    before, _ = view.viewRange()
+
+    panel._select_node(panel.nodes()[0])
+
+    after, _ = view.viewRange()
+    assert after == pytest.approx(before, abs=1e-6)
+
+
+def test_reviewing_an_off_screen_crossing_brings_it_into_view(panel) -> None:
+    panel.show_model(_model(candidate=True))
+    view = panel._braid.getPlotItem().getViewBox()
+    times = _times()
+    view.setXRange(times[0], times[10], padding=0)
+
+    panel._select_node(panel.nodes()[0])
+
+    (low, high), _ = view.viewRange()
+    assert low <= times[FLIP] <= high

@@ -138,6 +138,8 @@ class IdentityPanel(QWidget):
     #: Accept a swap where the review is: the selected crossing when there is
     #: one, and otherwise wherever the master clock has got to.
     apply_requested = Signal()
+    #: Undo the accepted swap in force where the video is.
+    remove_requested = Signal()
     #: Undo every accepted swap on this tracking file, in one step.
     remove_all_requested = Signal()
 
@@ -165,6 +167,10 @@ class IdentityPanel(QWidget):
         self._braid = pg.PlotWidget(viewBox=_BraidViewBox())
         self._braid.setMenuEnabled(False)
         self._braid.getPlotItem().hideButtons()
+        # Rows are identities, not a measurement: there is nothing to see by
+        # zooming them, and a stray wheel that scrolled the lanes off the top
+        # left no way back. Time is the only axis worth navigating here.
+        self._braid.setMouseEnabled(x=True, y=False)
         self._braid.setAccessibleName(tr("Identity braid"))
         self._braid.setLabel("left", tr("Identity"))
         layout.addWidget(self._braid, _BRAID_STRETCH)
@@ -172,6 +178,7 @@ class IdentityPanel(QWidget):
         self._separation = pg.PlotWidget(viewBox=_BraidViewBox())
         self._separation.setMenuEnabled(False)
         self._separation.getPlotItem().hideButtons()
+        self._separation.setMouseEnabled(x=True, y=False)
         self._separation.setAccessibleName(tr("Separation between the two lanes"))
         self._separation.setLabel("left", tr("Apart (px)"))
         self._separation.setLabel("bottom", tr("Master time (s)"))
@@ -309,7 +316,10 @@ class IdentityPanel(QWidget):
         self._remove = QPushButton(tr("Remove swap"), self)
         self._remove.setAccessibleName(tr("Remove the selected accepted identity swap"))
         self._remove.setAccessibleDescription(tr("Restore the routing before this accepted event"))
-        self._remove.clicked.connect(self._remove_selection)
+        self._remove.setToolTip(
+            tr("Reverse the swap in force at the playhead, putting the identities back")
+        )
+        self._remove.clicked.connect(self.remove_requested)
         self._remove_all = QPushButton(tr("Remove all swaps"), self)
         self._remove_all.setAccessibleName(tr("Remove every accepted swap on this file"))
         self._remove_all.setAccessibleDescription(
@@ -472,6 +482,23 @@ class IdentityPanel(QWidget):
 
     # ── drawing ──────────────────────────────────────────────────────
 
+    def _bound_navigation(self, model: BraidModel) -> None:
+        """Stop either plot from being scrolled or zoomed off its own data.
+
+        Without limits a wheel notch could leave both plots showing empty space
+        with nothing on screen to say where the recording went. Bounded, the
+        worst a gesture can do is show all of it -- and *Show all* is still
+        there for the one press that undoes any amount of exploring.
+        """
+        low, high = model.span()
+        if high <= low:
+            return
+        margin = (high - low) * 0.02
+        for plot in (self._braid, self._separation):
+            plot.getPlotItem().getViewBox().setLimits(
+                xMin=low - margin, xMax=high + margin, minXRange=(high - low) * 1e-4
+            )
+
     def show_model(self, model: BraidModel) -> None:
         """Draw one group and part, and say what the plot is showing."""
         previous = self._selected_node()
@@ -483,6 +510,7 @@ class IdentityPanel(QWidget):
         palette = self.palette()
         draw_braid(self._braid.getPlotItem(), model, palette, self._select_node)
         draw_separation(self._separation.getPlotItem(), model, palette)
+        self._bound_navigation(model)
         self._selection_line = None
         self._drag_ghost = None
         with _quiet(self._node_box):
@@ -624,8 +652,7 @@ class IdentityPanel(QWidget):
         )
         plot.addItem(self._selection_line)
         if focus:
-            low, high = model.span()
-            plot.setXRange(max(low, at - 5.0), min(high, at + 5.0), padding=0)
+            self._bring_into_view(at)
         if seek:
             self.seek_requested.emit(at)
         self._node_box.setItemText(
@@ -638,6 +665,26 @@ class IdentityPanel(QWidget):
             )
         self._evidence.setText(detail)
         self._update_actions()
+
+    def _bring_into_view(self, at: float) -> None:
+        """Pan to *at* only when it is off screen, keeping the zoom as it was.
+
+        Re-framing on every selection is what made clicking a crossing feel
+        like the plot had thrown the recording away: it jumped to a five-second
+        window around the node whether or not the node was already visible, and
+        the way back was a button the person had not needed until then.
+        """
+        model = self._model
+        if model is None:
+            return
+        view = self._braid.getPlotItem().getViewBox()
+        (low, high), _ = view.viewRange()
+        if low <= at <= high:
+            return
+        half = (high - low) / 2.0
+        span_low, span_high = model.span()
+        start = max(span_low, min(at - half, span_high - 2 * half))
+        view.setXRange(start, start + 2 * half, padding=0)
 
     def _update_actions(self) -> None:
         node = self._selected_node() if hasattr(self, "_node_box") else None
@@ -665,7 +712,12 @@ class IdentityPanel(QWidget):
             # swap accepted at frame 7 left the button greyed at frame 8,
             # because the crossing it had just created was the selected row.
             self._apply.setEnabled(model is not None and model.pair is not None)
-            self._remove.setEnabled(node is not None and node.accepted)
+            # Symmetric with Apply: it acts where the video is, so it is
+            # offered whenever this view holds a swap that could be in force
+            # there -- not only when the list happens to have one selected.
+            self._remove.setEnabled(
+                model is not None and any(candidate.accepted for candidate in model.nodes)
+            )
 
     def _nudge(self, step: int) -> None:
         model = self._model
@@ -743,12 +795,6 @@ class IdentityPanel(QWidget):
             lanes=node.lanes,
             parts=parts,
         )
-
-    def _remove_selection(self) -> None:
-        node = self._selected_node()
-        event = self._selected_event()
-        if node is not None and node.accepted and event is not None:
-            self.undo_requested.emit(event)
 
     def _fit_all(self) -> None:
         if self._model is not None:

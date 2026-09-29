@@ -936,3 +936,71 @@ def test_apply_stays_available_on_the_frame_after_a_swap(qtbot, window, pose_sou
     qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 2, timeout=5000)
 
     assert sorted(e.index for e in window.identity_swaps.events_for(source)) == [FLIP, FLIP + 1]
+
+
+# ── removing acts where the video is (the mirror of applying) ─────────
+
+
+def test_remove_reverses_the_swap_in_force_at_the_playhead(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    panel = _braid(qtbot, window)
+    assert panel._model is not None
+    times = panel._model.times
+    for index in (20, 80):
+        identity_view.swap(window, source, SwapEvent(index, ANIMALS, INDIVIDUALS))
+    _settle(qtbot, window, source)
+
+    window.clock.seek(float(times[90]))
+    window._remove_identity_swap()
+    qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 1, timeout=5000)
+
+    # The one at 80 was in force at frame 90; the earlier one is untouched.
+    assert [e.index for e in window.identity_swaps.events_for(source)] == [20]
+
+
+def test_remove_never_reaches_a_swap_later_than_the_playhead(
+    qtbot, window, pose_source
+) -> None:
+    """Standing at frame 30, Remove must not undo the crossing at 80."""
+    source = str(pose_source[0])
+    panel = _braid(qtbot, window)
+    assert panel._model is not None
+    times = panel._model.times
+    for index in (20, 80):
+        identity_view.swap(window, source, SwapEvent(index, ANIMALS, INDIVIDUALS))
+    _settle(qtbot, window, source)
+
+    window.clock.seek(float(times[30]))
+    window._remove_identity_swap()
+    qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 1, timeout=5000)
+
+    assert [e.index for e in window.identity_swaps.events_for(source)] == [80]
+
+
+def test_apply_then_remove_on_one_frame_is_a_round_trip(qtbot, window, pose_source) -> None:
+    """Which is all Remove has to be: the reverse of the swap just made."""
+    source = str(pose_source[0])
+    panel = _braid(qtbot, window)
+    assert panel._model is not None
+    raw = _shown(window, source, "testMouse_snout", FLIP)
+    window.clock.seek(float(panel._model.times[FLIP]))
+
+    window._apply_identity_swap()
+    _settle(qtbot, window, source)
+    assert _shown(window, source, "testMouse_snout", FLIP) != raw
+
+    window._remove_identity_swap()
+    qtbot.waitUntil(
+        lambda: _shown(window, source, "testMouse_snout", FLIP) == raw, timeout=5000
+    )
+    assert window.identity_swaps.count_for(source) == 0
+
+
+def test_remove_with_nothing_in_force_says_so(qtbot, window, pose_source) -> None:
+    panel = _braid(qtbot, window)
+    assert panel._model is not None
+    window.clock.seek(float(panel._model.times[FLIP]))
+
+    window._remove_identity_swap()
+
+    assert "nothing to reverse" in window.notifications.message

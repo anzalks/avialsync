@@ -23034,7 +23034,7 @@
       "label": "counts_for()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L155",
+      "source_location": "L162",
       "_origin": "ast"
     },
     {
@@ -23042,7 +23042,7 @@
       "label": "_frame()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L171",
+      "source_location": "L178",
       "_origin": "ast"
     },
     {
@@ -23050,7 +23050,7 @@
       "label": "swap()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L180",
+      "source_location": "L187",
       "_origin": "ast"
     },
     {
@@ -23058,7 +23058,7 @@
       "label": "undo()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L200",
+      "source_location": "L207",
       "_origin": "ast"
     },
     {
@@ -23066,7 +23066,7 @@
       "label": "remove_all()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L230",
+      "source_location": "L237",
       "_origin": "ast"
     },
     {
@@ -23074,7 +23074,7 @@
       "label": "detect()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L246",
+      "source_location": "L253",
       "_origin": "ast"
     },
     {
@@ -23082,7 +23082,7 @@
       "label": "_adopt()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L297",
+      "source_location": "L304",
       "_origin": "ast"
     },
     {
@@ -23118,59 +23118,59 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_identity_view_rationale_105",
+      "id": "src_avialsync_ui_controllers_identity_view_rationale_111",
       "label": "Snapshot UI-owned state; the returned job opens its own cache readers.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L105",
+      "source_location": "L111",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_identity_view_rationale_158",
+      "id": "src_avialsync_ui_controllers_identity_view_rationale_165",
       "label": "``(candidates, accepted)`` per part, for the part selector's own menu.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L158",
+      "source_location": "L165",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_identity_view_rationale_181",
+      "id": "src_avialsync_ui_controllers_identity_view_rationale_188",
       "label": "Accept one flip, through the command bus so it can be undone (rule 14).",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L181",
+      "source_location": "L188",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_identity_view_rationale_201",
+      "id": "src_avialsync_ui_controllers_identity_view_rationale_208",
       "label": "Undo one accepted flip, by the same route.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L201",
+      "source_location": "L208",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_identity_view_rationale_231",
+      "id": "src_avialsync_ui_controllers_identity_view_rationale_238",
       "label": "Undo every accepted flip on one source, as a single step.      One command rathe",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L231",
+      "source_location": "L238",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_identity_view_rationale_247",
+      "id": "src_avialsync_ui_controllers_identity_view_rationale_254",
       "label": "Scan every part of the selected group, including its centroid.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L247",
+      "source_location": "L254",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_controllers_identity_view_rationale_300",
+      "id": "src_avialsync_ui_controllers_identity_view_rationale_307",
       "label": "Keep all part counts; show only the selected slice in the braid.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L300",
+      "source_location": "L307",
       "_origin": "ast"
     },
     {
@@ -27258,7 +27258,7 @@
       "label": "_separation()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L143",
+      "source_location": "L152",
       "_origin": "ast"
     },
     {
@@ -27266,7 +27266,7 @@
       "label": "_decimate()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L161",
+      "source_location": "L170",
       "_origin": "ast"
     },
     {
@@ -27274,7 +27274,7 @@
       "label": "draw_braid()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L183",
+      "source_location": "L192",
       "_origin": "ast"
     },
     {
@@ -27298,7 +27298,7 @@
       "label": "_style()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L222",
+      "source_location": "L231",
       "_origin": "ast"
     },
     {
@@ -27314,7 +27314,7 @@
       "label": "_lane_path()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L237",
+      "source_location": "L246",
       "_origin": "ast"
     },
     {
@@ -27322,7 +27322,7 @@
       "label": "_draw_nodes()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L256",
+      "source_location": "L265",
       "_origin": "ast"
     },
     {
@@ -27330,7 +27330,7 @@
       "label": "_clicked()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L285",
+      "source_location": "L294",
       "_origin": "ast"
     },
     {
@@ -27346,7 +27346,7 @@
       "label": "_node_row()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L294",
+      "source_location": "L303",
       "_origin": "ast"
     },
     {
@@ -27354,7 +27354,7 @@
       "label": "draw_separation()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L300",
+      "source_location": "L309",
       "_origin": "ast"
     },
     {
@@ -27414,83 +27414,83 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_braid_rationale_127",
-      "label": "Assemble what the two plots need, including the separation trace.",
+      "id": "src_avialsync_ui_identity_braid_rationale_128",
+      "label": "Assemble what the two plots need, including the separation trace.      *pair* is",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L127",
+      "source_location": "L128",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_braid_rationale_149",
+      "id": "src_avialsync_ui_identity_braid_rationale_158",
       "label": "How far apart the pair is, decimated so the closest approach survives.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L149",
+      "source_location": "L158",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_braid_rationale_162",
+      "id": "src_avialsync_ui_identity_braid_rationale_171",
       "label": "Keep the minimum of each bucket: the closest approach is the point.      A strid",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L162",
+      "source_location": "L171",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_braid_rationale_189",
+      "id": "src_avialsync_ui_identity_braid_rationale_198",
       "label": "Draw one line per lane, moving rows wherever an accepted flip says so.      *on_",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L189",
+      "source_location": "L198",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_braid_rationale_223",
+      "id": "src_avialsync_ui_identity_braid_rationale_232",
       "label": "A dash pattern per lane, so two crossing lines stay tellable apart.      Colour",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L223",
+      "source_location": "L232",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_braid_rationale_238",
+      "id": "src_avialsync_ui_identity_braid_rationale_247",
       "label": "The row *lane* occupies over time, with a diagonal at each change.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L238",
+      "source_location": "L247",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_braid_rationale_262",
+      "id": "src_avialsync_ui_identity_braid_rationale_271",
       "label": "Accepted flips as filled crossings, candidates as hollow ones.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L262",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_identity_braid_rationale_286",
-      "label": "Report the crossing a click landed on, if it carried one.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L286",
+      "source_location": "L271",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_identity_braid_rationale_295",
-      "label": "Between the two lanes it concerns, which is where a crossing happens.",
+      "label": "Report the crossing a click landed on, if it carried one.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_braid.py",
       "source_location": "L295",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_braid_rationale_301",
+      "id": "src_avialsync_ui_identity_braid_rationale_304",
+      "label": "Between the two lanes it concerns, which is where a crossing happens.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/identity_braid.py",
+      "source_location": "L304",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_identity_braid_rationale_310",
       "label": "Draw how far apart the pair came, under the braid and on its X axis.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L301",
+      "source_location": "L310",
       "_origin": "ast"
     },
     {
@@ -27602,7 +27602,7 @@
       "label": "BraidBuildWorker",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L43",
+      "source_location": "L46",
       "_origin": "ast"
     },
     {
@@ -27618,7 +27618,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L49",
+      "source_location": "L52",
       "_origin": "ast"
     },
     {
@@ -27626,7 +27626,7 @@
       "label": ".run()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L54",
+      "source_location": "L57",
       "_origin": "ast"
     },
     {
@@ -27634,7 +27634,7 @@
       "label": "build_braid()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L64",
+      "source_location": "L67",
       "_origin": "ast"
     },
     {
@@ -27642,7 +27642,7 @@
       "label": "_trajectory()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L85",
+      "source_location": "L89",
       "_origin": "ast"
     },
     {
@@ -27650,7 +27650,7 @@
       "label": "_values()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L101",
+      "source_location": "L105",
       "_origin": "ast"
     },
     {
@@ -27666,7 +27666,7 @@
       "label": "_empty()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L119",
+      "source_location": "L123",
       "_origin": "ast"
     },
     {
@@ -27674,7 +27674,7 @@
       "label": "_nodes()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L123",
+      "source_location": "L127",
       "_origin": "ast"
     },
     {
@@ -27682,7 +27682,7 @@
       "label": "_frame()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L169",
+      "source_location": "L173",
       "_origin": "ast"
     },
     {
@@ -27690,7 +27690,7 @@
       "label": "_at()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L175",
+      "source_location": "L179",
       "_origin": "ast"
     },
     {
@@ -27710,27 +27710,27 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_model_worker_rationale_44",
+      "id": "src_avialsync_ui_identity_model_worker_rationale_47",
       "label": "Read pose channels and decimate separation evidence in a registered job.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L44",
+      "source_location": "L47",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_model_worker_rationale_65",
+      "id": "src_avialsync_ui_identity_model_worker_rationale_68",
       "label": "Build a model with this job's own readers and immutable time mapping.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L65",
+      "source_location": "L68",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_model_worker_rationale_102",
+      "id": "src_avialsync_ui_identity_model_worker_rationale_106",
       "label": "One channel's values, or nothing when they are no longer there.      A job reads",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L102",
+      "source_location": "L106",
       "_origin": "ast"
     },
     {
@@ -27842,7 +27842,7 @@
       "label": "._build_review_controls()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L248",
+      "source_location": "L258",
       "_origin": "ast"
     },
     {
@@ -27850,7 +27850,7 @@
       "label": ".set_groups()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L320",
+      "source_location": "L330",
       "_origin": "ast"
     },
     {
@@ -27858,7 +27858,7 @@
       "label": ".set_swap_count()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L350",
+      "source_location": "L360",
       "_origin": "ast"
     },
     {
@@ -27866,7 +27866,23 @@
       "label": ".set_counts()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L368",
+      "source_location": "L378",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_identity_panel_identitypanel_refresh_pairs",
+      "label": "._refresh_pairs()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L387",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_identity_panel_identitypanel_pair",
+      "label": ".pair()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L409",
       "_origin": "ast"
     },
     {
@@ -27874,7 +27890,7 @@
       "label": "._refresh_parts()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L377",
+      "source_location": "L416",
       "_origin": "ast"
     },
     {
@@ -27882,7 +27898,7 @@
       "label": "._part_text()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L391",
+      "source_location": "L431",
       "_origin": "ast"
     },
     {
@@ -27890,7 +27906,7 @@
       "label": ".source_id()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L402",
+      "source_location": "L442",
       "_origin": "ast"
     },
     {
@@ -27898,7 +27914,7 @@
       "label": ".group_id()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L405",
+      "source_location": "L445",
       "_origin": "ast"
     },
     {
@@ -27906,7 +27922,7 @@
       "label": ".group()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L409",
+      "source_location": "L449",
       "_origin": "ast"
     },
     {
@@ -27914,7 +27930,7 @@
       "label": ".group_ids()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L412",
+      "source_location": "L452",
       "_origin": "ast"
     },
     {
@@ -27922,7 +27938,7 @@
       "label": ".select_group()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L416",
+      "source_location": "L456",
       "_origin": "ast"
     },
     {
@@ -27930,7 +27946,7 @@
       "label": ".part()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L422",
+      "source_location": "L462",
       "_origin": "ast"
     },
     {
@@ -27938,7 +27954,7 @@
       "label": "._on_group_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L426",
+      "source_location": "L466",
       "_origin": "ast"
     },
     {
@@ -27946,7 +27962,7 @@
       "label": "._on_part_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L430",
+      "source_location": "L470",
       "_origin": "ast"
     },
     {
@@ -27954,7 +27970,7 @@
       "label": ".show_model()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L435",
+      "source_location": "L475",
       "_origin": "ast"
     },
     {
@@ -27962,7 +27978,7 @@
       "label": ".set_loading()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L467",
+      "source_location": "L507",
       "_origin": "ast"
     },
     {
@@ -27970,7 +27986,7 @@
       "label": ".set_video_available()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L474",
+      "source_location": "L514",
       "_origin": "ast"
     },
     {
@@ -27978,7 +27994,7 @@
       "label": "._set_empty()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L479",
+      "source_location": "L519",
       "_origin": "ast"
     },
     {
@@ -27986,7 +28002,7 @@
       "label": ".changeEvent()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L491",
+      "source_location": "L531",
       "_origin": "ast"
     },
     {
@@ -28002,7 +28018,7 @@
       "label": "._apply_palette()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L499",
+      "source_location": "L539",
       "_origin": "ast"
     },
     {
@@ -28010,7 +28026,7 @@
       "label": ".describe()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L503",
+      "source_location": "L543",
       "_origin": "ast"
     },
     {
@@ -28018,7 +28034,7 @@
       "label": "._select_node()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L522",
+      "source_location": "L562",
       "_origin": "ast"
     },
     {
@@ -28026,7 +28042,7 @@
       "label": "._on_clicked()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L533",
+      "source_location": "L573",
       "_origin": "ast"
     },
     {
@@ -28034,7 +28050,7 @@
       "label": "._on_node_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L543",
+      "source_location": "L583",
       "_origin": "ast"
     },
     {
@@ -28042,7 +28058,7 @@
       "label": "._selected_node()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L548",
+      "source_location": "L588",
       "_origin": "ast"
     },
     {
@@ -28050,7 +28066,7 @@
       "label": "._frame_of()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L552",
+      "source_location": "L592",
       "_origin": "ast"
     },
     {
@@ -28058,7 +28074,7 @@
       "label": "._node_text()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L562",
+      "source_location": "L602",
       "_origin": "ast"
     },
     {
@@ -28066,7 +28082,7 @@
       "label": "._show_selection()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L569",
+      "source_location": "L609",
       "_origin": "ast"
     },
     {
@@ -28074,7 +28090,7 @@
       "label": "._update_actions()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L602",
+      "source_location": "L642",
       "_origin": "ast"
     },
     {
@@ -28082,7 +28098,7 @@
       "label": "._nudge()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L630",
+      "source_location": "L670",
       "_origin": "ast"
     },
     {
@@ -28090,7 +28106,7 @@
       "label": "._play_selection()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L637",
+      "source_location": "L677",
       "_origin": "ast"
     },
     {
@@ -28098,7 +28114,7 @@
       "label": ".event_at()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L647",
+      "source_location": "L687",
       "_origin": "ast"
     },
     {
@@ -28106,7 +28122,7 @@
       "label": ".selected_index()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L670",
+      "source_location": "L710",
       "_origin": "ast"
     },
     {
@@ -28114,7 +28130,7 @@
       "label": ".index_at()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L682",
+      "source_location": "L722",
       "_origin": "ast"
     },
     {
@@ -28122,7 +28138,7 @@
       "label": "._selected_event()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L687",
+      "source_location": "L727",
       "_origin": "ast"
     },
     {
@@ -28130,7 +28146,7 @@
       "label": "._remove_selection()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L707",
+      "source_location": "L747",
       "_origin": "ast"
     },
     {
@@ -28138,7 +28154,7 @@
       "label": "._fit_all()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L713",
+      "source_location": "L753",
       "_origin": "ast"
     },
     {
@@ -28146,7 +28162,7 @@
       "label": "._on_dragged()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L717",
+      "source_location": "L757",
       "_origin": "ast"
     },
     {
@@ -28154,7 +28170,7 @@
       "label": "._on_dragging()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L758",
+      "source_location": "L798",
       "_origin": "ast"
     },
     {
@@ -28162,7 +28178,7 @@
       "label": "._tolerance()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L772",
+      "source_location": "L812",
       "_origin": "ast"
     },
     {
@@ -28170,7 +28186,7 @@
       "label": ".nodes()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L781",
+      "source_location": "L821",
       "_origin": "ast"
     },
     {
@@ -28178,7 +28194,7 @@
       "label": "IdentityWindow",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L786",
+      "source_location": "L826",
       "_origin": "ast"
     },
     {
@@ -28194,7 +28210,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L789",
+      "source_location": "L829",
       "_origin": "ast"
     },
     {
@@ -28202,7 +28218,7 @@
       "label": "_quiet",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L802",
+      "source_location": "L842",
       "_origin": "ast"
     },
     {
@@ -28210,7 +28226,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L805",
+      "source_location": "L845",
       "_origin": "ast"
     },
     {
@@ -28226,7 +28242,7 @@
       "label": ".__enter__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L808",
+      "source_location": "L848",
       "_origin": "ast"
     },
     {
@@ -28234,7 +28250,7 @@
       "label": ".__exit__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L812",
+      "source_location": "L852",
       "_origin": "ast"
     },
     {
@@ -28286,155 +28302,171 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_326",
+      "id": "src_avialsync_ui_identity_panel_rationale_336",
       "label": "Offer *groups* for *source_id*, with per-part candidate counts.          *counts",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L326",
+      "source_location": "L336",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_351",
+      "id": "src_avialsync_ui_identity_panel_rationale_361",
       "label": "Say how many accepted swaps this whole file holds.          On the button, becau",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L351",
+      "source_location": "L361",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_369",
+      "id": "src_avialsync_ui_identity_panel_rationale_379",
       "label": "Update candidate counts without losing the selected group or part.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L369",
+      "source_location": "L379",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_413",
+      "id": "src_avialsync_ui_identity_panel_rationale_388",
+      "label": "Offer every pair of lanes, or hide the choice when there is none.          Two l",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L388",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_identity_panel_rationale_410",
+      "label": "The two lanes being compared, or None when the group has fewer.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L410",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_identity_panel_rationale_453",
       "label": "The declarations currently offered in the selector.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L413",
+      "source_location": "L453",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_417",
+      "id": "src_avialsync_ui_identity_panel_rationale_457",
       "label": "Select a newly declared group by its persisted identifier.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L417",
+      "source_location": "L457",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_436",
+      "id": "src_avialsync_ui_identity_panel_rationale_476",
       "label": "Draw one group and part, and say what the plot is showing.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L436",
+      "source_location": "L476",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_468",
+      "id": "src_avialsync_ui_identity_panel_rationale_508",
       "label": "Keep old evidence from being edited while a newer slice is read.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L468",
+      "source_location": "L508",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_475",
+      "id": "src_avialsync_ui_identity_panel_rationale_515",
       "label": "Disable review playback when there is no video to review.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L475",
+      "source_location": "L515",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_492",
+      "id": "src_avialsync_ui_identity_panel_rationale_532",
       "label": "Re-theme: pyqtgraph canvases do not receive a palette change.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L492",
+      "source_location": "L532",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_504",
+      "id": "src_avialsync_ui_identity_panel_rationale_544",
       "label": "What the braid shows, in words, for a reader who cannot see it.          A plot",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L504",
+      "source_location": "L544",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_523",
+      "id": "src_avialsync_ui_identity_panel_rationale_563",
       "label": "Review the crossing a click landed on, and take the video there.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L523",
+      "source_location": "L563",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_648",
+      "id": "src_avialsync_ui_identity_panel_rationale_688",
       "label": "The swap that accepting *index* would mean, in what is on screen.          One p",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L648",
+      "source_location": "L688",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_671",
+      "id": "src_avialsync_ui_identity_panel_rationale_711",
       "label": "Deprecated shape kept out of the apply path deliberately.          Every way of",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L671",
+      "source_location": "L711",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_683",
+      "id": "src_avialsync_ui_identity_panel_rationale_723",
       "label": "The sample index master time *at* falls on, or None with no braid.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L683",
+      "source_location": "L723",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_718",
+      "id": "src_avialsync_ui_identity_panel_rationale_758",
       "label": "Turn \"this line belongs on that row\" into a flip, or into its undo.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L718",
+      "source_location": "L758",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_759",
+      "id": "src_avialsync_ui_identity_panel_rationale_799",
       "label": "Show the proposed connection without mutating the recording.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L759",
+      "source_location": "L799",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_782",
+      "id": "src_avialsync_ui_identity_panel_rationale_822",
       "label": "What the plot is currently offering, for tests and for the window.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L782",
+      "source_location": "L822",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_787",
+      "id": "src_avialsync_ui_identity_panel_rationale_827",
       "label": "A closable identity editor beside the video, floatable to another screen.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L787",
+      "source_location": "L827",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_identity_panel_rationale_803",
+      "id": "src_avialsync_ui_identity_panel_rationale_843",
       "label": "Block a combo box's signals while it is rebuilt.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L803",
+      "source_location": "L843",
       "_origin": "ast"
     },
     {
@@ -67542,6 +67574,30 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_identity_panel_test_two_identities_need_no_pair_chooser",
+      "label": "test_two_identities_need_no_pair_chooser()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L445",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_panel_test_four_identities_offer_every_pair",
+      "label": "test_four_identities_offer_every_pair()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L450",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_panel_test_a_swap_exchanges_the_pair_that_is_selected",
+      "label": "test_a_swap_exchanges_the_pair_that_is_selected()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L462",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_identity_panel_rationale_1",
       "label": "The braid, its two selectors, and the drag that changes an identity (D-141).  Wh",
       "file_type": "rationale",
@@ -67667,6 +67723,14 @@
       "file_type": "rationale",
       "source_file": "tests/test_identity_panel.py",
       "source_location": "L418",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_panel_rationale_463",
+      "label": "With three animals, \"the first two\" is a guess, not an answer.",
+      "file_type": "rationale",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L463",
       "_origin": "ast"
     },
     {
@@ -67894,11 +67958,51 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_identity_swaps_many",
+      "label": "_many()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L314",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_swaps_test_a_group_holds_every_individual_the_file_names",
+      "label": "test_a_group_holds_every_individual_the_file_names()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L325",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_swaps_test_three_transpositions_compose_into_a_three_cycle",
+      "label": "test_three_transpositions_compose_into_a_three_cycle()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L335",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_swaps_test_a_flip_between_two_of_eight_leaves_the_other_six_alone",
+      "label": "test_a_flip_between_two_of_eight_leaves_the_other_six_alone()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L356",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_identity_swaps_rationale_1",
       "label": "Identity flips: one transposition, composed in frame order (D-141, D-142).  The",
       "file_type": "rationale",
       "source_file": "tests/test_identity_swaps.py",
       "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_swaps_rationale_336",
+      "label": "Flips do not commute, and with three animals that is visible.      m0 takes m1's",
+      "file_type": "rationale",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L336",
       "_origin": "ast"
     },
     {
@@ -151952,7 +152056,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L155",
+      "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -151963,7 +152067,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L155",
+      "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -151974,7 +152078,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L155",
+      "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -151984,7 +152088,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L171",
+      "source_location": "L178",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -151995,7 +152099,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L171",
+      "source_location": "L178",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152005,7 +152109,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L180",
+      "source_location": "L187",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152016,7 +152120,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L180",
+      "source_location": "L187",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152027,7 +152131,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L180",
+      "source_location": "L187",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152037,7 +152141,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L200",
+      "source_location": "L207",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152048,7 +152152,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L200",
+      "source_location": "L207",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152059,7 +152163,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L200",
+      "source_location": "L207",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152069,7 +152173,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L230",
+      "source_location": "L237",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152080,7 +152184,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L230",
+      "source_location": "L237",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152090,7 +152194,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L246",
+      "source_location": "L253",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152101,7 +152205,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L246",
+      "source_location": "L253",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152111,7 +152215,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L297",
+      "source_location": "L304",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152122,7 +152226,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L297",
+      "source_location": "L304",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152133,7 +152237,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L297",
+      "source_location": "L304",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152144,7 +152248,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L297",
+      "source_location": "L304",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152166,7 +152270,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L135",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152177,7 +152281,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L194",
+      "source_location": "L201",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152188,7 +152292,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L224",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152199,7 +152303,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L275",
+      "source_location": "L282",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -152244,72 +152348,72 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_identity_view_rationale_105",
+      "source": "src_avialsync_ui_controllers_identity_view_rationale_111",
       "target": "src_avialsync_ui_controllers_identity_view_job_for",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L105",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_identity_view_rationale_158",
+      "source": "src_avialsync_ui_controllers_identity_view_rationale_165",
       "target": "src_avialsync_ui_controllers_identity_view_counts_for",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L158",
+      "source_location": "L165",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_identity_view_rationale_181",
+      "source": "src_avialsync_ui_controllers_identity_view_rationale_188",
       "target": "src_avialsync_ui_controllers_identity_view_swap",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L181",
+      "source_location": "L188",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_identity_view_rationale_201",
+      "source": "src_avialsync_ui_controllers_identity_view_rationale_208",
       "target": "src_avialsync_ui_controllers_identity_view_undo",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L201",
+      "source_location": "L208",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_identity_view_rationale_231",
+      "source": "src_avialsync_ui_controllers_identity_view_rationale_238",
       "target": "src_avialsync_ui_controllers_identity_view_remove_all",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L231",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_identity_view_rationale_247",
+      "source": "src_avialsync_ui_controllers_identity_view_rationale_254",
       "target": "src_avialsync_ui_controllers_identity_view_detect",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L247",
+      "source_location": "L254",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_controllers_identity_view_rationale_300",
+      "source": "src_avialsync_ui_controllers_identity_view_rationale_307",
       "target": "src_avialsync_ui_controllers_identity_view_adopt",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L300",
+      "source_location": "L307",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163770,7 +163874,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L143",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163781,7 +163885,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L143",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163792,7 +163896,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L143",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163802,7 +163906,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L161",
+      "source_location": "L170",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163813,7 +163917,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L161",
+      "source_location": "L170",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163823,7 +163927,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L183",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163834,7 +163938,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L183",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163845,7 +163949,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L183",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163856,7 +163960,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L183",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163867,7 +163971,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L183",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163877,7 +163981,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L222",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163888,7 +163992,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L222",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163898,7 +164002,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L237",
+      "source_location": "L246",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163909,7 +164013,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L237",
+      "source_location": "L246",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163919,7 +164023,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L256",
+      "source_location": "L265",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163930,7 +164034,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L256",
+      "source_location": "L265",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163941,7 +164045,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L256",
+      "source_location": "L265",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163952,7 +164056,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L256",
+      "source_location": "L265",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163963,7 +164067,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L256",
+      "source_location": "L265",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163973,7 +164077,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L285",
+      "source_location": "L294",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163984,7 +164088,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L285",
+      "source_location": "L294",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -163995,7 +164099,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L285",
+      "source_location": "L294",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164005,7 +164109,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L294",
+      "source_location": "L303",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164016,7 +164120,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L294",
+      "source_location": "L303",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164027,7 +164131,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L294",
+      "source_location": "L303",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164037,7 +164141,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L300",
+      "source_location": "L309",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164048,7 +164152,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L300",
+      "source_location": "L309",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164059,7 +164163,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L300",
+      "source_location": "L309",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164070,7 +164174,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L300",
+      "source_location": "L309",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164092,7 +164196,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L130",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164103,7 +164207,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L132",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164114,35 +164218,13 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L158",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_identity_braid_draw_braid",
       "target": "src_avialsync_ui_identity_braid_braidmodel_span",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L201",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_identity_braid_draw_braid",
-      "target": "src_avialsync_ui_identity_braid_lane_path",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L206",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_identity_braid_draw_braid",
-      "target": "src_avialsync_ui_identity_braid_style",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -164153,12 +164235,34 @@
     },
     {
       "source": "src_avialsync_ui_identity_braid_draw_braid",
+      "target": "src_avialsync_ui_identity_braid_lane_path",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_braid.py",
+      "source_location": "L215",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_braid_draw_braid",
+      "target": "src_avialsync_ui_identity_braid_style",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_braid.py",
+      "source_location": "L219",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_braid_draw_braid",
       "target": "src_avialsync_ui_identity_braid_draw_nodes",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L214",
+      "source_location": "L223",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164169,7 +164273,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L217",
+      "source_location": "L226",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164180,7 +164284,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L241",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164191,7 +164295,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L243",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164202,7 +164306,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L272",
+      "source_location": "L281",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164213,7 +164317,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L281",
+      "source_location": "L290",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164224,7 +164328,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L289",
+      "source_location": "L298",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164235,7 +164339,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L296",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164246,7 +164350,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L321",
+      "source_location": "L330",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164257,7 +164361,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L325",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164332,88 +164436,78 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_braid_rationale_127",
+      "source": "src_avialsync_ui_identity_braid_rationale_128",
       "target": "src_avialsync_ui_identity_braid_build_model",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L127",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_braid_rationale_149",
+      "source": "src_avialsync_ui_identity_braid_rationale_158",
       "target": "src_avialsync_ui_identity_braid_separation",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L149",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_braid_rationale_162",
+      "source": "src_avialsync_ui_identity_braid_rationale_171",
       "target": "src_avialsync_ui_identity_braid_decimate",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L162",
+      "source_location": "L171",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_braid_rationale_189",
+      "source": "src_avialsync_ui_identity_braid_rationale_198",
       "target": "src_avialsync_ui_identity_braid_draw_braid",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L189",
+      "source_location": "L198",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_braid_rationale_223",
+      "source": "src_avialsync_ui_identity_braid_rationale_232",
       "target": "src_avialsync_ui_identity_braid_style",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L223",
+      "source_location": "L232",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_braid_rationale_238",
+      "source": "src_avialsync_ui_identity_braid_rationale_247",
       "target": "src_avialsync_ui_identity_braid_lane_path",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L238",
+      "source_location": "L247",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_braid_rationale_262",
+      "source": "src_avialsync_ui_identity_braid_rationale_271",
       "target": "src_avialsync_ui_identity_braid_draw_nodes",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L262",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_identity_braid_rationale_286",
-      "target": "src_avialsync_ui_identity_braid_clicked",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L286",
+      "source_location": "L271",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_identity_braid_rationale_295",
-      "target": "src_avialsync_ui_identity_braid_node_row",
+      "target": "src_avialsync_ui_identity_braid_clicked",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
@@ -164422,12 +164516,22 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_braid_rationale_301",
+      "source": "src_avialsync_ui_identity_braid_rationale_304",
+      "target": "src_avialsync_ui_identity_braid_node_row",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_braid.py",
+      "source_location": "L304",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_braid_rationale_310",
       "target": "src_avialsync_ui_identity_braid_draw_separation",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L301",
+      "source_location": "L310",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164779,7 +164883,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L43",
+      "source_location": "L46",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164789,7 +164893,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L43",
+      "source_location": "L46",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164799,7 +164903,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L49",
+      "source_location": "L52",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164810,7 +164914,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L49",
+      "source_location": "L52",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164820,7 +164924,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L54",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164830,7 +164934,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L64",
+      "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164841,7 +164945,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L64",
+      "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164852,7 +164956,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L64",
+      "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164862,7 +164966,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L85",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164873,7 +164977,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L85",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164883,7 +164987,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L101",
+      "source_location": "L105",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164894,7 +164998,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L101",
+      "source_location": "L105",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164905,7 +165009,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L101",
+      "source_location": "L105",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164915,7 +165019,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L119",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164926,7 +165030,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L119",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164936,7 +165040,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L123",
+      "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164947,7 +165051,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L123",
+      "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164958,7 +165062,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L123",
+      "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164969,7 +165073,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L123",
+      "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164979,7 +165083,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L169",
+      "source_location": "L173",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164990,7 +165094,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L169",
+      "source_location": "L173",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165000,7 +165104,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L175",
+      "source_location": "L179",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165011,7 +165115,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L175",
+      "source_location": "L179",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165022,7 +165126,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L56",
+      "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165033,7 +165137,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L74",
+      "source_location": "L77",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165044,7 +165148,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L79",
+      "source_location": "L82",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165055,7 +165159,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L88",
+      "source_location": "L92",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165066,7 +165170,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L111",
+      "source_location": "L115",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165077,7 +165181,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L126",
+      "source_location": "L130",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165088,7 +165192,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L128",
+      "source_location": "L132",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165099,7 +165203,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L130",
+      "source_location": "L134",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165124,32 +165228,32 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_model_worker_rationale_44",
+      "source": "src_avialsync_ui_identity_model_worker_rationale_47",
       "target": "src_avialsync_ui_identity_model_worker_braidbuildworker",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L44",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_model_worker_rationale_65",
+      "source": "src_avialsync_ui_identity_model_worker_rationale_68",
       "target": "src_avialsync_ui_identity_model_worker_build_braid",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L65",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_model_worker_rationale_102",
+      "source": "src_avialsync_ui_identity_model_worker_rationale_106",
       "target": "src_avialsync_ui_identity_model_worker_values",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L102",
+      "source_location": "L106",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165435,7 +165539,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L248",
+      "source_location": "L258",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165446,7 +165550,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L248",
+      "source_location": "L258",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165456,7 +165560,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L320",
+      "source_location": "L330",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165467,7 +165571,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L320",
+      "source_location": "L330",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165477,7 +165581,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L350",
+      "source_location": "L360",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165487,7 +165591,27 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L368",
+      "source_location": "L378",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_panel_identitypanel",
+      "target": "src_avialsync_ui_identity_panel_identitypanel_refresh_pairs",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L387",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_panel_identitypanel",
+      "target": "src_avialsync_ui_identity_panel_identitypanel_pair",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L409",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165497,7 +165621,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L377",
+      "source_location": "L416",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165507,7 +165631,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L391",
+      "source_location": "L431",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165517,7 +165641,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L402",
+      "source_location": "L442",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165527,7 +165651,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L405",
+      "source_location": "L445",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165537,7 +165661,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L409",
+      "source_location": "L449",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165548,7 +165672,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L409",
+      "source_location": "L449",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165558,7 +165682,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L412",
+      "source_location": "L452",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165568,7 +165692,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L416",
+      "source_location": "L456",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165578,7 +165702,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L422",
+      "source_location": "L462",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165588,7 +165712,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L426",
+      "source_location": "L466",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165598,7 +165722,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L430",
+      "source_location": "L470",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165608,7 +165732,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L435",
+      "source_location": "L475",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165619,7 +165743,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L435",
+      "source_location": "L475",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165629,7 +165753,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L467",
+      "source_location": "L507",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165639,7 +165763,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L474",
+      "source_location": "L514",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165649,7 +165773,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L479",
+      "source_location": "L519",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165659,7 +165783,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L491",
+      "source_location": "L531",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165670,7 +165794,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L491",
+      "source_location": "L531",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165680,7 +165804,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L499",
+      "source_location": "L539",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165690,7 +165814,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L503",
+      "source_location": "L543",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165700,7 +165824,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L522",
+      "source_location": "L562",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165711,7 +165835,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L522",
+      "source_location": "L562",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165721,7 +165845,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L533",
+      "source_location": "L573",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165731,7 +165855,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L543",
+      "source_location": "L583",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165741,7 +165865,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L548",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165752,7 +165876,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L548",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165762,7 +165886,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L552",
+      "source_location": "L592",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165772,7 +165896,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L562",
+      "source_location": "L602",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165783,7 +165907,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L562",
+      "source_location": "L602",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165793,7 +165917,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L569",
+      "source_location": "L609",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165803,7 +165927,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L602",
+      "source_location": "L642",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165813,7 +165937,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L630",
+      "source_location": "L670",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165823,7 +165947,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L637",
+      "source_location": "L677",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165833,7 +165957,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L647",
+      "source_location": "L687",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165844,7 +165968,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L647",
+      "source_location": "L687",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165854,7 +165978,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L670",
+      "source_location": "L710",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165864,7 +165988,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L682",
+      "source_location": "L722",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165874,7 +165998,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L687",
+      "source_location": "L727",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165885,7 +166009,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L687",
+      "source_location": "L727",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165895,7 +166019,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L707",
+      "source_location": "L747",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165905,7 +166029,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L713",
+      "source_location": "L753",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165915,7 +166039,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L717",
+      "source_location": "L757",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165925,7 +166049,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L758",
+      "source_location": "L798",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165935,7 +166059,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L772",
+      "source_location": "L812",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165945,7 +166069,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L781",
+      "source_location": "L821",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165956,7 +166080,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L781",
+      "source_location": "L821",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165966,7 +166090,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L786",
+      "source_location": "L826",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165976,7 +166100,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L786",
+      "source_location": "L826",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165986,7 +166110,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L789",
+      "source_location": "L829",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -165997,7 +166121,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L789",
+      "source_location": "L829",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166007,7 +166131,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L802",
+      "source_location": "L842",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166017,7 +166141,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L805",
+      "source_location": "L845",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166028,7 +166152,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L805",
+      "source_location": "L845",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166038,7 +166162,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L808",
+      "source_location": "L848",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166049,7 +166173,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L808",
+      "source_location": "L848",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166059,7 +166183,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L812",
+      "source_location": "L852",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166180,7 +166304,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L227",
+      "source_location": "L234",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166191,7 +166315,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L227",
+      "source_location": "L234",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166202,7 +166326,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L249",
+      "source_location": "L259",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166213,7 +166337,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L252",
+      "source_location": "L262",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166224,7 +166348,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L273",
+      "source_location": "L283",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166235,7 +166359,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L317",
+      "source_location": "L327",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166246,7 +166370,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L334",
+      "source_location": "L344",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166257,7 +166381,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L337",
+      "source_location": "L347",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166268,7 +166392,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L338",
+      "source_location": "L348",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166279,7 +166403,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L343",
+      "source_location": "L353",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166290,7 +166414,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L370",
+      "source_location": "L380",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166301,7 +166425,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L372",
+      "source_location": "L382",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166312,7 +166436,40 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L374",
+      "source_location": "L384",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_panel_identitypanel_refresh_pairs",
+      "target": "src_avialsync_ui_identity_panel_identitypanel_group",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L394",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_panel_identitypanel_refresh_pairs",
+      "target": "src_avialsync_ui_identity_panel_quiet",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L396",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_panel_identitypanel_refresh_parts",
+      "target": "src_avialsync_ui_identity_panel_identitypanel_refresh_pairs",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L417",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166323,7 +166480,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L378",
+      "source_location": "L418",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166334,7 +166491,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L379",
+      "source_location": "L419",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166345,7 +166502,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L383",
+      "source_location": "L423",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166356,7 +166513,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L410",
+      "source_location": "L450",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166367,7 +166524,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L427",
+      "source_location": "L467",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166378,7 +166535,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L428",
+      "source_location": "L468",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166389,7 +166546,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L428",
+      "source_location": "L468",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166400,7 +166557,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L431",
+      "source_location": "L471",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166411,7 +166568,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L431",
+      "source_location": "L471",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166422,7 +166579,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L437",
+      "source_location": "L477",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166433,7 +166590,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L448",
+      "source_location": "L488",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166444,7 +166601,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L451",
+      "source_location": "L491",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166455,7 +166612,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L463",
+      "source_location": "L503",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166466,7 +166623,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L465",
+      "source_location": "L505",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166477,7 +166634,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L469",
+      "source_location": "L509",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166488,7 +166645,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L472",
+      "source_location": "L512",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166499,7 +166656,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L477",
+      "source_location": "L517",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166510,7 +166667,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L486",
+      "source_location": "L526",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166521,7 +166678,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L489",
+      "source_location": "L529",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166532,7 +166689,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L495",
+      "source_location": "L535",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166543,7 +166700,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L497",
+      "source_location": "L537",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166554,7 +166711,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L527",
+      "source_location": "L567",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166565,7 +166722,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L537",
+      "source_location": "L577",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166576,7 +166733,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L539",
+      "source_location": "L579",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166587,7 +166744,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L544",
+      "source_location": "L584",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166598,7 +166755,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L546",
+      "source_location": "L586",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166609,7 +166766,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L564",
+      "source_location": "L604",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166620,7 +166777,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L571",
+      "source_location": "L611",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166631,7 +166788,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L573",
+      "source_location": "L613",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166642,7 +166799,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L592",
+      "source_location": "L632",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166653,7 +166810,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L594",
+      "source_location": "L634",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166664,7 +166821,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L597",
+      "source_location": "L637",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166675,7 +166832,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L603",
+      "source_location": "L643",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166686,7 +166843,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L635",
+      "source_location": "L675",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166697,7 +166854,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L655",
+      "source_location": "L695",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_panel_identitypanel_event_at",
+      "target": "src_avialsync_ui_identity_panel_identitypanel_pair",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L696",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166708,7 +166876,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L664",
+      "source_location": "L704",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166719,7 +166887,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L668",
+      "source_location": "L708",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166730,7 +166898,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L679",
+      "source_location": "L719",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166741,7 +166909,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L688",
+      "source_location": "L728",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166752,7 +166920,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L698",
+      "source_location": "L738",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166763,7 +166931,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L700",
+      "source_location": "L740",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166774,7 +166942,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L702",
+      "source_location": "L742",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166785,7 +166953,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L708",
+      "source_location": "L748",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166796,7 +166964,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L709",
+      "source_location": "L749",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166807,7 +166975,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L723",
+      "source_location": "L763",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166818,7 +166986,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L740",
+      "source_location": "L780",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166829,7 +166997,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L743",
+      "source_location": "L783",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166840,7 +167008,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L746",
+      "source_location": "L786",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166851,7 +167019,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L748",
+      "source_location": "L788",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166862,7 +167030,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L749",
+      "source_location": "L789",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166873,7 +167041,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L790",
+      "source_location": "L830",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166884,7 +167052,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L798",
+      "source_location": "L838",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -166949,192 +167117,212 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_326",
+      "source": "src_avialsync_ui_identity_panel_rationale_336",
       "target": "src_avialsync_ui_identity_panel_identitypanel_set_groups",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L326",
+      "source_location": "L336",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_351",
+      "source": "src_avialsync_ui_identity_panel_rationale_361",
       "target": "src_avialsync_ui_identity_panel_identitypanel_set_swap_count",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L351",
+      "source_location": "L361",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_369",
+      "source": "src_avialsync_ui_identity_panel_rationale_379",
       "target": "src_avialsync_ui_identity_panel_identitypanel_set_counts",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L369",
+      "source_location": "L379",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_413",
+      "source": "src_avialsync_ui_identity_panel_rationale_388",
+      "target": "src_avialsync_ui_identity_panel_identitypanel_refresh_pairs",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L388",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_panel_rationale_410",
+      "target": "src_avialsync_ui_identity_panel_identitypanel_pair",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L410",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_panel_rationale_453",
       "target": "src_avialsync_ui_identity_panel_identitypanel_group_ids",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L413",
+      "source_location": "L453",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_417",
+      "source": "src_avialsync_ui_identity_panel_rationale_457",
       "target": "src_avialsync_ui_identity_panel_identitypanel_select_group",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L417",
+      "source_location": "L457",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_436",
+      "source": "src_avialsync_ui_identity_panel_rationale_476",
       "target": "src_avialsync_ui_identity_panel_identitypanel_show_model",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L436",
+      "source_location": "L476",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_468",
+      "source": "src_avialsync_ui_identity_panel_rationale_508",
       "target": "src_avialsync_ui_identity_panel_identitypanel_set_loading",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L468",
+      "source_location": "L508",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_475",
+      "source": "src_avialsync_ui_identity_panel_rationale_515",
       "target": "src_avialsync_ui_identity_panel_identitypanel_set_video_available",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L475",
+      "source_location": "L515",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_492",
+      "source": "src_avialsync_ui_identity_panel_rationale_532",
       "target": "src_avialsync_ui_identity_panel_identitypanel_changeevent",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L492",
+      "source_location": "L532",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_504",
+      "source": "src_avialsync_ui_identity_panel_rationale_544",
       "target": "src_avialsync_ui_identity_panel_identitypanel_describe",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L504",
+      "source_location": "L544",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_523",
+      "source": "src_avialsync_ui_identity_panel_rationale_563",
       "target": "src_avialsync_ui_identity_panel_identitypanel_select_node",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L523",
+      "source_location": "L563",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_648",
+      "source": "src_avialsync_ui_identity_panel_rationale_688",
       "target": "src_avialsync_ui_identity_panel_identitypanel_event_at",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L648",
+      "source_location": "L688",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_671",
+      "source": "src_avialsync_ui_identity_panel_rationale_711",
       "target": "src_avialsync_ui_identity_panel_identitypanel_selected_index",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L671",
+      "source_location": "L711",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_683",
+      "source": "src_avialsync_ui_identity_panel_rationale_723",
       "target": "src_avialsync_ui_identity_panel_identitypanel_index_at",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L683",
+      "source_location": "L723",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_718",
+      "source": "src_avialsync_ui_identity_panel_rationale_758",
       "target": "src_avialsync_ui_identity_panel_identitypanel_on_dragged",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L718",
+      "source_location": "L758",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_759",
+      "source": "src_avialsync_ui_identity_panel_rationale_799",
       "target": "src_avialsync_ui_identity_panel_identitypanel_on_dragging",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L759",
+      "source_location": "L799",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_782",
+      "source": "src_avialsync_ui_identity_panel_rationale_822",
       "target": "src_avialsync_ui_identity_panel_identitypanel_nodes",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L782",
+      "source_location": "L822",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_787",
+      "source": "src_avialsync_ui_identity_panel_rationale_827",
       "target": "src_avialsync_ui_identity_panel_identitywindow",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L787",
+      "source_location": "L827",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_panel_rationale_803",
+      "source": "src_avialsync_ui_identity_panel_rationale_843",
       "target": "src_avialsync_ui_identity_panel_quiet",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L803",
+      "source_location": "L843",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -257449,6 +257637,36 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_identity_panel",
+      "target": "tests_test_identity_panel_test_two_identities_need_no_pair_chooser",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L445",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_panel",
+      "target": "tests_test_identity_panel_test_four_identities_offer_every_pair",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L450",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_panel",
+      "target": "tests_test_identity_panel_test_a_swap_exchanges_the_pair_that_is_selected",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L462",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_identity_panel_tracks",
       "target": "src_avialsync_core_identity_detect_trajectory",
       "relation": "calls",
@@ -257933,6 +258151,28 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_identity_panel_test_four_identities_offer_every_pair",
+      "target": "src_avialsync_ui_identity_panel_identitypanel",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L451",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_panel_test_a_swap_exchanges_the_pair_that_is_selected",
+      "target": "src_avialsync_ui_identity_panel_identitypanel",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L464",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_identity_panel_rationale_1",
       "target": "tests_test_identity_panel",
       "relation": "rationale_for",
@@ -258089,6 +258329,16 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
       "source_location": "L418",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_panel_rationale_463",
+      "target": "tests_test_identity_panel_test_a_swap_exchanges_the_pair_that_is_selected",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L463",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -258518,6 +258768,57 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_identity_swaps",
+      "target": "tests_test_identity_swaps_many",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L314",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_many",
+      "target": "src_avialsync_core_pose_poseschema",
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L314",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps",
+      "target": "tests_test_identity_swaps_test_a_group_holds_every_individual_the_file_names",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L325",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps",
+      "target": "tests_test_identity_swaps_test_three_transpositions_compose_into_a_three_cycle",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L335",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps",
+      "target": "tests_test_identity_swaps_test_a_flip_between_two_of_eight_leaves_the_other_six_alone",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L356",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_identity_swaps_two_mice",
       "target": "src_avialsync_core_pose_poseschema",
       "relation": "calls",
@@ -258782,12 +259083,99 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_identity_swaps_many",
+      "target": "src_avialsync_core_pose_poseschema",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L315",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_a_group_holds_every_individual_the_file_names",
+      "target": "src_avialsync_core_identity_swaps_swapstore",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L326",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_a_group_holds_every_individual_the_file_names",
+      "target": "tests_test_identity_swaps_many",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L327",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_three_transpositions_compose_into_a_three_cycle",
+      "target": "src_avialsync_core_identity_swaps_swapstore",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L341",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_three_transpositions_compose_into_a_three_cycle",
+      "target": "tests_test_identity_swaps_many",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L342",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_a_flip_between_two_of_eight_leaves_the_other_six_alone",
+      "target": "src_avialsync_core_identity_swaps_swapstore",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L357",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_a_flip_between_two_of_eight_leaves_the_other_six_alone",
+      "target": "tests_test_identity_swaps_many",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L358",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_identity_swaps_rationale_1",
       "target": "tests_test_identity_swaps",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_swaps.py",
       "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_rationale_336",
+      "target": "tests_test_identity_swaps_test_three_transpositions_compose_into_a_three_cycle",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L336",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -324306,7 +324694,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L182",
+      "source_location": "L189",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -324317,7 +324705,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L236",
+      "source_location": "L243",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -330895,7 +331283,7 @@
       "context": "submodule_import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L172",
+      "source_location": "L179",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332908,7 +333296,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L190",
+      "source_location": "L197",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332919,7 +333307,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L220",
+      "source_location": "L227",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332930,7 +333318,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L242",
+      "source_location": "L249",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332941,7 +333329,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L281",
+      "source_location": "L288",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332952,7 +333340,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L284",
+      "source_location": "L291",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332963,7 +333351,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L288",
+      "source_location": "L295",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332974,7 +333362,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L307",
+      "source_location": "L314",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334063,7 +334451,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L203",
+      "source_location": "L212",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334074,7 +334462,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L268",
+      "source_location": "L277",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334085,7 +334473,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L268",
+      "source_location": "L277",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334096,7 +334484,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L278",
+      "source_location": "L287",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334107,7 +334495,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L317",
+      "source_location": "L326",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334118,7 +334506,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_braid.py",
-      "source_location": "L319",
+      "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334129,7 +334517,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L67",
+      "source_location": "L70",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334140,7 +334528,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L75",
+      "source_location": "L78",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334151,7 +334539,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L88",
+      "source_location": "L92",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334162,7 +334550,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L98",
+      "source_location": "L102",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334173,7 +334561,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L113",
+      "source_location": "L117",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334184,7 +334572,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L135",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354281,7 +354669,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L236",
+      "source_location": "L243",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354293,7 +354681,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L250",
+      "source_location": "L260",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354305,7 +354693,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L251",
+      "source_location": "L261",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354317,7 +354705,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L344",
+      "source_location": "L354",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354329,7 +354717,19 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L360",
+      "source_location": "L370",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_panel_identitypanel_refresh_pairs",
+      "target": "src_avialsync_ui_i18n_tr",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/avialsync/ui/identity_panel.py",
+      "source_location": "L401",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354341,7 +354741,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L392",
+      "source_location": "L432",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354353,7 +354753,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L444",
+      "source_location": "L484",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354365,7 +354765,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L445",
+      "source_location": "L485",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354377,7 +354777,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L472",
+      "source_location": "L512",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354389,7 +354789,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L500",
+      "source_location": "L540",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354401,7 +354801,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L514",
+      "source_location": "L554",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354413,7 +354813,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L550",
+      "source_location": "L590",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354425,7 +354825,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L563",
+      "source_location": "L603",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354437,7 +354837,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L596",
+      "source_location": "L636",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354449,7 +354849,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L619",
+      "source_location": "L659",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -354461,7 +354861,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/identity_panel.py",
-      "source_location": "L791",
+      "source_location": "L831",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -372598,6 +372998,78 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_identity_swaps_many",
+      "target": "src_avialsync_core_pose_posepoint",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L317",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_a_group_holds_every_individual_the_file_names",
+      "target": "src_avialsync_core_identity_groups_groups_for_schema",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L327",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_three_transpositions_compose_into_a_three_cycle",
+      "target": "src_avialsync_core_identity_groups_groups_for_schema",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L342",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_three_transpositions_compose_into_a_three_cycle",
+      "target": "src_avialsync_core_identity_swaps_swapevent",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L343",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_a_flip_between_two_of_eight_leaves_the_other_six_alone",
+      "target": "src_avialsync_core_identity_groups_groups_for_schema",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L358",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_swaps_test_a_flip_between_two_of_eight_leaves_the_other_six_alone",
+      "target": "src_avialsync_core_identity_swaps_swapevent",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_identity_swaps.py",
+      "source_location": "L359",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_import_streaming_test_channel_stage_round_trips_appended_chunks",
       "target": "src_avialsync_core_pyramid_channelstage",
       "relation": "calls",
@@ -386081,7 +386553,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L122",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -386093,7 +386565,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L174",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -386105,7 +386577,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/controllers/identity_view.py",
-      "source_location": "L251",
+      "source_location": "L258",
       "weight": 1.0,
       "_origin": "ast"
     },
