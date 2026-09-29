@@ -436,6 +436,12 @@ def evidence_color(palette: QPalette, kind: str) -> QColor:
         # Opposite the accent, so it can never collide with the sync lane, then
         # pushed clear of the defect red so it cannot be misread as an error.
         return on_surface(palette, _separated(accent_hue(palette) + 0.5, _DEFECT_HUE))
+    if kind == "identity":
+        # A quarter turn from the accent and clear of the defect red: an
+        # accepted identity swap is neither a match nor a fault, it is a
+        # correction the user made. It is drawn as a crossing rather than a
+        # tick, so the lane does not depend on this colour to be read (rule 17).
+        return on_surface(palette, _separated(accent_hue(palette) + 0.25, _DEFECT_HUE))
     return palette.color(QPalette.ColorRole.WindowText)
 
 

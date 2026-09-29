@@ -217,8 +217,13 @@ def test_a_v6_session_loads_with_default_overlays() -> None:
         assert overlays.is_visible(layer.overlay_id) is layer.default_visible
 
 
-def test_the_session_writes_version_8() -> None:
-    assert SessionState().to_dict()["version"] == 9
+def test_the_session_writes_the_current_schema_version() -> None:
+    """A bump is deliberate, so the number is written out rather than derived.
+
+    The name no longer carries it: this test asserted 9 under a name that said
+    8 for a whole schema version, which is how a literal and its label drift.
+    """
+    assert SessionState().to_dict()["version"] == 10
 
 
 # ── the window wiring ────────────────────────────────────────────────

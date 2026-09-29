@@ -20,6 +20,7 @@ from avialsync.core.errors import FileUnreadableError, LoaderContractError, Sour
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.pose import PoseSchema
 from avialsync.core.source import TimeSeriesSource
+from avialsync.ui.controllers import identity_controller
 from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
@@ -448,6 +449,11 @@ def register_tracking_source(
         "points": points,
         "frame_rate": float(config.get("fps", 0.0)),
     }
+    # What this source is and where it was imported to, kept because an
+    # identity swap has to rebuild its channels and re-point its readers
+    # without re-reading the file (D-142).
+    window._pose_schemas[path] = pose
+    window._pose_cache_dirs[path] = cache_dir
     calibrate_overlay_timing(window, video)
     # Whatever the user already corrected on this recording, wherever the
     # session it was corrected in has got to (D-099). After registration
@@ -455,6 +461,10 @@ def register_tracking_source(
     # sample indices needs this source's own time column; before the tracks are
     # published, so the pane's first paint is already the corrected one.
     window._adopt_point_edits(path)
+    # After the corrections, because both feed one edit program and the
+    # generation it names has to be built from the whole of it; before the
+    # tracks are published, so the pane's first paint is already the edited one.
+    identity_controller.adopt(window, path)
     window._refresh_overlays(video)
     # Markers and wheels placed on this recording, now its camera's pose file is known.
     from avialsync.ui.controllers import custom_marker_controller, wheel_files

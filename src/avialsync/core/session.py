@@ -157,9 +157,15 @@ class SessionState:
     #: Trigger evidence the user loaded and typed (schema v9). Evidence, not
     #: data: nothing here is ever plotted.
     triggers: list[TriggerEntry] = dataclasses.field(default_factory=list)
+    #: Accepted identity swaps per pose source, schema v10 (D-141). Normally a
+    #: count and where the swaps live, exactly as `point_edits` records a count:
+    #: the authority is the `.avialswap.csv` beside the pose file, and the count
+    #: is what lets a missing one be reported rather than silently obeyed. The
+    #: events themselves appear here only when that file could not be written.
+    identity_swaps: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 9)."""
+        """Serialise to a JSON-compatible dict (always writes version 10)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -175,7 +181,7 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 9,
+            "version": 10,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
@@ -189,18 +195,19 @@ class SessionState:
             "point_edits": self.point_edits,
             "session_start_time": self.session_start_time,
             "triggers": [dataclasses.asdict(entry) for entry in self.triggers],
+            "identity_swaps": self.identity_swaps,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v8).
+        """Deserialise from a parsed JSON dict (accepts v1 through v10).
 
-        Every v8 field is optional with a default, so a v7 file loads and
+        Every added field is optional with a default, so an older file loads and
         renders exactly as it did before the bump -- that equivalence is the
         migration test, not an aspiration.
         """
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9):
+        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
@@ -288,6 +295,7 @@ class SessionState:
             overlays=data.get("overlays") or {},
             display_levels=data.get("display_levels") or {},
             point_edits=list(data.get("point_edits") or []),
+            identity_swaps=list(data.get("identity_swaps") or []),
         )
 
     def save(self, path: Path) -> None:

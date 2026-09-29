@@ -130,7 +130,10 @@ class TimelineOverview(QWidget):
         self.setToolTip(tr("Data Streams. Click to seek."))
         self.setAccessibleName(tr("Data Streams lanes"))
         self.setAccessibleDescription(
-            tr("Named data, synchronization, gap, and annotation evidence on the master timeline.")
+            tr(
+                "Named data, synchronization, gap, identity-swap, and annotation "
+                "evidence on the master timeline."
+            )
         )
         self._bounds = (0.0, 0.0)
         self._cursor = 0.0
@@ -141,6 +144,7 @@ class TimelineOverview(QWidget):
         self._ttl_events: tuple[tuple[float, str], ...] = ()
         self._gap_events: tuple[tuple[float, str], ...] = ()
         self._message_events: tuple[tuple[float, str], ...] = ()
+        self._identity_events: tuple[tuple[float, str], ...] = ()
         # Sorted time index per event lane.  Paint and hover binary-search this
         # instead of scanning every event, so a 100k-event session costs the
         # same per frame as a 100-event one (P3.5 P1 hot path).
@@ -148,6 +152,7 @@ class TimelineOverview(QWidget):
             "ttl": _EMPTY_TIMES,
             "gap": _EMPTY_TIMES,
             "message": _EMPTY_TIMES,
+            "identity": _EMPTY_TIMES,
         }
         self._markers: tuple[tuple[float, float | None, str], ...] = ()
         self._viewport_start = 0.0
@@ -240,6 +245,19 @@ class TimelineOverview(QWidget):
         self._event_times["message"] = _time_index(self._message_events)
         self._on_evidence_changed()
 
+    def set_identity_events(
+        self, events: list[float | tuple[float, str]] | tuple[float, ...]
+    ) -> None:
+        """Display accepted identity swaps, where a tracker lost track of who is who.
+
+        Beside the gap lane deliberately: both answer "where is this recording
+        not what it appears to be", and a reviewer looking for one is looking in
+        the same place for the other (D-141).
+        """
+        self._identity_events = _normalise_events(events)
+        self._event_times["identity"] = _time_index(self._identity_events)
+        self._on_evidence_changed()
+
     def _visible_event_x(self, kind: str, t0: float, t1: float) -> list[int]:
         """Return the distinct pixel columns of the events inside ``[t0, t1]``.
 
@@ -271,6 +289,7 @@ class TimelineOverview(QWidget):
             "ttl": self._ttl_events,
             "gap": self._gap_events,
             "message": self._message_events,
+            "identity": self._identity_events,
         }.get(kind, ())
 
     def _nearest_event(self, kind: str, time: float, tolerance: float):
@@ -369,6 +388,8 @@ class TimelineOverview(QWidget):
             lanes.append(("Sync / TTL", "ttl", _EventLane(self._ttl_events)))
         if self._gap_events:
             lanes.append(("Data gaps", "gap", _EventLane(self._gap_events)))
+        if self._identity_events:
+            lanes.append(("Identity", "identity", _EventLane(self._identity_events)))
         if self._message_events:
             lanes.append(("Messages", "message", _EventLane(self._message_events)))
         if self._markers:
@@ -498,6 +519,14 @@ class TimelineOverview(QWidget):
                 painter.setPen(evidence_color(palette, "gap"))
                 for x in self._visible_event_x("gap", t0, t1):
                     painter.drawLine(x, top + 2, x, bottom - 2)
+            elif lane_kind == "identity":
+                # Two crossing strokes, not a tick: this lane says two labels
+                # exchanged, and the glyph says it without relying on its
+                # colour (rule 17).
+                painter.setPen(evidence_color(palette, "identity"))
+                for x in self._visible_event_x("identity", t0, t1):
+                    painter.drawLine(x - 3, top + 2, x + 3, bottom - 2)
+                    painter.drawLine(x + 3, top + 2, x - 3, bottom - 2)
             elif lane_kind == "message":
                 # Neither the accent nor the defect red: a note the experimenter
                 # typed is neither a sync match nor an error, and colouring it
@@ -559,13 +588,14 @@ class TimelineOverview(QWidget):
                 if payload.members > 1:
                     source = f"{source} ({payload.members} sources)"
                 return f"Coverage\nSource: {source}\nMaster time: {time:.6f} s"
-        if kind in {"ttl", "gap", "message"}:
+        if kind in {"ttl", "gap", "message", "identity"}:
             nearest = self._nearest_event(kind, time, tolerance)
             if nearest is not None:
                 event_name = {
                     "ttl": "Accepted sync / TTL event",
                     "gap": "Imported data gap",
                     "message": "Recorded message",
+                    "identity": "Accepted identity swap",
                 }[kind]
                 extra = f"\n{nearest[1]}" if nearest[1] else ""
                 return f"{event_name}\nMaster time: {nearest[0]:.6f} s{extra}"
@@ -957,6 +987,12 @@ class Transport(QWidget):
     ) -> None:
         """Show messages the sources recorded in the overview strip."""
         self.overview.set_message_events(events)
+
+    def set_identity_events(
+        self, events: list[float | tuple[float, str]] | tuple[float, ...]
+    ) -> None:
+        """Show accepted identity swaps as crossings in the overview strip."""
+        self.overview.set_identity_events(events)
 
     def set_annotation_markers(self, markers: list[tuple[float, float | None, str]]) -> None:
         """Show point and range annotations in the overview strip."""

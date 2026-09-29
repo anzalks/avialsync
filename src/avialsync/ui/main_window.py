@@ -51,8 +51,10 @@ from avialsync.core.commands import (
 )
 from avialsync.core.custom_markers import CustomMarkerStore
 from avialsync.core.document import Document, SourceRecord
+from avialsync.core.identity_swaps import SwapStore
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
+from avialsync.core.pose import PoseSchema
 from avialsync.core.session import (
     SessionState,
     SyncProvenance,
@@ -83,6 +85,7 @@ from avialsync.ui.controllers import (
     custom_marker_controller,
     drop_controller,
     export_controller,
+    identity_controller,
     import_controller,
     session_controller,
     video_controller,
@@ -309,6 +312,21 @@ class MainWindow(QMainWindow):
         self._wheel_pane_source: Callable[[str, float], object] = lambda path, t: (
             wheel_display.pane_drawing(self, path, t)
         )
+        #: Accepted identity swaps (D-141): which lanes exchanged labels and
+        #: from which frame. Like corrections, written beside the pose file the
+        #: moment they are accepted; unlike corrections, applied by rebuilding
+        #: the source's cached channels, so every consumer reads the edited
+        #: tracker rather than each one applying the swap for itself (D-142).
+        self.identity_swaps = SwapStore()
+        self.identity_swaps.observe(self._on_identity_swaps_changed)
+        #: What each imported pose source is: its declared structure, where it
+        #: was imported to, and which edited generation its readers are on.
+        self._pose_schemas: dict[str, PoseSchema] = {}
+        self._pose_cache_dirs: dict[str, Path] = {}
+        self._edited_generations: dict[str, Any] = {}
+        self._swap_storage: dict[str, str] = {}
+        self._expected_swap_counts: dict[str, int] = {}
+        self._announced_swap_files: set[str] = set()
         #: Where each source's corrections went. "session" only ever means
         #: writing beside the pose file failed, never a preference.
         self._point_edit_storage: dict[str, str] = {}
@@ -2673,12 +2691,59 @@ class MainWindow(QMainWindow):
         )
 
     def _persist_point_edits(self, source_id: str) -> None:
-        """Write one pose source's corrections beside it, immediately."""
+        """Write one pose source's corrections beside it, and rebuild what is shown."""
         corrections_controller.persist(self, source_id)
+        # A correction is part of the same edit program as a swap, so the
+        # cached channels every consumer reads have to follow it too (D-142).
+        identity_controller.refresh(self, source_id)
 
     def _adopt_point_edits(self, source_id: str) -> None:
         """Load the corrections that live beside a pose file being imported."""
         corrections_controller.adopt(self, source_id)
+
+    def _on_identity_swaps_changed(self, _source_id: str | None) -> None:
+        """Refresh what reports accepted flips after one is accepted or undone.
+
+        The window observes the store rather than each widget, for the reason
+        the corrections observer states: a callback held by a pane outlives the
+        pane, and the window outlives them all.
+        """
+        self._refresh_action_availability()
+        self._refresh_identity_lane()
+        panel = getattr(self, "changes_panel", None)
+        if panel is not None:
+            panel.refresh()
+
+    def _refresh_identity_lane(self) -> None:
+        """Show every accepted flip in the Data Streams lanes, in master time."""
+        events: list[tuple[float, str]] = []
+        for source_id, event in self.identity_swaps:
+            when = self._master_time_of_sample(source_id, event.index)
+            if when is None:
+                continue
+            events.append(
+                (
+                    when,
+                    tr("{a} and {b} swap from frame {frame}").format(
+                        a=event.lanes[0],
+                        b=event.lanes[1],
+                        frame=corrections_controller.frame_for(self, source_id, event.index),
+                    ),
+                )
+            )
+        self.transport.set_identity_events(sorted(events))
+
+    def _master_time_of_sample(self, source_id: str, index: int) -> float | None:
+        """When one sample of a pose source is shown on the master clock."""
+        for sources in self._overlay_sources.values():
+            entry = sources.get(source_id)
+            if entry is None:
+                continue
+            for readers in (entry.get("points") or {}).values():
+                times = readers[0].source_reader.mapped_columns()[0]
+                if 0 <= index < len(times):
+                    return float(readers[0].time_map.to_master(float(times[index])))
+        return None
 
     # ── Command bus: recording live mutations (WP-1 step 4) ──────────
 

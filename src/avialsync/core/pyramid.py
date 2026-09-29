@@ -332,6 +332,24 @@ class PyramidReader:
         self.channel_id = channel_id
         self._arrays: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
 
+    def reopen(self, cache_dir: Path) -> None:
+        """Read this channel from *cache_dir* from now on.
+
+        What lets an edited generation (:mod:`avialsync.core.edit_cache`) reach
+        a plot row, an overlay, or the readout without rebuilding any of them:
+        the consumer keeps its row, its colour, its Y scale and its visibility,
+        and only the arrays underneath change.
+
+        Dropping the mmap views is the point as much as the path is. Holding
+        them would keep the previous generation's files open, which on Windows
+        is the difference between a directory that can be replaced and one that
+        cannot.
+        """
+        if cache_dir == self.cache_dir:
+            return
+        self.cache_dir = cache_dir
+        self._arrays.clear()
+
     def _load_level(self, level: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         key = f"{self.channel_id}_{level}"
         if key not in self._arrays:

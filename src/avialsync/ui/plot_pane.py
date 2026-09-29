@@ -3,6 +3,7 @@
 import logging
 import math
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 import pyqtgraph as pg
@@ -444,6 +445,26 @@ class PlotPane(QWidget):
         if not spans:
             return None
         return min(span[0] for span in spans), max(span[1] for span in spans)
+
+    def read_channels_from(self, source_id: str, directories: Mapping[str, Path]) -> None:
+        """Read one source's rows from the directories named in *directories*.
+
+        What makes an accepted identity swap visible in the plots: the row keeps
+        its colour, its Y scale, its unit and its visibility, and only the
+        arrays underneath it change (:mod:`avialsync.core.edit_cache`).  Every
+        channel is named, including the unedited ones, so undoing the last edit
+        points the rows home again by the same path that pointed them away.
+        """
+        touched = False
+        for channel in self.channels:
+            directory = directories.get(channel.reader.channel_id)
+            if directory is None or channel.reader.source_id != source_id:
+                continue
+            if channel.reader.source_reader.cache_dir != directory:
+                channel.reader.read_from(directory)
+                touched = True
+        if touched:
+            self.update_plots()
 
     def remove_channels(self, cache_dir: Path) -> None:
         """Remove all channels associated with a specific cache_dir (source)."""

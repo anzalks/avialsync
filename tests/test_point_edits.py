@@ -442,10 +442,10 @@ def test_adopting_does_not_discard_what_another_source_already_loaded() -> None:
     assert store.get(NOSE) == (1.0, 2.0)
 
 
-def test_the_saved_file_writes_version_8(tmp_path: Path) -> None:
+def test_the_saved_file_writes_the_current_schema_version(tmp_path: Path) -> None:
     path = tmp_path / "session.avv"
     SessionState().save(path)
-    assert json.loads(path.read_text())["version"] == 9
+    assert json.loads(path.read_text())["version"] == 10
 
 
 def test_a_version_7_session_loads_with_no_corrections(tmp_path: Path) -> None:
@@ -456,6 +456,16 @@ def test_a_version_7_session_loads_with_no_corrections(tmp_path: Path) -> None:
     state = SessionState.load(path)
 
     assert state.point_edits == []
+
+
+def test_a_version_9_session_loads_with_no_identity_swaps(tmp_path: Path) -> None:
+    """A session from before flips existed says nothing about them (D-141)."""
+    path = tmp_path / "old.avv"
+    path.write_text(json.dumps({"version": 9, "videos": [], "sensors": [], "markers": []}))
+
+    state = SessionState.load(path)
+
+    assert state.identity_swaps == []
 
 
 def test_a_malformed_correction_is_skipped_rather_than_refusing_the_session() -> None:

@@ -31,6 +31,7 @@ from avialsync.ui import recovery
 from avialsync.ui.controllers import (
     corrections_controller,
     custom_marker_controller,
+    identity_controller,
     wheel_controller,
 )
 from avialsync.ui.i18n import tr
@@ -176,6 +177,7 @@ def build_session_state(window: MainWindow) -> SessionState:
         plot_x1=plot_x1,
         overlays=window.overlay_state.to_dict(),
         point_edits=corrections_controller.build_manifest(window),
+        identity_swaps=identity_controller.build_manifest(window),
     )
 
 
@@ -401,6 +403,10 @@ def reset_session(window: MainWindow) -> None:
     window._overlay_sources.clear()
     window._pose_3d_sources.clear()
     window.point_edits.clear()
+    window.identity_swaps.clear()
+    window._pose_schemas.clear()
+    window._pose_cache_dirs.clear()
+    window._edited_generations.clear()
     custom_marker_controller.cancel(window)
     window.custom_markers.clear()
     window._calibration_state = None
@@ -408,6 +414,9 @@ def reset_session(window: MainWindow) -> None:
     wheel_controller.reset(window)
     window._point_edit_storage.clear()
     window._expected_correction_counts.clear()
+    window._swap_storage.clear()
+    window._expected_swap_counts.clear()
+    window._announced_swap_files.clear()
     window._announced_correction_files.clear()
     window._plotted_readers.clear()
     window._inspections.clear()
@@ -454,6 +463,11 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # because its folder could not be written (D-099).
     window.point_edits.clear()
     corrections_controller.restore_manifest(window, state.point_edits)
+    # Identity swaps are the same arrangement for the same reason: the
+    # `.avialswap.csv` beside the pose file is the authority, and the session
+    # holds the count to check it against as the source imports (D-141).
+    window.identity_swaps.clear()
+    identity_controller.restore_manifest(window, state.identity_swaps)
     # Collect missing files for relink
     missing: list[str] = []
     kind_labels: dict[str, str] = {}

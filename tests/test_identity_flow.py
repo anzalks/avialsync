@@ -1,0 +1,272 @@
+"""Accepting a flip changes what is read, and nothing else (D-141, D-142).
+
+The end-to-end claim this file exists to pin: after a swap is accepted, every
+consumer -- the overlay, the 3D view, a plot row, the readout -- reads the
+edited tracker, because the edit was materialised into the source's cache
+rather than applied by each of them. The recording and its imported pyramid are
+byte-for-byte what they were, and undoing the flip points everything home.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+import pytest
+from shiboken6 import isValid
+
+from avialsync.core import identity_sidecar
+from avialsync.core.identity_groups import ANIMALS
+from avialsync.core.identity_swaps import SwapEvent
+from avialsync.core.inspection import SourceInspection
+from avialsync.core.point_edits import PointKey
+from avialsync.core.pose import PosePoint, PoseSchema
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.ui.controllers import identity_controller, import_controller
+from avialsync.ui.main_window import MainWindow
+
+FRAMES = 120
+FLIP = 60
+FPS = 30.0
+VIDEO = "/data/arena.mp4"
+INDIVIDUALS = ("testMouse", "conSpecific")
+PARTS = ("snout", "wrist")
+
+SCHEMA = PoseSchema(
+    points=tuple(
+        PosePoint(individual=individual, bodypart=part, axes=("x", "y"), has_likelihood=True)
+        for individual in INDIVIDUALS
+        for part in PARTS
+    ),
+    frame_indexed=True,
+)
+
+
+def _channel_value(point: str, axis: str) -> float:
+    """A value that names its own column, so a swap is visible by inspection."""
+    return 1000.0 * (INDIVIDUALS.index(point.split("_")[0]) + 1) + 10.0 * PARTS.index(
+        point.split("_", 1)[1]
+    ) + (1.0 if axis == "y" else 0.0)
+
+
+@pytest.fixture
+def pose_source(tmp_path: Path) -> tuple[Path, Path, list[str]]:
+    """A pose file on disk, and the imported cache beside it."""
+    pose = tmp_path / "twomice_DLC.csv"
+    pose.write_text("scorer,DLC\nindividuals,testMouse\n", encoding="utf-8")
+
+    cache = tmp_path / "twomice_DLC.csv.avialcache"
+    cache.mkdir()
+    times = np.arange(FRAMES, dtype=np.float64) / FPS
+    channels: list[str] = []
+    for point in SCHEMA.points:
+        for axis in ("x", "y"):
+            channel = point.channel(axis)
+            values = np.full(FRAMES, _channel_value(point.name, axis), dtype=np.float64)
+            PyramidBuilder(cache, channel).build_and_save(times, values)
+            channels.append(channel)
+        likelihood = point.likelihood_channel
+        assert likelihood is not None
+        PyramidBuilder(cache, likelihood).build_and_save(
+            times, np.full(FRAMES, 0.4, dtype=np.float64)
+        )
+        channels.append(likelihood)
+    return pose, cache, channels
+
+
+@pytest.fixture
+def window(qtbot, pose_source) -> MainWindow:
+    pose, cache, channels = pose_source
+    window = MainWindow()
+    qtbot.addWidget(window)
+    import_controller.register_tracking_source(
+        window,
+        path=str(pose),
+        cache_dir=cache,
+        channels=channels,
+        role="pose2d",
+        inspection=SourceInspection(
+            path=str(pose),
+            loader_id="tracking",
+            import_config={"overlay_video": VIDEO, "fps": FPS},
+            pose=SCHEMA,
+        ),
+    )
+    yield window
+    if isValid(window):
+        window.close()
+
+
+def _readers(window: MainWindow, source: str, point: str):
+    return window._overlay_sources[VIDEO][source]["points"][point]
+
+
+def _shown(window: MainWindow, source: str, point: str, index: int) -> float:
+    """What the overlay would draw for *point* at *index*, in x."""
+    reader = _readers(window, source, point)[0]
+    return float(reader.source_reader.mapped_columns()[1][index])
+
+
+def _settle(qtbot, window: MainWindow, source: str) -> None:
+    """Wait for the rebuild job, which runs off the UI thread like every job.
+
+    Waiting for the generation the *current* edits name, not merely for one to
+    exist: an unedited source already has an empty generation from its import,
+    so anything weaker passes before the rebuild has started.
+    """
+
+    def _ready() -> bool:
+        generation = identity_controller.edited_cache(window, source)
+        wanted = identity_controller.program_for(window, source).fingerprint
+        return (
+            generation is not None
+            and generation.fingerprint == wanted
+            and bool(generation.channels)
+        )
+
+    qtbot.waitUntil(_ready, timeout=5000)
+
+
+def _accept(window: MainWindow, source: str, at: int = FLIP) -> SwapEvent:
+    event = SwapEvent(index=at, group=ANIMALS, lanes=INDIVIDUALS)
+    identity_controller.apply(window, source, event, accept=True)
+    return event
+
+
+# ── the import declares what can be confused ─────────────────────────
+
+
+def test_importing_a_multi_animal_file_declares_its_lanes(window, pose_source) -> None:
+    source = str(pose_source[0])
+    group = window.identity_swaps.group(source, ANIMALS)
+
+    assert group is not None
+    assert group.lanes == INDIVIDUALS
+    assert sorted(group.parts) == sorted(PARTS)
+
+
+# ── accepting one ────────────────────────────────────────────────────
+
+
+def test_the_overlay_reads_the_other_animal_after_the_flip(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    before = _shown(window, source, "testMouse_snout", FLIP)
+
+    _accept(window, source)
+    _settle(qtbot, window, source)
+
+    assert _shown(window, source, "testMouse_snout", FLIP - 1) == before
+    assert _shown(window, source, "testMouse_snout", FLIP) == _channel_value(
+        "conSpecific_snout", "x"
+    )
+    assert _shown(window, source, "conSpecific_snout", FLIP) == _channel_value(
+        "testMouse_snout", "x"
+    )
+
+
+def test_the_recording_and_its_imported_cache_are_untouched(
+    qtbot, window, pose_source
+) -> None:
+    pose, cache, _channels = pose_source
+    source = str(pose)
+    recording = pose.read_bytes()
+    imported = {path.name: path.read_bytes() for path in cache.glob("*.npy")}
+
+    _accept(window, source)
+    _settle(qtbot, window, source)
+
+    assert pose.read_bytes() == recording
+    assert {path.name: path.read_bytes() for path in cache.glob("*.npy")} == imported
+
+
+def test_an_accepted_flip_is_written_beside_the_pose_file(qtbot, window, pose_source) -> None:
+    pose = pose_source[0]
+    _accept(window, str(pose))
+    _settle(qtbot, window, str(pose))
+
+    held = identity_sidecar.read(pose)
+
+    assert held is not None
+    assert [event.index for event in held.events] == [FLIP]
+    # The group travels with the event, so it stays interpretable even if a
+    # later import names its lanes differently.
+    assert held.groups[0].point("testMouse", "snout") == "testMouse_snout"
+
+
+def test_undoing_the_flip_points_every_reader_home(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    before = _shown(window, source, "testMouse_snout", FLIP)
+    event = _accept(window, source)
+    _settle(qtbot, window, source)
+    assert _shown(window, source, "testMouse_snout", FLIP) != before
+
+    identity_controller.apply(window, source, event, accept=False)
+    qtbot.waitUntil(
+        lambda: _shown(window, source, "testMouse_snout", FLIP) == before, timeout=5000
+    )
+
+    assert window.identity_swaps.count_for(source) == 0
+
+
+def test_only_the_selected_part_moves_when_one_is_named(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    identity_controller.apply(
+        window,
+        source,
+        SwapEvent(index=FLIP, group=ANIMALS, lanes=INDIVIDUALS, parts=("wrist",)),
+        accept=True,
+    )
+    _settle(qtbot, window, source)
+
+    assert _shown(window, source, "testMouse_wrist", FLIP) == _channel_value(
+        "conSpecific_wrist", "x"
+    )
+    assert _shown(window, source, "testMouse_snout", FLIP) == _channel_value(
+        "testMouse_snout", "x"
+    )
+
+
+def test_an_accepted_flip_reaches_the_data_streams_lane(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    _accept(window, source)
+    _settle(qtbot, window, source)
+
+    assert "Identity" in window.transport.overview.lane_labels()
+
+
+# ── a correction rides the same rebuild ──────────────────────────────
+
+
+def test_a_correction_reaches_the_cached_channel_too(qtbot, window, pose_source) -> None:
+    """One edit program, so a hand correction lands where a flip does."""
+    source = str(pose_source[0])
+
+    window._mutations.set_tracked_point(source, "testMouse_snout", 7, (12.0, 34.0))
+    qtbot.waitUntil(
+        lambda: _shown(window, source, "testMouse_snout", 7) == 12.0, timeout=5000
+    )
+
+    assert window.point_edits.get(PointKey(source, "testMouse_snout", 7)) == (12.0, 34.0)
+    assert _shown(window, source, "testMouse_snout", 8) == _channel_value(
+        "testMouse_snout", "x"
+    )
+
+
+def test_a_correction_made_under_a_swapped_label_follows_its_own_column(
+    qtbot, window, pose_source
+) -> None:
+    """The user drags what is labelled testMouse; the value belongs to the
+    trajectory that label is currently showing, which is conSpecific's column."""
+    source = str(pose_source[0])
+    _accept(window, source)
+    _settle(qtbot, window, source)
+
+    window._mutations.set_tracked_point(
+        source, "conSpecific_snout", FLIP + 5, (7.0, 8.0), "testMouse_snout"
+    )
+    qtbot.waitUntil(
+        lambda: _shown(window, source, "testMouse_snout", FLIP + 5) == 7.0, timeout=5000
+    )
+
+    key = PointKey(source, "conSpecific_snout", FLIP + 5)
+    assert window.point_edits.shown_as(key) == "testMouse_snout"

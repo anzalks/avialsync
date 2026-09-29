@@ -67,12 +67,27 @@ class MappedChannelReader:
         self._reader = reader
         self._time_map = time_map if time_map is not None else TimeMap()
         self._source_id = source_id
+        #: Where this channel was imported to.  Kept rather than delegated
+        #: because the underlying reader can be re-pointed at an edited
+        #: generation of the same source (:meth:`read_from`), and every caller
+        #: that groups rows by cache directory means "which import is this",
+        #: not "which files is it reading this second".
+        self._origin = reader.cache_dir
 
     # ── Identity (delegated so existing grouping/lookup keeps working) ─
 
     @property
     def cache_dir(self) -> Path:
-        return self._reader.cache_dir
+        return self._origin
+
+    def read_from(self, cache_dir: Path) -> None:
+        """Read this channel's values from *cache_dir* from now on.
+
+        The identity above does not move: this is the same channel of the same
+        import, showing what the user's edits made of it
+        (:mod:`avialsync.core.edit_cache`).
+        """
+        self._reader.reopen(cache_dir)
 
     @property
     def channel_id(self) -> str:
