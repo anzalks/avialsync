@@ -2212,9 +2212,10 @@ class MainWindow(QMainWindow):
         )
         self._act_panels_back.triggered.connect(self._bring_panels_back)
         _reg(self._act_panels_back, "View")
-        # One QAction drives the menu entry and the button in the video tools
-        # row, so the two cannot drift apart in what they are called (rule 15).
-        self.view_toolbar.install_panels_back_action(self._act_panels_back)
+        # Kept in the menu and nowhere else. Attaching a panel belongs on the
+        # panel -- its title bar carries that button -- and this is only the
+        # last resort for the one case the panel's own button cannot serve: a
+        # window on a screen that is no longer there to click.
         view_menu.addSeparator()
 
         # Workspaces: a session is looked at in more than one way, and

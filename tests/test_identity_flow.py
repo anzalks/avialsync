@@ -716,9 +716,7 @@ def test_a_playhead_swap_is_undoable_like_any_other(qtbot, window, pose_source) 
     _settle(qtbot, window, source)
 
     window.document.undo(window._mutations)
-    qtbot.waitUntil(
-        lambda: _shown(window, source, "testMouse_snout", FLIP) == raw, timeout=5000
-    )
+    qtbot.waitUntil(lambda: _shown(window, source, "testMouse_snout", FLIP) == raw, timeout=5000)
     assert window.identity_swaps.count_for(source) == 0
 
 
@@ -899,9 +897,7 @@ def test_remove_all_is_offered_with_its_count(qtbot, window, pose_source) -> Non
     assert "2" in panel._remove_all.text()
 
 
-def test_applying_twice_on_the_same_frame_is_not_two_undo_steps(
-    qtbot, window, pose_source
-) -> None:
+def test_applying_twice_on_the_same_frame_is_not_two_undo_steps(qtbot, window, pose_source) -> None:
     """A no-op does not deserve a place in the undo history."""
     source = str(pose_source[0])
     panel = _braid(qtbot, window)
@@ -958,9 +954,7 @@ def test_remove_reverses_the_swap_in_force_at_the_playhead(qtbot, window, pose_s
     assert [e.index for e in window.identity_swaps.events_for(source)] == [20]
 
 
-def test_remove_never_reaches_a_swap_later_than_the_playhead(
-    qtbot, window, pose_source
-) -> None:
+def test_remove_never_reaches_a_swap_later_than_the_playhead(qtbot, window, pose_source) -> None:
     """Standing at frame 30, Remove must not undo the crossing at 80."""
     source = str(pose_source[0])
     panel = _braid(qtbot, window)
@@ -990,9 +984,7 @@ def test_apply_then_remove_on_one_frame_is_a_round_trip(qtbot, window, pose_sour
     assert _shown(window, source, "testMouse_snout", FLIP) != raw
 
     window._remove_identity_swap()
-    qtbot.waitUntil(
-        lambda: _shown(window, source, "testMouse_snout", FLIP) == raw, timeout=5000
-    )
+    qtbot.waitUntil(lambda: _shown(window, source, "testMouse_snout", FLIP) == raw, timeout=5000)
     assert window.identity_swaps.count_for(source) == 0
 
 
@@ -1047,13 +1039,37 @@ def test_bringing_panels_back_reopens_one_that_was_closed(qtbot, window, pose_so
     assert not panel.isHidden()
 
 
-def test_bringing_panels_back_has_a_button_as_well_as_a_menu_entry(window) -> None:
-    """A menu is the wrong place for the command that rescues a lost window.
+def test_a_detached_panel_carries_its_own_way_back(qtbot, window, pose_source) -> None:
+    """The button belongs on the panel, not on the window it left.
 
-    One QAction drives both, so they cannot come to be called different things.
+    A control on the main window is no use to somebody looking at the panel,
+    and none at all when the panel is on another screen.
     """
-    button = window.view_toolbar.panels_back_button
+    window._open_identity_panel()
+    panel = window._identity_window
+    bar = panel.title_bar
 
-    assert button.text() == "Bring Panels Back"
-    assert button.isEnabled()
-    assert window._act_panels_back.toolTip() == button.toolTip()
+    assert bar._attach.text() == "Detach"
+
+    panel.setFloating(True)
+    assert bar._attach.text() == "Attach"
+    assert "Attach this panel" in bar._attach.toolTip()
+
+    bar._attach.click()
+
+    assert not panel.isFloating()
+    assert bar._attach.text() == "Detach"
+
+
+def test_the_panel_title_bar_can_close_it(qtbot, window, pose_source) -> None:
+    window._open_identity_panel()
+    panel = window._identity_window
+    close = [
+        button
+        for button in panel.title_bar.findChildren(type(panel.title_bar._attach))
+        if button.text() == "Close"
+    ]
+
+    assert close, "a panel that can be detached must also be closable from itself"
+    close[0].click()
+    assert panel.isHidden()

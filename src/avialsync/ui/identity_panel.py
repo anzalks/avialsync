@@ -49,6 +49,7 @@ from avialsync.ui.axis_nav import NavigableViewBox
 from avialsync.ui.i18n import tr
 from avialsync.ui.identity_braid import BraidModel, BraidNode, draw_braid, draw_separation
 from avialsync.ui.plot_theme import apply_canvas_palette
+from avialsync.ui.theme import set_bold
 
 __all__ = ["IdentityPanel", "IdentityWindow", "group_label", "ALL_PARTS_ITEM"]
 
@@ -869,6 +870,60 @@ class IdentityPanel(QWidget):
         return self._model.nodes if self._model is not None else ()
 
 
+class _DockTitleBar(QWidget):
+    """A dock's own title row: what it is, and the two things you can do to it.
+
+    Qt's stock title bar carries a float button drawn as a pair of overlapping
+    squares, which says nothing about what it does and looks the same whichever
+    state it is in. The way back from a detached panel belongs *on the panel*,
+    named, rather than on the main window -- where it is of no use to somebody
+    looking at the panel, and of no use at all if the panel is on another
+    screen.
+    """
+
+    def __init__(self, dock: QDockWidget) -> None:
+        super().__init__(dock)
+        self._dock = dock
+        row = QHBoxLayout(self)
+        row.setContentsMargins(6, 2, 4, 2)
+        row.setSpacing(4)
+
+        title = QLabel(dock.windowTitle(), self)
+        set_bold(title, True)
+        row.addWidget(title)
+        row.addStretch(1)
+
+        self._attach = QPushButton(self)
+        self._attach.setFlat(True)
+        self._attach.clicked.connect(self._toggle_floating)
+        row.addWidget(self._attach)
+
+        close = QPushButton(tr("Close"), self)
+        close.setFlat(True)
+        close.setAccessibleName(tr("Close this panel"))
+        close.setAccessibleDescription(tr("Hide the panel; reopen it from the Edit menu"))
+        close.setToolTip(tr("Close this panel"))
+        close.clicked.connect(dock.close)
+        row.addWidget(close)
+
+        dock.topLevelChanged.connect(lambda _floating: self._describe())
+        self._describe()
+
+    def _toggle_floating(self) -> None:
+        self._dock.setFloating(not self._dock.isFloating())
+
+    def _describe(self) -> None:
+        """Name the button for what pressing it does, not for what it is."""
+        floating = self._dock.isFloating()
+        self._attach.setText(tr("Attach") if floating else tr("Detach"))
+        self._attach.setAccessibleName(
+            tr("Attach this panel to the main window")
+            if floating
+            else tr("Detach this panel into its own window")
+        )
+        self._attach.setToolTip(self._attach.accessibleName())
+
+
 class IdentityWindow(QDockWidget):
     """A closable identity editor beside the video, floatable to another screen."""
 
@@ -881,6 +936,8 @@ class IdentityWindow(QDockWidget):
             | QDockWidget.DockWidgetFeature.DockWidgetFloatable
             | QDockWidget.DockWidgetFeature.DockWidgetClosable
         )
+        self.title_bar = _DockTitleBar(self)
+        self.setTitleBarWidget(self.title_bar)
         self.panel = IdentityPanel(self)
         self.setWidget(self.panel)
 

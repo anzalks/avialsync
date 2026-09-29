@@ -4530,7 +4530,7 @@
       "label": "Trajectory",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L66",
+      "source_location": "L77",
       "_origin": "ast"
     },
     {
@@ -4538,7 +4538,7 @@
       "label": ".valid()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L72",
+      "source_location": "L83",
       "_origin": "ast"
     },
     {
@@ -4554,7 +4554,7 @@
       "label": "Candidate",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L78",
+      "source_location": "L89",
       "_origin": "ast"
     },
     {
@@ -4562,7 +4562,7 @@
       "label": ".as_dict()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L93",
+      "source_location": "L104",
       "_origin": "ast"
     },
     {
@@ -4570,7 +4570,7 @@
       "label": "centroid()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L103",
+      "source_location": "L114",
       "_origin": "ast"
     },
     {
@@ -4578,7 +4578,7 @@
       "label": "detect()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L135",
+      "source_location": "L146",
       "_origin": "ast"
     },
     {
@@ -4586,7 +4586,15 @@
       "label": "_pair()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L170",
+      "source_location": "L181",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_identity_detect_proximity_limit",
+      "label": "_proximity_limit()",
+      "file_type": "code",
+      "source_file": "src/avialsync/core/identity_detect.py",
+      "source_location": "L251",
       "_origin": "ast"
     },
     {
@@ -4594,7 +4602,7 @@
       "label": "_lookbacks()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L239",
+      "source_location": "L278",
       "_origin": "ast"
     },
     {
@@ -4602,7 +4610,7 @@
       "label": "_predict()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L253",
+      "source_location": "L292",
       "_origin": "ast"
     },
     {
@@ -4610,7 +4618,7 @@
       "label": "_apart()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L266",
+      "source_location": "L305",
       "_origin": "ast"
     },
     {
@@ -4618,7 +4626,7 @@
       "label": "_median_step()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L272",
+      "source_location": "L311",
       "_origin": "ast"
     },
     {
@@ -4626,7 +4634,7 @@
       "label": "_closest_approach()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L294",
+      "source_location": "L333",
       "_origin": "ast"
     },
     {
@@ -4634,7 +4642,7 @@
       "label": "_suppress()",
       "file_type": "code",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L303",
+      "source_location": "L342",
       "_origin": "ast"
     },
     {
@@ -4646,83 +4654,91 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_identity_detect_rationale_67",
+      "id": "src_avialsync_core_identity_detect_rationale_78",
       "label": "One lane's position over the whole recording, in the source's own frames.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L67",
+      "source_location": "L78",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_identity_detect_rationale_73",
+      "id": "src_avialsync_core_identity_detect_rationale_84",
       "label": "Where this lane has a position at all.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L73",
+      "source_location": "L84",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_identity_detect_rationale_79",
+      "id": "src_avialsync_core_identity_detect_rationale_90",
       "label": "One proposed flip, and the evidence it was proposed on.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L79",
+      "source_location": "L90",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_identity_detect_rationale_104",
+      "id": "src_avialsync_core_identity_detect_rationale_115",
       "label": "Average the parts a lane carries, ignoring the ones missing per frame.      What",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L104",
+      "source_location": "L115",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_identity_detect_rationale_144",
+      "id": "src_avialsync_core_identity_detect_rationale_155",
       "label": "Propose the frames at which each pair of *lanes* may have exchanged.      Every",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L144",
+      "source_location": "L155",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_identity_detect_rationale_240",
+      "id": "src_avialsync_core_identity_detect_rationale_252",
+      "label": "How near counts as near, for *these two* lanes in *this* recording.      Travel",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/core/identity_detect.py",
+      "source_location": "L252",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_identity_detect_rationale_279",
       "label": "The last two frames before each one at which both lanes had a position.      ``-",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L240",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_core_identity_detect_rationale_256",
-      "label": "Where *lane* would be at ``here``, carried forward at its own velocity.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L256",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_core_identity_detect_rationale_273",
-      "label": "How far a point moves between consecutive frames, typically.      The unit every",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L273",
+      "source_location": "L279",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_core_identity_detect_rationale_295",
-      "label": "How near the two lanes ever came within *window* frames of *index*.",
+      "label": "Where *lane* would be at ``here``, carried forward at its own velocity.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/identity_detect.py",
       "source_location": "L295",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_identity_detect_rationale_304",
+      "id": "src_avialsync_core_identity_detect_rationale_312",
+      "label": "How far a point moves between consecutive frames, typically.      The unit every",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/core/identity_detect.py",
+      "source_location": "L312",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_identity_detect_rationale_334",
+      "label": "How near the two lanes ever came within *window* frames of *index*.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/core/identity_detect.py",
+      "source_location": "L334",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_identity_detect_rationale_343",
       "label": "Keep the strongest proposal in each burst, in frame order.",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L304",
+      "source_location": "L343",
       "_origin": "ast"
     },
     {
@@ -66774,6 +66790,38 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_identity_detect_slow_pair",
+      "label": "_slow_pair()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L180",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_detect_test_a_flip_is_found_between_animals_that_never_quite_touch",
+      "label": "test_a_flip_is_found_between_animals_that_never_quite_touch()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L188",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_detect_test_two_animals_that_keep_the_whole_arena_apart_are_still_rejected",
+      "label": "test_two_animals_that_keep_the_whole_arena_apart_are_still_rejected()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L201",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_detect_test_the_gate_never_exceeds_its_cap",
+      "label": "test_the_gate_never_exceeds_its_cap()",
+      "file_type": "code",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L210",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_identity_detect_rationale_1",
       "label": "Finding a flip the tracker made, against data where the truth is known.  Every f",
       "file_type": "rationale",
@@ -66795,6 +66843,30 @@
       "file_type": "rationale",
       "source_file": "tests/test_identity_detect.py",
       "source_location": "L47",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_detect_rationale_181",
+      "label": "Two animals creeping along in parallel, *separation* apart, then flipped.",
+      "file_type": "rationale",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L181",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_detect_rationale_189",
+      "label": "Travel alone was the wrong yardstick for \"did they come near\".      On a real tw",
+      "file_type": "rationale",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L189",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_identity_detect_rationale_202",
+      "label": "Or the gate becomes the standard deviation's mistake by another route.      A pa",
+      "file_type": "rationale",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L202",
       "_origin": "ast"
     },
     {
@@ -107026,7 +107098,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L66",
+      "source_location": "L77",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107036,7 +107108,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L72",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107047,7 +107119,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L72",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107057,7 +107129,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L78",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107067,7 +107139,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L93",
+      "source_location": "L104",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107077,7 +107149,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L103",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107088,7 +107160,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L103",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107098,7 +107170,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L135",
+      "source_location": "L146",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107109,7 +107181,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L135",
+      "source_location": "L146",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107120,7 +107192,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L135",
+      "source_location": "L146",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107130,7 +107202,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L170",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107141,7 +107213,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L170",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107152,7 +107224,28 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L170",
+      "source_location": "L181",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_identity_detect",
+      "target": "src_avialsync_core_identity_detect_proximity_limit",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/identity_detect.py",
+      "source_location": "L251",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_identity_detect_proximity_limit",
+      "target": "src_avialsync_core_identity_detect_py_ndarray",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/identity_detect.py",
+      "source_location": "L251",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107162,7 +107255,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L239",
+      "source_location": "L278",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107173,7 +107266,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L239",
+      "source_location": "L278",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107183,7 +107276,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L253",
+      "source_location": "L292",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107194,7 +107287,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L253",
+      "source_location": "L292",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107205,7 +107298,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L253",
+      "source_location": "L292",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107215,7 +107308,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L266",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107226,7 +107319,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L266",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107236,7 +107329,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L272",
+      "source_location": "L311",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107247,7 +107340,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L272",
+      "source_location": "L311",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107258,7 +107351,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L272",
+      "source_location": "L311",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107268,7 +107361,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L294",
+      "source_location": "L333",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107279,7 +107372,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L294",
+      "source_location": "L333",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107289,7 +107382,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L303",
+      "source_location": "L342",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107300,7 +107393,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L303",
+      "source_location": "L342",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107311,7 +107404,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L111",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107322,7 +107415,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L155",
+      "source_location": "L166",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107333,7 +107426,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L186",
+      "source_location": "L197",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107344,7 +107437,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L190",
+      "source_location": "L201",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107355,7 +107448,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L198",
+      "source_location": "L209",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107366,7 +107459,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L203",
+      "source_location": "L214",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107377,7 +107470,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L207",
+      "source_location": "L218",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_identity_detect_pair",
+      "target": "src_avialsync_core_identity_detect_proximity_limit",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/identity_detect.py",
+      "source_location": "L232",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107388,7 +107492,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L224",
+      "source_location": "L236",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107399,7 +107503,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L228",
+      "source_location": "L240",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107410,7 +107514,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L236",
+      "source_location": "L248",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -107425,88 +107529,78 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_identity_detect_rationale_67",
+      "source": "src_avialsync_core_identity_detect_rationale_78",
       "target": "src_avialsync_core_identity_detect_trajectory",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L67",
+      "source_location": "L78",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_identity_detect_rationale_73",
+      "source": "src_avialsync_core_identity_detect_rationale_84",
       "target": "src_avialsync_core_identity_detect_trajectory_valid",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L73",
+      "source_location": "L84",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_identity_detect_rationale_79",
+      "source": "src_avialsync_core_identity_detect_rationale_90",
       "target": "src_avialsync_core_identity_detect_candidate",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L79",
+      "source_location": "L90",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_identity_detect_rationale_104",
+      "source": "src_avialsync_core_identity_detect_rationale_115",
       "target": "src_avialsync_core_identity_detect_centroid",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L104",
+      "source_location": "L115",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_identity_detect_rationale_144",
+      "source": "src_avialsync_core_identity_detect_rationale_155",
       "target": "src_avialsync_core_identity_detect_detect",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L144",
+      "source_location": "L155",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_identity_detect_rationale_240",
+      "source": "src_avialsync_core_identity_detect_rationale_252",
+      "target": "src_avialsync_core_identity_detect_proximity_limit",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/identity_detect.py",
+      "source_location": "L252",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_identity_detect_rationale_279",
       "target": "src_avialsync_core_identity_detect_lookbacks",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L240",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_core_identity_detect_rationale_256",
-      "target": "src_avialsync_core_identity_detect_predict",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L256",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_core_identity_detect_rationale_273",
-      "target": "src_avialsync_core_identity_detect_median_step",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L273",
+      "source_location": "L279",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_core_identity_detect_rationale_295",
-      "target": "src_avialsync_core_identity_detect_closest_approach",
+      "target": "src_avialsync_core_identity_detect_predict",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
@@ -107515,12 +107609,32 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_identity_detect_rationale_304",
+      "source": "src_avialsync_core_identity_detect_rationale_312",
+      "target": "src_avialsync_core_identity_detect_median_step",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/identity_detect.py",
+      "source_location": "L312",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_identity_detect_rationale_334",
+      "target": "src_avialsync_core_identity_detect_closest_approach",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/identity_detect.py",
+      "source_location": "L334",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_identity_detect_rationale_343",
       "target": "src_avialsync_core_identity_detect_suppress",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/identity_detect.py",
-      "source_location": "L304",
+      "source_location": "L343",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -255397,6 +255511,57 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_identity_detect",
+      "target": "tests_test_identity_detect_slow_pair",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L180",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_slow_pair",
+      "target": "src_avialsync_core_identity_detect_trajectory",
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L180",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect",
+      "target": "tests_test_identity_detect_test_a_flip_is_found_between_animals_that_never_quite_touch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L188",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect",
+      "target": "tests_test_identity_detect_test_two_animals_that_keep_the_whole_arena_apart_are_still_rejected",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L201",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect",
+      "target": "tests_test_identity_detect_test_the_gate_never_exceeds_its_cap",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L210",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_identity_detect_truth",
       "target": "src_avialsync_core_identity_detect_trajectory",
       "relation": "calls",
@@ -255650,6 +255815,61 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_identity_detect_slow_pair",
+      "target": "src_avialsync_core_identity_detect_trajectory",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L183",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_slow_pair",
+      "target": "tests_test_identity_detect_lanes",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L185",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_slow_pair",
+      "target": "tests_test_identity_detect_flip",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L185",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_test_a_flip_is_found_between_animals_that_never_quite_touch",
+      "target": "tests_test_identity_detect_slow_pair",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L196",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_test_two_animals_that_keep_the_whole_arena_apart_are_still_rejected",
+      "target": "tests_test_identity_detect_slow_pair",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L207",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_identity_detect_rationale_1",
       "target": "tests_test_identity_detect",
       "relation": "rationale_for",
@@ -255676,6 +255896,36 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_detect.py",
       "source_location": "L47",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_rationale_181",
+      "target": "tests_test_identity_detect_slow_pair",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L181",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_rationale_189",
+      "target": "tests_test_identity_detect_test_a_flip_is_found_between_animals_that_never_quite_touch",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L189",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_rationale_202",
+      "target": "tests_test_identity_detect_test_two_animals_that_keep_the_whole_arena_apart_are_still_rejected",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L202",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -388816,6 +389066,42 @@
       "confidence_score": 1.0,
       "source_file": "tests/test_identity_detect.py",
       "source_location": "L157",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_test_a_flip_is_found_between_animals_that_never_quite_touch",
+      "target": "src_avialsync_core_identity_detect_detect",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L196",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_test_two_animals_that_keep_the_whole_arena_apart_are_still_rejected",
+      "target": "src_avialsync_core_identity_detect_detect",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L207",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_detect_test_the_gate_never_exceeds_its_cap",
+      "target": "src_avialsync_core_identity_detect_proximity_limit",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_identity_detect.py",
+      "source_location": "L212",
       "weight": 1.0,
       "_origin": "ast"
     },
