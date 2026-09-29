@@ -172,3 +172,43 @@ def test_accepting_the_proposal_reconstructs_the_true_trajectories() -> None:
         [seen[program.source_of("testMouse_snout", index)].x[index] for index in range(FRAMES)]
     )
     assert np.array_equal(shown_x, truth_a.x)
+
+
+# ── how near counts as near (measured on a real recording) ───────────
+
+
+def _slow_pair(separation: float, flip_at: int = CROSSING) -> dict[str, Trajectory]:
+    """Two animals creeping along in parallel, *separation* apart, then flipped."""
+    frames = np.arange(FRAMES, dtype=float)
+    a = Trajectory(frames * 1.0, np.zeros(FRAMES))
+    b = Trajectory(frames * 1.0, np.full(FRAMES, separation))
+    return _lanes(*_flip(a, b, at=flip_at))
+
+
+def test_a_flip_is_found_between_animals_that_never_quite_touch() -> None:
+    """Travel alone was the wrong yardstick for "did they come near".
+
+    On a real two-mouse recording the gate sat at 23.5 px while the snouts came
+    within 54.7 px only in their closest 5% of frames -- below the fifth
+    percentile of their own approaches -- and it rejected two thirds of plainly
+    visible flips. The gate now also asks what near means for this pair.
+    """
+    candidates = identity_detect.detect(_slow_pair(separation=30.0))
+
+    assert [candidate.index for candidate in candidates] == [CROSSING]
+
+
+def test_two_animals_that_keep_the_whole_arena_apart_are_still_rejected() -> None:
+    """Or the gate becomes the standard deviation's mistake by another route.
+
+    A pair that never interacts has a tenth percentile of most of the arena,
+    and a threshold that admits most of the arena has stopped gating.
+    """
+    assert identity_detect.detect(_slow_pair(separation=5_000.0)) == ()
+
+
+def test_the_gate_never_exceeds_its_cap() -> None:
+    separation = np.full(400, 4_000.0)
+    limit = identity_detect._proximity_limit(separation, step=1.0, proximity=4.0)
+
+    assert limit == identity_detect.PROXIMITY_CAP

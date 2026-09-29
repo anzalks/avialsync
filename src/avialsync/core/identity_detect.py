@@ -56,6 +56,17 @@ DEFAULT_PROXIMITY = 4.0
 #: revealed a few frames after the touch that caused it.
 DEFAULT_PROXIMITY_FRAMES = 30
 
+#: The gate also admits whatever counts as close *for this pair*: the share of
+#: frames in which they are at their nearest.  Ten percent, because a pair that
+#: interacts at all spends about that long near each other, and a threshold in
+#: travel alone sat below the fifth percentile of two real mice's approaches.
+PROXIMITY_PERCENTILE = 10.0
+
+#: And never further than this many median steps, whatever that percentile
+#: says.  Two animals that never interact have a tenth percentile of most of
+#: the arena, and a gate that admits most of the arena is not a gate.
+PROXIMITY_CAP = 32.0
+
 #: Proposals nearer than this many frames to a stronger one are suppressed: a
 #: crossing produces a burst, and forty rows for one event is a list nobody
 #: reads.
@@ -218,11 +229,12 @@ def _pair(
     # Only now, on the handful of frames that survived, is the closest approach
     # worth computing -- it needs a window per candidate rather than a column.
     separation = np.where(valid, _apart((a.x, a.y), (b.x, b.y)), np.inf)
+    limit = _proximity_limit(separation, step, proximity)
     proposals: list[Candidate] = []
     for position in np.flatnonzero(cheaper):
         index = int(here[position])
         closest = _closest_approach(separation, index, proximity_frames)
-        if closest > proximity * step:
+        if closest > limit:
             continue
         proposals.append(
             Candidate(
@@ -234,6 +246,33 @@ def _pair(
             )
         )
     return _suppress(proposals, separation_frames)
+
+
+def _proximity_limit(separation: np.ndarray, step: float, proximity: float) -> float:
+    """How near counts as near, for *these two* lanes in *this* recording.
+
+    Travel alone is the wrong yardstick, and measurably so. On a real
+    two-mouse recording the gate sat at four median steps -- 23.5 px -- while
+    the two snouts only come within 54.7 px in their closest 5% of frames. It
+    was below the fifth percentile of their own approaches, so "did they come
+    near each other" answered *no* almost always and two thirds of plainly
+    visible flips were rejected by it.
+
+    So the gate also asks what near means for this pair: the tenth percentile
+    of how far apart they actually are. On that recording it doubles the flips
+    recovered from an injected ground truth, 22% to 35%.
+
+    Bounded above, because the same reasoning fails for two animals that never
+    interact: their tenth percentile is most of the arena, and a gate that
+    admits most of the arena is not a gate. That is exactly how a standard
+    deviation behaves here -- 22x the median step, admitting 74% of frames --
+    and the cap is what keeps this from becoming the same mistake.
+    """
+    near = separation[np.isfinite(separation)]
+    travel = proximity * step
+    if near.size == 0:
+        return travel
+    return float(min(max(travel, np.percentile(near, PROXIMITY_PERCENTILE)), PROXIMITY_CAP * step))
 
 
 def _lookbacks(valid: np.ndarray, count: int) -> tuple[np.ndarray, np.ndarray]:
