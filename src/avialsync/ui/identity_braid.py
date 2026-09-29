@@ -21,7 +21,8 @@ here, so the picture and the data cannot disagree about who is who.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import pyqtgraph as pg
@@ -179,8 +180,20 @@ def _decimate(times: np.ndarray, values: np.ndarray, limit: int) -> tuple[np.nda
     return kept_t, kept_v
 
 
-def draw_braid(plot: pg.PlotItem, model: BraidModel, palette: QPalette) -> None:
-    """Draw one line per lane, moving rows wherever an accepted flip says so."""
+def draw_braid(
+    plot: pg.PlotItem,
+    model: BraidModel,
+    palette: QPalette,
+    on_node: Callable[[BraidNode], None] | None = None,
+) -> None:
+    """Draw one line per lane, moving rows wherever an accepted flip says so.
+
+    *on_node* is called with the crossing a click lands on. The marks answer
+    for themselves rather than leaving it to the view box underneath: a scatter
+    point accepts the press that hits it, so relying on the click reaching the
+    view box meant the one thing on this plot a person aims at was the one
+    thing that did not respond.
+    """
     plot.clear()
     if not model.lanes or len(model.times) == 0:
         return
@@ -198,7 +211,7 @@ def draw_braid(plot: pg.PlotItem, model: BraidModel, palette: QPalette) -> None:
         )
         plot.plot(xs, ys, pen=pen, name=lane)
 
-    _draw_nodes(plot, model, palette)
+    _draw_nodes(plot, model, palette, on_node)
 
     axis = plot.getAxis("left")
     axis.setTicks([[(model.row(lane), lane) for lane in model.lanes]])
@@ -240,7 +253,12 @@ def _lane_path(model: BraidModel, lane: str, crossing: float) -> tuple[list[floa
     return xs, ys
 
 
-def _draw_nodes(plot: pg.PlotItem, model: BraidModel, palette: QPalette) -> None:
+def _draw_nodes(
+    plot: pg.PlotItem,
+    model: BraidModel,
+    palette: QPalette,
+    on_node: Callable[[BraidNode], None] | None = None,
+) -> None:
     """Accepted flips as filled crossings, candidates as hollow ones."""
     for accepted in (False, True):
         nodes = [node for node in model.nodes if node.accepted is accepted]
@@ -256,15 +274,21 @@ def _draw_nodes(plot: pg.PlotItem, model: BraidModel, palette: QPalette) -> None
             size=13,
             pen=pg.mkPen(colour, width=2),
             brush=pg.mkBrush(colour) if accepted else None,
+            data=nodes,
             name=tr("Accepted swap") if accepted else tr("Candidate"),
         )
-        # A scatter point swallows the press that lands on it, so clicking a
-        # crossing -- the one thing on this plot a person aims at -- did
-        # nothing while clicking the line beside it worked. The view box snaps
-        # to the nearest node anyway, so the marks stay out of the way.
-        marks.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
-        marks.setAcceptHoverEvents(False)
+        if on_node is not None:
+            marks.sigClicked.connect(lambda _item, points, _event: _clicked(points, on_node))
         plot.addItem(marks)
+
+
+def _clicked(points: Sequence[Any], on_node: Callable[[BraidNode], None]) -> None:
+    """Report the crossing a click landed on, if it carried one."""
+    for point in points:
+        node = point.data()
+        if isinstance(node, BraidNode):
+            on_node(node)
+            return
 
 
 def _node_row(model: BraidModel, node: BraidNode) -> float:

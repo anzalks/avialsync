@@ -441,7 +441,7 @@ class IdentityPanel(QWidget):
         self._restore_selection = None
         self._model = model
         palette = self.palette()
-        draw_braid(self._braid.getPlotItem(), model, palette)
+        draw_braid(self._braid.getPlotItem(), model, palette, self._select_node)
         draw_separation(self._separation.getPlotItem(), model, palette)
         self._selection_line = None
         self._drag_ghost = None
@@ -519,19 +519,24 @@ class IdentityPanel(QWidget):
 
     # ── the gesture ──────────────────────────────────────────────────
 
+    def _select_node(self, node: BraidNode) -> None:
+        """Review the crossing a click landed on, and take the video there."""
+        for index in range(self._node_box.count()):
+            if self._node_box.itemData(index) == node:
+                if self._node_box.currentIndex() == index:
+                    self._show_selection(focus=True, seek=True)
+                else:
+                    self._node_box.setCurrentIndex(index)
+                return
+        self.seek_requested.emit(node.at)
+
     def _on_clicked(self, x: float, _y: float) -> None:
         model = self._model
         if model is None:
             return
         node = model.nearest_node(x, self._tolerance())
         if node is not None:
-            for index in range(self._node_box.count()):
-                if self._node_box.itemData(index) == node:
-                    if self._node_box.currentIndex() == index:
-                        self._show_selection(focus=True, seek=True)
-                    else:
-                        self._node_box.setCurrentIndex(index)
-                    break
+            self._select_node(node)
             return
         self.seek_requested.emit(x)
 
@@ -615,16 +620,11 @@ class IdentityPanel(QWidget):
                 if not self._play.isEnabled()
                 else tr("Loop two seconds before and after this crossing in the main video")
             )
-            # Not tied to a selected crossing. Choosing one seeks the video to
-            # it, so "apply where the review is" and "apply at the playhead"
-            # are the same gesture, and two buttons for it were two names for
-            # one thing (rule 15 in miniature). An accepted crossing is the one
-            # exception: it is already in force, and Remove is what it offers.
-            self._apply.setEnabled(
-                model is not None
-                and model.pair is not None
-                and not (node is not None and node.accepted)
-            )
+            # Never conditional on the list. Applying means "swap these two
+            # from where the video is", and the video is always somewhere: a
+            # swap accepted at frame 7 left the button greyed at frame 8,
+            # because the crossing it had just created was the selected row.
+            self._apply.setEnabled(model is not None and model.pair is not None)
             self._remove.setEnabled(node is not None and node.accepted)
 
     def _nudge(self, step: int) -> None:

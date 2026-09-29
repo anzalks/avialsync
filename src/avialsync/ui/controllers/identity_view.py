@@ -181,6 +181,11 @@ def swap(window: MainWindow, source_id: str, event: SwapEvent) -> None:
     """Accept one flip, through the command bus so it can be undone (rule 14)."""
     from avialsync.core.commands import SetIdentitySwapCommand
 
+    if event in window.identity_swaps.events_for(source_id):
+        # Already in force. Pressing Apply again on the same frame is a no-op,
+        # and a no-op does not deserve an undo step of its own.
+        return
+
     window.document.execute(
         SetIdentitySwapCommand(
             source_id=source_id,

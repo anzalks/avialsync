@@ -3962,7 +3962,7 @@
       "label": "prune()",
       "file_type": "code",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L271",
+      "source_location": "L280",
       "_origin": "ast"
     },
     {
@@ -3970,7 +3970,7 @@
       "label": "_remove_generation()",
       "file_type": "code",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L301",
+      "source_location": "L320",
       "_origin": "ast"
     },
     {
@@ -4038,19 +4038,19 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_edit_cache_rationale_272",
+      "id": "src_avialsync_core_edit_cache_rationale_281",
       "label": "Remove *committed* generations this module wrote, except those in *keep*.      R",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L272",
+      "source_location": "L281",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_core_edit_cache_rationale_302",
+      "id": "src_avialsync_core_edit_cache_rationale_321",
       "label": "Delete one generation directory, and report rather than raise.      Guarded by i",
       "file_type": "rationale",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L302",
+      "source_location": "L321",
       "_origin": "ast"
     },
     {
@@ -27638,11 +27638,19 @@
       "_origin": "ast"
     },
     {
+      "id": "src_avialsync_ui_identity_model_worker_empty",
+      "label": "_empty()",
+      "file_type": "code",
+      "source_file": "src/avialsync/ui/identity_model_worker.py",
+      "source_location": "L119",
+      "_origin": "ast"
+    },
+    {
       "id": "src_avialsync_ui_identity_model_worker_nodes",
       "label": "_nodes()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L108",
+      "source_location": "L123",
       "_origin": "ast"
     },
     {
@@ -27650,7 +27658,7 @@
       "label": "_frame()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L154",
+      "source_location": "L169",
       "_origin": "ast"
     },
     {
@@ -27658,7 +27666,7 @@
       "label": "_at()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L160",
+      "source_location": "L175",
       "_origin": "ast"
     },
     {
@@ -27691,6 +27699,14 @@
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
       "source_location": "L65",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_identity_model_worker_rationale_102",
+      "label": "One channel's values, or nothing when they are no longer there.      A job reads",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/identity_model_worker.py",
+      "source_location": "L102",
       "_origin": "ast"
     },
     {
@@ -61778,7 +61794,7 @@
       "label": "_import()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L38",
+      "source_location": "L39",
       "_origin": "ast"
     },
     {
@@ -61802,7 +61818,7 @@
       "label": "_stores()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L56",
+      "source_location": "L57",
       "_origin": "ast"
     },
     {
@@ -61810,7 +61826,7 @@
       "label": "_values()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L62",
+      "source_location": "L63",
       "_origin": "ast"
     },
     {
@@ -61818,7 +61834,7 @@
       "label": "test_a_flip_makes_one_point_read_the_other_from_that_frame()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L66",
+      "source_location": "L67",
       "_origin": "ast"
     },
     {
@@ -61826,7 +61842,7 @@
       "label": "test_the_original_cache_is_not_written()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L80",
+      "source_location": "L81",
       "_origin": "ast"
     },
     {
@@ -61834,7 +61850,7 @@
       "label": "test_only_the_channels_a_flip_changed_are_materialised()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L93",
+      "source_location": "L94",
       "_origin": "ast"
     },
     {
@@ -61842,7 +61858,7 @@
       "label": "test_a_correction_follows_the_column_it_was_made_on()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L110",
+      "source_location": "L111",
       "_origin": "ast"
     },
     {
@@ -61850,7 +61866,7 @@
       "label": "test_a_corrected_coordinate_is_not_left_at_the_models_low_confidence()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L127",
+      "source_location": "L128",
       "_origin": "ast"
     },
     {
@@ -61858,7 +61874,7 @@
       "label": "test_an_unedited_source_materialises_nothing()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L143",
+      "source_location": "L144",
       "_origin": "ast"
     },
     {
@@ -61866,7 +61882,7 @@
       "label": "test_reopening_the_same_edits_reuses_the_generation()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L155",
+      "source_location": "L156",
       "_origin": "ast"
     },
     {
@@ -61874,7 +61890,7 @@
       "label": "test_prune_removes_our_old_generations_and_nothing_else()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L171",
+      "source_location": "L172",
       "_origin": "ast"
     },
     {
@@ -61882,7 +61898,7 @@
       "label": "test_a_generation_says_what_it_is()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L192",
+      "source_location": "L195",
       "_origin": "ast"
     },
     {
@@ -61890,7 +61906,7 @@
       "label": "test_prune_never_removes_a_generation_being_written()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L206",
+      "source_location": "L209",
       "_origin": "ast"
     },
     {
@@ -61898,7 +61914,23 @@
       "label": "test_two_rebuilds_of_the_same_edits_do_not_share_a_staging_directory()",
       "file_type": "code",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L231",
+      "source_location": "L234",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_edit_cache_test_prune_leaves_recent_generations_for_readers_still_on_them",
+      "label": "test_prune_leaves_recent_generations_for_readers_still_on_them()",
+      "file_type": "code",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L258",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_edit_cache_test_a_braid_channel_that_vanished_does_not_take_the_whole_plot_with_it",
+      "label": "test_a_braid_channel_that_vanished_does_not_take_the_whole_plot_with_it()",
+      "file_type": "code",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L288",
       "_origin": "ast"
     },
     {
@@ -61910,27 +61942,43 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_edit_cache_rationale_39",
+      "id": "tests_test_edit_cache_rationale_40",
       "label": "Write a raw cache whose every channel holds a distinguishable ramp.",
       "file_type": "rationale",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L39",
+      "source_location": "L40",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_edit_cache_rationale_207",
+      "id": "tests_test_edit_cache_rationale_210",
       "label": "A rebuild in flight is not rubbish left behind by an old one.      Every edit st",
       "file_type": "rationale",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L207",
+      "source_location": "L210",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_edit_cache_rationale_234",
+      "id": "tests_test_edit_cache_rationale_237",
       "label": "Two jobs for one fingerprint must not write into one directory.",
       "file_type": "rationale",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L234",
+      "source_location": "L237",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_edit_cache_rationale_259",
+      "label": "A reader holds a path, not a subscription.      The braid is built from a snapsh",
+      "file_type": "rationale",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L259",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_edit_cache_rationale_291",
+      "label": "Defence in depth behind the keep window, not a substitute for it.",
+      "file_type": "rationale",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L291",
       "_origin": "ast"
     },
     {
@@ -105282,7 +105330,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L271",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105293,7 +105341,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L271",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105303,7 +105351,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L301",
+      "source_location": "L320",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105314,7 +105362,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L301",
+      "source_location": "L320",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105446,7 +105494,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L295",
+      "source_location": "L308",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105457,7 +105505,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L296",
+      "source_location": "L315",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -105542,22 +105590,22 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_edit_cache_rationale_272",
+      "source": "src_avialsync_core_edit_cache_rationale_281",
       "target": "src_avialsync_core_edit_cache_prune",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L272",
+      "source_location": "L281",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_core_edit_cache_rationale_302",
+      "source": "src_avialsync_core_edit_cache_rationale_321",
       "target": "src_avialsync_core_edit_cache_remove_generation",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/edit_cache.py",
-      "source_location": "L302",
+      "source_location": "L321",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164654,11 +164702,32 @@
     },
     {
       "source": "src_avialsync_ui_identity_model_worker",
+      "target": "src_avialsync_ui_identity_model_worker_empty",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_model_worker.py",
+      "source_location": "L119",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_model_worker_empty",
+      "target": "src_avialsync_ui_identity_model_worker_py_ndarray",
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_model_worker.py",
+      "source_location": "L119",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_model_worker",
       "target": "src_avialsync_ui_identity_model_worker_nodes",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L108",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164669,7 +164738,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L108",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164680,7 +164749,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L108",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164691,7 +164760,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L108",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164701,7 +164770,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L154",
+      "source_location": "L169",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164712,7 +164781,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L154",
+      "source_location": "L169",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164722,7 +164791,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L160",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164733,7 +164802,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L160",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164782,8 +164851,8 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_identity_model_worker_nodes",
-      "target": "src_avialsync_ui_identity_model_worker_frame",
+      "source": "src_avialsync_ui_identity_model_worker_values",
+      "target": "src_avialsync_ui_identity_model_worker_empty",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -164794,12 +164863,23 @@
     },
     {
       "source": "src_avialsync_ui_identity_model_worker_nodes",
+      "target": "src_avialsync_ui_identity_model_worker_frame",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_model_worker.py",
+      "source_location": "L126",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_model_worker_nodes",
       "target": "src_avialsync_ui_identity_braid_braidnode",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L113",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164810,7 +164890,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L115",
+      "source_location": "L130",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -164851,6 +164931,16 @@
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
       "source_location": "L65",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_identity_model_worker_rationale_102",
+      "target": "src_avialsync_ui_identity_model_worker_values",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/identity_model_worker.py",
+      "source_location": "L102",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243120,12 +243210,23 @@
     },
     {
       "source": "tests_test_edit_cache",
+      "target": "os",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache",
       "target": "pathlib",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243136,7 +243237,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243147,7 +243248,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L16",
+      "source_location": "L17",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243158,7 +243259,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L17",
+      "source_location": "L18",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243169,7 +243270,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L18",
+      "source_location": "L19",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243180,7 +243281,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L19",
+      "source_location": "L20",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243191,7 +243292,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L20",
+      "source_location": "L21",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243202,7 +243303,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L21",
+      "source_location": "L22",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243213,7 +243314,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L22",
+      "source_location": "L23",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243223,7 +243324,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L38",
+      "source_location": "L39",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243234,7 +243335,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L38",
+      "source_location": "L39",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243245,7 +243346,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L38",
+      "source_location": "L39",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243255,7 +243356,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L56",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243266,7 +243367,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L56",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243277,7 +243378,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L56",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243287,7 +243388,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L62",
+      "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243298,7 +243399,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L62",
+      "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243309,7 +243410,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L62",
+      "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243319,7 +243420,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L66",
+      "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243330,7 +243431,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L66",
+      "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243340,7 +243441,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L80",
+      "source_location": "L81",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243351,7 +243452,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L80",
+      "source_location": "L81",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243361,7 +243462,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L93",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243372,7 +243473,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L93",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243382,7 +243483,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L110",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243393,7 +243494,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L110",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243403,7 +243504,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L127",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243414,7 +243515,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L127",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243424,7 +243525,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L143",
+      "source_location": "L144",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243435,7 +243536,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L143",
+      "source_location": "L144",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243445,7 +243546,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L155",
+      "source_location": "L156",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243456,7 +243557,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L155",
+      "source_location": "L156",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243466,7 +243567,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L171",
+      "source_location": "L172",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243477,7 +243578,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L171",
+      "source_location": "L172",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243487,7 +243588,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L192",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243498,7 +243599,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L192",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243508,7 +243609,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L206",
+      "source_location": "L209",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243519,7 +243620,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L206",
+      "source_location": "L209",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243529,7 +243630,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L231",
+      "source_location": "L234",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243540,7 +243641,49 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L231",
+      "source_location": "L234",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache",
+      "target": "tests_test_edit_cache_test_prune_leaves_recent_generations_for_readers_still_on_them",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L258",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_test_prune_leaves_recent_generations_for_readers_still_on_them",
+      "target": "tests_test_edit_cache_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L258",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache",
+      "target": "tests_test_edit_cache_test_a_braid_channel_that_vanished_does_not_take_the_whole_plot_with_it",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L288",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_test_a_braid_channel_that_vanished_does_not_take_the_whole_plot_with_it",
+      "target": "tests_test_edit_cache_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L288",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243551,7 +243694,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L57",
+      "source_location": "L58",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243562,24 +243705,13 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L59",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_edit_cache_test_a_flip_makes_one_point_read_the_other_from_that_frame",
       "target": "tests_test_edit_cache_import",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "tests/test_edit_cache.py",
-      "source_location": "L68",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "tests_test_edit_cache_test_a_flip_makes_one_point_read_the_other_from_that_frame",
-      "target": "tests_test_edit_cache_stores",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -243590,12 +243722,23 @@
     },
     {
       "source": "tests_test_edit_cache_test_a_flip_makes_one_point_read_the_other_from_that_frame",
+      "target": "tests_test_edit_cache_stores",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L70",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_test_a_flip_makes_one_point_read_the_other_from_that_frame",
       "target": "tests_test_edit_cache_values",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L75",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243606,7 +243749,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L82",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243617,7 +243760,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L84",
+      "source_location": "L85",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243628,24 +243771,13 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L90",
+      "source_location": "L91",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_edit_cache_test_only_the_channels_a_flip_changed_are_materialised",
       "target": "tests_test_edit_cache_import",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "tests/test_edit_cache.py",
-      "source_location": "L95",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "tests_test_edit_cache_test_only_the_channels_a_flip_changed_are_materialised",
-      "target": "tests_test_edit_cache_stores",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -243655,19 +243787,19 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_edit_cache_test_a_correction_follows_the_column_it_was_made_on",
-      "target": "tests_test_edit_cache_import",
+      "source": "tests_test_edit_cache_test_only_the_channels_a_flip_changed_are_materialised",
+      "target": "tests_test_edit_cache_stores",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L112",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_edit_cache_test_a_correction_follows_the_column_it_was_made_on",
-      "target": "tests_test_edit_cache_stores",
+      "target": "tests_test_edit_cache_import",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -243678,29 +243810,29 @@
     },
     {
       "source": "tests_test_edit_cache_test_a_correction_follows_the_column_it_was_made_on",
+      "target": "tests_test_edit_cache_stores",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L114",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_test_a_correction_follows_the_column_it_was_made_on",
       "target": "tests_test_edit_cache_values",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L121",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_edit_cache_test_a_corrected_coordinate_is_not_left_at_the_models_low_confidence",
       "target": "tests_test_edit_cache_import",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "tests/test_edit_cache.py",
-      "source_location": "L131",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "tests_test_edit_cache_test_a_corrected_coordinate_is_not_left_at_the_models_low_confidence",
-      "target": "tests_test_edit_cache_stores",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -243711,29 +243843,29 @@
     },
     {
       "source": "tests_test_edit_cache_test_a_corrected_coordinate_is_not_left_at_the_models_low_confidence",
+      "target": "tests_test_edit_cache_stores",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L133",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_test_a_corrected_coordinate_is_not_left_at_the_models_low_confidence",
       "target": "tests_test_edit_cache_values",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L138",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_edit_cache_test_an_unedited_source_materialises_nothing",
       "target": "tests_test_edit_cache_import",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "tests/test_edit_cache.py",
-      "source_location": "L145",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "tests_test_edit_cache_test_an_unedited_source_materialises_nothing",
-      "target": "tests_test_edit_cache_stores",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -243743,19 +243875,19 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_edit_cache_test_reopening_the_same_edits_reuses_the_generation",
-      "target": "tests_test_edit_cache_import",
+      "source": "tests_test_edit_cache_test_an_unedited_source_materialises_nothing",
+      "target": "tests_test_edit_cache_stores",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L157",
+      "source_location": "L147",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_edit_cache_test_reopening_the_same_edits_reuses_the_generation",
-      "target": "tests_test_edit_cache_stores",
+      "target": "tests_test_edit_cache_import",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -243765,19 +243897,19 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_edit_cache_test_prune_removes_our_old_generations_and_nothing_else",
-      "target": "tests_test_edit_cache_import",
+      "source": "tests_test_edit_cache_test_reopening_the_same_edits_reuses_the_generation",
+      "target": "tests_test_edit_cache_stores",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L173",
+      "source_location": "L159",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_edit_cache_test_prune_removes_our_old_generations_and_nothing_else",
-      "target": "tests_test_edit_cache_stores",
+      "target": "tests_test_edit_cache_import",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -243787,13 +243919,24 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_edit_cache_test_prune_removes_our_old_generations_and_nothing_else",
+      "target": "tests_test_edit_cache_stores",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L175",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_edit_cache_test_a_generation_says_what_it_is",
       "target": "tests_test_edit_cache_import",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L194",
+      "source_location": "L197",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243804,7 +243947,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L195",
+      "source_location": "L198",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243815,7 +243958,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L215",
+      "source_location": "L218",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243826,7 +243969,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L216",
+      "source_location": "L219",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243837,7 +243980,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L236",
+      "source_location": "L239",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243848,7 +243991,40 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L237",
+      "source_location": "L240",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_test_prune_leaves_recent_generations_for_readers_still_on_them",
+      "target": "tests_test_edit_cache_import",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L267",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_test_prune_leaves_recent_generations_for_readers_still_on_them",
+      "target": "tests_test_edit_cache_stores",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L268",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_test_a_braid_channel_that_vanished_does_not_take_the_whole_plot_with_it",
+      "target": "tests_test_edit_cache_values",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L297",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -243863,32 +244039,52 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_edit_cache_rationale_39",
+      "source": "tests_test_edit_cache_rationale_40",
       "target": "tests_test_edit_cache_import",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L39",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_edit_cache_rationale_207",
+      "source": "tests_test_edit_cache_rationale_210",
       "target": "tests_test_edit_cache_test_prune_never_removes_a_generation_being_written",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L207",
+      "source_location": "L210",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_edit_cache_rationale_234",
+      "source": "tests_test_edit_cache_rationale_237",
       "target": "tests_test_edit_cache_test_two_rebuilds_of_the_same_edits_do_not_share_a_staging_directory",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L234",
+      "source_location": "L237",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_rationale_259",
+      "target": "tests_test_edit_cache_test_prune_leaves_recent_generations_for_readers_still_on_them",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L259",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_rationale_291",
+      "target": "tests_test_edit_cache_test_a_braid_channel_that_vanished_does_not_take_the_whole_plot_with_it",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L291",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -333570,7 +333766,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L105",
+      "source_location": "L113",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -333581,7 +333777,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/identity_model_worker.py",
-      "source_location": "L120",
+      "source_location": "L135",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368702,7 +368898,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L46",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368714,7 +368910,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L58",
+      "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368726,7 +368922,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L63",
+      "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368738,7 +368934,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L70",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368750,7 +368946,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L85",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368762,7 +368958,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L99",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368774,7 +368970,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L114",
+      "source_location": "L115",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368786,7 +368982,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L117",
+      "source_location": "L118",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368798,7 +368994,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L133",
+      "source_location": "L134",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368810,7 +369006,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L159",
+      "source_location": "L160",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368822,7 +369018,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L175",
+      "source_location": "L178",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368834,7 +369030,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L196",
+      "source_location": "L199",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368846,7 +369042,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L217",
+      "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -368858,7 +369054,19 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_edit_cache.py",
-      "source_location": "L238",
+      "source_location": "L241",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_edit_cache_test_prune_leaves_recent_generations_for_readers_still_on_them",
+      "target": "src_avialsync_core_identity_swaps_swapevent",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_edit_cache.py",
+      "source_location": "L271",
       "weight": 1.0,
       "_origin": "ast"
     },

@@ -684,10 +684,12 @@ class MainWindow(QMainWindow):
         self._content_splitter.addWidget(self.data_streams)
         self._content_splitter.setStretchFactor(0, 4)
         self._content_splitter.setStretchFactor(1, 1)
-        right_layout.addWidget(self._content_splitter)
-        # Above the transport, inside the layout rather than floating: a
-        # notification must never cover the data it is reporting on.
+        # At the top of the column, above the video, the 3D view and the plots:
+        # inside the layout rather than floating, so a notification never covers
+        # the data it is reporting on, and in the one place a person's eyes
+        # already go when something has just happened.
         right_layout.addWidget(self.notifications)
+        right_layout.addWidget(self._content_splitter)
         right_layout.addWidget(self.transport)
 
         h_splitter.addWidget(right_widget)

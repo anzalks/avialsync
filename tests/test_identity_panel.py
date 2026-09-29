@@ -263,9 +263,15 @@ def test_selected_candidate_can_be_reviewed_nudged_and_applied(panel, qtbot) -> 
     assert event is not None and event.parts == ()
 
 
-def test_accepted_selection_offers_remove_instead_of_apply(panel, qtbot) -> None:
+def test_accepted_selection_offers_remove_and_still_allows_applying(panel, qtbot) -> None:
+    """Apply is never conditional on the list: it means "swap from where I am".
+
+    A swap accepted at frame 7 made its own crossing the selected row, which
+    greyed the button out at frame 8 -- the next frame the person was looking
+    at.
+    """
     panel.show_model(_model(accepted=True))
-    assert not panel._apply.isEnabled()
+    assert panel._apply.isEnabled()
     assert panel._remove.isEnabled()
 
     with qtbot.waitSignal(panel.undo_requested) as removed:
@@ -390,3 +396,37 @@ def test_clicking_the_separation_trace_seeks_the_main_video(panel, qtbot) -> Non
         panel._separation.getPlotItem().getViewBox().clicked.emit(float(times[FLIP]), 0.0)
 
     assert caught.args[0] == pytest.approx(float(times[FLIP]))
+
+
+def test_clicking_a_crossing_itself_reviews_it_and_seeks(panel, qtbot) -> None:
+    """The marks answer for themselves.
+
+    A scatter point accepts the press that hits it, so a crossing that left the
+    click to the view box underneath was the one thing on the plot that did not
+    respond to being aimed at.
+    """
+    panel.show_model(_model(candidate=True))
+    node = panel.nodes()[0]
+
+    with qtbot.waitSignal(panel.seek_requested) as caught:
+        panel._select_node(node)
+
+    assert caught.args[0] == pytest.approx(node.at)
+
+
+def test_the_crossings_carry_themselves_into_the_plot(panel) -> None:
+    """So a click can name the node it hit rather than guessing by distance."""
+    import pyqtgraph as pg
+
+    panel.show_model(_model(accepted=True, candidate=True))
+    scatters = [
+        item
+        for item in panel._braid.getPlotItem().items
+        if isinstance(item, pg.ScatterPlotItem)
+    ]
+
+    assert scatters
+    carried = [
+        spot.data() for scatter in scatters for spot in scatter.points() if spot.data() is not None
+    ]
+    assert {node.accepted for node in carried} == {True, False}

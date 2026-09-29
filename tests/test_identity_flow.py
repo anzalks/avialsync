@@ -897,3 +897,42 @@ def test_remove_all_is_offered_with_its_count(qtbot, window, pose_source) -> Non
     qtbot.waitUntil(lambda: panel._remove_all.isEnabled(), timeout=5000)
 
     assert "2" in panel._remove_all.text()
+
+
+def test_applying_twice_on_the_same_frame_is_not_two_undo_steps(
+    qtbot, window, pose_source
+) -> None:
+    """A no-op does not deserve a place in the undo history."""
+    source = str(pose_source[0])
+    panel = _braid(qtbot, window)
+    assert panel._model is not None
+    window.clock.seek(float(panel._model.times[FLIP]))
+
+    window._apply_identity_swap()
+    _settle(qtbot, window, source)
+    label = window.document.undo_label()
+
+    window._apply_identity_swap()
+
+    assert window.identity_swaps.count_for(source) == 1
+    assert window.document.undo_label() == label
+
+
+def test_apply_stays_available_on_the_frame_after_a_swap(qtbot, window, pose_source) -> None:
+    """Swapping at 7 must not grey the button out at 8."""
+    source = str(pose_source[0])
+    panel = _braid(qtbot, window)
+    assert panel._model is not None
+    times = panel._model.times
+
+    window.clock.seek(float(times[FLIP]))
+    window._apply_identity_swap()
+    _settle(qtbot, window, source)
+    qtbot.waitUntil(lambda: panel._model is not None, timeout=5000)
+
+    assert panel._apply.isEnabled()
+    window.clock.seek(float(times[FLIP + 1]))
+    window._apply_identity_swap()
+    qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 2, timeout=5000)
+
+    assert sorted(e.index for e in window.identity_swaps.events_for(source)) == [FLIP, FLIP + 1]
