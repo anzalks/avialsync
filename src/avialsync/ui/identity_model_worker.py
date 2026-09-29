@@ -99,10 +99,25 @@ def _trajectory(job: BraidBuildJob, lane: str) -> Trajectory:
 
 
 def _values(job: BraidBuildJob, channel: str) -> np.ndarray:
+    """One channel's values, or nothing when they are no longer there.
+
+    A job reads a directory it was handed when it was queued. Behind the keep
+    window in :mod:`avialsync.core.edit_cache` that directory is still on disk;
+    this is the belt to that braces, because a braid that cannot draw one lane
+    is worth more than a traceback and an empty panel.
+    """
     directory = job.directories.get(channel)
     if directory is None:
-        return np.zeros(0)
-    return PyramidReader(directory, channel).mapped_columns()[1]
+        return _empty()
+    try:
+        return PyramidReader(directory, channel).mapped_columns()[1]
+    except (FileNotFoundError, ValueError):
+        logger.warning("Identity braid: %s is no longer in %s", channel, directory)
+        return _empty()
+
+
+def _empty() -> np.ndarray:
+    return np.zeros(0, dtype=float)
 
 
 def _nodes(job: BraidBuildJob, source_times: np.ndarray, times: np.ndarray) -> list[BraidNode]:

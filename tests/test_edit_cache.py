@@ -9,6 +9,7 @@ without knowing that flips exist.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -172,20 +173,22 @@ def test_prune_removes_our_old_generations_and_nothing_else(tmp_path: Path) -> N
     cache = tmp_path / "pose.csv.avialcache"
     _import(cache)
     swaps, edits = _stores()
-    swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
-    first = edit_cache.materialise(cache, build_program(SOURCE, swaps, edits), SCHEMA)
-    swaps.add(SOURCE, SwapEvent(120, ANIMALS, ("testMouse", "conSpecific")))
-    second = edit_cache.materialise(cache, build_program(SOURCE, swaps, edits), SCHEMA)
+    made = []
+    for index in (FLIP, 120, 140, 160):
+        swaps.add(SOURCE, SwapEvent(index, ANIMALS, ("testMouse", "conSpecific")))
+        made.append(edit_cache.materialise(cache, build_program(SOURCE, swaps, edits), SCHEMA))
+        os.utime(made[-1].directory, (index, index))
+    first, newest = made[0], made[-1]
 
     stranger = cache / edit_cache.EDITED_DIR / "somebody_elses_folder"
     stranger.mkdir(parents=True)
     (stranger / "keep_me.txt").write_text("not ours", encoding="utf-8")
 
-    removed = edit_cache.prune(cache, keep=[second.fingerprint])
+    removed = edit_cache.prune(cache, keep=[newest.fingerprint])
 
     assert removed == [first.fingerprint]
     assert not first.directory.exists()
-    assert second.directory.exists()
+    assert newest.directory.exists()
     assert (stranger / "keep_me.txt").exists()
 
 
@@ -250,3 +253,46 @@ def test_two_rebuilds_of_the_same_edits_do_not_share_a_staging_directory(
         if entry.name.startswith(".tmp_")
     ]
     assert leftovers == []
+
+
+def test_prune_leaves_recent_generations_for_readers_still_on_them(tmp_path: Path) -> None:
+    """A reader holds a path, not a subscription.
+
+    The braid is built from a snapshot of where each channel lives, in a job
+    that runs while the person keeps editing. Pruning to the newest generation
+    alone deleted the directory that job was reading, and it died with a
+    FileNotFoundError out of numpy instead of drawing anything.
+    """
+    cache = tmp_path / "pose.csv.avialcache"
+    _import(cache)
+    swaps, edits = _stores()
+    directories = []
+    for index in (30, 60, 90, 110):
+        swaps.add(SOURCE, SwapEvent(index, ANIMALS, ("testMouse", "conSpecific")))
+        made = edit_cache.materialise(cache, build_program(SOURCE, swaps, edits), SCHEMA)
+        directories.append(made)
+        os.utime(made.directory, (index, index))
+
+    newest = directories[-1]
+    edit_cache.prune(cache, keep=[newest.fingerprint])
+
+    kept = {entry.name for entry in (cache / edit_cache.EDITED_DIR).iterdir()}
+    assert newest.directory.name in kept
+    # The one before it, and the one before that: a job two edits behind still
+    # finds its files.
+    assert directories[-2].directory.name in kept
+    assert directories[-3].directory.name in kept
+    assert directories[0].directory.name not in kept
+
+
+def test_a_braid_channel_that_vanished_does_not_take_the_whole_plot_with_it(
+    tmp_path: Path,
+) -> None:
+    """Defence in depth behind the keep window, not a substitute for it."""
+    from avialsync.ui.identity_model_worker import _values
+
+    class _Job:
+        directories = {"testMouse_snout_x": tmp_path / "not-a-generation"}
+
+    assert len(_values(_Job(), "testMouse_snout_x")) == 0
+    assert len(_values(_Job(), "unknown_channel_x")) == 0

@@ -268,16 +268,29 @@ def _write_manifest(directory: Path, fingerprint: str, channels: list[str]) -> N
     )
 
 
-def prune(cache_dir: Path, keep: Iterable[str]) -> list[str]:
+#: How many committed generations survive a sweep, the current one included.
+#: A reader holds a *path*, not a subscription: the braid is built in a job from
+#: a snapshot of where each channel lives, and the person keeps editing while it
+#: runs. Keeping only the newest deleted the directory a running job was reading.
+#: Three bounds the disk at a few edited channels per edit while leaving a job
+#: two edits behind something to read.
+KEEP_GENERATIONS = 3
+
+
+def prune(cache_dir: Path, keep: Iterable[str], generations: int = KEEP_GENERATIONS) -> list[str]:
     """Remove *committed* generations this module wrote, except those in *keep*.
 
-    Returns the fingerprints removed.  Two directories are never touched: one
-    without our manifest, because this walks a folder inside the user's data
-    directory and the only safe rule is to delete solely what we can prove we
-    wrote; and a staging directory, because a rebuild in flight is not rubbish
-    left by an old one.  Every edit starts a job and a person dragging points
-    starts several, so a sweep that could reach another job's staging killed it
-    half-written and lost the edit it was applying.
+    Returns the fingerprints removed.  The *generations* most recent survive,
+    the ones named in *keep* among them, because a reader holds a path rather
+    than a subscription and a job started an edit ago is still reading one.
+
+    Two directories are never touched at all: one without our manifest, because
+    this walks a folder inside the user's data directory and the only safe rule
+    is to delete solely what we can prove we wrote; and a staging directory,
+    because a rebuild in flight is not rubbish left by an old one.  Every edit
+    starts a job and a person dragging points starts several, so a sweep that
+    could reach another job's staging killed it half-written and lost the edit
+    it was applying.
 
     A staging directory therefore outlives only a hard crash -- :func:`materialise`
     removes its own on the way out, whether it committed or raised.
@@ -286,15 +299,21 @@ def prune(cache_dir: Path, keep: Iterable[str]) -> list[str]:
     if not root.is_dir():
         return []
     kept = set(keep)
+    others = [
+        entry
+        for entry in root.iterdir()
+        if entry.is_dir()
+        and entry.name not in kept
+        and not entry.name.startswith(_TEMP_PREFIX)
+        and _read_manifest(entry) is not None
+    ]
+    # Newest first, so what a job started moments ago outlives what nothing has
+    # looked at since two edits back.
+    others.sort(key=lambda entry: entry.stat().st_mtime_ns, reverse=True)
     removed: list[str] = []
-    for entry in sorted(root.iterdir()):
-        if not entry.is_dir() or entry.name in kept:
-            continue
-        if entry.name.startswith(_TEMP_PREFIX):
-            continue
-        if _read_manifest(entry) is not None:
-            _remove_generation(entry)
-            removed.append(entry.name)
+    for entry in others[max(0, generations - len(kept)) :]:
+        _remove_generation(entry)
+        removed.append(entry.name)
     return removed
 
 
