@@ -2907,7 +2907,7 @@ class MainWindow(QMainWindow):
         panel.set_swap_count(self.identity_swaps.count_for(source_id))
         self._identity_request_serial += 1
         serial = self._identity_request_serial
-        job = identity_view.job_for(self, source_id, panel.group_id(), panel.part())
+        job = identity_view.job_for(self, source_id, panel.group_id(), panel.part(), panel.pair())
         if job is None:
             # No group to draw. "Loading" would replace the panel's own
             # explanation -- that this recording needs New group -- with a

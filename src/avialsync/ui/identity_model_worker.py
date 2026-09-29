@@ -38,6 +38,9 @@ class BraidBuildJob:
     routing: tuple[tuple[int, dict[str, str]], ...]
     events: tuple[SwapEvent, ...]
     candidates: tuple[Candidate, ...]
+    #: The two lanes whose separation is drawn, and which a swap at the
+    #: playhead exchanges. ``None`` for a group of two, where there is no choice.
+    pair: tuple[str, str] | None = None
 
 
 class BraidBuildWorker(QObject):
@@ -78,6 +81,7 @@ def build_braid(job: BraidBuildJob) -> BraidModel:
         routing=job.routing,
         nodes=_nodes(job, source_times, times),
         tracks=tracks,
+        pair=job.pair,
         frame_numbers=frames,
     )
 

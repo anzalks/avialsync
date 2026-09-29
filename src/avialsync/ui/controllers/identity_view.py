@@ -101,7 +101,13 @@ def groups_for(window: MainWindow, source_id: str) -> tuple[SwapGroup, ...]:
 # ── the picture ──────────────────────────────────────────────────────
 
 
-def job_for(window: MainWindow, source_id: str, group_id: str, part: str) -> BraidBuildJob | None:
+def job_for(
+    window: MainWindow,
+    source_id: str,
+    group_id: str,
+    part: str,
+    pair: tuple[str, str] | None = None,
+) -> BraidBuildJob | None:
     """Snapshot UI-owned state; the returned job opens its own cache readers."""
     group = window.identity_swaps.group(source_id, group_id)
     if group is None:
@@ -149,6 +155,7 @@ def job_for(window: MainWindow, source_id: str, group_id: str, part: str) -> Bra
             if event.group == group_id and event.moves(part)
         ),
         candidates=window._swap_candidates.get((source_id, group_id, part), ()),
+        pair=pair,
     )
 
 

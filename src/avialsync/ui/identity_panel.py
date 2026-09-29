@@ -206,6 +206,13 @@ class IdentityPanel(QWidget):
         self._group_box.setAccessibleDescription(tr("Choose labels that may have exchanged"))
         self._group_box.setToolTip(tr("Which labels this tracker could confuse"))
         self._group_box.currentIndexChanged.connect(self._on_group_changed)
+        self._pair_box = QComboBox(self)
+        self._pair_box.setAccessibleName(tr("Identities to compare"))
+        self._pair_box.setAccessibleDescription(
+            tr("Which two of this group's identities the braid compares and a swap exchanges")
+        )
+        self._pair_box.setToolTip(tr("Which two identities to compare"))
+        self._pair_box.currentIndexChanged.connect(self._on_part_changed)
         self._new_group = QPushButton(tr("New group…"), self)
         self._new_group.setAccessibleName(tr("Create an identity group"))
         self._new_group.setAccessibleDescription(tr("Map other pose columns into two lanes"))
@@ -236,6 +243,9 @@ class IdentityPanel(QWidget):
         group_row = QHBoxLayout()
         group_row.addWidget(QLabel(tr("Group"), self))
         group_row.addWidget(self._group_box, 1)
+        self._pair_label = QLabel(tr("Compare"), self)
+        group_row.addWidget(self._pair_label)
+        group_row.addWidget(self._pair_box, 1)
         group_row.addWidget(self._new_group)
         controls.addLayout(group_row)
         part_row = QHBoxLayout()
@@ -374,7 +384,37 @@ class IdentityPanel(QWidget):
         with _quiet(self._part_box):
             self._part_box.setCurrentIndex(max(0, index))
 
+    def _refresh_pairs(self) -> None:
+        """Offer every pair of lanes, or hide the choice when there is none.
+
+        Two lanes is one pair and no decision; three animals is three pairs,
+        and picking "the first two" for the person is a guess dressed as an
+        answer. The row appears only when the group has something to choose.
+        """
+        group = self.group()
+        lanes = group.lanes if group is not None else ()
+        with _quiet(self._pair_box):
+            self._pair_box.clear()
+            for first in range(len(lanes)):
+                for second in range(first + 1, len(lanes)):
+                    self._pair_box.addItem(
+                        tr("{a} and {b}").format(a=lanes[first], b=lanes[second]),
+                        [lanes[first], lanes[second]],
+                    )
+            self._pair_box.setCurrentIndex(0 if self._pair_box.count() else -1)
+        visible = self._pair_box.count() > 1
+        self._pair_box.setVisible(visible)
+        self._pair_label.setVisible(visible)
+
+    def pair(self) -> tuple[str, str] | None:
+        """The two lanes being compared, or None when the group has fewer."""
+        data = self._pair_box.currentData()
+        if not data or len(data) != 2:
+            return None
+        return (str(data[0]), str(data[1]))
+
     def _refresh_parts(self) -> None:
+        self._refresh_pairs()
         group = self.group()
         with _quiet(self._part_box):
             self._part_box.clear()
@@ -653,7 +693,7 @@ class IdentityPanel(QWidget):
         """
         model = self._model
         group = self.group()
-        pair = lanes or (model.pair if model is not None else None)
+        pair = lanes or self.pair() or (model.pair if model is not None else None)
         if pair is None and group is not None and len(group.lanes) >= 2:
             # A rebuild clears the braid, and an apply during one still means
             # the group on screen. The model's pair and the group's first two

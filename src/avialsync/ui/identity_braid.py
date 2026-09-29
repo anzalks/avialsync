@@ -123,10 +123,19 @@ def build_model(
     tracks: Mapping[str, Trajectory],
     limit: int = MAX_POINTS,
     frame_numbers: np.ndarray | None = None,
+    pair: tuple[str, str] | None = None,
 ) -> BraidModel:
-    """Assemble what the two plots need, including the separation trace."""
+    """Assemble what the two plots need, including the separation trace.
+
+    *pair* is the two lanes being compared. Only meaningful above two: with
+    three animals there are three pairs, and "the first two" is a guess about
+    which the person means rather than an answer.
+    """
     ordered = tuple(lanes)
-    pair = (ordered[0], ordered[1]) if len(ordered) >= 2 else None
+    if pair is not None and not set(pair) <= set(ordered):
+        pair = None
+    if pair is None:
+        pair = (ordered[0], ordered[1]) if len(ordered) >= 2 else None
     separation = _separation(times, tracks, pair, limit)
     full = tuple(routing) if routing and routing[0][0] == 0 else ((0, {}), *tuple(routing))
     return BraidModel(

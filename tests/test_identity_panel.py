@@ -430,3 +430,47 @@ def test_the_crossings_carry_themselves_into_the_plot(panel) -> None:
         spot.data() for scatter in scatters for spot in scatter.points() if spot.data() is not None
     ]
     assert {node.accepted for node in carried} == {True, False}
+
+
+# ── more than two identities ─────────────────────────────────────────
+
+FOUR = SwapGroup(
+    name=ANIMALS,
+    lanes=("m1", "m2", "m3", "m4"),
+    parts=("snout",),
+    members=tuple((lane, "snout", f"{lane}_snout") for lane in ("m1", "m2", "m3", "m4")),
+)
+
+
+def test_two_identities_need_no_pair_chooser(panel) -> None:
+    assert not panel._pair_box.isVisibleTo(panel)
+    assert panel.pair() == LANES
+
+
+def test_four_identities_offer_every_pair(qtbot) -> None:
+    widget = IdentityPanel()
+    qtbot.addWidget(widget)
+    widget.set_groups(SOURCE, [FOUR], {})
+
+    offered = [widget._pair_box.itemData(row) for row in range(widget._pair_box.count())]
+
+    assert len(offered) == 6  # four animals, six pairs
+    assert offered[0] == ["m1", "m2"]
+    assert ["m3", "m4"] in offered
+
+
+def test_a_swap_exchanges_the_pair_that_is_selected(qtbot) -> None:
+    """With three animals, "the first two" is a guess, not an answer."""
+    widget = IdentityPanel()
+    qtbot.addWidget(widget)
+    widget.set_groups(SOURCE, [FOUR], {})
+    widget._pair_box.setCurrentIndex(
+        [widget._pair_box.itemData(row) for row in range(widget._pair_box.count())].index(
+            ["m3", "m4"]
+        )
+    )
+
+    event = widget.event_at(12)
+
+    assert event is not None
+    assert set(event.lanes) == {"m3", "m4"}

@@ -306,3 +306,58 @@ def test_the_same_edits_made_in_either_order_name_one_generation() -> None:
 
 def test_an_unedited_source_has_an_empty_program() -> None:
     assert not build_program(SOURCE, _store(), PointEditStore())
+
+
+# ── more than two identities ─────────────────────────────────────────
+
+
+def _many(count: int) -> PoseSchema:
+    return PoseSchema(
+        points=tuple(
+            PosePoint(individual=f"m{index}", bodypart=part, axes=("x", "y"))
+            for index in range(count)
+            for part in ("snout", "tail")
+        ),
+        frame_indexed=True,
+    )
+
+
+def test_a_group_holds_every_individual_the_file_names() -> None:
+    store = SwapStore()
+    store.set_groups(SOURCE, groups_for_schema(_many(8)))
+    group = store.group(SOURCE, ANIMALS)
+
+    assert group is not None
+    assert len(group.lanes) == 8
+    assert len(group.members) == 16
+
+
+def test_three_transpositions_compose_into_a_three_cycle() -> None:
+    """Flips do not commute, and with three animals that is visible.
+
+    m0 takes m1's data, m1 takes m2's, m2 takes m0's -- which no single
+    exchange produces and which the composition has to get right, in order.
+    """
+    store = SwapStore()
+    store.set_groups(SOURCE, groups_for_schema(_many(3)))
+    store.add(SOURCE, SwapEvent(10, ANIMALS, ("m0", "m1")))
+    store.add(SOURCE, SwapEvent(20, ANIMALS, ("m1", "m2")))
+
+    assert store.point_sources(SOURCE, 20) == {
+        "m0_snout": "m1_snout",
+        "m0_tail": "m1_tail",
+        "m1_snout": "m2_snout",
+        "m1_tail": "m2_tail",
+        "m2_snout": "m0_snout",
+        "m2_tail": "m0_tail",
+    }
+
+
+def test_a_flip_between_two_of_eight_leaves_the_other_six_alone() -> None:
+    store = SwapStore()
+    store.set_groups(SOURCE, groups_for_schema(_many(8)))
+    store.add(SOURCE, SwapEvent(10, ANIMALS, ("m3", "m5")))
+
+    moved = store.point_sources(SOURCE, 10)
+
+    assert set(moved) == {"m3_snout", "m3_tail", "m5_snout", "m5_tail"}
