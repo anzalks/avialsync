@@ -19,6 +19,13 @@ without breaking a reader: the scorer name.  A corrected file therefore says
 mixes model output with human judgement and does not say so is indistinguishable
 from model output, and that is the failure this exists to prevent.
 
+**A multi-animal file's columns are found by individual *and* body part.**
+A maDLC export repeats ``snout`` once per animal, so a column index keyed by
+body part alone keeps whichever animal came last and writes every correction
+into that one's columns.  The point names come from
+:mod:`avialsync.core.pose_header`, which is also what the loader named its
+channels after, so a correction lands in the columns it was made on.
+
 **A corrected point's likelihood becomes 1.0.**  This is not cosmetic.  The
 coordinate a person corrected is usually one the model was unsure about, so it
 carries a low likelihood — and the first thing most downstream code does is drop
@@ -30,11 +37,14 @@ analysis it was made for.
 from __future__ import annotations
 
 import csv
+import itertools
 import logging
 import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+
+from avialsync.core.pose_header import parse_pose_header
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +57,8 @@ SCORER_SUFFIX = "_avialsync_corrected"
 #: Written into the ``likelihood`` column of a corrected coordinate.
 CORRECTED_LIKELIHOOD = "1.0"
 
-_HEADER_ROWS = 3
+#: A single-animal header; a multi-animal one adds an ``individuals`` row.
+_MIN_HEADER_ROWS = 3
 
 
 @dataclass(frozen=True)
@@ -87,34 +98,34 @@ def write_corrected_copy(
 
     with open(source_path, newline="", encoding="utf-8") as handle:
         reader = csv.reader(handle)
-        try:
-            header = [next(reader) for _ in range(_HEADER_ROWS)]
-        except StopIteration as error:
+        # One row past the longest header shape, so the fourth row is available
+        # to tell a multi-animal header from the first data row. Whatever the
+        # parser does not claim as header is pushed back in front of the rows.
+        peeked = list(_take(reader, _MIN_HEADER_ROWS + 1))
+        header_block = parse_pose_header(peeked)
+        if header_block is None:
             raise ValueError(
-                f"{source_path.name} has fewer than {_HEADER_ROWS} header rows; "
-                "it is not a DeepLabCut or LightningPose export."
-            ) from error
+                f"{source_path.name} has no DeepLabCut or LightningPose header block; "
+                "its first rows are not scorer/[individuals/]bodyparts/coords."
+            )
 
-        scorers, bodyparts, coords = header
-        columns = _column_index(bodyparts, coords)
+        header = [list(line) for line in header_block.lines]
+        columns = header_block.column_index()
         if mark_scorer:
-            scorers = _renamed_scorers(scorers)
+            header[0] = _renamed_scorers(header[0])
 
+        rows = itertools.chain(peeked[header_block.rows :], reader)
         temporary = target_path.with_name(f".{target_path.name}.tmp")
-        report = _stream(reader, temporary, [scorers, bodyparts, coords], columns, corrections)
+        report = _stream(rows, temporary, header, columns, corrections)
 
     os.replace(temporary, target_path)
     return report
 
 
-def _column_index(bodyparts: list[str], coords: list[str]) -> dict[tuple[str, str], int]:
-    """Map ``(body part, coordinate)`` to its column, from the header rows."""
-    index: dict[tuple[str, str], int] = {}
-    for position, (part, coord) in enumerate(zip(bodyparts, coords, strict=False)):
-        if position == 0:
-            continue
-        index[(part.strip(), coord.strip().lower())] = position
-    return index
+def _take(reader: Iterator[list[str]], count: int) -> Iterator[list[str]]:
+    """Yield up to *count* rows, stopping early on a file shorter than that."""
+    for _, row in zip(range(count), reader, strict=False):
+        yield row
 
 
 def _renamed_scorers(scorers: list[str]) -> list[str]:

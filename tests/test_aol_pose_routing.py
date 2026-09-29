@@ -154,6 +154,7 @@ def _finish_import(
     import numpy as np
 
     from avialsync.core.inspection import SourceInspection
+    from avialsync.core.pose import PoseSchema
     from avialsync.core.pyramid import PyramidBuilder
 
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -167,7 +168,14 @@ def _finish_import(
         str(cache_dir),
         channels,
         (0.0, 1.0),
-        SourceInspection(path=source_path, import_config=dict(config)),
+        # The schema a real import carries: the worker asks the loader for it
+        # once, after open(), and it rides here on the inspection (D-140).
+        # Routing reads it and never reconstructs points from channel names.
+        SourceInspection(
+            path=source_path,
+            import_config=dict(config),
+            pose=PoseSchema.from_channels(channels, frame_indexed=True),
+        ),
     )
 
 

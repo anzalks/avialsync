@@ -21,7 +21,12 @@ from avialsync.loaders.csv_loader import CSVLoader
 
 logger = logging.getLogger(__name__)
 
-_IMPORT_CACHE_VERSION = 4
+# 5: the import manifest carries a pose schema, and a pose source's channel
+# set changed with it -- a Lightning Pose export no longer pyramids the eight
+# derived columns per body part it used to. A sidecar written before this has
+# neither, so it is re-imported rather than served with a shape nothing can
+# interpret (D-140).
+_IMPORT_CACHE_VERSION = 5
 _IMPORT_MANIFEST = "import.json"
 _STAGING_DIR = "_stage"
 
@@ -133,9 +138,19 @@ class ImportWorker(QObject):
             loader_id = type(loader).__name__
             fps_binding = "provisional" if fps_provisional else ""
 
+            # Asked once, here, while the loader is open: every consumer of
+            # this source reads the schema off the inspection rather than
+            # recovering it from channel names (D-140).
+            pose_schema = None
+            try:
+                pose_schema = loader.pose_schema()
+            except Exception:  # noqa: BLE001 - plugin boundary
+                logger.warning("%s.pose_schema() failed; importing as plain channels", loader_id)
+
             inspection = SourceInspection(
                 path=str(self.path),
                 loader_id=loader_id,
+                pose=pose_schema,
                 import_config=dict(self.config),
                 import_report=report,
                 integrity_flags=flags,

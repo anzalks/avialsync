@@ -18,7 +18,9 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
 from avialsync.core.point_edits import PointKey
+from avialsync.core.pose import split_channel
 from avialsync.ui.marker_overlay import MarkerOverlayMixin, ResolvedPoint
+from avialsync.ui.overlay_registry import default_visible_for
 from avialsync.ui.tracking_colors import color_for_point
 from avialsync.ui.wheel_overlay import draw_wheel, draw_wheel_clicks
 
@@ -84,20 +86,27 @@ class PaintCanvas(MarkerOverlayMixin):
         self.readers: list[Any] = []
         self.tracks: list[OverlayTrack] = []
         self.t = 0.0
-        self._show_legend = True
-        self._point_labels_visible = True
+        #: Seeded from the registry, never from literals here: these are the
+        #: same defaults View -> Overlays checks its boxes against, and a second
+        #: copy of them is what let the canvas draw a layer the menu called off
+        #: (D-138). Each is replaced by the resolved state in
+        #: `VideoPane.apply_overlay_visibility` as soon as one exists.
+        self._show_legend = default_visible_for("tracking.legend")
+        self._point_labels_visible = default_visible_for("tracking.point_labels")
         #: The points themselves. Previously unconditional: there was no way to
         #: see the raw footage under a prediction, which is exactly what someone
         #: checking a track needs to do (D-090).
-        self._points_visible = True
-        self._corrections_visible = True
+        self._points_visible = default_visible_for("tracking.points")
+        self._corrections_visible = default_visible_for("tracking.corrections")
         self._init_point_editing()
         self._init_marker_overlay()
 
     def set_readers(self, readers: list[Any]) -> None:
-        """Draw a single unnamed track from loose ``*_x``/``*_y`` readers.
+        """Draw a single track from loose ``*_x``/``*_y`` readers.
 
-        Retained for sources that are not routed through the 2D pose pipeline.
+        Retained for sources that are not routed through the 2D pose pipeline:
+        a pose file imported as plain data channels reaches the overlay this
+        way, broadcast to every camera rather than routed to one.
         """
         self.readers = readers
         self.update()
@@ -369,10 +378,12 @@ class PaintCanvas(MarkerOverlayMixin):
             value = reader.value_at(self.t)
             if np.isnan(value):
                 continue
-            for suffix in ("_x", "_y"):
-                if reader.channel_id.endswith(suffix):
-                    points.setdefault(reader.channel_id[:-2], {})[suffix[1:]] = value
+            split = split_channel(reader.channel_id)
+            if split is not None and split[1] in ("x", "y"):
+                points.setdefault(split[0], {})[split[1]] = value
 
+        label_font = painter.font()
+        label_font.setPointSize(_LABEL_POINT_SIZE)
         for name, point in sorted(points.items()):
             if "x" not in point or "y" not in point:
                 continue
@@ -382,6 +393,14 @@ class PaintCanvas(MarkerOverlayMixin):
             x = offset_x + point["x"] * scale
             y = offset_y + point["y"] * scale
             painter.drawEllipse(int(x) - 3, int(y) - 3, 6, 6)
+            # Named, and named through the same switch as every other point.
+            # These dots used to carry no text and consult no layer, so "Body-
+            # part names" appeared to do nothing for a pose file that had come
+            # in as plain channels -- the one case where the names are most
+            # needed, because nothing else on screen says what the dots are
+            # (D-139).
+            if self._point_labels_visible and name:
+                self._draw_point_label(painter, label_font, QColor(*color), name, x, y)
 
     def _draw_legend(
         self, painter: QPainter, entries: list[tuple[str, tuple[int, int, int]]]

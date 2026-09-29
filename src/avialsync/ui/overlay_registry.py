@@ -174,6 +174,19 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
 _BY_ID = {layer.overlay_id: layer for layer in OVERLAY_LAYERS}
 
 
+def default_visible_for(overlay_id: str) -> bool:
+    """Whether *overlay_id* shows before anyone has said otherwise.
+
+    The one place that answers this. A widget that hardcodes its own starting
+    value is a second authority on a layer's default, and the two drift: the
+    tracking canvas came up drawing body-part names that this registry declares
+    off, so the menu's unchecked box and the pixels disagreed until something
+    happened to push the resolved state (D-138).
+    """
+    layer = _BY_ID.get(overlay_id)
+    return layer.default_visible if layer is not None else True
+
+
 def layer_for(overlay_id: str) -> OverlayLayer | None:
     """Return the registered layer with *overlay_id*, if any."""
     return _BY_ID.get(overlay_id)

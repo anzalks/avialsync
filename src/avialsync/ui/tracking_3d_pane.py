@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.pose import split_channel
 from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skeleton
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.action_button import ActionButton
@@ -126,12 +127,13 @@ class _SourceSamples:
 
 
 def _coordinate_name(channel_id: str) -> tuple[str, str] | None:
-    """Return ``(point_name, axis)`` for the standard ``name_axis`` convention."""
-    name, separator, axis = channel_id.rpartition("_")
-    axis = axis.lower()
-    if separator and name and axis in {"x", "y", "z"}:
-        return name, axis
-    return None
+    """Return ``(point_name, axis)`` for a reader that carries only a name.
+
+    The 3D view is fed loose readers -- plotted channels as well as registered
+    pose sources -- so it cannot always reach a schema. It uses the one naming
+    rule rather than a second copy of it (D-140).
+    """
+    return split_channel(channel_id.lower())
 
 
 def _nearest_index(times: np.ndarray, target: float) -> int | None:

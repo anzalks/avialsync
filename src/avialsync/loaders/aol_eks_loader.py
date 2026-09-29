@@ -14,11 +14,28 @@ import numpy as np
 import polars as pl
 
 from avialsync.core.errors import MissingColumnError, NonMonotonicTimeError, SourceOpenError
+from avialsync.core.pose import PosePoint, PoseSchema, split_channel
 from avialsync.core.source import ChannelInfo, TimeSeriesSource
 
 logger = logging.getLogger(__name__)
 
 _BATCH_SIZE = 50_000
+
+
+def _axes_by_bodypart(columns: list[str]) -> dict[str, set[str]]:
+    """Map a body-part name to the axes its columns carry."""
+    found: dict[str, set[str]] = {}
+    for column in columns:
+        split = split_channel(column)
+        if split is not None:
+            found.setdefault(split[0], set()).add(split[1])
+    return found
+
+
+def _complete_triplets(columns: list[str]) -> tuple[str, ...]:
+    """Body parts carrying all three of x, y and z, in column order."""
+    axes = _axes_by_bodypart(columns)
+    return tuple(name for name, found in axes.items() if {"x", "y", "z"} <= found)
 
 
 class AOLEksLoader(TimeSeriesSource):
@@ -63,18 +80,19 @@ class AOLEksLoader(TimeSeriesSource):
         if "_eks" in path.stem.lower():
             return 0.95
 
-        # Check header for x/y/z triplet pattern
+        # A complete x/y/z triplet on one body part, not a column count that
+        # happens to divide by three. Counting made the claim depend on how many
+        # points the user tracked: a flat *2D* file with three body parts has
+        # six ``_x``/``_y`` columns, divides cleanly, and was claimed as 3D
+        # tracking, while the same file with two body parts was not (D-140).
         try:
             with open(path, encoding="utf-8") as f:
                 header = f.readline().strip()
-            cols = [c.strip() for c in header.split(",")]
-            xyz_count = sum(1 for c in cols if c.endswith(("_x", "_y", "_z")))
-            # Need at least one complete triplet (3 columns)
-            if xyz_count >= 3 and xyz_count % 3 == 0:
-                return 0.85
         except (OSError, UnicodeError):
-            pass
-
+            return 0.0
+        cols = [c.strip() for c in header.split(",")]
+        if _complete_triplets(cols):
+            return 0.85
         return 0.0
 
     def open(self, path: Path, config: dict[str, Any]) -> None:
@@ -89,7 +107,7 @@ class AOLEksLoader(TimeSeriesSource):
         self._has_fnum = "fnum" in all_cols
 
         # Extract only _x, _y, _z columns
-        raw_xyz = [c for c in all_cols if c.endswith(("_x", "_y", "_z"))]
+        raw_xyz = [c for c in all_cols if split_channel(c) is not None]
 
         if not raw_xyz:
             raise SourceOpenError(
@@ -133,6 +151,25 @@ class AOLEksLoader(TimeSeriesSource):
             len(self._xyz_channels),
             path.name,
         )
+
+    def pose_schema(self) -> PoseSchema | None:
+        """The body parts and axes this flat export declares (D-140).
+
+        Flat exports carry no individuals, so every point's individual is empty
+        and the body part is the whole name -- which is what it always was.
+        """
+        if not self._xyz_channels:
+            return None
+        axes = _axes_by_bodypart(self._xyz_channels)
+        points = tuple(
+            PosePoint(
+                individual="",
+                bodypart=name,
+                axes=tuple(a for a in ("x", "y", "z") if a in found),
+            )
+            for name, found in axes.items()
+        )
+        return PoseSchema(points=points, frame_indexed=True)
 
     def channels(self) -> list[ChannelInfo]:
         """Return one ChannelInfo per x/y/z coordinate.

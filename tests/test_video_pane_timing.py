@@ -222,22 +222,40 @@ def _draw_and_capture_text(canvas, track) -> list[str]:
     return written
 
 
-def test_overlay_names_each_tracked_point(qapp: QApplication) -> None:
-    """A bare dot says something was tracked, not which body part it is."""
+def _canvas_with_labels_on():
+    """A canvas drawing body-part names.
+
+    They are off by default -- the registry says so and the canvas follows it
+    (D-138) -- so a test about what the names say has to ask for them. Without
+    this every assertion below would hold on an overlay that draws no text at
+    all, which is the opposite of what they are checking.
+    """
     from avialsync.ui.video_overlay import PaintCanvas
 
     canvas = PaintCanvas()
+    canvas.set_point_labels_visible(True)
+    return canvas
 
-    written = _draw_and_capture_text(canvas, _one_track())
+
+def test_overlay_names_each_tracked_point(qapp: QApplication) -> None:
+    """A bare dot says something was tracked, not which body part it is."""
+    written = _draw_and_capture_text(_canvas_with_labels_on(), _one_track())
 
     assert "nose" in written
     assert "left_toe" in written
 
 
-def test_overlay_point_labels_can_be_hidden(qapp: QApplication) -> None:
+def test_overlay_point_labels_are_off_until_asked_for(qapp: QApplication) -> None:
+    """The registry's default, reaching the pixels (D-138)."""
     from avialsync.ui.video_overlay import PaintCanvas
 
-    canvas = PaintCanvas()
+    written = _draw_and_capture_text(PaintCanvas(), _one_track())
+
+    assert written == []
+
+
+def test_overlay_point_labels_can_be_hidden(qapp: QApplication) -> None:
+    canvas = _canvas_with_labels_on()
     canvas.set_point_labels_visible(False)
 
     written = _draw_and_capture_text(canvas, _one_track())
@@ -247,11 +265,7 @@ def test_overlay_point_labels_can_be_hidden(qapp: QApplication) -> None:
 
 def test_overlay_draws_each_label_twice_for_legibility(qapp: QApplication) -> None:
     """An outline pass sits under the coloured text so it survives pale footage."""
-    from avialsync.ui.video_overlay import PaintCanvas
-
-    canvas = PaintCanvas()
-
-    written = _draw_and_capture_text(canvas, _one_track())
+    written = _draw_and_capture_text(_canvas_with_labels_on(), _one_track())
 
     assert written.count("nose") == 2
     assert written.count("left_toe") == 2
@@ -261,13 +275,82 @@ def test_overlay_skips_labels_for_points_with_no_coordinate(qapp: QApplication) 
     """An untracked frame must not leave a floating name at the origin."""
     import numpy as np
 
-    from avialsync.ui.video_overlay import OverlayTrack, PaintCanvas
+    from avialsync.ui.video_overlay import OverlayTrack
 
     track = OverlayTrack(
         label="eks",
         points={"nose": (_FixedReader(np.nan), _FixedReader(np.nan))},
     )
 
-    written = _draw_and_capture_text(PaintCanvas(), track)
+    # Labels on, so an empty result means the NaN point was skipped rather than
+    # that nothing draws names at all.
+    written = _draw_and_capture_text(_canvas_with_labels_on(), track)
 
     assert written == []
+
+
+# ── loose readers are points too, and carry the same switch (D-139) ──
+
+
+class _NamedReader(_FixedReader):
+    """A loose reader: it reaches the overlay by channel id, not as a pose."""
+
+    def __init__(self, value: float, channel_id: str) -> None:
+        super().__init__(value)
+        self.channel_id = channel_id
+
+
+def _loose_readers() -> list:
+    return [
+        _NamedReader(40.0, "testMouse_snout_x"),
+        _NamedReader(50.0, "testMouse_snout_y"),
+        _NamedReader(120.0, "conSpecific_snout_x"),
+        _NamedReader(150.0, "conSpecific_snout_y"),
+    ]
+
+
+def _draw_loose_and_capture_text(canvas) -> list[str]:
+    from PySide6.QtGui import QImage, QPainter
+
+    written: list[str] = []
+    original = QPainter.drawText
+
+    def record(self, *args):
+        if args and isinstance(args[-1], str):
+            written.append(args[-1])
+        return original(self, *args)
+
+    image = QImage(320, 240, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0)
+    painter = QPainter(image)
+    QPainter.drawText = record
+    try:
+        canvas._draw_loose_readers(painter, 1.0, 0.0, 0.0)
+    finally:
+        QPainter.drawText = original
+        painter.end()
+    return written
+
+
+def test_loose_readers_are_named_when_names_are_on(qapp: QApplication) -> None:
+    """A pose file imported as plain channels draws through this path.
+
+    It carried no text at all, so "Body-part names" did nothing for the one
+    case where nothing else on screen says what the dots are.
+    """
+    canvas = _canvas_with_labels_on()
+    canvas.set_readers(_loose_readers())
+
+    written = _draw_loose_and_capture_text(canvas)
+
+    assert "testMouse_snout" in written
+    assert "conSpecific_snout" in written
+
+
+def test_loose_reader_names_follow_the_same_switch(qapp: QApplication) -> None:
+    from avialsync.ui.video_overlay import PaintCanvas
+
+    canvas = PaintCanvas()
+    canvas.set_readers(_loose_readers())
+
+    assert _draw_loose_and_capture_text(canvas) == []

@@ -18,6 +18,7 @@ from PySide6.QtCore import QThread, QTimer
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.errors import FileUnreadableError, LoaderContractError, SourceOpenError
 from avialsync.core.inspection import SourceInspection
+from avialsync.core.pose import PoseSchema
 from avialsync.core.source import TimeSeriesSource
 from avialsync.ui.i18n import tr
 
@@ -26,14 +27,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+#: Stands in for a rate no loaded camera can supply yet. Never the final word:
+#: an import that uses it is flagged provisional and re-run when one arrives.
+_ASSUMED_FPS = 30.0
 
-def _has_pose_coordinates(channels: list[str], axes: tuple[str, ...]) -> bool:
-    """Whether one point has every coordinate required by a declared pose role."""
-    names = set(channels)
-    return any(
-        name.endswith("_x") and all(f"{name[:-2]}_{axis}" in names for axis in axes)
-        for name in channels
-    )
+
+def _has_pose_coordinates(pose: PoseSchema | None, axes: tuple[str, ...]) -> bool:
+    """Whether one point carries every coordinate a declared pose role needs.
+
+    The loader's own schema is the only answer (D-140). A source that declares
+    none is not a pose source, and the role falls back to plain channels with
+    the notification the caller already raises.
+    """
+    return pose is not None and bool(pose.points_with(*axes))
 
 
 # ── Time-series intake ───────────────────────────────────────────────
@@ -83,57 +89,51 @@ def start_data_import(
             # this loader asks how to parse its time column. Keep that choice.
             config = {**config, **wizard.config()}
     elif config.get("_is_frame_indexed") or loader_cls().is_frame_indexed():
-        if not config.get("auto_resolved") and "fps" not in config:
-            fps, ok = window._resolve_tracking_fps()
-            if not ok:
-                return
+        # A frame rate already in the config is a decision -- a restored
+        # session's, or a session scanner's -- and is not re-derived here.
+        if "fps" not in config:
+            fps, provisional = frame_rate_for_tracking(window, config)
             config["fps"] = fps
-
-        if not window._video_fps:
+            config["fps_provisional"] = provisional
+        if config.get("fps_provisional"):
+            # Imported anyway, at an assumed rate, and re-imported the moment a
+            # camera can date these frames (rule 10: never block, always
+            # inform). The quality badge carries the "assumed" until then.
             window._frame_indexed_sources.append((path, loader_cls, config))
 
     window._enqueue_import(path, loader_cls, config)
 
 
-def resolve_tracking_fps(window: MainWindow) -> tuple[float, bool]:
-    """Return (fps, ok) for a frame-indexed source, using loaded video fps when possible."""
-    from PySide6.QtWidgets import QInputDialog
+def frame_rate_for_tracking(window: MainWindow, config: dict[str, Any]) -> tuple[float, bool]:
+    """Return ``(fps, provisional)`` for a frame-indexed source, asking nothing.
 
-    n = len(window._video_fps)
-    if n == 1:
-        fps = next(iter(window._video_fps.values()))
-        _, ok = QInputDialog.getDouble(
-            window,
-            "Confirm Frame Rate",
-            "Frame rate for this tracking data (pre-filled from loaded video):",
-            fps,
-            1.0,
-            1000.0,
-            2,
-        )
-        return fps, ok
-    if n > 1:
-        items = list(window._video_fps.keys())
-        picked, ok = QInputDialog.getItem(
-            window,
-            "Select Video for Frame Rate",
-            "Use frame rate from which video?",
-            items,
-            0,
-            False,
-        )
-        return (window._video_fps[picked], ok) if ok else (30.0, False)
-    # No videos loaded — ask user for nominal fps
-    fps, ok = QInputDialog.getDouble(
-        window,
-        "Tracking Data FPS",
-        "Enter the video frame rate for this tracking data:",
-        30.0,
-        1.0,
-        1000.0,
-        2,
-    )
-    return fps, ok
+    A tracking file counts frames; only the camera that exposed them knows how
+    fast they came. Asking the user is asking them to read a number off the
+    video and type it back in, and the dialog this replaced also *discarded*
+    what they typed in its one-video case -- it returned the pre-filled rate
+    whatever the field said (D-137).
+
+    ``provisional`` means nothing loaded can answer yet and the rate returned is
+    an assumption. The caller flags the import, which is what raises the "Frame
+    rate assumed, not read" badge, and re-imports once a camera arrives.
+    """
+    declared = str(config.get("overlay_video", ""))
+    if declared:
+        # The user has already said which camera these frames belong to; that
+        # declaration is the answer, and no other video may override it.
+        rate = window._video_fps.get(declared)
+        return (float(rate), False) if rate else (_ASSUMED_FPS, True)
+
+    rates = [float(rate) for rate in window._video_fps.values() if rate > 0.0]
+    if not rates:
+        return _ASSUMED_FPS, True
+    if len({round(rate, 6) for rate in rates}) == 1:
+        # One camera, or several agreeing: there is nothing to choose between.
+        return rates[0], False
+    # Cameras at different rates and nothing saying which these frames index.
+    # Placed against the first rather than refused, and the badge says it is a
+    # guess -- naming the camera is the user's to do in the import review.
+    return rates[0], True
 
 
 def enqueue_import(
@@ -214,17 +214,28 @@ def on_import_thread_finished(window: MainWindow) -> None:
     QTimer.singleShot(0, lambda: window._start_import(path, loader_cls, config))
 
 
-def rebind_frame_indexed_sources(window: MainWindow, fps: float) -> None:
-    """Re-import all provisional frame-indexed sources using the video fps."""
+def rebind_frame_indexed_sources(window: MainWindow) -> None:
+    """Re-import provisional frame-indexed sources now a camera can date them.
+
+    Each source resolves its own rate: two tracking files may name two cameras,
+    and the one whose camera is still missing stays provisional rather than
+    being dated by somebody else's video.
+    """
     from avialsync.core.cache import CacheManager
 
-    for dlc_path, loader_cls, config in window._frame_indexed_sources:
-        cache_dir = CacheManager(loader_version=3).get_cache_dir(dlc_path)
+    pending = list(window._frame_indexed_sources)
+    window._frame_indexed_sources.clear()
+    for dlc_path, loader_cls, config in pending:
+        fps, provisional = frame_rate_for_tracking(window, config)
+        if provisional:
+            window._frame_indexed_sources.append((dlc_path, loader_cls, config))
+            continue
+        cache_dir = CacheManager(loader_version=5).get_cache_dir(dlc_path)
         window.plot_pane.remove_channels(cache_dir)
         window.sidebar.remove_sensor(str(dlc_path))
         config["fps"] = fps
+        config["fps_provisional"] = False
         window._enqueue_import(dlc_path, loader_cls, config)
-    window._frame_indexed_sources.clear()
 
 
 def on_import_finished(
@@ -256,7 +267,8 @@ def on_import_finished(
             if isinstance(inspection, SourceInspection)
             else None
         )
-        if not _has_pose_coordinates(channels, required) or (role == "overlay2d" and not target):
+        pose = inspection.pose if isinstance(inspection, SourceInspection) else None
+        if not _has_pose_coordinates(pose, required) or (role == "overlay2d" and not target):
             window.notifications.show_warning(
                 tr(
                     "{file} has no usable {kind} coordinates; its channels were plotted instead."
@@ -402,17 +414,23 @@ def register_tracking_source(
         logger.warning("2D pose source %s has no overlay target; skipping.", path)
         return
 
+    # The loader said which points exist and what they are called; this no
+    # longer re-derives them by splitting ``_x`` off a channel name, which is
+    # what let two animals sharing ``snout`` collapse into one point (D-140).
     points: dict[str, tuple[MappedChannelReader, MappedChannelReader]] = {}
-    by_name: dict[str, dict[str, MappedChannelReader]] = {}
-    for channel in channels:
-        base, separator, axis = channel.rpartition("_")
-        if separator and axis in ("x", "y"):
-            by_name.setdefault(base, {})[axis] = MappedChannelReader(
-                PyramidReader(cache_dir, channel), time_map, source_id=path
-            )
-    for name, axes in by_name.items():
-        if "x" in axes and "y" in axes:
-            points[name] = (axes["x"], axes["y"])
+    available = set(channels)
+
+    def _reader(channel: str) -> MappedChannelReader:
+        return MappedChannelReader(PyramidReader(cache_dir, channel), time_map, source_id=path)
+
+    pose = inspection.pose if isinstance(inspection, SourceInspection) else None
+    if pose is None:
+        logger.warning("2D pose source %s declares no pose schema; not overlaid.", path)
+        return
+    for point in pose.points_with("x", "y"):
+        x_channel, y_channel = point.channel("x"), point.channel("y")
+        if x_channel in available and y_channel in available:
+            points[point.name] = (_reader(x_channel), _reader(y_channel))
 
     if not points:
         logger.warning("2D pose source %s produced no complete XY points.", path)

@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from avialsync.core.messages import Message
+from avialsync.core.pose import PoseSchema
 
 
 @dataclass
@@ -374,8 +375,26 @@ class TimeSeriesSource(_Nameable, ABC):
         coordinate channels may offer ``pose3d`` and/or ``overlay2d``; the user
         still declares which meaning this recording gives the file. Session
         plugins can supply the same roles in :attr:`SessionItem.config`.
+
+        This is the *user's* declaration -- what this recording means -- and is
+        distinct from :meth:`pose_schema`, which is the file's own structure.
         """
         return ()
+
+    def pose_schema(self) -> PoseSchema | None:
+        """Return this source's pose structure, or ``None`` if it has none.
+
+        Called after :meth:`open`. A loader that emits tracked coordinates
+        states here what its channels mean -- individuals, body parts, axes,
+        confidence, derived columns -- instead of leaving every consumer to
+        recover it by splitting ``_x`` off a channel name (D-140). Non-pose
+        loaders inherit ``None`` and are unaffected.
+
+        The schema is carried to consumers on
+        :class:`~avialsync.core.inspection.SourceInspection`, which the import
+        manifest persists, so a cache hit still knows what its channels mean.
+        """
+        return None
 
 
 class VideoSource(_Nameable, ABC):

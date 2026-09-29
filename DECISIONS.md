@@ -4929,3 +4929,270 @@ state in one sentence).
 **Consequences:** `tests/test_interaction_standard.py` asserts the item is in the File menu, that
 its role is `NoRole`, and that Quit and About keep theirs. This supersedes the Preferences half of
 D-022.3, whose original line deferred the question because no settings dialog existed yet.
+
+---
+
+## 2026-09 · D-136 · A pose point is named for its individual as well as its body part
+
+**Context:** the tracking loader recognised only the three-row DeepLabCut header
+(`scorer` / `bodyparts` / `coords`). A multi-animal export inserts `individuals` as row two, so
+`can_open` scored it 0.0 and a maDLC CSV dropped onto AvialSync fell through to the generic CSV
+loader as anonymous columns — no overlay, no pose role. The header shape was also assumed in two
+further places that read the same file: `core/pose_export.py` skipped exactly three rows and
+indexed columns by body part, and `engine/calibration_worker.py` did the same.
+
+Indexing by body part is the part that silently corrupts. A maDLC file repeats `snout` once per
+animal, so a `(part, coord) -> column` map keeps whichever animal came last. A correction made on
+`conSpecific` would have been written into `testMouse`'s columns, in a file that reads as valid
+DLC output and says nothing about what happened.
+
+**Decision:** `core/pose_header.py` is the one place that parses a pose CSV's header block. It
+reports how many rows the header occupies and, per column, `(point, coord)` — where *point* is
+`individual_bodypart` for a multi-animal file and the bare body part for a single-animal one. The
+loader names its channels from it, the corrected-copy exporter indexes its columns from it, and the
+calibration reader names its 2D points from it, so a correction keyed by point name lands in the
+columns that point was read from. DLC's reserved `single` individual (arena corners and other
+unique parts) is prefixed like any other: one rule that always holds beats a shorter name in one
+case.
+
+**Alternatives rejected:** keeping the bare body-part name and carrying the individual beside it
+(two identities for one point, and every consumer has to thread the second one through —
+`OverlayTrack.points`, `PointKey.point`, the corrected-copy index); flattening only when a name
+collides (the naming then depends on which animals a session happens to contain, so a saved
+correction stops matching when a file gains an individual); a separate multi-animal loader
+(`can_open` would have to arbitrate between two loaders for one format, and the export and
+calibration readers would still have been wrong).
+
+**Consequences:** channel and overlay point names for multi-animal files are
+`testMouse_snout_x`, not `snout_x`. `tests/test_pose_header.py` covers both header shapes, the
+repeated-body-part case and the non-pose file; `tests/test_loaders_tracking.py` and
+`tests/test_pose_export.py` cover the loader and the corrected copy end of it. A pose CSV that is
+not one of the two shapes is now refused by `TrackingLoader.open` with a `SourceOpenError` naming
+what it found, rather than mis-parsed.
+
+---
+
+## 2026-09 · D-137 · A tracking file's frame rate comes from its camera, never from a dialog
+
+**Context:** D-019 resolved the frame rate of a frame-indexed source by asking. One video loaded →
+a "Confirm Frame Rate" box pre-filled from it; several → a dropdown of filenames; none → type a
+nominal rate. Three modal prompts in front of a drag-and-drop, for a number the application
+already holds — and the one-video box *discarded what the user typed*: it read
+`_, ok = QInputDialog.getDouble(...)` and returned the pre-filled rate whatever the field said.
+
+The rate was also the container's claim, `stream.base_rate`. D-072 already records that this is a
+claim VFR media contradicts. Measured on a real 10-minute maDLC recording (18037 frames, VFR
+19.2–32.3 fps): placing the tracking at the assumed 30.0 puts its last row 0.762 s before the
+frame it belongs to, and at the container's nominal 29.970 still 0.161 s before it. At the
+measured 29.962 the error is zero.
+
+**Decision:** nothing asks. `import_controller.frame_rate_for_tracking` derives `(fps,
+provisional)` from the loaded cameras: the camera the import review already declared this pose
+file overlays, else the single loaded camera, else several that agree. Cameras that disagree with
+nothing naming one, or no camera at all, place the source at an assumed 30 fps and return
+`provisional=True` — which sets `fps_provisional` on the import and raises the existing "Frame
+rate assumed, not read" badge. Each pending source resolves its own rate when a camera loads, so
+one waiting on a camera that has not arrived keeps waiting instead of being dated by somebody
+else's video. `window._video_fps` now holds the **measured** rate; `VideoMetadata.nominal_fps`
+remains the container's claim for readouts that mean the claim.
+
+Exactness beyond a rate is unchanged and is what `calibrate_overlay_timing` is for: it recovers
+each row's frame index and pins it to that frame's measured presentation time, which is the only
+thing that is correct for VFR. The rate's job is to make that index recoverable and to place the
+source before a camera is known.
+
+**Alternatives rejected:** keeping a pre-filled confirmation (it asks the user to read a number
+off the video and type it back, and D-107 already rejects a modal that reports what the
+application knows); refusing the import until a video is loaded (rule 10 — never block, always
+inform; the provisional path and its badge exist precisely for this); guessing the first camera
+silently when several disagree (a wrong camera's rate is indistinguishable from a right one once
+the dialog is gone, so the guess has to be flagged); feeding the video's frame times to the loader
+instead of a rate (it would make `calibrate_overlay_timing`'s index recovery fail, replacing one
+authority over overlay timing with two).
+
+**Consequences:** supersedes D-019's resolution order; `MainWindow._resolve_tracking_fps` is gone
+and `_rebind_frame_indexed_sources` takes no rate. `tests/test_frame_indexed.py` covers each
+branch, including that a declared camera outranks every other and that the wrong camera never
+rebinds a source waiting for its own.
+
+---
+
+## 2026-09 · D-138 · An overlay layer's default is the registry's, and nobody else's
+
+**Context:** `PaintCanvas.__init__` set `_points_visible`, `_point_labels_visible`,
+`_corrections_visible` and `_show_legend` to literal `True`. The registry declares
+`tracking.point_labels` as `default_visible=False` (D-090). Two authorities for one default, and
+they disagreed on exactly that layer.
+
+The disagreement was reachable because `VideoGrid.apply_overlays_to` — the call a newly built pane
+goes through — returns early while `_overlay_resolver` is unset, and the resolver was only
+installed by `_apply_overlay_state`, which ran on a toggle, on clearing a per-camera override, or
+on a session restore. A fresh session that did none of those built its first camera with the
+canvas's own literals. The menu showed "Body-part names" unchecked while the pane drew them, and
+the first click on that checkbox then set the state to the value already on screen — a toggle that
+visibly did nothing.
+
+**Decision:** `overlay_registry.default_visible_for(overlay_id)` is the one answer, and
+`PaintCanvas` seeds every layer flag from it rather than from literals. `MainWindow` installs the
+resolver at the end of `_build_overlays_menu`, so `apply_overlays_to` works for the first pane of
+a session that has toggled nothing.
+
+**Alternatives rejected:** correcting the canvas literals to match the registry (it leaves two
+places to change and the next layer drifts the same way — rule 15 is about the second authority,
+not about its current value); having the pane read the registry itself (a pane must not resolve
+per-camera overrides; that is the window's job, which is why `apply_overlay_visibility` takes a
+resolved map); calling `_apply_overlay_state` from pane construction instead (it would push every
+pane's state on every pane build, for a problem that is about the resolver being absent once).
+
+**Consequences:** body-part names are off until asked for, on a fresh session as well as a
+restored one, and the checkbox now agrees with the pixels on the first click.
+`tests/test_overlay_registry.py` covers the canvas seeding, `default_visible_for` over every
+registered layer, and that a pane built before any toggle still receives the resolved state.
+
+---
+
+## 2026-09 · D-139 · A DeepLabCut sidecar is not a camera, and a loose point still has a name
+
+**Context:** dropping a DeepLabCut output folder opened a third video pane for
+`..._full.pickle`. `_NOT_VIDEO_SUFFIXES` listed `.pkl` and not `.pickle`, which is the spelling
+DLC actually writes, so the file fell through to the probe; FFmpeg's deliberately permissive
+detection reported a four-frame 25 fps stream, the pane opened, and every decode raised
+`InvalidDataError` after the probe had blocked the UI thread for 2.8 s. The same folder also holds
+`_meta.pickle`, `_assemblies.pickle` and `_el.pickle`.
+
+Separately: a pose file imported as plain data channels reaches the overlay through
+`PaintCanvas.set_readers`, not as a named track. `_draw_loose_readers` drew a coloured dot and no
+text at all, and consulted no layer, so "Body-part names" did nothing for it. That is the case
+where the names matter most — nothing else on screen says what the dots are — and it reads as the
+switch being broken rather than as the file having come in the wrong way.
+
+**Decision:** `.pickle` joins `.pkl` in `_NOT_VIDEO_SUFFIXES`. `_draw_loose_readers` names each
+point through `_draw_point_label`, gated on the same `tracking.point_labels` flag as
+`_draw_track`, so one switch governs every named point the overlay draws.
+
+**Alternatives rejected:** dropping the probe fallback (it is what lets an unlisted container
+still open, which D-075 wanted); having the probe reject short streams by frame count (a genuine
+four-frame clip exists, and the rule would be about length rather than about the file being a
+pickle); leaving the loose path unnamed and relying on the user importing as a pose instead (the
+overlay would keep drawing points that no registered layer can name, which rule 13 forbids).
+
+**Consequences:** a DLC folder drop no longer offers its pickles as cameras.
+`tests/test_loaders_video.py` covers the exclusion and the DLC sidecar set;
+`tests/test_video_pane_timing.py` covers loose-reader naming in both switch positions. Still open
+and deliberately not changed here: `VideoGrid.set_tracking_readers` broadcasts loose readers to
+**every** camera, so a pose file imported as channels draws its dots over all of them — correct
+routing needs the pose role, which is the import-review choice this does not replace.
+
+---
+
+## 2026-09 · D-140 · One pose schema, declared by the loader
+
+**Context:** a pose source's structure is destroyed at the loader boundary and guessed back
+downstream. `TimeSeriesSource` speaks flat channels — `ChannelInfo(name, unit, dtype, rate_hz)` —
+which is the right contract for a voltage trace and the wrong one for a tracked point. It carries
+no individual, no body part, no axis, no likelihood, no distinction between a coordinate and a
+derived column, and no statement of whether the file is 2D or 3D. Each consumer recovers what it
+needs by splitting `_x` off a channel name.
+
+Nine call sites across seven files do that today: `ui/video_overlay.py` (loose readers),
+`ui/tracking_3d_pane.py`, `ui/controllers/import_controller.py` (twice — `_has_pose_coordinates`
+and `register_tracking_source`), `core/custom_markers.py`, `engine/calibration_worker.py`,
+`loaders/aol_eks_loader.py` (twice) and `loaders/aol_session_loader.py`. Four files additionally
+re-open a pose file to re-read its header: the tracking loader, the calibration worker, the
+corrected-copy exporter and the EKS loader.
+
+Three shipped defects came from exactly that duplication, which is the argument for fixing the
+cause rather than each instance:
+
+- D-136: multi-animal support had to change three files, because the loader, the corrected-copy
+  exporter and the calibration reader each independently keyed a point by body part, and each
+  independently collapsed two animals that share `snout` into one.
+- `AOLEksLoader.can_open` decides whether a file is 3D by counting columns ending `_x`/`_y`/`_z`
+  and testing the count against `% 3 == 0`, without checking that any body part holds all three.
+  A flat 2D file with three body parts is therefore claimed as 3D tracking and one with two is
+  not — a classification that depends on how many points the user happened to track.
+- `ui/tracking_skeleton.py` exists solely to "map declared body-part names onto the point names the
+  cache holds". It is a whole module standing in for the identity the loader could have stated.
+
+**Decision (proposed):** a headless `core/pose.py` holds the shape, and the loader declares it.
+
+```python
+@dataclass(frozen=True)
+class PosePoint:
+    individual: str              # "" for a format with no individuals
+    bodypart: str
+    axes: tuple[str, ...]        # ("x", "y") or ("x", "y", "z")
+    has_likelihood: bool
+    @property
+    def name(self) -> str: ...   # the one place a canonical name is decided
+
+@dataclass(frozen=True)
+class PoseSchema:
+    points: tuple[PosePoint, ...]
+    frame_indexed: bool
+    derived: tuple[str, ...]     # x_ens_var, nll, zscore — declared, never guessed
+```
+
+`TimeSeriesSource` gains `pose_schema() -> PoseSchema | None`, defaulting to `None` — the same
+shape of pre-freeze addition D-019 made for `is_frame_indexed()`. A schema is the answer to every
+question the nine sites currently ask a string:
+
+- a schema carrying `z` *is* a 3D pose, which retires `pose_roles()` and the `% 3` count;
+- `derived` replaces the `coords` config key, which exists for this purpose and which only
+  `aol_session_loader` ever passes — a drag-and-dropped EKS file imports all eleven columns per
+  body part and pyramids each one;
+- `pose_export` and `calibration_worker` take the schema from the loader instead of re-parsing the
+  file, so `core/pose_header.py` becomes an implementation detail of the CSV loaders rather than a
+  contract three subsystems share;
+- a new format — SLEAP, DeepLabCut `.h5`, NWB — is one loader emitting the same schema, and no
+  consumer changes. That is the whole point: at the far end, every tracking source looks the same.
+
+**The constraint that decides the timing.** `PointKey.point` is persisted. It is written into the
+`.avialfix.csv` corrections sidecar beside each pose file and into the session (D-099). A canonical
+point name is a stored identifier, not a display string, so naming it is a one-time freeze:
+anything renamed afterwards orphans every correction made before it.
+
+This is therefore cheapest now. D-136's rename affects multi-animal files only, and those could not
+be loaded at all before D-136, so no correction can exist against the old names. Single-animal
+DeepLabCut and Lightning Pose names are unchanged by it. Adopted before the first multi-animal
+session is corrected, the migration is free; adopted after, it needs one.
+
+**Alternatives rejected:** fixing each of the nine sites in place (it leaves nine authorities and
+the tenth consumer repeats the bug — rule 15 is about the second authority existing, not about its
+current value); putting the structure in `ChannelInfo` (it would carry pose fields through every
+ephys and video channel that has no use for them); having consumers call `core/pose_header.py`
+directly (it is CSV-shaped, so SLEAP `.h5` or NWB could not satisfy it, and the header would still
+be re-read per consumer); keeping `pose_roles()` as the user's declaration (a role says what this
+recording *means*, which is a real question, but 2D-vs-3D is a property of the file and the loader
+can simply state it).
+
+**Adopted and implemented.** `core/pose.py` holds `PosePoint`, `PoseSchema`, `canonical_name` and
+`split_channel`. `TimeSeriesSource.pose_schema()` defaults to `None`; `TrackingLoader` and
+`AOLEksLoader` implement it, and they are the only loaders that declare `pose_roles`. The schema
+rides on `SourceInspection`, which the import manifest already persists, so a cache hit -- where
+the loader is never opened -- still knows what its channels mean.
+
+**There is no compatibility path, by decision.** A pose source that declares no schema is not
+routed as a pose: `register_tracking_source` logs and declines rather than falling back to
+splitting channel names, and `_has_pose_coordinates` answers from the schema alone. The import
+cache version is 5, so any sidecar written before this is re-imported rather than served with a
+shape nothing can interpret. This is affordable exactly once -- there is no user base, and no
+`.avialfix.csv` can exist against the old names -- and that window is the reason it was done now
+rather than behind a migration.
+
+Three behaviours changed with it:
+
+- A Lightning Pose / EKS export dropped on the window imports three channels per body part instead
+  of eleven. `derived` is declared by the loader, so the `coords` config key that only
+  `aol_session_loader` ever passed is no longer what stands between a user and pyramiding eight
+  columns per point that nothing reads. An explicit `coords` still wins.
+- `AOLEksLoader.can_open` requires a complete x/y/z triplet on one body part, so a flat 2D file
+  with three body parts is no longer claimed as 3D tracking.
+- Nine sites became one. The only splitting left is `split_channel`, used by the three consumers
+  that genuinely hold a channel name and never a schema -- the overlay's loose readers, the 3D
+  view's reader list, and a hand-made marker file's CSV fields -- plus the EKS loader parsing its
+  own format, which is where format knowledge belongs.
+
+`core/` stays headless (rule 2); `core/pose.py` is ~200 lines. `tests/test_pose_schema.py` covers
+the naming rule, both header shapes, derived-column declaration, the manifest round trip, and that
+the names a schema reports address channels the loader actually emits.

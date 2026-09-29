@@ -16,7 +16,13 @@ from shiboken6 import isValid
 from avialsync.core.session import SessionState
 from avialsync.ui import recovery
 from avialsync.ui.main_window import MainWindow
-from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_for
+from avialsync.ui.overlay_registry import (
+    OVERLAY_LAYERS,
+    OverlayState,
+    default_visible_for,
+    layer_for,
+)
+from avialsync.ui.video_overlay import PaintCanvas
 
 #: What the panes actually draw. Kept here, apart from the registry, so the two
 #: have to be changed together and a new overlay cannot be added silently.
@@ -244,3 +250,47 @@ def test_the_menu_check_state_follows_an_undo(window: MainWindow) -> None:
 
     window.document.undo(window._mutations)
     assert action.isChecked() is True
+
+
+# ── one authority for a layer's default (D-138) ──────────────────────
+
+
+def test_the_canvas_starts_at_the_registry_default_not_its_own(qapp: QApplication) -> None:
+    """A canvas with its own starting values is a second authority, and they drift.
+
+    ``tracking.point_labels`` is the one that did: the canvas constructed itself
+    with names on while the registry -- and so the menu's checkbox -- said off.
+    """
+    canvas = PaintCanvas()
+
+    assert canvas._points_visible is default_visible_for("tracking.points")
+    assert canvas._point_labels_visible is default_visible_for("tracking.point_labels")
+    assert canvas._corrections_visible is default_visible_for("tracking.corrections")
+    assert canvas._show_legend is default_visible_for("tracking.legend")
+    assert canvas._point_labels_visible is False
+
+
+def test_default_visible_for_answers_for_every_registered_layer() -> None:
+    for layer in OVERLAY_LAYERS:
+        assert default_visible_for(layer.overlay_id) is layer.default_visible
+
+
+def test_a_pane_built_before_any_toggle_receives_the_resolved_state(
+    window: MainWindow,
+) -> None:
+    """`apply_overlays_to` returned early until something installed a resolver.
+
+    A fresh session toggled nothing and restored nothing, so the first camera
+    kept whatever the canvas had constructed itself with.
+    """
+    assert getattr(window.video_grid, "_overlay_resolver", None) is not None
+    resolved = window.overlay_state.visibility_for("camera.mp4")
+    assert resolved["tracking.point_labels"] is False
+    assert resolved["tracking.points"] is True
+
+
+def test_turning_body_part_names_on_reaches_a_pane(window: MainWindow) -> None:
+    window._on_overlay_toggled("tracking.point_labels", True)
+
+    assert window._overlay_actions["tracking.point_labels"].isChecked() is True
+    assert window.overlay_state.visibility_for("camera.mp4")["tracking.point_labels"] is True

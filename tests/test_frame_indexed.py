@@ -1,4 +1,10 @@
-"""Tests for frame-indexed source contract and DLC fps resolution (D-019)."""
+"""Frame-indexed source contract and tracking frame-rate resolution (D-019, D-137).
+
+The rate a tracking file's frames came at belongs to the camera that exposed
+them, so nothing here asks the user for it: the tests assert what is derived
+from the loaded videos, and that a source nothing can date yet is imported
+provisionally rather than blocked.
+"""
 
 from pathlib import Path
 
@@ -117,10 +123,13 @@ def test_provisional_dlc_stored_when_no_video(tmp_path):
     registry = LoaderRegistry()
     assert registry.find_best_loader(csv) is TrackingLoader
 
-    # Simulate provisional registration directly (the path _start_data_import takes
-    # when no video is loaded and the user confirms a nominal fps)
-    win._frame_indexed_sources.append((csv, 10.0))
-    assert win._frame_indexed_sources == [(csv, 10.0)]
+    # With no camera loaded there is nothing to read a rate off, so the import
+    # is provisional rather than refused or blocked on a dialog.
+    from avialsync.ui.controllers import import_controller
+
+    fps, provisional = import_controller.frame_rate_for_tracking(win, {})
+    assert provisional is True
+    assert fps == import_controller._ASSUMED_FPS
 
     win.close()
 
@@ -136,6 +145,7 @@ def test_rebind_clears_provisional_list(tmp_path, monkeypatch):
     from avialsync.loaders.tracking_loader import TrackingLoader
 
     win._frame_indexed_sources.append((csv, TrackingLoader, {"fps": 10.0}))
+    win._video_fps["cam.mp4"] = 25.0
 
     # Patch _enqueue_import and plot/sidebar so no actual work runs
     enqueued = []
@@ -143,13 +153,14 @@ def test_rebind_clears_provisional_list(tmp_path, monkeypatch):
     monkeypatch.setattr(win.plot_pane, "remove_channels", lambda *a: None)
     monkeypatch.setattr(win.sidebar, "remove_sensor", lambda *a: None)
 
-    win._rebind_frame_indexed_sources(25.0)
+    win._rebind_frame_indexed_sources()
 
     assert win._frame_indexed_sources == [], "Provisional list must be cleared after rebind"
     assert len(enqueued) == 1
     p, lc, cfg = enqueued[0]
     assert p == csv
     assert cfg["fps"] == 25.0
+    assert cfg["fps_provisional"] is False
 
     win.close()
 
@@ -167,15 +178,128 @@ def test_rebind_uses_new_fps(tmp_path, monkeypatch):
     from avialsync.loaders.tracking_loader import TrackingLoader
 
     win._frame_indexed_sources.append((csv, TrackingLoader, {"fps": provisional_fps}))
+    win._video_fps["cam.mp4"] = video_fps
 
     enqueued = []
     monkeypatch.setattr(win, "_enqueue_import", lambda p, lc, cfg: enqueued.append((p, lc, cfg)))
     monkeypatch.setattr(win.plot_pane, "remove_channels", lambda *a: None)
     monkeypatch.setattr(win.sidebar, "remove_sensor", lambda *a: None)
 
-    win._rebind_frame_indexed_sources(video_fps)
+    win._rebind_frame_indexed_sources()
 
     assert enqueued[0][2]["fps"] == video_fps
     assert enqueued[0][2]["fps"] != provisional_fps
+
+    win.close()
+
+
+# ---------------------------------------------------------------------------
+# The frame rate comes from the camera, never from a dialog (D-137)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("qapp")
+def test_one_loaded_camera_answers_without_asking(tmp_path):
+    from avialsync.ui.controllers import import_controller
+    from avialsync.ui.main_window import MainWindow
+
+    win = MainWindow()
+    win._video_fps["cam.mp4"] = 29.97
+
+    assert import_controller.frame_rate_for_tracking(win, {}) == (29.97, False)
+
+    win.close()
+
+
+@pytest.mark.usefixtures("qapp")
+def test_the_declared_camera_wins_over_every_other(tmp_path):
+    """The import review already asked which camera; that answer is the rate."""
+    from avialsync.ui.controllers import import_controller
+    from avialsync.ui.main_window import MainWindow
+
+    win = MainWindow()
+    win._video_fps["left.mp4"] = 60.0
+    win._video_fps["right.mp4"] = 29.97
+
+    fps, provisional = import_controller.frame_rate_for_tracking(
+        win, {"overlay_video": "right.mp4"}
+    )
+
+    assert (fps, provisional) == (29.97, False)
+
+    win.close()
+
+
+@pytest.mark.usefixtures("qapp")
+def test_a_declared_camera_that_is_not_loaded_stays_provisional(tmp_path):
+    """Another camera's rate is not an answer about this one."""
+    from avialsync.ui.controllers import import_controller
+    from avialsync.ui.main_window import MainWindow
+
+    win = MainWindow()
+    win._video_fps["left.mp4"] = 60.0
+
+    fps, provisional = import_controller.frame_rate_for_tracking(
+        win, {"overlay_video": "right.mp4"}
+    )
+
+    assert provisional is True
+    assert fps == import_controller._ASSUMED_FPS
+
+    win.close()
+
+
+@pytest.mark.usefixtures("qapp")
+def test_cameras_that_agree_are_not_a_choice(tmp_path):
+    from avialsync.ui.controllers import import_controller
+    from avialsync.ui.main_window import MainWindow
+
+    win = MainWindow()
+    win._video_fps["a.mp4"] = 30.0
+    win._video_fps["b.mp4"] = 30.0
+
+    assert import_controller.frame_rate_for_tracking(win, {}) == (30.0, False)
+
+    win.close()
+
+
+@pytest.mark.usefixtures("qapp")
+def test_cameras_that_disagree_place_the_source_but_say_it_is_a_guess(tmp_path):
+    from avialsync.ui.controllers import import_controller
+    from avialsync.ui.main_window import MainWindow
+
+    win = MainWindow()
+    win._video_fps["a.mp4"] = 30.0
+    win._video_fps["b.mp4"] = 60.0
+
+    fps, provisional = import_controller.frame_rate_for_tracking(win, {})
+
+    assert fps == 30.0
+    assert provisional is True, "A guess between cameras has to be flagged, not silent"
+
+    win.close()
+
+
+@pytest.mark.usefixtures("qapp")
+def test_a_source_waiting_on_its_own_camera_is_not_rebound_by_another(tmp_path, monkeypatch):
+    from avialsync.loaders.tracking_loader import TrackingLoader
+    from avialsync.ui.main_window import MainWindow
+
+    win = MainWindow()
+    csv = _write_dlc_csv(tmp_path / "pose.csv", n_frames=10)
+    win._frame_indexed_sources.append(
+        (csv, TrackingLoader, {"fps": 30.0, "overlay_video": "right.mp4"})
+    )
+    win._video_fps["left.mp4"] = 60.0
+
+    enqueued = []
+    monkeypatch.setattr(win, "_enqueue_import", lambda p, lc, cfg: enqueued.append((p, lc, cfg)))
+    monkeypatch.setattr(win.plot_pane, "remove_channels", lambda *a: None)
+    monkeypatch.setattr(win.sidebar, "remove_sensor", lambda *a: None)
+
+    win._rebind_frame_indexed_sources()
+
+    assert enqueued == [], "The wrong camera must not date these frames"
+    assert len(win._frame_indexed_sources) == 1, "It keeps waiting for its own"
 
     win.close()

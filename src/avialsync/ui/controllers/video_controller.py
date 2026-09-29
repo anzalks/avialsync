@@ -308,7 +308,13 @@ def create_video_pane(
     if residual or effective_drift:
         window.sidebar.set_video_mapping(original_path, residual, effective_drift)
     window._recorded_mappings[original_path] = (residual, effective_drift)
-    window._video_fps[original_path] = loader.fps()
+    # The rate this recording actually ran at, not the rate its container
+    # claims. They differ on exactly the files where it matters: the container
+    # declares one constant rate whatever the camera achieved (D-072), and a
+    # frame-indexed tracking file placed against that claim drifts by the
+    # difference, accumulating to the end of the recording. `nominal_fps` stays
+    # available on the metadata for readouts that mean the claim.
+    window._video_fps[original_path] = video_metadata.measured_fps or loader.fps()
     frame_times = loader.frame_times()
     pane.set_frame_times(frame_times)
     pane.set_video_metadata(video_metadata)
@@ -340,8 +346,11 @@ def create_video_pane(
         from avialsync.ui.controllers import import_controller
 
         import_controller.calibrate_overlay_timing(window, original_path)
-    if window._frame_indexed_sources and len(window._video_fps) == 1:
-        window._rebind_frame_indexed_sources(loader.fps())
+    if window._frame_indexed_sources:
+        # Whatever this camera answers, and only what it answers: each pending
+        # source resolves its own rate, so one waiting on a different camera
+        # stays waiting (D-137).
+        window._rebind_frame_indexed_sources()
     window.transport.set_status(f"Ready · loaded {Path(original_path).name}")
 
 

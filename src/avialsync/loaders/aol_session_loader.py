@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from avialsync.core.custom_markers import is_custom_marker_path
+from avialsync.core.pose import split_channel
 from avialsync.core.source import RotaryHint, SessionItem, SessionLayout, SessionSource
 
 logger = logging.getLogger(__name__)
@@ -160,10 +161,9 @@ def _eks_bodyparts(path: Path) -> list[str]:
 
     bodyparts: list[str] = []
     for column in (c.strip() for c in header.split(",")):
-        if column.endswith(("_x", "_y", "_z")):
-            name = column[:-2]
-            if name and name not in bodyparts:
-                bodyparts.append(name)
+        split = split_channel(column)
+        if split is not None and split[0] not in bodyparts:
+            bodyparts.append(split[0])
     return bodyparts
 
 

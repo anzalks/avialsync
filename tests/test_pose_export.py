@@ -167,8 +167,62 @@ def test_a_file_that_is_not_a_pose_export_is_refused_by_name(tmp_path: Path) -> 
     source = tmp_path / "short.csv"
     source.write_text("a,b\n1,2\n")
 
-    with pytest.raises(ValueError, match="header rows"):
+    # The condition is no longer "fewer than three rows" -- a valid
+    # multi-animal header has four -- but the refusal still names the file.
+    with pytest.raises(ValueError, match="short.csv.*header block"):
         pose_export.write_corrected_copy(source, tmp_path / "out.csv", {})
+
+
+def _multi_animal_pose_file(tmp_path: Path) -> Path:
+    """A four-header-row maDLC export where both animals have a ``snout``."""
+    individuals = ["testMouse", "conSpecific"]
+    coords = ["x", "y", "likelihood"]
+    path = tmp_path / "madlc.csv"
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["scorer"] + [SCORER] * (len(individuals) * len(coords)))
+        writer.writerow(["individuals"] + [name for name in individuals for _ in coords])
+        writer.writerow(["bodyparts"] + ["snout"] * (len(individuals) * len(coords)))
+        writer.writerow(["coords"] + coords * len(individuals))
+        for frame in range(3):
+            row: list[str] = [str(frame)]
+            for index in range(len(individuals)):
+                row += [str(10.0 + index), str(20.0 + index), "0.05"]
+            writer.writerow(row)
+    return path
+
+
+def test_a_correction_lands_on_the_animal_it_was_made_on(tmp_path: Path) -> None:
+    """Both mice have a ``snout``; keying by body part alone would overwrite one."""
+    source = _multi_animal_pose_file(tmp_path)
+    target = tmp_path / "out.csv"
+
+    report = pose_export.write_corrected_copy(
+        source, target, {1: {"conSpecific_snout": (99.0, 98.0)}}
+    )
+
+    assert report.corrected_points == 1
+    with open(target, newline="", encoding="utf-8") as handle:
+        rows = list(csv.reader(handle))
+    header, data = rows[:4], rows[4:]
+    # The four header rows survive, and the individuals row is still there.
+    assert header[1][0] == "individuals"
+    assert len(data) == 3
+    corrected = data[1]
+    # conSpecific occupies columns 4-6; testMouse's own snout is untouched.
+    assert corrected[4:7] == ["99.0", "98.0", pose_export.CORRECTED_LIKELIHOOD]
+    assert corrected[1:4] == ["10.0", "20.0", "0.05"]
+
+
+def test_a_multi_animal_copy_is_marked_in_every_scorer_column(tmp_path: Path) -> None:
+    source = _multi_animal_pose_file(tmp_path)
+    target = tmp_path / "out.csv"
+
+    pose_export.write_corrected_copy(source, target, {})
+
+    with open(target, newline="", encoding="utf-8") as handle:
+        scorers = next(csv.reader(handle))
+    assert all(value.endswith(pose_export.SCORER_SUFFIX) for value in scorers[1:])
 
 
 def test_the_default_output_sits_beside_the_source(tmp_path: Path) -> None:

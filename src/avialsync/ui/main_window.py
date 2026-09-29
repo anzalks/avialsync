@@ -2468,6 +2468,13 @@ class MainWindow(QMainWindow):
         hide_all = self._overlays_menu.addAction(tr("Hide All"))
         hide_all.triggered.connect(lambda: self._set_all_overlays(False))
 
+        # Install the resolver now, not on the first toggle. `apply_overlays_to`
+        # is what a newly built pane goes through, and it returns early while
+        # there is no resolver -- so before this, the first camera of a fresh
+        # session kept whatever the canvas happened to construct itself with,
+        # and only a session restore or a toggle ever corrected it (D-138).
+        self._apply_overlay_state()
+
     def _on_overlay_toggled(
         self, overlay_id: str, visible: bool, camera: str | None = None
     ) -> None:
@@ -3685,7 +3692,7 @@ class MainWindow(QMainWindow):
             # Pre-import removal: fall back to the manager's derived location.
             from avialsync.core.cache import CacheManager
 
-            cache_dir = CacheManager(loader_version=3).get_cache_dir(Path(path))
+            cache_dir = CacheManager(loader_version=5).get_cache_dir(Path(path))
         self.plot_pane.remove_channels(cache_dir)
         self.sidebar.remove_sensor(path)
         self.message_store.remove_source(path)
@@ -3863,9 +3870,6 @@ class MainWindow(QMainWindow):
     ) -> None:
         import_controller.start_data_import(self, path, loader_cls, pre_config, restoring=restoring)
 
-    def _resolve_tracking_fps(self) -> tuple[float, bool]:
-        return import_controller.resolve_tracking_fps(self)
-
     def _enqueue_import(self, path: Path, loader_cls: type, config: dict[str, Any]) -> None:
         import_controller.enqueue_import(self, path, loader_cls, config)
 
@@ -3876,8 +3880,8 @@ class MainWindow(QMainWindow):
     def _on_import_thread_finished(self) -> None:
         import_controller.on_import_thread_finished(self)
 
-    def _rebind_frame_indexed_sources(self, fps: float) -> None:
-        import_controller.rebind_frame_indexed_sources(self, fps)
+    def _rebind_frame_indexed_sources(self) -> None:
+        import_controller.rebind_frame_indexed_sources(self)
 
     def _on_import_finished(
         self,

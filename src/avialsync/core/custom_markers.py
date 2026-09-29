@@ -36,6 +36,8 @@ import os
 from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
+from avialsync.core.pose import split_channel
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -336,7 +338,13 @@ def read_3d(
         return {}
     result: dict[tuple[str, int], tuple[tuple[float, float, float], float | None]] = {}
     reader = csv.DictReader(text.splitlines())
-    names = sorted({field[:-2] for field in (reader.fieldnames or []) if field.endswith("_x")})
+    names = sorted(
+        {
+            split[0]
+            for field in (reader.fieldnames or [])
+            if (split := split_channel(field)) is not None and split[1] == "x"
+        }
+    )
     for record in reader:
         try:
             frame = int(float(record["fnum"]))

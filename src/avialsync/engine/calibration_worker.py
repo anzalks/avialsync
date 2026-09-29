@@ -24,6 +24,8 @@ from PySide6.QtCore import QObject, Signal, Slot
 from avialsync.core import calibration_ref
 from avialsync.core.calibration import Calibration, fit_camera, write_calibration
 from avialsync.core.errors import AvialSyncError, CalibrationError
+from avialsync.core.pose import split_channel
+from avialsync.core.pose_header import read_pose_header
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +46,18 @@ class CameraFitInput:
 
 
 def _read_3d(path: Path) -> tuple[np.ndarray, dict[str, np.ndarray]]:
-    """Frame numbers and ``name -> (N, 3)`` from an anipose pose-3d CSV."""
+    """Frame numbers and ``name -> (N, 3)`` from an anipose pose-3d CSV.
+
+    The names are the one naming rule's, so they pair with `_read_2d`'s
+    without either end guessing at the other's convention (D-140).
+    """
     frame = pl.read_csv(path, infer_schema_length=0)
-    names = [column[:-2] for column in frame.columns if column.endswith("_x")]
-    names = [n for n in names if f"{n}_y" in frame.columns and f"{n}_z" in frame.columns]
+    axes: dict[str, set[str]] = {}
+    for column in frame.columns:
+        split = split_channel(column)
+        if split is not None:
+            axes.setdefault(split[0], set()).add(split[1])
+    names = [name for name, found in axes.items() if {"x", "y", "z"} <= found]
     frames = (
         frame["fnum"].cast(pl.Float64, strict=False).to_numpy()
         if "fnum" in frame.columns
@@ -69,18 +79,25 @@ def _read_2d(path: Path) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """Frame numbers and ``name -> (N, 2)`` from a DLC / Lightning Pose CSV.
 
     Points below the likelihood floor are NaN, so they drop out of the join.
+    The names are the loader's -- ``individual_bodypart`` for a multi-animal
+    file -- so the 3D pose has to name its points the same way to pair with it.
     """
-    with open(path, encoding="utf-8") as handle:
-        bodyparts = handle.readline().strip().split(",")  # scorer row, discarded
-        bodyparts = handle.readline().strip().split(",")
-        coords = handle.readline().strip().split(",")
-    data = pl.read_csv(path, skip_rows=3, has_header=False, infer_schema_length=0)
+    header = read_pose_header(path)
+    if header is None:
+        raise CalibrationError(
+            f"{path.name} has no DeepLabCut or LightningPose header block; "
+            "its first rows are not scorer/[individuals/]bodyparts/coords."
+        )
+    data = pl.read_csv(path, skip_rows=header.rows, has_header=False, infer_schema_length=0)
     values = np.column_stack(
         [data[column].cast(pl.Float64, strict=False).to_numpy() for column in data.columns]
     )
     columns: dict[str, dict[str, int]] = {}
-    for index in range(1, min(len(bodyparts), len(coords), values.shape[1])):
-        columns.setdefault(bodyparts[index], {})[coords[index]] = index
+    for index in range(1, min(len(header.columns), values.shape[1])):
+        point, coord = header.columns[index]
+        if not point:
+            continue
+        columns.setdefault(point, {})[coord] = index
     points: dict[str, np.ndarray] = {}
     for name, axes in columns.items():
         if "x" not in axes or "y" not in axes:
