@@ -810,6 +810,10 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Adopt the session's hand-correction store (D-099)."""
         self.paint_canvas.set_point_edits(edits)
 
+    def set_identity_resolver(self, resolver: object) -> None:
+        """Adopt the window's map from a displayed point to its column (D-143)."""
+        self.paint_canvas.set_identity_resolver(resolver)  # type: ignore[arg-type]
+
     def set_point_edit_mode(self, enabled: bool) -> None:
         """Turn "Fix Tracker" on or off for this pane."""
         self.paint_canvas.set_edit_mode(enabled)

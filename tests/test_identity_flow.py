@@ -538,3 +538,28 @@ def test_a_scan_proposes_the_flip_that_was_injected(qtbot, tmp_path) -> None:
     assert window.identity_swaps.count_for(source) == 0
     if isValid(window):
         window.close()
+
+
+def test_the_window_tells_every_pane_which_column_a_label_shows(
+    qtbot, window, pose_source
+) -> None:
+    """The resolver is not merely implemented, it is installed and correct.
+
+    Phase 8's lesson, one layer down: a capability that is not driven from the
+    running application is a capability you do not have.
+    """
+    source = str(pose_source[0])
+    _accept(window, source)
+    _settle(qtbot, window, source)
+
+    assert (
+        identity_controller.data_point_for(window, source, "testMouse_snout", FLIP)
+        == "conSpecific_snout"
+    )
+    assert (
+        identity_controller.data_point_for(window, source, "testMouse_snout", FLIP - 1)
+        == "testMouse_snout"
+    )
+    resolver = window.video_grid.identity_resolver()
+    assert resolver is not None
+    assert resolver(source, "testMouse_snout", FLIP) == "conSpecific_snout"

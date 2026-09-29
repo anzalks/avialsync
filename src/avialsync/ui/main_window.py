@@ -340,6 +340,9 @@ class MainWindow(QMainWindow):
         #: What a scan proposed, keyed by (source, group, part). Proposals, not
         #: edits: nothing here changes what is drawn until a person accepts it.
         self._swap_candidates: dict[tuple[str, str, str], tuple[Any, ...]] = {}
+        #: Cached edit programs, so the overlay can ask which column a label is
+        #: showing on every paint. Dropped whenever the flips change.
+        self._identity_routes: dict[str, Any] = {}
         self._identity_window: IdentityWindow | None = None
         self._identity_request_serial = 0
         self._pending_identity_model: tuple[int, BraidBuildJob] | None = None
@@ -489,6 +492,14 @@ class MainWindow(QMainWindow):
         # UI Components
         self.video_grid = VideoGrid(self)
         self.video_grid.set_point_edits(self.point_edits)
+        # What a marker is *drawing* once a flip is accepted (D-143). Installed
+        # here, beside the store it belongs with, so a pane created later gets
+        # both from the same place.
+        self.video_grid.set_identity_resolver(
+            lambda source_id, name, index: identity_controller.data_point_for(
+                self, source_id, name, index
+            )
+        )
         self.video_grid.point_moved.connect(self._on_tracked_point_moved)
         self.video_grid.marker_clicked.connect(self._on_marker_clicked)
         self.video_grid.custom_point_moved.connect(
@@ -2635,6 +2646,7 @@ class MainWindow(QMainWindow):
                 display_frame=corrections_controller.frame_for(
                     self, move.key.source_id, move.key.index
                 ),
+                shown_as=move.shown_as,
             ),
             self._mutations,
         )
@@ -2920,6 +2932,10 @@ class MainWindow(QMainWindow):
         the corrections observer states: a callback held by a pane outlives the
         pane, and the window outlives them all.
         """
+        # The routing every overlay asks about has just changed. Dropped here,
+        # in the one place that hears every add, remove and bulk load, so no
+        # caller has to remember a second rule about when it went stale.
+        identity_controller.forget_routes(self)
         self._refresh_action_availability()
         self._refresh_identity_lane()
         self._refresh_identity_panel()

@@ -358,7 +358,15 @@ def labeled_frames(window: MainWindow, source_id: str) -> tuple[list[str], list[
                 continue
             x = float(xs[index])
             y = float(ys[index])
-            override = window.point_edits.get(PointKey(source_id, part, index))
+            # Keyed by the column, not the label: the readers above are the
+            # edited ones, so under an accepted flip this body part is drawing
+            # another column's trajectory and its correction lives there
+            # (D-143). Looking it up by the label silently drops every
+            # correction made after a flip.
+            from avialsync.ui.controllers import identity_controller
+
+            column = identity_controller.data_point_for(window, source_id, part, index)
+            override = window.point_edits.get(PointKey(source_id, column, index))
             if override is not None:
                 x, y = override
             if np.isnan(x) or np.isnan(y):

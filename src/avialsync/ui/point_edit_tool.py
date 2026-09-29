@@ -14,6 +14,7 @@ dirty (architecture rule 14, D-099).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -59,7 +60,12 @@ CUSTOM_MARKER_SOURCE = "<custom-marker>"
 
 @dataclass
 class _Drag:
-    """A grab in progress: what is held, and where it has been moved to."""
+    """A grab in progress: what is held, and where it has been moved to.
+
+    ``key`` names the file column the value belongs to and ``name`` the label
+    it was grabbed under; after an accepted identity flip those differ, and a
+    correction needs both (D-143).
+    """
 
     key: PointKey
     name: str
@@ -100,6 +106,9 @@ class PointEditMixin(QWidget):
     # ── state ────────────────────────────────────────────────────────
 
     def _init_point_editing(self) -> None:
+        #: How to find the column a displayed point is reading. Set by the
+        #: window; identity until an accepted flip makes the two differ.
+        self._identity_resolver: Callable[[str, str, int], str] | None = None
         """Set up correction state.  Called from the canvas's ``__init__``."""
         #: Hand corrections, owned by the window and shared by every pane.
         self._edits: PointEditStore | None = None
@@ -113,6 +122,21 @@ class PointEditMixin(QWidget):
         self._highlight: PointKey | None = None
         #: Placing a new 3D marker: a left click anywhere names its position.
         self._place_mode = False
+
+    def set_identity_resolver(self, resolver: Callable[[str, str, int], str] | None) -> None:
+        """Say how to find the column a displayed point is currently showing.
+
+        ``resolver(source_id, displayed name, sample index) -> column``.  With
+        no resolver the two are the same, which is the answer for every source
+        that has no accepted identity flip (D-141).
+        """
+        self._identity_resolver = resolver
+
+    def data_point(self, source_id: str, name: str, index: int) -> str:
+        """The column behind the marker labelled *name* at *index*."""
+        if self._identity_resolver is None or not source_id:
+            return name
+        return self._identity_resolver(source_id, name, index) or name
 
     def set_point_edits(self, edits: PointEditStore | None) -> None:
         """Adopt the session's correction store, or drop it."""
@@ -373,7 +397,9 @@ class PointEditMixin(QWidget):
         if drag.key.source_id == CUSTOM_MARKER_SOURCE:
             self.custom_point_moved.emit(drag.key.point, drag.key.index, after[0], after[1])
             return
-        self.point_moved.emit(PointMove(key=drag.key, before=drag.before, after=after))
+        self.point_moved.emit(
+            PointMove(key=drag.key, before=drag.before, after=after, shown_as=drag.name)
+        )
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         self._forward(event)

@@ -72,11 +72,17 @@ class PointMove:
     was still showing the model's own prediction — the difference matters,
     because undoing back to "no override" is not the same as writing the old
     coordinate back as a correction.
+
+    ``key.point`` is the column in the file the drag landed on, which is not
+    the label on screen once an identity flip is in force; ``shown_as`` is that
+    label (D-143).  Both travel together from the gesture, because the gesture
+    is the only place that still knows both.
     """
 
     key: PointKey
     before: tuple[float, float] | None
     after: tuple[float, float] | None
+    shown_as: str = ""
 
 
 class PointEditStore:

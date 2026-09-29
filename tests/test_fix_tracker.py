@@ -731,3 +731,39 @@ def test_a_session_whose_corrections_file_is_gone_says_so(window: MainWindow, tm
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(pytest.main([__file__]))
+
+
+# ── a drag under a swapped label (D-141, D-143) ──────────────────────
+#
+# Once an identity flip is accepted, the readers behind a marker are the
+# *edited* ones: the point labelled testMouse is drawing conSpecific's
+# trajectory. A correction is a fact about that trajectory, so it has to be
+# keyed to the column the pixels came from, and the label has to be kept as
+# provenance. Keying it by the label instead writes the fix onto the other
+# animal -- in a file that reads as valid and says nothing about it.
+
+
+def test_a_drag_corrects_the_column_the_label_is_showing(qtbot) -> None:
+    canvas = _canvas(qtbot, _one_point_track([100.0], [100.0], [0.0]))
+    canvas.set_identity_resolver(lambda source_id, name, index: "conSpecific_snout")
+    canvas.set_edit_mode(True)
+    moved: list[PointMove] = []
+    canvas.point_moved.connect(moved.append)
+
+    _drag(canvas, (100.0, 100.0), (150.0, 130.0))
+
+    assert len(moved) == 1
+    assert moved[0].key.point == "conSpecific_snout"
+    assert moved[0].shown_as == "nose"
+
+
+def test_without_a_flip_the_column_and_the_label_are_the_same(qtbot) -> None:
+    canvas = _canvas(qtbot, _one_point_track([100.0], [100.0], [0.0]))
+    canvas.set_edit_mode(True)
+    moved: list[PointMove] = []
+    canvas.point_moved.connect(moved.append)
+
+    _drag(canvas, (100.0, 100.0), (150.0, 130.0))
+
+    assert moved[0].key.point == "nose"
+    assert moved[0].shown_as == "nose"

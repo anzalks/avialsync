@@ -218,7 +218,15 @@ class PaintCanvas(MarkerOverlayMixin):
             _, y_value = sample_y
 
             source_id = str(getattr(reader_x, "source_id", "") or "")
-            key = PointKey(source_id, name, index) if source_id else None
+            # Keyed by the column this marker is *drawing*, which is another
+            # point's once a flip has been accepted: a correction is a fact
+            # about the trajectory under the pointer, not about the label on
+            # it (D-143). The label rides along as provenance.
+            key = (
+                PointKey(source_id, self.data_point(source_id, name, index), index)
+                if source_id
+                else None
+            )
             corrected = False
             if key is not None:
                 if self._drag is not None and self._drag.key == key:

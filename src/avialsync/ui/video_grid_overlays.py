@@ -43,6 +43,8 @@ class GridOverlayMixin:
         #: overlay tracks are: a pane built later must open already in the
         #: state the rest of the grid is in, not in the default one.
         self._point_edits: object | None = None
+        #: How a pane finds the column behind a displayed point (D-143).
+        self._identity_resolver: object | None = None
         self._point_edit_mode = False
         #: Hand-placed 3D markers per camera path, and whether a new one is
         #: being placed; held for a pane built later, as above.
@@ -64,6 +66,8 @@ class GridOverlayMixin:
             pane.set_overlay_tracks(list(held))
         if self._point_edits is not None:
             pane.set_point_edits(self._point_edits)
+        if self._identity_resolver is not None:
+            pane.set_identity_resolver(self._identity_resolver)
         if self._point_edit_mode:
             pane.set_point_edit_mode(True)
         if path in self._custom_markers:
@@ -134,6 +138,16 @@ class GridOverlayMixin:
     def point_edit_mode(self) -> bool:
         """Whether the panes are currently accepting point corrections."""
         return self._point_edit_mode
+
+    def set_identity_resolver(self, resolver: object) -> None:
+        """Give every pane, and every pane made later, the identity resolver."""
+        self._identity_resolver = resolver
+        for pane in self.panes:
+            pane.set_identity_resolver(resolver)
+
+    def identity_resolver(self) -> object | None:
+        """What the panes were given, so the window can be checked against it."""
+        return self._identity_resolver
 
     def refresh_point_edits(self) -> None:
         """Repaint every overlay after the correction store changed."""

@@ -68,6 +68,42 @@ def program_for(window: MainWindow, source_id: str) -> EditProgram:
     return build_program(source_id, window.identity_swaps, window.point_edits, points=points)
 
 
+def routes_for(window: MainWindow, source_id: str) -> EditProgram:
+    """The edit program for *source_id*, cached until its flips change.
+
+    Cached because the overlay asks per point per paint, and rebuilding a
+    program means re-reading every accepted event and every correction. The
+    cache is dropped wholesale by :func:`forget_routes`, which the window calls
+    from its swap observer -- so there is no second rule about when it is
+    stale.
+    """
+    held = window._identity_routes.get(source_id)
+    if held is None:
+        held = program_for(window, source_id)
+        window._identity_routes[source_id] = held
+    return held
+
+
+def forget_routes(window: MainWindow, source_id: str | None = None) -> None:
+    """Drop the cached program for one source, or for all of them."""
+    if source_id is None:
+        window._identity_routes.clear()
+    else:
+        window._identity_routes.pop(source_id, None)
+
+
+def data_point_for(window: MainWindow, source_id: str, name: str, index: int) -> str:
+    """The column the point labelled *name* is showing at *index*.
+
+    Itself, unless an accepted flip is in force -- and itself again while
+    ``Show original tracker`` is on, because then the readers really are the
+    imported prediction and what is on screen is what the model said (D-141).
+    """
+    if window._show_original_tracker:
+        return name
+    return routes_for(window, source_id).source_of(name, index)
+
+
 def edited_cache(window: MainWindow, source_id: str) -> edit_cache.EditedCache | None:
     """The generation this source's readers are currently pointed at."""
     return window._edited_generations.get(source_id)

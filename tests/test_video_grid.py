@@ -91,6 +91,7 @@ class _RecordingPane(QWidget):
         self.overlay_tracks: list = []
         self.tracking_readers: list = []
         self.point_edits: object | None = None
+        self.identity_resolver: object | None = None
         self.point_edit_mode = False
 
     def open(self, _path: str) -> None:
@@ -107,6 +108,9 @@ class _RecordingPane(QWidget):
 
     def set_point_edits(self, edits: object) -> None:
         self.point_edits = edits
+
+    def set_identity_resolver(self, resolver: object) -> None:
+        self.identity_resolver = resolver
 
     def set_point_edit_mode(self, enabled: bool) -> None:
         self.point_edit_mode = enabled
