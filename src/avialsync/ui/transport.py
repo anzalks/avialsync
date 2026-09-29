@@ -21,6 +21,7 @@ from PySide6.QtGui import (
     QMouseEvent,
     QPainter,
     QPaintEvent,
+    QPen,
     QPolygon,
     QRegularExpressionValidator,
     QResizeEvent,
@@ -45,11 +46,40 @@ from avialsync.ui.theme import (
     evidence_color,
     follow_palette,
     loop_pin_color,
+    neutral_on_canvas,
+    separator_color,
     set_font_family,
     status_color,
     system_accent,
 )
 from avialsync.ui.time_format import TimeDisplayMode, format_time
+
+#: Surface left above and below every mark in a lane, so rows read as a rhythm
+#: and a span never touches the one above it.
+_LANE_INSET = 4
+
+#: Coverage and range fills are spans, not slabs: rounded, and let a little of
+#: the surface through, because what a coverage row says is where it *ends* and
+#: an end is what a full-weight square-cut block is worst at showing.
+#:
+#: Only a little. These are the theme's own colours -- `system_accent`, the
+#: `Link` role, a marker's stored colour -- and taking too much weight out of
+#: them reads as a different palette rather than as the same one with room to
+#: breathe, which is not this widget's decision to make.
+_SPAN_ALPHA = 225
+_SPAN_RADIUS = 3
+
+#: A periodic train collapses to one tick per pixel column. Drawn full height at
+#: full weight that is a striped slab which says only "there are many of these";
+#: a shorter, lighter mark says the same thing without drowning the lane.
+_RUG_ALPHA = 200
+
+
+def _rug_pen(color: QColor) -> QPen:
+    """A light pen for dense event ticks."""
+    faded = QColor(color)
+    faded.setAlpha(_RUG_ALPHA)
+    return QPen(faded, 1)
 
 
 class JumpSlider(QSlider):
@@ -504,50 +534,69 @@ class TimelineOverview(QWidget):
         lane_height = max(self._MIN_LANE_HEIGHT, self.height() // len(lanes))
         accent = system_accent(palette)
         data_color = palette.color(palette.ColorRole.Link)
-        label_pen = palette.color(palette.ColorRole.WindowText)
         label_width = min(self._LABEL_WIDTH, max(1, self.width() - 1))
         for lane_index, (label, lane_kind, payload) in enumerate(lanes):
             top = lane_index * lane_height
             bottom = min(self.height() - 1, top + lane_height - 1)
-            painter.setPen(label_pen)
             painter.fillRect(
                 0, top, label_width, lane_height, palette.color(palette.ColorRole.Base)
             )
+            # Muted: the label says which row this is, the row says the data.
+            # A label at full ink weight competes with the evidence beside it.
+            painter.setPen(neutral_on_canvas(palette, 0.88))
             painter.drawText(
-                4,
+                8,
                 top,
-                label_width - 8,
+                label_width - 14,
                 lane_height,
                 Qt.AlignmentFlag.AlignVCenter,
                 label,
             )
-            painter.setPen(palette.color(palette.ColorRole.Mid))
+            painter.setPen(separator_color(palette))
             painter.drawLine(self._LABEL_WIDTH, bottom, self.width() - 1, bottom)
+            # Every row's marks sit inside the same inset, so the rows read as
+            # one rhythm and a span never touches the row above it.
+            band_top = top + _LANE_INSET
+            band_height = max(3, lane_height - 2 * _LANE_INSET)
             if isinstance(payload, _CoverageLane):
                 span = self._visible_span_x(payload.start, payload.end)
                 if span is None:
                     continue
                 left, right = span
-                color = accent if payload.kind == "video" else data_color
-                painter.fillRect(
-                    left, top + 2, max(1, right - left), max(2, lane_height - 4), color
+                color = QColor(accent if payload.kind == "video" else data_color)
+                # Softened and rounded. At full weight three coverage rows read
+                # as slabs of colour rather than as spans with ends worth
+                # finding, and the ends are the only thing a coverage row says.
+                color.setAlpha(_SPAN_ALPHA)
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(color)
+                painter.drawRoundedRect(
+                    left, band_top, max(2, right - left), band_height, _SPAN_RADIUS, _SPAN_RADIUS
                 )
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
             elif lane_kind == "ttl":
-                painter.setPen(accent)
+                # A rug, not a picket fence. A periodic train collapses to one
+                # tick per pixel column, and at full height that is a striped
+                # slab saying only "there are many" -- which is exactly what a
+                # shorter, lighter mark says without shouting it.
+                painter.setPen(_rug_pen(accent))
+                foot = band_top + band_height
                 for x in self._visible_event_x("ttl", t0, t1):
-                    painter.drawLine(x, top + 2, x, bottom - 2)
+                    painter.drawLine(x, foot - max(3, band_height // 2), x, foot)
             elif lane_kind == "gap":
                 painter.setPen(evidence_color(palette, "gap"))
                 for x in self._visible_event_x("gap", t0, t1):
-                    painter.drawLine(x, top + 2, x, bottom - 2)
+                    painter.drawLine(x, band_top, x, band_top + band_height)
             elif lane_kind == "identity":
                 # Two crossing strokes, not a tick: this lane says two labels
                 # exchanged, and the glyph says it without relying on its
                 # colour (rule 17).
                 painter.setPen(evidence_color(palette, "identity"))
                 for x in self._visible_event_x("identity", t0, t1):
-                    painter.drawLine(x - 3, top + 2, x + 3, bottom - 2)
-                    painter.drawLine(x + 3, top + 2, x - 3, bottom - 2)
+                    painter.drawLine(x - 3, band_top, x + 3, band_top + band_height)
+                    painter.drawLine(x + 3, band_top, x - 3, band_top + band_height)
                 painter.setPen(status_color(palette, "warning"))
                 middle = (top + bottom) // 2
                 for x in self._visible_event_x("identity_candidate", t0, t1):
@@ -568,7 +617,7 @@ class TimelineOverview(QWidget):
                 # accent, so that separation holds under any theme.
                 painter.setPen(evidence_color(palette, "message"))
                 for x in self._visible_event_x("message", t0, t1):
-                    painter.drawLine(x, top + 2, x, bottom - 2)
+                    painter.drawLine(x, band_top, x, band_top + band_height)
             elif isinstance(payload, _AnnotationLane):
                 for start, end, marker_color in payload.markers:
                     span = self._visible_span_x(start, start if end is None else end)
@@ -576,17 +625,23 @@ class TimelineOverview(QWidget):
                         continue
                     left, right = span
                     if end is None:
-                        painter.fillRect(
-                            left, top + 2, 2, max(2, lane_height - 4), QColor(marker_color)
-                        )
+                        painter.fillRect(left, band_top, 2, band_height, QColor(marker_color))
                     else:
-                        painter.fillRect(
+                        ranged = QColor(marker_color)
+                        ranged.setAlpha(_SPAN_ALPHA)
+                        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+                        painter.setPen(Qt.PenStyle.NoPen)
+                        painter.setBrush(ranged)
+                        painter.drawRoundedRect(
                             left,
-                            top + 2,
+                            band_top,
                             max(2, right - left),
-                            max(2, lane_height - 4),
-                            QColor(marker_color).darker(130),
+                            band_height,
+                            _SPAN_RADIUS,
+                            _SPAN_RADIUS,
                         )
+                        painter.setBrush(Qt.BrushStyle.NoBrush)
+                        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
 
         viewport = self._visible_span_x(
             self._viewport_start, self._viewport_start + self._viewport_duration

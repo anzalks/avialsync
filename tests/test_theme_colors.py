@@ -41,7 +41,11 @@ DARK = _palette("#1e1e1e")
 LIGHT = _palette("#f5f5f5")
 
 #: Every lane that derives its colour rather than taking a palette role.
-DERIVED_LANES = ["gap", "message"]
+#: Every lane colour derived from the live palette rather than stored.
+#: "identity" joins them so an accepted-swap mark is held to the same
+#: two promises as the rest: readable on both surfaces, and different on
+#: each (D-141).
+DERIVED_LANES = ["gap", "message", "identity"]
 
 
 def _contrast(color: QColor, palette: QPalette) -> float:
