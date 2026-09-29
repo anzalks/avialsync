@@ -2782,7 +2782,7 @@ class MainWindow(QMainWindow):
             )
             panel.panel.seek_requested.connect(lambda at: self.player.seek(at, exact=True))
             panel.panel.play_region_requested.connect(self._play_identity_region)
-            panel.panel.swap_here_requested.connect(self._swap_at_playhead)
+            panel.panel.apply_requested.connect(self._apply_identity_swap)
             panel.panel.detect_requested.connect(
                 lambda group, part: identity_view.detect(self, panel.panel.source_id(), group, part)
             )
@@ -2835,18 +2835,24 @@ class MainWindow(QMainWindow):
         self.document.execute(SetIdentityGroupCommand(source_id, group), self._mutations)
         panel_window.panel.select_group(group.name)
 
-    def _swap_at_playhead(self) -> None:
-        """Swap the two identities on screen at wherever the clock is now.
+    def _apply_identity_swap(self) -> None:
+        """Accept a swap where the review is.
 
-        The gesture for a flip nothing proposed: watch the video, see the
-        labels exchange, and say so without first finding a row for it. It
-        works while playing, because that is when a person sees one.
+        One button, because there is one gesture: choosing a crossing seeks the
+        video to it, so "apply the selected crossing" and "apply where the
+        video is" name the same frame. When nothing is selected -- a flip the
+        person spotted by watching, which nothing proposed -- the clock is the
+        answer, and it works while playing, because that is when they see one.
         """
         panel_window = self._identity_window
         if panel_window is None or not isValid(panel_window):
             return
         panel = panel_window.panel
-        index = panel.index_at(self.clock.state.t)
+        # The clock, and nothing else. Every way of choosing a crossing seeks
+        # the video to it, so the playhead already *is* the frame under review
+        # -- and when nothing was proposed, it is the frame the person watched
+        # the flip happen on.
+        index = identity_view.index_at_time(self, panel.source_id(), self.clock.state.t)
         if index is None:
             return
         event = panel.event_at(index)

@@ -23,6 +23,8 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from avialsync.core.identity_detect import Candidate
 from avialsync.core.identity_swaps import SwapEvent, SwapGroup
 from avialsync.engine.identity_worker import GroupDetectionJob, GroupDetectionWorker
@@ -65,6 +67,31 @@ def current_source(window: MainWindow) -> str:
                 return source_id
     sources = pose_sources(window)
     return sources[0] if sources else ""
+
+
+def index_at_time(window: MainWindow, source_id: str, at: float) -> int | None:
+    """The sample of *source_id* showing at master time *at*.
+
+    Asked of the source, not of the braid: a rebuild clears the braid while it
+    runs, and accepting a swap starts one. Reading the frame from the plot
+    meant a second Apply during that window was silently dropped -- which is
+    the moment a person watching for flips is most likely to press it.
+
+    The same rule the video pane uses (rule 6): the last sample at or before
+    *at*, so the frame on screen is the frame the swap starts on.
+    """
+    for sources in window._overlay_sources.values():
+        entry = sources.get(source_id)
+        if entry is None:
+            continue
+        for readers in (entry.get("points") or {}).values():
+            reader = readers[0]
+            times = reader.source_reader.mapped_columns()[0]
+            if not len(times):
+                return None
+            position = int(np.searchsorted(times, reader.time_map.to_source(at), side="right")) - 1
+            return max(0, min(position, len(times) - 1))
+    return None
 
 
 def groups_for(window: MainWindow, source_id: str) -> tuple[SwapGroup, ...]:

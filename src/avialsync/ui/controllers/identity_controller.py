@@ -303,7 +303,18 @@ def refresh(window: MainWindow, source_id: str) -> None:
 
 
 def _adopt_generation(window: MainWindow, source_id: str, edited: edit_cache.EditedCache) -> None:
-    """Point every reader of this source at *edited*, and tidy older ones."""
+    """Point every reader of this source at *edited*, and tidy older ones.
+
+    A result that no longer describes the current edits is dropped. Every edit
+    starts a rebuild, so several are in flight while a person works, and they
+    finish in whatever order the disk allows -- adopting each as it arrives
+    would let a slow job for two edits ago decide what the overlay shows.
+    """
+    if edited.fingerprint != program_for(window, source_id).fingerprint:
+        logger.debug(
+            "Dropping a superseded edited generation for %s (%s).", source_id, edited.fingerprint
+        )
+        return
     window._edited_generations[source_id] = edited
     directories = directories_for(window, source_id)
     if not directories:

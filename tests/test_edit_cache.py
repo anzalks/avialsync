@@ -201,3 +201,52 @@ def test_a_generation_says_what_it_is(tmp_path: Path) -> None:
     assert manifest["fingerprint"] == program.fingerprint
     assert edit_cache.load(cache, program.fingerprint) == edited
     assert edit_cache.load(cache, "0000000000000000") is None
+
+
+def test_prune_never_removes_a_generation_being_written(tmp_path: Path) -> None:
+    """A rebuild in flight is not rubbish left behind by an old one.
+
+    Every edit starts a job, and a person dragging points starts several. The
+    first to finish prunes; if that sweep can reach another job's staging
+    directory, the other job dies half-written with a FileNotFoundError from
+    inside numpy, and the edit it was applying is silently lost.
+    """
+    cache = tmp_path / "pose.csv.avialcache"
+    _import(cache)
+    swaps, edits = _stores()
+    swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
+    done = edit_cache.materialise(cache, build_program(SOURCE, swaps, edits), SCHEMA)
+
+    in_flight = cache / edit_cache.EDITED_DIR / ".tmp_another_job"
+    in_flight.mkdir(parents=True)
+    (in_flight / "half_written.npy").write_bytes(b"\x00")
+
+    removed = edit_cache.prune(cache, keep=[done.fingerprint])
+
+    assert in_flight.exists()
+    assert (in_flight / "half_written.npy").exists()
+    assert removed == []
+
+
+def test_two_rebuilds_of_the_same_edits_do_not_share_a_staging_directory(
+    tmp_path: Path,
+) -> None:
+    """Two jobs for one fingerprint must not write into one directory."""
+    cache = tmp_path / "pose.csv.avialcache"
+    _import(cache)
+    swaps, edits = _stores()
+    swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
+    program = build_program(SOURCE, swaps, edits)
+
+    first = edit_cache.materialise(cache, program, SCHEMA, rebuild=True)
+    second = edit_cache.materialise(cache, program, SCHEMA, rebuild=True)
+
+    assert first.directory == second.directory
+    assert second.channels
+    # Nothing of either run is left behind in the staging area.
+    leftovers = [
+        entry.name
+        for entry in (cache / edit_cache.EDITED_DIR).iterdir()
+        if entry.name.startswith(".tmp_")
+    ]
+    assert leftovers == []

@@ -33,6 +33,7 @@ import json
 import logging
 import os
 import shutil
+import uuid
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -129,23 +130,30 @@ def materialise(
         return existing
 
     directory = _generation_dir(cache_dir, program.fingerprint)
-    staging = directory.with_name(f"{_TEMP_PREFIX}{program.fingerprint}")
-    if staging.exists():
-        _remove_generation(staging)
+    # One staging directory per *job*, not per fingerprint. A person editing
+    # points starts a rebuild per edit, and two of them naming the same
+    # directory means the second writes into what the first is committing.
+    staging = directory.with_name(f"{_TEMP_PREFIX}{program.fingerprint}_{uuid.uuid4().hex[:8]}")
     staging.mkdir(parents=True, exist_ok=True)
 
-    written: list[str] = []
-    for name in affected:
-        point = schema.point(name)
-        if point is None:
-            continue
-        written.extend(_write_point(cache_dir, staging, program, point))
+    try:
+        written: list[str] = []
+        for name in affected:
+            point = schema.point(name)
+            if point is None:
+                continue
+            written.extend(_write_point(cache_dir, staging, program, point))
 
-    _write_manifest(staging, program.fingerprint, written)
-    directory.parent.mkdir(parents=True, exist_ok=True)
-    if directory.exists():
-        _remove_generation(directory)
-    os.replace(staging, directory)
+        _write_manifest(staging, program.fingerprint, written)
+        directory.parent.mkdir(parents=True, exist_ok=True)
+        if directory.exists():
+            _remove_generation(directory)
+        os.replace(staging, directory)
+    finally:
+        # Whatever went wrong, this job's own half-written directory goes with
+        # it rather than being left for a later sweep to find and puzzle over.
+        if staging.exists():
+            _remove_generation(staging)
     return EditedCache(
         fingerprint=program.fingerprint,
         directory=directory,
@@ -261,11 +269,18 @@ def _write_manifest(directory: Path, fingerprint: str, channels: list[str]) -> N
 
 
 def prune(cache_dir: Path, keep: Iterable[str]) -> list[str]:
-    """Remove generations this module wrote, except the ones named in *keep*.
+    """Remove *committed* generations this module wrote, except those in *keep*.
 
-    Returns the fingerprints removed.  A directory without our manifest is left
-    alone: this walks a folder inside the user's data directory, and the only
-    safe rule is to delete solely what we can prove we wrote.
+    Returns the fingerprints removed.  Two directories are never touched: one
+    without our manifest, because this walks a folder inside the user's data
+    directory and the only safe rule is to delete solely what we can prove we
+    wrote; and a staging directory, because a rebuild in flight is not rubbish
+    left by an old one.  Every edit starts a job and a person dragging points
+    starts several, so a sweep that could reach another job's staging killed it
+    half-written and lost the edit it was applying.
+
+    A staging directory therefore outlives only a hard crash -- :func:`materialise`
+    removes its own on the way out, whether it committed or raised.
     """
     root = cache_dir / EDITED_DIR
     if not root.is_dir():
@@ -275,7 +290,9 @@ def prune(cache_dir: Path, keep: Iterable[str]) -> list[str]:
     for entry in sorted(root.iterdir()):
         if not entry.is_dir() or entry.name in kept:
             continue
-        if entry.name.startswith(_TEMP_PREFIX) or _read_manifest(entry) is not None:
+        if entry.name.startswith(_TEMP_PREFIX):
+            continue
+        if _read_manifest(entry) is not None:
             _remove_generation(entry)
             removed.append(entry.name)
     return removed

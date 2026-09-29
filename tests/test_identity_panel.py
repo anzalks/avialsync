@@ -193,12 +193,22 @@ def test_dragging_a_line_back_off_a_crossing_undoes_that_flip(panel, qtbot) -> N
     assert caught.args[0].index == FLIP
 
 
-def test_a_drag_that_lands_on_its_own_row_changes_nothing(panel, qtbot) -> None:
-    panel.show_model(_model(candidate=True))
+def test_a_drag_that_lands_on_its_own_row_seeks_instead_of_swapping(panel, qtbot) -> None:
+    """A click that moves a pixel arrives as a drag, and must still seek.
+
+    Treating it as nothing is what made the braid look like it did not respond
+    to clicks at all, while the trace under it did.
+    """
+    panel.show_model(_model())
     times = _times()
 
-    with qtbot.assertNotEmitted(panel.swap_requested):
-        _drag(panel, "testMouse", "testMouse", float(times[FLIP]))
+    with (
+        qtbot.assertNotEmitted(panel.swap_requested),
+        qtbot.waitSignal(panel.seek_requested) as caught,
+    ):
+        _drag(panel, "testMouse", "testMouse", float(times[20]))
+
+    assert caught.args[0] == pytest.approx(float(times[20]))
 
 
 def test_selecting_one_part_scopes_the_swap_to_it(panel, qtbot) -> None:
@@ -244,10 +254,13 @@ def test_selected_candidate_can_be_reviewed_nudged_and_applied(panel, qtbot) -> 
         panel._forward.click()
     assert seek.args[0] == pytest.approx(_times()[FLIP + 1])
 
-    with qtbot.waitSignal(panel.swap_requested) as accepted:
+    with qtbot.waitSignal(panel.apply_requested):
         panel._apply.click()
-    assert accepted.args[0].index == FLIP + 1
-    assert accepted.args[0].parts == ()
+    # The nudge is what the apply will use: one button, and the frame under
+    # review is the frame it accepts.
+    assert panel.selected_index() == FLIP + 1
+    event = panel.event_at(panel.selected_index())
+    assert event is not None and event.parts == ()
 
 
 def test_accepted_selection_offers_remove_instead_of_apply(panel, qtbot) -> None:
@@ -299,13 +312,14 @@ def test_real_pointer_drag_crosses_two_lanes(panel, qtbot) -> None:
 # ── swapping where the video is, not where a row is ──────────────────
 
 
-def test_the_playhead_swap_needs_no_selected_crossing(panel, qtbot) -> None:
-    """The gesture for a flip nothing proposed: watch, then say so."""
+def test_one_button_applies_a_swap_with_or_without_a_selected_crossing(panel, qtbot) -> None:
+    """Choosing a crossing seeks the video to it, so the two are one gesture."""
     panel.show_model(_model())
-    assert panel._here.isEnabled()
+    assert panel._apply.isEnabled()
+    assert panel.selected_index() is None
 
-    with qtbot.waitSignal(panel.swap_here_requested):
-        panel._here.click()
+    with qtbot.waitSignal(panel.apply_requested):
+        panel._apply.click()
 
 
 def test_a_frame_means_the_same_swap_however_it_was_reached(panel) -> None:
@@ -326,12 +340,32 @@ def test_a_frame_means_the_same_swap_however_it_was_reached(panel) -> None:
     assert from_playhead.parts == ("wrist",)
 
 
-def test_the_playhead_swap_is_offered_only_with_a_pair_on_screen(qtbot) -> None:
+def test_applying_is_offered_only_with_a_pair_on_screen(qtbot) -> None:
     widget = IdentityPanel()
     qtbot.addWidget(widget)
     widget.set_groups(SOURCE, [], {})
 
-    assert not widget._here.isEnabled()
+    assert not widget._apply.isEnabled()
+
+
+def test_choosing_a_crossing_seeks_to_it_so_the_playhead_is_the_review(panel, qtbot) -> None:
+    """Which is why applying reads the clock and nothing else."""
+    panel.show_model(_model(candidate=True))
+
+    with qtbot.waitSignal(panel.seek_requested) as caught:
+        panel._on_clicked(float(_times()[FLIP]), 0.0)
+
+    assert caught.args[0] == pytest.approx(float(_times()[FLIP]))
+    assert panel.index_at(caught.args[0]) == FLIP
+
+
+def test_an_accepted_crossing_is_not_offered_for_applying_again(panel) -> None:
+    """It is already in force; Remove swap is what it has to offer."""
+    panel.show_model(_model(accepted=True))
+    panel._node_box.setCurrentIndex(0)
+
+    assert panel.selected_index() is None
+    assert panel._remove.isEnabled()
 
 
 def test_a_time_off_the_end_still_names_a_real_frame(panel) -> None:

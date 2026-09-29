@@ -687,7 +687,7 @@ def _braid(qtbot, window: MainWindow):
     return panel
 
 
-def test_swapping_at_the_playhead_applies_where_the_video_is(qtbot, window, pose_source) -> None:
+def test_applying_with_nothing_selected_uses_the_playhead(qtbot, window, pose_source) -> None:
     """Watch it happen, then say so -- no row to find first."""
     source = str(pose_source[0])
     panel = _braid(qtbot, window)
@@ -695,7 +695,7 @@ def test_swapping_at_the_playhead_applies_where_the_video_is(qtbot, window, pose
     assert model is not None
 
     window.clock.seek(float(model.times[FLIP]))
-    window._swap_at_playhead()
+    window._apply_identity_swap()
     _settle(qtbot, window, source)
 
     assert window.identity_swaps.count_for(source) == 1
@@ -712,7 +712,7 @@ def test_a_playhead_swap_is_undoable_like_any_other(qtbot, window, pose_source) 
     assert panel._model is not None
 
     window.clock.seek(float(panel._model.times[FLIP]))
-    window._swap_at_playhead()
+    window._apply_identity_swap()
     _settle(qtbot, window, source)
 
     window.document.undo(window._mutations)
@@ -730,8 +730,80 @@ def test_the_playhead_swap_works_while_the_clock_is_running(qtbot, window, pose_
     window.clock.seek(float(panel._model.times[FLIP]))
     window.clock.play()
 
-    window._swap_at_playhead()
+    window._apply_identity_swap()
     _settle(qtbot, window, source)
 
     assert window.identity_swaps.count_for(source) == 1
     window.clock.pause()
+
+
+def test_a_superseded_rebuild_does_not_decide_what_is_shown(qtbot, window, pose_source) -> None:
+    """Rebuilds finish in whatever order the disk allows, not in edit order."""
+    from avialsync.core.edit_cache import EditedCache
+
+    source = str(pose_source[0])
+    _accept(window, source)
+    _settle(qtbot, window, source)
+    current = identity_controller.edited_cache(window, source)
+    assert current is not None
+
+    identity_controller._adopt_generation(
+        window,
+        source,
+        EditedCache(fingerprint="0000000000000000", directory=pose_source[1]),
+    )
+
+    assert identity_controller.edited_cache(window, source) is current
+    assert _shown(window, source, "testMouse_snout", FLIP) == _channel_value(
+        "conSpecific_snout", "x"
+    )
+
+
+def test_the_swap_lands_on_the_frame_on_screen_and_the_playhead_stays(
+    qtbot, window, pose_source
+) -> None:
+    """The frame a person is looking at is the frame the swap starts on.
+
+    And applying does not move them off it: the rebuild redraws the braid, and
+    a redraw that re-selected a crossing and seeked to it would take the video
+    somewhere they did not ask to go.
+    """
+    source = str(pose_source[0])
+    panel = _braid(qtbot, window)
+    assert panel._model is not None
+    watching = float(panel._model.times[FLIP + 7])
+    window.clock.seek(watching)
+
+    window._apply_identity_swap()
+    _settle(qtbot, window, source)
+
+    assert window.identity_swaps.events_for(source)[0].index == FLIP + 7
+    assert window.clock.state.t == pytest.approx(watching)
+    assert _shown(window, source, "testMouse_snout", FLIP + 7) == _channel_value(
+        "conSpecific_snout", "x"
+    )
+    assert _shown(window, source, "testMouse_snout", FLIP + 6) == _channel_value(
+        "testMouse_snout", "x"
+    )
+
+
+def test_a_second_swap_while_watching_uses_where_the_video_now_is(
+    qtbot, window, pose_source
+) -> None:
+    """Not the crossing a redraw happened to put in the list."""
+    source = str(pose_source[0])
+    panel = _braid(qtbot, window)
+    assert panel._model is not None
+    # Held now: a rebuild clears the braid while it runs, and the master times
+    # of a source do not change when its identities are relabelled.
+    times = panel._model.times
+
+    window.clock.seek(float(times[20]))
+    window._apply_identity_swap()
+    _settle(qtbot, window, source)
+
+    window.clock.seek(float(times[80]))
+    window._apply_identity_swap()
+    qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 2, timeout=5000)
+
+    assert sorted(e.index for e in window.identity_swaps.events_for(source)) == [20, 80]

@@ -135,9 +135,9 @@ class IdentityPanel(QWidget):
     play_region_requested = Signal(float, float)
     #: ``(group id, part)`` -- what the selectors now show.
     selection_changed = Signal(str, str)
-    #: Swap the two lanes on screen at wherever the master clock is now, so a
-    #: flip can be fixed by watching for it rather than by finding its row.
-    swap_here_requested = Signal()
+    #: Accept a swap where the review is: the selected crossing when there is
+    #: one, and otherwise wherever the master clock has got to.
+    apply_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -283,19 +283,16 @@ class IdentityPanel(QWidget):
         self._apply = QPushButton(tr("Apply swap"), self)
         self._apply.setAccessibleName(tr("Accept the selected identity swap"))
         self._apply.setAccessibleDescription(
-            tr("Route the two selected identities from this frame onward")
+            tr(
+                "Route the two identities from the selected crossing, or from where "
+                "the video is now when no crossing is selected"
+            )
         )
-        self._apply.clicked.connect(self._apply_selection)
-        self._here = QPushButton(tr("Swap at playhead"), self)
-        self._here.setAccessibleName(tr("Swap the identities at the playhead"))
-        self._here.setAccessibleDescription(
-            tr("Swap these two identities from the frame the video is showing now")
+        self._apply.setToolTip(
+            tr("Swap these two from here on — watch the video and press it (Ctrl+Shift+S)")
         )
-        self._here.setToolTip(
-            tr("Watch the video and press this where the labels exchange (Ctrl+Shift+S)")
-        )
-        self._here.setShortcut(QKeySequence("Ctrl+Shift+S"))
-        self._here.clicked.connect(self.swap_here_requested)
+        self._apply.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        self._apply.clicked.connect(self.apply_requested)
         self._remove = QPushButton(tr("Remove swap"), self)
         self._remove.setAccessibleName(tr("Remove the selected accepted identity swap"))
         self._remove.setAccessibleDescription(tr("Restore the routing before this accepted event"))
@@ -304,7 +301,6 @@ class IdentityPanel(QWidget):
             review.addWidget(button)
         controls.addLayout(review)
         edits = QHBoxLayout()
-        edits.addWidget(self._here)
         edits.addWidget(self._apply)
         edits.addWidget(self._remove)
         controls.addLayout(edits)
@@ -591,12 +587,17 @@ class IdentityPanel(QWidget):
                 if not self._play.isEnabled()
                 else tr("Loop two seconds before and after this crossing in the main video")
             )
-            self._apply.setEnabled(proposed)
+            # Not tied to a selected crossing. Choosing one seeks the video to
+            # it, so "apply where the review is" and "apply at the playhead"
+            # are the same gesture, and two buttons for it were two names for
+            # one thing (rule 15 in miniature). An accepted crossing is the one
+            # exception: it is already in force, and Remove is what it offers.
+            self._apply.setEnabled(
+                model is not None
+                and model.pair is not None
+                and not (node is not None and node.accepted)
+            )
             self._remove.setEnabled(node is not None and node.accepted)
-            # Deliberately not tied to a selected crossing: this is the gesture
-            # for a flip nothing has proposed, which is the case a person
-            # watching the video is in.
-            self._here.setEnabled(model is not None and model.pair is not None)
 
     def _nudge(self, step: int) -> None:
         model = self._model
@@ -623,12 +624,32 @@ class IdentityPanel(QWidget):
         about which lanes moved or which parts went with them.
         """
         model = self._model
+        group = self.group()
         pair = lanes or (model.pair if model is not None else None)
-        if model is None or pair is None or not self.group_id():
+        if pair is None and group is not None and len(group.lanes) >= 2:
+            # A rebuild clears the braid, and an apply during one still means
+            # the group on screen. The model's pair and the group's first two
+            # lanes are the same thing; this is the one that survives a redraw.
+            pair = (group.lanes[0], group.lanes[1])
+        if pair is None or group is None:
             return None
         parts = ALL_PARTS if self.part() == ALL_PARTS_ITEM else (self.part(),)
-        bounded = max(0, min(int(index), len(model.times) - 1)) if len(model.times) else 0
-        return SwapEvent(index=bounded, group=self.group_id(), lanes=pair, parts=parts)
+        bounded = int(index)
+        if model is not None and len(model.times):
+            bounded = max(0, min(bounded, len(model.times) - 1))
+        return SwapEvent(index=max(0, bounded), group=group.name, lanes=pair, parts=parts)
+
+    def selected_index(self) -> int | None:
+        """Deprecated shape kept out of the apply path deliberately.
+
+        Every way of choosing a crossing -- clicking it on the braid, picking
+        it from the list, nudging it a frame -- seeks the video to it, so the
+        playhead *is* the frame under review. Applying reads the clock and
+        nothing else, which is why a swap lands on the frame the person is
+        looking at whether they reviewed a proposal or just watched one happen.
+        """
+        node = self._selected_node()
+        return self._selected_index if node is not None and not node.accepted else None
 
     def index_at(self, at: float) -> int | None:
         """The sample index master time *at* falls on, or None with no braid."""
@@ -643,12 +664,6 @@ class IdentityPanel(QWidget):
         return SwapEvent(
             index=self._selected_index, group=self.group_id(), lanes=node.lanes, parts=parts
         )
-
-    def _apply_selection(self) -> None:
-        node = self._selected_node()
-        event = self._selected_event()
-        if node is not None and not node.accepted and event is not None:
-            self.swap_requested.emit(event)
 
     def _remove_selection(self) -> None:
         node = self._selected_node()
@@ -678,6 +693,12 @@ class IdentityPanel(QWidget):
             or abs(model.row(held) - start_y) > _ROW_TOLERANCE
             or abs(model.row(target) - end_y) > _ROW_TOLERANCE
         ):
+            # Not a swap: it stayed in one lane, or it began or ended away from
+            # a lane line. It is still a gesture at a time, so it seeks there.
+            # pyqtgraph delivers a press that moves one pixel as a drag rather
+            # than a click, so returning here is what made the braid look like
+            # it ignored clicks entirely while the trace beneath it did not.
+            self._on_clicked(end_x, end_y)
             return
 
         node = model.nearest_node(start_x, self._tolerance()) or model.nearest_node(
