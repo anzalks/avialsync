@@ -2186,10 +2186,14 @@ class MainWindow(QMainWindow):
         self.wheel_tab.install_overlay_actions(
             self._overlay_actions["tracking.wheel"], self._overlay_actions["tracking.wheel_hidden"]
         )
-        self._act_show_original_tracker = view_menu.addAction(tr("Show original tracker"))
+        self._act_show_original_tracker = view_menu.addAction(tr("Play original"))
         self._act_show_original_tracker.setCheckable(True)
         self._act_show_original_tracker.triggered.connect(self._set_show_original_tracker)
         _reg(self._act_show_original_tracker, "View")
+        self._act_show_original_tracker.setToolTip(
+            tr("Draw the tracking the model predicted, ignoring accepted identity swaps")
+        )
+        self.view_toolbar.install_original_tracker_action(self._act_show_original_tracker)
         self._require(
             self._act_show_original_tracker,
             lambda: bool(self._pose_schemas),
@@ -2783,6 +2787,9 @@ class MainWindow(QMainWindow):
             panel.panel.seek_requested.connect(lambda at: self.player.seek(at, exact=True))
             panel.panel.play_region_requested.connect(self._play_identity_region)
             panel.panel.apply_requested.connect(self._apply_identity_swap)
+            panel.panel.remove_all_requested.connect(
+                lambda: identity_view.remove_all(self, panel.panel.source_id())
+            )
             panel.panel.detect_requested.connect(
                 lambda group, part: identity_view.detect(self, panel.panel.source_id(), group, part)
             )
@@ -2892,6 +2899,7 @@ class MainWindow(QMainWindow):
             tr("Fix Identities — {source}").format(source=Path(source_id).name)
         )
         panel.set_video_available(bool(self.video_grid._paths))
+        panel.set_swap_count(self.identity_swaps.count_for(source_id))
         self._identity_request_serial += 1
         serial = self._identity_request_serial
         job = identity_view.job_for(self, source_id, panel.group_id(), panel.part())

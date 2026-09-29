@@ -138,12 +138,15 @@ class IdentityPanel(QWidget):
     #: Accept a swap where the review is: the selected crossing when there is
     #: one, and otherwise wherever the master clock has got to.
     apply_requested = Signal()
+    #: Undo every accepted swap on this tracking file, in one step.
+    remove_all_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._groups: tuple[SwapGroup, ...] = ()
         self._model: BraidModel | None = None
         self._source_id = ""
+        self._swap_count = 0
         self._selected_index: int | None = None
         self._restore_selection: tuple[int, tuple[str, str]] | None = None
         self._selection_line: pg.InfiniteLine | None = None
@@ -297,12 +300,19 @@ class IdentityPanel(QWidget):
         self._remove.setAccessibleName(tr("Remove the selected accepted identity swap"))
         self._remove.setAccessibleDescription(tr("Restore the routing before this accepted event"))
         self._remove.clicked.connect(self._remove_selection)
+        self._remove_all = QPushButton(tr("Remove all swaps"), self)
+        self._remove_all.setAccessibleName(tr("Remove every accepted swap on this file"))
+        self._remove_all.setAccessibleDescription(
+            tr("Restore every identity in this tracking file to what the model predicted")
+        )
+        self._remove_all.clicked.connect(self.remove_all_requested)
         for button in (self._back, self._forward, self._play):
             review.addWidget(button)
         controls.addLayout(review)
         edits = QHBoxLayout()
         edits.addWidget(self._apply)
         edits.addWidget(self._remove)
+        edits.addWidget(self._remove_all)
         controls.addLayout(edits)
         self._update_actions()
         return controls
@@ -336,6 +346,24 @@ class IdentityPanel(QWidget):
                     "could confuse. Use New group… to pair the two yourself."
                 )
             )
+
+    def set_swap_count(self, count: int) -> None:
+        """Say how many accepted swaps this whole file holds.
+
+        On the button, because *Remove all* clears the file rather than the
+        group and part on screen, and a button that says how much it will
+        remove is the difference between a shortcut and a surprise.
+        """
+        self._swap_count = int(count)
+        self._remove_all.setEnabled(self._swap_count > 0)
+        self._remove_all.setText(
+            tr("Remove all swaps ({n})").format(n=self._swap_count)
+            if self._swap_count
+            else tr("Remove all swaps")
+        )
+        self._remove_all.setToolTip(
+            tr("Remove every accepted swap on this tracking file, in one undoable step")
+        )
 
     def set_counts(self, counts: Mapping[tuple[str, str], tuple[int, int]]) -> None:
         """Update candidate counts without losing the selected group or part."""
@@ -660,9 +688,20 @@ class IdentityPanel(QWidget):
         node = self._selected_node()
         if node is None or self._selected_index is None:
             return None
-        parts = ALL_PARTS if self.part() == ALL_PARTS_ITEM else (self.part(),)
+        # An accepted crossing names its own scope. Rebuilding it from the part
+        # selector meant asking to remove a wrist swap and removing the
+        # whole-animal one accepted at the same frame -- which reads, correctly
+        # from where the user sits, as "it removed everything".
+        parts = (
+            node.parts
+            if node.accepted
+            else (ALL_PARTS if self.part() == ALL_PARTS_ITEM else (self.part(),))
+        )
         return SwapEvent(
-            index=self._selected_index, group=self.group_id(), lanes=node.lanes, parts=parts
+            index=node.index if node.accepted else self._selected_index,
+            group=self.group_id(),
+            lanes=node.lanes,
+            parts=parts,
         )
 
     def _remove_selection(self) -> None:

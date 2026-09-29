@@ -152,7 +152,7 @@ Pose estimates are sometimes wrong: an occluded nose lands on the wall. Select *
 
 Use **Edit → Fix Identities…** when the tracker starts following the wrong animal or confuses two keypoints such as left and right wrists. Choose an animal or left/right group, then one body part or **All parts**. The braid shows where trajectories approach, and the separation trace below it shows why a crossing might be plausible. **Detect** proposes crossings with motion and gap evidence; proposals do not change data.
 
-Drag a line after a crossing into the other lane to accept a swap from that frame onward. The drag snaps to the evidence node. Drag an accepted crossing back to remove that event, or use **Edit → Undo**. The viewer reads an edited cache generation after acceptance; the original pose file and imported cache stay untouched. **View → Show original tracker** temporarily shows the model's imported prediction for comparison; turn it off to return to the edited view. This view choice is saved with the session. Accepted swaps also appear in the Data Streams identity lane and the Changes tab.
+Drag a line after a crossing into the other lane to accept a swap from that frame onward. The drag snaps to the evidence node. Drag an accepted crossing back to remove that event, or use **Edit → Undo**. The viewer reads an edited cache generation after acceptance; the original pose file and imported cache stay untouched. **View → Play original** temporarily shows the model's imported prediction for comparison; turn it off to return to the edited view. This view choice is saved with the session. Accepted swaps also appear in the Data Streams identity lane and the Changes tab.
 
 ### Reviewing and exporting what you changed
 

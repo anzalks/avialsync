@@ -56,6 +56,11 @@ class BraidNode:
     at: float
     lanes: tuple[str, str]
     accepted: bool
+    #: The parts an *accepted* event moves, empty for the whole group and for a
+    #: candidate, which has no scope until somebody accepts one. Carried so a
+    #: removal takes the scope that was accepted rather than whatever the part
+    #: selector happens to show now (D-141).
+    parts: tuple[str, ...] = ()
     #: The video frame number for a pose file whose rows are not contiguous.
     display_frame: int | None = None
     #: The evidence, in words, for the line under the plot.
@@ -244,17 +249,22 @@ def _draw_nodes(plot: pg.PlotItem, model: BraidModel, palette: QPalette) -> None
         colour = (
             evidence_color(palette, "identity") if accepted else status_color(palette, "warning")
         )
-        plot.addItem(
-            pg.ScatterPlotItem(
-                x=[node.at for node in nodes],
-                y=[_node_row(model, node) for node in nodes],
-                symbol="d",
-                size=13,
-                pen=pg.mkPen(colour, width=2),
-                brush=pg.mkBrush(colour) if accepted else None,
-                name=tr("Accepted swap") if accepted else tr("Candidate"),
-            )
+        marks = pg.ScatterPlotItem(
+            x=[node.at for node in nodes],
+            y=[_node_row(model, node) for node in nodes],
+            symbol="d",
+            size=13,
+            pen=pg.mkPen(colour, width=2),
+            brush=pg.mkBrush(colour) if accepted else None,
+            name=tr("Accepted swap") if accepted else tr("Candidate"),
         )
+        # A scatter point swallows the press that lands on it, so clicking a
+        # crossing -- the one thing on this plot a person aims at -- did
+        # nothing while clicking the line beside it worked. The view box snaps
+        # to the nearest node anyway, so the marks stay out of the way.
+        marks.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        marks.setAcceptHoverEvents(False)
+        plot.addItem(marks)
 
 
 def _node_row(model: BraidModel, node: BraidNode) -> float:

@@ -203,6 +203,9 @@ def undo(window: MainWindow, source_id: str, event: SwapEvent) -> None:
             if candidate.index == event.index
             and candidate.group == event.group
             and set(candidate.lanes) == set(event.lanes)
+            # Scope included: two events can share a frame and a pair and mean
+            # different things -- one for the whole animal, one for a wrist.
+            and candidate.parts == event.parts
         ),
         None,
     )
@@ -216,6 +219,22 @@ def undo(window: MainWindow, source_id: str, event: SwapEvent) -> None:
             display_frame=_frame(window, source_id, held.index),
         ),
         window._mutations,
+    )
+
+
+def remove_all(window: MainWindow, source_id: str) -> None:
+    """Undo every accepted flip on one source, as a single step.
+
+    One command rather than one per event: a person clearing a source is
+    performing one act and expects one Ctrl+Z to put it back, not eleven.
+    """
+    from avialsync.core.commands import ClearIdentitySwapsCommand
+
+    held = window.identity_swaps.events_for(source_id)
+    if not held:
+        return
+    window.document.execute(
+        ClearIdentitySwapsCommand(source_id=source_id, events=held), window._mutations
     )
 
 

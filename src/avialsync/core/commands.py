@@ -35,6 +35,7 @@ __all__ = [
     "SetTrackedPointCommand",
     "SetIdentitySwapCommand",
     "SetIdentityGroupCommand",
+    "ClearIdentitySwapsCommand",
     "SetCustomMarkerCommand",
     "SetWheelCommand",
     "AcceptSyncCommand",
@@ -260,7 +261,7 @@ class SetOriginalTrackerVisibleCommand:
 
     @property
     def label(self) -> str:
-        return "Show original tracker" if self.visible else "Show edited tracker"
+        return "Play original tracking" if self.visible else "Play edited tracking"
 
     def apply(self, target: MutationTarget) -> None:
         target.set_original_tracker_visible(self.visible)
@@ -354,6 +355,32 @@ class SetIdentitySwapCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_identity_swap(self.source_id, self.event, not self.accepted)
+
+
+@dataclasses.dataclass
+class ClearIdentitySwapsCommand:
+    """Undo every accepted flip on one pose source, as one step.
+
+    Carries the events rather than a snapshot of anything: they *are* the
+    state, a few integers each, and putting them back is the whole inverse
+    (rule 14 -- commands carry inverse operations, never snapshots).
+    """
+
+    source_id: str
+    events: tuple[Any, ...]
+    command_id: str = "tracking.identity_clear"
+
+    @property
+    def label(self) -> str:
+        return f"Remove {len(self.events)} identity swap(s)"
+
+    def apply(self, target: MutationTarget) -> None:
+        for event in self.events:
+            target.set_identity_swap(self.source_id, event, False)
+
+    def revert(self, target: MutationTarget) -> None:
+        for event in self.events:
+            target.set_identity_swap(self.source_id, event, True)
 
 
 @dataclasses.dataclass

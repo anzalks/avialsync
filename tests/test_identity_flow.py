@@ -807,3 +807,93 @@ def test_a_second_swap_while_watching_uses_where_the_video_now_is(
     qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 2, timeout=5000)
 
     assert sorted(e.index for e in window.identity_swaps.events_for(source)) == [20, 80]
+
+
+# ── removing one accepted swap removes one (D-141) ───────────────────
+
+
+def test_removing_one_accepted_swap_leaves_the_others(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    first = SwapEvent(index=30, group=ANIMALS, lanes=INDIVIDUALS)
+    second = SwapEvent(index=90, group=ANIMALS, lanes=INDIVIDUALS)
+    for event in (first, second):
+        identity_view.swap(window, source, event)
+    _settle(qtbot, window, source)
+
+    identity_view.undo(window, source, second)
+    qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 1, timeout=5000)
+
+    assert window.identity_swaps.events_for(source) == (first,)
+
+
+def test_removing_a_part_swap_does_not_take_the_whole_animal_with_it(
+    qtbot, window, pose_source
+) -> None:
+    """The scope removed is the scope accepted, not the one the selector shows.
+
+    Accept a whole-animal flip, then ask to remove a wrist-only one at the same
+    frame: matching on frame and lanes alone found the whole-animal event and
+    removed that, which reads as "it removed everything".
+    """
+    source = str(pose_source[0])
+    whole = SwapEvent(index=40, group=ANIMALS, lanes=INDIVIDUALS)
+    identity_view.swap(window, source, whole)
+    _settle(qtbot, window, source)
+
+    identity_view.undo(
+        window,
+        source,
+        SwapEvent(index=40, group=ANIMALS, lanes=INDIVIDUALS, parts=("wrist",)),
+    )
+
+    assert window.identity_swaps.events_for(source) == (whole,)
+
+
+def test_remove_all_clears_one_source_in_one_undo_step(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    for index in (30, 60, 90):
+        identity_view.swap(window, source, SwapEvent(index, ANIMALS, INDIVIDUALS))
+    _settle(qtbot, window, source)
+    assert window.identity_swaps.count_for(source) == 3
+
+    identity_view.remove_all(window, source)
+    qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 0, timeout=5000)
+
+    window.document.undo(window._mutations)
+    qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 3, timeout=5000)
+
+
+def test_play_original_sits_with_the_other_video_controls(qtbot, window, pose_source) -> None:
+    """One QAction drives the menu item and the checkbox (rule 15)."""
+    source = str(pose_source[0])
+    box = window.view_toolbar.original_tracker_box
+    assert box.text() == "Play original"
+    assert not box.isChecked()
+
+    _accept(window, source)
+    _settle(qtbot, window, source)
+    edited = _shown(window, source, "testMouse_snout", FLIP)
+
+    box.click()
+
+    assert window._act_show_original_tracker.isChecked()
+    assert window._show_original_tracker
+    shown = _shown(window, source, "testMouse_snout", FLIP)
+    assert shown != edited
+    assert shown == _channel_value("testMouse_snout", "x")
+
+    box.click()
+    assert _shown(window, source, "testMouse_snout", FLIP) == edited
+
+
+def test_remove_all_is_offered_with_its_count(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    panel = _braid(qtbot, window)
+    assert not panel._remove_all.isEnabled()
+
+    for index in (30, 60):
+        identity_view.swap(window, source, SwapEvent(index, ANIMALS, INDIVIDUALS))
+    _settle(qtbot, window, source)
+    qtbot.waitUntil(lambda: panel._remove_all.isEnabled(), timeout=5000)
+
+    assert "2" in panel._remove_all.text()

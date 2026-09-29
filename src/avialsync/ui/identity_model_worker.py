@@ -115,6 +115,7 @@ def _nodes(job: BraidBuildJob, source_times: np.ndarray, times: np.ndarray) -> l
                 at=_at(times, event.index),
                 lanes=event.lanes,
                 accepted=True,
+                parts=event.parts,
                 display_frame=frame,
                 detail=tr("Accepted: {a} and {b} swap from frame {frame}.").format(
                     a=event.lanes[0], b=event.lanes[1], frame=frame

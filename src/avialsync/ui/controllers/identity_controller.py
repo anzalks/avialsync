@@ -96,7 +96,7 @@ def data_point_for(window: MainWindow, source_id: str, name: str, index: int) ->
     """The column the point labelled *name* is showing at *index*.
 
     Itself, unless an accepted flip is in force -- and itself again while
-    ``Show original tracker`` is on, because then the readers really are the
+    ``Play original`` is on, because then the readers really are the
     imported prediction and what is on screen is what the model said (D-141).
     """
     if window._show_original_tracker:

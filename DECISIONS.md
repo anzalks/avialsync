@@ -5247,7 +5247,7 @@ the names a schema reports address channels the loader actually emits.
 
 **Decision:** Export Changes offers one renamed pose CSV per source with either corrections or swaps. It streams each row, applies its raw-column corrections, then permutes all fields of each routed point; scorer names mark the file as edited. The source path cannot be the target path. Accepted flips appear in the Changes list, the Data Streams identity lane, pose plot rows when shown, and a count beside the source; deletion in Changes uses the command bus.
 
-**Comparison view:** View → Show original tracker points readers back to the imported cache without removing edits. It is an undoable session view choice, defaults off, and persists in the `.avv` session.
+**Comparison view:** View → Play original points readers back to the imported cache without removing edits. It is an undoable session view choice, defaults off, and persists in the `.avv` session.
 
 **Alternatives rejected:** separate swap and correction exports can disagree and ask an analysis to combine them; silently overwriting the recording removes the evidence of what the estimator produced.
 

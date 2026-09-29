@@ -17,7 +17,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
-from avialsync.ui.action_button import ActionButton
+from avialsync.ui.action_button import ActionButton, ActionCheckBox
 from avialsync.ui.i18n import tr
 
 __all__ = ["ViewToolbar"]
@@ -52,7 +52,16 @@ class ViewToolbar(QWidget):
         self.fix_tracker_button = ActionButton(self)
         self.add_marker_button = ActionButton(self)
         self.add_wheel_button = ActionButton(self)
-        for button in (self.fix_tracker_button, self.add_marker_button, self.add_wheel_button):
+        # Ticked, the panes draw what the model predicted instead of what the
+        # accepted swaps make of it -- beside the other video controls, because
+        # it changes what the video shows (D-141).
+        self.original_tracker_box = ActionCheckBox(self)
+        for button in (
+            self.fix_tracker_button,
+            self.add_marker_button,
+            self.add_wheel_button,
+            self.original_tracker_box,
+        ):
             row.addWidget(button)
         row.addStretch(1)
         self.snapshot_button = QPushButton(tr("Snapshot"), self)
@@ -71,6 +80,15 @@ class ViewToolbar(QWidget):
         self.fix_tracker_button.set_action(action)
         self.fix_tracker_button.setAccessibleDescription(
             tr("Toggle dragging of tracked points in every video pane")
+        )
+
+    def install_original_tracker_action(self, action: QAction) -> None:
+        """Show the Play original toggle, driven by the View menu's own QAction."""
+        # No text of its own: the QAction's label is the one authority for what
+        # this command is called, here and in the View menu (rule 15, D-092).
+        self.original_tracker_box.set_action(action)
+        self.original_tracker_box.setAccessibleDescription(
+            tr("Draw the tracking the model predicted, ignoring accepted identity swaps")
         )
 
     def install_add_marker_action(self, action: QAction) -> None:
