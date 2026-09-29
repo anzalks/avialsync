@@ -38,12 +38,17 @@ __all__ = ["pose_sources", "job_for", "counts_for", "detect", "swap", "undo"]
 
 
 def pose_sources(window: MainWindow) -> list[str]:
-    """Every imported pose source that has lanes worth comparing."""
-    return [
-        source_id
-        for source_id in window._pose_schemas
-        if window.identity_swaps.groups_for(source_id)
-    ]
+    """Every imported 2D pose source identity repair can work on.
+
+    Deliberately *not* "every source with a derivable group". Animals and
+    left-against-right are the two a schema can state for itself; a wrist that
+    the tracker confuses with an ankle is just as real and no naming convention
+    reveals it, so the user declares that pair — inside the panel. Gating the
+    panel on a derived group put the one affordance that creates a group behind
+    a door that only a group could open, and left the recordings that need it
+    most with a greyed-out menu item telling them to import different data.
+    """
+    return list(window._pose_schemas)
 
 
 def current_source(window: MainWindow) -> str:
@@ -56,7 +61,7 @@ def current_source(window: MainWindow) -> str:
     selected = window._selected_video_path
     if selected:
         for source_id in window._overlay_sources.get(selected, {}):
-            if window.identity_swaps.groups_for(source_id):
+            if source_id in window._pose_schemas:
                 return source_id
     sources = pose_sources(window)
     return sources[0] if sources else ""

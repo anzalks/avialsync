@@ -2045,10 +2045,7 @@ class MainWindow(QMainWindow):
         self._require(
             self._act_fix_identities,
             lambda: bool(identity_view.pose_sources(self)),
-            tr(
-                "Import tracking with more than one identity — two animals, or a "
-                "left and a right — before fixing which is which."
-            ),
+            tr("Import 2D tracking before fixing which point is which."),
         )
 
         # Add 3D Marker: name a point, click it in every camera, triangulate.
@@ -2866,7 +2863,11 @@ class MainWindow(QMainWindow):
         serial = self._identity_request_serial
         job = identity_view.job_for(self, source_id, panel.group_id(), panel.part())
         if job is None:
-            panel.set_loading()
+            # No group to draw. "Loading" would replace the panel's own
+            # explanation -- that this recording needs New group -- with a
+            # spinner for work that is never going to start.
+            if groups:
+                panel.set_loading()
             return
         panel.set_loading()
         self.transport.set_identity_candidates([])

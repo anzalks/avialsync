@@ -465,7 +465,7 @@ def test_fix_identities_is_offered_only_when_there_is_something_to_fix(
     empty = MainWindow()
     qtbot.addWidget(empty)
     assert not empty._act_fix_identities.isEnabled()
-    assert "more than one identity" in empty._act_fix_identities.toolTip()
+    assert "Import 2D tracking" in empty._act_fix_identities.toolTip()
     if isValid(empty):
         empty.close()
 
@@ -540,9 +540,7 @@ def test_a_scan_proposes_the_flip_that_was_injected(qtbot, tmp_path) -> None:
         window.close()
 
 
-def test_the_window_tells_every_pane_which_column_a_label_shows(
-    qtbot, window, pose_source
-) -> None:
+def test_the_window_tells_every_pane_which_column_a_label_shows(qtbot, window, pose_source) -> None:
     """The resolver is not merely implemented, it is installed and correct.
 
     Phase 8's lesson, one layer down: a capability that is not driven from the
@@ -563,3 +561,110 @@ def test_the_window_tells_every_pane_which_column_a_label_shows(
     resolver = window.video_grid.identity_resolver()
     assert resolver is not None
     assert resolver(source, "testMouse_snout", FLIP) == "conSpecific_snout"
+
+
+# ── a recording whose names reveal nothing (the New group case) ───────
+
+
+@pytest.fixture
+def unpaired_source(tmp_path: Path) -> tuple[Path, Path, list[str]]:
+    """Points a tracker can confuse that no naming convention pairs."""
+    pose = tmp_path / "onemouse_DLC.csv"
+    pose.write_text("scorer,DLC\n", encoding="utf-8")
+    cache = tmp_path / "onemouse_DLC.csv.avialcache"
+    cache.mkdir()
+    times = np.arange(FRAMES, dtype=np.float64) / FPS
+    channels: list[str] = []
+    for index, part in enumerate(("wrist", "leg", "head")):
+        for axis in ("x", "y"):
+            channel = f"{part}_{axis}"
+            PyramidBuilder(cache, channel).build_and_save(
+                times, np.full(FRAMES, 10.0 * index, dtype=np.float64)
+            )
+            channels.append(channel)
+    return pose, cache, channels
+
+
+def _unpaired_schema() -> PoseSchema:
+    return PoseSchema(
+        points=tuple(
+            PosePoint(individual="", bodypart=part, axes=("x", "y"))
+            for part in ("wrist", "leg", "head")
+        ),
+        frame_indexed=True,
+    )
+
+
+def test_fix_identities_opens_for_a_recording_with_nothing_derivable(
+    qtbot, unpaired_source
+) -> None:
+    """The case that needs New group most must not be the case that is locked out.
+
+    Animals and left-against-right are the two a schema states for itself. A
+    wrist the tracker confuses with a leg is just as real and no name reveals
+    it, so gating the panel on a derived group put the only affordance that
+    creates one behind a door that only a group could open.
+    """
+    pose, cache, channels = unpaired_source
+    window = MainWindow()
+    qtbot.addWidget(window)
+    import_controller.register_tracking_source(
+        window,
+        path=str(pose),
+        cache_dir=cache,
+        channels=channels,
+        role="overlay2d",
+        inspection=SourceInspection(
+            path=str(pose),
+            loader_id="tracking",
+            import_config={"overlay_video": VIDEO, "fps": FPS},
+            pose=_unpaired_schema(),
+        ),
+    )
+
+    assert window.identity_swaps.groups_for(str(pose)) == ()
+    assert window._act_fix_identities.isEnabled()
+
+    window._open_identity_panel()
+    panel = window._identity_window.panel
+
+    assert panel.source_id() == str(pose)
+    assert "New group" in panel._evidence.text()
+    assert panel._new_group.isEnabled()
+    if isValid(window):
+        window.close()
+
+
+def test_a_declared_pair_draws_its_braid(qtbot, unpaired_source) -> None:
+    """Declaring the pair is the whole point: the panel must then work."""
+    pose, cache, channels = unpaired_source
+    window = MainWindow()
+    qtbot.addWidget(window)
+    import_controller.register_tracking_source(
+        window,
+        path=str(pose),
+        cache_dir=cache,
+        channels=channels,
+        role="overlay2d",
+        inspection=SourceInspection(
+            path=str(pose),
+            loader_id="tracking",
+            import_config={"overlay_video": VIDEO, "fps": FPS},
+            pose=_unpaired_schema(),
+        ),
+    )
+    window._open_identity_panel()
+
+    declared = SwapGroup(
+        name="custom:limbs",
+        lanes=("A", "B"),
+        parts=("limb",),
+        members=(("A", "limb", "wrist"), ("B", "limb", "leg")),
+    )
+    window.document.execute(SetIdentityGroupCommand(str(pose), declared), window._mutations)
+
+    panel = window._identity_window.panel
+    assert "custom:limbs" in panel.group_ids()
+    assert identity_view.job_for(window, str(pose), "custom:limbs", "") is not None
+    if isValid(window):
+        window.close()

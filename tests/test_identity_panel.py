@@ -99,13 +99,15 @@ def test_a_group_id_is_never_what_the_user_reads() -> None:
     assert group_label("custom:front paws") == "front paws"
 
 
-def test_a_recording_with_nothing_confusable_says_so(qtbot) -> None:
+def test_a_recording_with_nothing_derivable_points_at_new_group(qtbot) -> None:
+    """Not a dead end. This is the recording that needs New group most."""
     widget = IdentityPanel()
     qtbot.addWidget(widget)
 
     widget.set_groups("", [], {})
 
-    assert "no labels that could be confused" in widget._evidence.text()
+    assert "New group" in widget._evidence.text()
+    assert widget._new_group.isEnabled()
 
 
 # ── the picture ──────────────────────────────────────────────────────

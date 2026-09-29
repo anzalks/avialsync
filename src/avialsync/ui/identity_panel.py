@@ -310,7 +310,15 @@ class IdentityPanel(QWidget):
                 self._group_box.addItem(group_label(group.name), group.name)
         self._refresh_parts()
         if not self._groups:
-            self._set_empty(tr("This recording has no labels that could be confused."))
+            # Not a dead end: this is the recording that needs New group most.
+            # Nothing in its names says which two points a tracker confuses, so
+            # the person who knows says it.
+            self._set_empty(
+                tr(
+                    "Nothing in this recording's point names says which two a tracker "
+                    "could confuse. Use New group… to pair the two yourself."
+                )
+            )
 
     def set_counts(self, counts: Mapping[tuple[str, str], tuple[int, int]]) -> None:
         """Update candidate counts without losing the selected group or part."""
