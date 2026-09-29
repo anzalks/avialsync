@@ -102,7 +102,7 @@ def available_exports(window: MainWindow) -> list[ExportItem]:
 
 
 def _corrected_indices(window: MainWindow, source_id: str) -> set[int]:
-    return {index for index, _point, _x, _y in window.point_edits.for_source(source_id)}
+    return {index for index, _point, _x, _y, _shown in window.point_edits.for_source(source_id)}
 
 
 def _annotation_target(window: MainWindow) -> Path:

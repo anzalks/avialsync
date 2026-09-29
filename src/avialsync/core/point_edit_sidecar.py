@@ -50,10 +50,12 @@ __all__ = [
 #: rather than the stem is what keeps `a.csv` and `a.h5` from colliding.
 SIDECAR_SUFFIX = ".avialfix.csv"
 
-_COLUMNS = ("frame", "bodypart", "x", "y")
+_COLUMNS = ("frame", "bodypart", "x", "y", "shown_as")
 _HEADER_COMMENT = (
     "AvialSync tracking corrections",
     "Hand corrections to predicted body-part positions, made with Fix Tracker.",
+    "bodypart is the column in the pose file; shown_as is what it was called",
+    "on screen when the correction was made, if an identity swap was in force.",
     "The pose file named below is never modified: delete this file and the",
     "original predictions are exactly what they were.",
 )
@@ -61,12 +63,20 @@ _HEADER_COMMENT = (
 
 @dataclass(frozen=True, slots=True)
 class Correction:
-    """One corrected coordinate, as it is written to disk."""
+    """One corrected coordinate, as it is written to disk.
+
+    ``bodypart`` is the column in the pose file the value belongs to;
+    ``shown_as`` is what that point was called on screen when the correction was
+    made, which differs once an identity flip has been accepted (D-143). A
+    sidecar written before flips existed carries no ``shown_as`` column, and the
+    two names were necessarily the same then, so it reads back as ``bodypart``.
+    """
 
     frame: int
     bodypart: str
     x: float
     y: float
+    shown_as: str = ""
 
 
 @dataclass(frozen=True)
@@ -132,12 +142,14 @@ def read(source: Path | str) -> Corrections | None:
     skipped = 0
     for record in csv.DictReader(rows):
         try:
+            bodypart = str(record["bodypart"])
             entries.append(
                 Correction(
                     frame=int(record["frame"]),
-                    bodypart=str(record["bodypart"]),
+                    bodypart=bodypart,
                     x=float(record["x"]),
                     y=float(record["y"]),
+                    shown_as=str(record.get("shown_as") or bodypart),
                 )
             )
         except (KeyError, TypeError, ValueError):
@@ -169,7 +181,8 @@ def write(source: Path | str, entries: list[Correction]) -> Path:
         lines.append("# no corrections recorded")
     lines.append(",".join(_COLUMNS))
     for entry in sorted(entries, key=lambda item: (item.frame, item.bodypart)):
-        lines.append(f"{entry.frame},{entry.bodypart},{entry.x!r},{entry.y!r}")
+        shown = entry.shown_as or entry.bodypart
+        lines.append(f"{entry.frame},{entry.bodypart},{entry.x!r},{entry.y!r},{shown}")
 
     # Same atomic shape as the session writer: a temporary file in the target's
     # own directory, then one rename. A half-written corrections file is the one

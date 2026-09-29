@@ -116,8 +116,14 @@ def persist(window: MainWindow, source_id: str) -> None:
     if not source_id:
         return
     rows = [
-        Correction(frame=frame_for(window, source_id, index), bodypart=point, x=x, y=y)
-        for index, point, x, y in window.point_edits.for_source(source_id)
+        Correction(
+            frame=frame_for(window, source_id, index),
+            bodypart=point,
+            x=x,
+            y=y,
+            shown_as=shown,
+        )
+        for index, point, x, y, shown in window.point_edits.for_source(source_id)
     ]
     try:
         written = point_edit_sidecar.write(Path(source_id), rows)
@@ -171,14 +177,14 @@ def adopt(window: MainWindow, source_id: str) -> None:
             _report_missing(window, source_id, expected)
         return
 
-    rows: list[tuple[int, str, float, float]] = []
+    rows: list[tuple[int, str, float, float, str]] = []
     unplaceable = 0
     for entry in corrections.entries:
         index = index_for(window, source_id, entry.frame)
         if index is None:
             unplaceable += 1
             continue
-        rows.append((index, entry.bodypart, entry.x, entry.y))
+        rows.append((index, entry.bodypart, entry.x, entry.y, entry.shown_as))
     window.point_edits.load_source(source_id, rows)
     window._point_edit_storage[source_id] = SIDECAR
 
@@ -317,7 +323,7 @@ def corrections_by_frame(
     row by row and asks each frame whether anything on it changed.
     """
     grouped: dict[int, dict[str, tuple[float, float]]] = {}
-    for index, point, x, y in window.point_edits.for_source(source_id):
+    for index, point, x, y, _shown in window.point_edits.for_source(source_id):
         grouped.setdefault(frame_for(window, source_id, index), {})[point] = (x, y)
     return grouped
 
@@ -340,7 +346,9 @@ def labeled_frames(window: MainWindow, source_id: str) -> tuple[list[str], list[
         for part, axes in points.items()
     }
 
-    indices = sorted({index for index, _point, _x, _y in window.point_edits.for_source(source_id)})
+    indices = sorted(
+        {index for index, _point, _x, _y, _shown in window.point_edits.for_source(source_id)}
+    )
     frames: list[LabeledFrame] = []
     for index in indices:
         positions: dict[str, tuple[float, float]] = {}

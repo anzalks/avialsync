@@ -162,7 +162,12 @@ class WindowMutationTarget:
             window._apply_overlay_state()
 
     def set_tracked_point(
-        self, source_id: str, point: str, index: int, position: tuple[float, float] | None
+        self,
+        source_id: str,
+        point: str,
+        index: int,
+        position: tuple[float, float] | None,
+        shown_as: str = "",
     ) -> None:
         """Override one tracked coordinate, or restore the prediction (D-099).
 
@@ -175,7 +180,7 @@ class WindowMutationTarget:
         """
         window = self._window
         with self.replaying():
-            if window.point_edits.set(PointKey(source_id, point, index), position):
+            if window.point_edits.set(PointKey(source_id, point, index), position, shown_as):
                 window._persist_point_edits(source_id)
 
     def set_custom_marker(self, name: str, frame: int, marker: object) -> None:

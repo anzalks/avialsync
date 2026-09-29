@@ -29,9 +29,14 @@ class _StoreTarget:
         self.store = store
 
     def set_tracked_point(
-        self, source_id: str, point: str, index: int, position: tuple[float, float] | None
+        self,
+        source_id: str,
+        point: str,
+        index: int,
+        position: tuple[float, float] | None,
+        shown_as: str = "",
     ) -> None:
-        self.store.set(PointKey(source_id, point, index), position)
+        self.store.set(PointKey(source_id, point, index), position, shown_as)
 
 
 # ── the store ────────────────────────────────────────────────────────
@@ -83,7 +88,7 @@ def test_observers_are_told_which_source_changed() -> None:
     dispose = store.observe(seen.append)
 
     store.set(NOSE, (1.0, 2.0))
-    store.load_source(NOSE.source_id, [(120, "nose", 1.0, 2.0)])
+    store.load_source(NOSE.source_id, [(120, "nose", 1.0, 2.0, "nose")])
     dispose()
     store.set(TAIL, (3.0, 4.0))
 
@@ -98,7 +103,7 @@ def test_loading_one_source_leaves_the_others_alone() -> None:
     other = PointKey("/data/side.csv", "paw", 5)
     store.set(other, (7.0, 8.0))
 
-    store.load_source(NOSE.source_id, [(3, "ear", 9.0, 9.0)])
+    store.load_source(NOSE.source_id, [(3, "ear", 9.0, 9.0, "ear")])
 
     assert store.get(other) == (7.0, 8.0)
     assert store.get(NOSE) is None
@@ -244,8 +249,12 @@ def test_a_correction_round_trips_exactly(tmp_path: Path) -> None:
     """A coordinate that changes in the sixth decimal is a coordinate that moved."""
     pose = _pose_file(tmp_path)
     written = [
-        sidecar.Correction(frame=120, bodypart="nose", x=12.123456789, y=34.987654321),
-        sidecar.Correction(frame=7, bodypart="tail_base", x=0.1 + 0.2, y=-3.5),
+        sidecar.Correction(
+            frame=120, bodypart="nose", x=12.123456789, y=34.987654321, shown_as="nose"
+        ),
+        sidecar.Correction(
+            frame=7, bodypart="tail_base", x=0.1 + 0.2, y=-3.5, shown_as="tail_base"
+        ),
     ]
 
     sidecar.write(pose, written)
@@ -266,9 +275,65 @@ def test_the_sidecar_reads_as_a_csv_with_a_commented_header(tmp_path: Path) -> N
 
     frame = pl.read_csv(path, comment_prefix="#")
 
-    assert frame.columns == ["frame", "bodypart", "x", "y"]
-    assert frame.to_dicts() == [{"frame": 120, "bodypart": "nose", "x": 1.0, "y": 2.0}]
+    assert frame.columns == ["frame", "bodypart", "x", "y", "shown_as"]
+    assert frame.to_dicts() == [
+        {"frame": 120, "bodypart": "nose", "x": 1.0, "y": 2.0, "shown_as": "nose"}
+    ]
     assert "source: eks.csv" in path.read_text()
+
+
+# ── a correction names the column and the label it was made under (D-143) ──
+
+
+def test_a_correction_records_the_name_it_was_made_under() -> None:
+    """The column decides where the value goes; the label is provenance.
+
+    After an accepted identity flip, dragging the point labelled ``testMouse``
+    moves a coordinate that lives in ``conSpecific``'s columns. Recording only
+    the label would put the fix on the wrong trajectory; recording only the
+    column would lose what the person was looking at when they made it.
+    """
+    store = PointEditStore()
+    key = PointKey("/data/two.csv", "conSpecific_snout", 6810)
+
+    store.set(key, (1.0, 2.0), "testMouse_snout")
+
+    assert store.get(key) == (1.0, 2.0)
+    assert store.shown_as(key) == "testMouse_snout"
+    assert store.for_source("/data/two.csv") == [
+        (6810, "conSpecific_snout", 1.0, 2.0, "testMouse_snout")
+    ]
+
+
+def test_an_unswapped_correction_is_shown_under_its_own_column() -> None:
+    store = PointEditStore()
+    store.set(NOSE, (1.0, 2.0))
+    assert store.shown_as(NOSE) == "nose"
+
+
+def test_both_names_survive_a_session_round_trip() -> None:
+    store = PointEditStore()
+    key = PointKey("/data/two.csv", "conSpecific_snout", 6810)
+    store.set(key, (1.0, 2.0), "testMouse_snout")
+
+    restored = PointEditStore()
+    restored.load(store.to_list())
+
+    assert restored.shown_as(key) == "testMouse_snout"
+
+
+def test_a_sidecar_written_before_swaps_existed_still_reads(tmp_path: Path) -> None:
+    """Four columns, from before a correction could be made under another name."""
+    pose = _pose_file(tmp_path)
+    sidecar.sidecar_path(pose).write_text(
+        "# AvialSync tracking corrections\nframe,bodypart,x,y\n120,nose,1.0,2.0\n"
+    )
+
+    read_back = sidecar.read(pose)
+
+    assert read_back is not None
+    assert read_back.entries[0].shown_as == "nose"
+    assert read_back.skipped == 0
 
 
 def test_removing_the_last_correction_empties_the_file_rather_than_deleting_it(

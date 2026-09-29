@@ -676,7 +676,14 @@ def test_a_folder_that_cannot_be_written_keeps_the_work_in_the_session(
     state = window._build_session_state()
     assert state.point_edits[0]["storage"] == "session"
     assert state.point_edits[0]["edits"] == [
-        {"source": str(missing), "point": "nose", "index": 120, "x": 12.5, "y": 34.5}
+        {
+            "source": str(missing),
+            "point": "nose",
+            "index": 120,
+            "x": 12.5,
+            "y": 34.5,
+            "shown_as": "nose",
+        }
     ]
     assert "could not be written" in window.notifications.message
 

@@ -275,21 +275,27 @@ class SetTrackedPointCommand:
     #: column, which ``core/`` has no business reaching for (the caller passes
     #: it, as ``display_name`` is passed elsewhere here).
     display_frame: int | None = None
+    #: What the point was called on screen when it was dragged. Differs from
+    #: ``point`` -- the file's own column -- only while an identity flip is in
+    #: force, and is carried so undo and redo record the same provenance the
+    #: original drag did (D-143).
+    shown_as: str = ""
     command_id: str = "tracking.point"
 
     @property
     def label(self) -> str:
         frame = self.index if self.display_frame is None else self.display_frame
+        name = self.shown_as or self.point
         if self.after is None:
-            return f"Restore predicted {self.point} at frame {frame}"
+            return f"Restore predicted {name} at frame {frame}"
         x, y = self.after
-        return f"Move {self.point} to ({x:.1f}, {y:.1f}) px at frame {frame}"
+        return f"Move {name} to ({x:.1f}, {y:.1f}) px at frame {frame}"
 
     def apply(self, target: MutationTarget) -> None:
-        target.set_tracked_point(self.source_id, self.point, self.index, self.after)
+        target.set_tracked_point(self.source_id, self.point, self.index, self.after, self.shown_as)
 
     def revert(self, target: MutationTarget) -> None:
-        target.set_tracked_point(self.source_id, self.point, self.index, self.before)
+        target.set_tracked_point(self.source_id, self.point, self.index, self.before, self.shown_as)
 
 
 @dataclasses.dataclass

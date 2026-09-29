@@ -125,13 +125,21 @@ class MutationTarget(Protocol):
         """Show or hide a registered overlay layer, globally or for one camera."""
 
     def set_tracked_point(
-        self, source_id: str, point: str, index: int, position: tuple[float, float] | None
+        self,
+        source_id: str,
+        point: str,
+        index: int,
+        position: tuple[float, float] | None,
+        shown_as: str = "",
     ) -> None:
         """Override one tracked coordinate, or clear it when *position* is None.
 
-        ``index`` is the sample index within *source_id*; ``position`` is in
-        that recording's own video pixels.  The imported file and its cache are
-        never written -- see :mod:`avialsync.core.point_edits`.
+        ``index`` is the sample index within *source_id*; ``point`` is the
+        column in the pose file and ``position`` is in that recording's own
+        video pixels.  *shown_as* is the name the point carried on screen, which
+        differs from ``point`` while an identity flip is in force (D-143).  The
+        imported file and its cache are never written -- see
+        :mod:`avialsync.core.point_edits`.
         """
 
     def set_custom_marker(self, name: str, frame: int, marker: CustomMarker | None) -> None:

@@ -157,7 +157,9 @@ def build(
     """
     boundaries = swaps.boundaries(source_id)
     maps = tuple(swaps.point_sources(source_id, boundary) for boundary in boundaries)
-    edits = {(point, index): (x, y) for index, point, x, y in corrections.for_source(source_id)}
+    edits = {
+        (point, index): (x, y) for index, point, x, y, _shown in corrections.for_source(source_id)
+    }
     return EditProgram(
         source_id=source_id,
         boundaries=boundaries,
