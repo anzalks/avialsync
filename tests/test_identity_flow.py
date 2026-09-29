@@ -668,3 +668,70 @@ def test_a_declared_pair_draws_its_braid(qtbot, unpaired_source) -> None:
     assert identity_view.job_for(window, str(pose), "custom:limbs", "") is not None
     if isValid(window):
         window.close()
+
+
+# ── swapping from the playhead, while watching (D-141) ───────────────
+
+
+def _braid(qtbot, window: MainWindow):
+    """Open the panel, wait for the braid a worker builds, and admit its span.
+
+    The clock clamps a seek to its bounds, which are whatever the loaded
+    recordings declare; this fixture registers tracking without a video, so the
+    span has to be stated or every seek lands on zero.
+    """
+    window._open_identity_panel()
+    panel = window._identity_window.panel
+    qtbot.waitUntil(lambda: panel._model is not None, timeout=5000)
+    window.clock.set_bounds(*panel._model.span())
+    return panel
+
+
+def test_swapping_at_the_playhead_applies_where_the_video_is(qtbot, window, pose_source) -> None:
+    """Watch it happen, then say so -- no row to find first."""
+    source = str(pose_source[0])
+    panel = _braid(qtbot, window)
+    model = panel._model
+    assert model is not None
+
+    window.clock.seek(float(model.times[FLIP]))
+    window._swap_at_playhead()
+    _settle(qtbot, window, source)
+
+    assert window.identity_swaps.count_for(source) == 1
+    assert window.identity_swaps.events_for(source)[0].index == FLIP
+    assert _shown(window, source, "testMouse_snout", FLIP) == _channel_value(
+        "conSpecific_snout", "x"
+    )
+
+
+def test_a_playhead_swap_is_undoable_like_any_other(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    raw = _shown(window, source, "testMouse_snout", FLIP)
+    panel = _braid(qtbot, window)
+    assert panel._model is not None
+
+    window.clock.seek(float(panel._model.times[FLIP]))
+    window._swap_at_playhead()
+    _settle(qtbot, window, source)
+
+    window.document.undo(window._mutations)
+    qtbot.waitUntil(
+        lambda: _shown(window, source, "testMouse_snout", FLIP) == raw, timeout=5000
+    )
+    assert window.identity_swaps.count_for(source) == 0
+
+
+def test_the_playhead_swap_works_while_the_clock_is_running(qtbot, window, pose_source) -> None:
+    """A person sees a flip *during* playback; requiring a pause loses it."""
+    source = str(pose_source[0])
+    panel = _braid(qtbot, window)
+    assert panel._model is not None
+    window.clock.seek(float(panel._model.times[FLIP]))
+    window.clock.play()
+
+    window._swap_at_playhead()
+    _settle(qtbot, window, source)
+
+    assert window.identity_swaps.count_for(source) == 1
+    window.clock.pause()

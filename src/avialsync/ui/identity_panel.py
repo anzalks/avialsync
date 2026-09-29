@@ -31,6 +31,7 @@ from collections.abc import Mapping, Sequence
 import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent, MouseDragEvent
 from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QComboBox,
     QDockWidget,
@@ -134,6 +135,9 @@ class IdentityPanel(QWidget):
     play_region_requested = Signal(float, float)
     #: ``(group id, part)`` -- what the selectors now show.
     selection_changed = Signal(str, str)
+    #: Swap the two lanes on screen at wherever the master clock is now, so a
+    #: flip can be fixed by watching for it rather than by finding its row.
+    swap_here_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -162,7 +166,7 @@ class IdentityPanel(QWidget):
         self._braid.setLabel("left", tr("Identity"))
         layout.addWidget(self._braid, _BRAID_STRETCH)
 
-        self._separation = pg.PlotWidget()
+        self._separation = pg.PlotWidget(viewBox=_BraidViewBox())
         self._separation.setMenuEnabled(False)
         self._separation.getPlotItem().hideButtons()
         self._separation.setAccessibleName(tr("Separation between the two lanes"))
@@ -177,6 +181,12 @@ class IdentityPanel(QWidget):
         self._evidence.setWordWrap(True)
         layout.addWidget(self._evidence)
 
+        # Clicking the separation trace seeks as clicking the braid does: it
+        # is the same time axis, and the closest approach is exactly the moment
+        # a reviewer wants to see in the video.
+        self._separation.getPlotItem().getViewBox().clicked.connect(
+            lambda x, _y: self.seek_requested.emit(x)
+        )
         box = self._braid.getPlotItem().getViewBox()
         box.dragged.connect(self._on_dragged)
         box.dragging.connect(self._on_dragging)
@@ -276,6 +286,16 @@ class IdentityPanel(QWidget):
             tr("Route the two selected identities from this frame onward")
         )
         self._apply.clicked.connect(self._apply_selection)
+        self._here = QPushButton(tr("Swap at playhead"), self)
+        self._here.setAccessibleName(tr("Swap the identities at the playhead"))
+        self._here.setAccessibleDescription(
+            tr("Swap these two identities from the frame the video is showing now")
+        )
+        self._here.setToolTip(
+            tr("Watch the video and press this where the labels exchange (Ctrl+Shift+S)")
+        )
+        self._here.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        self._here.clicked.connect(self.swap_here_requested)
         self._remove = QPushButton(tr("Remove swap"), self)
         self._remove.setAccessibleName(tr("Remove the selected accepted identity swap"))
         self._remove.setAccessibleDescription(tr("Restore the routing before this accepted event"))
@@ -284,6 +304,7 @@ class IdentityPanel(QWidget):
             review.addWidget(button)
         controls.addLayout(review)
         edits = QHBoxLayout()
+        edits.addWidget(self._here)
         edits.addWidget(self._apply)
         edits.addWidget(self._remove)
         controls.addLayout(edits)
@@ -572,6 +593,10 @@ class IdentityPanel(QWidget):
             )
             self._apply.setEnabled(proposed)
             self._remove.setEnabled(node is not None and node.accepted)
+            # Deliberately not tied to a selected crossing: this is the gesture
+            # for a flip nothing has proposed, which is the case a person
+            # watching the video is in.
+            self._here.setEnabled(model is not None and model.pair is not None)
 
     def _nudge(self, step: int) -> None:
         model = self._model
@@ -589,6 +614,26 @@ class IdentityPanel(QWidget):
         self.play_region_requested.emit(
             max(low, at - _REVIEW_SECONDS), min(high, at + _REVIEW_SECONDS)
         )
+
+    def event_at(self, index: int, lanes: tuple[str, str] | None = None) -> SwapEvent | None:
+        """The swap that accepting *index* would mean, in what is on screen.
+
+        One place decides what a frame means -- the drag, the reviewed row and
+        the playhead all come here -- so the three gestures cannot disagree
+        about which lanes moved or which parts went with them.
+        """
+        model = self._model
+        pair = lanes or (model.pair if model is not None else None)
+        if model is None or pair is None or not self.group_id():
+            return None
+        parts = ALL_PARTS if self.part() == ALL_PARTS_ITEM else (self.part(),)
+        bounded = max(0, min(int(index), len(model.times) - 1)) if len(model.times) else 0
+        return SwapEvent(index=bounded, group=self.group_id(), lanes=pair, parts=parts)
+
+    def index_at(self, at: float) -> int | None:
+        """The sample index master time *at* falls on, or None with no braid."""
+        model = self._model
+        return model.index_at(at) if model is not None and len(model.times) else None
 
     def _selected_event(self) -> SwapEvent | None:
         node = self._selected_node()

@@ -294,3 +294,65 @@ def test_real_pointer_drag_crosses_two_lanes(panel, qtbot) -> None:
         qtbot.mouseMove(panel._braid.viewport(), pos=end)
         qtbot.mouseRelease(panel._braid.viewport(), Qt.MouseButton.LeftButton, pos=end)
     assert accepted.args[0].index == FLIP
+
+
+# ── swapping where the video is, not where a row is ──────────────────
+
+
+def test_the_playhead_swap_needs_no_selected_crossing(panel, qtbot) -> None:
+    """The gesture for a flip nothing proposed: watch, then say so."""
+    panel.show_model(_model())
+    assert panel._here.isEnabled()
+
+    with qtbot.waitSignal(panel.swap_here_requested):
+        panel._here.click()
+
+
+def test_a_frame_means_the_same_swap_however_it_was_reached(panel) -> None:
+    """The drag, the reviewed row and the playhead build one event.
+
+    Three gestures that disagreed about which lanes moved, or about whether a
+    part-scoped selection applied, would be three ways to write a different
+    sidecar from the same intent.
+    """
+    panel.show_model(_model(candidate=True))
+    panel._part_box.setCurrentIndex(PARTS.index("wrist") + 1)
+
+    from_playhead = panel.event_at(FLIP)
+
+    assert from_playhead is not None
+    assert from_playhead.index == FLIP
+    assert set(from_playhead.lanes) == set(LANES)
+    assert from_playhead.parts == ("wrist",)
+
+
+def test_the_playhead_swap_is_offered_only_with_a_pair_on_screen(qtbot) -> None:
+    widget = IdentityPanel()
+    qtbot.addWidget(widget)
+    widget.set_groups(SOURCE, [], {})
+
+    assert not widget._here.isEnabled()
+
+
+def test_a_time_off_the_end_still_names_a_real_frame(panel) -> None:
+    """A playhead past the tracking is clamped, never keyed out of range."""
+    panel.show_model(_model())
+
+    event = panel.event_at(10_000)
+
+    assert event is not None
+    assert event.index == FRAMES - 1
+
+
+# ── the side plots move the main timeline ────────────────────────────
+
+
+def test_clicking_the_separation_trace_seeks_the_main_video(panel, qtbot) -> None:
+    """Same time axis as the braid, and the closest approach is the moment."""
+    panel.show_model(_model())
+    times = _times()
+
+    with qtbot.waitSignal(panel.seek_requested) as caught:
+        panel._separation.getPlotItem().getViewBox().clicked.emit(float(times[FLIP]), 0.0)
+
+    assert caught.args[0] == pytest.approx(float(times[FLIP]))

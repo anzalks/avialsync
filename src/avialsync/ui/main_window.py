@@ -2782,6 +2782,7 @@ class MainWindow(QMainWindow):
             )
             panel.panel.seek_requested.connect(lambda at: self.player.seek(at, exact=True))
             panel.panel.play_region_requested.connect(self._play_identity_region)
+            panel.panel.swap_here_requested.connect(self._swap_at_playhead)
             panel.panel.detect_requested.connect(
                 lambda group, part: identity_view.detect(self, panel.panel.source_id(), group, part)
             )
@@ -2833,6 +2834,32 @@ class MainWindow(QMainWindow):
             return
         self.document.execute(SetIdentityGroupCommand(source_id, group), self._mutations)
         panel_window.panel.select_group(group.name)
+
+    def _swap_at_playhead(self) -> None:
+        """Swap the two identities on screen at wherever the clock is now.
+
+        The gesture for a flip nothing proposed: watch the video, see the
+        labels exchange, and say so without first finding a row for it. It
+        works while playing, because that is when a person sees one.
+        """
+        panel_window = self._identity_window
+        if panel_window is None or not isValid(panel_window):
+            return
+        panel = panel_window.panel
+        index = panel.index_at(self.clock.state.t)
+        if index is None:
+            return
+        event = panel.event_at(index)
+        if event is None:
+            return
+        identity_view.swap(self, panel.source_id(), event)
+        self.notifications.show_success(
+            tr("{a} and {b} swapped from frame {frame}. Undo reverses it.").format(
+                a=event.lanes[0],
+                b=event.lanes[1],
+                frame=corrections_controller.frame_for(self, panel.source_id(), event.index),
+            )
+        )
 
     def _refresh_identity_panel(self, source_id: str = "") -> None:
         """Start a registered braid job for the selected source, group and part."""
