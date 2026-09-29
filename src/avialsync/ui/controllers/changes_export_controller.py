@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QDialog
 
 from avialsync.core import dlc_export, pose_export
 from avialsync.ui.annotations import marker_rows
-from avialsync.ui.controllers import corrections_controller
+from avialsync.ui.controllers import corrections_controller, identity_controller
 from avialsync.ui.export_dialog import (
     ANNOTATIONS,
     CORRECTED_POSE,
@@ -63,21 +63,26 @@ def available_exports(window: MainWindow) -> list[ExportItem]:
             )
         )
 
-    for source_id in sorted(window.point_edits.source_ids()):
+    pose_sources = window.point_edits.source_ids() | window.identity_swaps.source_ids()
+    for source_id in sorted(pose_sources):
         source = Path(source_id)
         count = window.point_edits.count_for(source_id)
+        swaps = window.identity_swaps.count_for(source_id)
         items.append(
             ExportItem(
                 kind=CORRECTED_POSE,
-                title=tr("Corrected pose data — {source}").format(source=source.name),
+                title=tr("Edited pose data — {source}").format(source=source.name),
                 detail=tr(
-                    "A copy of the pose file with {n} correction(s) applied, for analysis. "
+                    "A copy of the pose file with {corrections} correction(s) and "
+                    "{swaps} identity swap(s) applied, for analysis. "
                     "The scorer is marked so it never reads as model output."
-                ).format(n=count),
+                ).format(corrections=count, swaps=swaps),
                 target=pose_export.corrected_copy_path(source),
                 source_id=source_id,
             )
         )
+        if not count:
+            continue
         video = corrections_controller.video_for(window, source_id)
         if not video:
             continue
@@ -128,7 +133,10 @@ def export_changes(window: MainWindow) -> None:
     items = available_exports(window)
     if not items:
         window.notifications.show_warning(
-            tr("There is nothing to export yet — flag a frame or correct a tracked point first.")
+            tr(
+                "There is nothing to export yet — flag a frame, correct a point, "
+                "or accept an identity swap first."
+            )
         )
         return
 
@@ -188,11 +196,23 @@ def _job_for(window: MainWindow, item: ExportItem) -> object | None:
         return AnnotationJob(target=item.target, rows=rows) if rows else None
 
     if item.kind == CORRECTED_POSE:
-        corrections = corrections_controller.corrections_by_frame(window, item.source_id)
-        if not corrections:
+        program = identity_controller.program_for(window, item.source_id)
+        if not program:
             return None
+        corrections: dict[int, dict[str, tuple[float, float]]] = {}
+        for (point, index), value in program.corrections.items():
+            frame = corrections_controller.frame_for(window, item.source_id, index)
+            corrections.setdefault(frame, {})[point] = value
+        routes = tuple(
+            (corrections_controller.frame_for(window, item.source_id, index), mapping)
+            for index, mapping in zip(program.boundaries, program.maps, strict=True)
+        )
         return CorrectedPoseJob(
-            source=Path(item.source_id), target=item.target, corrections=corrections
+            source=Path(item.source_id),
+            target=item.target,
+            corrections=corrections,
+            routes=routes,
+            swaps=window.identity_swaps.count_for(item.source_id),
         )
 
     if item.kind == RETRAINING_SET:

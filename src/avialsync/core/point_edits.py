@@ -148,9 +148,7 @@ class PointEditStore:
 
     # ── writing ──────────────────────────────────────────────────────
 
-    def set(
-        self, key: PointKey, position: tuple[float, float] | None, shown_as: str = ""
-    ) -> bool:
+    def set(self, key: PointKey, position: tuple[float, float] | None, shown_as: str = "") -> bool:
         """Override *key* with *position*, or clear it when *position* is None.
 
         *shown_as* is the name the point carried on screen at the moment of the
@@ -195,9 +193,7 @@ class PointEditStore:
         self._notify(None)
         return True
 
-    def load_source(
-        self, source_id: str, rows: list[tuple[int, str, float, float, str]]
-    ) -> None:
+    def load_source(self, source_id: str, rows: list[tuple[int, str, float, float, str]]) -> None:
         """Replace one source's corrections, leaving every other source alone.
 
         This is the read path -- adopting what a sidecar held when its pose file

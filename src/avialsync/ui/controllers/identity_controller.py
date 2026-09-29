@@ -84,7 +84,7 @@ def directories_for(window: MainWindow, source_id: str) -> dict[str, Path]:
     schema = schema_for(window, source_id)
     if cache is None or schema is None:
         return {}
-    generation = edited_cache(window, source_id)
+    generation = None if window._show_original_tracker else edited_cache(window, source_id)
     channels: dict[str, Path] = {}
     for point in schema.points:
         names = [point.channel(axis) for axis in point.axes]
@@ -272,9 +272,7 @@ def _adopt_generation(window: MainWindow, source_id: str, edited: edit_cache.Edi
     if not directories:
         return
 
-    window.plot_pane.read_channels_from(source_id, directories)
-    _repoint_overlays(window, source_id, directories)
-    _repoint_pose_3d(window, source_id, directories)
+    _repoint_source(window, source_id, directories)
 
     cache = cache_dir_for(window, source_id)
     if cache is not None:
@@ -286,6 +284,25 @@ def _adopt_generation(window: MainWindow, source_id: str, edited: edit_cache.Edi
         if source_id in sources:
             window._refresh_overlays(video)
     window._refresh_pose_3d()
+
+
+def apply_reader_view(window: MainWindow) -> None:
+    """Switch each pose source between imported and edited cache readers."""
+    for source_id in window._pose_schemas:
+        directories = directories_for(window, source_id)
+        if not directories:
+            continue
+        _repoint_source(window, source_id, directories)
+    for video in window._overlay_sources:
+        window._refresh_overlays(video)
+    window._refresh_pose_3d()
+
+
+def _repoint_source(window: MainWindow, source_id: str, directories: dict[str, Path]) -> None:
+    """Use the same reader switch for a new generation and the View action."""
+    window.plot_pane.read_channels_from(source_id, directories)
+    _repoint_overlays(window, source_id, directories)
+    _repoint_pose_3d(window, source_id, directories)
 
 
 def _repoint_overlays(window: MainWindow, source_id: str, directories: dict[str, Path]) -> None:

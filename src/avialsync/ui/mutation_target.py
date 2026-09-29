@@ -161,6 +161,19 @@ class WindowMutationTarget:
             window.overlay_state.set_visible(overlay_id, visible, camera)
             window._apply_overlay_state()
 
+    def set_original_tracker_visible(self, visible: bool) -> None:
+        """Repoint pose readers and keep the View action aligned during undo."""
+        from avialsync.ui.controllers import identity_controller
+
+        window = self._window
+        with self.replaying():
+            window._show_original_tracker = visible
+            action = window._act_show_original_tracker
+            blocked = action.blockSignals(True)
+            action.setChecked(visible)
+            action.blockSignals(blocked)
+            identity_controller.apply_reader_view(window)
+
     def set_tracked_point(
         self,
         source_id: str,

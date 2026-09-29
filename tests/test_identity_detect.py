@@ -155,9 +155,6 @@ def test_accepting_the_proposal_reconstructs_the_true_trajectories() -> None:
     program = build_program(SOURCE, swaps, PointEditStore())
 
     shown_x = np.array(
-        [
-            seen[program.source_of("testMouse_snout", index)].x[index]
-            for index in range(FRAMES)
-        ]
+        [seen[program.source_of("testMouse_snout", index)].x[index] for index in range(FRAMES)]
     )
     assert np.array_equal(shown_x, truth_a.x)

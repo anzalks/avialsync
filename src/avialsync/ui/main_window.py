@@ -45,6 +45,7 @@ from avialsync.core.commands import (
     ResetSessionCommand,
     SetChannelGroupVisibleCommand,
     SetChannelVisibleCommand,
+    SetOriginalTrackerVisibleCommand,
     SetOverlayVisibleCommand,
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
@@ -322,6 +323,7 @@ class MainWindow(QMainWindow):
         #: tracker rather than each one applying the swap for itself (D-142).
         self.identity_swaps = SwapStore()
         self.identity_swaps.observe(self._on_identity_swaps_changed)
+        self._show_original_tracker = False
         #: What each imported pose source is: its declared structure, where it
         #: was imported to, and which edited generation its readers are on.
         self._pose_schemas: dict[str, PoseSchema] = {}
@@ -579,10 +581,15 @@ class MainWindow(QMainWindow):
         self.player._readout_panel = self.readout_panel
 
         # Annotation panel
-        self.changes_panel = ChangesPanel(self.annotation_store, self.point_edits, self)
+        self.changes_panel = ChangesPanel(
+            self.annotation_store, self.point_edits, self.identity_swaps, self
+        )
         self.changes_panel.set_correction_resolver(self._locate_correction)
         self.changes_panel.revisit_requested.connect(self._revisit_change)
         self.changes_panel.delete_correction_requested.connect(self._restore_predicted_point)
+        self.changes_panel.delete_swap_requested.connect(
+            lambda source_id, event: identity_view.undo(self, source_id, event)
+        )
         self.plot_pane.set_annotation_store(self.annotation_store)
 
         # Messages the acquisition system recorded. A separate store from
@@ -1907,8 +1914,12 @@ class MainWindow(QMainWindow):
         self.changes_panel.set_export_action(act)
         self._require(
             act,
-            lambda: bool(self.annotation_store.markers) or len(self.point_edits) > 0,
-            tr("Flag a frame or correct a tracked point first — there is nothing to export yet."),
+            lambda: (
+                bool(self.annotation_store.markers)
+                or len(self.point_edits) > 0
+                or bool(self.identity_swaps.source_ids())
+            ),
+            tr("Flag a frame, correct a tracked point, or accept an identity swap first."),
         )
 
         self._recent_menu = file_menu.addMenu(tr("Recent Sessions"))
@@ -2156,6 +2167,15 @@ class MainWindow(QMainWindow):
         )
         self.wheel_tab.install_overlay_actions(
             self._overlay_actions["tracking.wheel"], self._overlay_actions["tracking.wheel_hidden"]
+        )
+        self._act_show_original_tracker = view_menu.addAction(tr("Show original tracker"))
+        self._act_show_original_tracker.setCheckable(True)
+        self._act_show_original_tracker.triggered.connect(self._set_show_original_tracker)
+        _reg(self._act_show_original_tracker, "View")
+        self._require(
+            self._act_show_original_tracker,
+            lambda: bool(self._pose_schemas),
+            tr("Import a pose source before comparing the original tracker."),
         )
         view_menu.addSeparator()
 
@@ -2792,24 +2812,36 @@ class MainWindow(QMainWindow):
         if panel is not None:
             panel.refresh()
 
+    def _set_show_original_tracker(self, visible: bool) -> None:
+        """Switch every pose reader through an undoable session view command."""
+        if visible == self._show_original_tracker:
+            return
+        self.document.execute(SetOriginalTrackerVisibleCommand(visible), self._mutations)
+
     def _refresh_identity_lane(self) -> None:
         """Show every accepted flip in the Data Streams lanes, in master time."""
         events: list[tuple[float, str]] = []
+        by_source: dict[str, list[tuple[float, str]]] = {}
         for source_id, event in self.identity_swaps:
             when = self._master_time_of_sample(source_id, event.index)
             if when is None:
                 continue
-            events.append(
-                (
-                    when,
-                    tr("{a} and {b} swap from frame {frame}").format(
-                        a=event.lanes[0],
-                        b=event.lanes[1],
-                        frame=corrections_controller.frame_for(self, source_id, event.index),
-                    ),
-                )
+            named = (
+                when,
+                tr("{a} and {b} swap from frame {frame}").format(
+                    a=event.lanes[0],
+                    b=event.lanes[1],
+                    frame=corrections_controller.frame_for(self, source_id, event.index),
+                ),
             )
+            events.append(named)
+            by_source.setdefault(source_id, []).append(named)
         self.transport.set_identity_events(sorted(events))
+        for source_id in self._pose_schemas:
+            self.sidebar.set_sensor_identity_count(
+                source_id, self.identity_swaps.count_for(source_id)
+            )
+            self.plot_pane.set_identity_events(source_id, by_source.get(source_id, []))
 
     def _master_time_of_sample(self, source_id: str, index: int) -> float | None:
         """When one sample of a pose source is shown on the master clock."""

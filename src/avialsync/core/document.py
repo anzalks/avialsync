@@ -124,6 +124,9 @@ class MutationTarget(Protocol):
     def set_overlay_visible(self, overlay_id: str, camera: str | None, visible: bool) -> None:
         """Show or hide a registered overlay layer, globally or for one camera."""
 
+    def set_original_tracker_visible(self, visible: bool) -> None:
+        """Choose the raw or edited pose cache for this session's readers."""
+
     def set_tracked_point(
         self,
         source_id: str,

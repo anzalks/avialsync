@@ -241,6 +241,7 @@ class PlotPane(QWidget):
         interactions = getattr(self, "_interactions", None)
         if interactions is not None:
             interactions.redraw_measure_lines()
+            interactions.redraw_identity_markers()
 
     def load_channels(
         self,
@@ -960,6 +961,10 @@ class PlotPane(QWidget):
     def set_gap_markers(self, channel_id: str, gap_times: list[float]) -> None:
         """Overlay thin red vertical lines at gap positions for one channel."""
         self._interactions.set_gap_markers(channel_id, gap_times)
+
+    def set_identity_events(self, source_id: str, events: list[tuple[float, str]]) -> None:
+        """Mark accepted flip boundaries on rows belonging to one pose source."""
+        self._interactions.set_identity_events(source_id, events)
 
     def set_annotation_store(self, store: AnnotationStore) -> None:
         """Subscribe to and render the authoritative annotation store."""

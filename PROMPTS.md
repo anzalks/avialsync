@@ -282,6 +282,10 @@ which numbered steps you completed and which remain.
   in hue is not separation in CVD space. Swapping the palette is a legal theme change; the
   redundant encoding beside it is not, and needs its own DECISIONS entry before it ships."
 
+## Identity repair kickoff (`feat/identity-swaps`)
+
+Read BLUEPRINT's Identity repair section and D-141–D-145. Continue one slice at a time: the headless event model and sidecar; the common edit program and derived cache; evidence detection and the interactive group/part braid; review surfaces; the single edited CSV export. A candidate is never applied without a user command. Keep the recording and imported cache untouched, and verify correction-before-routing against a multi-animal fixture. Run the focused tests after each slice, then the full project gate.
+
 ## Debugging prompt template (any phase)
 
 ```

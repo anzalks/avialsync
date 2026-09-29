@@ -163,6 +163,9 @@ class SessionState:
     #: is what lets a missing one be reported rather than silently obeyed. The
     #: events themselves appear here only when that file could not be written.
     identity_swaps: list[dict[str, Any]] = dataclasses.field(default_factory=list)
+    #: Session view choice: compare the estimator's imported tracker against
+    #: the edited generation without changing either one (D-145).
+    show_original_tracker: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-compatible dict (always writes version 10)."""
@@ -196,6 +199,7 @@ class SessionState:
             "session_start_time": self.session_start_time,
             "triggers": [dataclasses.asdict(entry) for entry in self.triggers],
             "identity_swaps": self.identity_swaps,
+            "show_original_tracker": self.show_original_tracker,
         }
 
     @classmethod
@@ -296,6 +300,7 @@ class SessionState:
             display_levels=data.get("display_levels") or {},
             point_edits=list(data.get("point_edits") or []),
             identity_swaps=list(data.get("identity_swaps") or []),
+            show_original_tracker=bool(data.get("show_original_tracker", False)),
         )
 
     def save(self, path: Path) -> None:

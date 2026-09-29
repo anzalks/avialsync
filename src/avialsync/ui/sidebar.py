@@ -161,6 +161,9 @@ class SensorInfoWidget(QFrame):
         )
         self._badge_btn.setVisible(False)
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
+        self.identity_count = QLabel(self)
+        self.identity_count.setAccessibleName(tr("Accepted identity swaps"))
+        self.identity_count.setVisible(False)
 
         #: Everything the badge reports comes from these three. Alignment is
         #: session state, not file state, so it arrives separately.
@@ -174,6 +177,7 @@ class SensorInfoWidget(QFrame):
         close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
 
         header.addWidget(name_lbl, stretch=1)
+        header.addWidget(self.identity_count)
         header.addWidget(self._badge_btn)
         header.addWidget(close_btn)
         layout.addLayout(header)
@@ -378,6 +382,12 @@ class SensorInfoWidget(QFrame):
 
         self._props_panel = SensorPropertiesPanel(_make_empty_inspection(path), parent=self)
         layout.addWidget(self._props_panel)
+
+    def set_identity_count(self, count: int) -> None:
+        """Show how many accepted flips this pose source carries."""
+        self.identity_count.setText(tr("⇄ {count}").format(count=count))
+        self.identity_count.setToolTip(tr("{count} accepted identity swap(s)").format(count=count))
+        self.identity_count.setVisible(count > 0)
 
     def _apply_filter(self, needle: str) -> None:
         """Show only channels matching *needle*, keeping their groups visible.
@@ -997,6 +1007,12 @@ class SidebarPane(QWidget):
             if True and widget.path == path:
                 return widget
         return None
+
+    def set_sensor_identity_count(self, path: str, count: int) -> None:
+        """Show the accepted flip count beside one loaded pose source."""
+        widget = self.sensor_widget(path)
+        if widget is not None:
+            widget.set_identity_count(count)
 
     def set_sensor_mapping(self, path: str, offset: float, drift_ppm: float) -> None:
         """Show a restored sensor mapping without re-emitting it."""

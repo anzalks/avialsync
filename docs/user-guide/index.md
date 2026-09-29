@@ -135,8 +135,7 @@ Use tooltips by resting the pointer over any button if you are unsure what it do
 
 ## Correcting a tracked point
 
-Pose estimates are sometimes wrong: an occluded nose lands on the wall, or a marker swaps between
-two animals. Select **Fix Tracker** under the videos, or **Edit → Fix Tracker**
+Pose estimates are sometimes wrong: an occluded nose lands on the wall. Select **Fix Tracker** under the videos, or **Edit → Fix Tracker**
 (`Ctrl+Shift+T`), to correct one by hand.
 
 - Every video view accepts corrections while the mode is on, and playback stops so the frame you
@@ -149,26 +148,30 @@ two animals. Select **Fix Tracker** under the videos, or **Edit → Fix Tracker*
 - **Edit → Undo** (`Ctrl+Z`) reverses corrections one drag at a time.
 - Zooming with the wheel and panning with the middle mouse button keep working while the mode is on.
 
+### Fixing switched identities
+
+Use **Edit → Fix Identities…** when the tracker starts following the wrong animal or confuses two keypoints such as left and right wrists. Choose an animal or left/right group, then one body part or **All parts**. The braid shows where trajectories approach, and the separation trace below it shows why a crossing might be plausible. **Detect** proposes crossings with motion and gap evidence; proposals do not change data.
+
+Drag a line after a crossing into the other lane to accept a swap from that frame onward. The drag snaps to the evidence node. Drag an accepted crossing back to remove that event, or use **Edit → Undo**. The viewer reads an edited cache generation after acceptance; the original pose file and imported cache stay untouched. **View → Show original tracker** temporarily shows the model's imported prediction for comparison; turn it off to return to the edited view. This view choice is saved with the session. Accepted swaps also appear in the Data Streams identity lane and the Changes tab.
+
 ### Reviewing and exporting what you changed
 
 The **Changes** tab lists everything you have done to the session in one place and in time order:
-flagged frames, labelled ranges, and corrected tracking points. Each row says when it happened,
+flagged frames, labelled ranges, corrected tracking points, and accepted identity swaps. Each row says when it happened,
 which recording it belongs to, and what it was — a correction names the body part, the coordinate,
 and the video frame.
 
 - Select a row to go back to it. AvialSync seeks there, selects the camera it belongs to, and rings
   the corrected point for a few seconds so you can see which one is meant.
 - Double-click an annotation's detail to rename it.
-- **Delete** removes the selected annotation, or restores a corrected point to what the model
-  predicted. Both are undoable with `Ctrl+Z`.
+- **Delete** removes the selected annotation or identity swap, or restores a corrected point to what the model predicted. Each deletion is undoable with `Ctrl+Z`.
 
 **Export…** in that tab, or **File → Export Changes…**, writes your work out. Only recordings with
 something to export are listed, each with a destination already filled in beside the data it came
 from, which you can edit or choose with **Browse**. Three things can be written:
 
 - **Annotations** — one CSV row per flag and camera.
-- **Corrected pose data** — a full copy of the pose file with your corrections applied, for
-  analysis. The scorer name is marked so the file never reads as raw model output, and a corrected
+- **Edited pose data** — one full copy of the pose file with your corrections and accepted identity swaps applied, for analysis. It is offered even if a swap is the only edit. The scorer name is marked so the file never reads as raw model output, and a corrected
   point's likelihood is set to 1.0 so that code filtering on likelihood does not throw your
   correction away.
 - **Retraining set (DeepLabCut)** — the corrected frames as `labeled-data`, with their images, ready
@@ -182,7 +185,7 @@ Nothing is written until you choose it, and your original pose files are never m
 
 Corrections are saved **next to the pose file**, in `<pose file>.avialfix.csv`, as soon as you make
 them — there is no separate save step, and closing without saving the session does not lose them.
-The file is an ordinary CSV of `frame,bodypart,x,y` with a commented header, so you can read it in
+The file is an ordinary CSV of `frame,bodypart,x,y,shown_as` with a commented header, so you can read it in
 pandas (`pd.read_csv(path, comment="#")`) or a spreadsheet and see exactly what was changed by hand.
 
 Your pose data is never modified. The imported CSV and its cache are not written to, so deleting the
@@ -196,8 +199,7 @@ showing fewer points. If the recording sits somewhere that cannot be written —
 acquisition on read-only media — the corrections are kept in the session instead and you are told
 so; save the session to keep them.
 
-Plots and the 3D pane continue to show the imported prediction; the correction applies to the video
-overlay.
+Accepted corrections and identity swaps are built into derived cache channels so consumers of an edited pose source agree about what is shown. Accepted swaps are saved beside the pose file in `<pose file>.avialswap.csv`; the original CSV and its imported cache are not changed.
 
 ## 3D tracking controls
 

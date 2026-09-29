@@ -1,7 +1,7 @@
 """Writing the user's own work out, off the UI thread.
 
 Every artifact the Export Changes dialog can produce is written here: the
-annotation CSV, a corrected copy of a pose file, and a DeepLabCut retraining set
+annotation CSV, an edited copy of a pose file, and a DeepLabCut retraining set
 with the frames it labels.  One worker rather than one per format, because they
 are selected together and the user wants one answer about whether it worked.
 
@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -40,12 +41,15 @@ class AnnotationJob:
 
 @dataclasses.dataclass
 class CorrectedPoseJob:
-    """Copy a pose file with its corrections applied."""
+    """Copy a pose file with its corrections and accepted identity swaps."""
 
     source: Path
     target: Path
     #: Video frame -> body part -> corrected ``(x, y)``.
     corrections: dict[int, dict[str, tuple[float, float]]]
+    #: Ascending frame boundaries and the display-to-source routing in force.
+    routes: tuple[tuple[int, Mapping[str, str]], ...] = ()
+    swaps: int = 0
 
 
 @dataclasses.dataclass
@@ -118,9 +122,12 @@ class ChangesExportWorker(QObject):
 
     @staticmethod
     def _write_corrected_pose(job: CorrectedPoseJob) -> str:
-        report = pose_export.write_corrected_copy(job.source, job.target, job.corrections)
+        report = pose_export.write_corrected_copy(
+            job.source, job.target, job.corrections, routes=job.routes
+        )
         line = (
-            f"{report.corrected_points} corrected point(s) in {report.rows} row(s) "
+            f"{report.corrected_points} corrected point(s), {job.swaps} identity swap(s) "
+            f"in {report.rows} row(s) "
             f"→ {job.target.name}"
         )
         if report.unmatched_frames:

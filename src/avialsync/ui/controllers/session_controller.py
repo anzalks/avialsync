@@ -178,6 +178,7 @@ def build_session_state(window: MainWindow) -> SessionState:
         overlays=window.overlay_state.to_dict(),
         point_edits=corrections_controller.build_manifest(window),
         identity_swaps=identity_controller.build_manifest(window),
+        show_original_tracker=window._show_original_tracker,
     )
 
 
@@ -404,6 +405,11 @@ def reset_session(window: MainWindow) -> None:
     window._pose_3d_sources.clear()
     window.point_edits.clear()
     window.identity_swaps.clear()
+    window._show_original_tracker = False
+    original_action = window._act_show_original_tracker
+    blocked = original_action.blockSignals(True)
+    original_action.setChecked(False)
+    original_action.blockSignals(blocked)
     window._pose_schemas.clear()
     window._pose_cache_dirs.clear()
     window._edited_generations.clear()
@@ -457,6 +463,11 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # right layers rather than flashing the defaults first (D-090).
     window.overlay_state.load(state.overlays)
     window._apply_overlay_state()
+    window._show_original_tracker = state.show_original_tracker
+    original_action = window._act_show_original_tracker
+    blocked = original_action.blockSignals(True)
+    original_action.setChecked(state.show_original_tracker)
+    original_action.blockSignals(blocked)
     # Corrections live beside their pose files, so this only takes up what the
     # session claims: the counts to check each source against as it imports, and
     # the coordinates for any source that had to fall back to session storage

@@ -414,6 +414,21 @@ function that implements it.
 
 ---
 
+## Identity repair — branch `feat/identity-swaps`
+
+**Goal:** let a reviewer repair a tracker's switched animal or keypoint labels from a frame onward, while retaining the raw recording and exporting one edited pose file (D-141–D-145).
+
+| Slice | Result | Acceptance evidence |
+|---|---|---|
+| Model and persistence | Declared groups, composable swap events, `.avialswap.csv`, and a correction's raw column plus displayed name | `test_identity_swaps.py`, `test_identity_flow.py` |
+| Edited data | One edit program materialised into affected cached channels; readers repoint after an accepted event; Show original switches them back for comparison | `test_identity_flow.py`, `test_aol_pose_routing.py` |
+| Evidence and gesture | Motion-based proposals, a group and part selector, a braid with separation evidence, and a drag that snaps to a node | `test_identity_detect.py`, `test_identity_panel.py` |
+| Review and export | Accepted flips in Data Streams, Changes, plot rows when present, and source counts; one corrected CSV for swaps and point corrections | `test_changes_panel.py`, `test_changes_export.py`, `test_pose_export.py` |
+
+The detector proposes only. An accepted event passes through the command bus; removing it is undoable. The exported file applies corrections to raw columns before routing identities. A swap-only source offers a pose copy, but no retraining set without hand-labelled frames.
+
+---
+
 ## Working method with AI agents (all phases)
 
 - One phase = one milestone = a series of small PR-sized tasks. Agents work from `PROMPTS.md` kickoff prompts + `AGENTS.md` standing rules.

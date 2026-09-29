@@ -22,6 +22,7 @@ from avialsync.core.inspection import SourceInspection
 from avialsync.core.point_edits import PointKey
 from avialsync.core.pose import PosePoint, PoseSchema
 from avialsync.core.pyramid import PyramidBuilder
+from avialsync.core.session import SessionState
 from avialsync.ui.controllers import identity_controller, identity_view, import_controller
 from avialsync.ui.main_window import MainWindow
 
@@ -197,6 +198,48 @@ def test_an_accepted_flip_is_written_beside_the_pose_file(qtbot, window, pose_so
     assert held.groups[0].point("testMouse", "snout") == "testMouse_snout"
 
 
+def test_an_accepted_flip_is_visible_and_can_be_deleted_from_changes(
+    qtbot, window, pose_source
+) -> None:
+    """The list, plot, and source badge describe the same accepted event."""
+    pose, cache, channels = pose_source
+    source = str(pose)
+    # This fixture registers the overlay directly; the normal import path also
+    # creates plot rows and a sidebar source, which this test needs to inspect.
+    window.sidebar.add_sensor(source, channels)
+    window.plot_pane.load_channels(cache, channels[:2], source_id=source)
+    window.plot_pane.wait_for_pending_rows()
+    event = SwapEvent(index=FLIP, group=ANIMALS, lanes=INDIVIDUALS)
+    identity_view.swap(window, source, event)
+    _settle(qtbot, window, source)
+
+    rows = window.changes_panel.rows
+    assert len(rows) == 1
+    assert rows[0].swap == event
+    assert rows[0].t_master == pytest.approx(FLIP / FPS)
+    assert "frame 60" in rows[0].detail
+    sensor = window.sidebar.sensor_widget(source)
+    assert sensor is not None
+    assert sensor.identity_count.text() == "⇄ 1"
+    assert sensor.identity_count.isVisibleTo(sensor)
+    assert window.plot_pane._interactions._identity_events[source][0][0] == pytest.approx(
+        FLIP / FPS
+    )
+    window.plot_pane.set_timeline_bounds(0.0, FRAMES / FPS)
+    window.plot_pane.set_cursor(FLIP / FPS, immediate=True)
+    window.plot_pane._interactions.redraw_identity_markers()
+    assert window.plot_pane._interactions._identity_items
+
+    window.changes_panel._table.selectRow(0)
+    window.changes_panel._on_delete()
+    assert window.identity_swaps.count_for(source) == 0
+    assert window.changes_panel.rows == []
+    assert not window.plot_pane._interactions._identity_items
+    assert not sensor.identity_count.isVisibleTo(sensor)
+    window.document.undo(window._mutations)
+    assert window.identity_swaps.count_for(source) == 1
+
+
 def test_undoing_the_flip_points_every_reader_home(qtbot, window, pose_source) -> None:
     source = str(pose_source[0])
     before = _shown(window, source, "testMouse_snout", FLIP)
@@ -208,6 +251,28 @@ def test_undoing_the_flip_points_every_reader_home(qtbot, window, pose_source) -
     qtbot.waitUntil(lambda: _shown(window, source, "testMouse_snout", FLIP) == before, timeout=5000)
 
     assert window.identity_swaps.count_for(source) == 0
+
+
+def test_show_original_switches_readers_without_losing_edits(qtbot, window, pose_source) -> None:
+    """The comparison view and its undo change readers, never the edit program."""
+    source = str(pose_source[0])
+    raw = _shown(window, source, "testMouse_snout", FLIP)
+    _accept(window, source)
+    _settle(qtbot, window, source)
+    edited = _shown(window, source, "testMouse_snout", FLIP)
+    assert edited != raw
+
+    window._act_show_original_tracker.trigger()
+    assert window._show_original_tracker
+    assert _shown(window, source, "testMouse_snout", FLIP) == raw
+    assert window.identity_swaps.count_for(source) == 1
+    state = SessionState.from_dict(window._build_session_state().to_dict())
+    assert state.show_original_tracker
+    assert not SessionState.from_dict({"version": 10}).show_original_tracker
+
+    window.document.undo(window._mutations)
+    assert not window._act_show_original_tracker.isChecked()
+    assert _shown(window, source, "testMouse_snout", FLIP) == edited
 
 
 def test_only_the_selected_part_moves_when_one_is_named(qtbot, window, pose_source) -> None:

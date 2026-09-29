@@ -31,6 +31,7 @@ __all__ = [
     "SetChannelVisibleCommand",
     "SetChannelGroupVisibleCommand",
     "SetOverlayVisibleCommand",
+    "SetOriginalTrackerVisibleCommand",
     "SetTrackedPointCommand",
     "SetIdentitySwapCommand",
     "SetCustomMarkerCommand",
@@ -247,6 +248,24 @@ class SetOverlayVisibleCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_overlay_visible(self.overlay_id, self.camera, not self.visible)
+
+
+@dataclasses.dataclass
+class SetOriginalTrackerVisibleCommand:
+    """Switch the pose readers between the raw and edited cache generations."""
+
+    visible: bool
+    command_id: str = "tracking.original_view"
+
+    @property
+    def label(self) -> str:
+        return "Show original tracker" if self.visible else "Show edited tracker"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_original_tracker_visible(self.visible)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_original_tracker_visible(not self.visible)
 
 
 @dataclasses.dataclass

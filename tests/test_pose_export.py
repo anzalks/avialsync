@@ -225,6 +225,57 @@ def test_a_multi_animal_copy_is_marked_in_every_scorer_column(tmp_path: Path) ->
     assert all(value.endswith(pose_export.SCORER_SUFFIX) for value in scorers[1:])
 
 
+def test_a_correction_follows_its_column_through_a_swap(tmp_path: Path) -> None:
+    """The exported pose must agree with the edited cache about both identities."""
+    source = _multi_animal_pose_file(tmp_path)
+    original = source.read_bytes()
+    target = tmp_path / "out.csv"
+    route = {"testMouse_snout": "conSpecific_snout", "conSpecific_snout": "testMouse_snout"}
+
+    report = pose_export.write_corrected_copy(
+        source,
+        target,
+        {1: {"conSpecific_snout": (99.0, 98.0)}},
+        routes=((1, route), (2, {})),
+    )
+
+    with target.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.reader(handle))[4:]
+    assert rows[0][1:7] == ["10.0", "20.0", "0.05", "11.0", "21.0", "0.05"]
+    assert rows[1][1:7] == ["99.0", "98.0", "1.0", "10.0", "20.0", "0.05"]
+    assert rows[2][1:7] == ["10.0", "20.0", "0.05", "11.0", "21.0", "0.05"]
+    assert report.corrected_points == 1
+    assert report.swapped_rows == 1
+    assert source.read_bytes() == original
+
+
+def test_the_corrected_copy_cannot_replace_the_recording(tmp_path: Path) -> None:
+    source = _pose_file(tmp_path)
+    original = source.read_bytes()
+
+    with pytest.raises(ValueError, match="different path"):
+        pose_export.write_corrected_copy(source, source, {})
+
+    assert source.read_bytes() == original
+
+
+def test_a_swap_keeps_every_field_of_a_point_together(tmp_path: Path) -> None:
+    """Depth and model diagnostics belong to the same identity as x and y."""
+    source = tmp_path / "pose.csv"
+    with source.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["scorer"] + [SCORER] * 8)
+        writer.writerow(["bodyparts"] + [part for part in ("left", "right") for _ in range(4)])
+        writer.writerow(["coords"] + ["x", "y", "z", "likelihood"] * 2)
+        writer.writerow([0, 1, 2, 3, 0.1, 10, 20, 30, 0.9])
+
+    pose_export.write_corrected_copy(
+        source, tmp_path / "out.csv", {}, routes=((0, {"left": "right", "right": "left"}),)
+    )
+
+    assert _read(tmp_path / "out.csv")[1][0][1:] == ["10", "20", "30", "0.9", "1", "2", "3", "0.1"]
+
+
 def test_the_default_output_sits_beside_the_source(tmp_path: Path) -> None:
     assert pose_export.corrected_copy_path(tmp_path / "eks.csv") == tmp_path / "eks_corrected.csv"
 

@@ -19,7 +19,10 @@ from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.core.dlc_export import LabeledFrame
+from avialsync.core.identity_groups import ANIMALS, groups_for_schema
+from avialsync.core.identity_swaps import SwapEvent
 from avialsync.core.point_edits import PointKey, PointMove
+from avialsync.core.pose_header import read_pose_header
 from avialsync.engine.changes_export_worker import (
     AnnotationJob,
     ChangesExportWorker,
@@ -215,6 +218,69 @@ def test_a_corrected_source_offers_both_of_its_artifacts(
     assert [item.kind for item in items] == [CORRECTED_POSE, RETRAINING_SET]
     assert items[0].target == tmp_path / "eks_corrected.csv"
     assert items[1].target.parts[-3:] == ("labeled-data", "cam", "CollectedData_avialsync.csv")
+
+
+def test_a_swap_alone_exports_one_edited_pose_copy(
+    window: MainWindow, tmp_path: Path, qtbot
+) -> None:
+    """A swap changes the tracker even if nobody hand-corrected a coordinate."""
+    from tests.test_pose_export import _multi_animal_pose_file
+
+    source = _multi_animal_pose_file(tmp_path)
+    header = read_pose_header(source)
+    assert header is not None
+    source_id = str(source)
+    window._pose_schemas[source_id] = header.pose_schema()
+    window.identity_swaps.set_groups(source_id, groups_for_schema(header.pose_schema()))
+    window.identity_swaps.add(
+        source_id,
+        SwapEvent(index=1, group=ANIMALS, lanes=("testMouse", "conSpecific")),
+    )
+
+    items = changes_export_controller.available_exports(window)
+    assert [item.kind for item in items] == [CORRECTED_POSE]
+    assert "1 identity swap(s)" in items[0].detail
+    assert window._act_export_changes.isEnabled()
+
+    job = changes_export_controller._job_for(window, items[0])
+    assert isinstance(job, CorrectedPoseJob)
+    results, errors = _run(ChangesExportWorker([job]), qtbot)
+    assert not errors
+    assert "1 identity swap(s)" in results[0][0]
+    with job.target.open(newline="", encoding="utf-8") as handle:
+        data = list(csv.reader(handle))[4:]
+    assert data[0][1:4] == ["10.0", "20.0", "0.05"]
+    assert data[1][1:4] == ["11.0", "21.0", "0.05"]
+
+
+def test_the_export_job_combines_the_same_program_as_the_viewer(
+    window: MainWindow, tmp_path: Path, qtbot
+) -> None:
+    """A correction on the raw column follows that trajectory through a flip."""
+    from tests.test_pose_export import _multi_animal_pose_file
+
+    source = _multi_animal_pose_file(tmp_path)
+    header = read_pose_header(source)
+    assert header is not None
+    source_id = str(source)
+    window._pose_schemas[source_id] = header.pose_schema()
+    window.identity_swaps.set_groups(source_id, groups_for_schema(header.pose_schema()))
+    window.identity_swaps.add(
+        source_id,
+        SwapEvent(index=1, group=ANIMALS, lanes=("testMouse", "conSpecific")),
+    )
+    window.point_edits.set(PointKey(source_id, "conSpecific_snout", 1), (99.0, 98.0))
+
+    item = changes_export_controller.available_exports(window)[0]
+    job = changes_export_controller._job_for(window, item)
+    assert isinstance(job, CorrectedPoseJob)
+    results, errors = _run(ChangesExportWorker([job]), qtbot)
+
+    assert not errors
+    assert "1 corrected point(s), 1 identity swap(s)" in results[0][0]
+    with job.target.open(newline="", encoding="utf-8") as handle:
+        data = list(csv.reader(handle))[4:]
+    assert data[1][1:7] == ["99.0", "98.0", "1.0", "10.0", "20.0", "0.05"]
 
 
 def test_the_retraining_set_is_not_ticked_by_default(window: MainWindow, tmp_path: Path) -> None:

@@ -9,14 +9,15 @@ look at that again" meant scrubbing for it by hand.
 So there is one panel.  It lists flagged frames, labelled ranges, and corrected
 tracking points together, because they are the same kind of thing — a human
 judgement laid over a recording — and a reviewer wants them in one place and in
-time order.  Selecting a row goes there: it seeks the master clock, selects the
-camera the change belongs to, and for a correction highlights the body part, so
+time order, including accepted identity swaps. Selecting a row goes there: it
+seeks the master clock, selects the camera the change belongs to, and for a
+correction highlights the body part, so
 landing on the right moment with nine markers on screen still tells you which
 one is meant.
 
 Deleting is the same gesture for both, and both go through the command bus:
-removing an annotation removes the marker, and removing a correction restores
-the model's own prediction (D-099).  Neither is a special case of the other.
+removing an annotation removes the marker, removing a correction restores the
+model's prediction, and removing a swap restores its previous routing (D-145).
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.core.identity_swaps import SwapEvent, SwapStore
 from avialsync.core.point_edits import PointEditStore, PointKey
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.annotations import AnnotationStore
@@ -67,6 +69,9 @@ class ChangeRow:
     marker_index: int | None = None
     #: Set for a correction row; the coordinate it corrected.
     point: PointKey | None = None
+    #: Set for an accepted identity swap, so Delete can undo that exact event.
+    swap: SwapEvent | None = None
+    swap_source_id: str = ""
     #: The camera to select on revisit, when the change names one.
     camera: str | None = None
     #: Editable in place for an annotation; corrections have no label.
@@ -82,16 +87,19 @@ class ChangesPanel(QGroupBox):
     #: Restoring a prediction is a mutation like any other and belongs on the
     #: undo stack, so the panel asks rather than writing the store (rule 14).
     delete_correction_requested = Signal(object)
+    delete_swap_requested = Signal(str, object)
 
     def __init__(
         self,
         annotations: AnnotationStore,
         corrections: PointEditStore,
+        swaps: SwapStore,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(tr("Changes"), parent)
         self._annotations = annotations
         self._corrections = corrections
+        self._swaps = swaps
         self._rows: list[ChangeRow] = []
         #: Resolves a correction to a time, a camera, and a frame number. Set by
         #: the window, which is the only thing that knows the pose sources.
@@ -111,7 +119,7 @@ class ChangesPanel(QGroupBox):
         self._table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
         self._table.setAccessibleName(tr("Changes made in this session"))
         self._table.setAccessibleDescription(
-            tr("Flagged frames, labelled ranges, and corrected tracking points")
+            tr("Flagged frames, labelled ranges, corrected points, and identity swaps")
         )
         self._table.itemChanged.connect(self._on_item_changed)
         self._table.itemSelectionChanged.connect(self._on_selection_changed)
@@ -124,7 +132,7 @@ class ChangesPanel(QGroupBox):
         buttons = QHBoxLayout()
         self._delete_button = QPushButton(tr("Delete"))
         self._delete_button.setToolTip(
-            tr("Remove the selected annotation, or restore the predicted point")
+            tr("Remove the selected annotation, correction, or identity swap")
         )
         self._delete_button.clicked.connect(self._on_delete)
         # The same QAction the File menu carries, not a second button with its
@@ -169,9 +177,9 @@ class ChangesPanel(QGroupBox):
         return list(self._rows)
 
     def refresh(self) -> None:
-        """Rebuild the table from both stores."""
+        """Rebuild the table from every store holding a user-made change."""
         self._rows = sorted(
-            self._annotation_rows() + self._correction_rows(),
+            self._annotation_rows() + self._correction_rows() + self._swap_rows(),
             # Unplaced rows sort last rather than to zero, where a fake time
             # would put them before everything that really happened first.
             key=lambda row: (row.t_master is None, row.t_master or 0.0, row.kind, row.where),
@@ -220,6 +228,29 @@ class ChangesPanel(QGroupBox):
             )
         return rows
 
+    def _swap_rows(self) -> list[ChangeRow]:
+        """List each accepted flip, including one whose pose has not loaded yet."""
+        rows: list[ChangeRow] = []
+        for source_id, event in self._swaps:
+            key = PointKey(source_id, "", event.index)
+            placed = self._resolver(key) if self._resolver is not None else None
+            t_master, camera, frame = placed if placed is not None else (None, None, event.index)
+            parts = tr("all parts") if not event.parts else ", ".join(event.parts)
+            rows.append(
+                ChangeRow(
+                    kind=tr("Identity swap"),
+                    t_master=None if t_master is None else float(t_master),
+                    where=_short(source_id),
+                    detail=tr("{a} ↔ {b} from frame {frame} ({parts})").format(
+                        a=event.lanes[0], b=event.lanes[1], frame=frame, parts=parts
+                    ),
+                    swap=event,
+                    swap_source_id=source_id,
+                    camera=camera,
+                )
+            )
+        return rows
+
     def _correction_rows(self) -> list[ChangeRow]:
         """One row per corrected coordinate, placed in time where possible.
 
@@ -232,13 +263,19 @@ class ChangesPanel(QGroupBox):
         for key, (x, y) in self._corrections.items():
             placed = self._resolver(key) if self._resolver is not None else None
             t_master, camera, frame = placed if placed is not None else (None, None, key.index)
+            shown = self._corrections.shown_as(key)
+            name = (
+                key.point
+                if shown == key.point
+                else tr("{column} (shown as {label})").format(column=key.point, label=shown)
+            )
             rows.append(
                 ChangeRow(
                     kind=tr("Correction"),
                     t_master=None if t_master is None else float(t_master),
                     where=_short(key.source_id),
                     detail=tr("{part} moved to ({x:.1f}, {y:.1f}) px at frame {frame}").format(
-                        part=key.point, x=x, y=y, frame=frame
+                        part=name, x=x, y=y, frame=frame
                     ),
                     point=key,
                     camera=camera,
@@ -278,6 +315,8 @@ class ChangesPanel(QGroupBox):
                 self._annotations.remove(change.marker_index)
             elif change.point is not None:
                 self.delete_correction_requested.emit(change.point)
+            elif change.swap is not None:
+                self.delete_swap_requested.emit(change.swap_source_id, change.swap)
 
     def _on_item_changed(self, item: QTableWidgetItem) -> None:
         """Apply an edited annotation label; corrections have none to edit."""

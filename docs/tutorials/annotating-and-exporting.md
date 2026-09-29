@@ -46,7 +46,7 @@ Everything is under **File**, and each export is a distinct job:
 
 | Export | What you get | Use it for |
 |---|---|---|
-| **Export Changes…** | One row per (marker, camera): `label`, `comment`, `t_master`, `video_path`, `frame_index`, `media_timestamp` — and, where you corrected tracking, the corrected pose data and a DeepLabCut retraining set | A corrections list for pose-model retraining |
+| **Export Changes…** | Annotation rows, one edited pose copy per source with corrections or accepted identity swaps, and a DeepLabCut retraining set when frames were hand-corrected | Analysis and pose-model retraining |
 | **Export Snapshot…** | A composed figure of the current moment | Figures, notes, lab reports |
 | **Export Trimmed Video Clip…** | The marked range, copied out of the source | Sharing a moment without re-encoding it |
 | **Export Data Slice…** | The marked range of the loaded signals | Analysis in another tool |

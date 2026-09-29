@@ -22,6 +22,7 @@ from avialsync.core.commands import (
     ResetSessionCommand,
     SetChannelVisibleCommand,
     SetIdentitySwapCommand,
+    SetOriginalTrackerVisibleCommand,
     SetOverlayVisibleCommand,
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
@@ -47,6 +48,7 @@ class FakeTarget:
         self.overlay_visible: dict[tuple[str, str | None], bool] = {}
         self.tracked_points: dict[tuple[str, str, int], tuple[float, float] | None] = {}
         self.identity_swaps: list[Any] = []
+        self.original_tracker_visible = False
         self.custom_markers: dict[tuple[str, int], Any] = {}
         self.wheels: dict[str, Any] = {}
         self.sources: dict[str, SourceRecord] = {}
@@ -77,6 +79,9 @@ class FakeTarget:
 
     def set_overlay_visible(self, overlay_id: str, camera: str | None, visible: bool) -> None:
         self.overlay_visible[(overlay_id, camera)] = visible
+
+    def set_original_tracker_visible(self, visible: bool) -> None:
+        self.original_tracker_visible = visible
 
     def set_tracked_point(
         self,
@@ -129,18 +134,21 @@ class FakeTarget:
             "mappings": dict(self.mappings),
             "markers": list(self.markers),
             "sources": dict(self.sources),
+            "original_tracker_visible": self.original_tracker_visible,
         }
 
     def restore_workspace(self, snapshot: Any) -> None:
         self.mappings = dict(snapshot["mappings"])
         self.markers = list(snapshot["markers"])
         self.sources = dict(snapshot["sources"])
+        self.original_tracker_visible = snapshot["original_tracker_visible"]
 
     def clear_workspace(self) -> None:
         self.cleared += 1
         self.mappings.clear()
         self.markers.clear()
         self.sources.clear()
+        self.original_tracker_visible = False
 
 
 @pytest.fixture()
@@ -166,6 +174,7 @@ def _all_commands() -> list[Any]:
         SetSourceVisibleCommand("cam1", visible=False),
         SetChannelVisibleCommand("ephys", "ch3", visible=False),
         SetOverlayVisibleCommand("tracking.legend", visible=False),
+        SetOriginalTrackerVisibleCommand(visible=True),
         SetIdentitySwapCommand(
             source_id="two.csv",
             event=SwapEvent(index=6810, group="animals", lanes=("testMouse", "conSpecific")),

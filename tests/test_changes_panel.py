@@ -117,6 +117,13 @@ def test_a_correction_still_lists_before_its_source_has_loaded(window: MainWindo
     assert rows[0].where == "loaded.csv"
 
 
+def test_a_correction_names_the_label_it_was_made_under(window: MainWindow) -> None:
+    key = PointKey("/not/loaded.csv", "mouse_b_nose", 7)
+    window.point_edits.set(key, (1.0, 2.0), "mouse_a_nose")
+
+    assert "mouse_b_nose (shown as mouse_a_nose)" in window.changes_panel.rows[0].detail
+
+
 def test_an_unplaced_change_has_no_time_rather_than_time_zero(window: MainWindow) -> None:
     """A fake time in a time-sorted column reads as a measurement, not a gap.
 

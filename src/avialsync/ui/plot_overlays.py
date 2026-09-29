@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QMenu
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_row import ChannelPlot
-from avialsync.ui.plot_theme import gap_marker_pen, measure_pen
+from avialsync.ui.plot_theme import gap_marker_pen, identity_marker_pen, measure_pen
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +132,36 @@ def redraw_gap_markers(
             line.setZValue(3)
             channel.plot_item.addItem(line)
             channel.gap_markers.append(line)
+
+
+def redraw_identity_markers(
+    channels: list[ChannelPlot],
+    events: dict[str, tuple[tuple[float, str], ...]],
+    display_x: Callable[[float], float | None],
+    palette: QPalette,
+    old_items: list[tuple[pg.PlotItem, pg.InfiniteLine]],
+) -> list[tuple[pg.PlotItem, pg.InfiniteLine]]:
+    """Draw accepted flips on the affected source's visible plot rows."""
+    for plot_item, line in old_items:
+        try:
+            plot_item.removeItem(line)
+        except RuntimeError:
+            logger.debug("Plot item was already deleted", exc_info=True)
+    pen = identity_marker_pen(palette)
+    new_items: list[tuple[pg.PlotItem, pg.InfiniteLine]] = []
+    for channel in channels:
+        if not channel.visible:
+            continue
+        for time, label in events.get(channel.reader.source_id, ()):
+            x = display_x(time)
+            if x is None:
+                continue
+            line = pg.InfiniteLine(pos=x, angle=90, movable=False, pen=pen)
+            line.setZValue(4)
+            line.setToolTip(label)
+            channel.plot_item.addItem(line)
+            new_items.append((channel.plot_item, line))
+    return new_items
 
 
 def redraw_annotations(

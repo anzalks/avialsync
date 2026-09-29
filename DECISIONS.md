@@ -5119,18 +5119,20 @@ cause rather than each instance:
 ```python
 @dataclass(frozen=True)
 class PosePoint:
-    individual: str              # "" for a format with no individuals
+    individual: str  # "" for a format with no individuals
     bodypart: str
-    axes: tuple[str, ...]        # ("x", "y") or ("x", "y", "z")
+    axes: tuple[str, ...]  # ("x", "y") or ("x", "y", "z")
     has_likelihood: bool
+
     @property
-    def name(self) -> str: ...   # the one place a canonical name is decided
+    def name(self) -> str: ...  # the one place a canonical name is decided
+
 
 @dataclass(frozen=True)
 class PoseSchema:
     points: tuple[PosePoint, ...]
     frame_indexed: bool
-    derived: tuple[str, ...]     # x_ens_var, nll, zscore — declared, never guessed
+    derived: tuple[str, ...]  # x_ens_var, nll, zscore — declared, never guessed
 ```
 
 `TimeSeriesSource` gains `pose_schema() -> PoseSchema | None`, defaulting to `None` — the same
@@ -5196,3 +5198,57 @@ Three behaviours changed with it:
 `core/` stays headless (rule 2); `core/pose.py` is ~200 lines. `tests/test_pose_schema.py` covers
 the naming rule, both header shapes, derived-column declaration, the manifest round trip, and that
 the names a schema reports address channels the loader actually emits.
+
+---
+
+## 2026-09 · D-141 · Identity flips are accepted events over declared lanes
+
+**Context:** a tracker can exchange two animals, or two keypoints such as left and right wrists, from one frame onward. A point correction cannot express that span.
+
+**Decision:** `SwapGroup` declares lanes, parts, and their pose point names. `SwapEvent` records a frame, two lanes, and either all parts or a selected subset. Events compose in frame order, are accepted only by a user command, and persist beside the recording in `.avialswap.csv`; the session records their count and retains events itself if the sidecar cannot be written.
+
+**Alternatives rejected:** rewriting raw CSV columns on acceptance destroys the model output; storing a correction for every later frame makes undo and provenance unmanageable; animal-only groups cannot repair swapped keypoints.
+
+**Consequences:** undo removes the exact accepted event; a later event can put identities back. A missing or damaged sidecar is reported without refusing to load the source.
+
+## 2026-09 · D-142 · One edit program drives every reader and the CSV export
+
+**Context:** applying swaps independently in the overlay, plots, 3D view, and export could show different identities at the same frame.
+
+**Decision:** `EditProgram` composes accepted swaps with sparse point corrections. `edit_cache` builds a fingerprinted generation under `<file>.avialcache/edited/` for affected channels, and readers switch to that generation. The corrected CSV writer consumes the program's correction and routing data. Raw recording and imported cache arrays remain untouched.
+
+**Alternatives rejected:** paint-time relabeling leaves plot queries and exports raw; duplicating the composition in each consumer creates competing authorities; copying every channel on every edit wastes time and disk.
+
+**Consequences:** a rebuild is a registered worker job. Unaffected channels keep reading the imported cache. A generation may be discarded and rebuilt from the sidecars; pruning touches only generations this module wrote.
+
+## 2026-09 · D-143 · A correction records both its column and its displayed name
+
+**Context:** a point dragged while labels are swapped has a raw column identity and a different on-screen identity. Losing either makes later undo or review misleading.
+
+**Decision:** `PointKey.point` names the raw column the coordinate changes; `shown_as` records the label visible when the correction was made. The sidecar and session carry both, and older sidecars default `shown_as` to the column name. Apply corrections before routing identities.
+
+**Alternatives rejected:** storing only the displayed label would move a correction to another trajectory when a swap is undone; storing only the column would erase what the reviewer judged on screen.
+
+**Consequences:** the Changes list can report both names; the correction follows its raw trajectory through later accepted swaps.
+
+## 2026-09 · D-144 · Flip detection presents evidence for one group and part
+
+**Context:** showing every trajectory in a multi-animal file makes crossings unreadable, while an automatic threshold cannot establish identity on its own.
+
+**Decision:** the Fix Identities panel shows one group and one part at a time, with an all-parts centroid choice. A worker proposes nodes using motion-predicted keep versus swap cost, closest approach, and gap evidence; it never accepts them. A drag snaps to a node and requests an undoable swap through the command bus.
+
+**Alternatives rejected:** auto-applying candidates invents certainty; a separate detector per UI view can disagree about the same event; rendering every body part together obscures the one being judged.
+
+**Consequences:** accepted crossings and candidates have distinct shapes, and a drag off an accepted crossing removes that event rather than recording a redundant opposite swap.
+
+## 2026-09 · D-145 · Export one edited pose copy and show every accepted flip
+
+**Context:** analysis needs one file representing all accepted tracking work. A swap without a point correction is still an edited source and must be exportable and visible.
+
+**Decision:** Export Changes offers one renamed pose CSV per source with either corrections or swaps. It streams each row, applies its raw-column corrections, then permutes all fields of each routed point; scorer names mark the file as edited. The source path cannot be the target path. Accepted flips appear in the Changes list, the Data Streams identity lane, pose plot rows when shown, and a count beside the source; deletion in Changes uses the command bus.
+
+**Comparison view:** View → Show original tracker points readers back to the imported cache without removing edits. It is an undoable session view choice, defaults off, and persists in the `.avv` session.
+
+**Alternatives rejected:** separate swap and correction exports can disagree and ask an analysis to combine them; silently overwriting the recording removes the evidence of what the estimator produced.
+
+**Consequences:** the export reports both edit counts, and a swap-only source offers no retraining set because there are no hand-labelled frames.

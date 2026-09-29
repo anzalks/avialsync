@@ -27,9 +27,7 @@ GROUP = SwapGroup(
     name=ANIMALS,
     lanes=LANES,
     parts=PARTS,
-    members=tuple(
-        (lane, part, f"{lane}_{part}") for lane in LANES for part in PARTS
-    ),
+    members=tuple((lane, part, f"{lane}_{part}") for lane in LANES for part in PARTS),
 )
 
 
@@ -63,9 +61,7 @@ def _model(*, accepted: bool = False, candidate: bool = False):
                 detail="came within 4.2 px",
             )
         )
-    return build_model(
-        lanes=LANES, times=times, routing=routing, nodes=nodes, tracks=_tracks()
-    )
+    return build_model(lanes=LANES, times=times, routing=routing, nodes=nodes, tracks=_tracks())
 
 
 @pytest.fixture

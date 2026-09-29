@@ -17,7 +17,7 @@ The shape is the one :mod:`avialsync.ui.relink_dialog` and
 table with a control per row, and a standard button box — because a dialog that
 invents its own layout reads as a different application's.
 
-Writing happens off the UI thread (architecture rule 3): a corrected copy of a
+Writing happens off the UI thread (architecture rule 3): an edited copy of a
 pose file is a full pass over hundreds of thousands of rows, and a retraining
 set decodes a video frame for every corrected image.
 """

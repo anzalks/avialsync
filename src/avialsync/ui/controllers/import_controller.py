@@ -330,6 +330,7 @@ def on_import_finished(
     )
     window._recompute_bounds()
     window.sidebar.add_sensor(path, channels)
+    window.sidebar.set_sensor_identity_count(path, window.identity_swaps.count_for(path))
     if user_offset or drift_ppm:
         window.sidebar.set_sensor_mapping(path, user_offset, drift_ppm)
     window._recorded_mappings[path] = (user_offset, drift_ppm)

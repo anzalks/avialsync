@@ -94,6 +94,16 @@ timestamp, value, and validity/gap information. CSV export may retain separated 
 but both formats must use searchsorted slice bounds and chunked writers instead of allocating a
 full-recording boolean mask.
 
+For a pose source, accepted identity swaps and point corrections form one edit program (D-142).
+Corrections address raw file columns and retain the label shown when they were made (D-143).
+Only affected channels are materialised into fingerprinted generations under
+`<file>.avialcache/edited/`; the imported arrays and original recording remain unchanged.
+The corrected pose CSV streams each row, substitutes raw-column corrections, then permutes all
+fields of routed points. A swap-only source also produces this single edited copy; the export
+path must differ from the recording path (D-145).
+View → Show original tracker switches the readers back to the imported arrays without altering the
+edit program or the corrected export, and the choice is persisted in the session.
+
 ## Required ground-truth workloads
 
 Accurate streaming is not certified until all of these pass:

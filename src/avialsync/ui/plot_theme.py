@@ -82,6 +82,13 @@ def gap_marker_pen(palette: QPalette) -> QPen:
     return QPen(pg.mkPen(color=evidence_color(palette, "gap"), width=1, style=Qt.PenStyle.DotLine))
 
 
+def identity_marker_pen(palette: QPalette) -> QPen:
+    """Dash a flip boundary in the same palette role as the identity lane."""
+    return QPen(
+        pg.mkPen(color=evidence_color(palette, "identity"), width=2, style=Qt.PenStyle.DashLine)
+    )
+
+
 def measure_pen(palette: QPalette, which: str) -> QPen:
     """Return the pen for the A or B measurement pin.
 
