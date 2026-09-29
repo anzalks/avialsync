@@ -478,3 +478,31 @@ def test_a_plain_csv_is_still_data_channels(qapp: QApplication, qtbot, tmp_path:
     qtbot.addWidget(dialog)
 
     assert dialog._role_combos[0].currentData() == ["", ""]
+
+
+def test_the_candidate_list_keeps_both_ends_of_a_name(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    """A DeepLabCut folder names everything after the same model and snapshot.
+
+    What tells `..._el.csv` from `..._full.mp4` is the tail, so cutting the
+    tail leaves a column of identical prefixes and nothing to choose between.
+    """
+    from PySide6.QtCore import Qt
+
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    stem = "Trial     2DLC_Resnet50_SocialInteractionsJAWSJan18shuffle1_snapshot_140"
+    dialog = BatchImportDialog(
+        [
+            (tmp_path / f"{stem}_el.csv", TrackingLoader, None),
+            (tmp_path / f"{stem}_full.mp4", None, None),
+        ]
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._table.textElideMode() == Qt.TextElideMode.ElideMiddle
+    names = [dialog._table.item(row, 0).text() for row in range(dialog._table.rowCount())]
+    assert any(name.endswith("_el.csv") for name in names)
+    # And the whole path stays reachable without guessing.
+    assert str(tmp_path) in dialog._table.item(0, 0).toolTip()

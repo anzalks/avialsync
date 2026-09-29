@@ -1004,3 +1004,44 @@ def test_remove_with_nothing_in_force_says_so(qtbot, window, pose_source) -> Non
     window._remove_identity_swap()
 
     assert "nothing to reverse" in window.notifications.message
+
+
+# ── a way back for a panel that was detached or lost ─────────────────
+
+
+def test_bring_panels_back_redocks_a_floating_panel(qtbot, window, pose_source) -> None:
+    """A dock dragged onto a screen that is later unplugged is otherwise gone."""
+    window._open_identity_panel()
+    panel = window._identity_window
+    panel.setFloating(True)
+    panel.move(-20000, -20000)
+    assert panel.isFloating()
+
+    window._bring_panels_back()
+
+    assert not panel.isFloating()
+    assert not panel.isHidden()
+
+
+def test_a_reopened_panel_is_never_left_off_every_screen(qtbot, window, pose_source) -> None:
+    from PySide6.QtGui import QGuiApplication
+
+    window._open_identity_panel()
+    panel = window._identity_window
+    panel.setFloating(True)
+    panel.move(-20000, -20000)
+
+    window._open_identity_panel()
+
+    assert QGuiApplication.screenAt(panel.frameGeometry().center()) is not None
+
+
+def test_bringing_panels_back_reopens_one_that_was_closed(qtbot, window, pose_source) -> None:
+    window._open_identity_panel()
+    panel = window._identity_window
+    panel.close()
+    assert panel.isHidden()
+
+    window._bring_panels_back()
+
+    assert not panel.isHidden()

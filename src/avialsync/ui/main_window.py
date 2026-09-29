@@ -14,6 +14,7 @@ from PySide6.QtGui import (
     QCloseEvent,
     QDragEnterEvent,
     QDropEvent,
+    QGuiApplication,
     QKeyEvent,
     QResizeEvent,
     QValidator,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
     QAbstractSpinBox,
     QApplication,
     QDialog,
+    QDockWidget,
     QFileDialog,
     QHBoxLayout,
     QLineEdit,
@@ -2204,6 +2206,10 @@ class MainWindow(QMainWindow):
             lambda: bool(self._pose_schemas),
             tr("Import a pose source before comparing the original tracker."),
         )
+        act = view_menu.addAction(tr("Bring Panels Back"))
+        act.setToolTip(tr("Re-dock every panel and move any stray window back onto this screen"))
+        act.triggered.connect(self._bring_panels_back)
+        _reg(act, "View")
         view_menu.addSeparator()
 
         # Workspaces: a session is looked at in more than one way, and
@@ -2806,6 +2812,8 @@ class MainWindow(QMainWindow):
             panel.visibilityChanged.connect(self._identity_dock_visibility_changed)
             self._identity_window = panel
         self._identity_window.show()
+        if self._identity_window.isFloating():
+            self._bring_onto_screen(self._identity_window)
         self._identity_window.raise_()
         if not self._identity_window.isFloating():
             self.resizeDocks(
@@ -2879,6 +2887,44 @@ class MainWindow(QMainWindow):
                 frame=corrections_controller.frame_for(self, panel.source_id(), event.index),
             )
         )
+
+    def _bring_panels_back(self) -> None:
+        """Re-dock and re-centre every panel this window owns.
+
+        A dock can be floated, dragged to a second screen, and left there --
+        and a screen can then be unplugged. Nothing in Qt brings it home, so
+        the panel is simply gone and reopening it shows it at the coordinates
+        it vanished at. This is the one command that undoes all of that,
+        whatever combination of detaching and closing got the user there.
+        """
+        for dock in self.findChildren(QDockWidget):
+            if dock.isFloating():
+                dock.setFloating(False)
+            dock.show()
+        for dialog in (
+            getattr(self, "_preferences_dialog", None),
+            getattr(self, "_sync_wizard", None),
+        ):
+            if dialog is not None and isValid(dialog) and dialog.isVisible():
+                self._bring_onto_screen(dialog)
+        self.notifications.show_success(tr("Panels are back on this window."))
+
+    def _bring_onto_screen(self, widget: QWidget) -> None:
+        """Move *widget* onto this window's screen when it is off every screen.
+
+        Reopening a dialog that was last closed on a monitor which is no longer
+        attached shows it at coordinates nothing can reach, which reads as the
+        command doing nothing at all.
+        """
+        if QGuiApplication.screenAt(widget.frameGeometry().center()) is not None:
+            return
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        frame = widget.frameGeometry()
+        frame.moveCenter(available.center())
+        widget.move(frame.topLeft())
 
     def _remove_identity_swap(self) -> None:
         """Reverse the swap in force where the video is.
@@ -3388,6 +3434,7 @@ class MainWindow(QMainWindow):
             self._preferences_dialog = PreferencesDialog(self)
             self._preferences_dialog.setting_changed.connect(self._on_setting_changed)
         self._preferences_dialog.show()
+        self._bring_onto_screen(self._preferences_dialog)
         self._preferences_dialog.raise_()
 
     def _on_setting_changed(self, key: str) -> None:

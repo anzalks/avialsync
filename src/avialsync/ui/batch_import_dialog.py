@@ -37,7 +37,8 @@ class BatchImportDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Review Import Candidates"))
-        self.setMinimumSize(600, 400)
+        # Wide enough that a lab filename keeps both ends after elision.
+        self.setMinimumSize(820, 400)
 
         #: Row names a session supplied, by path. A recording's streams are all
         #: read by the same loader and all live under directories named after
@@ -92,6 +93,11 @@ class BatchImportDialog(QDialog):
         self._table.horizontalHeader().setSectionResizeMode(
             1, QHeaderView.ResizeMode.ResizeToContents
         )
+        # A column of identical prefixes is what ElideRight gives you here: a
+        # DeepLabCut export names every artifact after the same model and
+        # snapshot, so what tells `..._el.csv` from `..._full.mp4` is the tail.
+        # The same reasoning, and the same choice, as `ui/elided_label.py`.
+        self._table.setTextElideMode(Qt.TextElideMode.ElideMiddle)
         self._table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self._table.verticalHeader().hide()
         layout.addWidget(self._table)
