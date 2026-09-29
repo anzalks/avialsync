@@ -176,9 +176,10 @@ def on_drop_scan_finished(
     if len(candidates) == 1:
         # An unclaimed file must stay selectable in the review. This also
         # covers File → Open Data, which enters through the drop scanner.
-        # A standalone pose-capable file still needs the user's declaration:
-        # the loader can parse coordinates but cannot know which camera or
-        # whether this recording treats them as 2D or 3D evidence.
+        # A standalone pose-capable file still goes to the dialog, but the
+        # dialog now arrives with the answer filled in when the file names its
+        # own camera (D-146): defaulting it to plain channels is how a pose
+        # file became eighty-one plotted columns that still drew dots.
         _, loader_cls, config = candidates[0]
         if loader_cls is None or (
             issubclass(loader_cls, TimeSeriesSource)

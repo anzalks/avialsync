@@ -5252,3 +5252,38 @@ the names a schema reports address channels the loader actually emits.
 **Alternatives rejected:** separate swap and correction exports can disagree and ask an analysis to combine them; silently overwriting the recording removes the evidence of what the estimator produced.
 
 **Consequences:** the export reports both edit counts, and a swap-only source offers no retraining set because there are no hand-labelled frames.
+
+## 2026-09 · D-146 · A tracking file that names its camera is imported as that camera's pose
+
+**Context.** Fix Identities stayed greyed out on a session whose 2D overlay was visibly working.
+The overlay was working for the wrong reason: `plot_pane.sources_changed` hands every plotted
+channel to the video panes as *loose readers*, so a pose file imported as plain channels still
+draws dots on the video (D-139). Everything looked right, and nothing knew the file was a pose —
+no `PoseSchema`, no identity groups, no correctable points, and a disabled menu item whose tooltip
+asked the user to import data they had already imported.
+
+The cause was a default. `BatchImportDialog` offers "Data channels", "3D pose", and "2D pose on
+<camera>", and selected the first whenever the import config declared no role. Only
+`aol_session_loader` ever declares one, so every pose file opened by drop or File → Open Data
+arrived as eighty-one plotted columns unless the user found the role column and changed it.
+
+**Decision.** When the config declares no role and the loader offers `overlay2d`, the dialog
+defaults to the camera the file is *named after* — `FrontCam_eks.csv` on `FrontCam.mp4` — or to the
+only loaded video when there is just one. Several cameras and no name match keeps "Data channels"
+and leaves the choice with the person, which is what the dialog is for. An explicitly declared role
+always wins, so a session loader's declaration is never overridden.
+
+The prefix rule now lives in `core/rig_naming.py::match_label` and `aol_session_loader._match_camera`
+delegates to it. Two implementations of "is this file that camera's" would eventually disagree
+about somebody's recording (rule 15).
+
+**Alternatives rejected:** reading the file's header in the dialog to tell 2D from 3D (file IO on
+the UI thread, and the dialog deliberately knows no format by name); inferring the role in
+`register_tracking_source` after the import (too late — the channels are already pyramided and
+plotted); removing the loose-reader overlay path so a mis-imported pose looks wrong (it would break
+D-139, which exists so a hand-made marker file still draws).
+
+**Consequence.** A dropped DeepLabCut or LightningPose CSV whose name carries its camera now
+overlays that camera and is correctable, and the identity work applies to it. This reverses the
+note in `drop_controller` that "a standalone pose-capable file still needs the user's declaration":
+it still does when the file does not say, and the file usually says.

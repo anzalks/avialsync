@@ -18,6 +18,7 @@ from typing import Any
 
 from avialsync.core.custom_markers import is_custom_marker_path
 from avialsync.core.pose import split_channel
+from avialsync.core.rig_naming import match_label
 from avialsync.core.source import RotaryHint, SessionItem, SessionLayout, SessionSource
 
 logger = logging.getLogger(__name__)
@@ -486,15 +487,11 @@ def _collect_extracted_metrics(
 def _match_camera(stem: str, camera_labels: list[str]) -> str | None:
     """Resolve a file stem to one of the session's cameras.
 
-    Longest label first so ``SideCam`` cannot be shadowed by a shorter prefix,
-    and empty labels are never used as a match (an empty token would otherwise
-    match every filename).
+    The rule lives in :func:`avialsync.core.rig_naming.match_label`, because the
+    import dialog answers the same question about a dropped pose file and two
+    implementations of "is this file that camera's" would eventually disagree.
     """
-    lowered = stem.lower()
-    for label in sorted((c for c in camera_labels if c), key=len, reverse=True):
-        if lowered.startswith(label.lower()):
-            return label
-    return None
+    return match_label(stem, camera_labels)
 
 
 def _add_root_videos(session_dir: Path, manifest: AOLManifest) -> None:

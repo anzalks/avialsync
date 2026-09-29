@@ -396,3 +396,85 @@ def test_session_pose_declaration_remains_selected_in_import_review(
     qtbot.addWidget(dialog)
 
     assert dialog.get_selections() == [(path, AOLEksLoader, config)]
+
+
+# ── a pose file that names its own camera (D-146) ─────────────────────
+
+
+def test_a_tracking_file_defaults_to_the_camera_it_is_named_after(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    """Defaulting to Data channels is how a pose file becomes 81 plotted columns.
+
+    It still draws dots, because the overlay accepts loose readers, so
+    everything looks right while nothing knows it is a pose: no schema, no
+    corrections, and Fix Identities greyed out with no way to find out why.
+    """
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    dialog = BatchImportDialog(
+        [(tmp_path / "FrontCam_eks.csv", TrackingLoader, None)],
+        video_paths=["/data/FaceCam.mp4", "/data/FrontCam.mp4", "/data/SideCam.mp4"],
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._role_combos[0].currentData() == ["overlay2d", "/data/FrontCam.mp4"]
+    _path, _loader, config = dialog.get_selections()[0]
+    assert config == {"role": "overlay2d", "overlay_video": "/data/FrontCam.mp4"}
+
+
+def test_one_camera_needs_no_name_match(qapp: QApplication, qtbot, tmp_path: Path) -> None:
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    dialog = BatchImportDialog(
+        [(tmp_path / "predictions.csv", TrackingLoader, None)],
+        video_paths=["/data/only.mp4"],
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._role_combos[0].currentData() == ["overlay2d", "/data/only.mp4"]
+
+
+def test_several_cameras_and_no_match_leaves_the_choice_with_the_person(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    """The dialog exists for the genuinely ambiguous case; guessing is worse."""
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    dialog = BatchImportDialog(
+        [(tmp_path / "predictions.csv", TrackingLoader, None)],
+        video_paths=["/data/FaceCam.mp4", "/data/SideCam.mp4"],
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._role_combos[0].currentData() == ["", ""]
+
+
+def test_what_the_session_declared_still_wins(qapp: QApplication, qtbot, tmp_path: Path) -> None:
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    dialog = BatchImportDialog(
+        [
+            (
+                tmp_path / "FrontCam_eks.csv",
+                TrackingLoader,
+                {"role": "overlay2d", "overlay_video": "/data/SideCam.mp4"},
+            )
+        ],
+        video_paths=["/data/FrontCam.mp4", "/data/SideCam.mp4"],
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._role_combos[0].currentData() == ["overlay2d", "/data/SideCam.mp4"]
+
+
+def test_a_plain_csv_is_still_data_channels(qapp: QApplication, qtbot, tmp_path: Path) -> None:
+    from avialsync.loaders.csv_loader import CSVLoader
+
+    dialog = BatchImportDialog(
+        [(tmp_path / "FrontCam_forces.csv", CSVLoader, None)],
+        video_paths=["/data/FrontCam.mp4"],
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._role_combos[0].currentData() == ["", ""]

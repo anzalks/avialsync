@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.registry import LoaderRegistry
+from avialsync.core.rig_naming import match_label
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.ui.i18n import tr
 
@@ -198,9 +199,39 @@ class BatchImportDialog(QDialog):
                         tr("2D pose on {video}").format(video=Path(video).name),
                         ["overlay2d", video],
                     )
+        if wanted == ["", ""]:
+            wanted = self._declared_by_the_file(row, loader) or wanted
         index = combo.findData(wanted)
         combo.setCurrentIndex(index if index >= 0 else 0)
         combo.setEnabled(combo.count() > 1)
+
+    def _declared_by_the_file(self, row: int, loader: object) -> list[str] | None:
+        """The pose use this file names for itself, when it names one.
+
+        A tracking file whose name says which camera it came from has already
+        answered the question the combo asks, and defaulting it to *Data
+        channels* is how a pose file gets imported as eighty-one plotted
+        columns. It still draws dots on the video -- the overlay accepts loose
+        readers -- so everything looks right while nothing knows it is a pose:
+        no schema, no corrections, and Fix Identities greyed out with no way to
+        find out why.
+
+        Only when it is unambiguous. One loaded video, or exactly one whose
+        name this file is named after; several cameras and no match keeps the
+        choice with the person, which is what the dialog is for.
+        """
+        if not isinstance(loader, type) or not issubclass(loader, TimeSeriesSource):
+            return None
+        if "overlay2d" not in loader.pose_roles():
+            return None
+        path = self._candidates[row][0]
+        stems = {Path(video).stem: video for video in self._video_paths}
+        named = match_label(path.stem, stems)
+        if named is not None:
+            return ["overlay2d", stems[named]]
+        if len(self._video_paths) == 1:
+            return ["overlay2d", self._video_paths[0]]
+        return None
 
     def get_selections(
         self,
