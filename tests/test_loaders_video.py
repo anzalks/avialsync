@@ -256,3 +256,33 @@ def test_an_unreadable_file_is_declined_rather_than_raising(tmp_path: Path) -> N
 
     assert VideoStandardLoader.can_open(junk) == 0.0
     assert VideoStandardLoader.can_open(tmp_path / "absent.unknown") == 0.0
+
+
+# ── sidecars beside a recording are not cameras (D-139) ──────────────
+
+
+def test_a_deeplabcut_pickle_is_not_claimed_as_video(tmp_path) -> None:
+    """DLC writes ``.pickle``, never ``.pkl``, beside the recording.
+
+    FFmpeg's detection is permissive enough to find a "video stream" in one,
+    which opened a four-frame camera pane that then failed on every decode.
+    """
+    from avialsync.loaders.video_standard import VideoStandardLoader
+
+    path = tmp_path / "TrialDLC_resnet50_full.pickle"
+    path.write_bytes(b"\x80\x04\x95" + b"\x00" * 512)
+
+    assert VideoStandardLoader.can_open(path) == 0.0
+
+
+def test_every_pickle_spelling_is_excluded() -> None:
+    from avialsync.loaders.video_standard import _NOT_VIDEO_SUFFIXES
+
+    assert {".pkl", ".pickle"} <= _NOT_VIDEO_SUFFIXES
+
+
+def test_the_dlc_sidecars_beside_a_recording_are_all_excluded() -> None:
+    """The set a DeepLabCut run leaves next to the video it analysed."""
+    from avialsync.loaders.video_standard import _NOT_VIDEO_SUFFIXES
+
+    assert {".csv", ".h5", ".pickle"} <= _NOT_VIDEO_SUFFIXES

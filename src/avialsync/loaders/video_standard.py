@@ -91,6 +91,13 @@ _NOT_VIDEO_SUFFIXES = frozenset(
         ".mat",
         ".parquet",
         ".pkl",
+        # DeepLabCut writes its detections, assemblies and metadata as
+        # ``.pickle``, never ``.pkl``, and those files sit in the same folder as
+        # the recording they describe. FFmpeg's detection is permissive enough
+        # to find a "video stream" in one -- a four-frame 25 fps container that
+        # then raises InvalidDataError on the first decode, after blocking the
+        # UI thread for seconds probing it (D-139).
+        ".pickle",
         ".zip",
         ".gz",
         # Audio: openable, but it has no video stream to find.
