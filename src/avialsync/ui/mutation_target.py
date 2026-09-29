@@ -212,6 +212,23 @@ class WindowMutationTarget:
         with self.replaying():
             identity_controller.apply(self._window, source_id, event, accept=accepted)
 
+    def set_identity_group(self, source_id: str, group: object, present: bool) -> None:
+        """Persist an undoable group declaration without rebuilding pose values."""
+        from avialsync.core.identity_swaps import SwapGroup
+        from avialsync.ui.controllers import identity_controller
+
+        if not isinstance(group, SwapGroup):
+            return
+        window = self._window
+        with self.replaying():
+            changed = (
+                window.identity_swaps.add_group(source_id, group)
+                if present
+                else window.identity_swaps.remove_group(source_id, group.name)
+            )
+            if changed:
+                identity_controller.persist(window, source_id)
+
     def set_custom_marker(self, name: str, frame: int, marker: object) -> None:
         """Place, move, or delete a hand-placed 3D marker, then write its files.
 

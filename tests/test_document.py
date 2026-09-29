@@ -21,6 +21,7 @@ from avialsync.core.commands import (
     RemoveSourceCommand,
     ResetSessionCommand,
     SetChannelVisibleCommand,
+    SetIdentityGroupCommand,
     SetIdentitySwapCommand,
     SetOriginalTrackerVisibleCommand,
     SetOverlayVisibleCommand,
@@ -34,7 +35,7 @@ from avialsync.core.document import (
     MutationTarget,
     SourceRecord,
 )
-from avialsync.core.identity_swaps import SwapEvent
+from avialsync.core.identity_swaps import SwapEvent, SwapGroup
 
 
 class FakeTarget:
@@ -48,6 +49,7 @@ class FakeTarget:
         self.overlay_visible: dict[tuple[str, str | None], bool] = {}
         self.tracked_points: dict[tuple[str, str, int], tuple[float, float] | None] = {}
         self.identity_swaps: list[Any] = []
+        self.identity_groups: list[tuple[str, Any]] = []
         self.original_tracker_visible = False
         self.custom_markers: dict[tuple[str, int], Any] = {}
         self.wheels: dict[str, Any] = {}
@@ -105,6 +107,13 @@ class FakeTarget:
                 self.identity_swaps.append(held)
         elif held in self.identity_swaps:
             self.identity_swaps.remove(held)
+
+    def set_identity_group(self, source_id: str, group: Any, present: bool) -> None:
+        held = (source_id, group)
+        if present and held not in self.identity_groups:
+            self.identity_groups.append(held)
+        elif not present and held in self.identity_groups:
+            self.identity_groups.remove(held)
 
     def set_custom_marker(self, name: str, frame: int, marker: Any) -> None:
         if marker is None:
@@ -179,6 +188,15 @@ def _all_commands() -> list[Any]:
             source_id="two.csv",
             event=SwapEvent(index=6810, group="animals", lanes=("testMouse", "conSpecific")),
             accepted=True,
+        ),
+        SetIdentityGroupCommand(
+            source_id="two.csv",
+            group=SwapGroup(
+                name="custom:tail",
+                lanes=("A", "B"),
+                parts=("tail",),
+                members=(("A", "tail", "a_tail"), ("B", "tail", "b_tail")),
+            ),
         ),
         AcceptSyncCommand("cam1", before=(0.0, 0.0), after=(0.5, 1.0), evidence={"n": 47}),
         AddSourceCommand(_source("cam9")),

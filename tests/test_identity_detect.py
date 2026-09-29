@@ -9,6 +9,8 @@ to give back the trajectories the corruption was applied to, exactly.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 from avialsync.core import identity_detect
@@ -125,6 +127,18 @@ def test_the_centroid_ignores_a_part_the_model_lost() -> None:
     middle = identity_detect.centroid([present, missing])
 
     assert middle.x[0] == 1.0
+    assert middle.x[1] == 4.0
+
+
+def test_a_wholly_missing_frame_remains_nan_without_a_warning() -> None:
+    missing = Trajectory(np.array([np.nan, 4.0]), np.array([np.nan, 8.0]))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", RuntimeWarning)
+        middle = identity_detect.centroid([missing, missing])
+        assert not [warning for warning in caught if issubclass(warning.category, RuntimeWarning)]
+
+    assert np.isnan(middle.x[0]) and np.isnan(middle.y[0])
     assert middle.x[1] == 4.0
 
 

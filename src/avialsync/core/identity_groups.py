@@ -25,8 +25,12 @@ from avialsync.core.pose import PoseSchema
 __all__ = [
     "ANIMALS",
     "SIDES",
+    "CUSTOM",
     "LEFT",
     "RIGHT",
+    "group_id",
+    "split_group_id",
+    "is_custom",
     "groups_for_schema",
     "side_of",
 ]
@@ -36,6 +40,16 @@ ANIMALS = "animals"
 #: Group id prefix for left-against-right within one animal.  A multi-animal
 #: file gets one per individual: ``sides:testMouse``.
 SIDES = "sides"
+#: Group id prefix for a pair of lanes the *user* declared, which no schema can
+#: derive: ``custom:front paws``.
+CUSTOM = "custom"
+
+#: Separates a group's kind from what qualifies it.  One character, defined
+#: once: a group id is written into the swap sidecar beside the pose file, so
+#: four places testing for a prefix with a string literal is four places that
+#: can disagree about what a persisted identifier means (rule 15, and the same
+#: defect D-140 exists to prevent).
+_QUALIFIER = ":"
 
 LEFT = "left"
 RIGHT = "right"
@@ -54,6 +68,22 @@ _SIDE_TOKENS = {
 _GLUED_TOKENS = {"left": LEFT, "right": RIGHT}
 
 _SEPARATORS = ("_", "-", ".")
+
+
+def group_id(kind: str, qualifier: str = "") -> str:
+    """The persisted id of a group of *kind*, qualified when it needs to be."""
+    return f"{kind}{_QUALIFIER}{qualifier}" if qualifier else kind
+
+
+def split_group_id(identifier: str) -> tuple[str, str]:
+    """Split a group id into ``(kind, qualifier)``; the qualifier may be empty."""
+    kind, separator, qualifier = identifier.partition(_QUALIFIER)
+    return (kind, qualifier) if separator else (identifier, "")
+
+
+def is_custom(identifier: str) -> bool:
+    """Whether this group was declared by the user rather than derived."""
+    return split_group_id(identifier)[0] == CUSTOM
 
 
 def side_of(bodypart: str) -> tuple[str, str] | None:
@@ -140,7 +170,7 @@ def _sides(schema: PoseSchema) -> list[SwapGroup]:
         )
         if not stems:
             continue
-        name = f"{SIDES}:{individual}" if individual else SIDES
+        name = group_id(SIDES, individual)
         groups.append(
             SwapGroup(
                 name=name,

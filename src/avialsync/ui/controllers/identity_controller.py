@@ -29,8 +29,8 @@ from typing import TYPE_CHECKING, Any
 from avialsync.core import edit_cache, identity_sidecar
 from avialsync.core.edit_program import EditProgram
 from avialsync.core.edit_program import build as build_program
-from avialsync.core.identity_groups import groups_for_schema
-from avialsync.core.identity_swaps import SwapEvent
+from avialsync.core.identity_groups import groups_for_schema, is_custom
+from avialsync.core.identity_swaps import SwapEvent, SwapGroup
 from avialsync.core.pose import PoseSchema
 from avialsync.engine.identity_worker import MaterialiseWorker
 from avialsync.ui.i18n import tr
@@ -163,6 +163,7 @@ def adopt(window: MainWindow, source_id: str) -> None:
     schema = schema_for(window, source_id)
     if schema is not None:
         window.identity_swaps.set_groups(source_id, groups_for_schema(schema))
+    window.identity_swaps.adopt_groups(source_id, window._expected_swap_groups.pop(source_id, ()))
     # Declaring lanes is not an edit, so the store does not notify -- but it is
     # exactly what decides whether Fix Identities has anything to act on, and a
     # command that greys out with its reason has to be told (D-107).
@@ -284,6 +285,7 @@ def _adopt_generation(window: MainWindow, source_id: str, edited: edit_cache.Edi
         if source_id in sources:
             window._refresh_overlays(video)
     window._refresh_pose_3d()
+    window._refresh_identity_panel()
 
 
 def apply_reader_view(window: MainWindow) -> None:
@@ -296,6 +298,7 @@ def apply_reader_view(window: MainWindow) -> None:
     for video in window._overlay_sources:
         window._refresh_overlays(video)
     window._refresh_pose_3d()
+    window._refresh_identity_panel()
 
 
 def _repoint_source(window: MainWindow, source_id: str, directories: dict[str, Path]) -> None:
@@ -328,9 +331,17 @@ def _repoint_pose_3d(window: MainWindow, source_id: str, directories: dict[str, 
 
 
 def build_manifest(window: MainWindow) -> list[dict[str, Any]]:
-    """Describe each source's flips for the ``.avv``."""
+    """Describe flips and fallback group declarations for the ``.avv``."""
     manifest: list[dict[str, Any]] = []
-    for source_id in sorted(window.identity_swaps.source_ids()):
+    sources = window.identity_swaps.source_ids() | set(window._swap_storage)
+    for source_id in sorted(sources):
+        custom = [
+            group.as_dict()
+            for group in window.identity_swaps.groups_for(source_id)
+            if is_custom(group.name)
+        ]
+        if not custom and not window.identity_swaps.count_for(source_id):
+            continue
         storage = window._swap_storage.get(source_id, SIDECAR)
         entry: dict[str, Any] = {
             "source": source_id,
@@ -341,6 +352,7 @@ def build_manifest(window: MainWindow) -> list[dict[str, Any]]:
             # The fallback: the flips themselves, because nothing beside the
             # pose file could hold them.
             entry["swaps"] = window.identity_swaps.to_list(source_id)
+            entry["groups"] = custom
         manifest.append(entry)
     return manifest
 
@@ -348,6 +360,7 @@ def build_manifest(window: MainWindow) -> list[dict[str, Any]]:
 def restore_manifest(window: MainWindow, manifest: list[dict[str, Any]] | None) -> None:
     """Take what a session recorded, and check it as each source imports."""
     window._expected_swap_counts.clear()
+    window._expected_swap_groups.clear()
     for entry in manifest or []:
         try:
             source_id = str(entry["source"])
@@ -356,6 +369,11 @@ def restore_manifest(window: MainWindow, manifest: list[dict[str, Any]] | None) 
         if entry.get("storage") == SESSION:
             window.identity_swaps.adopt(entry.get("swaps") or [])
             window._swap_storage[source_id] = SESSION
+            window._expected_swap_groups[source_id] = tuple(
+                SwapGroup.from_dict(group)
+                for group in entry.get("groups") or []
+                if isinstance(group, dict)
+            )
             continue
         try:
             window._expected_swap_counts[source_id] = int(entry.get("count", 0))

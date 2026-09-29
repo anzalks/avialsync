@@ -56,6 +56,8 @@ class BraidNode:
     at: float
     lanes: tuple[str, str]
     accepted: bool
+    #: The video frame number for a pose file whose rows are not contiguous.
+    display_frame: int | None = None
     #: The evidence, in words, for the line under the plot.
     detail: str = ""
 
@@ -74,6 +76,8 @@ class BraidModel:
     #: ``(time, distance)`` between the pair below, decimated by minimum.
     separation: tuple[np.ndarray, np.ndarray]
     pair: tuple[str, str] | None = None
+    #: Video frame numbers; one per pose row, if a frame rate was declared.
+    frame_numbers: np.ndarray | None = None
 
     def row(self, lane: str) -> float:
         """Where *lane*'s own row sits.  First lane on top."""
@@ -112,6 +116,7 @@ def build_model(
     nodes: Sequence[BraidNode],
     tracks: Mapping[str, Trajectory],
     limit: int = MAX_POINTS,
+    frame_numbers: np.ndarray | None = None,
 ) -> BraidModel:
     """Assemble what the two plots need, including the separation trace."""
     ordered = tuple(lanes)
@@ -125,6 +130,7 @@ def build_model(
         times=np.asarray(times, dtype=float),
         separation=separation,
         pair=pair,
+        frame_numbers=frame_numbers,
     )
 
 

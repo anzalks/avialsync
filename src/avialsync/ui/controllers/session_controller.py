@@ -405,6 +405,11 @@ def reset_session(window: MainWindow) -> None:
     window._pose_3d_sources.clear()
     window.point_edits.clear()
     window.identity_swaps.clear()
+    window._expected_swap_groups.clear()
+    window._swap_candidates.clear()
+    window.transport.set_identity_candidates([])
+    if window._identity_window is not None:
+        window._identity_window.hide()
     window._show_original_tracker = False
     original_action = window._act_show_original_tracker
     blocked = original_action.blockSignals(True)

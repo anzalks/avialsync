@@ -34,6 +34,7 @@ from enum import Enum
 from typing import Protocol, cast
 
 from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
+from shiboken6 import isValid
 
 
 class BackgroundWorker(Protocol):
@@ -155,7 +156,15 @@ class _OnUiThread(QObject):
         self._fn(*cast(tuple, args))
 
     def __call__(self, *args: object) -> None:
-        self._fire.emit(args)
+        # Qt disconnects the receiver when its window dies, but a worker may
+        # still hold this Python callable until its own final signal fires.
+        if not isValid(self):
+            return
+        try:
+            self._fire.emit(args)
+        except RuntimeError:
+            if isValid(self):
+                raise
 
 
 def on_ui_thread(fn: Callable[..., None], anchor: QObject) -> Callable[..., None]:

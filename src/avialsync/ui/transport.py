@@ -4,7 +4,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QEvent, QObject, QRegularExpression, QSettings, Qt, QTimer, Signal
+from PySide6.QtCore import (
+    QEvent,
+    QObject,
+    QPoint,
+    QRegularExpression,
+    QSettings,
+    Qt,
+    QTimer,
+    Signal,
+)
 from PySide6.QtGui import (
     QColor,
     QFontDatabase,
@@ -12,6 +21,7 @@ from PySide6.QtGui import (
     QMouseEvent,
     QPainter,
     QPaintEvent,
+    QPolygon,
     QRegularExpressionValidator,
     QResizeEvent,
 )
@@ -145,6 +155,7 @@ class TimelineOverview(QWidget):
         self._gap_events: tuple[tuple[float, str], ...] = ()
         self._message_events: tuple[tuple[float, str], ...] = ()
         self._identity_events: tuple[tuple[float, str], ...] = ()
+        self._identity_candidates: tuple[tuple[float, str], ...] = ()
         # Sorted time index per event lane.  Paint and hover binary-search this
         # instead of scanning every event, so a 100k-event session costs the
         # same per frame as a 100-event one (P3.5 P1 hot path).
@@ -153,6 +164,7 @@ class TimelineOverview(QWidget):
             "gap": _EMPTY_TIMES,
             "message": _EMPTY_TIMES,
             "identity": _EMPTY_TIMES,
+            "identity_candidate": _EMPTY_TIMES,
         }
         self._markers: tuple[tuple[float, float | None, str], ...] = ()
         self._viewport_start = 0.0
@@ -258,6 +270,14 @@ class TimelineOverview(QWidget):
         self._event_times["identity"] = _time_index(self._identity_events)
         self._on_evidence_changed()
 
+    def set_identity_candidates(
+        self, events: list[float | tuple[float, str]] | tuple[float, ...]
+    ) -> None:
+        """Show proposals from the selected braid slice as hollow diamonds."""
+        self._identity_candidates = _normalise_events(events)
+        self._event_times["identity_candidate"] = _time_index(self._identity_candidates)
+        self._on_evidence_changed()
+
     def _visible_event_x(self, kind: str, t0: float, t1: float) -> list[int]:
         """Return the distinct pixel columns of the events inside ``[t0, t1]``.
 
@@ -290,6 +310,7 @@ class TimelineOverview(QWidget):
             "gap": self._gap_events,
             "message": self._message_events,
             "identity": self._identity_events,
+            "identity_candidate": self._identity_candidates,
         }.get(kind, ())
 
     def _nearest_event(self, kind: str, time: float, tolerance: float):
@@ -388,7 +409,7 @@ class TimelineOverview(QWidget):
             lanes.append(("Sync / TTL", "ttl", _EventLane(self._ttl_events)))
         if self._gap_events:
             lanes.append(("Data gaps", "gap", _EventLane(self._gap_events)))
-        if self._identity_events:
+        if self._identity_events or self._identity_candidates:
             lanes.append(("Identity", "identity", _EventLane(self._identity_events)))
         if self._message_events:
             lanes.append(("Messages", "message", _EventLane(self._message_events)))
@@ -527,6 +548,19 @@ class TimelineOverview(QWidget):
                 for x in self._visible_event_x("identity", t0, t1):
                     painter.drawLine(x - 3, top + 2, x + 3, bottom - 2)
                     painter.drawLine(x + 3, top + 2, x - 3, bottom - 2)
+                painter.setPen(status_color(palette, "warning"))
+                middle = (top + bottom) // 2
+                for x in self._visible_event_x("identity_candidate", t0, t1):
+                    painter.drawPolygon(
+                        QPolygon(
+                            [
+                                QPoint(x, middle - 4),
+                                QPoint(x + 4, middle),
+                                QPoint(x, middle + 4),
+                                QPoint(x - 4, middle),
+                            ]
+                        )
+                    )
             elif lane_kind == "message":
                 # Neither the accent nor the defect red: a note the experimenter
                 # typed is neither a sync match nor an error, and colouring it
@@ -589,6 +623,15 @@ class TimelineOverview(QWidget):
                     source = f"{source} ({payload.members} sources)"
                 return f"Coverage\nSource: {source}\nMaster time: {time:.6f} s"
         if kind in {"ttl", "gap", "message", "identity"}:
+            if kind == "identity":
+                candidate = self._nearest_event("identity_candidate", time, tolerance)
+                accepted = self._nearest_event("identity", time, tolerance)
+                if candidate is not None and (
+                    accepted is None or abs(candidate[0] - time) < abs(accepted[0] - time)
+                ):
+                    return tr("Possible identity swap\nMaster time: {time:.6f} s\n{detail}").format(
+                        time=candidate[0], detail=candidate[1]
+                    )
             nearest = self._nearest_event(kind, time, tolerance)
             if nearest is not None:
                 event_name = {
@@ -918,6 +961,17 @@ class Transport(QWidget):
         """Set the A/B loop out-point at the current slider position (public, D-022.1)."""
         self._on_ab_out()
 
+    def set_ab_region(self, start: float, end: float) -> None:
+        """Show a review span using the same A/B pins as the transport buttons."""
+        low, high = self._bounds
+        self._ab_in_t = max(low, min(high, float(start)))
+        self._ab_out_t = max(self._ab_in_t, min(high, float(end)))
+        self._ab_in_btn.setChecked(True)
+        self._ab_out_btn.setChecked(True)
+        self._pin_in.pin_to_slider(self.slider, self._time_to_frac(self._ab_in_t))
+        self._pin_out.pin_to_slider(self.slider, self._time_to_frac(self._ab_out_t))
+        self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
+
     @property
     def bounds(self) -> tuple[float, float]:
         """The master-timeline extent currently displayed.
@@ -993,6 +1047,12 @@ class Transport(QWidget):
     ) -> None:
         """Show accepted identity swaps as crossings in the overview strip."""
         self.overview.set_identity_events(events)
+
+    def set_identity_candidates(
+        self, events: list[float | tuple[float, str]] | tuple[float, ...]
+    ) -> None:
+        """Show proposals for the currently selected identity group and part."""
+        self.overview.set_identity_candidates(events)
 
     def set_annotation_markers(self, markers: list[tuple[float, float | None, str]]) -> None:
         """Show point and range annotations in the overview strip."""

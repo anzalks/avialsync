@@ -9,20 +9,25 @@ byte-for-byte what they were, and undoing the flip points everything home.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 import numpy as np
 import pytest
+from PySide6.QtCore import Qt
 from shiboken6 import isValid
 
 from avialsync.core import identity_sidecar
+from avialsync.core.commands import SetIdentityGroupCommand
+from avialsync.core.identity_detect import Candidate
 from avialsync.core.identity_groups import ANIMALS
-from avialsync.core.identity_swaps import SwapEvent
+from avialsync.core.identity_swaps import SwapEvent, SwapGroup
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.point_edits import PointKey
 from avialsync.core.pose import PosePoint, PoseSchema
 from avialsync.core.pyramid import PyramidBuilder
 from avialsync.core.session import SessionState
+from avialsync.ui import identity_model_worker
 from avialsync.ui.controllers import identity_controller, identity_view, import_controller
 from avialsync.ui.main_window import MainWindow
 
@@ -336,19 +341,23 @@ def test_a_correction_made_under_a_swapped_label_follows_its_own_column(
 # ── the panel, and the command bus behind its gestures ───────────────
 
 
-def test_the_panel_opens_on_the_tracking_that_is_loaded(window, pose_source) -> None:
+def test_the_panel_opens_on_the_tracking_that_is_loaded(qtbot, window, pose_source) -> None:
     window._open_identity_panel()
     panel = window._identity_window.panel
+    qtbot.waitUntil(lambda: panel._model is not None, timeout=5000)
 
     assert panel.source_id() == str(pose_source[0])
     assert panel.group_id() == ANIMALS
     assert panel.part() == ""
+    assert not window._identity_window.isFloating()
+    assert window.dockWidgetArea(window._identity_window) == Qt.DockWidgetArea.RightDockWidgetArea
 
 
 def test_a_drag_in_the_panel_is_one_undoable_flip(qtbot, window, pose_source) -> None:
     source = str(pose_source[0])
     window._open_identity_panel()
     panel = window._identity_window.panel
+    qtbot.waitUntil(lambda: panel._model is not None, timeout=5000)
     model = panel._model
     assert model is not None
 
@@ -366,6 +375,86 @@ def test_a_drag_in_the_panel_is_one_undoable_flip(qtbot, window, pose_source) ->
     window.document.undo(window._mutations)
     qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 0, timeout=5000)
     assert _shown(window, source, "testMouse_snout", FLIP) == _channel_value("testMouse_snout", "x")
+
+
+def test_braid_data_is_read_in_a_registered_worker(qtbot, window, monkeypatch) -> None:
+    original = identity_model_worker.build_braid
+    threads: list[int] = []
+
+    def recorded(job):
+        threads.append(threading.get_ident())
+        return original(job)
+
+    monkeypatch.setattr(identity_model_worker, "build_braid", recorded)
+    ui_thread = threading.get_ident()
+    window._open_identity_panel()
+    qtbot.waitUntil(lambda: window._identity_window.panel._model is not None, timeout=5000)
+
+    assert threads and all(thread != ui_thread for thread in threads)
+
+
+def test_selected_crossing_plays_in_the_main_transport(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    window._swap_candidates[(source, ANIMALS, "")] = (
+        Candidate(index=FLIP, lanes=INDIVIDUALS, separation=4.2, cost_ratio=0.3, gap=0),
+    )
+    window._open_identity_panel()
+    panel = window._identity_window.panel
+    qtbot.waitUntil(lambda: len(panel.nodes()) == 1, timeout=5000)
+    assert window.transport.overview._identity_candidates
+    window.clock.set_bounds(0.0, (FRAMES - 1) / FPS)
+    window.transport.set_bounds(0.0, (FRAMES - 1) / FPS)
+    panel.set_video_available(True)
+    panel._play.click()
+
+    assert window.transport._ab_in_t == pytest.approx(0.0)
+    assert window.transport._ab_out_t == pytest.approx((FRAMES - 1) / FPS)
+    assert window.clock.state.playing
+    window.player.set_playing(False)
+
+
+def test_a_custom_group_is_undoable_and_persisted(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    group = SwapGroup(
+        name="custom:front paws",
+        lanes=("A", "B"),
+        parts=("front",),
+        members=(("A", "front", "testMouse_snout"), ("B", "front", "conSpecific_snout")),
+    )
+    window.document.execute(SetIdentityGroupCommand(source, group), window._mutations)
+    assert window.identity_swaps.group(source, group.name) == group
+    held = identity_sidecar.read(pose_source[0])
+    assert held is not None and group in held.groups
+
+    window.document.undo(window._mutations)
+    assert window.identity_swaps.group(source, group.name) is None
+    window.document.redo(window._mutations)
+    assert window.identity_swaps.group(source, group.name) == group
+
+
+def test_a_custom_group_survives_a_read_only_source_folder(
+    qtbot, window, pose_source, monkeypatch
+) -> None:
+    source = str(pose_source[0])
+    group = SwapGroup(
+        name="custom:paws",
+        lanes=("A", "B"),
+        parts=("paw",),
+        members=(("A", "paw", "testMouse_snout"), ("B", "paw", "conSpecific_snout")),
+    )
+
+    def read_only(*_args, **_kwargs):
+        raise OSError("read only")
+
+    monkeypatch.setattr(identity_sidecar, "write", read_only)
+    window.document.execute(SetIdentityGroupCommand(source, group), window._mutations)
+    manifest = identity_controller.build_manifest(window)
+    assert manifest[0]["groups"] == [group.as_dict()]
+
+    window.identity_swaps.clear()
+    identity_controller.restore_manifest(window, manifest)
+    identity_controller.adopt(window, source)
+    assert window.identity_swaps.group(source, group.name) == group
 
 
 def test_fix_identities_is_offered_only_when_there_is_something_to_fix(
@@ -433,10 +522,18 @@ def test_a_scan_proposes_the_flip_that_was_injected(qtbot, tmp_path) -> None:
     source = str(pose)
 
     identity_view.detect(window, source, ANIMALS, "snout")
-    qtbot.waitUntil(lambda: (source, ANIMALS, "snout") in window._swap_candidates, timeout=10_000)
+    qtbot.waitUntil(
+        lambda: all(
+            (source, ANIMALS, part) in window._swap_candidates for part in ("", "snout", "wrist")
+        ),
+        timeout=10_000,
+    )
 
     found = window._swap_candidates[(source, ANIMALS, "snout")]
     assert [candidate.index for candidate in found] == [FLIP]
+    assert [
+        candidate.index for candidate in window._swap_candidates[(source, ANIMALS, "wrist")]
+    ] == [FLIP]
     # Proposed, never applied: nothing is edited until a person says so.
     assert window.identity_swaps.count_for(source) == 0
     if isValid(window):

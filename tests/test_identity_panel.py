@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from PySide6.QtCore import QPointF, Qt
 
 from avialsync.core.identity_detect import Trajectory
 from avialsync.core.identity_groups import ANIMALS
@@ -95,6 +96,7 @@ def test_a_group_id_is_never_what_the_user_reads() -> None:
     assert group_label("animals") == "Animals"
     assert group_label("sides") == "Left / Right"
     assert group_label("sides:testMouse") == "Left / Right — testMouse"
+    assert group_label("custom:front paws") == "front paws"
 
 
 def test_a_recording_with_nothing_confusable_says_so(qtbot) -> None:
@@ -226,3 +228,67 @@ def test_asking_for_a_scan_names_what_is_selected(panel, qtbot) -> None:
         panel._detect.click()
 
     assert caught.args == [ANIMALS, "snout"]
+
+
+def test_selected_candidate_can_be_reviewed_nudged_and_applied(panel, qtbot) -> None:
+    panel.show_model(_model(candidate=True))
+    panel.set_video_available(True)
+
+    with qtbot.waitSignal(panel.play_region_requested) as playback:
+        panel._play.click()
+    assert playback.args == pytest.approx([_times()[FLIP] - 2, _times()[FLIP] + 2])
+
+    with qtbot.waitSignal(panel.seek_requested) as seek:
+        panel._forward.click()
+    assert seek.args[0] == pytest.approx(_times()[FLIP + 1])
+
+    with qtbot.waitSignal(panel.swap_requested) as accepted:
+        panel._apply.click()
+    assert accepted.args[0].index == FLIP + 1
+    assert accepted.args[0].parts == ()
+
+
+def test_accepted_selection_offers_remove_instead_of_apply(panel, qtbot) -> None:
+    panel.show_model(_model(accepted=True))
+    assert not panel._apply.isEnabled()
+    assert panel._remove.isEnabled()
+
+    with qtbot.waitSignal(panel.undo_requested) as removed:
+        panel._remove.click()
+    assert removed.args[0].index == FLIP
+
+
+def test_drag_must_start_on_a_lane_line(panel, qtbot) -> None:
+    panel.show_model(_model(candidate=True))
+    model = panel._model
+    assert model is not None
+
+    with qtbot.assertNotEmitted(panel.swap_requested):
+        panel._on_dragged(
+            float(model.times[FLIP]),
+            model.row(LANES[0]) - 0.4,
+            float(model.times[FLIP]),
+            model.row(LANES[1]),
+        )
+
+
+def test_real_pointer_drag_crosses_two_lanes(panel, qtbot) -> None:
+    """Exercise pyqtgraph's scene dispatch, not only the panel's handler."""
+    panel.show_model(_model(candidate=True))
+    panel.resize(800, 520)
+    panel.show()
+    qtbot.waitExposed(panel)
+    model = panel._model
+    assert model is not None
+    view = panel._braid.getPlotItem().getViewBox()
+    start = panel._braid.mapFromScene(
+        view.mapViewToScene(QPointF(float(model.times[FLIP]), model.row(LANES[0])))
+    )
+    end = panel._braid.mapFromScene(
+        view.mapViewToScene(QPointF(float(model.times[FLIP]), model.row(LANES[1])))
+    )
+    with qtbot.waitSignal(panel.swap_requested, timeout=3000) as accepted:
+        qtbot.mousePress(panel._braid.viewport(), Qt.MouseButton.LeftButton, pos=start)
+        qtbot.mouseMove(panel._braid.viewport(), pos=end)
+        qtbot.mouseRelease(panel._braid.viewport(), Qt.MouseButton.LeftButton, pos=end)
+    assert accepted.args[0].index == FLIP

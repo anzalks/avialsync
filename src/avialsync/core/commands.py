@@ -34,6 +34,7 @@ __all__ = [
     "SetOriginalTrackerVisibleCommand",
     "SetTrackedPointCommand",
     "SetIdentitySwapCommand",
+    "SetIdentityGroupCommand",
     "SetCustomMarkerCommand",
     "SetWheelCommand",
     "AcceptSyncCommand",
@@ -353,6 +354,25 @@ class SetIdentitySwapCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_identity_swap(self.source_id, self.event, not self.accepted)
+
+
+@dataclasses.dataclass
+class SetIdentityGroupCommand:
+    """Add one declared group; undo removes only that declaration."""
+
+    source_id: str
+    group: Any
+    command_id: str = "tracking.identity_group"
+
+    @property
+    def label(self) -> str:
+        return f"Add identity group {self.group.name}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_identity_group(self.source_id, self.group, True)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_identity_group(self.source_id, self.group, False)
 
 
 @dataclasses.dataclass

@@ -29,7 +29,13 @@ from avialsync.core.pyramid import PyramidReader
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["MaterialiseWorker", "DetectionJob", "DetectionWorker"]
+__all__ = [
+    "MaterialiseWorker",
+    "DetectionJob",
+    "DetectionWorker",
+    "GroupDetectionJob",
+    "GroupDetectionWorker",
+]
 
 
 class MaterialiseWorker(QObject):
@@ -119,6 +125,60 @@ class DetectionWorker(QObject):
         if directory is None:
             return _empty()
         return PyramidReader(directory, channel).mapped_columns()[1]
+
+
+@dataclasses.dataclass(frozen=True)
+class GroupDetectionJob:
+    """All parts of one group, read once for counts across the part selector."""
+
+    source_id: str
+    group: str
+    #: part -> lane -> pairs of x/y channel names. Empty part is the centroid.
+    parts: dict[str, dict[str, list[tuple[str, str]]]]
+    directories: dict[str, Path]
+
+
+class GroupDetectionWorker(QObject):
+    """Scan every part with one cache-reader set, off the UI thread."""
+
+    finished = Signal(object, object)
+    error = Signal(str)
+
+    def __init__(self, job: GroupDetectionJob) -> None:
+        super().__init__()
+        self._job = job
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            values: dict[str, np.ndarray] = {}
+
+            def _values(channel: str) -> np.ndarray:
+                if channel not in values:
+                    directory = self._job.directories.get(channel)
+                    values[channel] = (
+                        PyramidReader(directory, channel).mapped_columns()[1]
+                        if directory is not None
+                        else _empty()
+                    )
+                return values[channel]
+
+            found: dict[str, tuple[Candidate, ...]] = {}
+            for part, lanes in self._job.parts.items():
+                trajectories: dict[str, Trajectory] = {}
+                for lane, pairs in lanes.items():
+                    tracks = [Trajectory(_values(x), _values(y)) for x, y in pairs]
+                    tracks = [track for track in tracks if len(track.x) and len(track.y)]
+                    if len(tracks) == 1:
+                        trajectories[lane] = tracks[0]
+                    elif tracks:
+                        trajectories[lane] = identity_detect.centroid(_aligned(tracks))
+                found[part] = identity_detect.detect(trajectories)
+        except Exception as error:  # noqa: BLE001 - reported, never swallowed
+            logger.warning("Could not scan identity group", exc_info=error)
+            self.error.emit(str(error))
+            return
+        self.finished.emit(self._job, found)
 
 
 def _empty() -> np.ndarray:

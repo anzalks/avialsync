@@ -45,6 +45,7 @@ from avialsync.core.commands import (
     ResetSessionCommand,
     SetChannelGroupVisibleCommand,
     SetChannelVisibleCommand,
+    SetIdentityGroupCommand,
     SetOriginalTrackerVisibleCommand,
     SetOverlayVisibleCommand,
     SetSourceMappingCommand,
@@ -53,7 +54,7 @@ from avialsync.core.commands import (
 )
 from avialsync.core.custom_markers import CustomMarkerStore
 from avialsync.core.document import Document, SourceRecord
-from avialsync.core.identity_swaps import SwapStore
+from avialsync.core.identity_swaps import SwapGroup, SwapStore
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
 from avialsync.core.pose import PoseSchema
@@ -102,6 +103,9 @@ from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
 from avialsync.ui.feedback.text_dialog import show_text
 from avialsync.ui.i18n import tr
+from avialsync.ui.identity_braid import BraidModel
+from avialsync.ui.identity_group_dialog import IdentityGroupDialog
+from avialsync.ui.identity_model_worker import BraidBuildJob, BraidBuildWorker
 from avialsync.ui.identity_panel import IdentityWindow
 from avialsync.ui.job_manager import JobManager, on_ui_thread
 from avialsync.ui.levels_panel import LevelsPanel
@@ -331,11 +335,17 @@ class MainWindow(QMainWindow):
         self._edited_generations: dict[str, Any] = {}
         self._swap_storage: dict[str, str] = {}
         self._expected_swap_counts: dict[str, int] = {}
+        self._expected_swap_groups: dict[str, tuple[SwapGroup, ...]] = {}
         self._announced_swap_files: set[str] = set()
         #: What a scan proposed, keyed by (source, group, part). Proposals, not
         #: edits: nothing here changes what is drawn until a person accepts it.
         self._swap_candidates: dict[tuple[str, str, str], tuple[Any, ...]] = {}
         self._identity_window: IdentityWindow | None = None
+        self._identity_request_serial = 0
+        self._pending_identity_model: tuple[int, BraidBuildJob] | None = None
+        self._identity_model_timer = QTimer(self)
+        self._identity_model_timer.setSingleShot(True)
+        self._identity_model_timer.timeout.connect(self._start_identity_model_job)
         #: Where each source's corrections went. "session" only ever means
         #: writing beside the pose file failed, never a preference.
         self._point_edit_storage: dict[str, str] = {}
@@ -2747,17 +2757,14 @@ class MainWindow(QMainWindow):
         corrections_controller.adopt(self, source_id)
 
     def _open_identity_panel(self) -> None:
-        """Show the braid for the selected camera's tracking, without blocking.
-
-        Non-modal for the reason the alignment evidence is: the question at a
-        crossing is what the footage looks like there, and a dialog that blocks
-        the window cannot be asked it (rule 11).
-        """
+        """Dock the braid beside the video so the crossing can be reviewed."""
         source_id = identity_view.current_source(self)
         if not source_id:
             return
         if self._identity_window is None:
             panel = IdentityWindow(self)
+            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, panel)
+            panel.hide()
             panel.panel.swap_requested.connect(
                 lambda event: identity_view.swap(self, panel.panel.source_id(), event)
             )
@@ -2765,38 +2772,146 @@ class MainWindow(QMainWindow):
                 lambda event: identity_view.undo(self, panel.panel.source_id(), event)
             )
             panel.panel.seek_requested.connect(lambda at: self.player.seek(at, exact=True))
+            panel.panel.play_region_requested.connect(self._play_identity_region)
             panel.panel.detect_requested.connect(
                 lambda group, part: identity_view.detect(self, panel.panel.source_id(), group, part)
             )
+            panel.panel.new_group_requested.connect(self._new_identity_group)
             panel.panel.selection_changed.connect(
                 lambda _group, _part: self._refresh_identity_panel()
             )
+            panel.visibilityChanged.connect(self._identity_dock_visibility_changed)
             self._identity_window = panel
-        self._refresh_identity_panel(source_id)
         self._identity_window.show()
         self._identity_window.raise_()
+        if not self._identity_window.isFloating():
+            self.resizeDocks(
+                [self._identity_window],
+                [min(480, max(340, self.width() // 3))],
+                Qt.Orientation.Horizontal,
+            )
+        self._refresh_identity_panel(source_id)
+
+    def _play_identity_region(self, start: float, end: float) -> None:
+        """Review a crossing in the existing video and master-clock A/B loop."""
+        self.transport.set_ab_region(start, end)
+        self.player.seek(max(self.transport.bounds[0], start), exact=True)
+        self.player.set_playing(True)
+
+    def _identity_dock_visibility_changed(self, visible: bool) -> None:
+        """A closed editor leaves neither stale proposals nor a pending scan."""
+        if visible:
+            return
+        self._identity_request_serial += 1
+        self._identity_model_timer.stop()
+        self._pending_identity_model = None
+        self.transport.set_identity_candidates([])
+
+    def _new_identity_group(self) -> None:
+        """Ask for pose-column pairs, then record their group through the bus."""
+        panel_window = self._identity_window
+        if panel_window is None:
+            return
+        source_id = panel_window.panel.source_id()
+        schema = self._pose_schemas.get(source_id)
+        if schema is None:
+            return
+        dialog = IdentityGroupDialog(schema, self.identity_swaps.groups_for(source_id), self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        group = dialog.group()
+        if group is None:
+            return
+        self.document.execute(SetIdentityGroupCommand(source_id, group), self._mutations)
+        panel_window.panel.select_group(group.name)
 
     def _refresh_identity_panel(self, source_id: str = "") -> None:
-        """Redraw the braid for whatever the panel currently has selected."""
+        """Start a registered braid job for the selected source, group and part."""
         panel_window = self._identity_window
-        if panel_window is None or not isValid(panel_window):
+        if panel_window is None or not isValid(panel_window) or panel_window.isHidden():
             return
         panel = panel_window.panel
         source_id = source_id or panel.source_id() or identity_view.current_source(self)
         if not source_id:
             return
         groups = identity_view.groups_for(self, source_id)
-        if panel.source_id() != source_id or panel.group() is None:
-            counts: dict[tuple[str, str], tuple[int, int]] = {}
-            for group in groups:
-                counts.update(identity_view.counts_for(self, source_id, group))
+        counts: dict[tuple[str, str], tuple[int, int]] = {}
+        for group in groups:
+            counts.update(identity_view.counts_for(self, source_id, group))
+        if (
+            panel.source_id() != source_id
+            or panel.group() is None
+            or panel.group_ids() != tuple(group.name for group in groups)
+        ):
             panel.set_groups(source_id, groups, counts)
+        else:
+            panel.set_counts(counts)
         panel_window.setWindowTitle(
             tr("Fix Identities — {source}").format(source=Path(source_id).name)
         )
-        model = identity_view.model_for(self, source_id, panel.group_id(), panel.part())
-        if model is not None:
-            panel.show_model(model)
+        panel.set_video_available(bool(self.video_grid._paths))
+        self._identity_request_serial += 1
+        serial = self._identity_request_serial
+        job = identity_view.job_for(self, source_id, panel.group_id(), panel.part())
+        if job is None:
+            panel.set_loading()
+            return
+        panel.set_loading()
+        self.transport.set_identity_candidates([])
+        self._pending_identity_model = (serial, job)
+        # A rapid walk through the Part menu should start one read for the
+        # final selection, not one full-channel job for every transient item.
+        self._identity_model_timer.start(75)
+
+    def _start_identity_model_job(self) -> None:
+        pending = self._pending_identity_model
+        self._pending_identity_model = None
+        panel_window = self._identity_window
+        if pending is None or panel_window is None or panel_window.isHidden():
+            return
+        serial, job = pending
+        worker = BraidBuildWorker(job)
+
+        def _wire(_thread: QThread) -> None:
+            worker.finished.connect(
+                on_ui_thread(
+                    lambda result_job, model: self._show_identity_model(serial, result_job, model),
+                    self,
+                )
+            )
+            worker.error.connect(
+                on_ui_thread(lambda message: self._identity_model_failed(serial, message), self)
+            )
+
+        self._run_job(worker, label=tr("Reading identity evidence"), configure=_wire)
+
+    def _show_identity_model(self, serial: int, job: BraidBuildJob, model: BraidModel) -> None:
+        """Ignore a completed selection the reviewer has already changed."""
+        panel_window = self._identity_window
+        if (
+            serial != self._identity_request_serial
+            or panel_window is None
+            or not isValid(panel_window)
+        ):
+            return
+        panel = panel_window.panel
+        if (panel.source_id(), panel.group_id(), panel.part()) != (
+            job.source_id,
+            job.group.name,
+            job.part,
+        ):
+            return
+        panel.show_model(model)
+        self.transport.set_identity_candidates(
+            [(node.at, node.detail) for node in model.nodes if not node.accepted]
+        )
+
+    def _identity_model_failed(self, serial: int, message: str) -> None:
+        """Report only the failure of the current requested evidence slice."""
+        if serial == self._identity_request_serial:
+            self.notifications.show_warning(
+                tr("Identity evidence could not be read."), details=message
+            )
 
     def _on_identity_swaps_changed(self, _source_id: str | None) -> None:
         """Refresh what reports accepted flips after one is accepted or undone.

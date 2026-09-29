@@ -155,6 +155,9 @@ class MutationTarget(Protocol):
         reproduced from the accepted set (D-141, D-142).
         """
 
+    def set_identity_group(self, source_id: str, group: Any, present: bool) -> None:
+        """Declare or remove a user-named identity group beside one pose source."""
+
     def set_custom_marker(self, name: str, frame: int, marker: CustomMarker | None) -> None:
         """Place, move, or remove one hand-placed 3D marker.
 

@@ -209,6 +209,26 @@ class SwapStore:
     def group(self, source_id: str, name: str) -> SwapGroup | None:
         return next((g for g in self.groups_for(source_id) if g.name == name), None)
 
+    def add_group(self, source_id: str, group: SwapGroup) -> bool:
+        """Declare a user-named group and notify the document's view adapters."""
+        if not group or self.group(source_id, group.name) is not None:
+            return False
+        self._groups[source_id] = (*self.groups_for(source_id), group)
+        self._notify(source_id)
+        return True
+
+    def remove_group(self, source_id: str, name: str) -> bool:
+        """Remove a declaration when no accepted event still refers to it."""
+        if self.group(source_id, name) is None or any(
+            event.group == name for event in self.events_for(source_id)
+        ):
+            return False
+        self._groups[source_id] = tuple(
+            group for group in self.groups_for(source_id) if group.name != name
+        )
+        self._notify(source_id)
+        return True
+
     # ── reading ──────────────────────────────────────────────────────
 
     def events_for(self, source_id: str) -> tuple[SwapEvent, ...]:
@@ -255,9 +275,10 @@ class SwapStore:
 
     def clear(self) -> None:
         """Drop every flip.  Used when the workspace is reset."""
-        if not self._events:
+        if not self._events and not self._groups:
             return
         self._events.clear()
+        self._groups.clear()
         self._notify(None)
 
     def clear_source(self, source_id: str) -> bool:

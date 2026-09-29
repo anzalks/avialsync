@@ -8,7 +8,8 @@ pose file in a new session showed the swapped identities again, and a
 collaborator handed the data folder got none of the work.
 
 **The groups travel with the events.**  A row names two lanes and a group id;
-the ``# groups:`` provenance line states what those lanes own.  Deriving them
+the ``# groups:`` provenance line states what those lanes own, and also retains
+a user-declared group before its first accepted swap. Deriving them
 again from the pose file would be one line shorter and would silently
 misinterpret every event the day a loader names something differently.
 
@@ -29,6 +30,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from avialsync.core.identity_groups import is_custom
 from avialsync.core.identity_swaps import SwapEvent, SwapGroup
 
 logger = logging.getLogger(__name__)
@@ -186,7 +188,9 @@ def write(
         source_bytes = None
 
     referenced = {event.group for event in events}
-    carried = [group for group in (groups or []) if group.name in referenced]
+    carried = [
+        group for group in (groups or []) if group.name in referenced or is_custom(group.name)
+    ]
 
     lines = [f"# {line}" for line in _HEADER_COMMENT]
     lines.append(f"# source: {path.name}")

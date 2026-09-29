@@ -111,9 +111,24 @@ def centroid(parts: Sequence[Trajectory]) -> Trajectory:
         return Trajectory(np.zeros(0), np.zeros(0))
     xs = np.vstack([part.x for part in parts])
     ys = np.vstack([part.y for part in parts])
-    with np.errstate(invalid="ignore"):
-        mean_x = np.nanmean(xs, axis=0)
-        mean_y = np.nanmean(ys, axis=0)
+    # nanmean warns for a frame where every part is absent. That frame remains
+    # missing evidence; it should neither invent a position nor flood the log.
+    valid_x = ~np.isnan(xs)
+    valid_y = ~np.isnan(ys)
+    mean_x = np.full(xs.shape[1], np.nan, dtype=float)
+    mean_y = np.full(ys.shape[1], np.nan, dtype=float)
+    np.divide(
+        np.where(valid_x, xs, 0.0).sum(axis=0),
+        valid_x.sum(axis=0),
+        out=mean_x,
+        where=valid_x.any(axis=0),
+    )
+    np.divide(
+        np.where(valid_y, ys, 0.0).sum(axis=0),
+        valid_y.sum(axis=0),
+        out=mean_y,
+        where=valid_y.any(axis=0),
+    )
     return Trajectory(np.asarray(mean_x, dtype=float), np.asarray(mean_y, dtype=float))
 
 
