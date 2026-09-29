@@ -505,11 +505,7 @@ def calibrate_overlay_timing(window: MainWindow, video: str) -> None:
             or frame_indices[0] < 0
             or frame_indices[-1] >= len(frame_times)
         ):
-            logger.warning(
-                "Cannot align AOL overlay %s to %s: tracking frame indices do not fit video.",
-                video,
-                Path(first_reader.source_id).name,
-            )
+            _report_uncalibrated_overlay(window, video, first_reader.source_id)
             continue
         master_times = pane.time_map.to_master_array(frame_times[frame_indices])
         time_maps = {
@@ -517,6 +513,34 @@ def calibrate_overlay_timing(window: MainWindow, video: str) -> None:
         }
         for time_map in time_maps.values():
             time_map.set_exact_mapping(master_times, source_times)
+
+
+def _report_uncalibrated_overlay(window: MainWindow, video: str, source_id: str) -> None:
+    """Say that an overlay is drawn on assumed timing rather than the video's own.
+
+    Not a log line. Uniform ``index / fps`` timing drifts from a real
+    recording's presentation times by up to 0.16 s -- five frames at 30 fps, on
+    top of the animal -- and a person who is not told simply sees tracking that
+    does not fit and mistrusts the tracking (Law 1: never block, always inform).
+
+    Once per source: a retry on every video load would train them to dismiss it.
+    """
+    name = Path(source_id).name
+    logger.warning(
+        "Cannot align overlay %s to %s: tracking frame indices do not fit the video.",
+        video,
+        name,
+    )
+    announced = getattr(window, "_announced_uncalibrated_overlays", None)
+    if announced is None or source_id in announced:
+        return
+    announced.add(source_id)
+    window.notifications.show_warning(
+        tr(
+            "{source} could not be aligned to {video}'s own frame times, so it is drawn "
+            "at its assumed frame rate and may drift from the video by a few frames."
+        ).format(source=name, video=Path(video).name)
+    )
 
 
 def refresh_pose_3d(window: MainWindow) -> None:

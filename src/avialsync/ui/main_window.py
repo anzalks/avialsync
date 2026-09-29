@@ -337,6 +337,9 @@ class MainWindow(QMainWindow):
         self._expected_swap_counts: dict[str, int] = {}
         self._expected_swap_groups: dict[str, tuple[SwapGroup, ...]] = {}
         self._announced_swap_files: set[str] = set()
+        #: Pose sources already reported as drawn on assumed timing, so a
+        #: retry on the next video load does not repeat itself.
+        self._announced_uncalibrated_overlays: set[str] = set()
         #: What a scan proposed, keyed by (source, group, part). Proposals, not
         #: edits: nothing here changes what is drawn until a person accepts it.
         self._swap_candidates: dict[tuple[str, str, str], tuple[Any, ...]] = {}

@@ -623,3 +623,53 @@ def test_the_wheel_hint_reaches_the_window(aol_session: Path, qtbot, monkeypatch
     assert window._session_rotary == layout.rotary
     assert len(window.wheels) == 0
     window.close()
+
+
+def test_an_overlay_that_cannot_be_aligned_says_so(tmp_path: Path) -> None:
+    """Silence here is a tracker drifting from its video by frames.
+
+    Uniform index/fps timing is off by up to 0.16 s against a real recording's
+    presentation times -- five frames at 30 fps, plainly visible on top of the
+    animal. If the exact mapping cannot be built, the person has to be told
+    rather than left to notice the dots trailing the mouse (Law 1).
+    """
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from avialsync.core.channel_reader import MappedChannelReader
+    from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+    from avialsync.core.timeline import TimeMap
+    from avialsync.ui.controllers.import_controller import calibrate_overlay_timing
+
+    # Three tracked samples against a video that only has two frames.
+    source_times = np.array([0.0, 1.0, 2.0])
+    for channel in ("nose_x", "nose_y"):
+        PyramidBuilder(tmp_path, channel).build_and_save(source_times, source_times)
+    tracking_map = TimeMap()
+    points = {
+        "nose": (
+            MappedChannelReader(PyramidReader(tmp_path, "nose_x"), tracking_map, "pose.csv"),
+            MappedChannelReader(PyramidReader(tmp_path, "nose_y"), tracking_map, "pose.csv"),
+        )
+    }
+    video = "FaceCam.mp4"
+    warnings: list[str] = []
+    window = SimpleNamespace(
+        video_grid=SimpleNamespace(
+            pane_paths=lambda: [video], panes=[SimpleNamespace(time_map=TimeMap())]
+        ),
+        _video_frame_times={video: np.array([0.0, 0.5])},
+        _overlay_sources={video: {"pose.csv": {"frame_rate": 1.0, "points": points}}},
+        _announced_uncalibrated_overlays=set(),
+        notifications=SimpleNamespace(
+            show_warning=lambda message, **_kw: warnings.append(message)
+        ),
+    )
+
+    calibrate_overlay_timing(window, video)
+    calibrate_overlay_timing(window, video)
+
+    assert len(warnings) == 1, "reported once per source, not on every retry"
+    assert "pose.csv" in warnings[0]
+    assert not tracking_map.has_exact_mapping
