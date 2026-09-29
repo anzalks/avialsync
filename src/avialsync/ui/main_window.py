@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.commands import (
@@ -86,6 +87,7 @@ from avialsync.ui.controllers import (
     drop_controller,
     export_controller,
     identity_controller,
+    identity_view,
     import_controller,
     session_controller,
     video_controller,
@@ -99,6 +101,7 @@ from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
 from avialsync.ui.feedback.text_dialog import show_text
 from avialsync.ui.i18n import tr
+from avialsync.ui.identity_panel import IdentityWindow
 from avialsync.ui.job_manager import JobManager, on_ui_thread
 from avialsync.ui.levels_panel import LevelsPanel
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
@@ -327,6 +330,10 @@ class MainWindow(QMainWindow):
         self._swap_storage: dict[str, str] = {}
         self._expected_swap_counts: dict[str, int] = {}
         self._announced_swap_files: set[str] = set()
+        #: What a scan proposed, keyed by (source, group, part). Proposals, not
+        #: edits: nothing here changes what is drawn until a person accepts it.
+        self._swap_candidates: dict[tuple[str, str, str], tuple[Any, ...]] = {}
+        self._identity_window: IdentityWindow | None = None
         #: Where each source's corrections went. "session" only ever means
         #: writing beside the pose file failed, never a preference.
         self._point_edit_storage: dict[str, str] = {}
@@ -1994,6 +2001,24 @@ class MainWindow(QMainWindow):
         _reg(self._act_fix_tracker, "Edit")
         self.view_toolbar.install_fix_tracker_action(self._act_fix_tracker)
 
+        # Fix Identities: the other half of the same job. Fix Tracker moves a
+        # coordinate the model got wrong; this fixes a *label* it got wrong,
+        # which is one statement about every frame from there on (D-141).
+        self._act_fix_identities = self._edit_menu.addAction(tr("Fix Identities…"))
+        self._act_fix_identities.setToolTip(
+            tr("Find and undo places where the tracker exchanged two labels")
+        )
+        self._act_fix_identities.triggered.connect(self._open_identity_panel)
+        _reg(self._act_fix_identities, "Edit")
+        self._require(
+            self._act_fix_identities,
+            lambda: bool(identity_view.pose_sources(self)),
+            tr(
+                "Import tracking with more than one identity — two animals, or a "
+                "left and a right — before fixing which is which."
+            ),
+        )
+
         # Add 3D Marker: name a point, click it in every camera, triangulate.
         # Checked while a placement is in progress; unchecking cancels it. Same
         # one-QAction-drives-menu-and-button shape as Fix Tracker (rule 15).
@@ -2701,6 +2726,58 @@ class MainWindow(QMainWindow):
         """Load the corrections that live beside a pose file being imported."""
         corrections_controller.adopt(self, source_id)
 
+    def _open_identity_panel(self) -> None:
+        """Show the braid for the selected camera's tracking, without blocking.
+
+        Non-modal for the reason the alignment evidence is: the question at a
+        crossing is what the footage looks like there, and a dialog that blocks
+        the window cannot be asked it (rule 11).
+        """
+        source_id = identity_view.current_source(self)
+        if not source_id:
+            return
+        if self._identity_window is None:
+            panel = IdentityWindow(self)
+            panel.panel.swap_requested.connect(
+                lambda event: identity_view.swap(self, panel.panel.source_id(), event)
+            )
+            panel.panel.undo_requested.connect(
+                lambda event: identity_view.undo(self, panel.panel.source_id(), event)
+            )
+            panel.panel.seek_requested.connect(lambda at: self.player.seek(at, exact=True))
+            panel.panel.detect_requested.connect(
+                lambda group, part: identity_view.detect(self, panel.panel.source_id(), group, part)
+            )
+            panel.panel.selection_changed.connect(
+                lambda _group, _part: self._refresh_identity_panel()
+            )
+            self._identity_window = panel
+        self._refresh_identity_panel(source_id)
+        self._identity_window.show()
+        self._identity_window.raise_()
+
+    def _refresh_identity_panel(self, source_id: str = "") -> None:
+        """Redraw the braid for whatever the panel currently has selected."""
+        panel_window = self._identity_window
+        if panel_window is None or not isValid(panel_window):
+            return
+        panel = panel_window.panel
+        source_id = source_id or panel.source_id() or identity_view.current_source(self)
+        if not source_id:
+            return
+        groups = identity_view.groups_for(self, source_id)
+        if panel.source_id() != source_id or panel.group() is None:
+            counts: dict[tuple[str, str], tuple[int, int]] = {}
+            for group in groups:
+                counts.update(identity_view.counts_for(self, source_id, group))
+            panel.set_groups(source_id, groups, counts)
+        panel_window.setWindowTitle(
+            tr("Fix Identities — {source}").format(source=Path(source_id).name)
+        )
+        model = identity_view.model_for(self, source_id, panel.group_id(), panel.part())
+        if model is not None:
+            panel.show_model(model)
+
     def _on_identity_swaps_changed(self, _source_id: str | None) -> None:
         """Refresh what reports accepted flips after one is accepted or undone.
 
@@ -2710,6 +2787,7 @@ class MainWindow(QMainWindow):
         """
         self._refresh_action_availability()
         self._refresh_identity_lane()
+        self._refresh_identity_panel()
         panel = getattr(self, "changes_panel", None)
         if panel is not None:
             panel.refresh()

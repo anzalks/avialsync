@@ -163,6 +163,10 @@ def adopt(window: MainWindow, source_id: str) -> None:
     schema = schema_for(window, source_id)
     if schema is not None:
         window.identity_swaps.set_groups(source_id, groups_for_schema(schema))
+    # Declaring lanes is not an edit, so the store does not notify -- but it is
+    # exactly what decides whether Fix Identities has anything to act on, and a
+    # command that greys out with its reason has to be told (D-107).
+    window._refresh_action_availability()
 
     held = identity_sidecar.read(Path(source_id))
     expected = window._expected_swap_counts.pop(source_id, None)

@@ -21,6 +21,7 @@ from avialsync.core.commands import (
     RemoveSourceCommand,
     ResetSessionCommand,
     SetChannelVisibleCommand,
+    SetIdentitySwapCommand,
     SetOverlayVisibleCommand,
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
@@ -32,6 +33,7 @@ from avialsync.core.document import (
     MutationTarget,
     SourceRecord,
 )
+from avialsync.core.identity_swaps import SwapEvent
 
 
 class FakeTarget:
@@ -44,6 +46,7 @@ class FakeTarget:
         self.channel_visible: dict[tuple[str, str], bool] = {}
         self.overlay_visible: dict[tuple[str, str | None], bool] = {}
         self.tracked_points: dict[tuple[str, str, int], tuple[float, float] | None] = {}
+        self.identity_swaps: list[Any] = []
         self.custom_markers: dict[tuple[str, int], Any] = {}
         self.wheels: dict[str, Any] = {}
         self.sources: dict[str, SourceRecord] = {}
@@ -76,13 +79,27 @@ class FakeTarget:
         self.overlay_visible[(overlay_id, camera)] = visible
 
     def set_tracked_point(
-        self, source_id: str, point: str, index: int, position: tuple[float, float] | None
+        self,
+        source_id: str,
+        point: str,
+        index: int,
+        position: tuple[float, float] | None,
+        shown_as: str = "",
     ) -> None:
+        del shown_as  # provenance; it changes nothing about where the value goes
         key = (source_id, point, index)
         if position is None:
             self.tracked_points.pop(key, None)
         else:
             self.tracked_points[key] = position
+
+    def set_identity_swap(self, source_id: str, event: Any, accepted: bool) -> None:
+        held = (source_id, event)
+        if accepted:
+            if held not in self.identity_swaps:
+                self.identity_swaps.append(held)
+        elif held in self.identity_swaps:
+            self.identity_swaps.remove(held)
 
     def set_custom_marker(self, name: str, frame: int, marker: Any) -> None:
         if marker is None:
@@ -149,6 +166,11 @@ def _all_commands() -> list[Any]:
         SetSourceVisibleCommand("cam1", visible=False),
         SetChannelVisibleCommand("ephys", "ch3", visible=False),
         SetOverlayVisibleCommand("tracking.legend", visible=False),
+        SetIdentitySwapCommand(
+            source_id="two.csv",
+            event=SwapEvent(index=6810, group="animals", lanes=("testMouse", "conSpecific")),
+            accepted=True,
+        ),
         AcceptSyncCommand("cam1", before=(0.0, 0.0), after=(0.5, 1.0), evidence={"n": 47}),
         AddSourceCommand(_source("cam9")),
         RemoveSourceCommand(_source()),

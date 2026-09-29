@@ -32,6 +32,7 @@ __all__ = [
     "SetChannelGroupVisibleCommand",
     "SetOverlayVisibleCommand",
     "SetTrackedPointCommand",
+    "SetIdentitySwapCommand",
     "SetCustomMarkerCommand",
     "SetWheelCommand",
     "AcceptSyncCommand",
@@ -296,6 +297,43 @@ class SetTrackedPointCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_tracked_point(self.source_id, self.point, self.index, self.before, self.shown_as)
+
+
+@dataclasses.dataclass
+class SetIdentitySwapCommand:
+    """Accept or undo one identity flip on a pose source (D-141).
+
+    The inverse of accepting a flip is *removing* it, not accepting its
+    opposite: two transpositions compose to the identity and would look the
+    same on screen, while leaving two events in the sidecar that say a person
+    judged two crossings where they judged one.
+
+    Carries no data, only the statement: the recording, its imported cache and
+    the derived generation are all reproduced from this plus the corrections
+    (:mod:`avialsync.core.edit_program`), so an undo costs nothing to store.
+    """
+
+    source_id: str
+    event: Any
+    accepted: bool
+    #: The video frame ``event.index`` names, for the menu text only -- the same
+    #: reason `SetTrackedPointCommand` carries one.
+    display_frame: int | None = None
+    command_id: str = "tracking.identity"
+
+    @property
+    def label(self) -> str:
+        frame = self.display_frame if self.display_frame is not None else self.event.index
+        first, second = self.event.lanes
+        if self.accepted:
+            return f"Swap {first} and {second} from frame {frame}"
+        return f"Undo the {first}/{second} swap at frame {frame}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_identity_swap(self.source_id, self.event, self.accepted)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_identity_swap(self.source_id, self.event, not self.accepted)
 
 
 @dataclasses.dataclass

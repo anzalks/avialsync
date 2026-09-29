@@ -183,6 +183,22 @@ class WindowMutationTarget:
             if window.point_edits.set(PointKey(source_id, point, index), position, shown_as):
                 window._persist_point_edits(source_id)
 
+    def set_identity_swap(self, source_id: str, event: object, accepted: bool) -> None:
+        """Accept or undo one flip, then write it beside the data and rebuild.
+
+        The single funnel every flip passes through -- the drag, its undo and
+        its redo alike -- which is why the sidecar write and the cache rebuild
+        hang off it rather than off the store's observers: reading a sidecar in
+        must not echo it straight back out (D-099).
+        """
+        from avialsync.core.identity_swaps import SwapEvent
+        from avialsync.ui.controllers import identity_controller
+
+        if not isinstance(event, SwapEvent):
+            return
+        with self.replaying():
+            identity_controller.apply(self._window, source_id, event, accept=accepted)
+
     def set_custom_marker(self, name: str, frame: int, marker: object) -> None:
         """Place, move, or delete a hand-placed 3D marker, then write its files.
 

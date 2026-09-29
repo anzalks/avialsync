@@ -22,7 +22,7 @@ from avialsync.core.inspection import SourceInspection
 from avialsync.core.point_edits import PointKey
 from avialsync.core.pose import PosePoint, PoseSchema
 from avialsync.core.pyramid import PyramidBuilder
-from avialsync.ui.controllers import identity_controller, import_controller
+from avialsync.ui.controllers import identity_controller, identity_view, import_controller
 from avialsync.ui.main_window import MainWindow
 
 FRAMES = 120
@@ -44,9 +44,11 @@ SCHEMA = PoseSchema(
 
 def _channel_value(point: str, axis: str) -> float:
     """A value that names its own column, so a swap is visible by inspection."""
-    return 1000.0 * (INDIVIDUALS.index(point.split("_")[0]) + 1) + 10.0 * PARTS.index(
-        point.split("_", 1)[1]
-    ) + (1.0 if axis == "y" else 0.0)
+    return (
+        1000.0 * (INDIVIDUALS.index(point.split("_")[0]) + 1)
+        + 10.0 * PARTS.index(point.split("_", 1)[1])
+        + (1.0 if axis == "y" else 0.0)
+    )
 
 
 @pytest.fixture
@@ -74,11 +76,7 @@ def pose_source(tmp_path: Path) -> tuple[Path, Path, list[str]]:
     return pose, cache, channels
 
 
-@pytest.fixture
-def window(qtbot, pose_source) -> MainWindow:
-    pose, cache, channels = pose_source
-    window = MainWindow()
-    qtbot.addWidget(window)
+def _register(window: MainWindow, pose: Path, cache: Path, channels: list[str]) -> None:
     import_controller.register_tracking_source(
         window,
         path=str(pose),
@@ -92,6 +90,14 @@ def window(qtbot, pose_source) -> MainWindow:
             pose=SCHEMA,
         ),
     )
+
+
+@pytest.fixture
+def window(qtbot, pose_source) -> MainWindow:
+    pose, cache, channels = pose_source
+    window = MainWindow()
+    qtbot.addWidget(window)
+    _register(window, pose, cache, channels)
     yield window
     if isValid(window):
         window.close()
@@ -164,9 +170,7 @@ def test_the_overlay_reads_the_other_animal_after_the_flip(qtbot, window, pose_s
     )
 
 
-def test_the_recording_and_its_imported_cache_are_untouched(
-    qtbot, window, pose_source
-) -> None:
+def test_the_recording_and_its_imported_cache_are_untouched(qtbot, window, pose_source) -> None:
     pose, cache, _channels = pose_source
     source = str(pose)
     recording = pose.read_bytes()
@@ -201,9 +205,7 @@ def test_undoing_the_flip_points_every_reader_home(qtbot, window, pose_source) -
     assert _shown(window, source, "testMouse_snout", FLIP) != before
 
     identity_controller.apply(window, source, event, accept=False)
-    qtbot.waitUntil(
-        lambda: _shown(window, source, "testMouse_snout", FLIP) == before, timeout=5000
-    )
+    qtbot.waitUntil(lambda: _shown(window, source, "testMouse_snout", FLIP) == before, timeout=5000)
 
     assert window.identity_swaps.count_for(source) == 0
 
@@ -221,9 +223,7 @@ def test_only_the_selected_part_moves_when_one_is_named(qtbot, window, pose_sour
     assert _shown(window, source, "testMouse_wrist", FLIP) == _channel_value(
         "conSpecific_wrist", "x"
     )
-    assert _shown(window, source, "testMouse_snout", FLIP) == _channel_value(
-        "testMouse_snout", "x"
-    )
+    assert _shown(window, source, "testMouse_snout", FLIP) == _channel_value("testMouse_snout", "x")
 
 
 def test_an_accepted_flip_reaches_the_data_streams_lane(qtbot, window, pose_source) -> None:
@@ -242,14 +242,10 @@ def test_a_correction_reaches_the_cached_channel_too(qtbot, window, pose_source)
     source = str(pose_source[0])
 
     window._mutations.set_tracked_point(source, "testMouse_snout", 7, (12.0, 34.0))
-    qtbot.waitUntil(
-        lambda: _shown(window, source, "testMouse_snout", 7) == 12.0, timeout=5000
-    )
+    qtbot.waitUntil(lambda: _shown(window, source, "testMouse_snout", 7) == 12.0, timeout=5000)
 
     assert window.point_edits.get(PointKey(source, "testMouse_snout", 7)) == (12.0, 34.0)
-    assert _shown(window, source, "testMouse_snout", 8) == _channel_value(
-        "testMouse_snout", "x"
-    )
+    assert _shown(window, source, "testMouse_snout", 8) == _channel_value("testMouse_snout", "x")
 
 
 def test_a_correction_made_under_a_swapped_label_follows_its_own_column(
@@ -270,3 +266,113 @@ def test_a_correction_made_under_a_swapped_label_follows_its_own_column(
 
     key = PointKey(source, "conSpecific_snout", FLIP + 5)
     assert window.point_edits.shown_as(key) == "testMouse_snout"
+
+
+# ── the panel, and the command bus behind its gestures ───────────────
+
+
+def test_the_panel_opens_on_the_tracking_that_is_loaded(window, pose_source) -> None:
+    window._open_identity_panel()
+    panel = window._identity_window.panel
+
+    assert panel.source_id() == str(pose_source[0])
+    assert panel.group_id() == ANIMALS
+    assert panel.part() == ""
+
+
+def test_a_drag_in_the_panel_is_one_undoable_flip(qtbot, window, pose_source) -> None:
+    source = str(pose_source[0])
+    window._open_identity_panel()
+    panel = window._identity_window.panel
+    model = panel._model
+    assert model is not None
+
+    panel._on_dragged(
+        float(model.times[FLIP]),
+        model.row("testMouse"),
+        float(model.times[FLIP]),
+        model.row("conSpecific"),
+    )
+    _settle(qtbot, window, source)
+
+    assert window.identity_swaps.count_for(source) == 1
+    assert window.document.undo_label() == f"Swap conSpecific and testMouse from frame {FLIP}"
+
+    window.document.undo(window._mutations)
+    qtbot.waitUntil(lambda: window.identity_swaps.count_for(source) == 0, timeout=5000)
+    assert _shown(window, source, "testMouse_snout", FLIP) == _channel_value("testMouse_snout", "x")
+
+
+def test_fix_identities_is_offered_only_when_there_is_something_to_fix(
+    qtbot, window, pose_source
+) -> None:
+    assert window._act_fix_identities.isEnabled()
+
+    empty = MainWindow()
+    qtbot.addWidget(empty)
+    assert not empty._act_fix_identities.isEnabled()
+    assert "more than one identity" in empty._act_fix_identities.toolTip()
+    if isValid(empty):
+        empty.close()
+
+
+# ── finding one, end to end ──────────────────────────────────────────
+
+
+def test_a_scan_proposes_the_flip_that_was_injected(qtbot, tmp_path) -> None:
+    """The failure is injected into known trajectories, so the frame is known.
+
+    End to end this time: through the worker, the readers and the selectors,
+    rather than against the detector's own function.
+    """
+    pose = tmp_path / "crossing_DLC.csv"
+    pose.write_text("scorer,DLC\n", encoding="utf-8")
+    cache = tmp_path / "crossing_DLC.csv.avialcache"
+    cache.mkdir()
+
+    times = np.arange(FRAMES, dtype=np.float64) / FPS
+    frames = np.arange(FRAMES, dtype=np.float64)
+    # Two animals crossing, twelve pixels apart, with the labels exchanged from
+    # FLIP onward -- which is what an estimator writes when it loses track.
+    truth = {
+        "testMouse": (5.0 * frames, np.full(FRAMES, 50.0)),
+        "conSpecific": (2 * 5.0 * FLIP - 5.0 * frames, np.full(FRAMES, 62.0)),
+    }
+    seen = {
+        "testMouse": tuple(
+            np.concatenate([truth["testMouse"][axis][:FLIP], truth["conSpecific"][axis][FLIP:]])
+            for axis in (0, 1)
+        ),
+        "conSpecific": tuple(
+            np.concatenate([truth["conSpecific"][axis][:FLIP], truth["testMouse"][axis][FLIP:]])
+            for axis in (0, 1)
+        ),
+    }
+
+    channels: list[str] = []
+    for point in SCHEMA.points:
+        for axis_index, axis in enumerate(("x", "y")):
+            channel = point.channel(axis)
+            PyramidBuilder(cache, channel).build_and_save(times, seen[point.individual][axis_index])
+            channels.append(channel)
+        likelihood = point.likelihood_channel
+        assert likelihood is not None
+        PyramidBuilder(cache, likelihood).build_and_save(
+            times, np.full(FRAMES, 0.9, dtype=np.float64)
+        )
+        channels.append(likelihood)
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+    _register(window, pose, cache, channels)
+    source = str(pose)
+
+    identity_view.detect(window, source, ANIMALS, "snout")
+    qtbot.waitUntil(lambda: (source, ANIMALS, "snout") in window._swap_candidates, timeout=10_000)
+
+    found = window._swap_candidates[(source, ANIMALS, "snout")]
+    assert [candidate.index for candidate in found] == [FLIP]
+    # Proposed, never applied: nothing is edited until a person says so.
+    assert window.identity_swaps.count_for(source) == 0
+    if isValid(window):
+        window.close()

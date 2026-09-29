@@ -142,6 +142,16 @@ class MutationTarget(Protocol):
         :mod:`avialsync.core.point_edits`.
         """
 
+    def set_identity_swap(self, source_id: str, event: Any, accepted: bool) -> None:
+        """Accept or undo one identity flip on a pose source.
+
+        *event* is a :class:`~avialsync.core.identity_swaps.SwapEvent`; it is
+        typed loosely here for the same reason the marker is not -- this
+        protocol names what the UI must provide, not what each store holds.
+        Nothing about the recording or its cache is carried: the edited data is
+        reproduced from the accepted set (D-141, D-142).
+        """
+
     def set_custom_marker(self, name: str, frame: int, marker: CustomMarker | None) -> None:
         """Place, move, or remove one hand-placed 3D marker.
 
