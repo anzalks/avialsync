@@ -1045,3 +1045,15 @@ def test_bringing_panels_back_reopens_one_that_was_closed(qtbot, window, pose_so
     window._bring_panels_back()
 
     assert not panel.isHidden()
+
+
+def test_bringing_panels_back_has_a_button_as_well_as_a_menu_entry(window) -> None:
+    """A menu is the wrong place for the command that rescues a lost window.
+
+    One QAction drives both, so they cannot come to be called different things.
+    """
+    button = window.view_toolbar.panels_back_button
+
+    assert button.text() == "Bring Panels Back"
+    assert button.isEnabled()
+    assert window._act_panels_back.toolTip() == button.toolTip()

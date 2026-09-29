@@ -70,10 +70,22 @@ class ViewToolbar(QWidget):
         row.addWidget(self.snapshot_button)
         self.fit_videos_button = ActionButton(self)
         row.addWidget(self.fit_videos_button)
+        # Beside the other view controls, because a panel that has been floated
+        # onto a screen that is no longer attached cannot be reached from a
+        # menu the person has to find first.
+        self.panels_back_button = ActionButton(self)
+        row.addWidget(self.panels_back_button)
         self.fullscreen_button = QPushButton(tr("Fullscreen Toggle"), self)
         self.fullscreen_button.setToolTip(tr("Toggle the active video pane fullscreen (F11)"))
         self.fullscreen_button.clicked.connect(self.fullscreen_requested.emit)
         row.addWidget(self.fullscreen_button)
+
+    def install_panels_back_action(self, action: QAction) -> None:
+        """Show the Bring Panels Back button, driven by the View menu's QAction."""
+        self.panels_back_button.set_action(action)
+        self.panels_back_button.setAccessibleDescription(
+            tr("Re-dock every panel and move any stray window back onto this screen")
+        )
 
     def install_fix_tracker_action(self, action: QAction) -> None:
         """Show the Fix Tracker toggle, driven by the menu's own QAction."""

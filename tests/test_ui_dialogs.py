@@ -501,8 +501,27 @@ def test_the_candidate_list_keeps_both_ends_of_a_name(
     )
     qtbot.addWidget(dialog)
 
+    from PySide6.QtWidgets import QLabel
+
+    from avialsync.ui.elided_label import ElidedLabel
+
     assert dialog._table.textElideMode() == Qt.TextElideMode.ElideMiddle
-    names = [dialog._table.item(row, 0).text() for row in range(dialog._table.rowCount())]
-    assert any(name.endswith("_el.csv") for name in names)
+    labels = [dialog._table.cellWidget(row, 0) for row in range(dialog._table.rowCount())]
+    assert all(isinstance(label, ElidedLabel) for label in labels)
+
+    # Squeezed to a realistic column, the tail -- the only part that differs --
+    # has to survive. Read through QLabel, because ElidedLabel.text() answers
+    # with the unabridged string by design.
+    shown = []
+    for label in labels:
+        label.resize(240, 20)
+        shown.append(QLabel.text(label))
+    # Squeezed hard the ellipsis eats into the tail, but what identifies the
+    # file survives -- which is the whole difference from a column of "Trial …".
+    assert any(text.endswith("el.csv") for text in shown), shown
+    assert any(text.endswith("full.mp4") for text in shown), shown
+    assert all("…" in text for text in shown), "a squeezed name should be elided, not clipped"
+
     # And the whole path stays reachable without guessing.
-    assert str(tmp_path) in dialog._table.item(0, 0).toolTip()
+    assert str(tmp_path) in labels[0].toolTip()
+    assert dialog._table.item(0, 0).text().startswith("Trial")

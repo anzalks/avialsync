@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.rig_naming import match_label
 from avialsync.core.source import TimeSeriesSource, VideoSource
+from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 
 logger = logging.getLogger(__name__)
@@ -110,6 +111,16 @@ class BatchImportDialog(QDialog):
             name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             name_item.setToolTip(str(path))
             self._table.setItem(row, 0, name_item)
+            # Drawn by the widget the application already uses for data text,
+            # rather than left to the view's own eliding. A view elides to the
+            # column it was given; this elides to the width it has, keeps both
+            # ends, and carries the whole path in its tooltip -- which is what
+            # turns nine rows of "Trial …" back into nine distinguishable
+            # files. The item above stays for anything reading the table.
+            name_label = ElidedLabel(self._row_name(path), self._table)
+            name_label.setToolTip(str(path))
+            name_label.setContentsMargins(4, 0, 4, 0)
+            self._table.setCellWidget(row, 0, name_label)
 
             combo = QComboBox()
             # Populate dropdown

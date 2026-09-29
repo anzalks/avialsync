@@ -2206,10 +2206,15 @@ class MainWindow(QMainWindow):
             lambda: bool(self._pose_schemas),
             tr("Import a pose source before comparing the original tracker."),
         )
-        act = view_menu.addAction(tr("Bring Panels Back"))
-        act.setToolTip(tr("Re-dock every panel and move any stray window back onto this screen"))
-        act.triggered.connect(self._bring_panels_back)
-        _reg(act, "View")
+        self._act_panels_back = view_menu.addAction(tr("Bring Panels Back"))
+        self._act_panels_back.setToolTip(
+            tr("Re-dock every panel and move any stray window back onto this screen")
+        )
+        self._act_panels_back.triggered.connect(self._bring_panels_back)
+        _reg(self._act_panels_back, "View")
+        # One QAction drives the menu entry and the button in the video tools
+        # row, so the two cannot drift apart in what they are called (rule 15).
+        self.view_toolbar.install_panels_back_action(self._act_panels_back)
         view_menu.addSeparator()
 
         # Workspaces: a session is looked at in more than one way, and
