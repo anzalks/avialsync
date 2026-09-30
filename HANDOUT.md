@@ -298,8 +298,10 @@ Two product laws govern that phase and outrank convention:
   Linux PNG, Windows ICO, macOS ICNS, and runtime PNG assets with `tools/generate_icons.py`.
   The AppDir also includes its required `.DirIcon` symlink and runs `desktop-file-validate` before
   AppImageTool, so malformed desktop metadata fails before artifact construction.
-- P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
-  documentation warnings as errors.
+- P5.3 Read the Docs deployment: CI and Read the Docs both build the pinned Ubuntu 24.04 / Python
+  3.12 documentation environment with warnings as errors. A release tag synchronizes and activates
+  its exact Read the Docs version through the project API before distributions may publish; the
+  repository secret `READTHEDOCS_TOKEN` is therefore a release prerequisite.
 - Native synchronization plugin API (D-026).
 - **Windows: intermittent native fault around libmpv client lifetime — CLOSED by removal (D-075).**
   Two faults were chased for weeks on `windows-2022`: an access violation inside python-mpv's

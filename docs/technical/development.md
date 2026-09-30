@@ -113,15 +113,15 @@ being narrow.
 The site is built with Read the Docs from `.readthedocs.yaml`. Local preview:
 
 ```bash
-python -m pip install -e ".[docs]"
-sphinx-build -W --keep-going -b html docs docs/_build/html
+conda run -n avialsync pip install -e ".[docs]"
+conda run -n avialsync sphinx-build -W --keep-going -b html docs docs/_build/html
 ```
 
 `-W` matches CI, where a Sphinx warning fails the build.
 
 ### Connecting the Read the Docs project
 
-The repository is already configured — `.readthedocs.yaml` pins Ubuntu 22.04, Python 3.11, and the
+The repository is already configured — `.readthedocs.yaml` pins Ubuntu 24.04, Python 3.12, and the
 `docs` extra, with `fail_on_warning: true`. What remains is connecting the project once:
 
 1. Sign in at [readthedocs.org](https://readthedocs.org/) with the GitHub account that owns the
@@ -131,14 +131,16 @@ The repository is already configured — `.readthedocs.yaml` pins Ubuntu 22.04, 
    badge and links already use. A different name means editing both.
 3. Leave the default branch as `main`. Read the Docs finds `.readthedocs.yaml` itself; do not set a
    configuration path.
-4. **Admin → Automation Rules** is worth one rule: activate and set as default any tag matching
-   `.*`, so a released version's docs are published and `/en/stable/` tracks the newest release
-   rather than the tip of `main`.
+4. Create a Read the Docs API token with access to this project and save it as the GitHub Actions
+   repository secret `READTHEDOCS_TOKEN`. The tag workflow uses it to synchronise repository tags
+   and activate the exact tagged version; it fails before publishing a distribution if the secret
+   is absent or the tag cannot be found.
 5. Trigger the first build from **Builds → Build version**. It takes about a minute.
 
-The webhook is installed by the GitHub connection, so later pushes and tags build automatically.
-Until step 2 is done the documentation badge stays grey and `https://avialsync.readthedocs.io/`
-returns 404.
+The GitHub connection installs the webhook. On each release, the workflow also calls the Read the
+Docs API directly, which avoids a webhook/automation-rule race and guarantees the release tag is
+activated. Until step 2 is done the documentation badge stays grey and
+`https://avialsync.readthedocs.io/` returns 404.
 
 ## Releases
 
@@ -149,8 +151,9 @@ platform installers. PyPI publishing starts only after every installer succeeds,
 the release last. The workflow pins and verifies the AppImage build tool before creating the Linux
 AppImage; no package-upload token or repository variable is needed.
 
-Two things must exist before a tag can complete, and neither lives in this repository. Both fail
-late — after every installer has already been built — so confirm them before tagging:
+Three things must exist before a tag can complete, and none lives in this repository. Confirm them
+before tagging: the documentation credential is checked before distributions publish, while PyPI
+approval and platform packaging complete later in the workflow.
 
 1. **PyPI trusted publishing** for the `avialsync` project, naming this repository, the `Release`
    workflow, and the `pypi` environment. If the `pypi` GitHub environment has required reviewers,
@@ -158,6 +161,9 @@ late — after every installer has already been built — so confirm them before
 2. **A tag reachable from `main`.** The workflow refuses to publish a side branch, and it requires
    the tag, `pyproject.toml`, and `src/avialsync/__init__.py` to name one identical version — which
    is what `tools/prepare_release.py` guarantees.
+3. **The `READTHEDOCS_TOKEN` repository secret.** It lets the release workflow discover and
+   activate the tagged documentation version. This is intentionally a release gate: publishing a
+   package with no matching live documentation is a broken release, not a follow-up task.
 
 Prepare a tag from a clean `main` checkout with the guarded helper rather than editing versions or
 creating tags by hand:
@@ -167,10 +173,11 @@ conda run -n avialsync python tools/prepare_release.py 0.1.0b1 --dry-run
 conda run -n avialsync python tools/prepare_release.py 0.1.0b1
 ```
 
-It validates the version, updates both package-version authorities, builds and checks the
-wheel/sdist, commits the change, creates annotated `v0.1.0b1`, and pushes it. The helper permits
-only the offline `graphify-out/graph.json` as a pre-existing dirty file; commit or resolve every
-other change first.
+It validates the version, updates every package-version authority, builds and checks the wheel/sdist,
+commits the change, creates annotated `v0.1.0b1`, and pushes it. That tag starts the guarded release
+workflow, which verifies the documentation and activates the matching Read the Docs version before
+it can publish a distribution. The helper permits only the offline `graphify-out/graph.json` as a
+pre-existing dirty file; commit or resolve every other change first.
 
 ### Signing
 
