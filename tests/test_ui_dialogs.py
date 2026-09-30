@@ -521,11 +521,17 @@ def test_the_candidate_list_keeps_both_ends_of_a_name(
     shown = [QLabel.text(label) for label in labels]
     # The tail -- the only part that differs -- has to survive. Read through
     # QLabel, because ElidedLabel.text() answers with the unabridged string by
-    # design.  What identifies the file survives, which is the whole
-    # difference from a column of "Trial …".
-    assert any(text.endswith("el.csv") for text in shown), shown
-    assert any(text.endswith("full.mp4") for text in shown), shown
+    # design.
+    #
+    # Asserted as the property rather than as a character count: how much tail
+    # fits is the column's width in the platform's font, and Windows keeps
+    # "ll.mp4" where macOS keeps "full.mp4". Both are the thing this is about
+    # -- two rows that can be told apart by their ends, instead of a column of
+    # identical "Trial …" prefixes.
     assert all("…" in text for text in shown), "a squeezed name should be elided, not clipped"
+    assert shown[0] != shown[1], shown
+    assert any(text.endswith(".csv") for text in shown), shown
+    assert any(text.endswith(".mp4") for text in shown), shown
 
     # And the whole path stays reachable without guessing.
     assert str(tmp_path) in labels[0].toolTip()
