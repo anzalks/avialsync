@@ -763,9 +763,9 @@ class TimelineEvidence(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._settings = QSettings("AvialSync", "AvialSync")
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(0)
         header = QHBoxLayout()
         header.setContentsMargins(2, 0, 2, 0)
         header.setSpacing(6)
@@ -777,7 +777,6 @@ class TimelineEvidence(QWidget):
         self.collapse_button.setToolTip(tr("Hide or show the Data Streams lanes"))
         self.collapse_button.clicked.connect(self.toggle_collapsed)
         header.addWidget(self.collapse_button)
-        header.addStretch(1)
         self._status_label = QLabel(self)
         self._status_label.setAccessibleName(tr("Application status"))
         self._status_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -795,12 +794,19 @@ class TimelineEvidence(QWidget):
         self._status_clear_timer = QTimer(self)
         self._status_clear_timer.setSingleShot(True)
         self._status_clear_timer.timeout.connect(self._clear_status)
-        header.addWidget(self._status_label)
+        header.addWidget(self._status_label, 1)
+        self._header_layout = header
         self.overview = TimelineOverview(self)
-        layout.addWidget(self.overview)
-        layout.addLayout(header)
+        self._layout.addWidget(self.overview)
+        self._layout.addLayout(header)
         collapsed = bool(self._settings.value("timeline_evidence/collapsed", False, type=bool))
         self.set_collapsed(collapsed, persist=False)
+
+    def _add_header_controls(self, controls: tuple[QWidget, ...]) -> None:
+        """Place transport actions alongside the Data Streams header controls."""
+        for control in controls:
+            self._header_layout.addWidget(control)
+        self._header_layout.addStretch(1)
 
     def toggle_collapsed(self) -> None:
         self.set_collapsed(not self.overview.isHidden())
@@ -898,8 +904,6 @@ class Transport(QWidget):
         self._root_layout.setSpacing(2)
         self._timeline_layout = QHBoxLayout()
         self._timeline_layout.setSpacing(5)
-        self._controls_layout = QHBoxLayout()
-        self._controls_layout.setSpacing(4)
         self.evidence = TimelineEvidence(self)
         self.overview = self.evidence.overview
         self.overview.seek_requested.connect(lambda t: self.seek_requested.emit(t, True))
@@ -908,7 +912,6 @@ class Transport(QWidget):
         )
         self._root_layout.addWidget(self.evidence)
         self._root_layout.addLayout(self._timeline_layout)
-        self._root_layout.addLayout(self._controls_layout)
 
         # ── Timeline row: playhead controls, scrub bar, A/B, end time, rate ──
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
@@ -949,51 +952,72 @@ class Transport(QWidget):
         self._timeline_layout.addWidget(self._end_time_label)
 
         # ── Jump back 1 s ─────────────────────────────────────────────
-        self._jump_back_btn = QPushButton("–1s")
-        self._jump_back_btn.setFixedWidth(36)
+        self._jump_back_btn = QPushButton(tr("Back 1 s"))
+        self._jump_back_btn.setFixedWidth(64)
+        self._jump_back_btn.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSkipBackward)
+        )
+        self._jump_back_btn.setAccessibleName(tr("Jump back one second"))
         self._jump_back_btn.setToolTip(tr("Jump back 1 second (J or Shift+←)"))
         self._jump_back_btn.clicked.connect(lambda: self.jump_requested.emit(-1.0))
 
         # ── Frame step back ───────────────────────────────────────────
-        self._step_back_btn = QPushButton("◀")
-        self._step_back_btn.setFixedWidth(28)
+        self._step_back_btn = QPushButton(tr("Prev frame"))
+        self._step_back_btn.setFixedWidth(78)
+        self._step_back_btn.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSeekBackward)
+        )
+        self._step_back_btn.setAccessibleName(tr("Step back one frame"))
         self._step_back_btn.setToolTip(tr("Step back 1 frame (← or ,)"))
         self._step_back_btn.clicked.connect(lambda: self.frame_step_requested.emit(-1))
 
         # ── Play / Pause ──────────────────────────────────────────────
-        self.play_btn = QPushButton("Play")
-        self.play_btn.setFixedWidth(58)
+        self.play_btn = QPushButton(tr("Play"))
+        self.play_btn.setFixedWidth(60)
         self.play_btn.setCheckable(True)
+        self.play_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        self.play_btn.setAccessibleName(tr("Start playback"))
         self.play_btn.setToolTip(tr("Play / Pause (Space)"))
         self.play_btn.clicked.connect(self._on_play_clicked)
 
         # ── Frame step forward ────────────────────────────────────────
-        self._step_fwd_btn = QPushButton("▶")
-        self._step_fwd_btn.setFixedWidth(28)
+        self._step_fwd_btn = QPushButton(tr("Next frame"))
+        self._step_fwd_btn.setFixedWidth(78)
+        self._step_fwd_btn.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSeekForward)
+        )
+        self._step_fwd_btn.setAccessibleName(tr("Step forward one frame"))
         self._step_fwd_btn.setToolTip(tr("Step forward 1 frame (→ or .)"))
         self._step_fwd_btn.clicked.connect(lambda: self.frame_step_requested.emit(1))
 
         # ── Jump forward 1 s ──────────────────────────────────────────
-        self._jump_fwd_btn = QPushButton("+1s")
-        self._jump_fwd_btn.setFixedWidth(36)
+        self._jump_fwd_btn = QPushButton(tr("Forward 1 s"))
+        self._jump_fwd_btn.setFixedWidth(76)
+        self._jump_fwd_btn.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSkipForward)
+        )
+        self._jump_fwd_btn.setAccessibleName(tr("Jump forward one second"))
         self._jump_fwd_btn.setToolTip(tr("Jump forward 1 second (Shift+→)"))
         self._jump_fwd_btn.clicked.connect(lambda: self.jump_requested.emit(1.0))
 
         # ── A/B loop buttons (checkable — D-022.5) ────────────────────
-        self._ab_in_btn = QPushButton("[")
-        self._ab_in_btn.setFixedWidth(28)
+        self._ab_in_btn = QPushButton(tr("Set In"))
+        self._ab_in_btn.setFixedWidth(68)
         self._ab_in_btn.setCheckable(True)
-        self._ab_in_btn.setToolTip(tr("Set loop in-point here ([ or I)"))
+        self._ab_in_btn.setAccessibleName(tr("Set loop in-point"))
+        self._ab_in_btn.setToolTip(tr("Set the loop start here (I)"))
         self._ab_in_btn.clicked.connect(self._on_ab_in_clicked)
 
-        self._ab_out_btn = QPushButton("]")
-        self._ab_out_btn.setFixedWidth(28)
+        self._ab_out_btn = QPushButton(tr("Set Out"))
+        self._ab_out_btn.setFixedWidth(72)
         self._ab_out_btn.setCheckable(True)
-        self._ab_out_btn.setToolTip(tr("Set loop out-point here (] or O)"))
+        self._ab_out_btn.setAccessibleName(tr("Set loop out-point"))
+        self._ab_out_btn.setToolTip(tr("Set the loop end here (O)"))
         self._ab_out_btn.clicked.connect(self._on_ab_out_clicked)
 
-        self._ab_clear_btn = QPushButton("✕")
-        self._ab_clear_btn.setFixedWidth(24)
+        self._ab_clear_btn = QPushButton(tr("Clear Loop"))
+        self._ab_clear_btn.setFixedWidth(82)
+        self._ab_clear_btn.setAccessibleName(tr("Clear loop points"))
         self._ab_clear_btn.setToolTip(tr("Clear A/B loop"))
         self._ab_clear_btn.clicked.connect(self._on_ab_clear)
 
@@ -1017,14 +1041,16 @@ class Transport(QWidget):
         )
         for index, button in enumerate(playhead_buttons):
             self._timeline_layout.insertWidget(index, button)
-        end_time_index = self._timeline_layout.indexOf(self._end_time_label)
-        for index, button in enumerate(
-            (self._ab_in_btn, self._ab_out_btn, self._ab_clear_btn), start=end_time_index + 1
-        ):
-            self._timeline_layout.insertWidget(index, button)
-
-        self._timeline_layout.addWidget(self._speed_label)
-        self._timeline_layout.addWidget(self.rate_combo)
+        self.evidence._add_header_controls(
+            (
+                QLabel(tr("Loop region"), self),
+                self._ab_in_btn,
+                self._ab_out_btn,
+                self._ab_clear_btn,
+                self._speed_label,
+                self.rate_combo,
+            )
+        )
 
         self._bounds = (0.0, 0.0)
         self._is_scrubbing = False
@@ -1182,7 +1208,15 @@ class Transport(QWidget):
     def set_playing(self, playing: bool) -> None:
         self.play_btn.blockSignals(True)
         self.play_btn.setChecked(playing)
-        self.play_btn.setText("Pause" if playing else "Play")
+        self.play_btn.setText(tr("Pause") if playing else tr("Play"))
+        self.play_btn.setIcon(
+            self.style().standardIcon(
+                QStyle.StandardPixmap.SP_MediaPause
+                if playing
+                else QStyle.StandardPixmap.SP_MediaPlay
+            )
+        )
+        self.play_btn.setAccessibleName(tr("Pause playback") if playing else tr("Start playback"))
         self.play_btn.blockSignals(False)
 
     def step_rate_up(self) -> None:

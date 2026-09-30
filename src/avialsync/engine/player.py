@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Qt, QTimer
@@ -340,3 +341,13 @@ class Player(QObject):
             self.tracking_3d_pane.set_cursor(t_master)
         if self._readout_panel is not None and self._readout_panel.isVisible():
             self._readout_panel.set_cursor(t_master)
+            self._readout_panel.set_camera_frame_records(
+                [
+                    (
+                        Path(str(record["path"])).name,
+                        int(record["frame_index"]),
+                        float(record["media_timestamp"]),
+                    )
+                    for record in self.video_grid.frame_records_at(t_master)
+                ]
+            )

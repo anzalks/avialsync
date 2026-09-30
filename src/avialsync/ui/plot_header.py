@@ -36,7 +36,8 @@ class PlotHeader(QWidget):
         self.page_label.setAccessibleName(tr("Visible plot page"))
         layout.addWidget(self.page_label, 1)
 
-        self.fit_all_button = QPushButton("Fit all", self)
+        self.fit_all_button = QPushButton(tr("Fit Y"), self)
+        self.fit_all_button.setAccessibleName(tr("Fit Y ranges for visible channels"))
         self.fit_all_button.setToolTip(tr("Fit and freeze the visible Y range for every channel"))
         self.fit_all_button.clicked.connect(self.fit_all_requested.emit)
         layout.addWidget(self.fit_all_button)
@@ -51,7 +52,8 @@ class PlotHeader(QWidget):
         self.row_height_combo.currentIndexChanged.connect(self._emit_row_height)
         layout.addWidget(self.row_height_combo)
 
-        self.reset_button = QPushButton("Reset", self)
+        self.reset_button = QPushButton(tr("Reset plots"), self)
+        self.reset_button.setAccessibleName(tr("Reset plot ranges and time span"))
         self.reset_button.setToolTip(
             tr("Reset shared time span and fit every visible plot (Ctrl+0)")
         )

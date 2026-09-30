@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import cast
 
 import pytest
 
@@ -23,6 +24,39 @@ def panel(app):
     p = ReadoutPanel()
     p.show()
     return p
+
+
+def test_textual_summary_exposes_live_channel_and_camera_values(panel, monkeypatch) -> None:
+    from avialsync.core.channel_reader import ChannelKey, MappedChannelReader
+    from avialsync.ui.feedback import text_dialog
+
+    class Reader:
+        key = ChannelKey("/tmp/sensor.csv", "temperature")
+
+        def sample_at(self, _time: float) -> tuple[int, float]:
+            return 7, 23.5
+
+    key = Reader.key
+    panel.update_sources([cast(MappedChannelReader, Reader())], {key: "C"})
+    panel.set_cursor(12.5)
+    panel.set_camera_states([("FrontCam", 3.0, 30.0)])
+
+    summary = panel.textual_summary()
+
+    assert "Master time: 12.500000 s" in summary
+    assert "temperature: 23.5 C (sample 7)" in summary
+    assert "FrontCam: frame 90" in summary
+    assert panel._text_summary_button.accessibleName() == "Show a text summary of current values"
+
+    shown: list[str] = []
+    monkeypatch.setattr(
+        text_dialog,
+        "show_text",
+        lambda _parent, _title, body, **_kwargs: shown.append(body),
+    )
+    panel._text_summary_button.click()
+
+    assert shown == [summary]
 
 
 class TestShowDelta:
@@ -71,4 +105,19 @@ class TestSetCameraStates:
     def test_replaces_previous(self, panel):
         panel.set_camera_states([("cam1", 0.0, 30.0), ("cam2", 0.0, 30.0)])
         panel.set_camera_states([("cam1", 0.0, 30.0)])
+
+    def test_camera_frame_records_show_exact_index_in_text_summary(self, panel):
+        panel.set_camera_frame_records([("FaceCam.mp4", 37, 1.2345)])
+
+        assert "FaceCam.mp4: frame 37" in panel.textual_summary()
+        assert "(1.234 s)" in panel.textual_summary()
+
+    def test_camera_frame_records_reuse_rows_when_sources_are_unchanged(self, panel):
+        panel.set_camera_frame_records([("FaceCam.mp4", 37, 1.2345)])
+        row = panel._cam_rows[0]
+
+        panel.set_camera_frame_records([("FaceCam.mp4", 38, 1.2678)])
+
+        assert panel._cam_rows[0] is row
+        assert "frame 38" in panel.textual_summary()
         assert len(panel._cam_rows) == 1
