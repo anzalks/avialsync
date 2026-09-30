@@ -9,7 +9,7 @@ DeepLabCut or LightningPose needs to be told what to fix.
 
 ## Flag a frame
 
-![The Flag Frame and Snapshot buttons on the Data Streams strip](../_static/screenshots/guide_flag_and_snapshot.png)
+![The Flag Frame and Snapshot buttons on the toolbar under the videos](../_static/screenshots/guide_flag_and_snapshot.png)
 
 1. **Flag Frame** (shortcut `M`) records an annotation at the current time.
 2. **Snapshot** (`Ctrl+E`) writes a composed figure of the current moment.

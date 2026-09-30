@@ -374,6 +374,13 @@ def capture(
     # Video probes, pane construction and imports are all asynchronous.
     settle_for(25.0)
 
+    # Seed the ratios again now the rows exist. The call above ran on an empty
+    # window; loading then grew the Data Streams strip to one lane per source
+    # and took the height from the video panes, which a reader sees as a
+    # sliver of video above a wall of lanes.
+    pin_layout(window)
+    settle()
+
     bounds = window.clock.state.bounds
     if bounds[1] <= bounds[0]:
         raise SystemExit(

@@ -24,7 +24,6 @@ from avialsync.loaders.video_standard import VideoStandardLoader
 from avialsync.ui.import_wizard import ImportWizard
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.sync_wizard import SyncWizard
-from avialsync.ui.transport import TimelineEvidence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from screenshot_kit import capture, pin_appearance, pin_layout, settle  # noqa: E402
@@ -92,17 +91,16 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
             numbered=True,
         )
 
-    # --- Data Streams strip: flagging a frame, snapshot ----------------
-    # Those buttons live on the TimelineEvidence strip rather than on
-    # Transport itself, so they are looked up rather than assumed.
-    evidence = window.findChild(TimelineEvidence)
-    if evidence is not None:
-        capture(
-            window,
-            out_dir / "guide_flag_and_snapshot.png",
-            [evidence.flag_button, evidence.snapshot_button],
-            numbered=True,
-        )
+    # --- Under the videos: flagging a frame, snapshot -------------------
+    # Both buttons live on the view toolbar beneath the video grid, not on
+    # Transport or the Data Streams strip they used to sit on.
+    toolbar = window.view_toolbar
+    capture(
+        window,
+        out_dir / "guide_flag_and_snapshot.png",
+        [toolbar.flag_button, toolbar.snapshot_button],
+        numbered=True,
+    )
 
     transport = window.transport
     capture(
