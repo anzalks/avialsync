@@ -40,6 +40,11 @@ def widget(qtbot) -> VideoInfoWidget:
 
 
 class TestTheBadgeSaysWhatTheFileCannot:
+    def test_the_badge_has_a_clear_text_label(self, widget: VideoInfoWidget) -> None:
+        """Source findings are a labeled action, not a clipped warning glyph."""
+        assert widget._badge_btn.text() == "Issues"
+        assert widget._badge_btn.accessibleName() == "Source issues"
+
     def test_an_unaligned_source_is_reported_as_unaligned(self, widget: VideoInfoWidget) -> None:
         """A clean file with no accepted alignment still has something to say."""
         widget.set_inspection(SourceInspection(path=CAMERA))
@@ -62,7 +67,7 @@ class TestTheBadgeSaysWhatTheFileCannot:
         assert "set by hand" in widget._badge_btn.toolTip()
 
     def test_a_screen_reader_gets_the_findings_too(self, widget: VideoInfoWidget) -> None:
-        """Rule 17: a coloured glyph is not a report."""
+        """Rule 17: a coloured button is not a report."""
         widget.set_inspection(SourceInspection(path=CAMERA))
         widget.set_alignment("no accepted alignment", accepted=False)
 

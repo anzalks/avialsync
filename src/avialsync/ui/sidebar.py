@@ -154,9 +154,12 @@ class SensorInfoWidget(QFrame):
         name_lbl.setToolTip(path)
         set_bold(name_lbl)
 
-        self._badge_btn = QPushButton("⚠")
-        self._badge_btn.setFixedSize(18, 18)
-        self._badge_btn.setFlat(True)
+        self._badge_btn = QPushButton(tr("Issues"))
+        self._badge_btn.setAccessibleName(tr("Source issues"))
+        self._badge_btn.setAccessibleDescription(
+            tr("Open details about this source's data quality and alignment.")
+        )
+        self._badge_btn.setToolTip(tr("Open source quality and alignment details"))
         follow_palette(
             self._badge_btn,
             lambda palette: f"color: {status_color(palette, 'warning').name()}; font-weight: bold;",
@@ -416,7 +419,7 @@ class SensorInfoWidget(QFrame):
 
     def set_identity_count(self, count: int) -> None:
         """Show how many accepted flips this pose source carries."""
-        self.identity_count.setText(tr("⇄ {count}").format(count=count))
+        self.identity_count.setText(tr("Swaps: {count}").format(count=count))
         self.identity_count.setToolTip(tr("{count} accepted identity swap(s)").format(count=count))
         self.identity_count.setVisible(count > 0)
 
@@ -763,9 +766,12 @@ class VideoInfoWidget(QFrame):
         layout.addLayout(sync_form)
 
         # Badge (hidden until inspection is available)
-        self._badge_btn = QPushButton("⚠")
-        self._badge_btn.setFixedSize(18, 18)
-        self._badge_btn.setFlat(True)
+        self._badge_btn = QPushButton(tr("Issues"))
+        self._badge_btn.setAccessibleName(tr("Source issues"))
+        self._badge_btn.setAccessibleDescription(
+            tr("Open details about this source's data quality and alignment.")
+        )
+        self._badge_btn.setToolTip(tr("Open source quality and alignment details"))
         follow_palette(
             self._badge_btn,
             lambda palette: f"color: {status_color(palette, 'warning').name()}; font-weight: bold;",

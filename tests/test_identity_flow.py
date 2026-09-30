@@ -225,7 +225,7 @@ def test_an_accepted_flip_is_visible_and_can_be_deleted_from_changes(
     assert "frame 60" in rows[0].detail
     sensor = window.sidebar.sensor_widget(source)
     assert sensor is not None
-    assert sensor.identity_count.text() == "⇄ 1"
+    assert sensor.identity_count.text() == "Swaps: 1"
     assert sensor.identity_count.isVisibleTo(sensor)
     assert window.plot_pane._interactions._identity_events[source][0][0] == pytest.approx(
         FLIP / FPS

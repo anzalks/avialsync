@@ -133,6 +133,10 @@ Streams areas stay small. The layout you had comes back when the first recording
 
 Use tooltips by resting the pointer over any button if you are unsure what it does.
 
+When AvialSync finds a data-quality or alignment issue for a loaded source, its card shows an
+**Issues** button beside the source name. Select it for the file's properties and the full issue
+details. A tracker card can also show **Swaps: N**, the number of accepted identity corrections.
+
 ## Correcting a tracked point
 
 Pose estimates are sometimes wrong: an occluded nose lands on the wall. Select **Fix Tracker** under the videos, or **Edit → Fix Tracker**
