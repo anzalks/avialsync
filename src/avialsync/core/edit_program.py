@@ -191,4 +191,4 @@ def _fingerprint(
         },
         separators=(",", ":"),
     )
-    return str(xxhash.xxh3_64_hexdigest(payload))
+    return str(xxhash.xxh3_64_hexdigest(payload.encode("utf-8")))
