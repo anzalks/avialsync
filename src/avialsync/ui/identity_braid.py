@@ -27,11 +27,11 @@ from typing import Any
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPalette
+from PySide6.QtGui import QColor, QPalette
 
 from avialsync.core.identity_detect import Trajectory
 from avialsync.ui.i18n import tr
-from avialsync.ui.theme import evidence_color, status_color, system_accent
+from avialsync.ui.theme import evidence_color, system_accent
 
 __all__ = ["BraidNode", "BraidModel", "build_model", "draw_braid", "draw_separation"]
 
@@ -46,6 +46,11 @@ _CROSSING = 0.006
 #: Rows are one apart and the first lane is on top, which is the order the
 #: selector lists them in.
 _ROW_GAP = 1.0
+
+#: How much of the surface a proposed crossing lets through. The same identity
+#: hue as an accepted one, lighter: it is the same kind of thing, and the
+#: difference between offered and accepted is weight and fill, not hue.
+_CANDIDATE_ALPHA = 150
 
 
 @dataclasses.dataclass(frozen=True)
@@ -273,9 +278,7 @@ def _draw_nodes(
         nodes = [node for node in model.nodes if node.accepted is accepted]
         if not nodes:
             continue
-        colour = (
-            evidence_color(palette, "identity") if accepted else status_color(palette, "warning")
-        )
+        colour = _node_color(palette, accepted=accepted)
         marks = pg.ScatterPlotItem(
             x=[node.at for node in nodes],
             y=[_node_row(model, node) for node in nodes],
@@ -289,6 +292,23 @@ def _draw_nodes(
         if on_node is not None:
             marks.sigClicked.connect(lambda _item, points, _event: _clicked(points, on_node))
         plot.addItem(marks)
+
+
+def _node_color(palette: QPalette, *, accepted: bool) -> QColor:
+    """One hue for both kinds of crossing; weight says which kind it is.
+
+    A candidate used to borrow the caution colour, which was wrong twice over.
+    It says *fault* about something that is not one -- a proposal nobody has
+    acted on -- and it spends a reserved status colour on a series, which is
+    the thing reserved colours must never be spent on. A crossing is a
+    crossing: same identity hue, drawn lighter and hollow until somebody
+    accepts it, so the difference is carried by fill and weight rather than by
+    a second meaning smuggled in through hue (rule 17).
+    """
+    colour = QColor(evidence_color(palette, "identity"))
+    if not accepted:
+        colour.setAlpha(_CANDIDATE_ALPHA)
+    return colour
 
 
 def _clicked(points: Sequence[Any], on_node: Callable[[BraidNode], None]) -> None:
@@ -323,9 +343,7 @@ def draw_separation(plot: pg.PlotItem, model: BraidModel, palette: QPalette) -> 
                 pos=node.at,
                 angle=90,
                 pen=pg.mkPen(
-                    evidence_color(palette, "identity")
-                    if node.accepted
-                    else status_color(palette, "warning"),
+                    _node_color(palette, accepted=node.accepted),
                     width=1,
                     style=_style(1),
                 ),

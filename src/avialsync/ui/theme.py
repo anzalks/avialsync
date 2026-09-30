@@ -437,11 +437,19 @@ def evidence_color(palette: QPalette, kind: str) -> QColor:
         # pushed clear of the defect red so it cannot be misread as an error.
         return on_surface(palette, _separated(accent_hue(palette) + 0.5, _DEFECT_HUE))
     if kind == "identity":
-        # A quarter turn from the accent and clear of the defect red: an
-        # accepted identity swap is neither a match nor a fault, it is a
-        # correction the user made. It is drawn as a crossing rather than a
-        # tick, so the lane does not depend on this colour to be read (rule 17).
-        return on_surface(palette, _separated(accent_hue(palette) + 0.25, _DEFECT_HUE))
+        # A quarter turn *back* from the accent, then clear of both warning
+        # hues: an accepted identity swap is neither a match nor a fault, it is
+        # a correction the user made.
+        #
+        # The direction is the whole point. Turning forward from the usual blue
+        # accent lands on magenta, which is the loudest thing this palette can
+        # produce and belongs to nothing else in the application; turning back
+        # lands in the greens, which sit quietly beside the accent and are the
+        # one region no status colour has a claim on. The lane draws a crossing
+        # rather than a tick either way, so it never depends on this colour to
+        # be read (rule 17).
+        turned = _separated(accent_hue(palette) - 0.25, _DEFECT_HUE)
+        return on_surface(palette, _separated(turned, _CAUTION_HUE))
     return palette.color(QPalette.ColorRole.WindowText)
 
 

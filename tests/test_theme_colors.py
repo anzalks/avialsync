@@ -215,3 +215,63 @@ def test_the_timeline_lanes_repaint_when_the_appearance_changes(qtbot) -> None:
     overview.changeEvent(QEvent(QEvent.Type.PaletteChange))
 
     assert repaints, "the lanes would keep the previous theme's colours"
+
+
+# ── a proposal is not a fault (D-141) ────────────────────────────────
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_a_proposed_crossing_wears_the_identity_colour_not_the_caution_one(
+    palette: QPalette,
+) -> None:
+    """Reserved colours are reserved.
+
+    A candidate crossing borrowed the caution colour, which says *fault* about
+    something nobody has acted on, and spends a status colour on a series. Both
+    kinds of crossing are the same kind of thing: same hue, and fill and weight
+    say which is which.
+    """
+    from avialsync.ui.identity_braid import _node_color
+
+    accepted = _node_color(palette, accepted=True)
+    proposed = _node_color(palette, accepted=False)
+
+    assert (proposed.red(), proposed.green(), proposed.blue()) == (
+        accepted.red(),
+        accepted.green(),
+        accepted.blue(),
+    )
+    assert proposed.alpha() < accepted.alpha(), "weight is what separates them"
+    assert _distance(proposed, status_color(palette, "warning")) > 0.05
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_a_proposed_crossing_stays_readable_on_both_surfaces(palette: QPalette) -> None:
+    """Lighter, but never so light that the proposal cannot be seen."""
+    from avialsync.ui.identity_braid import _node_color
+
+    assert _contrast(_node_color(palette, accepted=False), palette) > _MIN_CONTRAST
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_the_identity_lane_turns_away_from_the_loudest_quarter(palette: QPalette) -> None:
+    """Which way the hue turns is a design decision, not an implementation one.
+
+    Turning forward from the usual blue accent lands on magenta -- the loudest
+    thing this palette can produce, and spoken for by nothing else in the
+    application. Turning back lands in the greens, beside the accent and clear
+    of every status colour. This pins the direction so it is not quietly
+    reversed by a later edit.
+    """
+    identity = evidence_color(palette, "identity")
+    red, green, blue = identity.red(), identity.green(), identity.blue()
+
+    assert green >= max(red, blue), f"expected a green-leaning identity lane, got {identity.name()}"
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_the_identity_lane_is_tellable_from_every_status_colour(palette: QPalette) -> None:
+    identity = evidence_color(palette, "identity")
+
+    for severity in ("busy", "warning", "error"):
+        assert _distance(identity, status_color(palette, severity)) > 0.15, severity

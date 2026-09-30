@@ -69,6 +69,11 @@ _LANE_INSET = 4
 _SPAN_ALPHA = 225
 _SPAN_RADIUS = 3
 
+#: A proposed identity swap: the accepted one's hue, lighter. Kept beside the
+#: other lane weights so the whole strip has one vocabulary for "offered" and
+#: "in force".
+_CANDIDATE_ALPHA = 150
+
 #: A periodic train collapses to one tick per pixel column. Drawn full height at
 #: full weight that is a striped slab which says only "there are many of these";
 #: a shorter, lighter mark says the same thing without drowning the lane.
@@ -597,7 +602,14 @@ class TimelineOverview(QWidget):
                 for x in self._visible_event_x("identity", t0, t1):
                     painter.drawLine(x - 3, band_top, x + 3, band_top + band_height)
                     painter.drawLine(x + 3, band_top, x - 3, band_top + band_height)
-                painter.setPen(status_color(palette, "warning"))
+                # The same identity hue, lighter: a proposal is the same kind of
+                # thing as an accepted swap, and the caution colour said fault
+                # about something nobody had acted on yet. Hollow against the
+                # accepted crossing's filled stroke, so the difference does not
+                # rest on colour (rule 17).
+                proposed = QColor(evidence_color(palette, "identity"))
+                proposed.setAlpha(_CANDIDATE_ALPHA)
+                painter.setPen(proposed)
                 middle = (top + bottom) // 2
                 for x in self._visible_event_x("identity_candidate", t0, t1):
                     painter.drawPolygon(
