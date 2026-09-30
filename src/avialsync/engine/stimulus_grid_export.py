@@ -13,6 +13,7 @@ import numpy as np
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen
 
+from avialsync.core.errors import ExportError
 from avialsync.core.timeline import TimeMap
 from avialsync.engine.display_pipeline import DisplayLevels, to_display_array
 from avialsync.engine.pyav_reader import PyAVReader
@@ -80,12 +81,14 @@ def plan_grid(
 ) -> GridLayout:
     """Validate a grid request and calculate its fixed output dimensions."""
     if video_count < 1:
-        raise ValueError("At least one video is required.")
+        raise ExportError("At least one video is required.")
     if not 1 <= event_count <= MAX_GRID_EVENTS:
-        raise ValueError(f"Select between 1 and {MAX_GRID_EVENTS} stimulus events.")
+        raise ExportError(f"Select between 1 and {MAX_GRID_EVENTS} stimulus events.")
     if not np.isfinite(before) or not np.isfinite(after) or before < 0 or after <= 0:
-        raise ValueError("The before window must be non-negative and the after window positive.")
+        raise ExportError("The before window must be non-negative and the after window positive.")
     duration = before + after
+    if not np.isfinite(duration):
+        raise ExportError("The combined stimulus window must be finite.")
     available = MAX_OUTPUT_WIDTH - _LEFT_GUTTER - _RIGHT_GUTTER - _GAP * (video_count - 1)
     height_for_cells = (
         MAX_OUTPUT_HEIGHT
@@ -127,16 +130,16 @@ def export_stimulus_grid(
     rather than extending a camera's first or last frame into the window.
     """
     if fps < 1 or fps > 120:
-        raise ValueError("Output frame rate must be between 1 and 120 fps.")
+        raise ExportError("Output frame rate must be between 1 and 120 fps.")
     if not videos:
-        raise ValueError("At least one video is required.")
+        raise ExportError("At least one video is required.")
     if not event_times or len(event_times) > MAX_GRID_EVENTS:
-        raise ValueError(f"Select between 1 and {MAX_GRID_EVENTS} stimulus events.")
+        raise ExportError(f"Select between 1 and {MAX_GRID_EVENTS} stimulus events.")
     events = tuple(float(time) for time in event_times)
     if not all(np.isfinite(time) for time in events) or any(
         right <= left for left, right in zip(events, events[1:], strict=False)
     ):
-        raise ValueError("Stimulus event times must be finite and strictly increasing.")
+        raise ExportError("Stimulus event times must be finite and strictly increasing.")
     layout = plan_grid(len(videos), len(events), before, after)
     duration = before + after
     frame_count = max(1, int(np.ceil(duration * fps)))

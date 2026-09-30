@@ -7,6 +7,7 @@ import av
 import numpy as np
 import pytest
 
+from avialsync.core.errors import ExportError
 from avialsync.core.timeline import TimeMap
 from avialsync.engine import stimulus_grid_export
 from avialsync.engine.display_pipeline import DisplayLevels
@@ -184,5 +185,5 @@ def test_stimulus_grid_applies_high_bit_depth_display_levels(qapp) -> None:
 def test_grid_rejects_invalid_layout_inputs(
     video_count: int, event_count: int, before: float, after: float
 ) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ExportError):
         plan_grid(video_count, event_count, before, after)
