@@ -257,6 +257,8 @@ class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.resize(1280, 800)
+        self._detached_plot_window: QDialog | None = None
+        self._plots_detached = False
 
         self._session_path: Path | None = None
         self._session_generation = 0
@@ -1729,6 +1731,10 @@ class MainWindow(QMainWindow):
         # not skip the ones after it: that leaves those threads running and the
         # process never exits, which is the "window won't close" the user sees.
         self._close_step("releasing the application event filter", self._remove_app_event_filter)
+        self._close_step(
+            "re-attaching the detached plot pane",
+            lambda: self._act_detach_plots.setChecked(False),
+        )
         self._close_step("cancelling queued plot rows", self.plot_pane.cancel_pending_rows)
         self._close_step("stopping the heartbeat", self._heartbeat.stop)
         self._close_step("stopping playback", self.player.stop)
@@ -2243,6 +2249,14 @@ class MainWindow(QMainWindow):
             lambda: bool(self._pose_schemas),
             tr("Import a pose source before comparing the original tracker."),
         )
+        self._act_detach_plots = view_menu.addAction(tr("Detach Plots"))
+        self._act_detach_plots.setCheckable(True)
+        self._act_detach_plots.setToolTip(
+            tr("Show the plot pane in a separate window for another display")
+        )
+        self._act_detach_plots.toggled.connect(self._set_plots_detached)
+        _reg(self._act_detach_plots, "View")
+
         self._act_panels_back = view_menu.addAction(tr("Bring Panels Back"))
         self._act_panels_back.setToolTip(
             tr("Re-dock every panel and move any stray window back onto this screen")
@@ -2951,6 +2965,7 @@ class MainWindow(QMainWindow):
         it vanished at. This is the one command that undoes all of that,
         whatever combination of detaching and closing got the user there.
         """
+        self._act_detach_plots.setChecked(False)
         for dock in self.findChildren(QDockWidget):
             if dock.isFloating():
                 dock.setFloating(False)
@@ -2962,6 +2977,49 @@ class MainWindow(QMainWindow):
             if dialog is not None and isValid(dialog) and dialog.isVisible():
                 self._bring_onto_screen(dialog)
         self.notifications.show_success(tr("Panels are back on this window."))
+
+    def _set_plots_detached(self, detached: bool) -> None:
+        """Move plots to another window, or restore them to their splitter slot."""
+        if not detached:
+            dialog = self._detached_plot_window
+            if dialog is not None and isValid(dialog):
+                dialog.close()
+            else:
+                self._on_detached_plots_returned()
+            return
+
+        existing = self._detached_plot_window
+        if existing is not None and isValid(existing):
+            existing.show()
+            self._bring_onto_screen(existing)
+            existing.raise_()
+            return
+
+        index = self._v_splitter.indexOf(self.plot_pane)
+        if index < 0:
+            blocked = self._act_detach_plots.blockSignals(True)
+            self._act_detach_plots.setChecked(False)
+            self._act_detach_plots.blockSignals(blocked)
+            return
+
+        from avialsync.ui.detached_pane import DetachedPaneWindow
+
+        dialog = DetachedPaneWindow(tr("Plots"), self.plot_pane, self._v_splitter, index, self)
+        self._detached_plot_window = dialog
+        self._plots_detached = True
+        dialog.returned.connect(self._on_detached_plots_returned)
+        dialog.show()
+        self._bring_onto_screen(dialog)
+        dialog.raise_()
+
+    def _on_detached_plots_returned(self) -> None:
+        """Restore command state after the plot pane returns to its splitter."""
+        self._detached_plot_window = None
+        self._plots_detached = False
+        blocked = self._act_detach_plots.blockSignals(True)
+        self._act_detach_plots.setChecked(False)
+        self._act_detach_plots.blockSignals(blocked)
+        self._pane_proportions.record_all()
 
     def _bring_onto_screen(self, widget: QWidget) -> None:
         """Move *widget* onto this window's screen when it is off every screen.

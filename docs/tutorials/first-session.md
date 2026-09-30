@@ -28,6 +28,9 @@ Use the inspector's **Filter sources and channels** field to find a source or ch
 loaded recordings. Filtering only narrows the inspector list; it does not unload data or change
 visibility.
 
+To put plots on a second display, choose **View → Detach Plots**. Close that window or choose
+**Return to main window** to restore the pane; named workspaces remember its detached position.
+
 ## 3. Find an event
 
 Drag the shared time bar until you see a meaningful event. Watch the video, traces, and values in
