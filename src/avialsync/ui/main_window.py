@@ -80,7 +80,6 @@ from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.engine.snapshot import SnapshotFigure
-from avialsync.ui.about import citation_text, project_urls, version_report
 from avialsync.ui.accessibility import apply_accessibility, install_show_time_sweep
 from avialsync.ui.annotations import AnnotationStore, Marker
 from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
@@ -105,6 +104,7 @@ from avialsync.ui.empty_state import EmptyState
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
 from avialsync.ui.feedback.text_dialog import show_text
+from avialsync.ui.help_controller import HelpController
 from avialsync.ui.i18n import tr
 from avialsync.ui.identity_braid import BraidModel
 from avialsync.ui.identity_group_dialog import IdentityGroupDialog
@@ -769,6 +769,8 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if isinstance(app, QApplication):
             app.installEventFilter(self)
+
+        self._help_controller = HelpController(self)
 
         # Menu
         self._setup_menu()
@@ -2023,7 +2025,7 @@ class MainWindow(QMainWindow):
         act = file_menu.addAction(tr("Preferences…"))
         act.setShortcut(QKeySequence(QKeySequence.StandardKey.Preferences))
         act.setMenuRole(QAction.MenuRole.NoRole)
-        act.triggered.connect(self._show_preferences)
+        act.triggered.connect(self._help_controller.show_preferences)
         _reg(act, "File")
 
         file_menu.addSeparator()
@@ -2305,24 +2307,28 @@ class MainWindow(QMainWindow):
         _reg(self._act_shortcuts, "View")
 
         act = help_menu.addAction(tr("Documentation"))
-        act.triggered.connect(lambda: self._open_project_url("Documentation"))
+        act.triggered.connect(
+            lambda _checked=False: self._help_controller.open_project_url("Documentation")
+        )
         act = help_menu.addAction(tr("Report a Problem…"))
-        act.triggered.connect(self._report_a_problem)
+        act.triggered.connect(self._help_controller.report_a_problem)
         act = help_menu.addAction(tr("Check for Updates"))
         act.setToolTip(tr("The installers are not code-signed and do not update themselves"))
-        act.triggered.connect(lambda: self._open_project_url("Changelog"))
+        act.triggered.connect(
+            lambda _checked=False: self._help_controller.open_project_url("Changelog")
+        )
         help_menu.addSeparator()
 
         act = help_menu.addAction(tr("Cite AvialSync…"))
-        act.triggered.connect(self._show_citation)
+        act.triggered.connect(self._help_controller.show_citation)
 
         act = help_menu.addAction(tr("Diagnostics…"))
-        act.triggered.connect(self._show_diagnostics)
+        act.triggered.connect(self._help_controller.show_diagnostics)
 
         # About — macOS AboutRole moves this to the app menu (D-022.3)
         act = help_menu.addAction(tr("About AvialSync"))
         act.setMenuRole(QAction.MenuRole.AboutRole)
-        act.triggered.connect(self._show_about)
+        act.triggered.connect(self._help_controller.show_about)
 
         # Belt and braces for availability (D-107). The state-change hooks are
         # what keep a shortcut and the command palette honest; this catches the
@@ -3409,91 +3415,6 @@ class MainWindow(QMainWindow):
         self.annotation_store.add_point(t, video_frames=video_frames)
         self.statusBar().showMessage(f"Marked frame at {t:.3f}s", 2000)
 
-    # ── About dialog ─────────────────────────────────────────────────
-
-    def _open_project_url(self, label: str) -> None:
-        """Open one of the project's declared URLs in the browser.
-
-        Read from the installed metadata, never hardcoded here: they were
-        repointed during the 0.1.6 cycle and a copy in this file would have
-        gone stale without anything failing.
-        """
-        from PySide6.QtCore import QUrl
-        from PySide6.QtGui import QDesktopServices
-
-        url = project_urls().get(label)
-        if url:
-            QDesktopServices.openUrl(QUrl(url))
-        else:
-            self.notifications.show_warning(f"No {label} link is declared for this build.")
-
-    def _report_a_problem(self) -> None:
-        """Open the issue tracker with the version details already copied.
-
-        A report without a version costs a round trip, and asking someone to
-        find it themselves is how it gets left out.
-        """
-        from PySide6.QtWidgets import QApplication
-
-        clipboard = QApplication.clipboard()
-        if clipboard is not None:
-            clipboard.setText(version_report())
-            self.notifications.show_success("Version details copied — paste them into the report.")
-        self._open_project_url("Issues")
-
-    def _show_citation(self) -> None:
-        """Show the citation the release process maintains."""
-        show_text(
-            self,
-            tr("Cite AvialSync"),
-            citation_text(),
-            lead=tr("Citation metadata for this release:"),
-        )
-
-    def _show_preferences(self) -> None:
-        """Open the generated Preferences dialog.
-
-        Non-modal: a setting is often changed to see its effect, and a modal
-        would hide the thing it changes.
-        """
-        from avialsync.ui.preferences_dialog import PreferencesDialog
-
-        if getattr(self, "_preferences_dialog", None) is None:
-            self._preferences_dialog = PreferencesDialog(self)
-            self._preferences_dialog.setting_changed.connect(self._on_setting_changed)
-        self._preferences_dialog.show()
-        self._bring_onto_screen(self._preferences_dialog)
-        self._preferences_dialog.raise_()
-
-    def _on_setting_changed(self, key: str) -> None:
-        """Apply a preference immediately rather than at close."""
-        from PySide6.QtWidgets import QApplication
-
-        app = QApplication.instance()
-        if not isinstance(app, QApplication):
-            return
-        if key == "theme/preference":
-            from avialsync.ui.theme import apply_theme, load_saved_theme
-
-            apply_theme(app, load_saved_theme(app))
-        elif key == "font/preference":
-            from avialsync.ui.theme import apply_font_size, load_saved_font_size
-
-            apply_font_size(app, load_saved_font_size(app))
-
-    def _show_about(self) -> None:
-        """Name the build, so a bug report can carry it."""
-        show_text(
-            self,
-            tr("About AvialSync"),
-            version_report(),
-            lead=tr(
-                "AvialSync — The Advanced Video and Instrument Alignment Library.\n"
-                "Multi-camera video and time-series inspection.\n"
-                "Free software under the GNU AGPL v3 or later."
-            ),
-        )
-
     # ── Shortcuts dialog ─────────────────────────────────────────────
 
     def _show_command_palette(self) -> None:
@@ -3524,24 +3445,6 @@ class MainWindow(QMainWindow):
 
         dlg = ShortcutsDialog(groups, self)
         dlg.exec()
-
-    # ── Diagnostics dialog ───────────────────────────────────────────
-
-    def _show_diagnostics(self) -> None:
-        from avialsync.ui.diagnostics import format_diagnostics
-
-        diag = dict(getattr(self, "_diag", {}))
-        # Read at display time, not at probe time: the registry finishes
-        # discovery during window construction, after the startup probe starts.
-        diag["plugin_errors"] = self._registry.plugin_errors
-        text = format_diagnostics(diag)
-
-        # A scrolling dialog, not a message box: this report grows with the
-        # number of loaded sources and plugins, and a QMessageBox sized itself
-        # to the text until it ran off the screen with no way to scroll it. It
-        # is also the text most worth pasting into a bug report, so the Copy
-        # button that About had and this did not is now on both (D-107).
-        show_text(self, tr("Diagnostics"), text)
 
     # ── Snapshot export ──────────────────────────────────────────────
 

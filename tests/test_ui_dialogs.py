@@ -536,3 +536,36 @@ def test_the_candidate_list_keeps_both_ends_of_a_name(
     # And the whole path stays reachable without guessing.
     assert str(tmp_path) in labels[0].toolTip()
     assert dialog._table.item(0, 0).text().startswith("Trial")
+
+
+def test_help_menu_routes_project_links_through_window_controller(
+    qapp: QApplication, qtbot, monkeypatch
+) -> None:
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QMenu
+
+    from avialsync.ui.about import project_urls
+    from avialsync.ui.main_window import MainWindow
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+    controller = window._help_controller
+    assert controller.parent() is window
+    assert controller.thread() == window.thread()
+
+    opened: list[str] = []
+    monkeypatch.setattr(
+        QDesktopServices,
+        "openUrl",
+        staticmethod(lambda url: opened.append(url.toString())),
+    )
+    documentation = next(
+        action
+        for menu in window.findChildren(QMenu)
+        for action in menu.actions()
+        if action.text() == "Documentation"
+    )
+
+    documentation.trigger()
+
+    assert opened == [project_urls()["Documentation"]]
