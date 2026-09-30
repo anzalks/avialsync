@@ -90554,7 +90554,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L190",
+      "source_location": "L197",
       "_origin": "ast"
     },
     {
@@ -90574,6 +90574,14 @@
       "_origin": "ast"
     },
     {
+      "id": "tools_generate_demo_screenshots_rationale_58",
+      "label": "Write every demo screenshot, opening a temporary copy of the sample session.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L58",
+      "_origin": "ast"
+    },
+    {
       "id": "tools_generate_guide_screenshots",
       "label": "generate_guide_screenshots.py",
       "file_type": "code",
@@ -90586,7 +90594,7 @@
       "label": "_load_session()",
       "file_type": "code",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L37",
+      "source_location": "L36",
       "_origin": "ast"
     },
     {
@@ -90598,14 +90606,6 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_guide_screenshots_generate",
-      "label": "generate()",
-      "file_type": "code",
-      "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L55",
-      "_origin": "ast"
-    },
-    {
       "id": "tools_generate_guide_screenshots_py_path",
       "label": "Path",
       "file_type": "code",
@@ -90614,11 +90614,27 @@
       "_origin": "ast"
     },
     {
+      "id": "tools_generate_guide_screenshots_generate",
+      "label": "generate()",
+      "file_type": "code",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L54",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_guide_screenshots_capture_messages",
+      "label": "_capture_messages()",
+      "file_type": "code",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L87",
+      "_origin": "ast"
+    },
+    {
       "id": "tools_generate_guide_screenshots_capture_all",
       "label": "_capture_all()",
       "file_type": "code",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L82",
+      "source_location": "L126",
       "_origin": "ast"
     },
     {
@@ -90626,7 +90642,7 @@
       "label": "_video_info_widget()",
       "file_type": "code",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L190",
+      "source_location": "L233",
       "_origin": "ast"
     },
     {
@@ -90638,35 +90654,43 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_guide_screenshots_rationale_38",
+      "id": "tools_generate_guide_screenshots_rationale_37",
       "label": "Open the sample video and signal through the ordinary code paths.",
       "file_type": "rationale",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L38",
+      "source_location": "L37",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_guide_screenshots_rationale_56",
-      "label": "Write every annotated guide screenshot.",
+      "id": "tools_generate_guide_screenshots_rationale_55",
+      "label": "Write every annotated guide screenshot, from a temporary copy of the sample sess",
       "file_type": "rationale",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L56",
+      "source_location": "L55",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_guide_screenshots_rationale_83",
+      "id": "tools_generate_guide_screenshots_rationale_88",
+      "label": "Show the Messages tab with a few generated rig messages in it.      The fixtures",
+      "file_type": "rationale",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L88",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_guide_screenshots_rationale_127",
       "label": "Write each annotated capture in turn.",
       "file_type": "rationale",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L83",
+      "source_location": "L127",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_guide_screenshots_rationale_191",
+      "id": "tools_generate_guide_screenshots_rationale_234",
       "label": "Return the sidebar's per-video widget, whatever its concrete class.",
       "file_type": "rationale",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L191",
+      "source_location": "L234",
       "_origin": "ast"
     },
     {
@@ -90771,6 +90795,262 @@
       "file_type": "rationale",
       "source_file": "tools/generate_icons.py",
       "source_location": "L66",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots",
+      "label": "generate_identity_screenshots.py",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_centre",
+      "label": "_centre()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L62",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_heading",
+      "label": "_heading()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L70",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_true_part",
+      "label": "_true_part()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L79",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_draw_frame",
+      "label": "_draw_frame()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L86",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_py_ndarray",
+      "label": "ndarray",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_write_scene",
+      "label": "write_scene()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L105",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_py_path",
+      "label": "Path",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_settle",
+      "label": "_settle()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L139",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_py_qapplication",
+      "label": "QApplication",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_wait",
+      "label": "_wait()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L145",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_wait_idle",
+      "label": "_wait_idle()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L151",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_load",
+      "label": "_load()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L161",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_to_pillow",
+      "label": "_to_pillow()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L201",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_py_qimage",
+      "label": "QImage",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_py_image",
+      "label": "Image",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_captioned",
+      "label": "_captioned()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L211",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_write_gif",
+      "label": "_write_gif()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L224",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_panel",
+      "label": "_panel()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L245",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_generate",
+      "label": "generate()",
+      "file_type": "code",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L251",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_1",
+      "label": "Capture the Fix Identities images used by the user guide.  Run with ``conda run",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_63",
+      "label": "Where *animal* really is: two paths that cross, closest at SWAP_FRAME.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L63",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_71",
+      "label": "A unit vector along the animal's direction of travel.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L71",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_87",
+      "label": "One drawn frame: an arena floor with each animal as a coloured body.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L87",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_106",
+      "label": "Write the video and the two-animal pose file, and return their paths.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L106",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_152",
+      "label": "Return once no registered job is running and the window has redrawn.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L152",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_162",
+      "label": "Open *folder* the way a drop onto the window would.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L162",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_202",
+      "label": "Convert a Qt image to a Pillow one, dropping any row padding.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L202",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_212",
+      "label": "Grab the window at GIF size with *caption* burned into a bar along the top.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L212",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_225",
+      "label": "Write *frames* as one looping GIF on a shared palette.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L225",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_246",
+      "label": "The identity panel, opened through the same menu action a user presses.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L246",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_generate_identity_screenshots_rationale_252",
+      "label": "Write every Fix Identities screenshot.",
+      "file_type": "rationale",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L252",
       "_origin": "ast"
     },
     {
@@ -90882,7 +91162,7 @@
       "label": "_triple()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L495",
+      "source_location": "L510",
       "_origin": "ast"
     },
     {
@@ -90890,7 +91170,7 @@
       "label": "_pair()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L503",
+      "source_location": "L518",
       "_origin": "ast"
     },
     {
@@ -90898,7 +91178,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L511",
+      "source_location": "L526",
       "_origin": "ast"
     },
     {
@@ -90974,27 +91254,27 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_284",
+      "id": "tools_generate_session_screenshot_rationale_285",
       "label": "Open ``session_dir``, record ``frames`` of playback, and write the loop.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L284",
+      "source_location": "L285",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_496",
+      "id": "tools_generate_session_screenshot_rationale_511",
       "label": "Parse ``ZOOM,X,Y`` as the pane prints it.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L496",
+      "source_location": "L511",
       "_origin": "ast"
     },
     {
-      "id": "tools_generate_session_screenshot_rationale_504",
+      "id": "tools_generate_session_screenshot_rationale_519",
       "label": "Parse ``X,Y`` as the 3D pane prints it.",
       "file_type": "rationale",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L504",
+      "source_location": "L519",
       "_origin": "ast"
     },
     {
@@ -91434,7 +91714,7 @@
       "label": "pin_appearance()",
       "file_type": "code",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L43",
+      "source_location": "L46",
       "_origin": "ast"
     },
     {
@@ -91446,11 +91726,27 @@
       "_origin": "ast"
     },
     {
+      "id": "tools_screenshot_kit_staged_fixture",
+      "label": "staged_fixture()",
+      "file_type": "code",
+      "source_file": "tools/screenshot_kit.py",
+      "source_location": "L57",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_screenshot_kit_py_path",
+      "label": "Path",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
       "id": "tools_screenshot_kit_pin_layout",
       "label": "pin_layout()",
       "file_type": "code",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L53",
+      "source_location": "L74",
       "_origin": "ast"
     },
     {
@@ -91466,15 +91762,7 @@
       "label": "capture()",
       "file_type": "code",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L78",
-      "_origin": "ast"
-    },
-    {
-      "id": "tools_screenshot_kit_py_path",
-      "label": "Path",
-      "file_type": "code",
-      "source_file": "",
-      "source_location": "",
+      "source_location": "L99",
       "_origin": "ast"
     },
     {
@@ -91482,7 +91770,7 @@
       "label": "_bounds_in()",
       "file_type": "code",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L112",
+      "source_location": "L160",
       "_origin": "ast"
     },
     {
@@ -91498,7 +91786,7 @@
       "label": "_draw_step_number()",
       "file_type": "code",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L125",
+      "source_location": "L173",
       "_origin": "ast"
     },
     {
@@ -91514,7 +91802,7 @@
       "label": "settle()",
       "file_type": "code",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L143",
+      "source_location": "L191",
       "_origin": "ast"
     },
     {
@@ -91526,51 +91814,59 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_screenshot_kit_rationale_44",
+      "id": "tools_screenshot_kit_rationale_47",
       "label": "Force the documented appearance without touching saved preferences.      ``apply",
       "file_type": "rationale",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L44",
+      "source_location": "L47",
       "_origin": "ast"
     },
     {
-      "id": "tools_screenshot_kit_rationale_54",
+      "id": "tools_screenshot_kit_rationale_58",
+      "label": "Copy a fixture folder somewhere neutral and yield the copy.      A window shows",
+      "file_type": "rationale",
+      "source_file": "tools/screenshot_kit.py",
+      "source_location": "L58",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_screenshot_kit_rationale_75",
       "label": "Put the panes back where a first run puts them.      ``MainWindow.__init__`` res",
       "file_type": "rationale",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L54",
+      "source_location": "L75",
       "_origin": "ast"
     },
     {
-      "id": "tools_screenshot_kit_rationale_85",
+      "id": "tools_screenshot_kit_rationale_107",
       "label": "Grab *window* and save it, boxing each widget in *highlights*.      Args:",
       "file_type": "rationale",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L85",
+      "source_location": "L107",
       "_origin": "ast"
     },
     {
-      "id": "tools_screenshot_kit_rationale_113",
+      "id": "tools_screenshot_kit_rationale_161",
       "label": "Return *widget*'s padded rectangle in *window* coordinates.      Returns None fo",
       "file_type": "rationale",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L113",
+      "source_location": "L161",
       "_origin": "ast"
     },
     {
-      "id": "tools_screenshot_kit_rationale_126",
+      "id": "tools_screenshot_kit_rationale_174",
       "label": "Draw a filled step badge on the box's top-left corner.",
       "file_type": "rationale",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L126",
+      "source_location": "L174",
       "_origin": "ast"
     },
     {
-      "id": "tools_screenshot_kit_rationale_144",
+      "id": "tools_screenshot_kit_rationale_192",
       "label": "Drain the event loop without blocking it.      Sleeping here would be detected b",
       "file_type": "rationale",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L144",
+      "source_location": "L192",
       "_origin": "ast"
     },
     {
@@ -96650,7 +96946,7 @@
       "label": "Building the documentation",
       "file_type": "document",
       "source_file": "docs/technical/development.md",
-      "source_location": "L111",
+      "source_location": "L137",
       "_origin": "ast"
     },
     {
@@ -96658,7 +96954,7 @@
       "label": "Connecting the Read the Docs project",
       "file_type": "document",
       "source_file": "docs/technical/development.md",
-      "source_location": "L122",
+      "source_location": "L148",
       "_origin": "ast"
     },
     {
@@ -96666,7 +96962,7 @@
       "label": "Releases",
       "file_type": "document",
       "source_file": "docs/technical/development.md",
-      "source_location": "L145",
+      "source_location": "L171",
       "_origin": "ast"
     },
     {
@@ -96674,7 +96970,7 @@
       "label": "Signing",
       "file_type": "document",
       "source_file": "docs/technical/development.md",
-      "source_location": "L189",
+      "source_location": "L215",
       "_origin": "ast"
     },
     {
@@ -96966,6 +97262,102 @@
       "_origin": "ast"
     },
     {
+      "id": "docs_tutorials_fixing_identities",
+      "label": "fixing-identities.md",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "label": "Tutorial: fix switched identities",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_two_tools_two_kinds_of_mistake",
+      "label": "Two tools, two kinds of mistake",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L16",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_before_you_start",
+      "label": "Before you start",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L25",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_1_see_the_problem",
+      "label": "1. See the problem",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L33",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_2_open_the_panel",
+      "label": "2. Open the panel",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L43",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_3_review_a_crossing",
+      "label": "3. Review a crossing",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L68",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_4_apply_the_swap",
+      "label": "4. Apply the swap",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L98",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_5_undo_remove_compare",
+      "label": "5. Undo, remove, compare",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L128",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_declare_a_group_of_your_own",
+      "label": "Declare a group of your own",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L142",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_fixing_a_single_point_instead",
+      "label": "Fixing a single point instead",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L162",
+      "_origin": "ast"
+    },
+    {
+      "id": "docs_tutorials_fixing_identities_where_your_work_is_kept_and_how_to_use_it",
+      "label": "Where your work is kept, and how to use it",
+      "file_type": "document",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L174",
+      "_origin": "ast"
+    },
+    {
       "id": "docs_tutorials_importing_data",
       "label": "importing-data.md",
       "file_type": "document",
@@ -97194,7 +97586,7 @@
       "label": "Aligning recordings",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L48",
+      "source_location": "L50",
       "_origin": "ast"
     },
     {
@@ -97202,7 +97594,7 @@
       "label": "Messages the recording carries",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L64",
+      "source_location": "L66",
       "_origin": "ast"
     },
     {
@@ -97210,7 +97602,7 @@
       "label": "Flagging and exporting",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L87",
+      "source_location": "L93",
       "_origin": "ast"
     },
     {
@@ -97218,7 +97610,7 @@
       "label": "Useful controls",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L100",
+      "source_location": "L106",
       "_origin": "ast"
     },
     {
@@ -97226,7 +97618,7 @@
       "label": "Correcting a tracked point",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L141",
+      "source_location": "L156",
       "_origin": "ast"
     },
     {
@@ -97234,7 +97626,7 @@
       "label": "Fixing switched identities",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L156",
+      "source_location": "L173",
       "_origin": "ast"
     },
     {
@@ -97242,7 +97634,7 @@
       "label": "Reviewing and exporting what you changed",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L162",
+      "source_location": "L181",
       "_origin": "ast"
     },
     {
@@ -97250,7 +97642,7 @@
       "label": "Where corrections are kept",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L189",
+      "source_location": "L208",
       "_origin": "ast"
     },
     {
@@ -97258,7 +97650,7 @@
       "label": "3D tracking controls",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L209",
+      "source_location": "L228",
       "_origin": "ast"
     },
     {
@@ -97266,7 +97658,7 @@
       "label": "Placing a 3D marker",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L236",
+      "source_location": "L255",
       "_origin": "ast"
     },
     {
@@ -97274,7 +97666,7 @@
       "label": "The cameras' calibration",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L253",
+      "source_location": "L272",
       "_origin": "ast"
     },
     {
@@ -97282,7 +97674,7 @@
       "label": "Checking the 3D pose against the video",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L269",
+      "source_location": "L288",
       "_origin": "ast"
     },
     {
@@ -97290,7 +97682,7 @@
       "label": "Placing a running wheel",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L276",
+      "source_location": "L295",
       "_origin": "ast"
     },
     {
@@ -97298,7 +97690,7 @@
       "label": "Appearance and font size",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L361",
+      "source_location": "L380",
       "_origin": "ast"
     },
     {
@@ -313730,7 +314122,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L190",
+      "source_location": "L197",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313741,7 +314133,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L154",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313752,7 +314144,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L198",
+      "source_location": "L205",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313773,6 +314165,16 @@
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
       "source_location": "L45",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_demo_screenshots_rationale_58",
+      "target": "tools_generate_demo_screenshots_generate_screenshots",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L58",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313877,23 +314279,12 @@
     },
     {
       "source": "tools_generate_guide_screenshots",
-      "target": "src_avialsync_ui_transport",
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L27",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "tools_generate_guide_screenshots",
       "target": "screenshot_kit",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L30",
+      "source_location": "L29",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313903,7 +314294,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L37",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313914,7 +314305,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L37",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313925,7 +314316,18 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L37",
+      "source_location": "L36",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_load_session",
+      "target": "tools_generate_guide_screenshots_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313935,7 +314337,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L55",
+      "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313946,7 +314348,50 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L55",
+      "source_location": "L54",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots",
+      "target": "tools_generate_guide_screenshots_capture_messages",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L87",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_capture_messages",
+      "target": "src_avialsync_ui_main_window_mainwindow",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L87",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_capture_messages",
+      "target": "tools_generate_guide_screenshots_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L87",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_capture_messages",
+      "target": "tools_generate_guide_screenshots_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313956,7 +314401,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L82",
+      "source_location": "L126",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313967,7 +314412,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L82",
+      "source_location": "L126",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313978,7 +314423,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L82",
+      "source_location": "L126",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313989,7 +314434,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L82",
+      "source_location": "L126",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -313999,7 +314444,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L190",
+      "source_location": "L233",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314010,7 +314455,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L190",
+      "source_location": "L233",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314021,7 +314466,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L57",
+      "source_location": "L61",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314032,7 +314477,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L61",
+      "source_location": "L65",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314043,7 +314488,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L67",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314054,7 +314499,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L72",
+      "source_location": "L76",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_generate",
+      "target": "tools_generate_guide_screenshots_capture_messages",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L77",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314065,7 +314521,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L84",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314080,42 +314536,52 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_guide_screenshots_rationale_38",
+      "source": "tools_generate_guide_screenshots_rationale_37",
       "target": "tools_generate_guide_screenshots_load_session",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L38",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_guide_screenshots_rationale_56",
+      "source": "tools_generate_guide_screenshots_rationale_55",
       "target": "tools_generate_guide_screenshots_generate",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L56",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_guide_screenshots_rationale_83",
+      "source": "tools_generate_guide_screenshots_rationale_88",
+      "target": "tools_generate_guide_screenshots_capture_messages",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L88",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_rationale_127",
       "target": "tools_generate_guide_screenshots_capture_all",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L83",
+      "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_guide_screenshots_rationale_191",
+      "source": "tools_generate_guide_screenshots_rationale_234",
       "target": "tools_generate_guide_screenshots_video_info_widget",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L191",
+      "source_location": "L234",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314316,6 +314782,750 @@
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_icons.py",
       "source_location": "L66",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "argparse",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "sys",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tempfile",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L26",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "time",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L27",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "collections_abc",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L28",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "fractions",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L29",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "pathlib",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L30",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "numpy",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L32",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "pil",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L33",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "pyside6_qtcore",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "pyside6_qtgui",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L35",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "pyside6_qtwidgets",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L36",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "src_avialsync_engine_transcode",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L38",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "screenshot_kit",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_centre",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_heading",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L70",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_true_part",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_draw_frame",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L86",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_draw_frame",
+      "target": "tools_generate_identity_screenshots_py_ndarray",
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L86",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_write_scene",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L105",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_write_scene",
+      "target": "tools_generate_identity_screenshots_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L105",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_settle",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L139",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_settle",
+      "target": "tools_generate_identity_screenshots_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L139",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_wait",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L145",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_wait",
+      "target": "tools_generate_identity_screenshots_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L145",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_wait_idle",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L151",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_wait_idle",
+      "target": "tools_generate_identity_screenshots_py_qapplication",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L151",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_load",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L161",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_load",
+      "target": "tools_generate_identity_screenshots_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L161",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_to_pillow",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L201",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_to_pillow",
+      "target": "tools_generate_identity_screenshots_py_qimage",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L201",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_to_pillow",
+      "target": "tools_generate_identity_screenshots_py_image",
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L201",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_captioned",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L211",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_captioned",
+      "target": "tools_generate_identity_screenshots_py_image",
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L211",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_write_gif",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L224",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_write_gif",
+      "target": "tools_generate_identity_screenshots_py_image",
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L224",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_write_gif",
+      "target": "tools_generate_identity_screenshots_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L224",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_panel",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L245",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_generate_identity_screenshots_generate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L251",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_generate_identity_screenshots_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L251",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_heading",
+      "target": "tools_generate_identity_screenshots_centre",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L72",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_true_part",
+      "target": "tools_generate_identity_screenshots_centre",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L80",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_true_part",
+      "target": "tools_generate_identity_screenshots_heading",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L81",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_draw_frame",
+      "target": "tools_generate_identity_screenshots_centre",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L95",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_draw_frame",
+      "target": "tools_generate_identity_screenshots_heading",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L96",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_write_scene",
+      "target": "tools_generate_identity_screenshots_true_part",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L130",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_wait_idle",
+      "target": "tools_generate_identity_screenshots_wait",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L155",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_wait_idle",
+      "target": "tools_generate_identity_screenshots_settle",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L158",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_captioned",
+      "target": "tools_generate_identity_screenshots_to_pillow",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L216",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_generate_identity_screenshots_py_qapplication",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L256",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_generate_identity_screenshots_py_path",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L267",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_generate_identity_screenshots_write_scene",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L268",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_generate_identity_screenshots_settle",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L273",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_generate_identity_screenshots_load",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L274",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_generate_identity_screenshots_wait",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L275",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_generate_identity_screenshots_wait_idle",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L276",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_generate_identity_screenshots_panel",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L296",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_generate_identity_screenshots_write_gif",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L348",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_1",
+      "target": "tools_generate_identity_screenshots",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_63",
+      "target": "tools_generate_identity_screenshots_centre",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L63",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_71",
+      "target": "tools_generate_identity_screenshots_heading",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_87",
+      "target": "tools_generate_identity_screenshots_draw_frame",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L87",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_106",
+      "target": "tools_generate_identity_screenshots_write_scene",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L106",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_152",
+      "target": "tools_generate_identity_screenshots_wait_idle",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L152",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_162",
+      "target": "tools_generate_identity_screenshots_load",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L162",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_202",
+      "target": "tools_generate_identity_screenshots_to_pillow",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L202",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_212",
+      "target": "tools_generate_identity_screenshots_captioned",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L212",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_225",
+      "target": "tools_generate_identity_screenshots_write_gif",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L225",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_246",
+      "target": "tools_generate_identity_screenshots_panel",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L246",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_rationale_252",
+      "target": "tools_generate_identity_screenshots_generate",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314613,7 +315823,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L495",
+      "source_location": "L510",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314623,7 +315833,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L503",
+      "source_location": "L518",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314633,7 +315843,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L511",
+      "source_location": "L526",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314677,7 +315887,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L372",
+      "source_location": "L373",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314688,7 +315898,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L464",
+      "source_location": "L479",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314699,7 +315909,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L468",
+      "source_location": "L483",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314710,7 +315920,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L490",
+      "source_location": "L505",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314721,7 +315931,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L615",
+      "source_location": "L635",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314732,7 +315942,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L630",
+      "source_location": "L650",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314743,7 +315953,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L631",
+      "source_location": "L651",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -314838,32 +316048,32 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_284",
+      "source": "tools_generate_session_screenshot_rationale_285",
       "target": "tools_generate_session_screenshot_capture",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L284",
+      "source_location": "L285",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_496",
+      "source": "tools_generate_session_screenshot_rationale_511",
       "target": "tools_generate_session_screenshot_triple",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L496",
+      "source_location": "L511",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_session_screenshot_rationale_504",
+      "source": "tools_generate_session_screenshot_rationale_519",
       "target": "tools_generate_session_screenshot_pair",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L504",
+      "source_location": "L519",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316187,8 +317397,8 @@
     },
     {
       "source": "tools_screenshot_kit",
-      "target": "collections_abc",
-      "relation": "imports_from",
+      "target": "shutil",
+      "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
@@ -316198,8 +317408,8 @@
     },
     {
       "source": "tools_screenshot_kit",
-      "target": "pathlib",
-      "relation": "imports_from",
+      "target": "tempfile",
+      "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
@@ -316209,7 +317419,18 @@
     },
     {
       "source": "tools_screenshot_kit",
-      "target": "pyside6_qtcore",
+      "target": "collections_abc",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/screenshot_kit.py",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_screenshot_kit",
+      "target": "contextlib",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -316220,7 +317441,7 @@
     },
     {
       "source": "tools_screenshot_kit",
-      "target": "pyside6_qtgui",
+      "target": "pathlib",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -316231,18 +317452,18 @@
     },
     {
       "source": "tools_screenshot_kit",
-      "target": "pyside6_qtwidgets",
+      "target": "pyside6_qtcore",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L27",
+      "source_location": "L28",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tools_screenshot_kit",
-      "target": "src_avialsync_ui_init",
+      "target": "pyside6_qtgui",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -316253,11 +317474,33 @@
     },
     {
       "source": "tools_screenshot_kit",
+      "target": "pyside6_qtwidgets",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/screenshot_kit.py",
+      "source_location": "L30",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_screenshot_kit",
+      "target": "src_avialsync_ui_init",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/screenshot_kit.py",
+      "source_location": "L32",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_screenshot_kit",
       "target": "tools_screenshot_kit_pin_appearance",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L43",
+      "source_location": "L46",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316268,7 +317511,28 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L43",
+      "source_location": "L46",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_screenshot_kit",
+      "target": "tools_screenshot_kit_staged_fixture",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/screenshot_kit.py",
+      "source_location": "L57",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_screenshot_kit_staged_fixture",
+      "target": "tools_screenshot_kit_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/screenshot_kit.py",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316278,7 +317542,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L53",
+      "source_location": "L74",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316289,7 +317553,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L53",
+      "source_location": "L74",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316299,7 +317563,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L78",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316310,7 +317574,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L78",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316321,7 +317585,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L78",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316331,7 +317595,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L112",
+      "source_location": "L160",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316342,7 +317606,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L112",
+      "source_location": "L160",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316353,7 +317617,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L112",
+      "source_location": "L160",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316363,7 +317627,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L125",
+      "source_location": "L173",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316374,7 +317638,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L125",
+      "source_location": "L173",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316385,7 +317649,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L125",
+      "source_location": "L173",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316395,7 +317659,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L143",
+      "source_location": "L191",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316406,7 +317670,18 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L143",
+      "source_location": "L191",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_screenshot_kit_staged_fixture",
+      "target": "tools_screenshot_kit_py_path",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/screenshot_kit.py",
+      "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316417,7 +317692,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L97",
+      "source_location": "L132",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316428,7 +317703,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L101",
+      "source_location": "L136",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316439,7 +317714,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L106",
+      "source_location": "L141",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_screenshot_kit_capture",
+      "target": "tools_screenshot_kit_py_qrect",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/screenshot_kit.py",
+      "source_location": "L149",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316450,7 +317736,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L122",
+      "source_location": "L170",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316461,7 +317747,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L129",
+      "source_location": "L177",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -316476,62 +317762,72 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_screenshot_kit_rationale_44",
+      "source": "tools_screenshot_kit_rationale_47",
       "target": "tools_screenshot_kit_pin_appearance",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L44",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_screenshot_kit_rationale_54",
+      "source": "tools_screenshot_kit_rationale_58",
+      "target": "tools_screenshot_kit_staged_fixture",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/screenshot_kit.py",
+      "source_location": "L58",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_screenshot_kit_rationale_75",
       "target": "tools_screenshot_kit_pin_layout",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L54",
+      "source_location": "L75",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_screenshot_kit_rationale_85",
+      "source": "tools_screenshot_kit_rationale_107",
       "target": "tools_screenshot_kit_capture",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L85",
+      "source_location": "L107",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_screenshot_kit_rationale_113",
+      "source": "tools_screenshot_kit_rationale_161",
       "target": "tools_screenshot_kit_bounds_in",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L113",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_screenshot_kit_rationale_126",
+      "source": "tools_screenshot_kit_rationale_174",
       "target": "tools_screenshot_kit_draw_step_number",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L126",
+      "source_location": "L174",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_screenshot_kit_rationale_144",
+      "source": "tools_screenshot_kit_rationale_192",
       "target": "tools_screenshot_kit_settle",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/screenshot_kit.py",
-      "source_location": "L144",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323046,7 +324342,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/development.md",
-      "source_location": "L111",
+      "source_location": "L137",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323056,7 +324352,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/development.md",
-      "source_location": "L122",
+      "source_location": "L148",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323066,7 +324362,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/development.md",
-      "source_location": "L145",
+      "source_location": "L171",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323076,7 +324372,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/development.md",
-      "source_location": "L189",
+      "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323451,6 +324747,136 @@
       "_origin": "ast"
     },
     {
+      "source": "docs_tutorials_fixing_identities",
+      "target": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "target": "docs_tutorials_fixing_identities_two_tools_two_kinds_of_mistake",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L16",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "target": "docs_tutorials_fixing_identities_before_you_start",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "target": "docs_tutorials_fixing_identities_1_see_the_problem",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L33",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "target": "docs_tutorials_fixing_identities_2_open_the_panel",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "target": "docs_tutorials_fixing_identities_3_review_a_crossing",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L68",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "target": "docs_tutorials_fixing_identities_4_apply_the_swap",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L98",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "target": "docs_tutorials_fixing_identities_5_undo_remove_compare",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L128",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "target": "docs_tutorials_fixing_identities_declare_a_group_of_your_own",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L142",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "target": "docs_tutorials_fixing_identities_fixing_a_single_point_instead",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L162",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities",
+      "target": "docs_user_guide_index",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L172",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities_tutorial_fix_switched_identities",
+      "target": "docs_tutorials_fixing_identities_where_your_work_is_kept_and_how_to_use_it",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L174",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_tutorials_fixing_identities",
+      "target": "docs_tutorials_annotating_and_exporting",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/tutorials/fixing-identities.md",
+      "source_location": "L182",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "docs_tutorials_importing_data",
       "target": "docs_tutorials_importing_data_tutorial_import_sensor_and_recording_data",
       "relation": "contains",
@@ -323752,11 +325178,21 @@
     },
     {
       "source": "docs_user_guide_index",
-      "target": "docs_user_guide_sessions_and_media",
+      "target": "docs_tutorials_fixing_identities",
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
       "source_location": "L46",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "docs_user_guide_index",
+      "target": "docs_user_guide_sessions_and_media",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/index.md",
+      "source_location": "L48",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323766,7 +325202,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L48",
+      "source_location": "L50",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323776,7 +325212,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L64",
+      "source_location": "L66",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323786,7 +325222,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L85",
+      "source_location": "L91",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323796,7 +325232,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L87",
+      "source_location": "L93",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323806,7 +325242,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L100",
+      "source_location": "L106",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323816,7 +325252,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L141",
+      "source_location": "L156",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323826,7 +325262,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L156",
+      "source_location": "L173",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323836,7 +325272,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L162",
+      "source_location": "L181",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323846,7 +325282,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L189",
+      "source_location": "L208",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323856,7 +325292,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L209",
+      "source_location": "L228",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323866,7 +325302,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L236",
+      "source_location": "L255",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323876,7 +325312,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L253",
+      "source_location": "L272",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323886,7 +325322,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L269",
+      "source_location": "L288",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323896,7 +325332,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L276",
+      "source_location": "L295",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323906,7 +325342,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L361",
+      "source_location": "L380",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334788,13 +336224,24 @@
       "_origin": "ast"
     },
     {
+      "source": "tools_generate_demo_screenshots",
+      "target": "tools_screenshot_kit_staged_fixture",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L32",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tools_generate_guide_screenshots",
       "target": "tools_screenshot_kit_capture",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L30",
+      "source_location": "L29",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334805,7 +336252,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L30",
+      "source_location": "L29",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334816,7 +336263,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L30",
+      "source_location": "L29",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -334827,7 +336274,51 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L30",
+      "source_location": "L29",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots",
+      "target": "tools_screenshot_kit_staged_fixture",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L29",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_screenshot_kit_capture",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_screenshot_kit_pin_appearance",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots",
+      "target": "tools_screenshot_kit_pin_layout",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L41",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340289,12 +341780,23 @@
     },
     {
       "source": "tools_generate_demo_screenshots_generate_screenshots",
+      "target": "tools_screenshot_kit_staged_fixture",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_demo_screenshots.py",
+      "source_location": "L59",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_demo_screenshots_generate_screenshots",
       "target": "tools_screenshot_kit_pin_appearance",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L60",
+      "source_location": "L66",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340305,7 +341807,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L65",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340316,7 +341818,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L66",
+      "source_location": "L72",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340327,7 +341829,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L43",
+      "source_location": "L42",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_generate",
+      "target": "tools_screenshot_kit_staged_fixture",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340338,7 +341851,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L58",
+      "source_location": "L62",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340349,7 +341862,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L64",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340360,7 +341873,40 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L65",
+      "source_location": "L69",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_capture_messages",
+      "target": "tools_screenshot_kit_settle",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L113",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_capture_messages",
+      "target": "tools_screenshot_kit_capture",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L114",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_guide_screenshots_capture_messages",
+      "target": "tools_screenshot_kit_pin_layout",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_guide_screenshots.py",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340371,7 +341917,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L88",
+      "source_location": "L132",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340382,7 +341928,40 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L118",
+      "source_location": "L161",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_screenshot_kit_pin_appearance",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L257",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_screenshot_kit_capture",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L264",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "tools_screenshot_kit_pin_layout",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L277",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340393,7 +341972,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L288",
+      "source_location": "L289",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -340404,7 +341983,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L303",
+      "source_location": "L304",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389669,7 +391248,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L62",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389681,7 +391260,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L82",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389693,7 +391272,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L92",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389705,7 +391284,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L92",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389717,7 +391296,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L97",
+      "source_location": "L104",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389729,7 +391308,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L123",
+      "source_location": "L130",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389741,7 +391320,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L123",
+      "source_location": "L130",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389753,7 +391332,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_demo_screenshots.py",
-      "source_location": "L135",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389765,7 +391344,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L40",
+      "source_location": "L39",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389777,7 +391356,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L47",
+      "source_location": "L46",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389789,19 +391368,19 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L47",
+      "source_location": "L46",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_generate_guide_screenshots_capture_all",
-      "target": "src_avialsync_ui_transport_timelineevidence",
-      "relation": "indirect_call",
-      "context": "argument",
+      "source": "tools_generate_guide_screenshots_capture_messages",
+      "target": "src_avialsync_core_messages_message",
+      "relation": "calls",
+      "context": "call",
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L98",
+      "source_location": "L101",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389813,7 +391392,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L116",
+      "source_location": "L159",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389825,7 +391404,55 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_guide_screenshots.py",
-      "source_location": "L152",
+      "source_location": "L195",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_write_scene",
+      "target": "src_avialsync_engine_transcode_encode_video",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L113",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_load",
+      "target": "src_avialsync_engine_drop_worker_dropscanworker",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L167",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "src_avialsync_ui_main_window_mainwindow",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L269",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_generate_identity_screenshots_generate",
+      "target": "src_avialsync_ui_identity_group_dialog_identitygroupdialog",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tools/generate_identity_screenshots.py",
+      "source_location": "L381",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389849,7 +391476,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L290",
+      "source_location": "L291",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -389861,7 +391488,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tools/generate_session_screenshot.py",
-      "source_location": "L402",
+      "source_location": "L383",
       "weight": 1.0,
       "_origin": "ast"
     },
