@@ -9950,6 +9950,14 @@
       "_origin": "ast"
     },
     {
+      "id": "src_avialsync_core_timeline_timemap_copy",
+      "label": ".copy()",
+      "file_type": "code",
+      "source_file": "src/avialsync/core/timeline.py",
+      "source_location": "L301",
+      "_origin": "ast"
+    },
+    {
       "id": "src_avialsync_core_timeline_rationale_1",
       "label": "Master timeline and synchronization logic.",
       "file_type": "rationale",
@@ -10099,6 +10107,14 @@
       "file_type": "rationale",
       "source_file": "src/avialsync/core/timeline.py",
       "source_location": "L276",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_core_timeline_rationale_302",
+      "label": "Return an independent snapshot of this affine or exact mapping.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/core/timeline.py",
+      "source_location": "L302",
       "_origin": "ast"
     },
     {
@@ -14762,7 +14778,15 @@
       "label": "GridVideo",
       "file_type": "code",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L40",
+      "source_location": "L42",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_engine_stimulus_grid_export_gridvideo_post_init",
+      "label": ".__post_init__()",
+      "file_type": "code",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L50",
       "_origin": "ast"
     },
     {
@@ -14770,7 +14794,7 @@
       "label": "GridLayout",
       "file_type": "code",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L50",
+      "source_location": "L55",
       "_origin": "ast"
     },
     {
@@ -14778,7 +14802,7 @@
       "label": "GridLabels",
       "file_type": "code",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L61",
+      "source_location": "L66",
       "_origin": "ast"
     },
     {
@@ -14786,7 +14810,7 @@
       "label": "plan_grid()",
       "file_type": "code",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L71",
+      "source_location": "L76",
       "_origin": "ast"
     },
     {
@@ -14794,7 +14818,7 @@
       "label": "export_stimulus_grid()",
       "file_type": "code",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L107",
+      "source_location": "L114",
       "_origin": "ast"
     },
     {
@@ -14826,7 +14850,7 @@
       "label": "_render_frame()",
       "file_type": "code",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L178",
+      "source_location": "L184",
       "_origin": "ast"
     },
     {
@@ -14842,7 +14866,7 @@
       "label": "_draw_ruler()",
       "file_type": "code",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L274",
+      "source_location": "L284",
       "_origin": "ast"
     },
     {
@@ -14858,7 +14882,7 @@
       "label": "_image_to_rgb()",
       "file_type": "code",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L310",
+      "source_location": "L320",
       "_origin": "ast"
     },
     {
@@ -14878,67 +14902,67 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_engine_stimulus_grid_export_rationale_41",
-      "label": "A video and its accepted mapping onto master time.",
+      "id": "src_avialsync_engine_stimulus_grid_export_rationale_43",
+      "label": "A video and detached snapshots of its timing and display settings.",
       "file_type": "rationale",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L41",
+      "source_location": "L43",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_engine_stimulus_grid_export_rationale_51",
+      "id": "src_avialsync_engine_stimulus_grid_export_rationale_56",
       "label": "Stable geometry for an event-by-camera comparison grid.",
       "file_type": "rationale",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L51",
+      "source_location": "L56",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_engine_stimulus_grid_export_rationale_62",
+      "id": "src_avialsync_engine_stimulus_grid_export_rationale_67",
       "label": "Translated text templates supplied by the UI layer.",
       "file_type": "rationale",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L62",
+      "source_location": "L67",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_engine_stimulus_grid_export_rationale_77",
+      "id": "src_avialsync_engine_stimulus_grid_export_rationale_82",
       "label": "Validate a grid request and calculate its fixed output dimensions.",
       "file_type": "rationale",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L77",
+      "source_location": "L82",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_engine_stimulus_grid_export_rationale_119",
+      "id": "src_avialsync_engine_stimulus_grid_export_rationale_126",
       "label": "Encode selected event windows as rows and cameras as columns.      Every row adv",
       "file_type": "rationale",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L119",
+      "source_location": "L126",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_engine_stimulus_grid_export_rationale_188",
+      "id": "src_avialsync_engine_stimulus_grid_export_rationale_194",
       "label": "Compose decoded tiles, event labels, a trigger line, and the time ruler.",
       "file_type": "rationale",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L188",
+      "source_location": "L194",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_engine_stimulus_grid_export_rationale_283",
+      "id": "src_avialsync_engine_stimulus_grid_export_rationale_293",
       "label": "Draw matching relative-time scales beneath every camera column.",
       "file_type": "rationale",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L283",
+      "source_location": "L293",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_engine_stimulus_grid_export_rationale_311",
+      "id": "src_avialsync_engine_stimulus_grid_export_rationale_321",
       "label": "Copy a QImage's padded rows into the contiguous RGB array PyAV expects.",
       "file_type": "rationale",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L311",
+      "source_location": "L321",
       "_origin": "ast"
     },
     {
@@ -49950,6 +49974,38 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_benchmarks_test_bench_stimulus_grid",
+      "label": "test_bench_stimulus_grid.py",
+      "file_type": "code",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_benchmarks_test_bench_stimulus_grid_test_bench_three_camera_four_event_grid",
+      "label": "test_bench_three_camera_four_event_grid()",
+      "file_type": "code",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L24",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_benchmarks_test_bench_stimulus_grid_rationale_1",
+      "label": "Performance guard for event-aligned multi-camera composition.",
+      "file_type": "rationale",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_benchmarks_test_bench_stimulus_grid_rationale_25",
+      "label": "Render six output frames while comparing four events across three cameras.",
+      "file_type": "rationale",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L25",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_benchmarks_test_bench_sync",
       "label": "test_bench_sync.py",
       "file_type": "code",
@@ -61662,11 +61718,19 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_core_timeline_test_time_map_copy_preserves_affine_anchor_and_exact_mapping",
+      "label": "test_time_map_copy_preserves_affine_anchor_and_exact_mapping()",
+      "file_type": "code",
+      "source_file": "tests/test_core_timeline.py",
+      "source_location": "L217",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_core_timeline_test_time_map_rejects_noninvertible_exact_mapping",
       "label": "test_time_map_rejects_noninvertible_exact_mapping()",
       "file_type": "code",
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L227",
+      "source_location": "L243",
       "_origin": "ast"
     },
     {
@@ -61682,7 +61746,7 @@
       "label": "test_affine_edit_explicitly_replaces_exact_mapping()",
       "file_type": "code",
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L234",
+      "source_location": "L250",
       "_origin": "ast"
     },
     {
@@ -61690,7 +61754,7 @@
       "label": "test_exact_mapping_snaps_to_nearest_master_frame_trigger()",
       "file_type": "code",
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L244",
+      "source_location": "L260",
       "_origin": "ast"
     },
     {
@@ -61698,7 +61762,7 @@
       "label": "test_exact_mapping_reports_local_rate_scale()",
       "file_type": "code",
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L257",
+      "source_location": "L273",
       "_origin": "ast"
     },
     {
@@ -81554,7 +81618,7 @@
       "label": "test_grid_places_trigger_at_shared_relative_time_position()",
       "file_type": "code",
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L27",
+      "source_location": "L32",
       "_origin": "ast"
     },
     {
@@ -81562,7 +81626,31 @@
       "label": "test_stimulus_grid_export_is_decodable()",
       "file_type": "code",
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L38",
+      "source_location": "L43",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_stimulus_grid_export_test_stimulus_grid_reuses_one_reader_per_camera",
+      "label": "test_stimulus_grid_reuses_one_reader_per_camera()",
+      "file_type": "code",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L73",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_stimulus_grid_export_test_stimulus_grid_uses_a_snapshot_of_exact_video_mapping",
+      "label": "test_stimulus_grid_uses_a_snapshot_of_exact_video_mapping()",
+      "file_type": "code",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L103",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_stimulus_grid_export_test_stimulus_grid_applies_high_bit_depth_display_levels",
+      "label": "test_stimulus_grid_applies_high_bit_depth_display_levels()",
+      "file_type": "code",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L142",
       "_origin": "ast"
     },
     {
@@ -81570,7 +81658,7 @@
       "label": "test_grid_rejects_invalid_layout_inputs()",
       "file_type": "code",
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L78",
+      "source_location": "L185",
       "_origin": "ast"
     },
     {
@@ -96066,7 +96154,7 @@
       "label": "Done (Phase 4 UX / loader fixes)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L138",
+      "source_location": "L142",
       "_origin": "ast"
     },
     {
@@ -96074,7 +96162,7 @@
       "label": "Done — Inspection Layer (A–K, D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L194",
+      "source_location": "L198",
       "_origin": "ast"
     },
     {
@@ -96082,7 +96170,7 @@
       "label": "Implemented — TTL/event synchronization baseline (D-026)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L227",
+      "source_location": "L231",
       "_origin": "ast"
     },
     {
@@ -96090,7 +96178,7 @@
       "label": "Pending",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L242",
+      "source_location": "L246",
       "_origin": "ast"
     },
     {
@@ -96098,7 +96186,7 @@
       "label": "Cross-platform pressure audit (D-040)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L352",
+      "source_location": "L356",
       "_origin": "ast"
     },
     {
@@ -96106,7 +96194,7 @@
       "label": "Fixed (this PR — Phase 4 stabilization)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L376",
+      "source_location": "L380",
       "_origin": "ast"
     },
     {
@@ -96114,7 +96202,7 @@
       "label": "mypy is clean — keep it that way (V-07)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L412",
+      "source_location": "L416",
       "_origin": "ast"
     },
     {
@@ -96122,7 +96210,7 @@
       "label": "Module Map",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L427",
+      "source_location": "L431",
       "_origin": "ast"
     },
     {
@@ -96130,7 +96218,7 @@
       "label": "Architecture Rules (violations = rejected PR)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L578",
+      "source_location": "L582",
       "_origin": "ast"
     },
     {
@@ -96138,7 +96226,7 @@
       "label": "Signal Wiring Map",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L592",
+      "source_location": "L596",
       "_origin": "ast"
     },
     {
@@ -96146,7 +96234,7 @@
       "label": "Sidebar → MainWindow → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L596",
+      "source_location": "L600",
       "_origin": "ast"
     },
     {
@@ -96154,7 +96242,7 @@
       "label": "Transport → Player → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L610",
+      "source_location": "L614",
       "_origin": "ast"
     },
     {
@@ -96162,7 +96250,7 @@
       "label": "PlotPane / Player → downstream",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L627",
+      "source_location": "L631",
       "_origin": "ast"
     },
     {
@@ -96170,7 +96258,7 @@
       "label": "Time display mode (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L640",
+      "source_location": "L644",
       "_origin": "ast"
     },
     {
@@ -96178,7 +96266,7 @@
       "label": "Source properties + integrity (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L647",
+      "source_location": "L651",
       "_origin": "ast"
     },
     {
@@ -96186,7 +96274,7 @@
       "label": "Import pipeline (updated, D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L657",
+      "source_location": "L661",
       "_origin": "ast"
     },
     {
@@ -96194,7 +96282,7 @@
       "label": "Known Traps",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L673",
+      "source_location": "L677",
       "_origin": "ast"
     },
     {
@@ -96202,7 +96290,7 @@
       "label": "0-fork. Nothing a repaint can reach may shell out, and a miss must be cached",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L681",
+      "source_location": "L685",
       "_origin": "ast"
     },
     {
@@ -96210,7 +96298,7 @@
       "label": "0-epoch. A loader declares where its zero is; it never declares a placement",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L694",
+      "source_location": "L698",
       "_origin": "ast"
     },
     {
@@ -96218,7 +96306,7 @@
       "label": "0-offset. A source offset has two domains, and mixing them moves things by decades",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L720",
+      "source_location": "L724",
       "_origin": "ast"
     },
     {
@@ -96226,7 +96314,7 @@
       "label": "0-bounds. The master timeline is derived from coverage, never accumulated",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L745",
+      "source_location": "L749",
       "_origin": "ast"
     },
     {
@@ -96234,7 +96322,7 @@
       "label": "0-wizard. The alignment wizard is non-modal, and a test cannot `exec()` around it",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L759",
+      "source_location": "L763",
       "_origin": "ast"
     },
     {
@@ -96242,7 +96330,7 @@
       "label": "0-badge. `ui/quality_badge.py` had no caller in `src/` at all",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L775",
+      "source_location": "L779",
       "_origin": "ast"
     },
     {
@@ -96250,7 +96338,7 @@
       "label": "0-entrypoints. A new plugin group must be added to `_ENTRY_POINT_GROUPS`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L791",
+      "source_location": "L795",
       "_origin": "ast"
     },
     {
@@ -96258,7 +96346,7 @@
       "label": "0-kind. A `TriggerKind` that does not travel on the spec loses two rungs",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L802",
+      "source_location": "L806",
       "_origin": "ast"
     },
     {
@@ -96266,7 +96354,7 @@
       "label": "0-trigger. An external trigger and a frame strobe are not the same evidence",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L822",
+      "source_location": "L826",
       "_origin": "ast"
     },
     {
@@ -96274,7 +96362,7 @@
       "label": "0-epoch. Nothing declared a session zero, and two things broke on it",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L844",
+      "source_location": "L848",
       "_origin": "ast"
     },
     {
@@ -96282,7 +96370,7 @@
       "label": "0-align. A mapping's numbers cannot say how it was made",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L867",
+      "source_location": "L871",
       "_origin": "ast"
     },
     {
@@ -96290,7 +96378,7 @@
       "label": "0-segv. A window the test never registered dies after the tests pass",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L888",
+      "source_location": "L892",
       "_origin": "ast"
     },
     {
@@ -96298,7 +96386,7 @@
       "label": "0-clock. A clock time is not a timestamp",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L903",
+      "source_location": "L907",
       "_origin": "ast"
     },
     {
@@ -96306,7 +96394,7 @@
       "label": "0-nav. `qtbot.addWidget` holds its widgets weakly",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L914",
+      "source_location": "L918",
       "_origin": "ast"
     },
     {
@@ -96314,7 +96402,7 @@
       "label": "0-nav-bis. A pyqtgraph view box receives `QGraphicsSceneWheelEvent`, not `QWheelEvent`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L925",
+      "source_location": "L929",
       "_origin": "ast"
     },
     {
@@ -96322,7 +96410,7 @@
       "label": "0a. Three UI facts that look like features and are not (Phase 7)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L934",
+      "source_location": "L938",
       "_origin": "ast"
     },
     {
@@ -96330,7 +96418,7 @@
       "label": "0a-quater. Four surfaces that existed and were not used (D-107)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L982",
+      "source_location": "L986",
       "_origin": "ast"
     },
     {
@@ -96338,7 +96426,7 @@
       "label": "0a-bis. Four ways a theme change silently fails to arrive (D-106)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1020",
+      "source_location": "L1024",
       "_origin": "ast"
     },
     {
@@ -96346,7 +96434,7 @@
       "label": "0a-ter. A test that writes real `QSettings` edits the developer's application (D-106)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1058",
+      "source_location": "L1062",
       "_origin": "ast"
     },
     {
@@ -96354,7 +96442,7 @@
       "label": "0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1066",
+      "source_location": "L1070",
       "_origin": "ast"
     },
     {
@@ -96362,7 +96450,7 @@
       "label": "0b. Building a widget list can free the widgets in it (D-065)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1079",
+      "source_location": "L1083",
       "_origin": "ast"
     },
     {
@@ -96370,7 +96458,7 @@
       "label": "0a. A `QObject` moved to a `QThread` needs an owning Python reference",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1091",
+      "source_location": "L1095",
       "_origin": "ast"
     },
     {
@@ -96378,7 +96466,7 @@
       "label": "0b. Do NOT add the anchor date to AOL encoder timestamps (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1098",
+      "source_location": "L1102",
       "_origin": "ast"
     },
     {
@@ -96386,7 +96474,7 @@
       "label": "0c. AOL pose data must not become plot rows (D-046)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1105",
+      "source_location": "L1109",
       "_origin": "ast"
     },
     {
@@ -96394,7 +96482,7 @@
       "label": "0c-bis. Overlay data reaches the grid before most panes exist (D-077)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1112",
+      "source_location": "L1116",
       "_origin": "ast"
     },
     {
@@ -96402,7 +96490,7 @@
       "label": "0c-ter. The overlay reads `sample_at`, not `value_at` (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1124",
+      "source_location": "L1128",
       "_origin": "ast"
     },
     {
@@ -96410,7 +96498,7 @@
       "label": "0c-quater. A correction never touches the pose file or its cache (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1134",
+      "source_location": "L1138",
       "_origin": "ast"
     },
     {
@@ -96418,7 +96506,7 @@
       "label": "0c-quinquies. Persistence hangs off the mutation, not off the store's observers (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1144",
+      "source_location": "L1148",
       "_origin": "ast"
     },
     {
@@ -96426,7 +96514,7 @@
       "label": "0c-sexies. A correction is keyed by sample index, written as a video frame (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1154",
+      "source_location": "L1158",
       "_origin": "ast"
     },
     {
@@ -96434,7 +96522,7 @@
       "label": "0c-wheel. A wheel is drawn from the frame's time, not the clock's, and never from a file (D-113)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1166",
+      "source_location": "L1170",
       "_origin": "ast"
     },
     {
@@ -96442,7 +96530,7 @@
       "label": "0c-custom. Our marker files match the globs that find pose data (D-112)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1175",
+      "source_location": "L1179",
       "_origin": "ast"
     },
     {
@@ -96450,7 +96538,7 @@
       "label": "0c-septies. Export writers do not create the folder you typed (D-100)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1182",
+      "source_location": "L1186",
       "_origin": "ast"
     },
     {
@@ -96458,7 +96546,7 @@
       "label": "0c-octies. Do not reach for `QToolButton.setDefaultAction` (D-100)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1188",
+      "source_location": "L1192",
       "_origin": "ast"
     },
     {
@@ -96466,7 +96554,7 @@
       "label": "0d. `\"_eks.csv\".split(\"_\")[0]` is `\"\"` — and `\"\" in name` matches everything",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1197",
+      "source_location": "L1201",
       "_origin": "ast"
     },
     {
@@ -96474,7 +96562,7 @@
       "label": "0e. A container's declared frame rate is a claim, not evidence (D-072)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1202",
+      "source_location": "L1206",
       "_origin": "ast"
     },
     {
@@ -96482,7 +96570,7 @@
       "label": "0f. `*.xml` matches `settings.xml`, two levels above the samples (D-070)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1210",
+      "source_location": "L1214",
       "_origin": "ast"
     },
     {
@@ -96490,7 +96578,7 @@
       "label": "0g. A sidecar cache is named after its source path *alone*",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1216",
+      "source_location": "L1220",
       "_origin": "ast"
     },
     {
@@ -96498,7 +96586,7 @@
       "label": "0h. Cache files are shared inodes — never write to one in place (D-071)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1223",
+      "source_location": "L1227",
       "_origin": "ast"
     },
     {
@@ -96506,7 +96594,7 @@
       "label": "0i. A drop must step over our own sidecar caches",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1230",
+      "source_location": "L1234",
       "_origin": "ast"
     },
     {
@@ -96514,7 +96602,7 @@
       "label": "0j. Only the first session of a multi-path drop owns the timeline",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1237",
+      "source_location": "L1241",
       "_origin": "ast"
     },
     {
@@ -96522,7 +96610,7 @@
       "label": "0k. A plugin's display name is the kind of data, never the rig",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1243",
+      "source_location": "L1247",
       "_origin": "ast"
     },
     {
@@ -96530,7 +96618,7 @@
       "label": "0l. A `SessionItem` label is never part of `config`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1258",
+      "source_location": "L1262",
       "_origin": "ast"
     },
     {
@@ -96538,7 +96626,7 @@
       "label": "0m. \"Failed to import CSV\" was hardcoded for every loader",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1265",
+      "source_location": "L1269",
       "_origin": "ast"
     },
     {
@@ -96546,7 +96634,7 @@
       "label": "0n. Combo index 0 is \"Skip\" — never leave a resolved row on it",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1276",
+      "source_location": "L1280",
       "_origin": "ast"
     },
     {
@@ -96554,7 +96642,7 @@
       "label": "0o. Dropped frames are invisible to the gap mask, by arithmetic (D-074)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1282",
+      "source_location": "L1286",
       "_origin": "ast"
     },
     {
@@ -96562,7 +96650,7 @@
       "label": "0p. A shortcut only reaches the playhead if no focused widget claims it (D-059)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1291",
+      "source_location": "L1295",
       "_origin": "ast"
     },
     {
@@ -96570,7 +96658,7 @@
       "label": "1. No bare `QWidget { }` QSS selector — blacks out video panes",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1308",
+      "source_location": "L1312",
       "_origin": "ast"
     },
     {
@@ -96578,7 +96666,7 @@
       "label": "2. `setParent(None)` makes a widget a popup window",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1318",
+      "source_location": "L1322",
       "_origin": "ast"
     },
     {
@@ -96586,7 +96674,7 @@
       "label": "3. `setLayout()` silently fails if layout already exists",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1322",
+      "source_location": "L1326",
       "_origin": "ast"
     },
     {
@@ -96594,7 +96682,7 @@
       "label": "4. A pts table built by walking packets is in *decode* order",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1326",
+      "source_location": "L1330",
       "_origin": "ast"
     },
     {
@@ -96602,7 +96690,7 @@
       "label": "5. The forward-decode-vs-reseek crossover is measured in frames, never seconds",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1332",
+      "source_location": "L1336",
       "_origin": "ast"
     },
     {
@@ -96610,7 +96698,7 @@
       "label": "6. Video pane needs `WA_StyledBackground = False`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1338",
+      "source_location": "L1342",
       "_origin": "ast"
     },
     {
@@ -96618,7 +96706,7 @@
       "label": "7. Drive MasterClock from `time.monotonic()` — never accumulate timer intervals",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1342",
+      "source_location": "L1346",
       "_origin": "ast"
     },
     {
@@ -96626,7 +96714,7 @@
       "label": "8. Drift correction needs hysteresis (5 consecutive ticks)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1346",
+      "source_location": "L1350",
       "_origin": "ast"
     },
     {
@@ -96634,7 +96722,7 @@
       "label": "8b. Playback commands a frame, never a rate — do not reintroduce drift correction",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1353",
+      "source_location": "L1357",
       "_origin": "ast"
     },
     {
@@ -96642,7 +96730,7 @@
       "label": "8c. Per-frame UI work must not scale with the decoded frame rate",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1362",
+      "source_location": "L1366",
       "_origin": "ast"
     },
     {
@@ -96650,7 +96738,7 @@
       "label": "8e. The plot scene must not repaint at the tick rate, and stays visually plain",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1371",
+      "source_location": "L1375",
       "_origin": "ast"
     },
     {
@@ -96658,7 +96746,7 @@
       "label": "8d. `paintEvent` must never query a decoder",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1383",
+      "source_location": "L1387",
       "_origin": "ast"
     },
     {
@@ -96666,7 +96754,7 @@
       "label": "9. polars `read_csv` type inference flips per-chunk",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1392",
+      "source_location": "L1396",
       "_origin": "ast"
     },
     {
@@ -96674,7 +96762,7 @@
       "label": "10. `QImage` does not copy the array it wraps",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1398",
+      "source_location": "L1402",
       "_origin": "ast"
     },
     {
@@ -96682,7 +96770,7 @@
       "label": "12. ruff `line-length = 100` — IDE diagnostics at 79 chars are false positives",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1403",
+      "source_location": "L1407",
       "_origin": "ast"
     },
     {
@@ -96690,7 +96778,7 @@
       "label": "13. `_load_level()` is private — use the bounded read API (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1407",
+      "source_location": "L1411",
       "_origin": "ast"
     },
     {
@@ -96698,7 +96786,7 @@
       "label": "14. Session v1 → v2 migration: SensorEntry / VideoEntry gain new optional fields",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1418",
+      "source_location": "L1422",
       "_origin": "ast"
     },
     {
@@ -96706,7 +96794,7 @@
       "label": "15. Never cache time→pixel positions; map from current geometry at paint time",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1424",
+      "source_location": "L1428",
       "_origin": "ast"
     },
     {
@@ -96714,7 +96802,7 @@
       "label": "18. System-key collisions — Ctrl+V and Ctrl+D are reserved (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1434",
+      "source_location": "L1438",
       "_origin": "ast"
     },
     {
@@ -96722,7 +96810,7 @@
       "label": "19. VideoPane right-click: eventFilter, NOT CustomContextMenu policy (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1445",
+      "source_location": "L1449",
       "_origin": "ast"
     },
     {
@@ -96730,7 +96818,7 @@
       "label": "11. Annotation label edits via `markers` property are silently discarded",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1458",
+      "source_location": "L1462",
       "_origin": "ast"
     },
     {
@@ -96738,7 +96826,7 @@
       "label": "16. `type: ignore` is never a shipping mechanism",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1462",
+      "source_location": "L1466",
       "_origin": "ast"
     },
     {
@@ -96746,7 +96834,7 @@
       "label": "20. mypy silently ignores malformed override sections",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1479",
+      "source_location": "L1483",
       "_origin": "ast"
     },
     {
@@ -96754,7 +96842,7 @@
       "label": "21. QSplitter.restoreState also restores `childrenCollapsible` (D-049)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1482",
+      "source_location": "L1486",
       "_origin": "ast"
     },
     {
@@ -96762,7 +96850,7 @@
       "label": "21a. `setSizes` is not a drag — `PaneProportions` only adopts on `splitterMoved` (D-061)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1491",
+      "source_location": "L1495",
       "_origin": "ast"
     },
     {
@@ -96770,7 +96858,7 @@
       "label": "22. Presentation refresh is 20 Hz, not 60 Hz (D-047)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1505",
+      "source_location": "L1509",
       "_origin": "ast"
     },
     {
@@ -96778,7 +96866,7 @@
       "label": "23. Channel names are not unique — key by `ChannelKey` (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1513",
+      "source_location": "L1517",
       "_origin": "ast"
     },
     {
@@ -96786,7 +96874,7 @@
       "label": "24. Media subprocesses must splat `no_window_kwargs()` (V-14, D-050)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1520",
+      "source_location": "L1524",
       "_origin": "ast"
     },
     {
@@ -96794,7 +96882,7 @@
       "label": "25. `VideoPane.__init__` must build its chrome on every path (V-11, D-013)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1530",
+      "source_location": "L1534",
       "_origin": "ast"
     },
     {
@@ -96802,7 +96890,7 @@
       "label": "26. AOL sessions load raw video + one fused EKS track per camera",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1541",
+      "source_location": "L1545",
       "_origin": "ast"
     },
     {
@@ -96810,7 +96898,7 @@
       "label": "26b. AOL extracted-metric MAT files are found by filename, never a fixed folder name",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1550",
+      "source_location": "L1554",
       "_origin": "ast"
     },
     {
@@ -96818,7 +96906,7 @@
       "label": "26c. Video-extraction exports are v7.3/HDF5 and need the JSON sidecar",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1569",
+      "source_location": "L1573",
       "_origin": "ast"
     },
     {
@@ -96826,7 +96914,7 @@
       "label": "27. The window must always close; jobs are owned by JobManager (V-09)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1598",
+      "source_location": "L1602",
       "_origin": "ast"
     },
     {
@@ -96834,7 +96922,7 @@
       "label": "28. UI-thread stalls are measured, not guessed (`ui/ui_heartbeat.py`)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1622",
+      "source_location": "L1626",
       "_origin": "ast"
     },
     {
@@ -96842,7 +96930,7 @@
       "label": "17. Annotation schema (v3) — per-video frame records",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1635",
+      "source_location": "L1639",
       "_origin": "ast"
     },
     {
@@ -96850,7 +96938,7 @@
       "label": "Run Commands",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1680",
+      "source_location": "L1684",
       "_origin": "ast"
     },
     {
@@ -96858,7 +96946,7 @@
       "label": "Shortcuts Reference (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1714",
+      "source_location": "L1718",
       "_origin": "ast"
     },
     {
@@ -96866,7 +96954,7 @@
       "label": "Playback",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1716",
+      "source_location": "L1720",
       "_origin": "ast"
     },
     {
@@ -96874,7 +96962,7 @@
       "label": "Marking",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1736",
+      "source_location": "L1740",
       "_origin": "ast"
     },
     {
@@ -96882,7 +96970,7 @@
       "label": "View",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1746",
+      "source_location": "L1750",
       "_origin": "ast"
     },
     {
@@ -96890,7 +96978,7 @@
       "label": "File",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1758",
+      "source_location": "L1762",
       "_origin": "ast"
     },
     {
@@ -96898,7 +96986,7 @@
       "label": "Performance Budgets (engineering-certified where ★)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1772",
+      "source_location": "L1776",
       "_origin": "ast"
     },
     {
@@ -96906,7 +96994,7 @@
       "label": "8f. The pyramid query must fill the point budget, not merely fit under it",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1798",
+      "source_location": "L1802",
       "_origin": "ast"
     },
     {
@@ -96914,7 +97002,7 @@
       "label": "8g. Shutdown steps are isolated and ordered; never let one raise skip the rest",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1808",
+      "source_location": "L1812",
       "_origin": "ast"
     },
     {
@@ -96922,7 +97010,7 @@
       "label": "8h. Text editors steal the playhead keys unless they are explicitly reserved",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1818",
+      "source_location": "L1822",
       "_origin": "ast"
     },
     {
@@ -96930,7 +97018,7 @@
       "label": "8i. Never build all plot rows in one call",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1828",
+      "source_location": "L1832",
       "_origin": "ast"
     },
     {
@@ -96938,7 +97026,7 @@
       "label": "29. A built-in loader's dependencies can fail, and that must not be fatal",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1846",
+      "source_location": "L1850",
       "_origin": "ast"
     },
     {
@@ -96946,7 +97034,7 @@
       "label": "30. The Windows `0xC0000005` was inside faulthandler — trigger removed with libmpv",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1865",
+      "source_location": "L1869",
       "_origin": "ast"
     },
     {
@@ -96954,7 +97042,7 @@
       "label": "31. Connect a job's result signals in `configure`, never after `_run_job` returns",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1905",
+      "source_location": "L1909",
       "_origin": "ast"
     },
     {
@@ -96962,7 +97050,7 @@
       "label": "32. A job's completion handler must be a QObject's slot, or be wrapped (D-051)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1945",
+      "source_location": "L1949",
       "_origin": "ast"
     },
     {
@@ -96970,7 +97058,7 @@
       "label": "33. A `QMenu` reached through `QAction.menu()` dies with the wrapper you drop (test-side)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1985",
+      "source_location": "L1989",
       "_origin": "ast"
     },
     {
@@ -96978,7 +97066,7 @@
       "label": "34. Preferences is in the File menu, and `PreferencesRole` is what took it away (D-135)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L2008",
+      "source_location": "L2012",
       "_origin": "ast"
     },
     {
@@ -98650,7 +98738,7 @@
       "label": "What is not exported",
       "file_type": "document",
       "source_file": "docs/tutorials/annotating-and-exporting.md",
-      "source_location": "L93",
+      "source_location": "L94",
       "_origin": "ast"
     },
     {
@@ -121218,6 +121306,16 @@
       "_origin": "ast"
     },
     {
+      "source": "src_avialsync_core_timeline_timemap",
+      "target": "src_avialsync_core_timeline_timemap_copy",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/timeline.py",
+      "source_location": "L301",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "src_avialsync_core_timeline_masterclock_state",
       "target": "src_avialsync_core_timeline_playbackstate",
       "relation": "calls",
@@ -121291,6 +121389,39 @@
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/timeline.py",
       "source_location": "L246",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_timeline_timemap_set_exact_mapping",
+      "target": "src_avialsync_core_timeline_timemap_copy",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/timeline.py",
+      "source_location": "L296",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_timeline_timemap_copy",
+      "target": "src_avialsync_core_timeline_timemap",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/timeline.py",
+      "source_location": "L303",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_timeline_timemap_copy",
+      "target": "src_avialsync_core_timeline_timemap_set_exact_mapping",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/timeline.py",
+      "source_location": "L307",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -121481,6 +121612,16 @@
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/core/timeline.py",
       "source_location": "L276",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_core_timeline_rationale_302",
+      "target": "src_avialsync_core_timeline_timemap_copy",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/core/timeline.py",
+      "source_location": "L302",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133306,7 +133447,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export",
-      "target": "src_avialsync_core_timeline",
+      "target": "src_avialsync_core_errors",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -133317,7 +133458,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export",
-      "target": "src_avialsync_engine_pyav_reader",
+      "target": "src_avialsync_core_timeline",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -133328,7 +133469,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export",
-      "target": "src_avialsync_engine_transcode",
+      "target": "src_avialsync_engine_display_pipeline",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -133339,11 +133480,43 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export",
+      "target": "src_avialsync_engine_pyav_reader",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L19",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export",
+      "target": "src_avialsync_engine_transcode",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export",
       "target": "src_avialsync_engine_stimulus_grid_export_gridvideo",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L40",
+      "source_location": "L42",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export_gridvideo",
+      "target": "src_avialsync_engine_stimulus_grid_export_gridvideo_post_init",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L50",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133353,7 +133526,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L50",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133363,7 +133536,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L61",
+      "source_location": "L66",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133373,7 +133546,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L71",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133384,7 +133557,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L71",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133394,7 +133567,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L107",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133405,7 +133578,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L107",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133416,7 +133589,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L107",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133427,7 +133600,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L107",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133438,7 +133611,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L107",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133449,7 +133622,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L107",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133459,7 +133632,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L178",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133470,7 +133643,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L178",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133481,7 +133654,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L178",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133492,7 +133665,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L178",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133503,7 +133676,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L178",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133514,7 +133687,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L178",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133525,7 +133698,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L178",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133535,7 +133708,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L274",
+      "source_location": "L284",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133546,7 +133719,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L274",
+      "source_location": "L284",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133557,7 +133730,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L274",
+      "source_location": "L284",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133568,7 +133741,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L274",
+      "source_location": "L284",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133578,7 +133751,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L310",
+      "source_location": "L320",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133589,7 +133762,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L310",
+      "source_location": "L320",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133600,7 +133773,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L310",
+      "source_location": "L320",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133611,7 +133784,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L104",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133622,7 +133795,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L136",
+      "source_location": "L143",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133633,18 +133806,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L145",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_engine_stimulus_grid_export_export_stimulus_grid",
-      "target": "src_avialsync_core_timeline_timemap",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L147",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133655,7 +133817,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L189",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133666,7 +133828,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L191",
+      "source_location": "L197",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133677,7 +133839,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L269",
+      "source_location": "L279",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -133692,82 +133854,82 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_engine_stimulus_grid_export_rationale_41",
+      "source": "src_avialsync_engine_stimulus_grid_export_rationale_43",
       "target": "src_avialsync_engine_stimulus_grid_export_gridvideo",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L41",
+      "source_location": "L43",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_engine_stimulus_grid_export_rationale_51",
+      "source": "src_avialsync_engine_stimulus_grid_export_rationale_56",
       "target": "src_avialsync_engine_stimulus_grid_export_gridlayout",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L51",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_engine_stimulus_grid_export_rationale_62",
+      "source": "src_avialsync_engine_stimulus_grid_export_rationale_67",
       "target": "src_avialsync_engine_stimulus_grid_export_gridlabels",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L62",
+      "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_engine_stimulus_grid_export_rationale_77",
+      "source": "src_avialsync_engine_stimulus_grid_export_rationale_82",
       "target": "src_avialsync_engine_stimulus_grid_export_plan_grid",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L77",
+      "source_location": "L82",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_engine_stimulus_grid_export_rationale_119",
+      "source": "src_avialsync_engine_stimulus_grid_export_rationale_126",
       "target": "src_avialsync_engine_stimulus_grid_export_export_stimulus_grid",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L119",
+      "source_location": "L126",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_engine_stimulus_grid_export_rationale_188",
+      "source": "src_avialsync_engine_stimulus_grid_export_rationale_194",
       "target": "src_avialsync_engine_stimulus_grid_export_render_frame",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L188",
+      "source_location": "L194",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_engine_stimulus_grid_export_rationale_283",
+      "source": "src_avialsync_engine_stimulus_grid_export_rationale_293",
       "target": "src_avialsync_engine_stimulus_grid_export_draw_ruler",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L283",
+      "source_location": "L293",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_engine_stimulus_grid_export_rationale_311",
+      "source": "src_avialsync_engine_stimulus_grid_export_rationale_321",
       "target": "src_avialsync_engine_stimulus_grid_export_image_to_rgb",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L311",
+      "source_location": "L321",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -219899,6 +220061,91 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_benchmarks_test_bench_stimulus_grid",
+      "target": "fractions",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_benchmarks_test_bench_stimulus_grid",
+      "target": "numpy",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_benchmarks_test_bench_stimulus_grid",
+      "target": "pytest",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_benchmarks_test_bench_stimulus_grid",
+      "target": "src_avialsync_engine_stimulus_grid_export",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_benchmarks_test_bench_stimulus_grid",
+      "target": "src_avialsync_engine_transcode",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_benchmarks_test_bench_stimulus_grid",
+      "target": "tests_benchmarks_test_bench_stimulus_grid_test_bench_three_camera_four_event_grid",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L24",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_benchmarks_test_bench_stimulus_grid_rationale_1",
+      "target": "tests_benchmarks_test_bench_stimulus_grid",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_benchmarks_test_bench_stimulus_grid_rationale_25",
+      "target": "tests_benchmarks_test_bench_stimulus_grid_test_bench_three_camera_four_event_grid",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_benchmarks_test_bench_sync",
       "target": "numpy",
       "relation": "imports",
@@ -246416,11 +246663,21 @@
     },
     {
       "source": "tests_test_core_timeline",
+      "target": "tests_test_core_timeline_test_time_map_copy_preserves_affine_anchor_and_exact_mapping",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_core_timeline.py",
+      "source_location": "L217",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_core_timeline",
       "target": "tests_test_core_timeline_test_time_map_rejects_noninvertible_exact_mapping",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L227",
+      "source_location": "L243",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -246431,7 +246688,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L227",
+      "source_location": "L243",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -246441,7 +246698,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L234",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -246451,7 +246708,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L244",
+      "source_location": "L260",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -246461,7 +246718,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L257",
+      "source_location": "L273",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -293758,18 +294015,18 @@
     },
     {
       "source": "tests_test_stimulus_grid_export",
-      "target": "av",
-      "relation": "imports",
+      "target": "pathlib",
+      "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L5",
+      "source_location": "L4",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_stimulus_grid_export",
-      "target": "numpy",
+      "target": "av",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -293780,7 +294037,7 @@
     },
     {
       "source": "tests_test_stimulus_grid_export",
-      "target": "pytest",
+      "target": "numpy",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -293791,12 +294048,67 @@
     },
     {
       "source": "tests_test_stimulus_grid_export",
+      "target": "pytest",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export",
+      "target": "src_avialsync_core_errors",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export",
+      "target": "src_avialsync_core_timeline",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export",
+      "target": "src_avialsync_engine_init",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export",
+      "target": "src_avialsync_engine_display_pipeline",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L13",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export",
       "target": "src_avialsync_engine_stimulus_grid_export",
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L9",
+      "source_location": "L14",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -293807,7 +294119,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L16",
+      "source_location": "L21",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -293817,7 +294129,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L27",
+      "source_location": "L32",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -293827,7 +294139,37 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L38",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export",
+      "target": "tests_test_stimulus_grid_export_test_stimulus_grid_reuses_one_reader_per_camera",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L73",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export",
+      "target": "tests_test_stimulus_grid_export_test_stimulus_grid_uses_a_snapshot_of_exact_video_mapping",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L103",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export",
+      "target": "tests_test_stimulus_grid_export_test_stimulus_grid_applies_high_bit_depth_display_levels",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -293837,7 +294179,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L78",
+      "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326315,7 +326657,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L138",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326325,7 +326667,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L194",
+      "source_location": "L198",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326335,7 +326677,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L227",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326345,7 +326687,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L242",
+      "source_location": "L246",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326355,7 +326697,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L352",
+      "source_location": "L356",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326365,7 +326707,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L376",
+      "source_location": "L380",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326375,7 +326717,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L412",
+      "source_location": "L416",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326385,7 +326727,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L427",
+      "source_location": "L431",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326395,7 +326737,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L578",
+      "source_location": "L582",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326405,7 +326747,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L592",
+      "source_location": "L596",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326415,7 +326757,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L596",
+      "source_location": "L600",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326425,7 +326767,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L610",
+      "source_location": "L614",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326435,7 +326777,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L627",
+      "source_location": "L631",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326445,7 +326787,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L640",
+      "source_location": "L644",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326455,7 +326797,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L647",
+      "source_location": "L651",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326465,7 +326807,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L657",
+      "source_location": "L661",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326475,7 +326817,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L673",
+      "source_location": "L677",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326485,7 +326827,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L681",
+      "source_location": "L685",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326495,7 +326837,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L694",
+      "source_location": "L698",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326505,7 +326847,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L720",
+      "source_location": "L724",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326515,7 +326857,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L745",
+      "source_location": "L749",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326525,7 +326867,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L759",
+      "source_location": "L763",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326535,7 +326877,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L775",
+      "source_location": "L779",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326545,7 +326887,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L791",
+      "source_location": "L795",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326555,7 +326897,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L802",
+      "source_location": "L806",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326565,7 +326907,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L822",
+      "source_location": "L826",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326575,7 +326917,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L844",
+      "source_location": "L848",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326585,7 +326927,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L867",
+      "source_location": "L871",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326595,7 +326937,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L888",
+      "source_location": "L892",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326605,7 +326947,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L903",
+      "source_location": "L907",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326615,7 +326957,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L914",
+      "source_location": "L918",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326625,7 +326967,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L925",
+      "source_location": "L929",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326635,7 +326977,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L934",
+      "source_location": "L938",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326645,7 +326987,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L982",
+      "source_location": "L986",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326655,7 +326997,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1020",
+      "source_location": "L1024",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326665,7 +327007,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1058",
+      "source_location": "L1062",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326675,7 +327017,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1066",
+      "source_location": "L1070",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326685,7 +327027,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1079",
+      "source_location": "L1083",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326695,7 +327037,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1091",
+      "source_location": "L1095",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326705,7 +327047,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1098",
+      "source_location": "L1102",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326715,7 +327057,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1105",
+      "source_location": "L1109",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326725,7 +327067,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1112",
+      "source_location": "L1116",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326735,7 +327077,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1124",
+      "source_location": "L1128",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326745,7 +327087,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1134",
+      "source_location": "L1138",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326755,7 +327097,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1144",
+      "source_location": "L1148",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326765,7 +327107,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1154",
+      "source_location": "L1158",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326775,7 +327117,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1166",
+      "source_location": "L1170",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326785,7 +327127,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1175",
+      "source_location": "L1179",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326795,7 +327137,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1182",
+      "source_location": "L1186",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326805,7 +327147,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1188",
+      "source_location": "L1192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326815,7 +327157,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1197",
+      "source_location": "L1201",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326825,7 +327167,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1202",
+      "source_location": "L1206",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326835,7 +327177,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1210",
+      "source_location": "L1214",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326845,7 +327187,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1216",
+      "source_location": "L1220",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326855,7 +327197,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1223",
+      "source_location": "L1227",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326865,7 +327207,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1230",
+      "source_location": "L1234",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326875,7 +327217,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1237",
+      "source_location": "L1241",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326885,7 +327227,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1243",
+      "source_location": "L1247",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326895,7 +327237,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1258",
+      "source_location": "L1262",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326905,7 +327247,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1265",
+      "source_location": "L1269",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326915,7 +327257,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1276",
+      "source_location": "L1280",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326925,7 +327267,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1282",
+      "source_location": "L1286",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326935,7 +327277,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1291",
+      "source_location": "L1295",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326945,7 +327287,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1308",
+      "source_location": "L1312",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326955,7 +327297,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1318",
+      "source_location": "L1322",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326965,7 +327307,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1322",
+      "source_location": "L1326",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326975,7 +327317,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1326",
+      "source_location": "L1330",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326985,7 +327327,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1332",
+      "source_location": "L1336",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -326995,7 +327337,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1338",
+      "source_location": "L1342",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327005,7 +327347,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1342",
+      "source_location": "L1346",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327015,7 +327357,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1346",
+      "source_location": "L1350",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327025,7 +327367,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1353",
+      "source_location": "L1357",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327035,7 +327377,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1362",
+      "source_location": "L1366",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327045,7 +327387,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1371",
+      "source_location": "L1375",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327055,7 +327397,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1383",
+      "source_location": "L1387",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327065,7 +327407,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1392",
+      "source_location": "L1396",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327075,7 +327417,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1398",
+      "source_location": "L1402",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327085,7 +327427,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1403",
+      "source_location": "L1407",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327095,7 +327437,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1407",
+      "source_location": "L1411",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327105,7 +327447,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1418",
+      "source_location": "L1422",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327115,7 +327457,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1424",
+      "source_location": "L1428",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327125,7 +327467,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1434",
+      "source_location": "L1438",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327135,7 +327477,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1445",
+      "source_location": "L1449",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327145,7 +327487,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1458",
+      "source_location": "L1462",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327155,7 +327497,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1462",
+      "source_location": "L1466",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327165,7 +327507,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1479",
+      "source_location": "L1483",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327175,7 +327517,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1482",
+      "source_location": "L1486",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327185,7 +327527,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1491",
+      "source_location": "L1495",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327195,7 +327537,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1505",
+      "source_location": "L1509",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327205,7 +327547,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1513",
+      "source_location": "L1517",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327215,7 +327557,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1520",
+      "source_location": "L1524",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327225,7 +327567,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1530",
+      "source_location": "L1534",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327235,7 +327577,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1541",
+      "source_location": "L1545",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327245,7 +327587,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1550",
+      "source_location": "L1554",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327255,7 +327597,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1569",
+      "source_location": "L1573",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327265,7 +327607,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1598",
+      "source_location": "L1602",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327275,7 +327617,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1622",
+      "source_location": "L1626",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327285,7 +327627,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1635",
+      "source_location": "L1639",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327295,7 +327637,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1680",
+      "source_location": "L1684",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327305,7 +327647,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1714",
+      "source_location": "L1718",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327315,7 +327657,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1716",
+      "source_location": "L1720",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327325,7 +327667,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1736",
+      "source_location": "L1740",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327335,7 +327677,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1746",
+      "source_location": "L1750",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327345,7 +327687,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1758",
+      "source_location": "L1762",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327355,7 +327697,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1772",
+      "source_location": "L1776",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327365,7 +327707,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1798",
+      "source_location": "L1802",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327375,7 +327717,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1808",
+      "source_location": "L1812",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327385,7 +327727,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1818",
+      "source_location": "L1822",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327395,7 +327737,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1828",
+      "source_location": "L1832",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327405,7 +327747,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1846",
+      "source_location": "L1850",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327415,7 +327757,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1865",
+      "source_location": "L1869",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327425,7 +327767,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1905",
+      "source_location": "L1909",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327435,7 +327777,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1945",
+      "source_location": "L1949",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327445,7 +327787,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1985",
+      "source_location": "L1989",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327455,7 +327797,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L2008",
+      "source_location": "L2012",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -327941,7 +328283,7 @@
     },
     {
       "source": "readme",
-      "target": "users_anzalks_documents_kinochronix_scientific_ux_license_md",
+      "target": "users_anzalks_documents_kinochronix_main_window_refactor_license_md",
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
@@ -329575,7 +329917,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/tutorials/annotating-and-exporting.md",
-      "source_location": "L93",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332311,7 +332653,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export",
-      "target": "src_avialsync_core_timeline_timemap",
+      "target": "src_avialsync_core_errors_exporterror",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -332322,7 +332664,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export",
-      "target": "src_avialsync_engine_pyav_reader_pyavreader",
+      "target": "src_avialsync_core_timeline_timemap",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -332333,12 +332675,34 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export",
-      "target": "src_avialsync_engine_pyav_reader_to_rgb_array",
+      "target": "src_avialsync_engine_display_pipeline_displaylevels",
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L17",
+      "source_location": "L18",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export",
+      "target": "src_avialsync_engine_display_pipeline_to_display_array",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L18",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export",
+      "target": "src_avialsync_engine_pyav_reader_pyavreader",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L19",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332349,7 +332713,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L18",
+      "source_location": "L20",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332360,7 +332724,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L18",
+      "source_location": "L20",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -342606,24 +342970,46 @@
       "_origin": "ast"
     },
     {
+      "source": "src_avialsync_engine_stimulus_grid_export_plan_grid",
+      "target": "src_avialsync_core_errors_exporterror",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L84",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export_export_stimulus_grid",
+      "target": "src_avialsync_core_errors_exporterror",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L133",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "src_avialsync_engine_stimulus_grid_export_export_stimulus_grid",
       "target": "src_avialsync_engine_transcode_encode_video",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L169",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export_render_frame",
-      "target": "src_avialsync_engine_pyav_reader_to_rgb_array",
+      "target": "src_avialsync_engine_display_pipeline_to_display_array",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
-      "source_location": "L228",
+      "source_location": "L234",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -350589,7 +350975,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export_gridvideo",
-      "target": "src_avialsync_core_timeline_timemap",
+      "target": "src_avialsync_core_errors_exporterror",
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
@@ -350599,7 +350985,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export_gridlayout",
-      "target": "src_avialsync_core_timeline_timemap",
+      "target": "src_avialsync_core_errors_exporterror",
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
@@ -350609,7 +350995,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export_gridlabels",
-      "target": "src_avialsync_core_timeline_timemap",
+      "target": "src_avialsync_core_errors_exporterror",
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
@@ -350619,7 +351005,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export_gridvideo",
-      "target": "src_avialsync_engine_pyav_reader_pyavreader",
+      "target": "src_avialsync_core_timeline_timemap",
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
@@ -350629,7 +351015,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export_gridlayout",
-      "target": "src_avialsync_engine_pyav_reader_pyavreader",
+      "target": "src_avialsync_core_timeline_timemap",
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
@@ -350639,7 +351025,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export_gridlabels",
-      "target": "src_avialsync_engine_pyav_reader_pyavreader",
+      "target": "src_avialsync_core_timeline_timemap",
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
@@ -350649,7 +351035,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export_gridvideo",
-      "target": "src_avialsync_engine_transcode_transcodecancelled",
+      "target": "src_avialsync_engine_display_pipeline_displaylevels",
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
@@ -350659,7 +351045,7 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export_gridlayout",
-      "target": "src_avialsync_engine_transcode_transcodecancelled",
+      "target": "src_avialsync_engine_display_pipeline_displaylevels",
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
@@ -350669,11 +351055,71 @@
     },
     {
       "source": "src_avialsync_engine_stimulus_grid_export_gridlabels",
-      "target": "src_avialsync_engine_transcode_transcodecancelled",
+      "target": "src_avialsync_engine_display_pipeline_displaylevels",
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/engine/stimulus_grid_export.py",
       "source_location": "L18",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export_gridvideo",
+      "target": "src_avialsync_engine_pyav_reader_pyavreader",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L19",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export_gridlayout",
+      "target": "src_avialsync_engine_pyav_reader_pyavreader",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L19",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export_gridlabels",
+      "target": "src_avialsync_engine_pyav_reader_pyavreader",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L19",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export_gridvideo",
+      "target": "src_avialsync_engine_transcode_transcodecancelled",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L20",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export_gridlayout",
+      "target": "src_avialsync_engine_transcode_transcodecancelled",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L20",
+      "weight": 0.8,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_engine_stimulus_grid_export_gridlabels",
+      "target": "src_avialsync_engine_transcode_transcodecancelled",
+      "relation": "uses",
+      "confidence": "INFERRED",
+      "source_file": "src/avialsync/engine/stimulus_grid_export.py",
+      "source_location": "L20",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -371744,6 +372190,42 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_benchmarks_test_bench_stimulus_grid_test_bench_three_camera_four_event_grid",
+      "target": "src_avialsync_engine_transcode_encode_video",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L29",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_benchmarks_test_bench_stimulus_grid_test_bench_three_camera_four_event_grid",
+      "target": "src_avialsync_engine_stimulus_grid_export_gridvideo",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_benchmarks_test_bench_stimulus_grid_test_bench_three_camera_four_event_grid",
+      "target": "src_avialsync_engine_stimulus_grid_export_export_stimulus_grid",
+      "relation": "indirect_call",
+      "context": "argument",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tests/benchmarks/test_bench_stimulus_grid.py",
+      "source_location": "L38",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_benchmarks_test_bench_sync_test_bench_sync_fit_preview",
       "target": "src_avialsync_core_sync_fit_sync_events",
       "relation": "indirect_call",
@@ -379568,6 +380050,18 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_core_timeline_test_time_map_copy_preserves_affine_anchor_and_exact_mapping",
+      "target": "src_avialsync_core_timeline_timemap",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_core_timeline.py",
+      "source_location": "L218",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_core_timeline_test_time_map_rejects_noninvertible_exact_mapping",
       "target": "src_avialsync_core_timeline_timemap",
       "relation": "calls",
@@ -379575,7 +380069,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L231",
+      "source_location": "L247",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -379587,7 +380081,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L235",
+      "source_location": "L251",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -379599,7 +380093,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L245",
+      "source_location": "L261",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -379611,7 +380105,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_core_timeline.py",
-      "source_location": "L258",
+      "source_location": "L274",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -391107,7 +391601,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L28",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -391119,7 +391613,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L43",
+      "source_location": "L48",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -391131,7 +391625,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L49",
+      "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -391143,7 +391637,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L50",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -391155,7 +391649,139 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L63",
+      "source_location": "L68",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_reuses_one_reader_per_camera",
+      "target": "src_avialsync_engine_transcode_encode_video",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L77",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_reuses_one_reader_per_camera",
+      "target": "src_avialsync_engine_stimulus_grid_export_export_stimulus_grid",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L90",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_reuses_one_reader_per_camera",
+      "target": "src_avialsync_engine_stimulus_grid_export_gridvideo",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L91",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_uses_a_snapshot_of_exact_video_mapping",
+      "target": "src_avialsync_engine_transcode_encode_video",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L107",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_uses_a_snapshot_of_exact_video_mapping",
+      "target": "src_avialsync_core_timeline_timemap",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L112",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_uses_a_snapshot_of_exact_video_mapping",
+      "target": "src_avialsync_engine_stimulus_grid_export_gridvideo",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L117",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_uses_a_snapshot_of_exact_video_mapping",
+      "target": "src_avialsync_engine_stimulus_grid_export_export_stimulus_grid",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L129",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_applies_high_bit_depth_display_levels",
+      "target": "src_avialsync_engine_stimulus_grid_export_gridvideo",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L152",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_applies_high_bit_depth_display_levels",
+      "target": "src_avialsync_engine_display_pipeline_displaylevels",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L155",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_applies_high_bit_depth_display_levels",
+      "target": "src_avialsync_engine_stimulus_grid_export_plan_grid",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L157",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_grid_rejects_invalid_layout_inputs",
+      "target": "src_avialsync_core_errors_exporterror",
+      "relation": "indirect_call",
+      "context": "argument",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L188",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -391167,7 +391793,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_stimulus_grid_export.py",
-      "source_location": "L82",
+      "source_location": "L189",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -393740,7 +394366,7 @@
       "_origin": "ast"
     },
     {
-      "source": "users_anzalks_documents_kinochronix_scientific_ux_tests_test_ui_main_py",
+      "source": "users_anzalks_documents_kinochronix_main_window_refactor_tests_test_ui_main_py",
       "target": "src_avialsync_loaders_video_standard_videostandardloader",
       "relation": "indirect_call",
       "context": "collection",
@@ -393752,7 +394378,7 @@
       "_origin": "ast"
     },
     {
-      "source": "users_anzalks_documents_kinochronix_scientific_ux_tests_test_ui_main_py",
+      "source": "users_anzalks_documents_kinochronix_main_window_refactor_tests_test_ui_main_py",
       "target": "src_avialsync_loaders_csv_loader_csvloader",
       "relation": "indirect_call",
       "context": "collection",
@@ -393764,7 +394390,7 @@
       "_origin": "ast"
     },
     {
-      "source": "users_anzalks_documents_kinochronix_scientific_ux_tests_test_ui_main_py",
+      "source": "users_anzalks_documents_kinochronix_main_window_refactor_tests_test_ui_main_py",
       "target": "src_avialsync_loaders_tracking_loader_trackingloader",
       "relation": "indirect_call",
       "context": "collection",
@@ -393776,7 +394402,7 @@
       "_origin": "ast"
     },
     {
-      "source": "users_anzalks_documents_kinochronix_scientific_ux_tests_test_ui_main_py",
+      "source": "users_anzalks_documents_kinochronix_main_window_refactor_tests_test_ui_main_py",
       "target": "src_avialsync_loaders_neo_loader_neoloader",
       "relation": "indirect_call",
       "context": "collection",
@@ -397292,7 +397918,7 @@
       "_origin": "ast"
     },
     {
-      "source": "users_anzalks_documents_kinochronix_scientific_ux_tests_test_wheel_controller_py",
+      "source": "users_anzalks_documents_kinochronix_main_window_refactor_tests_test_wheel_controller_py",
       "target": "tests_wheel_window_place",
       "relation": "indirect_call",
       "context": "assignment",
@@ -400804,6 +401430,18 @@
       "confidence_score": 1.0,
       "source_file": "tests/test_source_time_map.py",
       "source_location": "L165",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_stimulus_grid_export_test_stimulus_grid_applies_high_bit_depth_display_levels",
+      "target": "src_avialsync_engine_stimulus_grid_export_render_frame",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_stimulus_grid_export.py",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast"
     },
