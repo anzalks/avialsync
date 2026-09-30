@@ -1916,20 +1916,23 @@ class MainWindow(QMainWindow):
         file_menu = menu.addMenu(tr("File"))
 
         # Ctrl+Shift+V (not Ctrl+V — system Paste collision, D-022.7 / Trap §18)
-        act = file_menu.addAction(tr("Open Video(s)…"))
+        self._act_open_video = file_menu.addAction(tr("Open Video(s)…"))
+        act = self._act_open_video
         act.setShortcut(QKeySequence("Ctrl+Shift+V"))
         act.triggered.connect(self._open_video)
         _reg(act, "File")
 
         # Ctrl+Shift+D (not Ctrl+D — bookmark/dock collision, D-022.7 / Trap §18)
-        act = file_menu.addAction(tr("Open Sensor/Ephys Data…"))
+        self._act_open_sensor = file_menu.addAction(tr("Open Sensor/Ephys Data…"))
+        act = self._act_open_sensor
         act.setShortcut(QKeySequence("Ctrl+Shift+D"))
         act.triggered.connect(self._open_data)
         _reg(act, "File")
 
         file_menu.addSeparator()
 
-        act = file_menu.addAction(tr("Save Session…"))
+        self._act_save_session = file_menu.addAction(tr("Save Session…"))
+        act = self._act_save_session
         act.setShortcut(QKeySequence(QKeySequence.StandardKey.Save))
         act.triggered.connect(self._save_session)
         _reg(act, "File")
@@ -2132,7 +2135,8 @@ class MainWindow(QMainWindow):
         # and Save Session (WP-10).
         self._align_menu = menu.addMenu(tr("Align"))
 
-        act = self._align_menu.addAction(tr("Synchronize TTL / events…"))
+        self._act_synchronize = self._align_menu.addAction(tr("Synchronize TTL / events…"))
+        act = self._act_synchronize
         act.setToolTip(tr("Fit an offset from events both recordings share"))
         act.triggered.connect(self._open_sync_wizard)
         _reg(act, "Align")
@@ -2300,6 +2304,13 @@ class MainWindow(QMainWindow):
 
         # ── Help ──────────────────────────────────────────────────────
         help_menu = menu.addMenu(tr("Help"))
+
+        self._act_review_workflow = help_menu.addAction(tr("Review Workflow…"))
+        self._act_review_workflow.setToolTip(
+            tr("Open a task guide for checking timing, alignment, and observations")
+        )
+        self._act_review_workflow.triggered.connect(self._help_controller.show_review_workflow)
+        _reg(self._act_review_workflow, "View")
 
         # Shortcuts dialog: F1 primary (HelpContents); "?" alias added in _setup_shortcuts
         # Commands — searchable by name. The menus are deep enough now that

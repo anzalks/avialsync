@@ -3,6 +3,8 @@
 This example uses one camera and one sensor file. The same steps work with several cameras and many
 recordings.
 
+For an in-app checklist while reviewing, open **Help → Review Workflow**.
+
 ## 1. Load the camera
 
 ![Load the camera](../_static/screenshots/demo_step2_video_loaded.png)
