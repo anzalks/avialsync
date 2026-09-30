@@ -57,13 +57,53 @@ def validate_version(version: str) -> None:
         )
 
 
-def replace_declared_version(path: Path, pattern: re.Pattern[str], version: str) -> None:
-    """Replace precisely one quoted version declaration in *path*."""
+def replaced_version_text(path: Path, pattern: re.Pattern[str], version: str) -> str:
+    """Return *path*'s text with precisely one quoted version declaration replaced."""
     text = path.read_text(encoding="utf-8")
     updated, replacements = pattern.subn(rf"\g<1>{version}\g<2>", text)
     if replacements != 1:
         raise ReleasePreparationError(f"Expected exactly one version declaration in {path}.")
-    path.write_text(updated, encoding="utf-8")
+    return updated
+
+
+def replace_declared_version(path: Path, pattern: re.Pattern[str], version: str) -> None:
+    """Replace precisely one quoted version declaration in *path*."""
+    path.write_text(replaced_version_text(path, pattern, version), encoding="utf-8")
+
+
+def version_authorities(root: Path) -> tuple[tuple[Path, re.Pattern[str]], ...]:
+    """Every file that declares the package version, with the pattern that finds it.
+
+    ``git add`` in :func:`prepare_release` and the tag check in
+    ``tests/test_packaging_metadata.py`` both read this list, so a fifth
+    authority added here is staged and checked without a second edit.
+    """
+    return (
+        (root / "pyproject.toml", PYPROJECT_VERSION_PATTERN),
+        (root / "src/avialsync/__init__.py", MODULE_VERSION_PATTERN),
+        (root / "CITATION.cff", CFF_VERSION_PATTERN),
+        # The conda recipe is a third version authority: left behind, it publishes
+        # the previous release's source archive under the new version's name.
+        (root / "packaging/conda/meta.yaml", RECIPE_VERSION_PATTERN),
+    )
+
+
+def update_version_authorities(root: Path, version: str) -> list[Path]:
+    """Rewrite every version authority, or none of them.
+
+    Each file is edited in turn, so a failure part-way (a reformatted recipe
+    that no longer matches, say) used to leave the package, the citation and the
+    recipe naming different versions -- the state ``verify_release_ref`` cannot
+    see. All replacements are computed before the first write; a mismatch stops
+    the release with the tree untouched.
+    """
+    pending = [
+        (path, replaced_version_text(path, pattern, version))
+        for path, pattern in version_authorities(root)
+    ]
+    for path, text in pending:
+        path.write_text(text, encoding="utf-8")
+    return [path for path, _ in pending]
 
 
 def dirty_paths(root: Path) -> set[str]:
@@ -111,15 +151,14 @@ def prepare_release(root: Path, version: str, *, dry_run: bool) -> None:
     validate_version(version)
     ensure_preconditions(root, version)
     if dry_run:
+        # Match every declaration without writing, so a dry run also catches a
+        # reformatted file that the real run would have stopped on.
+        for path, pattern in version_authorities(root):
+            replaced_version_text(path, pattern, version)
         print(f"Dry run passed: would prepare and push v{version}.")
         return
 
-    replace_declared_version(root / "pyproject.toml", PYPROJECT_VERSION_PATTERN, version)
-    replace_declared_version(root / "src/avialsync/__init__.py", MODULE_VERSION_PATTERN, version)
-    replace_declared_version(root / "CITATION.cff", CFF_VERSION_PATTERN, version)
-    # The conda recipe is a third version authority: left behind, it publishes
-    # the previous release's source archive under the new version's name.
-    replace_declared_version(root / "packaging/conda/meta.yaml", RECIPE_VERSION_PATTERN, version)
+    updated = update_version_authorities(root, version)
     run_command(
         (
             sys.executable,
@@ -134,14 +173,7 @@ def prepare_release(root: Path, version: str, *, dry_run: bool) -> None:
     run_package_preflight(root)
     tag = f"v{version}"
     run_command(
-        (
-            "git",
-            "add",
-            "pyproject.toml",
-            "src/avialsync/__init__.py",
-            "packaging/conda/meta.yaml",
-            "CITATION.cff",
-        ),
+        ("git", "add", *(str(path.relative_to(root)) for path in updated)),
         root,
     )
     run_command(("git", "commit", "-m", f"chore(release): prepare {version}"), root)
