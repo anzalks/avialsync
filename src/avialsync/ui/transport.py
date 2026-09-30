@@ -21,6 +21,7 @@ from PySide6.QtGui import (
     QMouseEvent,
     QPainter,
     QPaintEvent,
+    QPalette,
     QPen,
     QPolygon,
     QRegularExpressionValidator,
@@ -69,10 +70,34 @@ _LANE_INSET = 4
 _SPAN_ALPHA = 225
 _SPAN_RADIUS = 3
 
-#: A proposed identity swap: the accepted one's hue, lighter. Kept beside the
-#: other lane weights so the whole strip has one vocabulary for "offered" and
-#: "in force".
-_CANDIDATE_ALPHA = 150
+#: A lane whose marks are glyphs rather than spans draws them at two pixels and
+#: a little larger: a one-pixel outline at this size is legible on a screenshot
+#: and not on a screen, which is the difference between a mark being present and
+#: being findable.
+_GLYPH_WIDTH = 2
+_GLYPH_RADIUS = 5
+
+#: How far the identity lane's ground is lifted off the strip behind it. Small:
+#: enough that a diamond has something to be seen against, not so much that the
+#: row reads as selected.
+_GROUND_LIFT = 26
+
+
+def _lane_ground(palette: QColor | object) -> QColor:
+    """A slightly lighter bed for a lane whose marks are small glyphs.
+
+    Derived from the surface rather than stated, so it lifts on a dark theme
+    and settles on a light one instead of being a grey that only works in one.
+    """
+    base = palette.color(QPalette.ColorRole.AlternateBase)  # type: ignore[union-attr]
+    dark = base.lightnessF() < 0.5
+    lift = _GROUND_LIFT if dark else -_GROUND_LIFT
+    return QColor(
+        max(0, min(255, base.red() + lift)),
+        max(0, min(255, base.green() + lift)),
+        max(0, min(255, base.blue() + lift)),
+    )
+
 
 #: A periodic train collapses to one tick per pixel column. Drawn full height at
 #: full weight that is a striped slab which says only "there are many of these";
@@ -595,30 +620,40 @@ class TimelineOverview(QWidget):
                 for x in self._visible_event_x("gap", t0, t1):
                     painter.drawLine(x, band_top, x, band_top + band_height)
             elif lane_kind == "identity":
+                # This lane's marks are small glyphs rather than spans, and a
+                # small glyph on the strip's own mid-grey is the one thing a
+                # person is hunting for and the hardest thing to find. The lane
+                # gets a lighter ground to sit on, taken from the palette so it
+                # lifts on dark and settles on light.
+                painter.fillRect(
+                    label_width,
+                    band_top,
+                    max(0, self.width() - 1 - label_width),
+                    band_height,
+                    _lane_ground(palette),
+                )
                 # Two crossing strokes, not a tick: this lane says two labels
                 # exchanged, and the glyph says it without relying on its
                 # colour (rule 17).
-                painter.setPen(evidence_color(palette, "identity"))
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+                painter.setPen(QPen(evidence_color(palette, "identity"), _GLYPH_WIDTH))
                 for x in self._visible_event_x("identity", t0, t1):
                     painter.drawLine(x - 3, band_top, x + 3, band_top + band_height)
                     painter.drawLine(x + 3, band_top, x - 3, band_top + band_height)
-                # The same identity hue, lighter: a proposal is the same kind of
-                # thing as an accepted swap, and the caution colour said fault
-                # about something nobody had acted on yet. Hollow against the
-                # accepted crossing's filled stroke, so the difference does not
-                # rest on colour (rule 17).
-                proposed = QColor(evidence_color(palette, "identity"))
-                proposed.setAlpha(_CANDIDATE_ALPHA)
-                painter.setPen(proposed)
+                # The same hue at the same strength. Fading a proposal was the
+                # obvious way to say "not yet" and it said "not there" instead;
+                # hollow against the accepted crossing's stroke carries it
+                # without spending contrast (rule 17).
+                painter.setPen(QPen(evidence_color(palette, "identity"), _GLYPH_WIDTH))
                 middle = (top + bottom) // 2
                 for x in self._visible_event_x("identity_candidate", t0, t1):
                     painter.drawPolygon(
                         QPolygon(
                             [
-                                QPoint(x, middle - 4),
-                                QPoint(x + 4, middle),
-                                QPoint(x, middle + 4),
-                                QPoint(x - 4, middle),
+                                QPoint(x, middle - _GLYPH_RADIUS),
+                                QPoint(x + _GLYPH_RADIUS, middle),
+                                QPoint(x, middle + _GLYPH_RADIUS),
+                                QPoint(x - _GLYPH_RADIUS, middle),
                             ]
                         )
                     )

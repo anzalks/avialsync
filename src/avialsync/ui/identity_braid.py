@@ -47,11 +47,6 @@ _CROSSING = 0.006
 #: selector lists them in.
 _ROW_GAP = 1.0
 
-#: How much of the surface a proposed crossing lets through. The same identity
-#: hue as an accepted one, lighter: it is the same kind of thing, and the
-#: difference between offered and accepted is weight and fill, not hue.
-_CANDIDATE_ALPHA = 150
-
 
 @dataclasses.dataclass(frozen=True)
 class BraidNode:
@@ -301,14 +296,15 @@ def _node_color(palette: QPalette, *, accepted: bool) -> QColor:
     It says *fault* about something that is not one -- a proposal nobody has
     acted on -- and it spends a reserved status colour on a series, which is
     the thing reserved colours must never be spent on. A crossing is a
-    crossing: same identity hue, drawn lighter and hollow until somebody
-    accepts it, so the difference is carried by fill and weight rather than by
-    a second meaning smuggled in through hue (rule 17).
+    crossing: one hue, drawn hollow until somebody accepts it (rule 17).
+
+    Full strength, both of them. Fading the proposed one was the obvious way to
+    say "not yet", and on a grey lane it said "not there": a 150-alpha mark on
+    a mid surface is the one thing a person is looking for and the hardest
+    thing to see. Hollow against filled carries it without costing contrast.
     """
-    colour = QColor(evidence_color(palette, "identity"))
-    if not accepted:
-        colour.setAlpha(_CANDIDATE_ALPHA)
-    return colour
+    del accepted  # the fill says which kind it is, not the colour
+    return QColor(evidence_color(palette, "identity"))
 
 
 def _clicked(points: Sequence[Any], on_node: Callable[[BraidNode], None]) -> None:

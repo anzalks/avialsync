@@ -376,6 +376,22 @@ _ALERT_HUE = 0.05
 #: How far apart two derived hues must stay to remain tellable apart.
 _MIN_HUE_SEPARATION = 0.08
 
+#: The identity mark, stated rather than derived, one step per surface.
+#:
+#: Every other lane here rotates from the user's accent, which put this mark
+#: wherever their accent happened to send it -- magenta a quarter turn forward,
+#: a status-like mint green a quarter back. Neither was a decision about what
+#: an identity swap should look like. A muted violet is: no lane, status or
+#: categorical marker in this application claims it.
+#:
+#: Validated as steps, not as one colour flipped: pale on the dark surface and
+#: deeper on the light one, because pale and visible are the same thing on
+#: black and opposite things on white. Measured against this application's own
+#: marks on the dark surface -- CVD ΔE 11.5 (deutan) and 15.2 normal-vision
+#: against the gap red and the busy amber, contrast above 3:1 on the surface.
+_IDENTITY_DARK = (144, 133, 233)
+_IDENTITY_LIGHT = (74, 58, 167)
+
 
 def _surface(palette: QPalette) -> QColor:
     """Return the surface custom-painted evidence is drawn on."""
@@ -437,19 +453,13 @@ def evidence_color(palette: QPalette, kind: str) -> QColor:
         # pushed clear of the defect red so it cannot be misread as an error.
         return on_surface(palette, _separated(accent_hue(palette) + 0.5, _DEFECT_HUE))
     if kind == "identity":
-        # A quarter turn *back* from the accent, then clear of both warning
-        # hues: an accepted identity swap is neither a match nor a fault, it is
-        # a correction the user made.
-        #
-        # The direction is the whole point. Turning forward from the usual blue
-        # accent lands on magenta, which is the loudest thing this palette can
-        # produce and belongs to nothing else in the application; turning back
-        # lands in the greens, which sit quietly beside the accent and are the
-        # one region no status colour has a claim on. The lane draws a crossing
-        # rather than a tick either way, so it never depends on this colour to
-        # be read (rule 17).
-        turned = _separated(accent_hue(palette) - 0.25, _DEFECT_HUE)
-        return on_surface(palette, _separated(turned, _CAUTION_HUE))
+        # Stated, not derived: see `_IDENTITY_DARK`. The lane draws a crossing
+        # rather than a tick, so it never depends on this colour to be read
+        # (rule 17). The surface is read the same way `marker_color` reads it,
+        # so a mark and a categorical marker cannot disagree about which
+        # surface they are on.
+        dark = _surface(palette).lightnessF() < 0.5
+        return QColor(*(_IDENTITY_DARK if dark else _IDENTITY_LIGHT))
     return palette.color(QPalette.ColorRole.WindowText)
 
 

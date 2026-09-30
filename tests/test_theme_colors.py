@@ -236,12 +236,11 @@ def test_a_proposed_crossing_wears_the_identity_colour_not_the_caution_one(
     accepted = _node_color(palette, accepted=True)
     proposed = _node_color(palette, accepted=False)
 
-    assert (proposed.red(), proposed.green(), proposed.blue()) == (
-        accepted.red(),
-        accepted.green(),
-        accepted.blue(),
+    assert proposed == accepted, "one hue; the fill says which kind it is"
+    assert proposed.alpha() == 255, (
+        "a faded proposal disappears into the lane it sits on, which is the one "
+        "mark a person is hunting for"
     )
-    assert proposed.alpha() < accepted.alpha(), "weight is what separates them"
     assert _distance(proposed, status_color(palette, "warning")) > 0.05
 
 
@@ -254,19 +253,31 @@ def test_a_proposed_crossing_stays_readable_on_both_surfaces(palette: QPalette) 
 
 
 @pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
-def test_the_identity_lane_turns_away_from_the_loudest_quarter(palette: QPalette) -> None:
-    """Which way the hue turns is a design decision, not an implementation one.
+def test_the_identity_lane_is_a_stated_colour_not_a_rotation(palette: QPalette) -> None:
+    """It is chosen, not computed from whatever accent the machine reports.
 
-    Turning forward from the usual blue accent lands on magenta -- the loudest
-    thing this palette can produce, and spoken for by nothing else in the
-    application. Turning back lands in the greens, beside the accent and clear
-    of every status colour. This pins the direction so it is not quietly
-    reversed by a later edit.
+    Rotating from the accent sent this mark wherever the accent happened to
+    point -- magenta one way, a status-like mint green the other. The pair is
+    stated instead, and this pins it so a later edit does not quietly go back
+    to arithmetic.
     """
     identity = evidence_color(palette, "identity")
     red, green, blue = identity.red(), identity.green(), identity.blue()
 
-    assert green >= max(red, blue), f"expected a green-leaning identity lane, got {identity.name()}"
+    assert blue > green, f"expected the muted violet, got {identity.name()}"
+    assert red < blue, f"expected the muted violet, got {identity.name()}"
+
+
+def test_the_identity_lane_does_not_follow_the_accent(qapp) -> None:
+    """Two very different accents, one identity colour."""
+    from PySide6.QtGui import QColor
+
+    from avialsync.ui.theme import _palette_with_surfaces
+
+    blue = _palette_with_surfaces(True, QColor("#0a84ff"))
+    red = _palette_with_surfaces(True, QColor("#ff3b30"))
+
+    assert evidence_color(blue, "identity") == evidence_color(red, "identity")
 
 
 @pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
