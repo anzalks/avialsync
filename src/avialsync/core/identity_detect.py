@@ -82,7 +82,7 @@ class Trajectory:
 
     def valid(self) -> np.ndarray:
         """Where this lane has a position at all."""
-        return ~(np.isnan(self.x) | np.isnan(self.y))
+        return np.asarray(~(np.isnan(self.x) | np.isnan(self.y)), dtype=bool)
 
 
 @dataclasses.dataclass(frozen=True, slots=True, order=True)
