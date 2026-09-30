@@ -38282,7 +38282,7 @@
       "label": ".set_identity_count()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L417",
+      "source_location": "L420",
       "_origin": "ast"
     },
     {
@@ -38290,7 +38290,7 @@
       "label": ".set_tracking_controls()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L423",
+      "source_location": "L426",
       "_origin": "ast"
     },
     {
@@ -38298,7 +38298,7 @@
       "label": ".set_tracking_visible()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L447",
+      "source_location": "L450",
       "_origin": "ast"
     },
     {
@@ -38306,7 +38306,7 @@
       "label": ".checked_channels()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L454",
+      "source_location": "L457",
       "_origin": "ast"
     },
     {
@@ -38314,7 +38314,7 @@
       "label": "._apply_filter()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L462",
+      "source_location": "L465",
       "_origin": "ast"
     },
     {
@@ -38322,7 +38322,7 @@
       "label": ".visible_channel_count()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L481",
+      "source_location": "L484",
       "_origin": "ast"
     },
     {
@@ -38330,7 +38330,7 @@
       "label": "._on_bulk_visibility()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L485",
+      "source_location": "L488",
       "_origin": "ast"
     },
     {
@@ -38338,7 +38338,7 @@
       "label": "._channels_under()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L505",
+      "source_location": "L508",
       "_origin": "ast"
     },
     {
@@ -38346,7 +38346,7 @@
       "label": "._on_item_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L517",
+      "source_location": "L520",
       "_origin": "ast"
     },
     {
@@ -38354,7 +38354,7 @@
       "label": ".set_group_visible()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L539",
+      "source_location": "L542",
       "_origin": "ast"
     },
     {
@@ -38362,7 +38362,7 @@
       "label": ".set_channel_visible()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L555",
+      "source_location": "L558",
       "_origin": "ast"
     },
     {
@@ -38370,7 +38370,7 @@
       "label": "._on_channel_remove()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L564",
+      "source_location": "L567",
       "_origin": "ast"
     },
     {
@@ -38378,7 +38378,7 @@
       "label": "._on_mapping_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L571",
+      "source_location": "L574",
       "_origin": "ast"
     },
     {
@@ -38386,7 +38386,7 @@
       "label": ".set_mapping()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L574",
+      "source_location": "L577",
       "_origin": "ast"
     },
     {
@@ -38394,7 +38394,7 @@
       "label": ".mapping()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L581",
+      "source_location": "L584",
       "_origin": "ast"
     },
     {
@@ -38402,7 +38402,7 @@
       "label": ".set_inspection()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L585",
+      "source_location": "L588",
       "_origin": "ast"
     },
     {
@@ -38410,7 +38410,7 @@
       "label": ".set_alignment()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L592",
+      "source_location": "L595",
       "_origin": "ast"
     },
     {
@@ -38418,7 +38418,7 @@
       "label": "._refresh_badge()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L598",
+      "source_location": "L601",
       "_origin": "ast"
     },
     {
@@ -38426,7 +38426,7 @@
       "label": "_render_badge()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L608",
+      "source_location": "L611",
       "_origin": "ast"
     },
     {
@@ -38442,7 +38442,7 @@
       "label": "_make_empty_inspection()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L650",
+      "source_location": "L653",
       "_origin": "ast"
     },
     {
@@ -38450,7 +38450,7 @@
       "label": "VideoInfoWidget",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L655",
+      "source_location": "L658",
       "_origin": "ast"
     },
     {
@@ -38458,7 +38458,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L664",
+      "source_location": "L667",
       "_origin": "ast"
     },
     {
@@ -38466,7 +38466,7 @@
       "label": "._on_offset_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L787",
+      "source_location": "L793",
       "_origin": "ast"
     },
     {
@@ -38474,7 +38474,7 @@
       "label": "._on_mapping_changed()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L791",
+      "source_location": "L797",
       "_origin": "ast"
     },
     {
@@ -38482,7 +38482,7 @@
       "label": ".mapping()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L794",
+      "source_location": "L800",
       "_origin": "ast"
     },
     {
@@ -38490,7 +38490,7 @@
       "label": ".set_mapping()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L798",
+      "source_location": "L804",
       "_origin": "ast"
     },
     {
@@ -38498,7 +38498,7 @@
       "label": ".set_offset()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L807",
+      "source_location": "L813",
       "_origin": "ast"
     },
     {
@@ -38506,7 +38506,7 @@
       "label": ".set_visible()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L820",
+      "source_location": "L826",
       "_origin": "ast"
     },
     {
@@ -38514,7 +38514,7 @@
       "label": ".set_loader()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L828",
+      "source_location": "L834",
       "_origin": "ast"
     },
     {
@@ -38522,7 +38522,7 @@
       "label": ".set_pane()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L840",
+      "source_location": "L846",
       "_origin": "ast"
     },
     {
@@ -38530,7 +38530,7 @@
       "label": ".set_inspection()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L844",
+      "source_location": "L850",
       "_origin": "ast"
     },
     {
@@ -38538,7 +38538,7 @@
       "label": ".set_alignment()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L849",
+      "source_location": "L855",
       "_origin": "ast"
     },
     {
@@ -38546,7 +38546,7 @@
       "label": "._refresh_badge()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L855",
+      "source_location": "L861",
       "_origin": "ast"
     },
     {
@@ -38554,7 +38554,7 @@
       "label": "_wrapped_note()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L865",
+      "source_location": "L871",
       "_origin": "ast"
     },
     {
@@ -38570,7 +38570,7 @@
       "label": "SidebarPane",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L876",
+      "source_location": "L882",
       "_origin": "ast"
     },
     {
@@ -38578,7 +38578,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L898",
+      "source_location": "L904",
       "_origin": "ast"
     },
     {
@@ -38586,7 +38586,7 @@
       "label": ".add_video()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L976",
+      "source_location": "L982",
       "_origin": "ast"
     },
     {
@@ -38594,7 +38594,7 @@
       "label": ".remove_video()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L991",
+      "source_location": "L997",
       "_origin": "ast"
     },
     {
@@ -38602,7 +38602,7 @@
       "label": ".clear_sources()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L998",
+      "source_location": "L1004",
       "_origin": "ast"
     },
     {
@@ -38610,7 +38610,7 @@
       "label": ".add_sensor()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1005",
+      "source_location": "L1011",
       "_origin": "ast"
     },
     {
@@ -38618,7 +38618,7 @@
       "label": ".set_tracking_controls()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1024",
+      "source_location": "L1030",
       "_origin": "ast"
     },
     {
@@ -38626,7 +38626,7 @@
       "label": ".set_tracking_visible()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1034",
+      "source_location": "L1040",
       "_origin": "ast"
     },
     {
@@ -38634,7 +38634,7 @@
       "label": ".set_channel_visible()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1040",
+      "source_location": "L1046",
       "_origin": "ast"
     },
     {
@@ -38642,7 +38642,7 @@
       "label": ".remove_sensor()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1057",
+      "source_location": "L1063",
       "_origin": "ast"
     },
     {
@@ -38650,7 +38650,7 @@
       "label": ".set_video_loader()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1068",
+      "source_location": "L1074",
       "_origin": "ast"
     },
     {
@@ -38658,7 +38658,7 @@
       "label": ".set_video_pane()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1074",
+      "source_location": "L1080",
       "_origin": "ast"
     },
     {
@@ -38666,7 +38666,7 @@
       "label": ".set_video_alignment()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1080",
+      "source_location": "L1086",
       "_origin": "ast"
     },
     {
@@ -38674,7 +38674,7 @@
       "label": ".set_sensor_alignment()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1086",
+      "source_location": "L1092",
       "_origin": "ast"
     },
     {
@@ -38682,7 +38682,7 @@
       "label": ".set_video_inspection()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1093",
+      "source_location": "L1099",
       "_origin": "ast"
     },
     {
@@ -38690,7 +38690,7 @@
       "label": ".sensor_widget()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1099",
+      "source_location": "L1105",
       "_origin": "ast"
     },
     {
@@ -38698,7 +38698,7 @@
       "label": ".set_sensor_identity_count()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1106",
+      "source_location": "L1112",
       "_origin": "ast"
     },
     {
@@ -38706,7 +38706,7 @@
       "label": ".set_sensor_mapping()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1112",
+      "source_location": "L1118",
       "_origin": "ast"
     },
     {
@@ -38714,7 +38714,7 @@
       "label": ".set_video_offset()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1118",
+      "source_location": "L1124",
       "_origin": "ast"
     },
     {
@@ -38722,7 +38722,7 @@
       "label": ".video_offset()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1129",
+      "source_location": "L1135",
       "_origin": "ast"
     },
     {
@@ -38730,7 +38730,7 @@
       "label": ".set_video_mapping()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1134",
+      "source_location": "L1140",
       "_origin": "ast"
     },
     {
@@ -38738,7 +38738,7 @@
       "label": ".video_mapping()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1145",
+      "source_location": "L1151",
       "_origin": "ast"
     },
     {
@@ -38746,7 +38746,7 @@
       "label": ".set_video_visible()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1150",
+      "source_location": "L1156",
       "_origin": "ast"
     },
     {
@@ -38754,7 +38754,7 @@
       "label": ".sensor_mapping()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1156",
+      "source_location": "L1162",
       "_origin": "ast"
     },
     {
@@ -38762,7 +38762,7 @@
       "label": ".set_sensor_inspection()",
       "file_type": "code",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1161",
+      "source_location": "L1167",
       "_origin": "ast"
     },
     {
@@ -38814,304 +38814,296 @@
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_418",
+      "id": "src_avialsync_ui_sidebar_rationale_421",
       "label": "Show how many accepted flips this pose source carries.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L418",
+      "source_location": "L421",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_426",
+      "id": "src_avialsync_ui_sidebar_rationale_429",
       "label": "Show the per-source presentation controls for a routed pose source.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L426",
+      "source_location": "L429",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_448",
+      "id": "src_avialsync_ui_sidebar_rationale_451",
       "label": "Update one tracking presentation checkbox without reporting a command.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L448",
+      "source_location": "L451",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_455",
+      "id": "src_avialsync_ui_sidebar_rationale_458",
       "label": "Return the channels selected for this source's plot presentation.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L455",
+      "source_location": "L458",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_463",
+      "id": "src_avialsync_ui_sidebar_rationale_466",
       "label": "Show only channels matching *needle*, keeping their groups visible.          Hid",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L463",
+      "source_location": "L466",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_482",
+      "id": "src_avialsync_ui_sidebar_rationale_485",
       "label": "How many channels the filter currently shows.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L482",
+      "source_location": "L485",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_486",
+      "id": "src_avialsync_ui_sidebar_rationale_489",
       "label": "Report Show all / Hide all as one action over every shown channel.          Only",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L486",
+      "source_location": "L489",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_506",
+      "id": "src_avialsync_ui_sidebar_rationale_509",
       "label": "Every channel id beneath *group*, however deeply nested.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L506",
+      "source_location": "L509",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_540",
+      "id": "src_avialsync_ui_sidebar_rationale_543",
       "label": "Set every channel under *group_label* without re-reporting the group.          U",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L540",
+      "source_location": "L543",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_556",
+      "id": "src_avialsync_ui_sidebar_rationale_559",
       "label": "Set a channel checkbox and return whether this source owns it.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L556",
+      "source_location": "L559",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_575",
+      "id": "src_avialsync_ui_sidebar_rationale_578",
       "label": "Show a restored mapping without re-emitting it back to the caller.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L575",
+      "source_location": "L578",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_582",
+      "id": "src_avialsync_ui_sidebar_rationale_585",
       "label": "Return the displayed ``(offset_s, drift_ppm)``.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L582",
+      "source_location": "L585",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_586",
+      "id": "src_avialsync_ui_sidebar_rationale_589",
       "label": "Update badge and properties panel from a SourceInspection.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L586",
+      "source_location": "L589",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_593",
+      "id": "src_avialsync_ui_sidebar_rationale_596",
       "label": "Record how this source is aligned, for the badge to report.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L593",
+      "source_location": "L596",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_599",
+      "id": "src_avialsync_ui_sidebar_rationale_602",
       "label": "One badge, from every finding -- the file's and the session's.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L599",
+      "source_location": "L602",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_615",
+      "id": "src_avialsync_ui_sidebar_rationale_618",
       "label": "Drive one source's badge from every finding about it, not only the file's.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L615",
+      "source_location": "L618",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_656",
+      "id": "src_avialsync_ui_sidebar_rationale_659",
       "label": "Displays metadata and controls for a single loaded video.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L656",
+      "source_location": "L659",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_795",
+      "id": "src_avialsync_ui_sidebar_rationale_801",
       "label": "Return the displayed ``(offset_s, drift_ppm)``.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L795",
+      "source_location": "L801",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_799",
+      "id": "src_avialsync_ui_sidebar_rationale_805",
       "label": "Show a mapping without re-emitting it, as :meth:`set_offset` does.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L799",
+      "source_location": "L805",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_808",
+      "id": "src_avialsync_ui_sidebar_rationale_814",
       "label": "Show *offset* without re-emitting it.          Blocked because the caller is und",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L808",
+      "source_location": "L814",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_821",
+      "id": "src_avialsync_ui_sidebar_rationale_827",
       "label": "Set the visibility checkbox without re-emitting it, as above.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L821",
+      "source_location": "L827",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_829",
+      "id": "src_avialsync_ui_sidebar_rationale_835",
       "label": "Attach the VideoStandardLoader for metadata display.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L829",
+      "source_location": "L835",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_841",
+      "id": "src_avialsync_ui_sidebar_rationale_847",
       "label": "Attach the VideoPane so its live decode state can be shown.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L841",
+      "source_location": "L847",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_845",
+      "id": "src_avialsync_ui_sidebar_rationale_851",
       "label": "Update the badge from everything known about this camera.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L845",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_sidebar_rationale_850",
-      "label": "Record how this source is aligned, for the badge to report.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L850",
+      "source_location": "L851",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_sidebar_rationale_856",
-      "label": "One badge, from every finding -- the file's and the session's.",
+      "label": "Record how this source is aligned, for the badge to report.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
       "source_location": "L856",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_866",
+      "id": "src_avialsync_ui_sidebar_rationale_862",
+      "label": "One badge, from every finding -- the file's and the session's.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/sidebar.py",
+      "source_location": "L862",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_sidebar_rationale_872",
       "label": "A placeholder line that folds instead of setting the sidebar's width.      Unwra",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L866",
+      "source_location": "L872",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_877",
+      "id": "src_avialsync_ui_sidebar_rationale_883",
       "label": "The left sidebar for file management and metadata.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L877",
+      "source_location": "L883",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_977",
+      "id": "src_avialsync_ui_sidebar_rationale_983",
       "label": "Add a video info widget to the sidebar.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L977",
+      "source_location": "L983",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_992",
+      "id": "src_avialsync_ui_sidebar_rationale_998",
       "label": "Remove a video info widget.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L992",
+      "source_location": "L998",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_999",
+      "id": "src_avialsync_ui_sidebar_rationale_1005",
       "label": "Remove every source summary from the sidebar.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L999",
+      "source_location": "L1005",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_1006",
+      "id": "src_avialsync_ui_sidebar_rationale_1012",
       "label": "Add a sensor info widget to the sidebar.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1006",
+      "source_location": "L1012",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_1027",
+      "id": "src_avialsync_ui_sidebar_rationale_1033",
       "label": "Configure the presentation controls for one routed tracking source.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1027",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_sidebar_rationale_1035",
-      "label": "Mirror a tracking presentation change into its sidebar control.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1035",
+      "source_location": "L1033",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_sidebar_rationale_1041",
-      "label": "Mirror plot-row visibility to the owning channel checkbox.          *source_id*",
+      "label": "Mirror a tracking presentation change into its sidebar control.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
       "source_location": "L1041",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_1058",
-      "label": "Remove a sensor info widget.",
+      "id": "src_avialsync_ui_sidebar_rationale_1047",
+      "label": "Mirror plot-row visibility to the owning channel checkbox.          *source_id*",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1058",
+      "source_location": "L1047",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_1069",
-      "label": "Forward loader reference to VideoInfoWidget for properties panel.",
+      "id": "src_avialsync_ui_sidebar_rationale_1064",
+      "label": "Remove a sensor info widget.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1069",
+      "source_location": "L1064",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_sidebar_rationale_1075",
-      "label": "Forward VideoPane reference to VideoInfoWidget for live decode state.",
+      "label": "Forward loader reference to VideoInfoWidget for properties panel.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
       "source_location": "L1075",
@@ -39119,7 +39111,7 @@
     },
     {
       "id": "src_avialsync_ui_sidebar_rationale_1081",
-      "label": "Tell one camera's badge how it is aligned.",
+      "label": "Forward VideoPane reference to VideoInfoWidget for live decode state.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
       "source_location": "L1081",
@@ -39127,39 +39119,39 @@
     },
     {
       "id": "src_avialsync_ui_sidebar_rationale_1087",
-      "label": "Tell one sensor's badge how it is aligned.",
+      "label": "Tell one camera's badge how it is aligned.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
       "source_location": "L1087",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_1094",
-      "label": "Forward SourceInspection to the VideoInfoWidget badge.",
+      "id": "src_avialsync_ui_sidebar_rationale_1093",
+      "label": "Tell one sensor's badge how it is aligned.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1094",
+      "source_location": "L1093",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_sidebar_rationale_1100",
-      "label": "Return the widget owning *path*, or None when it is not loaded.",
+      "label": "Forward SourceInspection to the VideoInfoWidget badge.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
       "source_location": "L1100",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_1107",
-      "label": "Show the accepted flip count beside one loaded pose source.",
+      "id": "src_avialsync_ui_sidebar_rationale_1106",
+      "label": "Return the widget owning *path*, or None when it is not loaded.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1107",
+      "source_location": "L1106",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_sidebar_rationale_1113",
-      "label": "Show a restored sensor mapping without re-emitting it.",
+      "label": "Show the accepted flip count beside one loaded pose source.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
       "source_location": "L1113",
@@ -39167,58 +39159,66 @@
     },
     {
       "id": "src_avialsync_ui_sidebar_rationale_1119",
-      "label": "Show a restored or undone video offset, mirroring the sensor path.          Undo",
+      "label": "Show a restored sensor mapping without re-emitting it.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
       "source_location": "L1119",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_1130",
+      "id": "src_avialsync_ui_sidebar_rationale_1125",
+      "label": "Show a restored or undone video offset, mirroring the sensor path.          Undo",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/sidebar.py",
+      "source_location": "L1125",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_sidebar_rationale_1136",
       "label": "Return the displayed offset for *path*, or 0.0 when not loaded.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1130",
+      "source_location": "L1136",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_1135",
+      "id": "src_avialsync_ui_sidebar_rationale_1141",
       "label": "Show a video's offset and drift together, without re-emitting either.          `",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1135",
+      "source_location": "L1141",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_1146",
+      "id": "src_avialsync_ui_sidebar_rationale_1152",
       "label": "Return the displayed ``(offset_s, drift_ppm)`` for *path*.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1146",
-      "_origin": "ast"
-    },
-    {
-      "id": "src_avialsync_ui_sidebar_rationale_1151",
-      "label": "Set a video's visibility checkbox without re-emitting it.",
-      "file_type": "rationale",
-      "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1151",
+      "source_location": "L1152",
       "_origin": "ast"
     },
     {
       "id": "src_avialsync_ui_sidebar_rationale_1157",
-      "label": "Return the displayed ``(offset_s, drift_ppm)`` for *path*.",
+      "label": "Set a video's visibility checkbox without re-emitting it.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
       "source_location": "L1157",
       "_origin": "ast"
     },
     {
-      "id": "src_avialsync_ui_sidebar_rationale_1162",
+      "id": "src_avialsync_ui_sidebar_rationale_1163",
+      "label": "Return the displayed ``(offset_s, drift_ppm)`` for *path*.",
+      "file_type": "rationale",
+      "source_file": "src/avialsync/ui/sidebar.py",
+      "source_location": "L1163",
+      "_origin": "ast"
+    },
+    {
+      "id": "src_avialsync_ui_sidebar_rationale_1168",
       "label": "Forward SourceInspection to the SensorInfoWidget badge + panel.",
       "file_type": "rationale",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1162",
+      "source_location": "L1168",
       "_origin": "ast"
     },
     {
@@ -50718,11 +50718,19 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_the_badge_has_a_clear_text_label",
+      "label": ".test_the_badge_has_a_clear_text_label()",
+      "file_type": "code",
+      "source_file": "tests/test_alignment_badge.py",
+      "source_location": "L43",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_an_unaligned_source_is_reported_as_unaligned",
       "label": ".test_an_unaligned_source_is_reported_as_unaligned()",
       "file_type": "code",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L43",
+      "source_location": "L48",
       "_origin": "ast"
     },
     {
@@ -50730,7 +50738,7 @@
       "label": ".test_an_aligned_source_stops_saying_it()",
       "file_type": "code",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L51",
+      "source_location": "L56",
       "_origin": "ast"
     },
     {
@@ -50738,7 +50746,7 @@
       "label": ".test_the_alignment_summary_reaches_the_tooltip()",
       "file_type": "code",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L57",
+      "source_location": "L62",
       "_origin": "ast"
     },
     {
@@ -50746,7 +50754,7 @@
       "label": ".test_a_screen_reader_gets_the_findings_too()",
       "file_type": "code",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L64",
+      "source_location": "L69",
       "_origin": "ast"
     },
     {
@@ -50754,7 +50762,7 @@
       "label": ".test_order_of_arrival_does_not_matter()",
       "file_type": "code",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L71",
+      "source_location": "L76",
       "_origin": "ast"
     },
     {
@@ -50762,7 +50770,7 @@
       "label": "TestTheWindowKeepsItCurrent",
       "file_type": "code",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L80",
+      "source_location": "L85",
       "_origin": "ast"
     },
     {
@@ -50770,7 +50778,7 @@
       "label": ".test_superseded_evidence_does_not_count_as_aligned()",
       "file_type": "code",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L81",
+      "source_location": "L86",
       "_origin": "ast"
     },
     {
@@ -50778,7 +50786,7 @@
       "label": ".test_a_manual_mapping_counts_as_an_alignment_it_just_says_so()",
       "file_type": "code",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L104",
+      "source_location": "L109",
       "_origin": "ast"
     },
     {
@@ -50786,7 +50794,7 @@
       "label": ".test_refreshing_with_nothing_loaded_is_harmless()",
       "file_type": "code",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L125",
+      "source_location": "L130",
       "_origin": "ast"
     },
     {
@@ -50799,50 +50807,58 @@
     },
     {
       "id": "tests_test_alignment_badge_rationale_44",
-      "label": "A clean file with no accepted alignment still has something to say.",
+      "label": "Source findings are a labeled action, not a clipped warning glyph.",
       "file_type": "rationale",
       "source_file": "tests/test_alignment_badge.py",
       "source_location": "L44",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_alignment_badge_rationale_58",
+      "id": "tests_test_alignment_badge_rationale_49",
+      "label": "A clean file with no accepted alignment still has something to say.",
+      "file_type": "rationale",
+      "source_file": "tests/test_alignment_badge.py",
+      "source_location": "L49",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_alignment_badge_rationale_63",
       "label": "Not only that it is unaligned -- how, when it is.",
       "file_type": "rationale",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L58",
+      "source_location": "L63",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_alignment_badge_rationale_65",
-      "label": "Rule 17: a coloured glyph is not a report.",
+      "id": "tests_test_alignment_badge_rationale_70",
+      "label": "Rule 17: a coloured button is not a report.",
       "file_type": "rationale",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L65",
+      "source_location": "L70",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_alignment_badge_rationale_72",
+      "id": "tests_test_alignment_badge_rationale_77",
       "label": "Inspection and alignment arrive from different subsystems, and which         lan",
       "file_type": "rationale",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L72",
+      "source_location": "L77",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_alignment_badge_rationale_82",
+      "id": "tests_test_alignment_badge_rationale_87",
       "label": "A source a person moved by hand sits somewhere legitimate, and that         is a",
       "file_type": "rationale",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L82",
+      "source_location": "L87",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_alignment_badge_rationale_126",
+      "id": "tests_test_alignment_badge_rationale_131",
       "label": "It runs on session restore, before any source has arrived.",
       "file_type": "rationale",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L126",
+      "source_location": "L131",
       "_origin": "ast"
     },
     {
@@ -97050,7 +97066,7 @@
       "label": "Correcting a tracked point",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L136",
+      "source_location": "L140",
       "_origin": "ast"
     },
     {
@@ -97058,7 +97074,7 @@
       "label": "Fixing switched identities",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L151",
+      "source_location": "L155",
       "_origin": "ast"
     },
     {
@@ -97066,7 +97082,7 @@
       "label": "Reviewing and exporting what you changed",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L157",
+      "source_location": "L161",
       "_origin": "ast"
     },
     {
@@ -97074,7 +97090,7 @@
       "label": "Where corrections are kept",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L184",
+      "source_location": "L188",
       "_origin": "ast"
     },
     {
@@ -97082,7 +97098,7 @@
       "label": "3D tracking controls",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L204",
+      "source_location": "L208",
       "_origin": "ast"
     },
     {
@@ -97090,7 +97106,7 @@
       "label": "Placing a 3D marker",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L231",
+      "source_location": "L235",
       "_origin": "ast"
     },
     {
@@ -97098,7 +97114,7 @@
       "label": "The cameras' calibration",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L248",
+      "source_location": "L252",
       "_origin": "ast"
     },
     {
@@ -97106,7 +97122,7 @@
       "label": "Checking the 3D pose against the video",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L264",
+      "source_location": "L268",
       "_origin": "ast"
     },
     {
@@ -97114,7 +97130,7 @@
       "label": "Placing a running wheel",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L271",
+      "source_location": "L275",
       "_origin": "ast"
     },
     {
@@ -97122,7 +97138,7 @@
       "label": "Appearance and font size",
       "file_type": "document",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L356",
+      "source_location": "L360",
       "_origin": "ast"
     },
     {
@@ -190777,7 +190793,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L417",
+      "source_location": "L420",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190787,7 +190803,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L423",
+      "source_location": "L426",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190797,7 +190813,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L447",
+      "source_location": "L450",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190807,7 +190823,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L454",
+      "source_location": "L457",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190817,7 +190833,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L462",
+      "source_location": "L465",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190827,7 +190843,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L481",
+      "source_location": "L484",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190837,7 +190853,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L485",
+      "source_location": "L488",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190847,7 +190863,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L505",
+      "source_location": "L508",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190858,7 +190874,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L505",
+      "source_location": "L508",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190868,7 +190884,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L517",
+      "source_location": "L520",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190879,7 +190895,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L517",
+      "source_location": "L520",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190889,7 +190905,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L539",
+      "source_location": "L542",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190899,7 +190915,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L555",
+      "source_location": "L558",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190909,7 +190925,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L564",
+      "source_location": "L567",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190919,7 +190935,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L571",
+      "source_location": "L574",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190929,7 +190945,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L574",
+      "source_location": "L577",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190939,7 +190955,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L581",
+      "source_location": "L584",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190949,7 +190965,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L585",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190960,7 +190976,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L585",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190970,7 +190986,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L592",
+      "source_location": "L595",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190980,7 +190996,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L598",
+      "source_location": "L601",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -190990,7 +191006,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L608",
+      "source_location": "L611",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191001,7 +191017,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L608",
+      "source_location": "L611",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191012,7 +191028,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L608",
+      "source_location": "L611",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191022,7 +191038,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L650",
+      "source_location": "L653",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191033,7 +191049,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L650",
+      "source_location": "L653",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191043,7 +191059,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L655",
+      "source_location": "L658",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191053,7 +191069,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L655",
+      "source_location": "L658",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191063,7 +191079,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L664",
+      "source_location": "L667",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191074,7 +191090,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L664",
+      "source_location": "L667",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191084,7 +191100,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L787",
+      "source_location": "L793",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191094,7 +191110,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L791",
+      "source_location": "L797",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191104,7 +191120,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L794",
+      "source_location": "L800",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191114,7 +191130,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L798",
+      "source_location": "L804",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191124,7 +191140,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L807",
+      "source_location": "L813",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191134,7 +191150,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L820",
+      "source_location": "L826",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191144,7 +191160,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L828",
+      "source_location": "L834",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191154,7 +191170,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L840",
+      "source_location": "L846",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191164,7 +191180,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L844",
+      "source_location": "L850",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191175,7 +191191,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L844",
+      "source_location": "L850",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191185,7 +191201,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L849",
+      "source_location": "L855",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191195,7 +191211,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L855",
+      "source_location": "L861",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191205,7 +191221,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L865",
+      "source_location": "L871",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191216,7 +191232,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L865",
+      "source_location": "L871",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191226,7 +191242,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L876",
+      "source_location": "L882",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191236,7 +191252,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L876",
+      "source_location": "L882",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191246,7 +191262,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L898",
+      "source_location": "L904",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191257,7 +191273,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L898",
+      "source_location": "L904",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191267,7 +191283,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L976",
+      "source_location": "L982",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191277,7 +191293,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L991",
+      "source_location": "L997",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191287,7 +191303,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L998",
+      "source_location": "L1004",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191297,7 +191313,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1005",
+      "source_location": "L1011",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191307,7 +191323,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1024",
+      "source_location": "L1030",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191317,7 +191333,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1034",
+      "source_location": "L1040",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191327,7 +191343,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1040",
+      "source_location": "L1046",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191337,7 +191353,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1057",
+      "source_location": "L1063",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191347,7 +191363,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1068",
+      "source_location": "L1074",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191357,7 +191373,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1074",
+      "source_location": "L1080",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191367,7 +191383,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1080",
+      "source_location": "L1086",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191377,7 +191393,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1086",
+      "source_location": "L1092",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191387,7 +191403,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1093",
+      "source_location": "L1099",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191398,7 +191414,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1093",
+      "source_location": "L1099",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191408,7 +191424,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1099",
+      "source_location": "L1105",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191419,7 +191435,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1099",
+      "source_location": "L1105",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191429,7 +191445,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1106",
+      "source_location": "L1112",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191439,7 +191455,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1112",
+      "source_location": "L1118",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191449,7 +191465,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1118",
+      "source_location": "L1124",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191459,7 +191475,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1129",
+      "source_location": "L1135",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191469,7 +191485,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1134",
+      "source_location": "L1140",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191479,7 +191495,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1145",
+      "source_location": "L1151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191489,7 +191505,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1150",
+      "source_location": "L1156",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191499,7 +191515,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1156",
+      "source_location": "L1162",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191509,7 +191525,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1161",
+      "source_location": "L1167",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191520,7 +191536,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1161",
+      "source_location": "L1167",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191564,7 +191580,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L166",
+      "source_location": "L169",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191575,7 +191591,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L189",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191586,7 +191602,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L240",
+      "source_location": "L243",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191597,7 +191613,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L265",
+      "source_location": "L268",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191608,7 +191624,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L286",
+      "source_location": "L289",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191619,7 +191635,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L341",
+      "source_location": "L344",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191630,7 +191646,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L375",
+      "source_location": "L378",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191641,7 +191657,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L414",
+      "source_location": "L417",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191652,7 +191668,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L476",
+      "source_location": "L479",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191663,7 +191679,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L508",
+      "source_location": "L511",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191674,7 +191690,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L533",
+      "source_location": "L536",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191685,7 +191701,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L578",
+      "source_location": "L581",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191696,7 +191712,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L590",
+      "source_location": "L593",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191707,7 +191723,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L596",
+      "source_location": "L599",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191718,7 +191734,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L600",
+      "source_location": "L603",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191729,7 +191745,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L652",
+      "source_location": "L655",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191740,7 +191756,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L665",
+      "source_location": "L668",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191751,7 +191767,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L669",
+      "source_location": "L672",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191762,7 +191778,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L688",
+      "source_location": "L691",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191773,7 +191789,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L707",
+      "source_location": "L710",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191784,7 +191800,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L721",
+      "source_location": "L724",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191795,7 +191811,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L741",
+      "source_location": "L744",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191806,7 +191822,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L789",
+      "source_location": "L795",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191817,7 +191833,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L803",
+      "source_location": "L809",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191828,7 +191844,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L816",
+      "source_location": "L822",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191839,7 +191855,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L847",
+      "source_location": "L853",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191850,7 +191866,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L853",
+      "source_location": "L859",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191861,7 +191877,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L857",
+      "source_location": "L863",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191872,7 +191888,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L871",
+      "source_location": "L877",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191883,7 +191899,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L906",
+      "source_location": "L912",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191894,7 +191910,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L922",
+      "source_location": "L928",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191905,7 +191921,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L929",
+      "source_location": "L935",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191916,7 +191932,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L951",
+      "source_location": "L957",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191927,7 +191943,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L968",
+      "source_location": "L974",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191938,7 +191954,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L981",
+      "source_location": "L987",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191949,7 +191965,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1001",
+      "source_location": "L1007",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191960,7 +191976,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1002",
+      "source_location": "L1008",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191971,7 +191987,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1002",
+      "source_location": "L1008",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191982,7 +191998,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1003",
+      "source_location": "L1009",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -191993,7 +192009,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1009",
+      "source_location": "L1015",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192004,7 +192020,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1013",
+      "source_location": "L1019",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192015,7 +192031,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1028",
+      "source_location": "L1034",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192026,7 +192042,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1036",
+      "source_location": "L1042",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192037,7 +192053,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1048",
+      "source_location": "L1054",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192048,7 +192064,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1052",
+      "source_location": "L1058",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192059,7 +192075,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1052",
+      "source_location": "L1058",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192070,7 +192086,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1059",
+      "source_location": "L1065",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192081,7 +192097,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1059",
+      "source_location": "L1065",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192092,7 +192108,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1066",
+      "source_location": "L1072",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192103,7 +192119,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1072",
+      "source_location": "L1078",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192114,7 +192130,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1078",
+      "source_location": "L1084",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192125,7 +192141,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1084",
+      "source_location": "L1090",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192136,7 +192152,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1088",
+      "source_location": "L1094",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192147,7 +192163,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1088",
+      "source_location": "L1094",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192158,7 +192174,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1090",
+      "source_location": "L1096",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192169,7 +192185,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1097",
+      "source_location": "L1103",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192180,7 +192196,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1101",
+      "source_location": "L1107",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192191,34 +192207,12 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1101",
+      "source_location": "L1107",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_identity_count",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_sensor_widget",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1108",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_identity_count",
-      "target": "src_avialsync_ui_sidebar_sensorinfowidget_set_identity_count",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1110",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_mapping",
       "target": "src_avialsync_ui_sidebar_sidebarpane_sensor_widget",
       "relation": "calls",
       "context": "call",
@@ -192229,13 +192223,35 @@
       "_origin": "ast"
     },
     {
+      "source": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_identity_count",
+      "target": "src_avialsync_ui_sidebar_sensorinfowidget_set_identity_count",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/sidebar.py",
+      "source_location": "L1116",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_mapping",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_sensor_widget",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/sidebar.py",
+      "source_location": "L1120",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_mapping",
       "target": "src_avialsync_ui_sidebar_videoinfowidget_set_mapping",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1116",
+      "source_location": "L1122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192246,7 +192262,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1127",
+      "source_location": "L1133",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192257,7 +192273,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1143",
+      "source_location": "L1149",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192268,7 +192284,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1148",
+      "source_location": "L1154",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192279,7 +192295,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1154",
+      "source_location": "L1160",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192290,7 +192306,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1158",
+      "source_location": "L1164",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192301,7 +192317,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1159",
+      "source_location": "L1165",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192312,7 +192328,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1163",
+      "source_location": "L1169",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192323,7 +192339,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1163",
+      "source_location": "L1169",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192334,7 +192350,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1165",
+      "source_location": "L1171",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -192399,258 +192415,248 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_418",
+      "source": "src_avialsync_ui_sidebar_rationale_421",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_set_identity_count",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L418",
+      "source_location": "L421",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_426",
+      "source": "src_avialsync_ui_sidebar_rationale_429",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_set_tracking_controls",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L426",
+      "source_location": "L429",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_448",
+      "source": "src_avialsync_ui_sidebar_rationale_451",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_set_tracking_visible",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L448",
+      "source_location": "L451",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_455",
+      "source": "src_avialsync_ui_sidebar_rationale_458",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_checked_channels",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L455",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_463",
+      "source": "src_avialsync_ui_sidebar_rationale_466",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_apply_filter",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L463",
+      "source_location": "L466",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_482",
+      "source": "src_avialsync_ui_sidebar_rationale_485",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_visible_channel_count",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L482",
+      "source_location": "L485",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_486",
+      "source": "src_avialsync_ui_sidebar_rationale_489",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_on_bulk_visibility",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L486",
+      "source_location": "L489",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_506",
+      "source": "src_avialsync_ui_sidebar_rationale_509",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_channels_under",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L506",
+      "source_location": "L509",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_540",
+      "source": "src_avialsync_ui_sidebar_rationale_543",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_set_group_visible",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L540",
+      "source_location": "L543",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_556",
+      "source": "src_avialsync_ui_sidebar_rationale_559",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_set_channel_visible",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L556",
+      "source_location": "L559",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_575",
+      "source": "src_avialsync_ui_sidebar_rationale_578",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_set_mapping",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L575",
+      "source_location": "L578",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_582",
+      "source": "src_avialsync_ui_sidebar_rationale_585",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_mapping",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L582",
+      "source_location": "L585",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_586",
+      "source": "src_avialsync_ui_sidebar_rationale_589",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_set_inspection",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L586",
+      "source_location": "L589",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_593",
+      "source": "src_avialsync_ui_sidebar_rationale_596",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_set_alignment",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L593",
+      "source_location": "L596",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_599",
+      "source": "src_avialsync_ui_sidebar_rationale_602",
       "target": "src_avialsync_ui_sidebar_sensorinfowidget_refresh_badge",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L599",
+      "source_location": "L602",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_615",
+      "source": "src_avialsync_ui_sidebar_rationale_618",
       "target": "src_avialsync_ui_sidebar_render_badge",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L615",
+      "source_location": "L618",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_656",
+      "source": "src_avialsync_ui_sidebar_rationale_659",
       "target": "src_avialsync_ui_sidebar_videoinfowidget",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L656",
+      "source_location": "L659",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_795",
+      "source": "src_avialsync_ui_sidebar_rationale_801",
       "target": "src_avialsync_ui_sidebar_videoinfowidget_mapping",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L795",
+      "source_location": "L801",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_799",
+      "source": "src_avialsync_ui_sidebar_rationale_805",
       "target": "src_avialsync_ui_sidebar_videoinfowidget_set_mapping",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L799",
+      "source_location": "L805",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_808",
+      "source": "src_avialsync_ui_sidebar_rationale_814",
       "target": "src_avialsync_ui_sidebar_videoinfowidget_set_offset",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L808",
+      "source_location": "L814",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_821",
+      "source": "src_avialsync_ui_sidebar_rationale_827",
       "target": "src_avialsync_ui_sidebar_videoinfowidget_set_visible",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L821",
+      "source_location": "L827",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_829",
+      "source": "src_avialsync_ui_sidebar_rationale_835",
       "target": "src_avialsync_ui_sidebar_videoinfowidget_set_loader",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L829",
+      "source_location": "L835",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_841",
+      "source": "src_avialsync_ui_sidebar_rationale_847",
       "target": "src_avialsync_ui_sidebar_videoinfowidget_set_pane",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L841",
+      "source_location": "L847",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_845",
+      "source": "src_avialsync_ui_sidebar_rationale_851",
       "target": "src_avialsync_ui_sidebar_videoinfowidget_set_inspection",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L845",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_sidebar_rationale_850",
-      "target": "src_avialsync_ui_sidebar_videoinfowidget_set_alignment",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L850",
+      "source_location": "L851",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_sidebar_rationale_856",
-      "target": "src_avialsync_ui_sidebar_videoinfowidget_refresh_badge",
+      "target": "src_avialsync_ui_sidebar_videoinfowidget_set_alignment",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
@@ -192659,88 +192665,88 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_866",
+      "source": "src_avialsync_ui_sidebar_rationale_862",
+      "target": "src_avialsync_ui_sidebar_videoinfowidget_refresh_badge",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/sidebar.py",
+      "source_location": "L862",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_sidebar_rationale_872",
       "target": "src_avialsync_ui_sidebar_wrapped_note",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L866",
+      "source_location": "L872",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_877",
+      "source": "src_avialsync_ui_sidebar_rationale_883",
       "target": "src_avialsync_ui_sidebar_sidebarpane",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L877",
+      "source_location": "L883",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_977",
+      "source": "src_avialsync_ui_sidebar_rationale_983",
       "target": "src_avialsync_ui_sidebar_sidebarpane_add_video",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L977",
+      "source_location": "L983",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_992",
+      "source": "src_avialsync_ui_sidebar_rationale_998",
       "target": "src_avialsync_ui_sidebar_sidebarpane_remove_video",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L992",
+      "source_location": "L998",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_999",
+      "source": "src_avialsync_ui_sidebar_rationale_1005",
       "target": "src_avialsync_ui_sidebar_sidebarpane_clear_sources",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L999",
+      "source_location": "L1005",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_1006",
+      "source": "src_avialsync_ui_sidebar_rationale_1012",
       "target": "src_avialsync_ui_sidebar_sidebarpane_add_sensor",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1006",
+      "source_location": "L1012",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_1027",
+      "source": "src_avialsync_ui_sidebar_rationale_1033",
       "target": "src_avialsync_ui_sidebar_sidebarpane_set_tracking_controls",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1027",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_sidebar_rationale_1035",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_tracking_visible",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1035",
+      "source_location": "L1033",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_sidebar_rationale_1041",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_channel_visible",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_tracking_visible",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
@@ -192749,28 +192755,28 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_1058",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_remove_sensor",
+      "source": "src_avialsync_ui_sidebar_rationale_1047",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_channel_visible",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1058",
+      "source_location": "L1047",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_1069",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_loader",
+      "source": "src_avialsync_ui_sidebar_rationale_1064",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_remove_sensor",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1069",
+      "source_location": "L1064",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_sidebar_rationale_1075",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_pane",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_loader",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
@@ -192780,7 +192786,7 @@
     },
     {
       "source": "src_avialsync_ui_sidebar_rationale_1081",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_alignment",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_pane",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
@@ -192790,7 +192796,7 @@
     },
     {
       "source": "src_avialsync_ui_sidebar_rationale_1087",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_alignment",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_alignment",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
@@ -192799,18 +192805,18 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_1094",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_inspection",
+      "source": "src_avialsync_ui_sidebar_rationale_1093",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_alignment",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1094",
+      "source_location": "L1093",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_sidebar_rationale_1100",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_sensor_widget",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_inspection",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
@@ -192819,18 +192825,18 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_1107",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_identity_count",
+      "source": "src_avialsync_ui_sidebar_rationale_1106",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_sensor_widget",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1107",
+      "source_location": "L1106",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_sidebar_rationale_1113",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_mapping",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_identity_count",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
@@ -192840,7 +192846,7 @@
     },
     {
       "source": "src_avialsync_ui_sidebar_rationale_1119",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_offset",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_mapping",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
@@ -192849,48 +192855,48 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_1130",
+      "source": "src_avialsync_ui_sidebar_rationale_1125",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_offset",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/sidebar.py",
+      "source_location": "L1125",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_sidebar_rationale_1136",
       "target": "src_avialsync_ui_sidebar_sidebarpane_video_offset",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1130",
+      "source_location": "L1136",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_1135",
+      "source": "src_avialsync_ui_sidebar_rationale_1141",
       "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_mapping",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1135",
+      "source_location": "L1141",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_1146",
+      "source": "src_avialsync_ui_sidebar_rationale_1152",
       "target": "src_avialsync_ui_sidebar_sidebarpane_video_mapping",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1146",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_sidebar_rationale_1151",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_visible",
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1151",
+      "source_location": "L1152",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "src_avialsync_ui_sidebar_rationale_1157",
-      "target": "src_avialsync_ui_sidebar_sidebarpane_sensor_mapping",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_set_video_visible",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
@@ -192899,12 +192905,22 @@
       "_origin": "ast"
     },
     {
-      "source": "src_avialsync_ui_sidebar_rationale_1162",
+      "source": "src_avialsync_ui_sidebar_rationale_1163",
+      "target": "src_avialsync_ui_sidebar_sidebarpane_sensor_mapping",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/avialsync/ui/sidebar.py",
+      "source_location": "L1163",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_sidebar_rationale_1168",
       "target": "src_avialsync_ui_sidebar_sidebarpane_set_sensor_inspection",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L1162",
+      "source_location": "L1168",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -219957,11 +219973,32 @@
     },
     {
       "source": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot",
-      "target": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_an_unaligned_source_is_reported_as_unaligned",
+      "target": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_the_badge_has_a_clear_text_label",
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
       "source_location": "L43",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_the_badge_has_a_clear_text_label",
+      "target": "src_avialsync_ui_sidebar_videoinfowidget",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_alignment_badge.py",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot",
+      "target": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_an_unaligned_source_is_reported_as_unaligned",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_alignment_badge.py",
+      "source_location": "L48",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -219972,7 +220009,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L43",
+      "source_location": "L48",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -219982,7 +220019,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L51",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -219993,7 +220030,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L51",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220003,7 +220040,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L57",
+      "source_location": "L62",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220014,7 +220051,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L57",
+      "source_location": "L62",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220024,7 +220061,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L64",
+      "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220035,7 +220072,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L64",
+      "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220045,7 +220082,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L71",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220056,7 +220093,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L71",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220066,7 +220103,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L80",
+      "source_location": "L85",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220076,7 +220113,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L81",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220087,7 +220124,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L81",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220097,7 +220134,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L104",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220108,7 +220145,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L104",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220118,7 +220155,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L125",
+      "source_location": "L130",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220129,7 +220166,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L125",
+      "source_location": "L130",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -220167,7 +220204,7 @@
     },
     {
       "source": "tests_test_alignment_badge_rationale_44",
-      "target": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_an_unaligned_source_is_reported_as_unaligned",
+      "target": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_the_badge_has_a_clear_text_label",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
@@ -220176,52 +220213,62 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_alignment_badge_rationale_58",
+      "source": "tests_test_alignment_badge_rationale_49",
+      "target": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_an_unaligned_source_is_reported_as_unaligned",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_alignment_badge.py",
+      "source_location": "L49",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_alignment_badge_rationale_63",
       "target": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_the_alignment_summary_reaches_the_tooltip",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L58",
+      "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_alignment_badge_rationale_65",
+      "source": "tests_test_alignment_badge_rationale_70",
       "target": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_a_screen_reader_gets_the_findings_too",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L65",
+      "source_location": "L70",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_alignment_badge_rationale_72",
+      "source": "tests_test_alignment_badge_rationale_77",
       "target": "tests_test_alignment_badge_testthebadgesayswhatthefilecannot_test_order_of_arrival_does_not_matter",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L72",
+      "source_location": "L77",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_alignment_badge_rationale_82",
+      "source": "tests_test_alignment_badge_rationale_87",
       "target": "tests_test_alignment_badge_testthewindowkeepsitcurrent_test_superseded_evidence_does_not_count_as_aligned",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L82",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_alignment_badge_rationale_126",
+      "source": "tests_test_alignment_badge_rationale_131",
       "target": "tests_test_alignment_badge_testthewindowkeepsitcurrent_test_refreshing_with_nothing_loaded_is_harmless",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L126",
+      "source_location": "L131",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323156,7 +323203,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L136",
+      "source_location": "L140",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323166,7 +323213,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L151",
+      "source_location": "L155",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323176,7 +323223,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L157",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323186,7 +323233,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L184",
+      "source_location": "L188",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323196,7 +323243,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L204",
+      "source_location": "L208",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323206,7 +323253,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L231",
+      "source_location": "L235",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323216,7 +323263,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L248",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323226,7 +323273,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L264",
+      "source_location": "L268",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323236,7 +323283,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L271",
+      "source_location": "L275",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -323246,7 +323293,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/user-guide/index.md",
-      "source_location": "L356",
+      "source_location": "L360",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -332209,7 +332256,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L412",
+      "source_location": "L415",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -337907,7 +337954,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L629",
+      "source_location": "L632",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -337918,7 +337965,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L634",
+      "source_location": "L637",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -337929,7 +337976,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L644",
+      "source_location": "L647",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -337940,7 +337987,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L646",
+      "source_location": "L649",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -348387,7 +348434,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L412",
+      "source_location": "L415",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -348397,7 +348444,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L412",
+      "source_location": "L415",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -348407,7 +348454,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L412",
+      "source_location": "L415",
       "weight": 0.8,
       "_origin": "ast"
     },
@@ -361113,13 +361160,25 @@
     },
     {
       "source": "src_avialsync_ui_sidebar_sensorinfowidget_init",
+      "target": "src_avialsync_ui_i18n_tr",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/avialsync/ui/sidebar.py",
+      "source_location": "L157",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "src_avialsync_ui_sidebar_sensorinfowidget_init",
       "target": "src_avialsync_ui_theme_follow_palette",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L160",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361131,19 +361190,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L162",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
-      "source": "src_avialsync_ui_sidebar_sensorinfowidget_init",
-      "target": "src_avialsync_ui_i18n_tr",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L167",
+      "source_location": "L165",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361155,7 +361202,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L192",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361167,7 +361214,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L333",
+      "source_location": "L336",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361179,7 +361226,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L336",
+      "source_location": "L339",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361191,7 +361238,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L414",
+      "source_location": "L417",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361203,7 +361250,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L419",
+      "source_location": "L422",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361215,7 +361262,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L433",
+      "source_location": "L436",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361227,7 +361274,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L470",
+      "source_location": "L473",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361239,7 +361286,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L675",
+      "source_location": "L678",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361251,7 +361298,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L677",
+      "source_location": "L680",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361263,7 +361310,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L679",
+      "source_location": "L682",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361275,7 +361322,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L684",
+      "source_location": "L687",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361287,7 +361334,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L686",
+      "source_location": "L689",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361299,7 +361346,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L769",
+      "source_location": "L775",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361311,7 +361358,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L771",
+      "source_location": "L777",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361323,7 +361370,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L783",
+      "source_location": "L789",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361335,7 +361382,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L835",
+      "source_location": "L841",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361347,7 +361394,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L909",
+      "source_location": "L915",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361359,7 +361406,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L919",
+      "source_location": "L925",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361371,7 +361418,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L949",
+      "source_location": "L955",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361383,7 +361430,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L952",
+      "source_location": "L958",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -361395,7 +361442,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/avialsync/ui/sidebar.py",
-      "source_location": "L953",
+      "source_location": "L959",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -364395,7 +364442,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L45",
+      "source_location": "L50",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -364407,7 +364454,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L52",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -364419,7 +364466,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L59",
+      "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -364431,7 +364478,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L66",
+      "source_location": "L71",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -364443,7 +364490,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L75",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -364455,7 +364502,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L85",
+      "source_location": "L90",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -364467,7 +364514,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "tests/test_alignment_badge.py",
-      "source_location": "L108",
+      "source_location": "L113",
       "weight": 1.0,
       "_origin": "ast"
     },
