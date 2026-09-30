@@ -501,7 +501,6 @@ def test_the_candidate_list_keeps_both_ends_of_a_name(
     )
     qtbot.addWidget(dialog)
 
-    from PySide6.QtGui import QFontMetrics
     from PySide6.QtWidgets import QLabel
 
     from avialsync.ui.elided_label import ElidedLabel
@@ -510,20 +509,20 @@ def test_the_candidate_list_keeps_both_ends_of_a_name(
     labels = [dialog._table.cellWidget(row, 0) for row in range(dialog._table.rowCount())]
     assert all(isinstance(label, ElidedLabel) for label in labels)
 
-    # Squeezed to a realistic column, the tail -- the only part that differs --
-    # has to survive. Read through QLabel, because ElidedLabel.text() answers
-    # with the unabridged string by design.
-    # Measured in the label's own font, not in pixels: a hard-coded width is a
-    # different number of characters in every platform's default font, and
-    # Windows fitted only "Tri…csv" into the 240 px this used to ask for.
-    room_for = "Trial     2DLC…_snapshot_140_full.mp4"
-    width = QFontMetrics(labels[0].font()).horizontalAdvance(room_for)
-    shown = []
-    for label in labels:
-        label.resize(width, 20)
-        shown.append(QLabel.text(label))
-    # Squeezed hard the ellipsis eats into the tail, but what identifies the
-    # file survives -- which is the whole difference from a column of "Trial …".
+    # Laid out for real rather than resized by hand. An ElidedLabel re-elides
+    # on its resize event, and a dialog that was never shown never delivers
+    # one: on Windows every label sat at its minimum size hint and each name
+    # came out "Tri…csv", while macOS happened to deliver the event and
+    # passed. Showing it gives the column the width the user actually gets,
+    # which is the width worth asserting about.
+    dialog.show()
+    dialog.resize(dialog.minimumSizeHint())
+    qapp.processEvents()
+    shown = [QLabel.text(label) for label in labels]
+    # The tail -- the only part that differs -- has to survive. Read through
+    # QLabel, because ElidedLabel.text() answers with the unabridged string by
+    # design.  What identifies the file survives, which is the whole
+    # difference from a column of "Trial …".
     assert any(text.endswith("el.csv") for text in shown), shown
     assert any(text.endswith("full.mp4") for text in shown), shown
     assert all("…" in text for text in shown), "a squeezed name should be elided, not clipped"
