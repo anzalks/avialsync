@@ -1998,6 +1998,15 @@ class MainWindow(QMainWindow):
             tr("Load a video and mark an A/B loop — [ and ] set where a clip starts and ends."),
         )
 
+        act = file_menu.addAction(tr("Export Stimulus Grid…"))
+        act.triggered.connect(self._export_stimulus_grid)
+        _reg(act, "File")
+        self._require(
+            act,
+            lambda: bool(self.video_grid._paths) and bool(self.plot_pane.channels),
+            tr("Load at least one video and one sensor channel first."),
+        )
+
         act = file_menu.addAction(tr("Export Data Slice…"))
         act.triggered.connect(self._export_data_slice)
         self._require(
@@ -3491,6 +3500,17 @@ class MainWindow(QMainWindow):
     @Slot(str)
     def _on_video_clip_error(self, error: str) -> None:
         export_controller.on_video_clip_error(self, error)
+
+    def _export_stimulus_grid(self) -> None:
+        export_controller.export_stimulus_grid(self)
+
+    @Slot(str)
+    def _on_stimulus_grid_export_finished(self, path: str) -> None:
+        export_controller.on_stimulus_grid_export_finished(self, path)
+
+    @Slot(str)
+    def _on_stimulus_grid_export_error(self, error: str) -> None:
+        export_controller.on_stimulus_grid_export_error(self, error)
 
     # ── Proxy generation ─────────────────────────────────────────────
 

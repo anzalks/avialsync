@@ -297,3 +297,12 @@ class TimeMap:
         self._exact_source = source.copy()
         self._exact_master.flags.writeable = False
         self._exact_source.flags.writeable = False
+
+    def copy(self) -> "TimeMap":
+        """Return an independent snapshot of this affine or exact mapping."""
+        copied = TimeMap(self._offset, self._drift_ppm)
+        copied._t_ref = self._t_ref
+        copied._base_offset = self._base_offset
+        if self._exact_master is not None and self._exact_source is not None:
+            copied.set_exact_mapping(self._exact_master, self._exact_source)
+        return copied
