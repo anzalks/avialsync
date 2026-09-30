@@ -133,6 +133,7 @@ def build_session_state(window: MainWindow) -> SessionState:
                 # wall-clock source's placement on every save-and-reopen.
                 user_offset, drift_ppm = w.mapping()
                 offset = window.effective_offset(w.path, user_offset)
+                tracking = window._tracking_visibility.get(w.path, {})
                 sensors.append(
                     SensorEntry(
                         path=w.path,
@@ -144,6 +145,8 @@ def build_session_state(window: MainWindow) -> SessionState:
                         ),
                         offset=offset,
                         drift_ppm=drift_ppm,
+                        tracking_overlay_visible=tracking.get("overlay", False),
+                        tracking_plot_visible=tracking.get("plot", False),
                     )
                 )
 
@@ -403,6 +406,9 @@ def reset_session(window: MainWindow) -> None:
     window._frame_indexed_sources.clear()
     window._overlay_sources.clear()
     window._pose_3d_sources.clear()
+    window._tracking_visibility.clear()
+    window._tracking_plot_sources.clear()
+    window._pending_tracking_visibility.clear()
     window.point_edits.clear()
     window.identity_swaps.clear()
     window._expected_swap_groups.clear()
@@ -555,6 +561,10 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
             # Import is asynchronous, so the accepted mapping is held until
             # the worker reports the cache back (see _on_import_finished).
             window._pending_sensor_mappings[str(p)] = (se.offset, se.drift_ppm)
+            window._pending_tracking_visibility[str(p)] = {
+                "overlay": se.tracking_overlay_visible,
+                "plot": se.tracking_plot_visible,
+            }
             config = dict(se.import_config)
             overlay_target = config.get("overlay_video")
             if isinstance(overlay_target, str):

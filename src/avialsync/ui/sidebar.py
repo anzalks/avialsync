@@ -131,6 +131,8 @@ class SensorInfoWidget(QFrame):
     #: for the whole group so the window can record a single undo step rather
     #: than one per channel.
     channel_group_visibility_changed = Signal(str, str, list, bool)
+    #: Tracking source path, presentation surface (``overlay`` or ``plot``), visibility.
+    tracking_visibility_changed = Signal(str, str, bool)
     badge_clicked = Signal(str)  # path
     report_requested = Signal(str)  # path
     # Source-to-master mapping, mirroring VideoInfoWidget.offset_changed (P3.5).
@@ -181,6 +183,36 @@ class SensorInfoWidget(QFrame):
         header.addWidget(self._badge_btn)
         header.addWidget(close_btn)
         layout.addLayout(header)
+
+        # Tracking sources have their own presentation paths.  They begin off
+        # so a dense pose import never unexpectedly obscures video or fills the
+        # plot stack; ordinary time-series sources keep their existing controls.
+        self._tracking_controls = QWidget(self)
+        tracking_row = QHBoxLayout(self._tracking_controls)
+        tracking_row.setContentsMargins(0, 0, 0, 0)
+        self.show_overlay = QCheckBox(tr("Show overlay"), self._tracking_controls)
+        self.show_overlay.setObjectName("show_overlay")
+        self.show_overlay.setAccessibleName(tr("Show tracking overlay"))
+        self.show_overlay.setAccessibleDescription(
+            tr("Show this tracking source on its available visual view.")
+        )
+        self.show_plot = QCheckBox(tr("Show plot"), self._tracking_controls)
+        self.show_plot.setObjectName("show_plot")
+        self.show_plot.setAccessibleName(tr("Show tracking plot"))
+        self.show_plot.setAccessibleDescription(
+            tr("Show this tracking source's coordinate channels in the plots.")
+        )
+        tracking_row.addWidget(self.show_overlay)
+        tracking_row.addWidget(self.show_plot)
+        tracking_row.addStretch()
+        self._tracking_controls.setVisible(False)
+        self.show_overlay.toggled.connect(
+            lambda checked: self.tracking_visibility_changed.emit(self.path, "overlay", checked)
+        )
+        self.show_plot.toggled.connect(
+            lambda checked: self.tracking_visibility_changed.emit(self.path, "plot", checked)
+        )
+        layout.addWidget(self._tracking_controls)
 
         # ── Metadata: path + channel count ──────────────────────────
         # A path is one unbreakable token, so wrapping it does nothing and it
@@ -388,6 +420,37 @@ class SensorInfoWidget(QFrame):
         self.identity_count.setText(tr("⇄ {count}").format(count=count))
         self.identity_count.setToolTip(tr("{count} accepted identity swap(s)").format(count=count))
         self.identity_count.setVisible(count > 0)
+
+    def set_tracking_controls(
+        self, role: str, *, overlay_visible: bool, plot_visible: bool
+    ) -> None:
+        """Show the per-source presentation controls for a routed pose source."""
+        is_tracking = role in {"overlay2d", "pose3d"}
+        self._tracking_controls.setVisible(is_tracking)
+        if not is_tracking:
+            return
+        if role == "overlay2d":
+            self.show_overlay.setAccessibleDescription(
+                tr("Draw this 2D tracking source over its assigned camera.")
+            )
+        else:
+            self.show_overlay.setAccessibleDescription(
+                tr("Show this 3D tracking source in the 3D tracking view.")
+            )
+        self.show_plot.setAccessibleDescription(
+            tr("Show this tracking source's coordinate channels in the plots.")
+        )
+        for box, visible in ((self.show_overlay, overlay_visible), (self.show_plot, plot_visible)):
+            blocked = box.blockSignals(True)
+            box.setChecked(visible)
+            box.blockSignals(blocked)
+
+    def set_tracking_visible(self, surface: str, visible: bool) -> None:
+        """Update one tracking presentation checkbox without reporting a command."""
+        box = self.show_overlay if surface == "overlay" else self.show_plot
+        blocked = box.blockSignals(True)
+        box.setChecked(visible)
+        box.blockSignals(blocked)
 
     def _apply_filter(self, needle: str) -> None:
         """Show only channels matching *needle*, keeping their groups visible.
@@ -814,6 +877,7 @@ class SidebarPane(QWidget):
     channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
     channel_visibility_changed = Signal(str, str, bool)  # sensor_path, channel_name, is_visible
     channel_group_visibility_changed = Signal(str, str, list, bool)
+    tracking_visibility_changed = Signal(str, str, bool)  # source_path, surface, is_visible
     grid_mode_changed = Signal(bool)  # True = NxN grid, False = strip
     reset_session_requested = Signal()
 
@@ -937,10 +1001,27 @@ class SidebarPane(QWidget):
         widget.channel_remove_requested.connect(self.channel_remove_requested)
         widget.channel_visibility_changed.connect(self.channel_visibility_changed)
         widget.channel_group_visibility_changed.connect(self.channel_group_visibility_changed)
+        widget.tracking_visibility_changed.connect(self.tracking_visibility_changed)
         widget.badge_clicked.connect(self.sensor_badge_clicked)
         widget.report_requested.connect(self.sensor_report_requested)
         widget.mapping_changed.connect(self.sensor_mapping_changed)
         self.sensors_layout.addWidget(widget)
+
+    def set_tracking_controls(
+        self, path: str, role: str, *, overlay_visible: bool, plot_visible: bool
+    ) -> None:
+        """Configure the presentation controls for one routed tracking source."""
+        widget = self.sensor_widget(path)
+        if widget is not None:
+            widget.set_tracking_controls(
+                role, overlay_visible=overlay_visible, plot_visible=plot_visible
+            )
+
+    def set_tracking_visible(self, path: str, surface: str, visible: bool) -> None:
+        """Mirror a tracking presentation change into its sidebar control."""
+        widget = self.sensor_widget(path)
+        if widget is not None:
+            widget.set_tracking_visible(surface, visible)
 
     def set_channel_visible(self, channel: str, visible: bool, source_id: str = "") -> bool:
         """Mirror plot-row visibility to the owning channel checkbox.

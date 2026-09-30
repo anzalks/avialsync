@@ -40,6 +40,11 @@ class SensorEntry:
     #: be aligned without rewriting cached samples.
     offset: float = 0.0
     drift_ppm: float = 0.0
+    #: Per-tracker presentation choices (schema v11).  They are intentionally
+    #: per source: a 2D pose file may be compared against raw footage without
+    #: hiding another camera's tracker, and a dense pose need not occupy plots.
+    tracking_overlay_visible: bool = False
+    tracking_plot_visible: bool = False
 
 
 @dataclasses.dataclass
@@ -168,7 +173,7 @@ class SessionState:
     show_original_tracker: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 10)."""
+        """Serialise to a JSON-compatible dict (always writes version 11)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -184,7 +189,7 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 10,
+            "version": 11,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
@@ -204,14 +209,14 @@ class SessionState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v10).
+        """Deserialise from a parsed JSON dict (accepts v1 through v11).
 
         Every added field is optional with a default, so an older file loads and
         renders exactly as it did before the bump -- that equivalence is the
         migration test, not an aspiration.
         """
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
+        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
@@ -234,6 +239,8 @@ class SessionState:
                 # Pre-v6 sessions have no sensor mapping; identity is correct.
                 offset=float(s.get("offset", 0.0)),
                 drift_ppm=float(s.get("drift_ppm", 0.0)),
+                tracking_overlay_visible=bool(s.get("tracking_overlay_visible", False)),
+                tracking_plot_visible=bool(s.get("tracking_plot_visible", False)),
             )
             for s in data.get("sensors", [])
         ]

@@ -301,10 +301,20 @@ def on_import_finished(
         offset = base
     user_offset = window.user_offset(path, offset)
 
+    tracking_state: dict[str, bool] | None = None
     if role in ("overlay2d", "pose3d"):
         # Pose data drives the video overlay and the 3D view. It is not
         # plotted: 27 3D channels or 81 per-camera 2D channels would bury
-        # the recorded signals a plot row is meant to show.
+        # the recorded signals a plot row is meant to show. The source card
+        # can opt into either presentation later; newly imported pose data is
+        # quiet by default.
+        restored = window._pending_tracking_visibility.pop(path, None)
+        tracking_state = {
+            "overlay": bool(restored and restored.get("overlay", False)),
+            "plot": bool(restored and restored.get("plot", False)),
+        }
+        window._tracking_visibility[path] = tracking_state
+        window._tracking_plot_sources[path] = (Path(cache_dir), list(channels), offset, drift_ppm)
         window._register_tracking_source(
             path, Path(cache_dir), channels, role, inspection, offset, drift_ppm
         )
@@ -330,6 +340,14 @@ def on_import_finished(
     )
     window._recompute_bounds()
     window.sidebar.add_sensor(path, channels)
+    if tracking_state is not None:
+        window.sidebar.set_tracking_controls(
+            path,
+            role,
+            overlay_visible=tracking_state["overlay"],
+            plot_visible=tracking_state["plot"],
+        )
+        window._sync_tracking_plot(path)
     window.sidebar.set_sensor_identity_count(path, window.identity_swaps.count_for(path))
     if user_offset or drift_ppm:
         window.sidebar.set_sensor_mapping(path, user_offset, drift_ppm)
@@ -545,8 +563,14 @@ def _report_uncalibrated_overlay(window: MainWindow, video: str, source_id: str)
 
 def refresh_pose_3d(window: MainWindow) -> None:
     """Feed the 3D view from registered pose sources plus any plotted XYZ."""
-    readers: list[Any] = list(window._plotted_readers)
-    for source_readers in window._pose_3d_sources.values():
+    readers: list[Any] = [
+        reader
+        for reader in window._plotted_readers
+        if getattr(reader, "source_id", "") not in window._tracking_visibility
+    ]
+    for source_id, source_readers in window._pose_3d_sources.items():
+        if not window._tracking_visibility.get(source_id, {}).get("overlay", True):
+            continue
         readers.extend(source_readers)
     window.tracking_3d_pane.set_readers(readers)
     window.tracking_3d_pane.set_cursor(window.clock.state.t)
@@ -586,6 +610,8 @@ def refresh_overlays(window: MainWindow, video: str) -> None:
     for _source_path, entry in sorted(
         sources.items(), key=lambda item: (not item[1]["is_ensemble"], item[1]["label"])
     ):
+        if not window._tracking_visibility.get(_source_path, {}).get("overlay", True):
+            continue
         is_ensemble = bool(entry["is_ensemble"])
         color = track_color(model_index, is_ensemble=is_ensemble)
         if not is_ensemble:

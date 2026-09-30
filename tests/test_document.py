@@ -27,6 +27,7 @@ from avialsync.core.commands import (
     SetOverlayVisibleCommand,
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
+    SetTrackingVisibleCommand,
 )
 from avialsync.core.document import (
     MAX_LOG_ENTRIES,
@@ -47,6 +48,7 @@ class FakeTarget:
         self.source_visible: dict[str, bool] = {}
         self.channel_visible: dict[tuple[str, str], bool] = {}
         self.overlay_visible: dict[tuple[str, str | None], bool] = {}
+        self.tracking_visible: dict[tuple[str, str], bool] = {}
         self.tracked_points: dict[tuple[str, str, int], tuple[float, float] | None] = {}
         self.identity_swaps: list[Any] = []
         self.identity_groups: list[tuple[str, Any]] = []
@@ -81,6 +83,9 @@ class FakeTarget:
 
     def set_overlay_visible(self, overlay_id: str, camera: str | None, visible: bool) -> None:
         self.overlay_visible[(overlay_id, camera)] = visible
+
+    def set_tracking_visible(self, source_id: str, surface: str, visible: bool) -> None:
+        self.tracking_visible[(source_id, surface)] = visible
 
     def set_original_tracker_visible(self, visible: bool) -> None:
         self.original_tracker_visible = visible
@@ -143,6 +148,7 @@ class FakeTarget:
             "mappings": dict(self.mappings),
             "markers": list(self.markers),
             "sources": dict(self.sources),
+            "tracking_visible": dict(self.tracking_visible),
             "original_tracker_visible": self.original_tracker_visible,
         }
 
@@ -150,6 +156,7 @@ class FakeTarget:
         self.mappings = dict(snapshot["mappings"])
         self.markers = list(snapshot["markers"])
         self.sources = dict(snapshot["sources"])
+        self.tracking_visible = dict(snapshot["tracking_visible"])
         self.original_tracker_visible = snapshot["original_tracker_visible"]
 
     def clear_workspace(self) -> None:
@@ -157,6 +164,7 @@ class FakeTarget:
         self.mappings.clear()
         self.markers.clear()
         self.sources.clear()
+        self.tracking_visible.clear()
         self.original_tracker_visible = False
 
 
@@ -183,6 +191,7 @@ def _all_commands() -> list[Any]:
         SetSourceVisibleCommand("cam1", visible=False),
         SetChannelVisibleCommand("ephys", "ch3", visible=False),
         SetOverlayVisibleCommand("tracking.legend", visible=False),
+        SetTrackingVisibleCommand("pose.csv", "overlay", visible=True),
         SetOriginalTrackerVisibleCommand(visible=True),
         SetIdentitySwapCommand(
             source_id="two.csv",
@@ -229,6 +238,7 @@ def test_apply_then_revert_restores_state(command: Any, target: FakeTarget) -> N
     target.add_marker(_marker())
     target.add_source(_source())
     target.set_source_mapping("cam1", 0.0, 0.0)
+    target.set_tracking_visible("pose.csv", "overlay", False)
     before = target.capture_workspace()
 
     doc = Document()

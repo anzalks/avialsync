@@ -57,12 +57,32 @@ def test_v1_session_roundtrips_as_v7(tmp_path: Path) -> None:
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 10
+    assert data["version"] == 11
     assert data["videos"][0]["offset"] == 0.5
     assert data["sensors"][0]["channels"] == ["ch1", "ch2"]
     assert data["sensors"][0]["import_report"] is None
     # v3 markers carry video_frames
     assert data["markers"][0]["video_frames"] == []
+
+
+def test_tracking_presentation_choices_round_trip(tmp_path: Path) -> None:
+    """A pose source remembers its independent overlay/view and plot choices."""
+    state = SessionState(
+        sensors=[
+            SensorEntry(
+                path="/tmp/pose.csv",
+                import_config={"role": "pose3d"},
+                tracking_overlay_visible=True,
+                tracking_plot_visible=True,
+            )
+        ]
+    )
+    path = tmp_path / "tracking.avv"
+    state.save(path)
+
+    restored = SessionState.load(path).sensors[0]
+    assert restored.tracking_overlay_visible is True
+    assert restored.tracking_plot_visible is True
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +186,7 @@ def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 10
+    assert data["version"] == 11
 
     loaded = SessionState.load(out)
     assert loaded.videos[0].integrity_flags == {"is_vfr": True, "has_gaps": False}
@@ -296,7 +316,7 @@ def test_a_v8_session_reads_back_as_the_affine_fit_it_recorded(tmp_path: Path) -
     out = tmp_path / "resaved.avv"
     loaded.save(out)
     resaved = json.loads(out.read_text())
-    assert resaved["version"] == 10
+    assert resaved["version"] == 11
     assert resaved["sync_provenance"][0]["method"] == "affine"
     assert resaved["sync_provenance"][0]["matched_count"] == 47
 

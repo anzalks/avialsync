@@ -53,6 +53,7 @@ from avialsync.core.commands import (
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
     SetTrackedPointCommand,
+    SetTrackingVisibleCommand,
 )
 from avialsync.core.custom_markers import CustomMarkerStore
 from avialsync.core.document import Document, SourceRecord
@@ -463,6 +464,14 @@ class MainWindow(QMainWindow):
         # than as plot rows (D-046). Keyed by video path -> source path -> track.
         self._overlay_sources: dict[str, dict[str, dict[str, Any]]] = {}
         self._pose_3d_sources: dict[str, list[Any]] = {}
+        #: Per-pose-source presentation choices.  A role decides *where* a
+        #: source can go; these choices decide whether it currently does.
+        self._tracking_visibility: dict[str, dict[str, bool]] = {}
+        #: Imported tracking cache details, retained so Show plot can add rows
+        #: lazily without re-reading the source file.
+        self._tracking_plot_sources: dict[str, tuple[Path, list[str], float, float]] = {}
+        #: Session restore reaches the import completion asynchronously.
+        self._pending_tracking_visibility: dict[str, dict[str, bool]] = {}
         self._plotted_readers: list[Any] = []
         self._region_stats_request = 0
         # Inspection data keyed by str(path)
@@ -591,6 +600,7 @@ class MainWindow(QMainWindow):
         self.sidebar.channel_group_visibility_changed.connect(
             self._on_channel_group_visibility_changed
         )
+        self.sidebar.tracking_visibility_changed.connect(self._on_tracking_visibility_changed)
         self.plot_pane.channel_close_requested.connect(self._on_plot_channel_close_requested)
         self.sidebar.grid_mode_changed.connect(self.video_grid.set_grid_mode)
         self.sidebar.video_badge_clicked.connect(self._show_video_properties)
@@ -602,7 +612,7 @@ class MainWindow(QMainWindow):
         self.plot_pane.channels_loaded.connect(self._refine_source_bounds)
         self.plot_pane.rows_pending.connect(self._on_rows_pending)
         self.plot_pane.sources_changed.connect(self._on_sources_changed)
-        self.plot_pane.sources_changed.connect(self.video_grid.set_tracking_readers)
+        self.plot_pane.sources_changed.connect(self._set_plotted_tracking_readers)
         self.plot_pane.measure_changed.connect(self._on_measure_changed)
         self.player._readout_panel = self.readout_panel
 
@@ -1200,6 +1210,18 @@ class MainWindow(QMainWindow):
         # only feed: pose sources register themselves without being plotted.
         self._plotted_readers = list(readers)
         self._refresh_pose_3d()
+
+    def _set_plotted_tracking_readers(self, readers: list[Any]) -> None:
+        """Forward loose plotted XY readers without duplicating routed pose overlays.
+
+        A routed 2D source can now be plotted on request.  Its plot rows must
+        not take the legacy loose-reader route, which broadcasts points to
+        every camera and would bypass its source's Show overlay checkbox.
+        """
+        routed = set(self._tracking_visibility)
+        self.video_grid.set_tracking_readers(
+            [reader for reader in readers if getattr(reader, "source_id", "") not in routed]
+        )
 
     def _update_timeline_messages(self) -> None:
         """Mirror recorded messages to the overview lane, text and all.
@@ -4120,6 +4142,17 @@ class MainWindow(QMainWindow):
     def _on_sensor_remove_requested(self, path: str) -> None:
         self._record(RemoveSourceCommand(self._source_record(path, "sensor")))
         cache_dir = self._sensor_cache_dirs.pop(path, None)
+        tracking_source = self._tracking_plot_sources.pop(path, None)
+        self._tracking_visibility.pop(path, None)
+        self._pending_tracking_visibility.pop(path, None)
+        self._pose_3d_sources.pop(path, None)
+        for sources in self._overlay_sources.values():
+            sources.pop(path, None)
+        for video in self._overlay_sources:
+            self._refresh_overlays(video)
+        self._refresh_pose_3d()
+        if tracking_source is not None:
+            cache_dir = tracking_source[0]
         if cache_dir is None:
             # Pre-import removal: fall back to the manager's derived location.
             from avialsync.core.cache import CacheManager
@@ -4171,6 +4204,55 @@ class MainWindow(QMainWindow):
     def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
         self._record(SetChannelVisibleCommand(source_id=path, channel=channel, visible=is_visible))
         self.plot_pane.set_channel_visible(ChannelKey(path, channel), is_visible)
+
+    def _on_tracking_visibility_changed(self, path: str, surface: str, visible: bool) -> None:
+        """Record a per-tracker presentation choice from its sidebar card."""
+        state = self._tracking_visibility.get(path)
+        if state is None or state.get(surface) == visible:
+            return
+        self._record(
+            SetTrackingVisibleCommand(
+                source_id=path,
+                surface=surface,
+                visible=visible,
+                display_name=Path(path).name,
+            )
+        )
+        self._apply_tracking_visibility(path, surface, visible)
+
+    def _apply_tracking_visibility(self, path: str, surface: str, visible: bool) -> None:
+        """Apply one tracking presentation choice to its real rendering path."""
+        if surface not in {"overlay", "plot"}:
+            return
+        state = self._tracking_visibility.setdefault(path, {"overlay": False, "plot": False})
+        state[surface] = visible
+        self.sidebar.set_tracking_visible(path, surface, visible)
+        if surface == "overlay":
+            for video, sources in self._overlay_sources.items():
+                if path in sources:
+                    self._refresh_overlays(video)
+            self._refresh_pose_3d()
+            return
+        self._sync_tracking_plot(path)
+
+    def _sync_tracking_plot(self, path: str) -> None:
+        """Build or hide a tracking source's plot rows without re-importing it."""
+        source = self._tracking_plot_sources.get(path)
+        if source is None:
+            return
+        cache_dir, channels, offset, drift_ppm = source
+        visible = self._tracking_visibility.get(path, {}).get("plot", False)
+        if visible:
+            existing = {
+                channel.reader.channel_id
+                for channel in self.plot_pane.channels
+                if channel.reader.source_id == path
+            }
+            missing = [channel for channel in channels if channel not in existing]
+            if missing:
+                self.plot_pane.load_channels(cache_dir, missing, offset, drift_ppm, source_id=path)
+        for channel in channels:
+            self.plot_pane.set_channel_visible(ChannelKey(path, channel), visible)
 
     # ── Display levels (D-093) ───────────────────────────────────────
 

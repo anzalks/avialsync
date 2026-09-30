@@ -179,8 +179,10 @@ def _finish_import(
     )
 
 
-def test_2d_pose_overlays_its_camera_and_is_not_plotted(tmp_path: Path, qtbot, monkeypatch) -> None:
-    """2D pose reaches only its own camera's overlay, and creates no plot rows."""
+def test_2d_tracking_source_controls_its_overlay_and_plot(
+    tmp_path: Path, qtbot, monkeypatch
+) -> None:
+    """A 2D tracker starts quiet and independently opts into overlay and plots."""
     from avialsync.ui.main_window import MainWindow
 
     monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
@@ -188,31 +190,39 @@ def test_2d_pose_overlays_its_camera_and_is_not_plotted(tmp_path: Path, qtbot, m
     qtbot.addWidget(window)
 
     face_video = str(tmp_path / "FaceCam.mp4")
-    side_video = str(tmp_path / "SideCam.mp4")
     channels = ["head_bar_x", "head_bar_y", "left_toe_x", "left_toe_y"]
 
-    for camera, video in (("FaceCam", face_video), ("SideCam", side_video)):
-        for label, ensemble in (("eks", True), ("model_0", False), ("model_1", False)):
-            _finish_import(
-                window,
-                f"{camera}_{label}.csv",
-                tmp_path / f"{camera}_{label}.avialcache",
-                channels,
-                {
-                    "role": "overlay2d",
-                    "overlay_video": video,
-                    "overlay_camera": camera,
-                    "overlay_label": label,
-                    "overlay_is_ensemble": ensemble,
-                },
-            )
-
-    assert window.plot_pane.channels == [], (
-        f"2D pose created plot rows: {[c.name for c in window.plot_pane.channels]}"
+    source = str(tmp_path / "FaceCam_eks.csv")
+    _finish_import(
+        window,
+        source,
+        tmp_path / "FaceCam_eks.avialcache",
+        channels,
+        {
+            "role": "overlay2d",
+            "overlay_video": face_video,
+            "overlay_camera": "FaceCam",
+            "overlay_label": "eks",
+            "overlay_is_ensemble": True,
+        },
     )
-    assert set(window._overlay_sources) == {face_video, side_video}
-    for video in (face_video, side_video):
-        assert len(window._overlay_sources[video]) == 3  # ensemble + 2 models
+
+    card = window.sidebar.sensor_widget(source)
+    assert card is not None
+    assert not card.show_overlay.isHidden()
+    assert not card.show_overlay.isChecked()
+    assert not card.show_plot.isChecked()
+    assert window.video_grid._overlay_tracks[face_video] == []
+    assert window.plot_pane.channels == []
+
+    card.show_overlay.click()
+    assert len(window.video_grid._overlay_tracks[face_video]) == 1
+    card.show_plot.click()
+    qtbot.waitUntil(lambda: len(window.plot_pane.channels) == len(channels))
+    assert {channel.reader.source_id for channel in window.plot_pane.channels} == {source}
+
+    card.show_overlay.click()
+    assert window.video_grid._overlay_tracks[face_video] == []
 
     window.close()
 
@@ -252,24 +262,33 @@ def test_2d_overlay_uses_its_target_videos_presentation_times(tmp_path: Path) ->
     assert tracking_map.to_master(2.0) == pytest.approx(102.0)
 
 
-def test_3d_pose_reaches_the_3d_view_and_is_not_plotted(tmp_path: Path, qtbot, monkeypatch) -> None:
+def test_3d_tracking_source_controls_its_view_and_plot(tmp_path: Path, qtbot, monkeypatch) -> None:
     from avialsync.ui.main_window import MainWindow
 
     monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
     window = MainWindow()
     qtbot.addWidget(window)
 
+    source = str(tmp_path / "_eks.csv")
     _finish_import(
         window,
-        "_eks.csv",
+        source,
         tmp_path / "eks.avialcache",
         ["head_bar_x", "head_bar_y", "head_bar_z"],
         {"role": "pose3d"},
     )
 
-    assert window.plot_pane.channels == []
     assert window._pose_3d_sources
+    card = window.sidebar.sensor_widget(source)
+    assert card is not None
+    assert not card.show_overlay.isChecked()
+    assert window.tracking_3d_pane.canvas.point_count == 0
+    card.show_overlay.click()
     assert window.tracking_3d_pane.canvas.point_count == 1
+    card.show_plot.click()
+    qtbot.waitUntil(lambda: len(window.plot_pane.channels) == 3)
+    card.show_overlay.click()
+    assert window.tracking_3d_pane.canvas.point_count == 0
     window.close()
 
 
@@ -338,9 +357,10 @@ def test_every_camera_is_painted_even_when_its_pane_is_built_last(
 
     # Every camera's pose import completes first, as it does on a real session.
     for camera in cameras:
+        source = f"{camera}_eks.csv"
         _finish_import(
             window,
-            f"{camera}_eks.csv",
+            source,
             tmp_path / f"{camera}_eks.avialcache",
             ["head_bar_x", "head_bar_y"],
             {
@@ -351,6 +371,7 @@ def test_every_camera_is_painted_even_when_its_pane_is_built_last(
                 "overlay_is_ensemble": True,
             },
         )
+        window._apply_tracking_visibility(source, "overlay", True)
 
     panes = {camera: window.video_grid.add_pane(videos[camera]) for camera in cameras}
 
@@ -384,9 +405,10 @@ def test_overlay_tracks_get_distinct_colours_and_labels(tmp_path: Path, qtbot, m
     )
 
     for label, ensemble in (("eks", True), ("model_0", False), ("model_1", False)):
+        source = f"FaceCam_{label}.csv"
         _finish_import(
             window,
-            f"FaceCam_{label}.csv",
+            source,
             tmp_path / f"FaceCam_{label}.avialcache",
             ["head_bar_x", "head_bar_y"],
             {
@@ -397,6 +419,7 @@ def test_overlay_tracks_get_distinct_colours_and_labels(tmp_path: Path, qtbot, m
                 "overlay_is_ensemble": ensemble,
             },
         )
+        window._apply_tracking_visibility(source, "overlay", True)
 
     tracks = captured[-1]
     labels = [track.label for track in tracks]

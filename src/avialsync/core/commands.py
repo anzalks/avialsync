@@ -31,6 +31,7 @@ __all__ = [
     "SetChannelVisibleCommand",
     "SetChannelGroupVisibleCommand",
     "SetOverlayVisibleCommand",
+    "SetTrackingVisibleCommand",
     "SetOriginalTrackerVisibleCommand",
     "SetTrackedPointCommand",
     "SetIdentitySwapCommand",
@@ -250,6 +251,29 @@ class SetOverlayVisibleCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_overlay_visible(self.overlay_id, self.camera, not self.visible)
+
+
+@dataclasses.dataclass
+class SetTrackingVisibleCommand:
+    """Show or hide one tracking source on one presentation surface."""
+
+    source_id: str
+    surface: str
+    visible: bool
+    display_name: str = ""
+    command_id: str = "tracking.visible"
+
+    @property
+    def label(self) -> str:
+        name = self.display_name or self.source_id
+        verb = "Show" if self.visible else "Hide"
+        return f"{verb} {self.surface} for {name}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_tracking_visible(self.source_id, self.surface, self.visible)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_tracking_visible(self.source_id, self.surface, not self.visible)
 
 
 @dataclasses.dataclass

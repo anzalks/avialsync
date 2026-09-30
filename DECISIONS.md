@@ -5287,3 +5287,24 @@ D-139, which exists so a hand-made marker file still draws).
 overlays that camera and is correctable, and the identity work applies to it. This reverses the
 note in `drop_controller` that "a standalone pose-capable file still needs the user's declaration":
 it still does when the file does not say, and the file usually says.
+
+## 2026-09 · D-147 · Tracking presentation is selected per source
+
+**Context.** Routed pose files used to render immediately: a 2D file obscured its camera and a 3D
+file occupied the 3D pane, while neither could be plotted for inspection. Hiding a channel in the
+source tree only hid a plot row, so it did not control either tracker renderer.
+
+**Decision.** Every routed `overlay2d` or `pose3d` source has independent **Show overlay** and
+**Show plot** choices on its sidebar card, both off by default and persisted in its `SensorEntry`.
+For 2D, overlay means its assigned camera; for 3D, it means the 3D view (and therefore any
+reprojection derived from that view). Plotting is lazy and must not take the legacy loose-reader
+video-overlay route. Each choice is an undoable command.
+
+**Alternatives rejected:** using the global Tracking points overlay (it hides all sources and
+cannot expose a source as plots); treating the source tree's channel checks as overlay controls
+(they only address plot rows, and a routed pose starts without any); duplicating a second reader
+path for plotted tracking (it would broadcast 2D coordinates over every camera).
+
+**Consequences:** sessions schema v11 stores `tracking_overlay_visible` and
+`tracking_plot_visible`; older sessions default both to off. A dense tracker stays silent until
+the reviewer deliberately asks for one or both presentations.
