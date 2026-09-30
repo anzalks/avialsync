@@ -92,7 +92,20 @@ frame-index test patterns for the golden sync tests: near-black by design, with 
 a strip. Correct for asserting *which* frame is displayed, and useless as a picture of the
 application working.
 
-All three share `tools/screenshot_kit.py`, which pins the two things that otherwise make an image a
+The Fix Identities tutorial has its own generator, which needs no data of yours:
+
+```bash
+conda run -n avialsync python tools/generate_identity_screenshots.py
+```
+
+It draws two animals crossing paths, writes a pose file that exchanges their identities at a known
+frame, and opens both through the drop scanner's routing, then walks the panel and writes only
+`docs/_static/screenshots/identity_*.png`. The scene is generated, and every file it shows is named
+`synthetic_*` so the images say so themselves; the tutorial says so in words as well. The one thing
+supplied by hand is the answer to the import review dialog (overlay role and target video), which is
+modal.
+
+All four share `tools/screenshot_kit.py`, which pins the two things that otherwise make an image a
 photograph of the developer's machine:
 
 - **`pin_appearance`** forces the documented theme without persisting it, so the images do not

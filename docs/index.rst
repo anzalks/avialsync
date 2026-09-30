@@ -42,6 +42,7 @@ Every page also carries an "Edit this page" link to its source in the repository
    tutorials/importing-data
    tutorials/synchronization
    tutorials/annotating-and-exporting
+   tutorials/fixing-identities
    formats
    troubleshooting
 

@@ -42,6 +42,8 @@
   [Tutorial: import sensor and recording data](../tutorials/importing-data.md)
 - Aligning recordings: [Tutorial: align recordings](../tutorials/synchronization.md)
 - Flagging frames and exporting: [Tutorial: flag frames and export](../tutorials/annotating-and-exporting.md)
+- Fixing a tracker that swapped animals or left/right points, step by step:
+  [Tutorial: fix switched identities](../tutorials/fixing-identities.md)
 - Sessions, proxies, the 3D view, plot navigation, shortcuts:
   [Sessions, proxies, and the 3D view](sessions-and-media.md)
 
@@ -143,6 +145,8 @@ accepted identity corrections.
 Pose estimates are sometimes wrong: an occluded nose lands on the wall. Select **Fix Tracker** under the videos, or **Edit → Fix Tracker**
 (`Ctrl+Shift+T`), to correct one by hand.
 
+![Fix Tracker on: the button is lit and the markers carry drag rings](../_static/screenshots/identity_fix_tracker.png)
+
 - Every video view accepts corrections while the mode is on, and playback stops so the frame you
   are aiming at stays still.
 - Drag a marker to where the body part really is. The correction applies to that one frame of that
@@ -155,7 +159,9 @@ Pose estimates are sometimes wrong: an occluded nose lands on the wall. Select *
 
 ### Fixing switched identities
 
-Use **Edit → Fix Identities…** when the tracker starts following the wrong animal or confuses two keypoints such as left and right wrists. Choose an animal or left/right group, then one body part or **All parts**. The braid shows where trajectories approach, and the separation trace below it shows why a crossing might be plausible. **Detect** proposes crossings with motion and gap evidence; proposals do not change data.
+Use **Edit → Fix Identities…** when the tracker starts following the wrong animal or confuses two keypoints such as left and right wrists. The panel docks beside the video. Choose a **Group** (animals, left/right, or one you declare with **New group…**), then one body part or **All parts**, and press **Find swaps**. The braid shows where trajectories approach, and the separation trace below it shows why a crossing might be plausible. Proposals never change data. Choose one in **Crossing** to seek the video to it, nudge it with **−1 frame** / **+1 frame**, loop it with **Play ±2 s**, and accept it with **Apply swap** (`Ctrl+Shift+S`). **Remove swap** reverses the swap in force at the playhead, and **Remove all swaps** clears the file. The [tutorial](../tutorials/fixing-identities.md) walks through every control with images.
+
+![The Fix Identities panel with a crossing selected](../_static/screenshots/identity_crossing.png)
 
 Drag a line after a crossing into the other lane to accept a swap from that frame onward. The drag snaps to the evidence node. Drag an accepted crossing back to remove that event, or use **Edit → Undo**. The viewer reads an edited cache generation after acceptance; the original pose file and imported cache stay untouched. **View → Play original** temporarily shows the model's imported prediction for comparison; turn it off to return to the edited view. This view choice is saved with the session. Accepted swaps also appear in the Data Streams identity lane and the Changes tab.
 
