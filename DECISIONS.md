@@ -5295,10 +5295,12 @@ file occupied the 3D pane, while neither could be plotted for inspection. Hiding
 source tree only hid a plot row, so it did not control either tracker renderer.
 
 **Decision.** Every routed `overlay2d` or `pose3d` source has independent **Show overlay** and
-**Show plot** choices on its sidebar card, both off by default and persisted in its `SensorEntry`.
-For 2D, overlay means its assigned camera; for 3D, it means the 3D view (and therefore any
-reprojection derived from that view). Plotting is lazy and must not take the legacy loose-reader
-video-overlay route. Each choice is an undoable command.
+**Show plot** choices on its sidebar card. **Show overlay** is on by default so all tracking data
+is visible initially; **Show plot** is off by default and persisted in its `SensorEntry`. For 2D,
+overlay means its assigned camera; for 3D, it means the 3D view (and therefore any reprojection
+derived from that view). Plotting is lazy and must not take the legacy loose-reader video-overlay
+route. Channel checks select plot rows but neither affect an overlay nor create rows until **Show
+plot** is enabled. Each choice is an undoable command.
 
 **Alternatives rejected:** using the global Tracking points overlay (it hides all sources and
 cannot expose a source as plots); treating the source tree's channel checks as overlay controls
@@ -5306,5 +5308,5 @@ cannot expose a source as plots); treating the source tree's channel checks as o
 path for plotted tracking (it would broadcast 2D coordinates over every camera).
 
 **Consequences:** sessions schema v11 stores `tracking_overlay_visible` and
-`tracking_plot_visible`; older sessions default both to off. A dense tracker stays silent until
-the reviewer deliberately asks for one or both presentations.
+`tracking_plot_visible`. The reviewer can remove individual visual sources or opt individual
+sources into plots.

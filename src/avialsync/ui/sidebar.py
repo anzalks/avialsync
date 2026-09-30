@@ -184,9 +184,8 @@ class SensorInfoWidget(QFrame):
         header.addWidget(close_btn)
         layout.addLayout(header)
 
-        # Tracking sources have their own presentation paths.  They begin off
-        # so a dense pose import never unexpectedly obscures video or fills the
-        # plot stack; ordinary time-series sources keep their existing controls.
+        # Tracking overlays start enabled; high-volume plot rows stay opt-in.
+        # Ordinary time-series sources keep their existing controls.
         self._tracking_controls = QWidget(self)
         tracking_row = QHBoxLayout(self._tracking_controls)
         tracking_row.setContentsMargins(0, 0, 0, 0)
@@ -452,6 +451,14 @@ class SensorInfoWidget(QFrame):
         box.setChecked(visible)
         box.blockSignals(blocked)
 
+    def checked_channels(self) -> list[str]:
+        """Return the channels selected for this source's plot presentation."""
+        return [
+            channel
+            for channel, item in self._channel_items.items()
+            if item.checkState(0) == Qt.CheckState.Checked
+        ]
+
     def _apply_filter(self, needle: str) -> None:
         """Show only channels matching *needle*, keeping their groups visible.
 
@@ -484,6 +491,13 @@ class SensorInfoWidget(QFrame):
         """
         channels = [channel for channel, item in self._channel_items.items() if not item.isHidden()]
         if channels:
+            state = Qt.CheckState.Checked if visible else Qt.CheckState.Unchecked
+            blocked = self.tree.blockSignals(True)
+            try:
+                for channel in channels:
+                    self._channel_items[channel].setCheckState(0, state)
+            finally:
+                self.tree.blockSignals(blocked)
             self.channel_group_visibility_changed.emit(
                 self.path, Path(self.path).name, channels, visible
             )

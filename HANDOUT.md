@@ -87,11 +87,11 @@ window it asks the user to judge.
 
 **Identity repair is implemented on `feat/identity-swaps` (D-141–D-145).** Accepted flips exchange declared lanes from a sample onward; the same edit program rebuilds affected cached channels and drives a single corrected pose CSV. Fix Identities shows one group and part at a time, with evidence-based candidate nodes and drag-to-accept. Accepted events appear in Data Streams and Changes, and beside their source; Changes can remove one undoably. View → Play original switches readers to the imported prediction for comparison and persists per session. The raw CSV and imported cache remain untouched. A swap-only source offers the edited pose copy without a retraining set.
 
-**Tracker presentation is per source (D-147).** Routed 2D and 3D pose sources start quiet. Their
-sidebar cards expose independent **Show overlay** and **Show plot** controls, both off by default;
-the choices are undoable and session-persisted. A 2D overlay remains camera-specific, while a 3D
-overlay means the 3D view. Plotting a routed tracker never sends it through the loose-reader video
-overlay path.
+**Tracker presentation is per source (D-147).** Routed 2D and 3D pose sources start with visual
+overlays on and **Show plot** off. Their sidebar cards expose independent controls; the choices
+are undoable and session-persisted. A 2D overlay remains camera-specific, while a 3D overlay
+means the 3D view. Plotting a routed tracker never sends it through the loose-reader video overlay
+path; only its checked coordinate channels become plot rows once **Show plot** is enabled.
 
 Two product laws govern that phase and outrank convention:
 

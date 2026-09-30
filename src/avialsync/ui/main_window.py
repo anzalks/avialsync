@@ -4203,6 +4203,10 @@ class MainWindow(QMainWindow):
 
     def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
         self._record(SetChannelVisibleCommand(source_id=path, channel=channel, visible=is_visible))
+        if path in self._tracking_plot_sources:
+            if self._tracking_visibility.get(path, {}).get("plot", False):
+                self._sync_tracking_plot(path)
+            return
         self.plot_pane.set_channel_visible(ChannelKey(path, channel), is_visible)
 
     def _on_tracking_visibility_changed(self, path: str, surface: str, visible: bool) -> None:
@@ -4224,7 +4228,7 @@ class MainWindow(QMainWindow):
         """Apply one tracking presentation choice to its real rendering path."""
         if surface not in {"overlay", "plot"}:
             return
-        state = self._tracking_visibility.setdefault(path, {"overlay": False, "plot": False})
+        state = self._tracking_visibility.setdefault(path, {"overlay": True, "plot": False})
         state[surface] = visible
         self.sidebar.set_tracking_visible(path, surface, visible)
         if surface == "overlay":
@@ -4242,17 +4246,23 @@ class MainWindow(QMainWindow):
             return
         cache_dir, channels, offset, drift_ppm = source
         visible = self._tracking_visibility.get(path, {}).get("plot", False)
+        card = self.sidebar.sensor_widget(path)
+        selected = set(card.checked_channels()) if card is not None else set(channels)
         if visible:
             existing = {
                 channel.reader.channel_id
                 for channel in self.plot_pane.channels
                 if channel.reader.source_id == path
             }
-            missing = [channel for channel in channels if channel not in existing]
+            missing = [
+                channel for channel in channels if channel in selected and channel not in existing
+            ]
             if missing:
                 self.plot_pane.load_channels(cache_dir, missing, offset, drift_ppm, source_id=path)
         for channel in channels:
-            self.plot_pane.set_channel_visible(ChannelKey(path, channel), visible)
+            self.plot_pane.set_channel_visible(
+                ChannelKey(path, channel), visible and channel in selected
+            )
 
     # ── Display levels (D-093) ───────────────────────────────────────
 
@@ -4348,6 +4358,10 @@ class MainWindow(QMainWindow):
                 visible=visible,
             )
         )
+        if path in self._tracking_plot_sources:
+            if self._tracking_visibility.get(path, {}).get("plot", False):
+                self._sync_tracking_plot(path)
+            return
         for channel in channels:
             self.plot_pane.set_channel_visible(ChannelKey(path, str(channel)), visible)
 

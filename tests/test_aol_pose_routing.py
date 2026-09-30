@@ -8,6 +8,7 @@ per camera, which would bury the recorded signals the plot exists to show.
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import Qt
 
 from avialsync.loaders.aol_session_loader import (
     AOLSessionSource,
@@ -182,7 +183,7 @@ def _finish_import(
 def test_2d_tracking_source_controls_its_overlay_and_plot(
     tmp_path: Path, qtbot, monkeypatch
 ) -> None:
-    """A 2D tracker starts quiet and independently opts into overlay and plots."""
+    """A 2D tracker starts visible and independently opts into plots."""
     from avialsync.ui.main_window import MainWindow
 
     monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
@@ -210,19 +211,35 @@ def test_2d_tracking_source_controls_its_overlay_and_plot(
     card = window.sidebar.sensor_widget(source)
     assert card is not None
     assert not card.show_overlay.isHidden()
-    assert not card.show_overlay.isChecked()
+    assert card.show_overlay.isChecked()
     assert not card.show_plot.isChecked()
-    assert window.video_grid._overlay_tracks[face_video] == []
+    assert len(window.video_grid._overlay_tracks[face_video]) == 1
+    assert window.plot_pane.channels == []
+
+    first_channel = channels[0]
+    card._channel_items[first_channel].setCheckState(0, Qt.CheckState.Unchecked)
+    assert len(window.video_grid._overlay_tracks[face_video]) == 1
     assert window.plot_pane.channels == []
 
     card.show_overlay.click()
+    assert window.video_grid._overlay_tracks[face_video] == []
+    assert window.plot_pane.channels == []
+    card.show_overlay.click()
     assert len(window.video_grid._overlay_tracks[face_video]) == 1
+    assert window.plot_pane.channels == []
     card.show_plot.click()
-    qtbot.waitUntil(lambda: len(window.plot_pane.channels) == len(channels))
+    qtbot.waitUntil(lambda: len(window.plot_pane.channels) == len(channels) - 1)
     assert {channel.reader.source_id for channel in window.plot_pane.channels} == {source}
+    assert {channel.reader.channel_id for channel in window.plot_pane.channels} == set(channels[1:])
+    assert len(window.video_grid._overlay_tracks[face_video]) == 1
+
+    card._channel_items[first_channel].setCheckState(0, Qt.CheckState.Checked)
+    qtbot.waitUntil(lambda: len(window.plot_pane.channels) == len(channels))
+    assert len(window.video_grid._overlay_tracks[face_video]) == 1
 
     card.show_overlay.click()
     assert window.video_grid._overlay_tracks[face_video] == []
+    assert len(window.plot_pane.channels) == len(channels)
 
     window.close()
 
@@ -281,12 +298,18 @@ def test_3d_tracking_source_controls_its_view_and_plot(tmp_path: Path, qtbot, mo
     assert window._pose_3d_sources
     card = window.sidebar.sensor_widget(source)
     assert card is not None
-    assert not card.show_overlay.isChecked()
+    assert card.show_overlay.isChecked()
+    assert not card.show_plot.isChecked()
+    assert window.tracking_3d_pane.canvas.point_count == 1
+    card.show_overlay.click()
     assert window.tracking_3d_pane.canvas.point_count == 0
+    assert window.plot_pane.channels == []
     card.show_overlay.click()
     assert window.tracking_3d_pane.canvas.point_count == 1
+    assert window.plot_pane.channels == []
     card.show_plot.click()
     qtbot.waitUntil(lambda: len(window.plot_pane.channels) == 3)
+    assert window.tracking_3d_pane.canvas.point_count == 1
     card.show_overlay.click()
     assert window.tracking_3d_pane.canvas.point_count == 0
     window.close()

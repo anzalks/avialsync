@@ -145,7 +145,7 @@ def build_session_state(window: MainWindow) -> SessionState:
                         ),
                         offset=offset,
                         drift_ppm=drift_ppm,
-                        tracking_overlay_visible=tracking.get("overlay", False),
+                        tracking_overlay_visible=tracking.get("overlay", True),
                         tracking_plot_visible=tracking.get("plot", False),
                     )
                 )

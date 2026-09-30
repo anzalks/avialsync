@@ -43,7 +43,7 @@ class SensorEntry:
     #: Per-tracker presentation choices (schema v11).  They are intentionally
     #: per source: a 2D pose file may be compared against raw footage without
     #: hiding another camera's tracker, and a dense pose need not occupy plots.
-    tracking_overlay_visible: bool = False
+    tracking_overlay_visible: bool = True
     tracking_plot_visible: bool = False
 
 

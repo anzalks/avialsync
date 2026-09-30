@@ -306,12 +306,11 @@ def on_import_finished(
         # Pose data drives the video overlay and the 3D view. It is not
         # plotted: 27 3D channels or 81 per-camera 2D channels would bury
         # the recorded signals a plot row is meant to show. The source card
-        # can opt into either presentation later; newly imported pose data is
-        # quiet by default.
+        # can opt into plot presentation later; visual overlays begin enabled.
         restored = window._pending_tracking_visibility.pop(path, None)
         tracking_state = {
-            "overlay": bool(restored and restored.get("overlay", False)),
-            "plot": bool(restored and restored.get("plot", False)),
+            "overlay": (bool(restored.get("overlay", True)) if restored is not None else True),
+            "plot": (bool(restored.get("plot", False)) if restored is not None else False),
         }
         window._tracking_visibility[path] = tracking_state
         window._tracking_plot_sources[path] = (Path(cache_dir), list(channels), offset, drift_ppm)

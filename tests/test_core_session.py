@@ -66,7 +66,11 @@ def test_v1_session_roundtrips_as_v7(tmp_path: Path) -> None:
 
 
 def test_tracking_presentation_choices_round_trip(tmp_path: Path) -> None:
-    """A pose source remembers its independent overlay/view and plot choices."""
+    """A pose source defaults to an overlay and remembers both choices."""
+    defaults = SensorEntry(path="/tmp/default-pose.csv")
+    assert defaults.tracking_overlay_visible is True
+    assert defaults.tracking_plot_visible is False
+
     state = SessionState(
         sensors=[
             SensorEntry(

@@ -213,10 +213,13 @@ keeps the file in the plots. Load the camera videos first if you want to choose 
 target. A session plugin can make these choices for the recording; AOL supplies its own pose
 roles and camera matches. Your choice is saved with the session and used when it reopens.
 
-Routed tracking sources start with both presentation choices off. In the source card, directly
-under the file header, **Show overlay** draws a 2D tracker on its assigned camera or shows a 3D
-tracker in the 3D view; **Show plot** adds that source's coordinate channels to the plots. The
-choices are independent, undoable, and saved in the session.
+Routed tracking sources start with their visual overlay enabled, so all tracking data is visible
+by default. In the source card, directly under the file header, **Show overlay** draws a 2D
+tracker on its assigned camera or shows a 3D tracker in the 3D view; uncheck it to hide that
+source. **Show plot** adds that source's coordinate channels to the plots and starts disabled.
+Choose the coordinate channels you want in the source tree first: checking or unchecking them does
+not affect an overlay and creates no plot rows until **Show plot** is enabled. The choices are
+independent; the two presentation controls are undoable and saved in the session.
 
 - Drag with the left mouse button to orbit.
 - Use the mouse wheel to zoom.
