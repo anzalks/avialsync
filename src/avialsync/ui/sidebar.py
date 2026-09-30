@@ -139,6 +139,7 @@ _OFFSET_LIMIT_S = 86_400.0
 class SensorInfoWidget(QFrame):
     """Displays metadata and per-channel controls for one loaded sensor CSV."""
 
+    filter_changed = Signal()
     remove_requested = Signal(str)  # whole sensor removed
     channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
     channel_visibility_changed = Signal(str, str, bool)  # sensor_path, channel_name, is_visible
@@ -319,7 +320,8 @@ class SensorInfoWidget(QFrame):
         self._filter.setPlaceholderText(tr("Filter channels…"))
         self._filter.setClearButtonEnabled(True)
         self._filter.setAccessibleName(f"Filter the channels of {Path(path).name}")
-        self._filter.textChanged.connect(self._apply_filter)
+        self._external_filter = ""
+        self._filter.textChanged.connect(self._on_local_filter_changed)
         if len(channels) > _FILTER_THRESHOLD:
             layout.addWidget(self._filter)
         else:
@@ -476,16 +478,28 @@ class SensorInfoWidget(QFrame):
         that or need it mirrored somewhere else.
         """
         for channel, item in self._channel_items.items():
-            item.setHidden(not matches_filter(channel, needle))
+            matches_local = matches_filter(channel, needle)
+            matches_external = matches_filter(channel, self._external_filter)
+            item.setHidden(not (matches_local and matches_external))
 
         # A group whose every child is filtered out is noise; one with a
         # surviving child has to stay, and stay open, or the match is hidden
         # inside a collapsed node.
-        for group in self._group_items:
+        for group in reversed(self._group_items):
             visible_children = any(not child.isHidden() for child in _children_of(group))
             group.setHidden(not visible_children)
-            if visible_children and needle:
+            if visible_children and (needle or self._external_filter):
                 group.setExpanded(True)
+
+    def _on_local_filter_changed(self, needle: str) -> None:
+        """Apply the local query, then let the sidebar update source cards."""
+        self._apply_filter(needle)
+        self.filter_changed.emit()
+
+    def set_external_filter(self, needle: str) -> None:
+        """Apply the inspector-wide query without changing the local filter."""
+        self._external_filter = needle.strip().lower()
+        self._apply_filter(self._filter.text())
 
     def visible_channel_count(self) -> int:
         """How many channels the filter currently shows."""
@@ -947,6 +961,16 @@ class SidebarPane(QWidget):
             actions_layout.addWidget(button)
         self.content_layout.addWidget(actions_group)
 
+        self._source_filter = QLineEdit()
+        self._source_filter.setPlaceholderText(tr("Filter sources and channels…"))
+        self._source_filter.setClearButtonEnabled(True)
+        self._source_filter.setAccessibleName(tr("Filter loaded sources and channels"))
+        self._source_filter.setAccessibleDescription(
+            tr("Search source names and channel names across the inspector.")
+        )
+        self._source_filter.textChanged.connect(self._apply_source_filter)
+        self.content_layout.addWidget(self._source_filter)
+
         # Row 2: Videos — header has an inline "Grid" checkbox
         self.videos_group = QGroupBox()
         videos_top = QHBoxLayout()
@@ -990,6 +1014,7 @@ class SidebarPane(QWidget):
 
         self.videos_layout.addWidget(widget)
         self._video_widgets[path] = widget
+        self._apply_source_filter(self._source_filter.text())
 
     def remove_video(self, path: str) -> None:
         """Remove a video info widget."""
@@ -1000,6 +1025,7 @@ class SidebarPane(QWidget):
 
     def clear_sources(self) -> None:
         """Remove every source summary from the sidebar."""
+        self._source_filter.clear()
         for path in list(self._video_widgets):
             self.remove_video(path)
         for widget in _widgets_of(self.sensors_layout, SensorInfoWidget):
@@ -1022,7 +1048,26 @@ class SidebarPane(QWidget):
         widget.badge_clicked.connect(self.sensor_badge_clicked)
         widget.report_requested.connect(self.sensor_report_requested)
         widget.mapping_changed.connect(self.sensor_mapping_changed)
+        widget.filter_changed.connect(self._refresh_source_filter)
         self.sensors_layout.addWidget(widget)
+        self._apply_source_filter(self._source_filter.text())
+
+    def _refresh_source_filter(self) -> None:
+        """Reevaluate source cards after a per-source filter edit."""
+        self._apply_source_filter(self._source_filter.text())
+
+    def _apply_source_filter(self, text: str) -> None:
+        """Filter source cards and channel rows across the whole inspector."""
+        needle = text.strip().lower()
+        for path, widget in self._video_widgets.items():
+            widget.setVisible(not needle or needle in path.lower())
+
+        for sensor_widget in _widgets_of(self.sensors_layout, SensorInfoWidget):
+            source_matches = bool(needle and needle in sensor_widget.path.lower())
+            sensor_widget.set_external_filter("" if source_matches else needle)
+            sensor_widget.setVisible(
+                not needle or source_matches or sensor_widget.visible_channel_count() > 0
+            )
 
     def set_tracking_controls(
         self, path: str, role: str, *, overlay_visible: bool, plot_visible: bool

@@ -126,8 +126,11 @@ uncertainty, and the session says so rather than quoting zeros that would read a
 
 ![The preview and accept buttons](../_static/screenshots/guide_sync_preview_accept.png)
 
-1. **Preview alignment** extracts the evidence, matches events, and fits the mapping. Three panels
-   show what it found; read them in order, because they answer different questions.
+1. **Preview alignment** extracts the evidence, matches events, and fits the mapping. The wizard
+  shows the effective match tolerance and whether it was derived from pulse spacing or set by you;
+  check it against the timing precision your experiment needs. Changing the tolerance invalidates
+  the preview, so run it again before accepting. Three panels show what it found; read them in
+  order, because they answer different questions.
 2. **Accept mapping** applies it. Until you press this, nothing has changed. A proposal is never
    applied silently, and it never becomes your data on its own. If Accept is greyed out, the
    summary says which part of the evidence to change.

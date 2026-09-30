@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -63,6 +64,12 @@ class _ChannelReadout(QWidget):
         if sample_idx is not None:
             self._idx_lbl.setText(f"[{sample_idx}]")
 
+    def summary_line(self) -> str:
+        """Return the visible channel name, value, unit, and sample index."""
+        sample = self._idx_lbl.text().strip("[]")
+        suffix = tr(" (sample {index})").format(index=sample) if sample else ""
+        return f"{self._name_lbl.text()}: {self._val_lbl.text()}{suffix}"
+
 
 class _StatsRow(QWidget):
     """Shows min/max/mean/rms for one channel in a region."""
@@ -100,27 +107,39 @@ class _CameraRow(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        lbl = QLabel(label)
-        lbl.setFixedWidth(90)
+        self._name_lbl = QLabel(label)
+        self._name_lbl.setFixedWidth(90)
 
         self._info_lbl = QLabel("—")
         _set_monospace(self._info_lbl)
 
-        layout.addWidget(lbl)
+        layout.addWidget(self._name_lbl)
         layout.addWidget(self._info_lbl, stretch=1)
 
-    def set_state(self, time_pos: float, fps: float) -> None:
+    def set_state(self, time_pos: float, fps: float, frame_index: int | None = None) -> None:
         """Show this camera's frame number and media time.
 
         Deliberately not called ``update``: that is ``QWidget.update``, which Qt
         calls with no arguments to request a repaint. Overriding it with a
         required two-argument signature makes the widget unrepaintable.
         """
-        if fps > 0:
+        if frame_index is not None:
+            self._info_lbl.setText(
+                tr("frame {index}  ({time:.3f} s)").format(index=frame_index, time=time_pos)
+            )
+        elif fps > 0:
             frame_num = int(time_pos * fps)
-            self._info_lbl.setText(f"frame {frame_num}  ({time_pos:.3f} s)")
+            self._info_lbl.setText(
+                tr("frame {index}  ({time:.3f} s)").format(index=frame_num, time=time_pos)
+            )
         else:
-            self._info_lbl.setText(f"{time_pos:.3f} s")
+            self._info_lbl.setText(tr("{time:.3f} s").format(time=time_pos))
+
+    def summary_line(self) -> str:
+        """Return this camera's current frame and media time."""
+        return tr("{camera}: {state}").format(
+            camera=self._name_lbl.text(), state=self._info_lbl.text()
+        )
 
 
 class _DeltaRow(QWidget):
@@ -153,14 +172,23 @@ class _DeltaRow(QWidget):
 class ReadoutPanel(QGroupBox):
     """Live channel value readout at the current playhead position.
 
-    Call `update_sources(readers, units)` when channels change,
-    `set_cursor(t)` every tick, and `set_camera_states(states)` every tick.
+    Call `update_sources(readers, units)` when channels change, then update
+    `set_cursor(t)` and `set_camera_frame_records(records)` at presentation rate.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__("Channel Values", parent)
+        self.setAccessibleName(tr("Channel values and camera frames"))
         outer = QVBoxLayout(self)
         outer.setContentsMargins(4, 4, 4, 4)
+
+        self._text_summary_button = QPushButton(tr("Text view…"), self)
+        self._text_summary_button.setAccessibleName(tr("Show a text summary of current values"))
+        self._text_summary_button.setToolTip(
+            tr("Open a copyable text summary of channel values and camera frames.")
+        )
+        self._text_summary_button.clicked.connect(self._show_text_summary)
+        outer.addWidget(self._text_summary_button)
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
@@ -179,6 +207,7 @@ class ReadoutPanel(QGroupBox):
         self._rows: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout]] = {}
         self._units: dict[ChannelKey, str] = {}
         self._readers: list[MappedChannelReader] = []
+        self._cursor_time: float | None = None
 
         # Section labels + rows for optional sections
         self._cam_label = QLabel("Camera Positions")
@@ -227,6 +256,7 @@ class ReadoutPanel(QGroupBox):
 
     def set_cursor(self, t: float) -> None:
         """Interpolate and display each channel's value at time *t*."""
+        self._cursor_time = float(t)
         for _name, (reader, row) in self._rows.items():
             try:
                 sample = reader.sample_at(t)
@@ -237,6 +267,29 @@ class ReadoutPanel(QGroupBox):
                 row.set_value(value, index)
             except Exception:
                 row.set_value(None)
+
+    def textual_summary(self) -> str:
+        """Return a screen-reader-friendly text view of the current readout."""
+        if self._cursor_time is None:
+            lines = [tr("Playhead time is not available.")]
+        else:
+            lines = [tr("Master time: {time:.6f} s").format(time=self._cursor_time)]
+        lines.extend(row.summary_line() for _, row in self._rows.values())
+        lines.extend(row.summary_line() for row in self._cam_rows)
+        if not self._rows and not self._cam_rows:
+            lines.append(tr("No channel values or camera frames are available."))
+        return "\n".join(lines)
+
+    def _show_text_summary(self) -> None:
+        """Show the requested values in the shared copyable text dialog."""
+        from avialsync.ui.feedback.text_dialog import show_text
+
+        show_text(
+            self,
+            tr("Current Values"),
+            self.textual_summary(),
+            lead=tr("Channel values and camera frames at the current playhead."),
+        )
 
     def set_camera_states(self, states: list[tuple[str, float, float]]) -> None:
         """Update per-camera frame display.  states = [(label, time_pos, fps), ...]"""
@@ -257,6 +310,32 @@ class ReadoutPanel(QGroupBox):
             row = _CameraRow(label)
             row.set_state(time_pos, fps)
             self._layout.insertWidget(1 + i, row)
+            self._cam_rows.append(row)
+
+    def set_camera_frame_records(self, records: list[tuple[str, int, float]]) -> None:
+        """Update camera rows from authoritative frame indices and media times."""
+        labels = [label for label, _, _ in records]
+        current_labels = [row._name_lbl.text() for row in self._cam_rows]
+        if labels == current_labels:
+            for row, (_, frame_index, media_time) in zip(self._cam_rows, records, strict=True):
+                row.set_state(media_time, 0.0, frame_index)
+            return
+
+        for row in self._cam_rows:
+            self._layout.removeWidget(row)
+            row.deleteLater()
+        self._cam_rows.clear()
+        self._layout.removeWidget(self._cam_label)
+        if not records:
+            self._cam_label.setVisible(False)
+            return
+
+        self._cam_label.setVisible(True)
+        self._layout.insertWidget(0, self._cam_label)
+        for index, (label, frame_index, media_time) in enumerate(records):
+            row = _CameraRow(label)
+            row.set_state(media_time, 0.0, frame_index)
+            self._layout.insertWidget(1 + index, row)
             self._cam_rows.append(row)
 
     def display_region_stats(self, stats_list: list[dict[str, float | str]]) -> None:

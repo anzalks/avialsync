@@ -17,7 +17,7 @@ from avialsync.ui.channel_tree import (
     matches_filter,
     split_channel,
 )
-from avialsync.ui.sidebar import SensorInfoWidget
+from avialsync.ui.sidebar import SensorInfoWidget, SidebarPane
 
 #: The shape that motivated this, trimmed.
 AOL_CHANNELS = [
@@ -146,6 +146,16 @@ def test_a_matching_group_is_expanded(widget: SensorInfoWidget) -> None:
     assert surviving and all(group.isExpanded() for group in surviving)
 
 
+def test_a_nested_filter_hides_empty_ancestor_groups(qapp: QApplication, qtbot) -> None:
+    widget = SensorInfoWidget("/tmp/nested.csv", ["camera/front/left", "camera/back/right"])
+    qtbot.addWidget(widget)
+
+    widget._apply_filter("no matching channel")
+
+    assert widget._group_items
+    assert all(group.isHidden() for group in widget._group_items)
+
+
 def test_filtering_does_not_disturb_check_state(widget: SensorInfoWidget) -> None:
     """Hiding rather than rebuilding is what keeps this true."""
     from PySide6.QtCore import Qt
@@ -161,3 +171,50 @@ def test_a_short_list_hides_the_filter(qapp: QApplication, qtbot) -> None:
     w = SensorInfoWidget("/tmp/small.csv", ["a", "b", "c"])
     qtbot.addWidget(w)
     assert w._filter.isVisible() is False
+
+
+def test_inspector_filter_finds_one_channel_across_sources(qapp: QApplication, qtbot) -> None:
+    sidebar = SidebarPane()
+    qtbot.addWidget(sidebar)
+    channels = [f"camera/joint_{index:03d}" for index in range(128)]
+    sidebar.add_sensor("/tmp/front.csv", channels)
+    sidebar.add_sensor("/tmp/side.csv", ["temperature", "pressure"])
+
+    front = sidebar.sensor_widget("/tmp/front.csv")
+    side = sidebar.sensor_widget("/tmp/side.csv")
+    assert front is not None and side is not None
+
+    front._group_items[0].setExpanded(False)
+    sidebar._source_filter.setText("joint_127")
+
+    assert not front.isHidden()
+    assert front.visible_channel_count() == 1
+    assert not front._group_items[0].isHidden()
+    assert front._group_items[0].isExpanded()
+    assert side.isHidden()
+
+    front._filter.setText("joint_000")
+    assert front.isHidden(), "the global and per-source filters should compose"
+    front._filter.clear()
+    assert not front.isHidden()
+    assert front.visible_channel_count() == 1
+
+    sidebar._source_filter.clear()
+    assert front.visible_channel_count() == 128
+    assert not side.isHidden()
+
+
+def test_source_filter_does_not_change_video_visibility(qapp: QApplication, qtbot) -> None:
+    sidebar = SidebarPane()
+    qtbot.addWidget(sidebar)
+    sidebar.add_video("/tmp/FrontCam.mp4", {})
+    video = sidebar._video_widgets["/tmp/FrontCam.mp4"]
+    video.visibility_cb.setChecked(False)
+
+    sidebar._source_filter.setText("frontcam")
+    assert not video.isHidden()
+    assert not video.visibility_cb.isChecked()
+
+    sidebar._source_filter.setText("missing")
+    assert video.isHidden()
+    assert not video.visibility_cb.isChecked()

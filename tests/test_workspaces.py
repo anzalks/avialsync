@@ -69,6 +69,29 @@ def test_a_layout_round_trips(window: MainWindow) -> None:
     assert window._left_tabs.currentIndex() == 2
 
 
+def test_a_named_layout_restores_detached_plot_geometry(window: MainWindow, qapp) -> None:
+    window._act_detach_plots.setChecked(True)
+    dialog = window._detached_plot_window
+    assert dialog is not None
+    dialog.resize(820, 520)
+    dialog.move(110, 90)
+    qapp.processEvents()
+    saved_size = dialog.size()
+    captured = workspaces.capture(window)
+    workspaces.save("Review on second display", captured)
+
+    window._act_detach_plots.setChecked(False)
+    workspaces.apply(window, workspaces.load("Review on second display"))
+
+    restored = window._detached_plot_window
+    assert window._plots_detached
+    assert restored is not None and restored.isVisible()
+    assert not captured.plots_geometry.isEmpty()
+    assert restored.size().height() == saved_size.height()
+    assert 600 <= restored.size().width() <= saved_size.width()
+    window._act_detach_plots.setChecked(False)
+
+
 def test_applying_repairs_a_collapsed_pane(window: MainWindow) -> None:
     """restoreState also restores the collapsible flag, so this is not optional."""
     captured = workspaces.capture(window)
@@ -80,6 +103,48 @@ def test_applying_repairs_a_collapsed_pane(window: MainWindow) -> None:
         assert all(size >= 0 for size in splitter.sizes())
 
 
+def test_detaching_plots_preserves_their_splitter_slot(window: MainWindow) -> None:
+    splitter = window._v_splitter
+    plot_index = splitter.indexOf(window.plot_pane)
+    child_count = splitter.count()
+
+    window._act_detach_plots.setChecked(True)
+    dialog = window._detached_plot_window
+
+    assert window._plots_detached
+    assert dialog is not None and dialog.isVisible()
+    assert splitter.count() == child_count
+    assert splitter.indexOf(window.plot_pane) == -1
+    assert splitter.widget(plot_index) is dialog._placeholder
+    assert all(size > 0 for size in splitter.sizes())
+
+    dialog.return_button.click()
+
+    assert not window._plots_detached
+    assert splitter.indexOf(window.plot_pane) == plot_index
+    assert not window._act_detach_plots.isChecked()
+
+
+def test_bring_panels_back_reattaches_detached_plots(window: MainWindow) -> None:
+    window._act_detach_plots.setChecked(True)
+    assert window._plots_detached
+
+    window._bring_panels_back()
+
+    assert not window._plots_detached
+    assert window._v_splitter.indexOf(window.plot_pane) == 1
+
+
+def test_closing_the_window_reattaches_detached_plots(window: MainWindow) -> None:
+    window._act_detach_plots.setChecked(True)
+    assert window._plots_detached
+
+    window.close()
+
+    assert not window._plots_detached
+    assert window._v_splitter.indexOf(window.plot_pane) == 1
+
+
 def test_a_stale_tab_index_is_clamped(window: MainWindow) -> None:
     """A layout saved when there were more tabs must not select past the end."""
     captured = workspaces.capture(window)
@@ -88,6 +153,30 @@ def test_a_stale_tab_index_is_clamped(window: MainWindow) -> None:
     )
     workspaces.apply(window, stale)
     assert window._left_tabs.currentIndex() < window._left_tabs.count()
+
+
+def test_pre_detach_workspace_settings_migrate_to_inline_plots(
+    window: MainWindow,
+) -> None:
+    captured = workspaces.capture(window)
+    store = QSettings("AvialSync", "AvialSync")
+    store.beginGroup("workspaces/Before-detach")
+    store.setValue("geometry", captured.geometry)
+    store.setValue("inspector_tab", captured.inspector_tab)
+    for name, state in captured.splitters.items():
+        store.setValue(f"splitter_{name}", state)
+    store.endGroup()
+
+    legacy = workspaces.load("Before-detach")
+    assert legacy is not None
+    assert not legacy.plots_detached
+    assert legacy.plots_geometry.isEmpty()
+
+    window._act_detach_plots.setChecked(True)
+    workspaces.apply(window, legacy)
+
+    assert not window._plots_detached
+    assert window._v_splitter.indexOf(window.plot_pane) == 1
 
 
 # ── storage ──────────────────────────────────────────────────────────

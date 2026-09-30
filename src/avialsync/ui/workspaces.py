@@ -5,22 +5,22 @@ plots tall and the video small; checking a tracking overlay wants the opposite;
 reading recorded messages wants the inspector wide. Rearranging the splitters
 each time is the kind of friction that stops people doing it at all.
 
-A workspace is the window geometry plus every splitter position and the
-inspector's selected tab — exactly the state ``session_controller`` already
-persists as *the* layout, stored under a name instead of as the single
-implicit one.
+A workspace is the window geometry plus every splitter position, the
+inspector's selected tab, and the optional detached Plot pane geometry — the
+state ``session_controller`` already persists as *the* layout, stored under a
+name instead of as the single implicit one.
 
 **Layout is not session data.** These live in ``QSettings`` beside the window
 geometry, not in the ``.avv`` file, because a layout belongs to the person and
 their screen rather than to the recording. That boundary is already correct in
 ``core/session.py`` and this does not move it.
 
-**Scope note.** WP-11 also specified converting the splitters to
-``QDockWidget`` for multi-monitor use. That is not done here and it is not an
-oversight: the four nested splitters carry ``PaneProportions`` tracking, a
-policy re-assertion, and a collapsed-pane repair, and §3 of the plan protects
-the plot behaviour that depends on them. Restructuring that is its own change
-with its own evidence, not a rider on this one.
+**Scope note.** The Plot pane can float as a separate window for a second
+display while its original splitter slot remains reserved and restorable.
+Converting all four nested splitters to ``QDockWidget`` is still out of scope:
+they carry ``PaneProportions`` tracking, a policy re-assertion, and a
+collapsed-pane repair, and §3 of the plan protects the plot behaviour that
+depends on them.
 """
 
 from __future__ import annotations
@@ -48,6 +48,8 @@ class Workspace:
     geometry: QByteArray
     splitters: dict[str, QByteArray]
     inspector_tab: int
+    plots_detached: bool = False
+    plots_geometry: QByteArray = dataclasses.field(default_factory=QByteArray)
 
 
 def _store() -> QSettings:
@@ -62,6 +64,12 @@ def capture(window: MainWindow) -> Workspace:
             name: getattr(window, name).saveState() for name in _SPLITTERS if hasattr(window, name)
         },
         inspector_tab=window._left_tabs.currentIndex(),
+        plots_detached=window._plots_detached,
+        plots_geometry=(
+            window._detached_plot_window.saveGeometry()
+            if window._plots_detached and window._detached_plot_window is not None
+            else QByteArray()
+        ),
     )
 
 
@@ -84,6 +92,12 @@ def apply(window: MainWindow, workspace: Workspace) -> None:
 
     tab_count = window._left_tabs.count()
     window._left_tabs.setCurrentIndex(max(0, min(workspace.inspector_tab, tab_count - 1)))
+    window._act_detach_plots.setChecked(workspace.plots_detached)
+    if workspace.plots_detached and not workspace.plots_geometry.isEmpty():
+        detached = window._detached_plot_window
+        if detached is not None:
+            detached.restoreGeometry(workspace.plots_geometry)
+            window._bring_onto_screen(detached)
 
     window._enforce_splitter_policy()
     window._repair_collapsed_panes()
@@ -102,6 +116,8 @@ def save(name: str, workspace: Workspace) -> None:
     for splitter_name, state in workspace.splitters.items():
         store.setValue(f"splitter_{splitter_name}", state)
     store.setValue("inspector_tab", workspace.inspector_tab)
+    store.setValue("plots_detached", workspace.plots_detached)
+    store.setValue("plots_geometry", workspace.plots_geometry)
     store.endGroup()
 
 
@@ -125,7 +141,21 @@ def load(name: str) -> Workspace | None:
             tab_index = int(str(tab))
         except (TypeError, ValueError):
             tab_index = 0
-        return Workspace(geometry=geometry, splitters=splitters, inspector_tab=tab_index)
+        stored_detached = store.value("plots_detached", False)
+        if isinstance(stored_detached, bool):
+            plots_detached = stored_detached
+        else:
+            plots_detached = str(stored_detached).strip().lower() in {"1", "true", "yes"}
+        plots_geometry = store.value("plots_geometry", QByteArray())
+        if not isinstance(plots_geometry, QByteArray):
+            plots_geometry = QByteArray()
+        return Workspace(
+            geometry=geometry,
+            splitters=splitters,
+            inspector_tab=tab_index,
+            plots_detached=plots_detached,
+            plots_geometry=plots_geometry,
+        )
     finally:
         store.endGroup()
 

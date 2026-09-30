@@ -3,6 +3,7 @@
 import pytest
 from PySide6.QtCore import QPoint, Qt
 
+from avialsync.ui.plot_header import PlotHeader
 from avialsync.ui.theme import status_color
 from avialsync.ui.transport import Transport
 from avialsync.ui.view_toolbar import ViewToolbar
@@ -16,15 +17,57 @@ def test_seek_row_orders_playhead_ab_end_time_and_rate_controls(qtbot) -> None:
     transport.show()
     qtbot.waitExposed(transport)
 
-    assert transport._jump_fwd_btn.geometry().x() < transport._time_edit.geometry().x()
+    playhead_buttons = (
+        transport._jump_back_btn,
+        transport._step_back_btn,
+        transport.play_btn,
+        transport._step_fwd_btn,
+        transport._jump_fwd_btn,
+    )
+    assert [button.geometry().x() for button in playhead_buttons] == sorted(
+        button.geometry().x() for button in playhead_buttons
+    )
+    assert transport._jump_fwd_btn.geometry().right() < transport._time_edit.geometry().x()
     assert transport._time_edit.geometry().right() < transport.slider.geometry().x()
     assert transport.slider.geometry().right() < transport._end_time_label.geometry().x()
-    assert transport._end_time_label.geometry().right() < transport._ab_in_btn.geometry().x()
+    assert transport._ab_in_btn.parentWidget() is transport.evidence
+    assert transport._ab_in_btn.geometry().top() >= transport.overview.geometry().bottom()
+    assert transport._ab_clear_btn.geometry().bottom() <= transport.evidence.height()
+    assert transport._time_edit.geometry().top() > transport.evidence.geometry().bottom()
+    assert transport._ab_in_btn.geometry().x() < transport._ab_out_btn.geometry().x()
+    assert transport._ab_out_btn.geometry().x() < transport._ab_clear_btn.geometry().x()
     assert transport._ab_clear_btn.geometry().x() < transport._speed_label.geometry().x()
     assert transport._speed_label.geometry().right() < transport.rate_combo.geometry().x()
+    assert transport._step_back_btn.text() == "Prev frame"
+    assert transport._step_fwd_btn.text() == "Next frame"
+    assert transport._ab_in_btn.text() == "Set In"
+    assert transport._ab_out_btn.text() == "Set Out"
     # D-126: the Data Streams controls sit under the lanes they act on.
     evidence = transport.evidence
+    assert evidence.collapse_button.parentWidget() is evidence
     assert evidence.collapse_button.geometry().top() >= evidence.overview.geometry().bottom()
+
+
+def test_descriptive_transport_controls_leave_a_usable_slider_at_narrow_width(qtbot) -> None:
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.resize(640, 220)
+    transport.show()
+    qtbot.waitExposed(transport)
+
+    assert transport.slider.width() > 0
+    assert transport._time_edit.width() >= 110
+    assert transport._end_time_label.width() >= 110
+
+
+def test_plot_header_buttons_name_their_effect(qtbot) -> None:
+    header = PlotHeader()
+    qtbot.addWidget(header)
+
+    assert header.fit_all_button.text() == "Fit Y"
+    assert header.fit_all_button.accessibleName() == "Fit Y ranges for visible channels"
+    assert header.reset_button.text() == "Reset plots"
+    assert header.reset_button.accessibleName() == "Reset plot ranges and time span"
 
 
 def test_transport_status_does_not_block_controls(qtbot) -> None:

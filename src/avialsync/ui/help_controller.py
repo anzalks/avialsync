@@ -15,6 +15,7 @@ from avialsync.ui.i18n import tr
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
     from avialsync.ui.preferences_dialog import PreferencesDialog
+    from avialsync.ui.review_workflow import ReviewWorkflowDialog
 
 
 class HelpController(QObject):
@@ -24,6 +25,7 @@ class HelpController(QObject):
         super().__init__(window)
         self._window = window
         self._preferences_dialog: PreferencesDialog | None = None
+        self._review_workflow_dialog: ReviewWorkflowDialog | None = None
 
     @Slot(str)
     def open_project_url(self, label: str) -> None:
@@ -68,6 +70,25 @@ class HelpController(QObject):
         self._preferences_dialog.show()
         self._window._bring_onto_screen(self._preferences_dialog)
         self._preferences_dialog.raise_()
+
+    @Slot()
+    def show_review_workflow(self) -> None:
+        """Show the task guide without blocking the recording workspace."""
+        from avialsync.ui.review_workflow import ReviewWorkflowDialog
+
+        if self._review_workflow_dialog is None:
+            self._review_workflow_dialog = ReviewWorkflowDialog(
+                {
+                    "open_video": self._window._act_open_video,
+                    "open_sensor": self._window._act_open_sensor,
+                    "synchronize": self._window._act_synchronize,
+                    "save_session": self._window._act_save_session,
+                },
+                self._window,
+            )
+        self._review_workflow_dialog.show()
+        self._window._bring_onto_screen(self._review_workflow_dialog)
+        self._review_workflow_dialog.raise_()
 
     @Slot(str)
     def on_setting_changed(self, key: str) -> None:
