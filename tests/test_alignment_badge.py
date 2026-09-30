@@ -40,9 +40,11 @@ def widget(qtbot) -> VideoInfoWidget:
 
 
 class TestTheBadgeSaysWhatTheFileCannot:
-    def test_the_badge_has_a_clear_text_label(self, widget: VideoInfoWidget) -> None:
-        """Source findings are a labeled action, not a clipped warning glyph."""
-        assert widget._badge_btn.text() == "Issues"
+    def test_the_badge_has_a_clear_native_icon(self, widget: VideoInfoWidget) -> None:
+        """Source findings use an icon with a usable click target, not emoji text."""
+        assert widget._badge_btn.text() == ""
+        assert not widget._badge_btn.icon().isNull()
+        assert widget._badge_btn.size().width() == 24
         assert widget._badge_btn.accessibleName() == "Source issues"
 
     def test_an_unaligned_source_is_reported_as_unaligned(self, widget: VideoInfoWidget) -> None:

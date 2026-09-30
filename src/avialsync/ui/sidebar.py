@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import TypeVar
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QStyle,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -30,7 +31,7 @@ from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.quality_badge import findings_for, worst_severity
 from avialsync.ui.source_properties import VideoPropertiesPanel
-from avialsync.ui.theme import follow_palette, set_bold, status_color
+from avialsync.ui.theme import follow_palette, set_bold
 
 _W = TypeVar("_W", bound=QWidget)
 
@@ -102,6 +103,20 @@ def _show_value(spin: QDoubleSpinBox, value: float) -> None:
     spin.setValue(value)
 
 
+def _issues_button(parent: QWidget) -> QPushButton:
+    """Create the compact native-icon action for source quality details."""
+    button = QPushButton(parent)
+    button.setFixedSize(24, 24)
+    button.setIconSize(QSize(16, 16))
+    button.setIcon(button.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning))
+    button.setAccessibleName(tr("Source issues"))
+    button.setAccessibleDescription(
+        tr("Open details about this source's data quality and alignment.")
+    )
+    button.setToolTip(tr("Open source quality and alignment details"))
+    return button
+
+
 #: Range of the per-source offset controls, in seconds. A full day either way.
 #:
 #: It was +/-1 hour, which silently truncated any session whose sources carry a
@@ -154,16 +169,7 @@ class SensorInfoWidget(QFrame):
         name_lbl.setToolTip(path)
         set_bold(name_lbl)
 
-        self._badge_btn = QPushButton(tr("Issues"))
-        self._badge_btn.setAccessibleName(tr("Source issues"))
-        self._badge_btn.setAccessibleDescription(
-            tr("Open details about this source's data quality and alignment.")
-        )
-        self._badge_btn.setToolTip(tr("Open source quality and alignment details"))
-        follow_palette(
-            self._badge_btn,
-            lambda palette: f"color: {status_color(palette, 'warning').name()}; font-weight: bold;",
-        )
+        self._badge_btn = _issues_button(self)
         self._badge_btn.setVisible(False)
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
         self.identity_count = QLabel(self)
@@ -641,12 +647,12 @@ def _render_badge(
     button.setToolTip("\n\n".join(lines))
     button.setAccessibleDescription(" ".join(finding.summary for finding in findings))
 
-    def _paint(palette: QPalette, level: str = severity) -> str:
-        """Bound as a default argument: `follow_palette` re-runs this on every
-        appearance change, long after *severity* has gone out of scope."""
-        return f"color: {status_color(palette, level).name()}; font-weight: bold;"
-
-    follow_palette(button, _paint)
+    standard_icon = {
+        "error": QStyle.StandardPixmap.SP_MessageBoxCritical,
+        "warning": QStyle.StandardPixmap.SP_MessageBoxWarning,
+        "info": QStyle.StandardPixmap.SP_MessageBoxInformation,
+    }[severity]
+    button.setIcon(button.style().standardIcon(standard_icon))
     button.setVisible(True)
 
 
@@ -766,16 +772,7 @@ class VideoInfoWidget(QFrame):
         layout.addLayout(sync_form)
 
         # Badge (hidden until inspection is available)
-        self._badge_btn = QPushButton(tr("Issues"))
-        self._badge_btn.setAccessibleName(tr("Source issues"))
-        self._badge_btn.setAccessibleDescription(
-            tr("Open details about this source's data quality and alignment.")
-        )
-        self._badge_btn.setToolTip(tr("Open source quality and alignment details"))
-        follow_palette(
-            self._badge_btn,
-            lambda palette: f"color: {status_color(palette, 'warning').name()}; font-weight: bold;",
-        )
+        self._badge_btn = _issues_button(self)
         self._badge_btn.setVisible(False)
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
         header_layout.insertWidget(2, self._badge_btn)  # between name and close
