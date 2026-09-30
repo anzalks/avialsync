@@ -173,11 +173,18 @@ conda run -n avialsync python tools/prepare_release.py 0.1.0b1 --dry-run
 conda run -n avialsync python tools/prepare_release.py 0.1.0b1
 ```
 
-It validates the version, updates every package-version authority, builds and checks the wheel/sdist,
-commits the change, creates annotated `v0.1.0b1`, and pushes it. That tag starts the guarded release
+It validates the version, updates every package-version authority (`pyproject.toml`,
+`src/avialsync/__init__.py`, `CITATION.cff`, and `packaging/conda/meta.yaml`), builds and checks the
+wheel/sdist, commits the change, creates annotated `v0.1.0b1`, and pushes it. That tag starts the guarded release
 workflow, which verifies the documentation and activates the matching Read the Docs version before
 it can publish a distribution. The helper permits only the offline `graphify-out/graph.json` as a
 pre-existing dirty file; commit or resolve every other change first.
+
+The four files are updated together or not at all: every declaration is matched before the first
+write, and `--dry-run` performs the same matching, so a reformatted file stops the release with the
+tree untouched. One field is deliberately left for after the release: the `sha256` in
+`packaging/conda/meta.yaml` is the checksum of the sdist PyPI serves, which does not exist until the
+tag has published. Fill it in from the published sdist when submitting the conda-forge update.
 
 ### Signing
 
