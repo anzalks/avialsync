@@ -326595,7 +326595,7 @@
     },
     {
       "source": "readme",
-      "target": "users_anzalks_documents_kinochronix_stimulus_grid_export_license_md",
+      "target": "users_anzalks_documents_kinochronix_main_window_refactor_license_md",
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
@@ -392244,7 +392244,7 @@
       "_origin": "ast"
     },
     {
-      "source": "users_anzalks_documents_kinochronix_stimulus_grid_export_tests_test_ui_main_py",
+      "source": "users_anzalks_documents_kinochronix_main_window_refactor_tests_test_ui_main_py",
       "target": "src_avialsync_loaders_video_standard_videostandardloader",
       "relation": "indirect_call",
       "context": "collection",
@@ -392256,7 +392256,7 @@
       "_origin": "ast"
     },
     {
-      "source": "users_anzalks_documents_kinochronix_stimulus_grid_export_tests_test_ui_main_py",
+      "source": "users_anzalks_documents_kinochronix_main_window_refactor_tests_test_ui_main_py",
       "target": "src_avialsync_loaders_csv_loader_csvloader",
       "relation": "indirect_call",
       "context": "collection",
@@ -392268,7 +392268,7 @@
       "_origin": "ast"
     },
     {
-      "source": "users_anzalks_documents_kinochronix_stimulus_grid_export_tests_test_ui_main_py",
+      "source": "users_anzalks_documents_kinochronix_main_window_refactor_tests_test_ui_main_py",
       "target": "src_avialsync_loaders_tracking_loader_trackingloader",
       "relation": "indirect_call",
       "context": "collection",
@@ -392280,7 +392280,7 @@
       "_origin": "ast"
     },
     {
-      "source": "users_anzalks_documents_kinochronix_stimulus_grid_export_tests_test_ui_main_py",
+      "source": "users_anzalks_documents_kinochronix_main_window_refactor_tests_test_ui_main_py",
       "target": "src_avialsync_loaders_neo_loader_neoloader",
       "relation": "indirect_call",
       "context": "collection",
@@ -395724,7 +395724,7 @@
       "_origin": "ast"
     },
     {
-      "source": "users_anzalks_documents_kinochronix_stimulus_grid_export_tests_test_wheel_controller_py",
+      "source": "users_anzalks_documents_kinochronix_main_window_refactor_tests_test_wheel_controller_py",
       "target": "tests_wheel_window_place",
       "relation": "indirect_call",
       "context": "assignment",
