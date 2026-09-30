@@ -24,6 +24,10 @@ data](importing-data.md) walks every field.
 
 The traces appear below the video.
 
+Use the inspector's **Filter sources and channels** field to find a source or channel across the
+loaded recordings. Filtering only narrows the inspector list; it does not unload data or change
+visibility.
+
 ## 3. Find an event
 
 Drag the shared time bar until you see a meaningful event. Watch the video, traces, and values in
