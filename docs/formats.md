@@ -54,6 +54,27 @@ corrected copy of the pose CSV, which anything that read the original will read 
 DeepLabCut `labeled-data` retraining set. See [Correcting a tracked
 point](user-guide/index.md#correcting-a-tracked-point).
 
+### Vicon Nexus motion capture
+
+Drop a Vicon session folder containing `.c3d` trials, matching `.xcp` calibration files, and the
+camera AVI files. AvialSync reads marker positions directly from C3D; it does not use companion CSV
+exports. The XCP video-camera calibration projects the 3D markers into that camera's image, and the
+session scanner pairs each trial to its AVI by the calibrated camera's device ID. Intrinsics,
+Vicon radial distortion, and video-resolution scaling are applied before projection. The markers are
+sampled onto the video frame grid and use the normal per-source tracking overlay controls. A trial
+without a usable calibrated video-camera entry or a uniquely matching AVI is reported and left out
+of the overlay rather than projected with guessed calibration. When importing a C3D separately,
+assign its matching AVI as the overlay target; AvialSync reads that video's dimensions and scales
+the XCP projection to its pixel grid.
+
+To open one trial, copy its `.c3d`, matching `.xcp`, and camera AVI into a separate folder and drop
+that folder onto AvialSync. The review dialog lists the paired video and tracking file, with the
+Vicon labels, combined 3D-pose/2D-overlay role, and XCP calibration preselected. Confirm the rows to
+load native XYZ markers in the 3D view and their calibrated projection on the paired video. If you
+drop the files individually, choose **3D Marker Tracking** for the `.c3d`, select the XCP in the
+**Calibration (XCP)** column, then choose the combined 3D-pose and 2D-overlay role for its AVI. The
+`.xcp` is not imported as tracking data, and `.x2d` is not currently supported as a tracking source.
+
 ## Acquisition recordings
 
 Electrophysiology and instrument recordings are read through [neo](https://neo.readthedocs.io), so

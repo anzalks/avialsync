@@ -84,6 +84,10 @@ class MyRigSession(SessionSource):
         )
 ```
 
+The session scanner supplies the candidate files and their labels, kinds, and import defaults. They
+are shown in the same batch review used for ordinary drops, where the user confirms or changes each
+choice. A session plugin never imports its candidates without that review.
+
 ```toml
 [project.entry-points."avialsync.sessions"]
 myrig = "my_plugin:MyRigSession"

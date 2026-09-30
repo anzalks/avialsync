@@ -313,6 +313,36 @@ def test_single_unclaimed_file_reaches_import_review(
     review.assert_called_once_with(candidates)
 
 
+@pytest.mark.parametrize("role", ["overlay2d", "pose3d_overlay2d"])
+def test_single_declared_session_pair_reaches_import_review(
+    main_window: MainWindow,
+    tmp_path: Path,
+    role: str,
+) -> None:
+    from avialsync.core.source import SessionItem
+    from avialsync.loaders.vicon_c3d_loader import ViconC3DLoader
+
+    video = tmp_path / "trial.avi"
+    tracking = tmp_path / "trial.c3d"
+    config = {"role": role, "overlay_video": str(video), "xcp_path": "trial.xcp"}
+    layout = SessionLayout(
+        items=[
+            SessionItem(path=video, loader=VideoStandardLoader),
+            SessionItem(path=tracking, loader=ViconC3DLoader, config=config),
+        ]
+    )
+    candidates = [(video, VideoStandardLoader, {}), (tracking, ViconC3DLoader, config)]
+
+    with (
+        patch.object(main_window, "_process_drop_candidates") as review,
+        patch.object(main_window, "_route_import_candidate") as route,
+    ):
+        main_window._on_drop_scan_finished(candidates, layout)
+
+    review.assert_called_once_with(candidates)
+    route.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("suffix", "loader_class", "target"),
     [
@@ -595,16 +625,17 @@ def test_video_coverage_is_projected_onto_master_time(main_window: MainWindow, m
     coverage.assert_called_once_with("camera.mp4", -1.0, 9.0, "video")
 
 
-def test_real_drop_event_routes_sensor_file(
+def test_real_drop_event_reviews_sensor_file(
     main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot
 ) -> None:
-    """Qt delivery of a drop event must route a supported sensor without closing the window."""
+    """A supported single-file drop still opens review without closing the window."""
     from avialsync.engine.drop_worker import DropScanWorker
     from avialsync.loaders.csv_loader import CSVLoader
 
     sensor = tmp_path / "sensor.csv"
     sensor.write_text("time,value\n0,1\n", encoding="utf-8")
     data_calls: list[tuple[Path, type]] = []
+    review_calls: list[list[tuple[Path, type | None, dict | None]]] = []
 
     monkeypatch.setattr(
         main_window._registry,
@@ -616,6 +647,7 @@ def test_real_drop_event_routes_sensor_file(
         "_start_data_import",
         lambda path, loader, pre_config=None: data_calls.append((path, loader)),
     )
+    monkeypatch.setattr(main_window, "_process_drop_candidates", review_calls.append)
 
     def sync_start_drop_scan(paths):
         worker = DropScanWorker(paths, main_window._registry)
@@ -643,19 +675,22 @@ def test_real_drop_event_routes_sensor_file(
 
     assert event.isAccepted()
     assert main_window.isVisible()
-    assert data_calls == [(sensor, CSVLoader)]
+    assert len(review_calls) == 1
+    assert [(path, loader) for path, loader, _ in review_calls[0]] == [(sensor, CSVLoader)]
+    assert data_calls == []
 
 
-def test_drop_over_video_grid_forwards_to_main_router(
+def test_drop_over_video_grid_forwards_to_import_review(
     main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot
 ) -> None:
-    """A drop over the video grid reaches the same mixed-source router."""
+    """A single supported file dropped over video reaches the same review dialog."""
     from avialsync.engine.drop_worker import DropScanWorker
     from avialsync.loaders.csv_loader import CSVLoader
 
     sensor = tmp_path / "sensor.csv"
     sensor.write_text("time,value\n0,1\n", encoding="utf-8")
     data_calls: list[tuple[Path, type]] = []
+    review_calls: list[list[tuple[Path, type | None, dict | None]]] = []
 
     monkeypatch.setattr(
         main_window._registry,
@@ -667,6 +702,7 @@ def test_drop_over_video_grid_forwards_to_main_router(
         "_start_data_import",
         lambda path, loader, pre_config=None: data_calls.append((path, loader)),
     )
+    monkeypatch.setattr(main_window, "_process_drop_candidates", review_calls.append)
 
     def sync_start_drop_scan(paths):
         worker = DropScanWorker(paths, main_window._registry)
@@ -694,4 +730,6 @@ def test_drop_over_video_grid_forwards_to_main_router(
 
     assert drop_event.isAccepted()
     assert main_window.isVisible()
-    assert data_calls == [(sensor, CSVLoader)]
+    assert len(review_calls) == 1
+    assert [(path, loader) for path, loader, _ in review_calls[0]] == [(sensor, CSVLoader)]
+    assert data_calls == []

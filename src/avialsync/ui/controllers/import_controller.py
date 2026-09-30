@@ -261,21 +261,24 @@ def on_import_finished(
         if "drift_ppm" in inspection.import_config and drift_ppm == 0.0:
             drift_ppm = float(inspection.import_config["drift_ppm"])
 
-    if role in ("pose3d", "overlay2d"):
-        required = ("x", "y", "z") if role == "pose3d" else ("x", "y")
+    combined_role = "pose3d_overlay2d"
+    if role in ("pose3d", "overlay2d", combined_role):
+        is_3d = role in ("pose3d", combined_role)
+        needs_video = role in ("overlay2d", combined_role)
+        required = ("x", "y", "z") if is_3d else ("x", "y")
         target = (
             inspection.import_config.get("overlay_video")
             if isinstance(inspection, SourceInspection)
             else None
         )
         pose = inspection.pose if isinstance(inspection, SourceInspection) else None
-        if not _has_pose_coordinates(pose, required) or (role == "overlay2d" and not target):
+        if not _has_pose_coordinates(pose, required) or (needs_video and not target):
             window.notifications.show_warning(
                 tr(
                     "{file} has no usable {kind} coordinates; its channels were plotted instead."
                 ).format(
                     file=Path(path).name,
-                    kind=tr("3D pose") if role == "pose3d" else tr("2D pose"),
+                    kind=tr("3D pose") if is_3d else tr("2D pose"),
                 )
             )
             if isinstance(inspection, SourceInspection):
@@ -302,7 +305,7 @@ def on_import_finished(
     user_offset = window.user_offset(path, offset)
 
     tracking_state: dict[str, bool] | None = None
-    if role in ("overlay2d", "pose3d"):
+    if role in ("overlay2d", "pose3d", combined_role):
         # Pose data drives the video overlay and the 3D view. It is not
         # plotted: 27 3D channels or 81 per-camera 2D channels would bury
         # the recorded signals a plot row is meant to show. The source card
@@ -416,17 +419,29 @@ def register_tracking_source(
 
     time_map = TimeMap(offset=offset, drift_ppm=drift_ppm)
 
-    if role == "pose3d":
+    combined_role = "pose3d_overlay2d"
+    if role in ("pose3d", combined_role):
+        pose = inspection.pose if isinstance(inspection, SourceInspection) else None
+        if role == combined_role and pose is not None:
+            world_channels = [
+                point.channel(axis)
+                for point in pose.points_with("x", "y", "z")
+                for axis in ("x", "y", "z")
+            ]
+        else:
+            world_channels = channels
         window._pose_3d_sources[path] = [
             MappedChannelReader(PyramidReader(cache_dir, channel), time_map, source_id=path)
-            for channel in channels
+            for channel in world_channels
+            if channel in channels
         ]
         window._refresh_pose_3d()
         from avialsync.ui.controllers import custom_marker_controller, wheel_files
 
         custom_marker_controller.adopt(window)
         wheel_files.adopt(window)
-        return
+        if role == "pose3d":
+            return
 
     video = str(config.get("overlay_video", ""))
     if not video:
@@ -447,11 +462,26 @@ def register_tracking_source(
     if pose is None:
         logger.warning("2D pose source %s declares no pose schema; not overlaid.", path)
         return
-    for point in pose.points_with("x", "y"):
-        x_channel, y_channel = point.channel("x"), point.channel("y")
-        if x_channel in available and y_channel in available:
-            points[point.name] = (_reader(x_channel), _reader(y_channel))
-            point_channels[point.name] = (x_channel, y_channel)
+    if role == combined_role:
+        projection_channels = config.get("vicon_projection_channels", {})
+        for point in pose.points_with("x", "y", "z"):
+            projected = (
+                projection_channels.get(point.name)
+                if isinstance(projection_channels, dict)
+                else None
+            )
+            if not isinstance(projected, (list, tuple)) or len(projected) != 2:
+                continue
+            x_channel, y_channel = str(projected[0]), str(projected[1])
+            if x_channel in available and y_channel in available:
+                points[point.name] = (_reader(x_channel), _reader(y_channel))
+                point_channels[point.name] = (x_channel, y_channel)
+    else:
+        for point in pose.points_with("x", "y"):
+            x_channel, y_channel = point.channel("x"), point.channel("y")
+            if x_channel in available and y_channel in available:
+                points[point.name] = (_reader(x_channel), _reader(y_channel))
+                point_channels[point.name] = (x_channel, y_channel)
 
     if not points:
         logger.warning("2D pose source %s produced no complete XY points.", path)

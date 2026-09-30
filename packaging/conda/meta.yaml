@@ -35,6 +35,7 @@ requirements:
     - pyside6
     - pyqtgraph
     - av >=12
+    - c3d >=0.6.0
     - numpy
     - polars
     - xxhash

@@ -173,30 +173,6 @@ def on_drop_scan_finished(
     if not candidates:
         return
 
-    if len(candidates) == 1:
-        # An unclaimed file must stay selectable in the review. This also
-        # covers File → Open Data, which enters through the drop scanner.
-        # A standalone pose-capable file still goes to the dialog, but the
-        # dialog now arrives with the answer filled in when the file names its
-        # own camera (D-146): defaulting it to plain channels is how a pose
-        # file became eighty-one plotted columns that still drew dots.
-        _, loader_cls, config = candidates[0]
-        if loader_cls is None or (
-            issubclass(loader_cls, TimeSeriesSource)
-            and loader_cls.pose_roles()
-            and not (config or {}).get("role")
-        ):
-            window._process_drop_candidates(candidates)
-            return
-        for path, loader_cls, config in candidates:
-            if loader_cls is not None:
-                window.video_grid.begin_batch_add()
-                try:
-                    window._route_import_candidate(path, loader_cls, config)
-                finally:
-                    window.video_grid.end_batch_add()
-        return
-
     window._process_drop_candidates(candidates)
 
 

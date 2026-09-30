@@ -192,6 +192,9 @@ class ImportWorker(QObject):
 
     def _cache_manager(self) -> CacheManager:
         """Return the sidecar manager scoped to loader identity and accepted config."""
+        prepare_config = getattr(self.loader_class, "prepare_import_config", None)
+        if callable(prepare_config):
+            self.config = prepare_config(self.path, self.config)
         loader_name = f"{self.loader_class.__module__}.{self.loader_class.__qualname__}"
         return CacheManager(
             loader_version=_IMPORT_CACHE_VERSION,

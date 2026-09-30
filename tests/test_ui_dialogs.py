@@ -346,6 +346,60 @@ def test_unclaimed_file_can_use_a_manually_selected_loader(
     assert dialog.get_selections() == [(path, CSVLoader, None)]
 
 
+def test_c3d_import_can_select_a_dropped_xcp_calibration(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    from avialsync.loaders.vicon_c3d_loader import ViconC3DLoader
+
+    c3d_path = tmp_path / "trial.c3d"
+    xcp_path = tmp_path / "camera.xcp"
+    video_path = tmp_path / "trial.avi"
+    dialog = BatchImportDialog(
+        [(c3d_path, None, None), (xcp_path, None, None)], video_paths=[str(video_path)]
+    )
+    qtbot.addWidget(dialog)
+
+    c3d_row = next(index for index, item in enumerate(dialog._candidates) if item[0] == c3d_path)
+    dialog._combos[c3d_row].setCurrentIndex(dialog._combos[c3d_row].findData(ViconC3DLoader))
+    calibration = dialog._calibration_combos[c3d_row]
+    assert calibration.isEnabled()
+    assert calibration.currentData() == str(xcp_path)
+
+    roles = dialog._role_combos[c3d_row]
+    roles.setCurrentIndex(roles.findData(["pose3d_overlay2d", str(video_path)]))
+    assert dialog.get_selections() == [
+        (
+            c3d_path,
+            ViconC3DLoader,
+            {
+                "role": "pose3d_overlay2d",
+                "overlay_video": str(video_path),
+                "xcp_path": str(xcp_path),
+            },
+        )
+    ]
+    roles.setCurrentIndex(roles.findData(["", ""]))
+
+    assert dialog.get_selections() == [(c3d_path, ViconC3DLoader, {"xcp_path": str(xcp_path)})]
+    sidecar_row = next(
+        index for index, item in enumerate(dialog._candidates) if item[0] == xcp_path
+    )
+    assert not dialog._combos[sidecar_row].isEnabled()
+    assert dialog._combos[sidecar_row].currentData() is None
+
+
+@pytest.mark.parametrize("suffix", [".xcp", ".x2d"])
+def test_vicon_sidecar_cannot_be_assigned_as_tracking_source(
+    qapp: QApplication, qtbot, tmp_path: Path, suffix: str
+) -> None:
+    path = tmp_path / f"trial{suffix}"
+    dialog = BatchImportDialog([(path, None, None)])
+    qtbot.addWidget(dialog)
+
+    assert not dialog._combos[0].isEnabled()
+    assert dialog._combos[0].currentData() is None
+
+
 def test_batch_dialog_preserves_each_files_own_config(
     qapp: QApplication, qtbot, tmp_path: Path
 ) -> None:

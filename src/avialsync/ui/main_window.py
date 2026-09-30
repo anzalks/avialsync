@@ -498,7 +498,6 @@ class MainWindow(QMainWindow):
         # thread blocks anyway and says so instead of just feeling laggy.
         self._heartbeat = UiHeartbeat(self)
         self._heartbeat.stalled.connect(self._on_ui_stalled)
-        self._heartbeat.start()
 
         # Core
         self.clock = MasterClock()
@@ -853,6 +852,9 @@ class MainWindow(QMainWindow):
             #: Python reference is collected while Qt still holds a pointer to
             #: it.
             self._show_time_sweeper = install_show_time_sweep(app)
+        # Don't count window construction as an event-loop stall. The timer is
+        # useful only once every widget and startup action has been installed.
+        self._heartbeat.start()
 
     # ── Background job lifetime ──────────────────────────────────────
 

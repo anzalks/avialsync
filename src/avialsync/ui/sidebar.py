@@ -433,13 +433,17 @@ class SensorInfoWidget(QFrame):
         self, role: str, *, overlay_visible: bool, plot_visible: bool
     ) -> None:
         """Show the per-source presentation controls for a routed pose source."""
-        is_tracking = role in {"overlay2d", "pose3d"}
+        is_tracking = role in {"overlay2d", "pose3d", "pose3d_overlay2d"}
         self._tracking_controls.setVisible(is_tracking)
         if not is_tracking:
             return
         if role == "overlay2d":
             self.show_overlay.setAccessibleDescription(
                 tr("Draw this 2D tracking source over its assigned camera.")
+            )
+        elif role == "pose3d_overlay2d":
+            self.show_overlay.setAccessibleDescription(
+                tr("Show this 3D tracking source and its calibrated 2D camera overlay.")
             )
         else:
             self.show_overlay.setAccessibleDescription(

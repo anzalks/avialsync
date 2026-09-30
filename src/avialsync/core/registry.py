@@ -51,6 +51,7 @@ _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.csv_loader", "CSVLoader"),
     ("avialsync.loaders.video_standard", "VideoStandardLoader"),
     ("avialsync.loaders.tracking_loader", "TrackingLoader"),
+    ("avialsync.loaders.vicon_c3d_loader", "ViconC3DLoader"),
     ("avialsync.loaders.neo_loader", "NeoLoader"),
 )
 
@@ -65,6 +66,7 @@ _BUILTIN_TRIGGERS: tuple[tuple[str, str], ...] = (
 _BUILTIN_SESSIONS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.aol_session_loader", "AOLSessionSource"),
     ("avialsync.loaders.open_ephys_session", "OpenEphysSessionSource"),
+    ("avialsync.loaders.vicon_session_loader", "ViconSessionSource"),
 )
 
 

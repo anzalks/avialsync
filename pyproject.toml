@@ -50,6 +50,8 @@ dependencies = [
     # Video decoding and probing. PyAV wheels bundle their own FFmpeg, which is
     # what makes `pip install avialsync` need no OS-level install step (D-075).
     "av>=12",
+    # MIT, pure Python reader for standard C3D motion-capture files.
+    "c3d>=0.6.0",
     "numpy",
     "polars",
     "xxhash",
@@ -114,6 +116,7 @@ aol_encoder = "avialsync.loaders.aol_encoder_loader:AOLEncoderLoader"
 aol_eks = "avialsync.loaders.aol_eks_loader:AOLEksLoader"
 aol_metric = "avialsync.loaders.aol_metric_loader:AOLMetricLoader"
 aol_video_extraction = "avialsync.loaders.aol_video_extraction_loader:AOLVideoExtractionLoader"
+vicon_c3d = "avialsync.loaders.vicon_c3d_loader:ViconC3DLoader"
 
 # Session scanners lay out a whole recording folder (D-068). A lab adds support
 # for its own directory layout by publishing here; nothing in the application
@@ -121,6 +124,7 @@ aol_video_extraction = "avialsync.loaders.aol_video_extraction_loader:AOLVideoEx
 [project.entry-points."avialsync.sessions"]
 aol = "avialsync.loaders.aol_session_loader:AOLSessionSource"
 open_ephys = "avialsync.loaders.open_ephys_session:OpenEphysSessionSource"
+vicon = "avialsync.loaders.vicon_session_loader:ViconSessionSource"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/avialsync"]
@@ -172,6 +176,7 @@ module = [
     "av.*",
     "pyqtgraph.*",
     "neo.*",
+    "c3d.*",
     "quantities.*",
     "pyarrow.*",
     "polars.*",

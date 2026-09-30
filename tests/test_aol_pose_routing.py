@@ -335,6 +335,60 @@ def test_3d_tracking_source_controls_its_view_and_plot(tmp_path: Path, qtbot, mo
     window.close()
 
 
+def test_combined_pose_routes_world_xyz_and_projected_xy(
+    tmp_path: Path, qtbot, monkeypatch
+) -> None:
+    import numpy as np
+
+    from avialsync.core.inspection import SourceInspection
+    from avialsync.core.pose import PosePoint, PoseSchema
+    from avialsync.core.pyramid import PyramidBuilder
+    from avialsync.ui.main_window import MainWindow
+
+    monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
+    window = MainWindow()
+    qtbot.addWidget(window)
+
+    source = str(tmp_path / "trial.c3d")
+    cache = tmp_path / "trial.avialcache"
+    cache.mkdir()
+    video = str(tmp_path / "trial.avi")
+    projection_channels = ["vicon_projection_marker_x", "vicon_projection_marker_y"]
+    channels = ["marker_x", "marker_y", "marker_z", *projection_channels]
+    times = np.asarray([0.0, 1.0], dtype=np.float64)
+    values = ([1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [101.0, 102.0], [201.0, 202.0])
+    for channel, data in zip(channels, values, strict=True):
+        PyramidBuilder(cache, channel).build_and_save(times, np.asarray(data, dtype=np.float64))
+
+    window._on_import_finished(
+        source,
+        str(cache),
+        channels,
+        (0.0, 1.0),
+        SourceInspection(
+            path=source,
+            import_config={
+                "role": "pose3d_overlay2d",
+                "overlay_video": video,
+                "fps": 1.0,
+                "vicon_projection_channels": {"marker": projection_channels},
+            },
+            pose=PoseSchema(
+                points=(PosePoint(individual="", bodypart="marker", axes=("x", "y", "z")),),
+                frame_indexed=True,
+            ),
+        ),
+    )
+
+    assert window.tracking_3d_pane.canvas.point_names == ("marker",)
+    np.testing.assert_allclose(window.tracking_3d_pane.canvas.positions, [[1.0, 3.0, 5.0]])
+    overlay = window._overlay_sources[video][source]["points"]["marker"]
+    np.testing.assert_allclose(overlay[0].source_reader.mapped_columns()[1], [101.0, 102.0])
+    np.testing.assert_allclose(overlay[1].source_reader.mapped_columns()[1], [201.0, 202.0])
+    assert window.plot_pane.channels == []
+    window.close()
+
+
 def test_non_pose_sources_still_plot(tmp_path: Path, qtbot, monkeypatch) -> None:
     """Ordinary recorded signals keep their plot rows."""
     from avialsync.ui.main_window import MainWindow

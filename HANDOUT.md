@@ -94,6 +94,12 @@ means the 3D view. Plotting a routed tracker never sends it through the loose-re
 path. Checked coordinates select complete landmarks in the visual view and become plot rows only
 once **Show plot** is enabled.
 
+**Vicon Nexus sessions load without CSV exports.** The Vicon C3D loader reads 3D marker frames,
+uses the paired XCP video-camera calibration to project them into the associated AVI, and samples
+the result on that video's frame grid. The session scanner pairs by camera device ID and reports
+trials whose calibration or video match is missing or ambiguous. Projected points use the existing
+camera-specific tracking overlay and its visibility controls.
+
 Two product laws govern that phase and outrank convention:
 
 - **Law 1 — never block, always inform.** Opening a file is never refused or gated. The user is
