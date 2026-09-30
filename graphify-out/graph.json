@@ -55550,11 +55550,19 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_ci_platform_config_test_release_activates_the_exact_readthedocs_tag",
+      "label": "test_release_activates_the_exact_readthedocs_tag()",
+      "file_type": "code",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L188",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_ci_platform_config_test_prerelease_tags_are_not_published_as_stable_releases",
       "label": "test_prerelease_tags_are_not_published_as_stable_releases()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L188",
+      "source_location": "L207",
       "_origin": "ast"
     },
     {
@@ -55562,7 +55570,7 @@
       "label": "test_macos_disk_image_ships_a_launchable_application()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L200",
+      "source_location": "L219",
       "_origin": "ast"
     },
     {
@@ -55570,7 +55578,7 @@
       "label": "test_signing_is_wired_but_optional()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L213",
+      "source_location": "L232",
       "_origin": "ast"
     },
     {
@@ -55578,7 +55586,7 @@
       "label": "test_macos_is_signed_before_the_image_is_built_and_notarized_after()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L233",
+      "source_location": "L252",
       "_origin": "ast"
     },
     {
@@ -55586,7 +55594,7 @@
       "label": "test_signing_scripts_refuse_to_run_without_credentials()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L248",
+      "source_location": "L267",
       "_origin": "ast"
     },
     {
@@ -55594,7 +55602,7 @@
       "label": "test_every_tracked_path_can_exist_on_windows()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L276",
+      "source_location": "L295",
       "_origin": "ast"
     },
     {
@@ -55602,7 +55610,7 @@
       "label": "test_no_python_in_the_repository_imports_mpv()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L314",
+      "source_location": "L333",
       "_origin": "ast"
     },
     {
@@ -55610,7 +55618,7 @@
       "label": "test_the_scrub_benchmark_measures_one_backend()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L349",
+      "source_location": "L368",
       "_origin": "ast"
     },
     {
@@ -55618,7 +55626,7 @@
       "label": "test_no_benchmark_runs_on_ci()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L364",
+      "source_location": "L383",
       "_origin": "ast"
     },
     {
@@ -55626,7 +55634,7 @@
       "label": "test_ci_starts_its_jobs_without_queueing_behind_lint()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L396",
+      "source_location": "L415",
       "_origin": "ast"
     },
     {
@@ -55634,7 +55642,7 @@
       "label": "test_ci_tests_the_interpreter_the_installers_ship()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L416",
+      "source_location": "L435",
       "_origin": "ast"
     },
     {
@@ -55642,7 +55650,7 @@
       "label": "test_every_committed_git_hook_carries_its_executable_bit()",
       "file_type": "code",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L458",
+      "source_location": "L477",
       "_origin": "ast"
     },
     {
@@ -55719,98 +55727,106 @@
     },
     {
       "id": "tests_test_ci_platform_config_rationale_189",
-      "label": "A PEP 440 pre-release tag must be marked as one on the release page.",
+      "label": "A release must not leave its matching documentation version inactive.      The R",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
       "source_location": "L189",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_201",
+      "id": "tests_test_ci_platform_config_rationale_208",
+      "label": "A PEP 440 pre-release tag must be marked as one on the release page.",
+      "file_type": "rationale",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L208",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_ci_platform_config_rationale_220",
       "label": "A one-directory tree is not a macOS app; Finder opens it in Terminal.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L201",
+      "source_location": "L220",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_214",
+      "id": "tests_test_ci_platform_config_rationale_233",
       "label": "Signing must run when secrets exist and be skipped, not fail, when not.      BLU",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L214",
+      "source_location": "L233",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_234",
+      "id": "tests_test_ci_platform_config_rationale_253",
       "label": "Order is load-bearing: the image must carry the signed .app.      Notarization t",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L234",
+      "source_location": "L253",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_249",
+      "id": "tests_test_ci_platform_config_rationale_268",
       "label": "A half-configured secret must stop the release, not ship unsigned.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L249",
+      "source_location": "L268",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_277",
+      "id": "tests_test_ci_platform_config_rationale_296",
       "label": "A path Windows cannot create fails the job in checkout, before any test.      Th",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L277",
+      "source_location": "L296",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_315",
+      "id": "tests_test_ci_platform_config_rationale_334",
       "label": "libmpv is gone from the tests too, not only from the product (D-086).      The b",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L315",
+      "source_location": "L334",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_350",
+      "id": "tests_test_ci_platform_config_rationale_369",
       "label": "The seek benchmark must not grow a second backend back (D-086).      A compariso",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L350",
+      "source_location": "L369",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_365",
+      "id": "tests_test_ci_platform_config_rationale_384",
       "label": "Benchmarks stay off the runners, and stay findable when they are wanted.      ``",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L365",
+      "source_location": "L384",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_397",
+      "id": "tests_test_ci_platform_config_rationale_416",
       "label": "CI's wall clock is the slowest job, not lint plus the slowest job.      ``needs:",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L397",
+      "source_location": "L416",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_417",
+      "id": "tests_test_ci_platform_config_rationale_436",
       "label": "CI must cover every combination the release bundles, on push.      Two were excl",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L417",
+      "source_location": "L436",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_ci_platform_config_rationale_459",
+      "id": "tests_test_ci_platform_config_rationale_478",
       "label": "A hook without the mode bit is skipped, and it is skipped silently enough.",
       "file_type": "rationale",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L459",
+      "source_location": "L478",
       "_origin": "ast"
     },
     {
@@ -73822,6 +73838,14 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_packaging_metadata_test_readthedocs_builds_the_same_supported_docs_environment",
+      "label": "test_readthedocs_builds_the_same_supported_docs_environment()",
+      "file_type": "code",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L79",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_packaging_metadata_rationale_1",
       "label": "Tests for published-package compatibility metadata.",
       "file_type": "rationale",
@@ -73859,6 +73883,14 @@
       "file_type": "rationale",
       "source_file": "tests/test_packaging_metadata.py",
       "source_location": "L64",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_packaging_metadata_rationale_80",
+      "label": "Hosted documentation must build what the release workflow verifies.",
+      "file_type": "rationale",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L80",
       "_origin": "ast"
     },
     {
@@ -77038,6 +77070,38 @@
       "_origin": "ast"
     },
     {
+      "id": "tests_test_prepare_release_copy_authorities",
+      "label": "_copy_authorities()",
+      "file_type": "code",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L45",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_prepare_release_test_every_pattern_matches_exactly_once_in_the_real_file",
+      "label": "test_every_pattern_matches_exactly_once_in_the_real_file()",
+      "file_type": "code",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L54",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_prepare_release_test_update_rewrites_every_authority_to_one_version",
+      "label": "test_update_rewrites_every_authority_to_one_version()",
+      "file_type": "code",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L61",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_prepare_release_test_update_touches_nothing_when_one_authority_cannot_be_matched",
+      "label": "test_update_touches_nothing_when_one_authority_cannot_be_matched()",
+      "file_type": "code",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L74",
+      "_origin": "ast"
+    },
+    {
       "id": "tests_test_prepare_release_rationale_1",
       "label": "Unit coverage for the local release-preparation helper.",
       "file_type": "rationale",
@@ -77067,6 +77131,38 @@
       "file_type": "rationale",
       "source_file": "tests/test_prepare_release.py",
       "source_location": "L35",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_prepare_release_rationale_46",
+      "label": "Copy the real version-bearing files, at their real relative paths, into *tmp_pat",
+      "file_type": "rationale",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L46",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_prepare_release_rationale_55",
+      "label": "A reformatted file must fail here, not half-way through a release.",
+      "file_type": "rationale",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L55",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_prepare_release_rationale_62",
+      "label": "After a bump the four files agree, whatever they said before.",
+      "file_type": "rationale",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L62",
+      "_origin": "ast"
+    },
+    {
+      "id": "tests_test_prepare_release_rationale_75",
+      "label": "A failure part-way must not leave the files naming different versions.",
+      "file_type": "rationale",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L75",
       "_origin": "ast"
     },
     {
@@ -91134,8 +91230,8 @@
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_replace_declared_version",
-      "label": "replace_declared_version()",
+      "id": "tools_prepare_release_replaced_version_text",
+      "label": "replaced_version_text()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
       "source_location": "L60",
@@ -91150,11 +91246,35 @@
       "_origin": "ast"
     },
     {
+      "id": "tools_prepare_release_replace_declared_version",
+      "label": "replace_declared_version()",
+      "file_type": "code",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L69",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_prepare_release_version_authorities",
+      "label": "version_authorities()",
+      "file_type": "code",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L74",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_prepare_release_update_version_authorities",
+      "label": "update_version_authorities()",
+      "file_type": "code",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L91",
+      "_origin": "ast"
+    },
+    {
       "id": "tools_prepare_release_dirty_paths",
       "label": "dirty_paths()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L69",
+      "source_location": "L109",
       "_origin": "ast"
     },
     {
@@ -91162,7 +91282,7 @@
       "label": "ensure_preconditions()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L76",
+      "source_location": "L116",
       "_origin": "ast"
     },
     {
@@ -91170,7 +91290,7 @@
       "label": "run_package_preflight()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L97",
+      "source_location": "L137",
       "_origin": "ast"
     },
     {
@@ -91178,7 +91298,7 @@
       "label": "prepare_release()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L109",
+      "source_location": "L149",
       "_origin": "ast"
     },
     {
@@ -91186,7 +91306,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L152",
+      "source_location": "L184",
       "_origin": "ast"
     },
     {
@@ -91231,7 +91351,7 @@
     },
     {
       "id": "tools_prepare_release_rationale_61",
-      "label": "Replace precisely one quoted version declaration in *path*.",
+      "label": "Return *path*'s text with precisely one quoted version declaration replaced.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
       "source_location": "L61",
@@ -91239,42 +91359,66 @@
     },
     {
       "id": "tools_prepare_release_rationale_70",
-      "label": "Return changed paths, excluding the user-managed offline Graphify graph.",
+      "label": "Replace precisely one quoted version declaration in *path*.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
       "source_location": "L70",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_77",
-      "label": "Check branch, worktree, and local/remote tag uniqueness before editing.",
+      "id": "tools_prepare_release_rationale_75",
+      "label": "Every file that declares the package version, with the pattern that finds it.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L77",
+      "source_location": "L75",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_98",
-      "label": "Build into a temporary directory and validate the exact publishable artifacts.",
+      "id": "tools_prepare_release_rationale_92",
+      "label": "Rewrite every version authority, or none of them.      Each file is edited in tu",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L98",
+      "source_location": "L92",
       "_origin": "ast"
     },
     {
       "id": "tools_prepare_release_rationale_110",
-      "label": "Update version authorities and optionally create and publish the release tag.",
+      "label": "Return changed paths, excluding the user-managed offline Graphify graph.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
       "source_location": "L110",
       "_origin": "ast"
     },
     {
-      "id": "tools_prepare_release_rationale_153",
+      "id": "tools_prepare_release_rationale_117",
+      "label": "Check branch, worktree, and local/remote tag uniqueness before editing.",
+      "file_type": "rationale",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L117",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_prepare_release_rationale_138",
+      "label": "Build into a temporary directory and validate the exact publishable artifacts.",
+      "file_type": "rationale",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L138",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_prepare_release_rationale_150",
+      "label": "Update version authorities and optionally create and publish the release tag.",
+      "file_type": "rationale",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L150",
+      "_origin": "ast"
+    },
+    {
+      "id": "tools_prepare_release_rationale_185",
       "label": "Parse command-line arguments and prepare one tag-triggered release.",
       "file_type": "rationale",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L153",
+      "source_location": "L185",
       "_origin": "ast"
     },
     {
@@ -94202,7 +94346,7 @@
       "label": "Cross-platform pressure audit (D-040)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L347",
+      "source_location": "L349",
       "_origin": "ast"
     },
     {
@@ -94210,7 +94354,7 @@
       "label": "Fixed (this PR — Phase 4 stabilization)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L371",
+      "source_location": "L373",
       "_origin": "ast"
     },
     {
@@ -94218,7 +94362,7 @@
       "label": "mypy is clean — keep it that way (V-07)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L408",
+      "source_location": "L410",
       "_origin": "ast"
     },
     {
@@ -94226,7 +94370,7 @@
       "label": "Module Map",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L423",
+      "source_location": "L425",
       "_origin": "ast"
     },
     {
@@ -94234,7 +94378,7 @@
       "label": "Architecture Rules (violations = rejected PR)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L574",
+      "source_location": "L576",
       "_origin": "ast"
     },
     {
@@ -94242,7 +94386,7 @@
       "label": "Signal Wiring Map",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L588",
+      "source_location": "L590",
       "_origin": "ast"
     },
     {
@@ -94250,7 +94394,7 @@
       "label": "Sidebar → MainWindow → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L592",
+      "source_location": "L594",
       "_origin": "ast"
     },
     {
@@ -94258,7 +94402,7 @@
       "label": "Transport → Player → subsystems",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L606",
+      "source_location": "L608",
       "_origin": "ast"
     },
     {
@@ -94266,7 +94410,7 @@
       "label": "PlotPane / Player → downstream",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L623",
+      "source_location": "L625",
       "_origin": "ast"
     },
     {
@@ -94274,7 +94418,7 @@
       "label": "Time display mode (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L636",
+      "source_location": "L638",
       "_origin": "ast"
     },
     {
@@ -94282,7 +94426,7 @@
       "label": "Source properties + integrity (D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L643",
+      "source_location": "L645",
       "_origin": "ast"
     },
     {
@@ -94290,7 +94434,7 @@
       "label": "Import pipeline (updated, D-020)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L653",
+      "source_location": "L655",
       "_origin": "ast"
     },
     {
@@ -94298,7 +94442,7 @@
       "label": "Known Traps",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L669",
+      "source_location": "L671",
       "_origin": "ast"
     },
     {
@@ -94306,7 +94450,7 @@
       "label": "0-fork. Nothing a repaint can reach may shell out, and a miss must be cached",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L677",
+      "source_location": "L679",
       "_origin": "ast"
     },
     {
@@ -94314,7 +94458,7 @@
       "label": "0-epoch. A loader declares where its zero is; it never declares a placement",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L690",
+      "source_location": "L692",
       "_origin": "ast"
     },
     {
@@ -94322,7 +94466,7 @@
       "label": "0-offset. A source offset has two domains, and mixing them moves things by decades",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L716",
+      "source_location": "L718",
       "_origin": "ast"
     },
     {
@@ -94330,7 +94474,7 @@
       "label": "0-bounds. The master timeline is derived from coverage, never accumulated",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L741",
+      "source_location": "L743",
       "_origin": "ast"
     },
     {
@@ -94338,7 +94482,7 @@
       "label": "0-wizard. The alignment wizard is non-modal, and a test cannot `exec()` around it",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L755",
+      "source_location": "L757",
       "_origin": "ast"
     },
     {
@@ -94346,7 +94490,7 @@
       "label": "0-badge. `ui/quality_badge.py` had no caller in `src/` at all",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L771",
+      "source_location": "L773",
       "_origin": "ast"
     },
     {
@@ -94354,7 +94498,7 @@
       "label": "0-entrypoints. A new plugin group must be added to `_ENTRY_POINT_GROUPS`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L787",
+      "source_location": "L789",
       "_origin": "ast"
     },
     {
@@ -94362,7 +94506,7 @@
       "label": "0-kind. A `TriggerKind` that does not travel on the spec loses two rungs",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L798",
+      "source_location": "L800",
       "_origin": "ast"
     },
     {
@@ -94370,7 +94514,7 @@
       "label": "0-trigger. An external trigger and a frame strobe are not the same evidence",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L818",
+      "source_location": "L820",
       "_origin": "ast"
     },
     {
@@ -94378,7 +94522,7 @@
       "label": "0-epoch. Nothing declared a session zero, and two things broke on it",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L840",
+      "source_location": "L842",
       "_origin": "ast"
     },
     {
@@ -94386,7 +94530,7 @@
       "label": "0-align. A mapping's numbers cannot say how it was made",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L863",
+      "source_location": "L865",
       "_origin": "ast"
     },
     {
@@ -94394,7 +94538,7 @@
       "label": "0-segv. A window the test never registered dies after the tests pass",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L884",
+      "source_location": "L886",
       "_origin": "ast"
     },
     {
@@ -94402,7 +94546,7 @@
       "label": "0-clock. A clock time is not a timestamp",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L899",
+      "source_location": "L901",
       "_origin": "ast"
     },
     {
@@ -94410,7 +94554,7 @@
       "label": "0-nav. `qtbot.addWidget` holds its widgets weakly",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L910",
+      "source_location": "L912",
       "_origin": "ast"
     },
     {
@@ -94418,7 +94562,7 @@
       "label": "0-nav-bis. A pyqtgraph view box receives `QGraphicsSceneWheelEvent`, not `QWheelEvent`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L921",
+      "source_location": "L923",
       "_origin": "ast"
     },
     {
@@ -94426,7 +94570,7 @@
       "label": "0a. Three UI facts that look like features and are not (Phase 7)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L930",
+      "source_location": "L932",
       "_origin": "ast"
     },
     {
@@ -94434,7 +94578,7 @@
       "label": "0a-quater. Four surfaces that existed and were not used (D-107)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L978",
+      "source_location": "L980",
       "_origin": "ast"
     },
     {
@@ -94442,7 +94586,7 @@
       "label": "0a-bis. Four ways a theme change silently fails to arrive (D-106)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1016",
+      "source_location": "L1018",
       "_origin": "ast"
     },
     {
@@ -94450,7 +94594,7 @@
       "label": "0a-ter. A test that writes real `QSettings` edits the developer's application (D-106)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1054",
+      "source_location": "L1056",
       "_origin": "ast"
     },
     {
@@ -94458,7 +94602,7 @@
       "label": "0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1062",
+      "source_location": "L1064",
       "_origin": "ast"
     },
     {
@@ -94466,7 +94610,7 @@
       "label": "0b. Building a widget list can free the widgets in it (D-065)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1075",
+      "source_location": "L1077",
       "_origin": "ast"
     },
     {
@@ -94474,7 +94618,7 @@
       "label": "0a. A `QObject` moved to a `QThread` needs an owning Python reference",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1087",
+      "source_location": "L1089",
       "_origin": "ast"
     },
     {
@@ -94482,7 +94626,7 @@
       "label": "0b. Do NOT add the anchor date to AOL encoder timestamps (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1094",
+      "source_location": "L1096",
       "_origin": "ast"
     },
     {
@@ -94490,7 +94634,7 @@
       "label": "0c. AOL pose data must not become plot rows (D-046)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1101",
+      "source_location": "L1103",
       "_origin": "ast"
     },
     {
@@ -94498,7 +94642,7 @@
       "label": "0c-bis. Overlay data reaches the grid before most panes exist (D-077)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1108",
+      "source_location": "L1110",
       "_origin": "ast"
     },
     {
@@ -94506,7 +94650,7 @@
       "label": "0c-ter. The overlay reads `sample_at`, not `value_at` (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1120",
+      "source_location": "L1122",
       "_origin": "ast"
     },
     {
@@ -94514,7 +94658,7 @@
       "label": "0c-quater. A correction never touches the pose file or its cache (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1130",
+      "source_location": "L1132",
       "_origin": "ast"
     },
     {
@@ -94522,7 +94666,7 @@
       "label": "0c-quinquies. Persistence hangs off the mutation, not off the store's observers (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1140",
+      "source_location": "L1142",
       "_origin": "ast"
     },
     {
@@ -94530,7 +94674,7 @@
       "label": "0c-sexies. A correction is keyed by sample index, written as a video frame (D-099)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1150",
+      "source_location": "L1152",
       "_origin": "ast"
     },
     {
@@ -94538,7 +94682,7 @@
       "label": "0c-wheel. A wheel is drawn from the frame's time, not the clock's, and never from a file (D-113)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1162",
+      "source_location": "L1164",
       "_origin": "ast"
     },
     {
@@ -94546,7 +94690,7 @@
       "label": "0c-custom. Our marker files match the globs that find pose data (D-112)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1171",
+      "source_location": "L1173",
       "_origin": "ast"
     },
     {
@@ -94554,7 +94698,7 @@
       "label": "0c-septies. Export writers do not create the folder you typed (D-100)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1178",
+      "source_location": "L1180",
       "_origin": "ast"
     },
     {
@@ -94562,7 +94706,7 @@
       "label": "0c-octies. Do not reach for `QToolButton.setDefaultAction` (D-100)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1184",
+      "source_location": "L1186",
       "_origin": "ast"
     },
     {
@@ -94570,7 +94714,7 @@
       "label": "0d. `\"_eks.csv\".split(\"_\")[0]` is `\"\"` — and `\"\" in name` matches everything",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1193",
+      "source_location": "L1195",
       "_origin": "ast"
     },
     {
@@ -94578,7 +94722,7 @@
       "label": "0e. A container's declared frame rate is a claim, not evidence (D-072)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1198",
+      "source_location": "L1200",
       "_origin": "ast"
     },
     {
@@ -94586,7 +94730,7 @@
       "label": "0f. `*.xml` matches `settings.xml`, two levels above the samples (D-070)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1206",
+      "source_location": "L1208",
       "_origin": "ast"
     },
     {
@@ -94594,7 +94738,7 @@
       "label": "0g. A sidecar cache is named after its source path *alone*",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1212",
+      "source_location": "L1214",
       "_origin": "ast"
     },
     {
@@ -94602,7 +94746,7 @@
       "label": "0h. Cache files are shared inodes — never write to one in place (D-071)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1219",
+      "source_location": "L1221",
       "_origin": "ast"
     },
     {
@@ -94610,7 +94754,7 @@
       "label": "0i. A drop must step over our own sidecar caches",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1226",
+      "source_location": "L1228",
       "_origin": "ast"
     },
     {
@@ -94618,7 +94762,7 @@
       "label": "0j. Only the first session of a multi-path drop owns the timeline",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1233",
+      "source_location": "L1235",
       "_origin": "ast"
     },
     {
@@ -94626,7 +94770,7 @@
       "label": "0k. A plugin's display name is the kind of data, never the rig",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1239",
+      "source_location": "L1241",
       "_origin": "ast"
     },
     {
@@ -94634,7 +94778,7 @@
       "label": "0l. A `SessionItem` label is never part of `config`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1254",
+      "source_location": "L1256",
       "_origin": "ast"
     },
     {
@@ -94642,7 +94786,7 @@
       "label": "0m. \"Failed to import CSV\" was hardcoded for every loader",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1261",
+      "source_location": "L1263",
       "_origin": "ast"
     },
     {
@@ -94650,7 +94794,7 @@
       "label": "0n. Combo index 0 is \"Skip\" — never leave a resolved row on it",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1272",
+      "source_location": "L1274",
       "_origin": "ast"
     },
     {
@@ -94658,7 +94802,7 @@
       "label": "0o. Dropped frames are invisible to the gap mask, by arithmetic (D-074)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1278",
+      "source_location": "L1280",
       "_origin": "ast"
     },
     {
@@ -94666,7 +94810,7 @@
       "label": "0p. A shortcut only reaches the playhead if no focused widget claims it (D-059)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1287",
+      "source_location": "L1289",
       "_origin": "ast"
     },
     {
@@ -94674,7 +94818,7 @@
       "label": "1. No bare `QWidget { }` QSS selector — blacks out video panes",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1304",
+      "source_location": "L1306",
       "_origin": "ast"
     },
     {
@@ -94682,7 +94826,7 @@
       "label": "2. `setParent(None)` makes a widget a popup window",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1314",
+      "source_location": "L1316",
       "_origin": "ast"
     },
     {
@@ -94690,7 +94834,7 @@
       "label": "3. `setLayout()` silently fails if layout already exists",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1318",
+      "source_location": "L1320",
       "_origin": "ast"
     },
     {
@@ -94698,7 +94842,7 @@
       "label": "4. A pts table built by walking packets is in *decode* order",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1322",
+      "source_location": "L1324",
       "_origin": "ast"
     },
     {
@@ -94706,7 +94850,7 @@
       "label": "5. The forward-decode-vs-reseek crossover is measured in frames, never seconds",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1328",
+      "source_location": "L1330",
       "_origin": "ast"
     },
     {
@@ -94714,7 +94858,7 @@
       "label": "6. Video pane needs `WA_StyledBackground = False`",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1334",
+      "source_location": "L1336",
       "_origin": "ast"
     },
     {
@@ -94722,7 +94866,7 @@
       "label": "7. Drive MasterClock from `time.monotonic()` — never accumulate timer intervals",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1338",
+      "source_location": "L1340",
       "_origin": "ast"
     },
     {
@@ -94730,7 +94874,7 @@
       "label": "8. Drift correction needs hysteresis (5 consecutive ticks)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1342",
+      "source_location": "L1344",
       "_origin": "ast"
     },
     {
@@ -94738,7 +94882,7 @@
       "label": "8b. Playback commands a frame, never a rate — do not reintroduce drift correction",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1349",
+      "source_location": "L1351",
       "_origin": "ast"
     },
     {
@@ -94746,7 +94890,7 @@
       "label": "8c. Per-frame UI work must not scale with the decoded frame rate",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1358",
+      "source_location": "L1360",
       "_origin": "ast"
     },
     {
@@ -94754,7 +94898,7 @@
       "label": "8e. The plot scene must not repaint at the tick rate, and stays visually plain",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1367",
+      "source_location": "L1369",
       "_origin": "ast"
     },
     {
@@ -94762,7 +94906,7 @@
       "label": "8d. `paintEvent` must never query a decoder",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1379",
+      "source_location": "L1381",
       "_origin": "ast"
     },
     {
@@ -94770,7 +94914,7 @@
       "label": "9. polars `read_csv` type inference flips per-chunk",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1388",
+      "source_location": "L1390",
       "_origin": "ast"
     },
     {
@@ -94778,7 +94922,7 @@
       "label": "10. `QImage` does not copy the array it wraps",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1394",
+      "source_location": "L1396",
       "_origin": "ast"
     },
     {
@@ -94786,7 +94930,7 @@
       "label": "12. ruff `line-length = 100` — IDE diagnostics at 79 chars are false positives",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1399",
+      "source_location": "L1401",
       "_origin": "ast"
     },
     {
@@ -94794,7 +94938,7 @@
       "label": "13. `_load_level()` is private — use the bounded read API (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1403",
+      "source_location": "L1405",
       "_origin": "ast"
     },
     {
@@ -94802,7 +94946,7 @@
       "label": "14. Session v1 → v2 migration: SensorEntry / VideoEntry gain new optional fields",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1414",
+      "source_location": "L1416",
       "_origin": "ast"
     },
     {
@@ -94810,7 +94954,7 @@
       "label": "15. Never cache time→pixel positions; map from current geometry at paint time",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1420",
+      "source_location": "L1422",
       "_origin": "ast"
     },
     {
@@ -94818,7 +94962,7 @@
       "label": "18. System-key collisions — Ctrl+V and Ctrl+D are reserved (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1430",
+      "source_location": "L1432",
       "_origin": "ast"
     },
     {
@@ -94826,7 +94970,7 @@
       "label": "19. VideoPane right-click: eventFilter, NOT CustomContextMenu policy (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1441",
+      "source_location": "L1443",
       "_origin": "ast"
     },
     {
@@ -94834,7 +94978,7 @@
       "label": "11. Annotation label edits via `markers` property are silently discarded",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1454",
+      "source_location": "L1456",
       "_origin": "ast"
     },
     {
@@ -94842,7 +94986,7 @@
       "label": "16. `type: ignore` is never a shipping mechanism",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1458",
+      "source_location": "L1460",
       "_origin": "ast"
     },
     {
@@ -94850,7 +94994,7 @@
       "label": "20. mypy silently ignores malformed override sections",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1475",
+      "source_location": "L1477",
       "_origin": "ast"
     },
     {
@@ -94858,7 +95002,7 @@
       "label": "21. QSplitter.restoreState also restores `childrenCollapsible` (D-049)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1478",
+      "source_location": "L1480",
       "_origin": "ast"
     },
     {
@@ -94866,7 +95010,7 @@
       "label": "21a. `setSizes` is not a drag — `PaneProportions` only adopts on `splitterMoved` (D-061)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1487",
+      "source_location": "L1489",
       "_origin": "ast"
     },
     {
@@ -94874,7 +95018,7 @@
       "label": "22. Presentation refresh is 20 Hz, not 60 Hz (D-047)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1501",
+      "source_location": "L1503",
       "_origin": "ast"
     },
     {
@@ -94882,7 +95026,7 @@
       "label": "23. Channel names are not unique — key by `ChannelKey` (D-045)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1509",
+      "source_location": "L1511",
       "_origin": "ast"
     },
     {
@@ -94890,7 +95034,7 @@
       "label": "24. Media subprocesses must splat `no_window_kwargs()` (V-14, D-050)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1516",
+      "source_location": "L1518",
       "_origin": "ast"
     },
     {
@@ -94898,7 +95042,7 @@
       "label": "25. `VideoPane.__init__` must build its chrome on every path (V-11, D-013)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1526",
+      "source_location": "L1528",
       "_origin": "ast"
     },
     {
@@ -94906,7 +95050,7 @@
       "label": "26. AOL sessions load raw video + one fused EKS track per camera",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1537",
+      "source_location": "L1539",
       "_origin": "ast"
     },
     {
@@ -94914,7 +95058,7 @@
       "label": "26b. AOL extracted-metric MAT files are found by filename, never a fixed folder name",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1546",
+      "source_location": "L1548",
       "_origin": "ast"
     },
     {
@@ -94922,7 +95066,7 @@
       "label": "26c. Video-extraction exports are v7.3/HDF5 and need the JSON sidecar",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1565",
+      "source_location": "L1567",
       "_origin": "ast"
     },
     {
@@ -94930,7 +95074,7 @@
       "label": "27. The window must always close; jobs are owned by JobManager (V-09)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1594",
+      "source_location": "L1596",
       "_origin": "ast"
     },
     {
@@ -94938,7 +95082,7 @@
       "label": "28. UI-thread stalls are measured, not guessed (`ui/ui_heartbeat.py`)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1618",
+      "source_location": "L1620",
       "_origin": "ast"
     },
     {
@@ -94946,7 +95090,7 @@
       "label": "17. Annotation schema (v3) — per-video frame records",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1631",
+      "source_location": "L1633",
       "_origin": "ast"
     },
     {
@@ -94954,7 +95098,7 @@
       "label": "Run Commands",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1676",
+      "source_location": "L1678",
       "_origin": "ast"
     },
     {
@@ -94962,7 +95106,7 @@
       "label": "Shortcuts Reference (D-022)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1710",
+      "source_location": "L1712",
       "_origin": "ast"
     },
     {
@@ -94970,7 +95114,7 @@
       "label": "Playback",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1712",
+      "source_location": "L1714",
       "_origin": "ast"
     },
     {
@@ -94978,7 +95122,7 @@
       "label": "Marking",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1732",
+      "source_location": "L1734",
       "_origin": "ast"
     },
     {
@@ -94986,7 +95130,7 @@
       "label": "View",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1742",
+      "source_location": "L1744",
       "_origin": "ast"
     },
     {
@@ -94994,7 +95138,7 @@
       "label": "File",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1754",
+      "source_location": "L1756",
       "_origin": "ast"
     },
     {
@@ -95002,7 +95146,7 @@
       "label": "Performance Budgets (engineering-certified where ★)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1768",
+      "source_location": "L1770",
       "_origin": "ast"
     },
     {
@@ -95010,7 +95154,7 @@
       "label": "8f. The pyramid query must fill the point budget, not merely fit under it",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1794",
+      "source_location": "L1796",
       "_origin": "ast"
     },
     {
@@ -95018,7 +95162,7 @@
       "label": "8g. Shutdown steps are isolated and ordered; never let one raise skip the rest",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1804",
+      "source_location": "L1806",
       "_origin": "ast"
     },
     {
@@ -95026,7 +95170,7 @@
       "label": "8h. Text editors steal the playhead keys unless they are explicitly reserved",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1814",
+      "source_location": "L1816",
       "_origin": "ast"
     },
     {
@@ -95034,7 +95178,7 @@
       "label": "8i. Never build all plot rows in one call",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1824",
+      "source_location": "L1826",
       "_origin": "ast"
     },
     {
@@ -95042,7 +95186,7 @@
       "label": "29. A built-in loader's dependencies can fail, and that must not be fatal",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1842",
+      "source_location": "L1844",
       "_origin": "ast"
     },
     {
@@ -95050,7 +95194,7 @@
       "label": "30. The Windows `0xC0000005` was inside faulthandler — trigger removed with libmpv",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1861",
+      "source_location": "L1863",
       "_origin": "ast"
     },
     {
@@ -95058,7 +95202,7 @@
       "label": "31. Connect a job's result signals in `configure`, never after `_run_job` returns",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1901",
+      "source_location": "L1903",
       "_origin": "ast"
     },
     {
@@ -95066,7 +95210,7 @@
       "label": "32. A job's completion handler must be a QObject's slot, or be wrapped (D-051)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1941",
+      "source_location": "L1943",
       "_origin": "ast"
     },
     {
@@ -95074,7 +95218,7 @@
       "label": "33. A `QMenu` reached through `QAction.menu()` dies with the wrapper you drop (test-side)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L1981",
+      "source_location": "L1983",
       "_origin": "ast"
     },
     {
@@ -95082,7 +95226,7 @@
       "label": "34. Preferences is in the File menu, and `PreferencesRole` is what took it away (D-135)",
       "file_type": "document",
       "source_file": "HANDOUT.md",
-      "source_location": "L2004",
+      "source_location": "L2006",
       "_origin": "ast"
     },
     {
@@ -96522,7 +96666,7 @@
       "label": "Releases",
       "file_type": "document",
       "source_file": "docs/technical/development.md",
-      "source_location": "L143",
+      "source_location": "L145",
       "_origin": "ast"
     },
     {
@@ -96530,7 +96674,7 @@
       "label": "Signing",
       "file_type": "document",
       "source_file": "docs/technical/development.md",
-      "source_location": "L175",
+      "source_location": "L189",
       "_origin": "ast"
     },
     {
@@ -232185,7 +232329,7 @@
     },
     {
       "source": "tests_test_ci_platform_config",
-      "target": "tests_test_ci_platform_config_test_prerelease_tags_are_not_published_as_stable_releases",
+      "target": "tests_test_ci_platform_config_test_release_activates_the_exact_readthedocs_tag",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
@@ -232195,11 +232339,21 @@
     },
     {
       "source": "tests_test_ci_platform_config",
+      "target": "tests_test_ci_platform_config_test_prerelease_tags_are_not_published_as_stable_releases",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L207",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ci_platform_config",
       "target": "tests_test_ci_platform_config_test_macos_disk_image_ships_a_launchable_application",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L200",
+      "source_location": "L219",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232209,7 +232363,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L213",
+      "source_location": "L232",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232219,7 +232373,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L233",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232229,7 +232383,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L248",
+      "source_location": "L267",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232239,7 +232393,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L276",
+      "source_location": "L295",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232249,7 +232403,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L314",
+      "source_location": "L333",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232259,7 +232413,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L349",
+      "source_location": "L368",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232269,7 +232423,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L364",
+      "source_location": "L383",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232279,7 +232433,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L396",
+      "source_location": "L415",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232289,7 +232443,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L416",
+      "source_location": "L435",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232299,7 +232453,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L458",
+      "source_location": "L477",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -232395,7 +232549,7 @@
     },
     {
       "source": "tests_test_ci_platform_config_rationale_189",
-      "target": "tests_test_ci_platform_config_test_prerelease_tags_are_not_published_as_stable_releases",
+      "target": "tests_test_ci_platform_config_test_release_activates_the_exact_readthedocs_tag",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
@@ -232404,112 +232558,122 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_201",
+      "source": "tests_test_ci_platform_config_rationale_208",
+      "target": "tests_test_ci_platform_config_test_prerelease_tags_are_not_published_as_stable_releases",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_ci_platform_config.py",
+      "source_location": "L208",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_ci_platform_config_rationale_220",
       "target": "tests_test_ci_platform_config_test_macos_disk_image_ships_a_launchable_application",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L201",
+      "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_214",
+      "source": "tests_test_ci_platform_config_rationale_233",
       "target": "tests_test_ci_platform_config_test_signing_is_wired_but_optional",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L214",
+      "source_location": "L233",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_234",
+      "source": "tests_test_ci_platform_config_rationale_253",
       "target": "tests_test_ci_platform_config_test_macos_is_signed_before_the_image_is_built_and_notarized_after",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L234",
+      "source_location": "L253",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_249",
+      "source": "tests_test_ci_platform_config_rationale_268",
       "target": "tests_test_ci_platform_config_test_signing_scripts_refuse_to_run_without_credentials",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L249",
+      "source_location": "L268",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_277",
+      "source": "tests_test_ci_platform_config_rationale_296",
       "target": "tests_test_ci_platform_config_test_every_tracked_path_can_exist_on_windows",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L277",
+      "source_location": "L296",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_315",
+      "source": "tests_test_ci_platform_config_rationale_334",
       "target": "tests_test_ci_platform_config_test_no_python_in_the_repository_imports_mpv",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L315",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_350",
+      "source": "tests_test_ci_platform_config_rationale_369",
       "target": "tests_test_ci_platform_config_test_the_scrub_benchmark_measures_one_backend",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L350",
+      "source_location": "L369",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_365",
+      "source": "tests_test_ci_platform_config_rationale_384",
       "target": "tests_test_ci_platform_config_test_no_benchmark_runs_on_ci",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L365",
+      "source_location": "L384",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_397",
+      "source": "tests_test_ci_platform_config_rationale_416",
       "target": "tests_test_ci_platform_config_test_ci_starts_its_jobs_without_queueing_behind_lint",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L397",
+      "source_location": "L416",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_417",
+      "source": "tests_test_ci_platform_config_rationale_436",
       "target": "tests_test_ci_platform_config_test_ci_tests_the_interpreter_the_installers_ship",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L417",
+      "source_location": "L436",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_ci_platform_config_rationale_459",
+      "source": "tests_test_ci_platform_config_rationale_478",
       "target": "tests_test_ci_platform_config_test_every_committed_git_hook_carries_its_executable_bit",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_ci_platform_config.py",
-      "source_location": "L459",
+      "source_location": "L478",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -273719,6 +273883,16 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_packaging_metadata",
+      "target": "tests_test_packaging_metadata_test_readthedocs_builds_the_same_supported_docs_environment",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_packaging_metadata_test_every_version_authority_agrees",
       "target": "tests_test_packaging_metadata_declared_version",
       "relation": "calls",
@@ -273776,6 +273950,16 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_packaging_metadata.py",
       "source_location": "L64",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_packaging_metadata_rationale_80",
+      "target": "tests_test_packaging_metadata_test_readthedocs_builds_the_same_supported_docs_environment",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_packaging_metadata.py",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -281054,6 +281238,79 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_prepare_release",
+      "target": "tests_test_prepare_release_copy_authorities",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L45",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_copy_authorities",
+      "target": "tests_test_prepare_release_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L45",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release",
+      "target": "tests_test_prepare_release_test_every_pattern_matches_exactly_once_in_the_real_file",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L54",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release",
+      "target": "tests_test_prepare_release_test_update_rewrites_every_authority_to_one_version",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L61",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_test_update_rewrites_every_authority_to_one_version",
+      "target": "tests_test_prepare_release_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L61",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release",
+      "target": "tests_test_prepare_release_test_update_touches_nothing_when_one_authority_cannot_be_matched",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L74",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_test_update_touches_nothing_when_one_authority_cannot_be_matched",
+      "target": "tests_test_prepare_release_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L74",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_prepare_release_release_tool",
       "target": "tests_test_prepare_release_py_path",
       "relation": "calls",
@@ -281098,6 +281355,61 @@
       "_origin": "ast"
     },
     {
+      "source": "tests_test_prepare_release_test_every_pattern_matches_exactly_once_in_the_real_file",
+      "target": "tests_test_prepare_release_release_tool",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L56",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_test_update_rewrites_every_authority_to_one_version",
+      "target": "tests_test_prepare_release_release_tool",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L63",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_test_update_rewrites_every_authority_to_one_version",
+      "target": "tests_test_prepare_release_copy_authorities",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L64",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_test_update_touches_nothing_when_one_authority_cannot_be_matched",
+      "target": "tests_test_prepare_release_release_tool",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L76",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_test_update_touches_nothing_when_one_authority_cannot_be_matched",
+      "target": "tests_test_prepare_release_copy_authorities",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L77",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tests_test_prepare_release_rationale_1",
       "target": "tests_test_prepare_release",
       "relation": "rationale_for",
@@ -281134,6 +281446,46 @@
       "confidence": "EXTRACTED",
       "source_file": "tests/test_prepare_release.py",
       "source_location": "L35",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_rationale_46",
+      "target": "tests_test_prepare_release_copy_authorities",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L46",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_rationale_55",
+      "target": "tests_test_prepare_release_test_every_pattern_matches_exactly_once_in_the_real_file",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L55",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_rationale_62",
+      "target": "tests_test_prepare_release_test_update_rewrites_every_authority_to_one_version",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_prepare_release_rationale_75",
+      "target": "tests_test_prepare_release_test_update_touches_nothing_when_one_authority_cannot_be_matched",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_prepare_release.py",
+      "source_location": "L75",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315231,7 +315583,7 @@
     },
     {
       "source": "tools_prepare_release",
-      "target": "tools_prepare_release_replace_declared_version",
+      "target": "tools_prepare_release_replaced_version_text",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
@@ -315240,7 +315592,7 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_replace_declared_version",
+      "source": "tools_prepare_release_replaced_version_text",
       "target": "tools_prepare_release_py_path",
       "relation": "references",
       "context": "parameter_type",
@@ -315251,7 +315603,7 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_replace_declared_version",
+      "source": "tools_prepare_release_replaced_version_text",
       "target": "pattern",
       "relation": "references",
       "context": "parameter_type",
@@ -315263,11 +315615,96 @@
     },
     {
       "source": "tools_prepare_release",
-      "target": "tools_prepare_release_dirty_paths",
+      "target": "tools_prepare_release_replace_declared_version",
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
       "source_location": "L69",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_replace_declared_version",
+      "target": "tools_prepare_release_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L69",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_replace_declared_version",
+      "target": "pattern",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L69",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release",
+      "target": "tools_prepare_release_version_authorities",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L74",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_version_authorities",
+      "target": "tools_prepare_release_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L74",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_version_authorities",
+      "target": "pattern",
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L74",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release",
+      "target": "tools_prepare_release_update_version_authorities",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L91",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_update_version_authorities",
+      "target": "tools_prepare_release_py_path",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L91",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release",
+      "target": "tools_prepare_release_dirty_paths",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315278,7 +315715,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L69",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315288,7 +315725,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L76",
+      "source_location": "L116",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315299,7 +315736,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L76",
+      "source_location": "L116",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315309,7 +315746,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L97",
+      "source_location": "L137",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315320,7 +315757,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L97",
+      "source_location": "L137",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315330,7 +315767,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L109",
+      "source_location": "L149",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315341,7 +315778,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L109",
+      "source_location": "L149",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315351,7 +315788,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L152",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315389,7 +315826,7 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_replace_declared_version",
+      "source": "tools_prepare_release_replaced_version_text",
       "target": "tools_prepare_release_releasepreparationerror",
       "relation": "calls",
       "context": "call",
@@ -315400,13 +315837,46 @@
       "_origin": "ast"
     },
     {
+      "source": "tools_prepare_release_replace_declared_version",
+      "target": "tools_prepare_release_replaced_version_text",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_update_version_authorities",
+      "target": "tools_prepare_release_replaced_version_text",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L101",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_update_version_authorities",
+      "target": "tools_prepare_release_version_authorities",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L102",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
       "source": "tools_prepare_release_dirty_paths",
       "target": "tools_prepare_release_run_command",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L71",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315417,7 +315887,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L78",
+      "source_location": "L118",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315428,7 +315898,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L79",
+      "source_location": "L119",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315439,7 +315909,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L82",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315450,7 +315920,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L100",
+      "source_location": "L140",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315461,7 +315931,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L101",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315472,7 +315942,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L103",
+      "source_location": "L143",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315483,7 +315953,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L111",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315494,18 +315964,40 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L112",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tools_prepare_release_prepare_release",
-      "target": "tools_prepare_release_replace_declared_version",
+      "target": "tools_prepare_release_version_authorities",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L117",
+      "source_location": "L156",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_prepare_release",
+      "target": "tools_prepare_release_replaced_version_text",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L157",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_prepare_release",
+      "target": "tools_prepare_release_update_version_authorities",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315516,7 +316008,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L123",
+      "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315527,7 +316019,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L134",
+      "source_location": "L173",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315538,7 +316030,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L161",
+      "source_location": "L193",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315549,7 +316041,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L161",
+      "source_location": "L193",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -315605,7 +316097,7 @@
     },
     {
       "source": "tools_prepare_release_rationale_61",
-      "target": "tools_prepare_release_replace_declared_version",
+      "target": "tools_prepare_release_replaced_version_text",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
@@ -315615,7 +316107,7 @@
     },
     {
       "source": "tools_prepare_release_rationale_70",
-      "target": "tools_prepare_release_dirty_paths",
+      "target": "tools_prepare_release_replace_declared_version",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
@@ -315624,28 +316116,28 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_77",
-      "target": "tools_prepare_release_ensure_preconditions",
+      "source": "tools_prepare_release_rationale_75",
+      "target": "tools_prepare_release_version_authorities",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L77",
+      "source_location": "L75",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_98",
-      "target": "tools_prepare_release_run_package_preflight",
+      "source": "tools_prepare_release_rationale_92",
+      "target": "tools_prepare_release_update_version_authorities",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L98",
+      "source_location": "L92",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tools_prepare_release_rationale_110",
-      "target": "tools_prepare_release_prepare_release",
+      "target": "tools_prepare_release_dirty_paths",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
@@ -315654,12 +316146,42 @@
       "_origin": "ast"
     },
     {
-      "source": "tools_prepare_release_rationale_153",
+      "source": "tools_prepare_release_rationale_117",
+      "target": "tools_prepare_release_ensure_preconditions",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L117",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_rationale_138",
+      "target": "tools_prepare_release_run_package_preflight",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L138",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_rationale_150",
+      "target": "tools_prepare_release_prepare_release",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tools/prepare_release.py",
+      "source_location": "L150",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tools_prepare_release_rationale_185",
       "target": "tools_prepare_release_main",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tools/prepare_release.py",
-      "source_location": "L153",
+      "source_location": "L185",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319624,7 +320146,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L347",
+      "source_location": "L349",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319634,7 +320156,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L371",
+      "source_location": "L373",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319644,7 +320166,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L408",
+      "source_location": "L410",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319654,7 +320176,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L423",
+      "source_location": "L425",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319664,7 +320186,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L574",
+      "source_location": "L576",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319674,7 +320196,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L588",
+      "source_location": "L590",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319684,7 +320206,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L592",
+      "source_location": "L594",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319694,7 +320216,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L606",
+      "source_location": "L608",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319704,7 +320226,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L623",
+      "source_location": "L625",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319714,7 +320236,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L636",
+      "source_location": "L638",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319724,7 +320246,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L643",
+      "source_location": "L645",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319734,7 +320256,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L653",
+      "source_location": "L655",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319744,7 +320266,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L669",
+      "source_location": "L671",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319754,7 +320276,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L677",
+      "source_location": "L679",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319764,7 +320286,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L690",
+      "source_location": "L692",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319774,7 +320296,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L716",
+      "source_location": "L718",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319784,7 +320306,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L741",
+      "source_location": "L743",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319794,7 +320316,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L755",
+      "source_location": "L757",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319804,7 +320326,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L771",
+      "source_location": "L773",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319814,7 +320336,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L787",
+      "source_location": "L789",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319824,7 +320346,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L798",
+      "source_location": "L800",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319834,7 +320356,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L818",
+      "source_location": "L820",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319844,7 +320366,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L840",
+      "source_location": "L842",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319854,7 +320376,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L863",
+      "source_location": "L865",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319864,7 +320386,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L884",
+      "source_location": "L886",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319874,7 +320396,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L899",
+      "source_location": "L901",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319884,7 +320406,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L910",
+      "source_location": "L912",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319894,7 +320416,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L921",
+      "source_location": "L923",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319904,7 +320426,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L930",
+      "source_location": "L932",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319914,7 +320436,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L978",
+      "source_location": "L980",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319924,7 +320446,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1016",
+      "source_location": "L1018",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319934,7 +320456,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1054",
+      "source_location": "L1056",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319944,7 +320466,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1062",
+      "source_location": "L1064",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319954,7 +320476,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1075",
+      "source_location": "L1077",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319964,7 +320486,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1087",
+      "source_location": "L1089",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319974,7 +320496,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1094",
+      "source_location": "L1096",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319984,7 +320506,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1101",
+      "source_location": "L1103",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -319994,7 +320516,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1108",
+      "source_location": "L1110",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320004,7 +320526,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1120",
+      "source_location": "L1122",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320014,7 +320536,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1130",
+      "source_location": "L1132",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320024,7 +320546,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1140",
+      "source_location": "L1142",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320034,7 +320556,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1150",
+      "source_location": "L1152",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320044,7 +320566,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1162",
+      "source_location": "L1164",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320054,7 +320576,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1171",
+      "source_location": "L1173",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320064,7 +320586,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1178",
+      "source_location": "L1180",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320074,7 +320596,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1184",
+      "source_location": "L1186",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320084,7 +320606,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1193",
+      "source_location": "L1195",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320094,7 +320616,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1198",
+      "source_location": "L1200",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320104,7 +320626,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1206",
+      "source_location": "L1208",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320114,7 +320636,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1212",
+      "source_location": "L1214",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320124,7 +320646,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1219",
+      "source_location": "L1221",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320134,7 +320656,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1226",
+      "source_location": "L1228",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320144,7 +320666,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1233",
+      "source_location": "L1235",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320154,7 +320676,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1239",
+      "source_location": "L1241",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320164,7 +320686,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1254",
+      "source_location": "L1256",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320174,7 +320696,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1261",
+      "source_location": "L1263",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320184,7 +320706,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1272",
+      "source_location": "L1274",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320194,7 +320716,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1278",
+      "source_location": "L1280",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320204,7 +320726,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1287",
+      "source_location": "L1289",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320214,7 +320736,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1304",
+      "source_location": "L1306",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320224,7 +320746,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1314",
+      "source_location": "L1316",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320234,7 +320756,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1318",
+      "source_location": "L1320",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320244,7 +320766,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1322",
+      "source_location": "L1324",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320254,7 +320776,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1328",
+      "source_location": "L1330",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320264,7 +320786,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1334",
+      "source_location": "L1336",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320274,7 +320796,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1338",
+      "source_location": "L1340",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320284,7 +320806,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1342",
+      "source_location": "L1344",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320294,7 +320816,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1349",
+      "source_location": "L1351",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320304,7 +320826,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1358",
+      "source_location": "L1360",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320314,7 +320836,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1367",
+      "source_location": "L1369",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320324,7 +320846,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1379",
+      "source_location": "L1381",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320334,7 +320856,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1388",
+      "source_location": "L1390",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320344,7 +320866,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1394",
+      "source_location": "L1396",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320354,7 +320876,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1399",
+      "source_location": "L1401",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320364,7 +320886,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1403",
+      "source_location": "L1405",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320374,7 +320896,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1414",
+      "source_location": "L1416",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320384,7 +320906,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1420",
+      "source_location": "L1422",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320394,7 +320916,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1430",
+      "source_location": "L1432",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320404,7 +320926,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1441",
+      "source_location": "L1443",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320414,7 +320936,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1454",
+      "source_location": "L1456",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320424,7 +320946,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1458",
+      "source_location": "L1460",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320434,7 +320956,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1475",
+      "source_location": "L1477",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320444,7 +320966,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1478",
+      "source_location": "L1480",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320454,7 +320976,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1487",
+      "source_location": "L1489",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320464,7 +320986,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1501",
+      "source_location": "L1503",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320474,7 +320996,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1509",
+      "source_location": "L1511",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320484,7 +321006,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1516",
+      "source_location": "L1518",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320494,7 +321016,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1526",
+      "source_location": "L1528",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320504,7 +321026,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1537",
+      "source_location": "L1539",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320514,7 +321036,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1546",
+      "source_location": "L1548",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320524,7 +321046,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1565",
+      "source_location": "L1567",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320534,7 +321056,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1594",
+      "source_location": "L1596",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320544,7 +321066,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1618",
+      "source_location": "L1620",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320554,7 +321076,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1631",
+      "source_location": "L1633",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320564,7 +321086,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1676",
+      "source_location": "L1678",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320574,7 +321096,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1710",
+      "source_location": "L1712",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320584,7 +321106,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1712",
+      "source_location": "L1714",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320594,7 +321116,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1732",
+      "source_location": "L1734",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320604,7 +321126,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1742",
+      "source_location": "L1744",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320614,7 +321136,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1754",
+      "source_location": "L1756",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320624,7 +321146,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1768",
+      "source_location": "L1770",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320634,7 +321156,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1794",
+      "source_location": "L1796",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320644,7 +321166,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1804",
+      "source_location": "L1806",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320654,7 +321176,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1814",
+      "source_location": "L1816",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320664,7 +321186,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1824",
+      "source_location": "L1826",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320674,7 +321196,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1842",
+      "source_location": "L1844",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320684,7 +321206,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1861",
+      "source_location": "L1863",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320694,7 +321216,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1901",
+      "source_location": "L1903",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320704,7 +321226,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1941",
+      "source_location": "L1943",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320714,7 +321236,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L1981",
+      "source_location": "L1983",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -320724,7 +321246,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "HANDOUT.md",
-      "source_location": "L2004",
+      "source_location": "L2006",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -322544,7 +323066,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/development.md",
-      "source_location": "L143",
+      "source_location": "L145",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -322554,7 +323076,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/technical/development.md",
-      "source_location": "L175",
+      "source_location": "L189",
       "weight": 1.0,
       "_origin": "ast"
     },
