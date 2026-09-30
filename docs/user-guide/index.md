@@ -217,9 +217,10 @@ Routed tracking sources start with their visual overlay enabled, so all tracking
 by default. In the source card, directly under the file header, **Show overlay** draws a 2D
 tracker on its assigned camera or shows a 3D tracker in the 3D view; uncheck it to hide that
 source. **Show plot** adds that source's coordinate channels to the plots and starts disabled.
-Choose the coordinate channels you want in the source tree first: checking or unchecking them does
-not affect an overlay and creates no plot rows until **Show plot** is enabled. The choices are
-independent; the two presentation controls are undoable and saved in the session.
+Choose the coordinate channels you want in the source tree first: a landmark appears in the visual
+overlay only when all of its required coordinates are checked. Checking or unchecking them creates
+no plot rows until **Show plot** is enabled. The two presentation controls are undoable and saved
+in the session.
 
 - Drag with the left mouse button to orbit.
 - Use the mouse wheel to zoom.

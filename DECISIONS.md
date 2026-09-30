@@ -5299,8 +5299,8 @@ source tree only hid a plot row, so it did not control either tracker renderer.
 is visible initially; **Show plot** is off by default and persisted in its `SensorEntry`. For 2D,
 overlay means its assigned camera; for 3D, it means the 3D view (and therefore any reprojection
 derived from that view). Plotting is lazy and must not take the legacy loose-reader video-overlay
-route. Channel checks select plot rows but neither affect an overlay nor create rows until **Show
-plot** is enabled. Each choice is an undoable command.
+route. Channel checks select complete landmarks in the visual view and create plot rows only when
+**Show plot** is enabled. Each choice is an undoable command.
 
 **Alternatives rejected:** using the global Tracking points overlay (it hides all sources and
 cannot expose a source as plots); treating the source tree's channel checks as overlay controls

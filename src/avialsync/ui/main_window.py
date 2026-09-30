@@ -4204,6 +4204,7 @@ class MainWindow(QMainWindow):
     def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
         self._record(SetChannelVisibleCommand(source_id=path, channel=channel, visible=is_visible))
         if path in self._tracking_plot_sources:
+            self._refresh_tracking_visuals(path)
             if self._tracking_visibility.get(path, {}).get("plot", False):
                 self._sync_tracking_plot(path)
             return
@@ -4232,12 +4233,16 @@ class MainWindow(QMainWindow):
         state[surface] = visible
         self.sidebar.set_tracking_visible(path, surface, visible)
         if surface == "overlay":
-            for video, sources in self._overlay_sources.items():
-                if path in sources:
-                    self._refresh_overlays(video)
-            self._refresh_pose_3d()
+            self._refresh_tracking_visuals(path)
             return
         self._sync_tracking_plot(path)
+
+    def _refresh_tracking_visuals(self, path: str) -> None:
+        """Rebuild only the visual routes that a tracking source can feed."""
+        for video, sources in self._overlay_sources.items():
+            if path in sources:
+                self._refresh_overlays(video)
+        self._refresh_pose_3d()
 
     def _sync_tracking_plot(self, path: str) -> None:
         """Build or hide a tracking source's plot rows without re-importing it."""
@@ -4359,6 +4364,7 @@ class MainWindow(QMainWindow):
             )
         )
         if path in self._tracking_plot_sources:
+            self._refresh_tracking_visuals(path)
             if self._tracking_visibility.get(path, {}).get("plot", False):
                 self._sync_tracking_plot(path)
             return

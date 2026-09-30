@@ -91,7 +91,8 @@ window it asks the user to judge.
 overlays on and **Show plot** off. Their sidebar cards expose independent controls; the choices
 are undoable and session-persisted. A 2D overlay remains camera-specific, while a 3D overlay
 means the 3D view. Plotting a routed tracker never sends it through the loose-reader video overlay
-path; only its checked coordinate channels become plot rows once **Show plot** is enabled.
+path. Checked coordinates select complete landmarks in the visual view and become plot rows only
+once **Show plot** is enabled.
 
 Two product laws govern that phase and outrank convention:
 

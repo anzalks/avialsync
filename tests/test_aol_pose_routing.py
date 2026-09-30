@@ -219,6 +219,7 @@ def test_2d_tracking_source_controls_its_overlay_and_plot(
     first_channel = channels[0]
     card._channel_items[first_channel].setCheckState(0, Qt.CheckState.Unchecked)
     assert len(window.video_grid._overlay_tracks[face_video]) == 1
+    assert set(window.video_grid._overlay_tracks[face_video][0].points) == {"left_toe"}
     assert window.plot_pane.channels == []
 
     card.show_overlay.click()
@@ -226,6 +227,7 @@ def test_2d_tracking_source_controls_its_overlay_and_plot(
     assert window.plot_pane.channels == []
     card.show_overlay.click()
     assert len(window.video_grid._overlay_tracks[face_video]) == 1
+    assert set(window.video_grid._overlay_tracks[face_video][0].points) == {"left_toe"}
     assert window.plot_pane.channels == []
     card.show_plot.click()
     qtbot.waitUntil(lambda: len(window.plot_pane.channels) == len(channels) - 1)
@@ -235,7 +237,20 @@ def test_2d_tracking_source_controls_its_overlay_and_plot(
 
     card._channel_items[first_channel].setCheckState(0, Qt.CheckState.Checked)
     qtbot.waitUntil(lambda: len(window.plot_pane.channels) == len(channels))
+    assert set(window.video_grid._overlay_tracks[face_video][0].points) == {
+        "head_bar",
+        "left_toe",
+    }
     assert len(window.video_grid._overlay_tracks[face_video]) == 1
+
+    head_group = next(group for group in card._group_items if group.text(0) == "head")
+    head_group.setCheckState(0, Qt.CheckState.Unchecked)
+    assert set(window.video_grid._overlay_tracks[face_video][0].points) == {"left_toe"}
+    head_group.setCheckState(0, Qt.CheckState.Checked)
+    assert set(window.video_grid._overlay_tracks[face_video][0].points) == {
+        "head_bar",
+        "left_toe",
+    }
 
     card.show_overlay.click()
     assert window.video_grid._overlay_tracks[face_video] == []
@@ -300,6 +315,11 @@ def test_3d_tracking_source_controls_its_view_and_plot(tmp_path: Path, qtbot, mo
     assert card is not None
     assert card.show_overlay.isChecked()
     assert not card.show_plot.isChecked()
+    assert window.tracking_3d_pane.canvas.point_count == 1
+    card._channel_items["head_bar_x"].setCheckState(0, Qt.CheckState.Unchecked)
+    assert window.tracking_3d_pane.canvas.point_count == 0
+    assert window.plot_pane.channels == []
+    card._channel_items["head_bar_x"].setCheckState(0, Qt.CheckState.Checked)
     assert window.tracking_3d_pane.canvas.point_count == 1
     card.show_overlay.click()
     assert window.tracking_3d_pane.canvas.point_count == 0

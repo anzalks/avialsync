@@ -437,6 +437,7 @@ def register_tracking_source(
     # longer re-derives them by splitting ``_x`` off a channel name, which is
     # what let two animals sharing ``snout`` collapse into one point (D-140).
     points: dict[str, tuple[MappedChannelReader, MappedChannelReader]] = {}
+    point_channels: dict[str, tuple[str, str]] = {}
     available = set(channels)
 
     def _reader(channel: str) -> MappedChannelReader:
@@ -450,6 +451,7 @@ def register_tracking_source(
         x_channel, y_channel = point.channel("x"), point.channel("y")
         if x_channel in available and y_channel in available:
             points[point.name] = (_reader(x_channel), _reader(y_channel))
+            point_channels[point.name] = (x_channel, y_channel)
 
     if not points:
         logger.warning("2D pose source %s produced no complete XY points.", path)
@@ -465,6 +467,7 @@ def register_tracking_source(
         "label": str(config.get("overlay_label", Path(path).stem)),
         "is_ensemble": bool(config.get("overlay_is_ensemble", False)),
         "points": points,
+        "point_channels": point_channels,
         "frame_rate": float(config.get("fps", 0.0)),
     }
     # What this source is and where it was imported to, kept because an
@@ -570,7 +573,10 @@ def refresh_pose_3d(window: MainWindow) -> None:
     for source_id, source_readers in window._pose_3d_sources.items():
         if not window._tracking_visibility.get(source_id, {}).get("overlay", True):
             continue
-        readers.extend(source_readers)
+        selected = _selected_tracking_channels(window, source_id)
+        readers.extend(
+            reader for reader in source_readers if selected is None or reader.channel_id in selected
+        )
     window.tracking_3d_pane.set_readers(readers)
     window.tracking_3d_pane.set_cursor(window.clock.state.t)
     window._update_tracking_pane_visibility()
@@ -611,6 +617,18 @@ def refresh_overlays(window: MainWindow, video: str) -> None:
     ):
         if not window._tracking_visibility.get(_source_path, {}).get("overlay", True):
             continue
+        selected = _selected_tracking_channels(window, _source_path)
+        point_channels = entry.get("point_channels", {})
+        source_points = entry["points"]
+        points = source_points
+        if selected is not None and any(
+            not set(point_channels.get(name, ())) <= selected for name in source_points
+        ):
+            points = {
+                name: readers
+                for name, readers in source_points.items()
+                if set(point_channels.get(name, ())) <= selected
+            }
         is_ensemble = bool(entry["is_ensemble"])
         color = track_color(model_index, is_ensemble=is_ensemble)
         if not is_ensemble:
@@ -618,12 +636,18 @@ def refresh_overlays(window: MainWindow, video: str) -> None:
         tracks.append(
             OverlayTrack(
                 label=str(entry["label"]),
-                points=entry["points"],
+                points=points,
                 color=color,
                 is_ensemble=is_ensemble,
             )
         )
     window.video_grid.set_overlay_tracks(video, tracks)
+
+
+def _selected_tracking_channels(window: MainWindow, source_id: str) -> set[str] | None:
+    """Return one routed source's selected coordinates, if its card is present."""
+    card = window.sidebar.sensor_widget(source_id)
+    return set(card.checked_channels()) if card is not None else None
 
 
 def on_import_error(window: MainWindow, err_msg: str) -> None:
