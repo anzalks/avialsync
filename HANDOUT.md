@@ -124,6 +124,10 @@ Two product laws govern that phase and outrank convention:
 - Stimulus-grid MP4 export: select a sensor rising threshold and event window, review events on a
   decimated timeline, then compare up to twelve event rows across camera columns with an aligned
   trigger marker and relative-time ruler. Export runs as a registered background job.
+  trigger marker and relative-time ruler. It snapshots accepted camera mappings and display levels;
+  export runs as a registered background job.
+- `TimeMap.copy()` preserves affine drift anchors and accepted exact timestamp mappings in worker
+  snapshots.
 - Import wizard (CSV format/TZ/sentinel/euro-decimal) + proxy worker
 - `plot_pane.reset_zoom()` method exists
 - Plots share one master-time page and continuous **Time span** control (`ms` / `s` / `min` / `h`),

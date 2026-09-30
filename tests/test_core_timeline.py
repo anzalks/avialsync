@@ -214,6 +214,22 @@ def test_time_map_exact_mapping_is_validated_and_copied() -> None:
     assert tmap.rate_scale == pytest.approx(2.0 / 3.0)
 
 
+def test_time_map_copy_preserves_affine_anchor_and_exact_mapping() -> None:
+    affine = TimeMap(offset=2.0, drift_ppm=3.0)
+    affine.update(4.0, 20.0, 50.0)
+    affine_copy = affine.copy()
+    assert affine_copy.to_source(75.0) == pytest.approx(affine.to_source(75.0))
+
+    exact = TimeMap(offset=5.0, drift_ppm=10.0)
+    exact.set_exact_mapping(np.array([0.0, 1.0, 3.0]), np.array([10.0, 12.0, 15.0]))
+    exact_copy = exact.copy()
+    exact.set_mapping(0.0, 0.0)
+
+    assert exact_copy.has_exact_mapping
+    assert exact_copy.to_source(0.5) == pytest.approx(11.0)
+    assert exact_copy.to_master(12.0) == pytest.approx(1.0)
+
+
 @pytest.mark.parametrize(
     ("master", "source"),
     [

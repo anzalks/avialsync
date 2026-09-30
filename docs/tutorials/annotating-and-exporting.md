@@ -88,7 +88,8 @@ twelve events and set the time before and after each one. The first selected eve
 window is shown before export. The MP4 places events in rows and cameras in columns, draws the
 stimulus at the same horizontal position in every tile, and shows the shared relative-time scale
 along the bottom. Missing video coverage is labeled in its tile, and the source recordings are never
-modified.
+modified. It uses each camera's accepted time mapping and display levels. Missing video
+coverage is labeled in its tile, and the source recordings are never modified.
 
 ## What is not exported
 

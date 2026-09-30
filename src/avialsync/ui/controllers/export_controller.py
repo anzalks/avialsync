@@ -356,8 +356,8 @@ def export_stimulus_grid(window: MainWindow) -> None:
         GridVideo(
             Path(path),
             Path(path).name,
-            pane.time_map.offset,
-            pane.time_map.drift_ppm,
+            pane.time_map,
+            pane.display_levels(),
         )
         for path, pane in zip(window.video_grid._paths, window.video_grid.panes, strict=False)
     )

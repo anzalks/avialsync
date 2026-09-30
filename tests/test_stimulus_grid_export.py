@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from fractions import Fraction
+from pathlib import Path
 
 import av
 import numpy as np
 import pytest
 
+from avialsync.core.timeline import TimeMap
+from avialsync.engine import stimulus_grid_export
+from avialsync.engine.display_pipeline import DisplayLevels
 from avialsync.engine.stimulus_grid_export import (
     MAX_GRID_EVENTS,
     GridLabels,
@@ -63,6 +67,108 @@ def test_stimulus_grid_export_is_decodable(tmp_path, qapp) -> None:
     expected = plan_grid(video_count=1, event_count=1, before=0.1, after=0.2)
     assert len(frames) == 2
     assert (frames[0].width, frames[0].height) == (expected.width, expected.height)
+
+
+def test_stimulus_grid_reuses_one_reader_per_camera(tmp_path, qapp, monkeypatch) -> None:
+    source = tmp_path / "source.mp4"
+    destination = tmp_path / "comparison.mp4"
+    frame = np.full((36, 64, 3), (80, 120, 160), dtype=np.uint8)
+    encode_video(
+        source,
+        [(frame, 0.0), (frame, 0.1), (frame, 0.2)],
+        rate=Fraction(10, 1),
+    )
+    opened: list[object] = []
+    reader_type = stimulus_grid_export.PyAVReader
+
+    def counting_reader(path, max_cached_frames=2):
+        opened.append(path)
+        return reader_type(path, max_cached_frames)
+
+    monkeypatch.setattr(stimulus_grid_export, "PyAVReader", counting_reader)
+    export_stimulus_grid(
+        [GridVideo(source, "Camera A"), GridVideo(source, "Camera B")],
+        [0.1, 0.2],
+        before=0.1,
+        after=0.2,
+        destination=destination,
+        labels=_LABELS,
+        fps=5,
+    )
+
+    assert len(opened) == 2
+
+
+def test_stimulus_grid_uses_a_snapshot_of_exact_video_mapping(tmp_path, qapp, monkeypatch) -> None:
+    source = tmp_path / "source.mp4"
+    destination = tmp_path / "comparison.mp4"
+    frame = np.full((36, 64, 3), (80, 120, 160), dtype=np.uint8)
+    encode_video(
+        source,
+        [(frame, index / 10) for index in range(5)],
+        rate=Fraction(10, 1),
+    )
+    mapping = TimeMap()
+    mapping.set_exact_mapping(
+        np.array([0.0, 0.1, 0.2]),
+        np.array([0.0, 0.15, 0.4]),
+    )
+    video = GridVideo(source, "Camera", mapping)
+    mapping.set_mapping(0.0, 0.0)
+
+    requested_times: list[float] = []
+    reader_type = stimulus_grid_export.PyAVReader
+    frame_at_time = reader_type.frame_at_time
+
+    def record_source_time(reader, source_time):
+        requested_times.append(source_time)
+        return frame_at_time(reader, source_time)
+
+    monkeypatch.setattr(reader_type, "frame_at_time", record_source_time)
+    export_stimulus_grid(
+        [video],
+        [0.1],
+        before=0.0,
+        after=0.1,
+        destination=destination,
+        labels=_LABELS,
+        fps=10,
+    )
+
+    assert requested_times == pytest.approx([0.15])
+
+
+def test_stimulus_grid_applies_high_bit_depth_display_levels(qapp) -> None:
+    frame = av.VideoFrame.from_ndarray(
+        np.full((36, 64), 1024, dtype=np.uint16),
+        format="gray12le",
+    )
+
+    class _Reader:
+        def frame_at_time(self, _source_time):
+            return frame
+
+    video = GridVideo(
+        Path("unused.mp4"),
+        "Camera",
+        display_levels=DisplayLevels(black=0.4, white=0.6),
+    )
+    layout = plan_grid(video_count=1, event_count=1, before=0.0, after=0.1)
+    image = stimulus_grid_export._render_frame(
+        [video],
+        [0.0],
+        {0: (_Reader(), video.time_map, (0.0, 0.1))},
+        layout,
+        0.0,
+        0.0,
+        0.1,
+        _LABELS,
+    )
+
+    pixel = image.pixelColor(200, 44 + 28 + layout.cell_height // 2)
+    assert pixel.red() < 5
+    assert pixel.green() < 5
+    assert pixel.blue() < 5
 
 
 @pytest.mark.parametrize(

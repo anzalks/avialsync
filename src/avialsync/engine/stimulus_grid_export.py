@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
 
@@ -14,7 +14,8 @@ from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen
 
 from avialsync.core.timeline import TimeMap
-from avialsync.engine.pyav_reader import PyAVReader, to_rgb_array
+from avialsync.engine.display_pipeline import DisplayLevels, to_display_array
+from avialsync.engine.pyav_reader import PyAVReader
 from avialsync.engine.transcode import (
     CancelCheck,
     ProgressCallback,
@@ -38,12 +39,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class GridVideo:
-    """A video and its accepted mapping onto master time."""
+    """A video and detached snapshots of its timing and display settings."""
 
     path: Path
     label: str
-    offset: float = 0.0
-    drift_ppm: float = 0.0
+    time_map: TimeMap = field(default_factory=TimeMap)
+    display_levels: DisplayLevels = field(default_factory=DisplayLevels)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "time_map", self.time_map.copy())
 
 
 @dataclass(frozen=True)
@@ -139,18 +143,17 @@ def export_stimulus_grid(
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     with ExitStack() as stack:
-        readers: dict[tuple[int, int], tuple[PyAVReader, TimeMap, tuple[float, float]]] = {}
-        for event_index in range(len(events)):
-            for video_index, video in enumerate(videos):
-                reader = stack.enter_context(PyAVReader(video.path, max_cached_frames=2))
-                reader.stream.thread_type = "SLICE"
-                time_map = TimeMap(video.offset, video.drift_ppm)
-                source_times = reader.frame_times
-                bounds = (
-                    time_map.to_master(float(source_times[0])),
-                    time_map.to_master(float(source_times[-1])),
-                )
-                readers[event_index, video_index] = (reader, time_map, bounds)
+        readers: dict[int, tuple[PyAVReader, TimeMap, tuple[float, float]]] = {}
+        for video_index, video in enumerate(videos):
+            reader = stack.enter_context(PyAVReader(video.path, max_cached_frames=2))
+            reader.stream.thread_type = "SLICE"
+            time_map = video.time_map
+            source_times = reader.frame_times
+            bounds = (
+                time_map.to_master(float(source_times[0])),
+                time_map.to_master(float(source_times[-1])),
+            )
+            readers[video_index] = (reader, time_map, bounds)
 
         def frames() -> Iterator[tuple[np.ndarray, float]]:
             for frame_index in range(frame_count):
@@ -178,7 +181,7 @@ def export_stimulus_grid(
 def _render_frame(
     videos: Sequence[GridVideo],
     events: Sequence[float],
-    readers: dict[tuple[int, int], tuple[PyAVReader, TimeMap, tuple[float, float]]],
+    readers: dict[int, tuple[PyAVReader, TimeMap, tuple[float, float]]],
     layout: GridLayout,
     relative_time: float,
     before: float,
@@ -222,16 +225,20 @@ def _render_frame(
         master_time = event_time + relative_time
         for video_index, video in enumerate(videos):
             x = _LEFT_GUTTER + video_index * (layout.cell_width + _GAP)
-            reader, time_map, bounds = readers[event_index, video_index]
+            reader, time_map, bounds = readers[video_index]
             if bounds[0] <= master_time <= bounds[1]:
                 frame = reader.frame_at_time(time_map.to_source(master_time))
-                pixels = np.ascontiguousarray(to_rgb_array(frame))
+                pixels, is_greyscale = to_display_array(frame, video.display_levels)
+                pixels = np.ascontiguousarray(pixels)
+                image_format = (
+                    QImage.Format.Format_Grayscale8 if is_greyscale else QImage.Format.Format_RGB888
+                )
                 tile = QImage(
                     pixels.data,
                     pixels.shape[1],
                     pixels.shape[0],
                     pixels.strides[0],
-                    QImage.Format.Format_RGB888,
+                    image_format,
                 ).copy()
                 fitted = tile.scaled(
                     layout.cell_width,
