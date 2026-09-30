@@ -280,6 +280,7 @@ def capture(
     pose_pan: tuple[float, float] | None = None,
     video_zoom: float = 1.0,
     crowded_zoom: float = 1.0,
+    body_part_names: bool = True,
 ) -> None:
     """Open ``session_dir``, record ``frames`` of playback, and write the loop."""
     from avialsync.ui.main_window import MainWindow
@@ -380,6 +381,13 @@ def capture(
     # sliver of video above a wall of lanes.
     pin_layout(window)
     settle()
+
+    # Name each marker, through the same path as View → Overlays. The layer is
+    # off by default now, so without this the animation quietly lost the joint
+    # names it was made to show; --no-labels leaves it off for a plainer loop.
+    if body_part_names:
+        window._on_overlay_toggled("tracking.point_labels", True)
+        settle()
 
     bounds = window.clock.state.bounds
     if bounds[1] <= bounds[0]:
@@ -604,6 +612,11 @@ def main() -> None:
             "--video-zoom; the default is one press of + less"
         ),
     )
+    parser.add_argument(
+        "--no-labels",
+        action="store_true",
+        help="leave the body-part names overlay off (it is on by default in the animation)",
+    )
     parser.add_argument("--gif-width", type=int, default=960, help="max GIF width")
     parser.add_argument("--gif-height", type=int, default=720, help="max GIF height")
     parser.add_argument(
@@ -638,6 +651,7 @@ def main() -> None:
         _pair(args.pose_pan) if args.pose_pan else None,
         args.video_zoom,
         args.crowded_zoom,
+        not args.no_labels,
     )
 
 

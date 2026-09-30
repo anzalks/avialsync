@@ -59,6 +59,10 @@ conda run -n avialsync python tools/generate_guide_screenshots.py
 ```
 
 The second writes the annotated guide images, where a red box marks the control each step refers to.
+Both open a temporary copy of `tests/fixtures/sample_session`, so no path in an image names whoever
+ran them and nothing is written into the fixtures. The Messages image is the one exception to
+"from the fixtures": the fixtures carry no prose, so the script feeds the tab a few messages
+attributed to `synthetic_rig_log.txt`, which the guide states is generated.
 
 The looping GIF on the front page is the third, and it is the only one that needs data:
 
@@ -100,7 +104,7 @@ conda run -n avialsync python tools/generate_identity_screenshots.py
 
 It draws two animals crossing paths, writes a pose file that exchanges their identities at a known
 frame, and opens both through the drop scanner's routing, then walks the panel and writes only
-`docs/_static/screenshots/identity_*.png`. The scene is generated, and every file it shows is named
+`identity_*.png`, `identity_swap.gif` and `tracking_source_card.png` under `docs/_static/screenshots/`. The scene is generated, and every file it shows is named
 `synthetic_*` so the images say so themselves; the tutorial says so in words as well. The one thing
 supplied by hand is the answer to the import review dialog (overlay role and target video), which is
 modal.

@@ -26,23 +26,23 @@ from avialsync.ui.main_window import MainWindow
 from avialsync.ui.sync_wizard import SyncWizard
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from screenshot_kit import capture, pin_appearance, pin_layout, settle  # noqa: E402
+from screenshot_kit import capture, pin_appearance, pin_layout, settle, staged_fixture  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"
-SESSION = REPOSITORY_ROOT / "tests" / "fixtures" / "sample_session"
+SAMPLE_SESSION = REPOSITORY_ROOT / "tests" / "fixtures" / "sample_session"
 
 
-def _load_session(window: MainWindow, app: QApplication) -> None:
+def _load_session(window: MainWindow, app: QApplication, session: Path) -> None:
     """Open the sample video and signal through the ordinary code paths."""
-    video = SESSION / "camera_1.mp4"
+    video = session / "camera_1.mp4"
     loader = VideoStandardLoader()
     loader.open(video, {})
     window._on_video_opened(str(video), loader, str(video))
     settle(app)
 
     # ImportWorker takes the loader *class* and a config dict, in that order.
-    csv_path = SESSION / "signal_base.csv"
+    csv_path = session / "signal_base.csv"
     worker = ImportWorker(csv_path, {}, CSVLoader)
     worker.finished.connect(
         lambda p, c, ch, b, i: window._on_import_finished(p, c, ch, b, i)  # noqa: PLW0108
@@ -52,7 +52,12 @@ def _load_session(window: MainWindow, app: QApplication) -> None:
 
 
 def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
-    """Write every annotated guide screenshot."""
+    """Write every annotated guide screenshot, from a temporary copy of the sample session."""
+    with staged_fixture(SAMPLE_SESSION) as session:
+        _generate(out_dir, session)
+
+
+def _generate(out_dir: Path, session: Path) -> None:
     app = QApplication.instance() or QApplication(sys.argv)
     pin_appearance(app)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -63,12 +68,13 @@ def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
     settle(app)
     pin_layout(window)
     settle(app)
-    _load_session(window, app)
+    _load_session(window, app, session)
     window.transport.set_status("Ready")
     settle(app)
 
     try:
-        _capture_all(window, app, out_dir)
+        _capture_all(window, app, out_dir, session)
+        _capture_messages(window, app, out_dir, session)
     finally:
         # Ownership is explicit: each pane owns a decode thread, and Qt aborts
         # if one is still running when its QThread is destroyed. A failure
@@ -78,7 +84,46 @@ def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
     print(f"Wrote guide screenshots to {out_dir}")
 
 
-def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
+def _capture_messages(window: MainWindow, app: QApplication, out_dir: Path, session: Path) -> None:
+    """Show the Messages tab with a few generated rig messages in it.
+
+    The fixtures carry no prose of their own: the generated Open Ephys session's
+    ``sync_messages.txt`` holds clock-sync lines, and the tab rightly shows none
+    of them. So the store is fed the way ``tests/test_messages.py`` feeds it, and
+    the messages are worded and attributed to a file called ``synthetic_rig_log``
+    so the image says for itself that nobody's recording wrote them.
+    """
+    from avialsync.core.messages import Message
+
+    window.message_store.set_source_messages(
+        str(session / "synthetic_rig_log.txt"),
+        (
+            Message(text="Generated example: these lines were written for this image."),
+            Message(text="trial 1: stimulus on", time=0.5, channel="MessageCenter"),
+            Message(text="trial 1: reward delivered", time=1.6, channel="MessageCenter"),
+            Message(text="trial 2: stimulus on", time=2.7, channel="MessageCenter"),
+            Message(text="trial 2: no response", time=3.5, channel="MessageCenter"),
+        ),
+    )
+    window._left_tabs.setCurrentWidget(window.message_panel)
+    # The message text is the last column; at the inspector's usual width it is
+    # scrolled off the right edge, and the image would show times and a source
+    # but not a single message.
+    window._h_splitter.setSizes([640, 640])
+    settle(app)
+    capture(
+        window,
+        out_dir / "guide_messages_tab.png",
+        [window.message_panel],
+        crop=window._left_tabs,
+    )
+    window._left_tabs.setCurrentIndex(0)
+    window.message_store.clear()
+    pin_layout(window)
+    settle(app)
+
+
+def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: Path) -> None:
     """Write each annotated capture in turn."""
     info = _video_info_widget(window)
 
@@ -111,7 +156,7 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
     )
 
     # --- The import wizard, field by field -----------------------------
-    wizard = ImportWizard(SESSION / "signal_base.csv")
+    wizard = ImportWizard(session / "signal_base.csv")
     wizard.show()
     settle(app)
     capture(

@@ -19,7 +19,10 @@ a step actually uses, and numbers them when order matters.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import shutil
+import tempfile
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QPoint, QRect, Qt
@@ -48,6 +51,24 @@ def pin_appearance(app: QApplication) -> None:
     ``persist=False``: taking a screenshot must not be a settings change.
     """
     theme._apply(app, theme.THEME_DARK, persist=False)
+
+
+@contextmanager
+def staged_fixture(source: Path) -> Iterator[Path]:
+    """Copy a fixture folder somewhere neutral and yield the copy.
+
+    A window shows the paths it was given: the sidebar card, the sync wizard's
+    evidence menus. Opened from the repository they read
+    ``/Users/<whoever ran this>/Documents/...``, which put a username into a
+    published image. Opening a copy from a temporary directory keeps the
+    operator out of the picture, and keeps the caches the import writes out of
+    ``tests/fixtures`` too. The copy is additive (``copytree`` into a fresh
+    directory) and the directory is this call's own, removed on exit.
+    """
+    with tempfile.TemporaryDirectory(prefix="avialsync-docs-") as scratch:
+        target = Path(scratch) / source.name
+        shutil.copytree(source, target, ignore=shutil.ignore_patterns("*.avialcache"))
+        yield target
 
 
 def pin_layout(window: QWidget) -> None:
@@ -81,6 +102,7 @@ def capture(
     highlights: Sequence[QWidget] = (),
     *,
     numbered: bool = False,
+    crop: QWidget | None = None,
 ) -> None:
     """Grab *window* and save it, boxing each widget in *highlights*.
 
@@ -91,7 +113,20 @@ def capture(
         numbered: Draw a step number on each box. Use when the order matters;
             leave off when the boxes are alternatives or a single target, where
             numbers would imply a sequence that does not exist.
+        crop: A widget inside *window* to cut the image down to, after the boxes
+            are drawn. For a control that lives in one corner, where a full
+            window would leave it a few pixels tall.
     """
+    # Loading a fixture posts "Imported ..." toasts that wait to be dismissed
+    # (D-107), so an image taken straight after one carries a Dismiss button
+    # that no reader would recognise as part of the window. Declining them
+    # acts on nothing.
+    notifications = getattr(window, "notifications", None)
+    if notifications is not None:
+        notifications.clear_all()
+        app = QApplication.instance()
+        if app is not None:
+            app.processEvents()
     pixmap = window.grab()
     if highlights:
         painter = QPainter(pixmap)
@@ -105,6 +140,19 @@ def capture(
             if numbered:
                 _draw_step_number(painter, box, index)
         painter.end()
+    if crop is not None:
+        box = _bounds_in(window, crop)
+        if box is not None:
+            # The pixmap is device-pixel sized; the box is in logical pixels.
+            ratio = pixmap.devicePixelRatio()
+            pixmap = pixmap.copy(
+                QRect(
+                    round(box.x() * ratio),
+                    round(box.y() * ratio),
+                    round(box.width() * ratio),
+                    round(box.height() * ratio),
+                )
+            )
     path.parent.mkdir(parents=True, exist_ok=True)
     pixmap.save(str(path))
 

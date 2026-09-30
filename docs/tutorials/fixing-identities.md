@@ -108,6 +108,11 @@ The drag snaps to the nearby evidence, so the frame is the evidence's rather tha
 
 ![After Apply swap: the labels are correct, the accepted swap is a filled diamond, and Remove swap and Remove all swaps are enabled](../_static/screenshots/identity_applied.png)
 
+The loop below is the whole fix in one place: the same eight frames around the crossing, first as the
+tracker filed them and then after **Apply swap**.
+
+![A loop of the video and panel around the crossing, first with the names on the wrong animals and then, after Apply swap, with every name on its own animal](../_static/screenshots/identity_swap.gif)
+
 The same frame that was wrong in step 1 now reads correctly: the orange animal is `mouseB`. You are
 told which two identities were exchanged and from which frame, and the outcome shows up in four
 places:

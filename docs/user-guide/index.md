@@ -70,6 +70,10 @@ running, a line the software wrote when the session started. The **Messages** ta
 the loaded files carry, placed on the shared timeline, and the shared time bar shows them as their
 own lane.
 
+![The Messages tab: one untimed note above the table, and four timed messages with their source and text](../_static/screenshots/guide_messages_tab.png)
+
+*The messages in this image are generated for it — the source is called `synthetic_rig_log.txt` — not read from a recording. The untimed note sits above the table, as described below; the four timed rows are placed on the clock.*
+
 - **Messages are read-only.** They belong to the file and cannot be written back to it, so no cell
   in this tab can be edited. This is the difference from what the **Changes** tab holds, which is
   yours: authored, editable, and exported as your own work. The two never mix, so an exported
@@ -137,8 +141,17 @@ Use tooltips by resting the pointer over any button if you are unsure what it do
 
 When AvialSync finds a data-quality or alignment issue for a loaded source, its card shows a
 native status icon beside the source name. Hover it for a summary and select it for the file's
-properties and full issue details. A tracker card can also show **Swaps: N**, the number of
-accepted identity corrections.
+properties and full issue details. A source with no accepted alignment carries one, for example:
+it says the source sits on the master clock by its own timestamps alone, which is right when the
+hardware shared a clock and a guess when it did not. A tracker card can also show **Swaps: N**, the
+number of accepted identity corrections.
+
+![A video card with its status icon, and a tracker card showing Show overlay, Show plot, and the swap count](../_static/screenshots/tracking_source_card.png)
+
+1. **Show overlay** draws the tracker on its camera. 2. **Show plot** adds its coordinate channels to
+the plots. 3. **Swaps: N** is the accepted identity corrections. 4. The status icon on the video card
+opens that source's details. The tracker's landmarks are listed under the header, grouped by animal
+when the file names its individuals.
 
 ## Correcting a tracked point
 

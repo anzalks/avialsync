@@ -29,7 +29,7 @@ from avialsync.ui.main_window import MainWindow
 from avialsync.ui.sync_wizard import SyncWizard
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from screenshot_kit import pin_appearance, pin_layout, settle  # noqa: E402
+from screenshot_kit import pin_appearance, pin_layout, settle, staged_fixture  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"
@@ -55,6 +55,12 @@ def _select_by_text(combo, fragment: str) -> None:
 
 
 def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
+    """Write every demo screenshot, opening a temporary copy of the sample session."""
+    with staged_fixture(REPOSITORY_ROOT / "tests/fixtures/sample_session") as session:
+        _generate_screenshots(out_dir, session)
+
+
+def _generate_screenshots(out_dir: Path, session: Path):
     app = QApplication.instance() or QApplication(sys.argv)
     out_dir.mkdir(parents=True, exist_ok=True)
     pin_appearance(app)
@@ -71,6 +77,7 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
         # UI synchronously from a script trips the stall detector. Reset it so
         # the capture shows the state a user reaches, not the harness's.
         window.transport.set_status("Ready")
+        window.notifications.clear_all()
         settle(app)
         window.grab().save(str(out_dir / name))
         print(f"Saved {name}")
@@ -78,7 +85,7 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     save_shot("demo_step1_empty.png")
 
     # 1. Load Video
-    video_path = REPOSITORY_ROOT / "tests/fixtures/sample_session/camera_1.mp4"
+    video_path = session / "camera_1.mp4"
     video_loader = VideoStandardLoader()
     video_loader.open(video_path, {})
     window._on_video_opened(str(video_path), video_loader, str(video_path))
@@ -88,7 +95,7 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     save_shot("demo_step2_video_loaded.png")
 
     # 2. Load CSV synchronously!
-    csv_path = REPOSITORY_ROOT / "tests/fixtures/sample_session/signal_base.csv"
+    csv_path = session / "signal_base.csv"
     worker = ImportWorker(csv_path, {}, CSVLoader)
 
     def on_finished(p, c, ch, b, i):
@@ -107,7 +114,7 @@ def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
     from avialsync.engine.trigger_worker import TriggerReadWorker
     from avialsync.loaders.trigger_csv import LEVEL, TriggerCSVSource
 
-    trigger_path = REPOSITORY_ROOT / "tests/fixtures/sample_session/frame_triggers.csv"
+    trigger_path = session / "frame_triggers.csv"
     trigger_config = {
         "time_column": "t",
         "trains": [

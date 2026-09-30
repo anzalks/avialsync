@@ -15,7 +15,8 @@ The scene is written into a temporary directory and opened through the drop
 scanner's own routing. The one thing supplied by hand is the answer to the import
 review dialog (overlay role and target video), which is modal and so cannot be
 driven from a script; the panel in the images is otherwise what a real import
-produces. Only ``docs/_static/screenshots/identity_*`` is written.
+produces. It writes ``identity_*`` and ``tracking_source_card.png`` under
+``docs/_static/screenshots``, and nothing else.
 """
 
 from __future__ import annotations
@@ -29,8 +30,10 @@ from fractions import Fraction
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QEvent
-from PySide6.QtWidgets import QApplication
+from PIL import Image, ImageDraw, ImageFont
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QImage
+from PySide6.QtWidgets import QApplication, QCheckBox, QLabel, QPushButton
 
 from avialsync.engine.transcode import encode_video
 
@@ -188,6 +191,57 @@ def _load(window, folder: Path) -> None:
         window.video_grid.end_batch_add()
 
 
+#: The loop's frame times: the second before the crossing to a second and a half
+#: after it, which is long enough for the wrong names to be seen on the wrong bodies.
+GIF_TIMES = tuple(2.4 + 0.25 * step for step in range(8))
+GIF_WIDTH = 960
+GIF_FRAME_MS = 320
+
+
+def _to_pillow(image: QImage) -> Image.Image:
+    """Convert a Qt image to a Pillow one, dropping any row padding."""
+    image = image.convertToFormat(QImage.Format.Format_RGB888)
+    rows = np.frombuffer(image.constBits(), dtype=np.uint8).reshape(
+        image.height(), image.bytesPerLine()
+    )
+    pixels = rows[:, : image.width() * 3].reshape(image.height(), image.width(), 3)
+    return Image.fromarray(pixels.copy())
+
+
+def _captioned(window, caption: str) -> Image.Image:
+    """Grab the window at GIF size with *caption* burned into a bar along the top."""
+    image = (
+        window.grab().toImage().scaledToWidth(GIF_WIDTH, Qt.TransformationMode.SmoothTransformation)
+    )
+    frame = _to_pillow(image)
+    draw = ImageDraw.Draw(frame)
+    font = ImageFont.load_default(size=18)
+    draw.rectangle((0, 0, frame.width, 30), fill=(20, 20, 20))
+    draw.text((10, 4), caption, fill=(255, 255, 255), font=font)
+    return frame
+
+
+def _write_gif(frames: list[Image.Image], path: Path) -> None:
+    """Write *frames* as one looping GIF on a shared palette."""
+    # A palette from one frame has no orange in it if the animals are elsewhere,
+    # so it is built from a mosaic of frames spread across the whole loop.
+    picks = [frames[0], frames[len(frames) // 4], frames[len(frames) // 2], frames[-1]]
+    mosaic = Image.new("RGB", (picks[0].width, picks[0].height * len(picks)))
+    for row, frame in enumerate(picks):
+        mosaic.paste(frame, (0, row * frame.height))
+    palette = mosaic.quantize(colors=128, method=Image.Quantize.MEDIANCUT)
+    quantised = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    quantised[0].save(
+        path,
+        save_all=True,
+        append_images=quantised[1:],
+        duration=GIF_FRAME_MS,
+        loop=0,
+        optimize=True,
+    )
+
+
 def _panel(window):
     """The identity panel, opened through the same menu action a user presses."""
     window._act_fix_identities.trigger()
@@ -203,11 +257,11 @@ def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
     pin_appearance(app)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    def shot(window, name: str, highlights=(), *, numbered: bool = False) -> None:
+    def shot(window, name: str, highlights=(), *, numbered: bool = False, crop=None) -> None:
         _settle(app)
         window.notifications.clear_all()
         _settle(app)
-        capture(window, out_dir / name, highlights, numbered=numbered)
+        capture(window, out_dir / name, highlights, numbered=numbered, crop=crop)
 
     with tempfile.TemporaryDirectory(prefix="avialsync-identity-") as scratch:
         folder = Path(scratch)
@@ -275,9 +329,23 @@ def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
                 numbered=True,
             )
 
-            # Apply at the frame on screen, exactly as the button does.
+            def record(caption: str) -> list[Image.Image]:
+                recorded = []
+                for at in GIF_TIMES:
+                    seek(at)
+                    window.notifications.clear_all()
+                    _settle(app)
+                    recorded.append(_captioned(window, caption))
+                return recorded
+
+            before = record("Before: after they cross, the names are on the wrong animals")
+            # Apply at the frame on screen, exactly as the button does: park
+            # the video on the crossing first, as choosing it would.
+            seek(crossing_frame / FPS)
             panel._apply.click()
             _wait_idle(app, window)
+            after = record("After Apply swap: every name is back on its own animal")
+            _write_gif([*before, *after], out_dir / "identity_swap.gif")
             seek(4.5)
             shot(
                 window,
@@ -286,6 +354,29 @@ def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
                 numbered=True,
             )
 
+            # The tracker's card, now carrying its swap count, and the status
+            # icon a source with something to report shows on its card.
+            overlay = next(
+                box for box in window.findChildren(QCheckBox) if box.objectName() == "show_overlay"
+            )
+            plot = next(
+                box for box in window.findChildren(QCheckBox) if box.objectName() == "show_plot"
+            )
+            swaps = next(
+                label for label in window.findChildren(QLabel) if label.text().startswith("Swaps:")
+            )
+            badges = [
+                button
+                for button in window.findChildren(QPushButton)
+                if button.accessibleName() == "Source issues" and button.isVisible()
+            ]
+            shot(
+                window,
+                "tracking_source_card.png",
+                [overlay, plot, swaps, *badges[:1]],
+                numbered=True,
+                crop=window._left_tabs,
+            )
             schema = window._pose_schemas[panel.source_id()]
             dialog = IdentityGroupDialog(schema, (), window)
             # Filled in as a person would for this file: the same two animals the
