@@ -421,9 +421,7 @@ def test_the_crossings_carry_themselves_into_the_plot(panel) -> None:
 
     panel.show_model(_model(accepted=True, candidate=True))
     scatters = [
-        item
-        for item in panel._braid.getPlotItem().items
-        if isinstance(item, pg.ScatterPlotItem)
+        item for item in panel._braid.getPlotItem().items if isinstance(item, pg.ScatterPlotItem)
     ]
 
     assert scatters

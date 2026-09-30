@@ -662,9 +662,7 @@ def test_an_overlay_that_cannot_be_aligned_says_so(tmp_path: Path) -> None:
         _video_frame_times={video: np.array([0.0, 0.5])},
         _overlay_sources={video: {"pose.csv": {"frame_rate": 1.0, "points": points}}},
         _announced_uncalibrated_overlays=set(),
-        notifications=SimpleNamespace(
-            show_warning=lambda message, **_kw: warnings.append(message)
-        ),
+        notifications=SimpleNamespace(show_warning=lambda message, **_kw: warnings.append(message)),
     )
 
     calibrate_overlay_timing(window, video)
