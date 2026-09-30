@@ -67986,7 +67986,7 @@
       "label": "test_two_identities_need_no_pair_chooser()",
       "file_type": "code",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L446",
+      "source_location": "L444",
       "_origin": "ast"
     },
     {
@@ -67994,7 +67994,7 @@
       "label": "test_four_identities_offer_every_pair()",
       "file_type": "code",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L451",
+      "source_location": "L449",
       "_origin": "ast"
     },
     {
@@ -68002,7 +68002,7 @@
       "label": "test_a_swap_exchanges_the_pair_that_is_selected()",
       "file_type": "code",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L463",
+      "source_location": "L461",
       "_origin": "ast"
     },
     {
@@ -68010,7 +68010,7 @@
       "label": "test_neither_plot_can_be_scrolled_off_its_own_data()",
       "file_type": "code",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L483",
+      "source_location": "L481",
       "_origin": "ast"
     },
     {
@@ -68018,7 +68018,7 @@
       "label": "test_identity_rows_are_not_a_navigable_axis()",
       "file_type": "code",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L496",
+      "source_location": "L494",
       "_origin": "ast"
     },
     {
@@ -68026,7 +68026,7 @@
       "label": "test_reviewing_a_visible_crossing_does_not_re_frame_the_plot()",
       "file_type": "code",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L503",
+      "source_location": "L501",
       "_origin": "ast"
     },
     {
@@ -68034,7 +68034,7 @@
       "label": "test_reviewing_an_off_screen_crossing_brings_it_into_view()",
       "file_type": "code",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L517",
+      "source_location": "L515",
       "_origin": "ast"
     },
     {
@@ -68166,35 +68166,35 @@
       "_origin": "ast"
     },
     {
-      "id": "tests_test_identity_panel_rationale_464",
+      "id": "tests_test_identity_panel_rationale_462",
       "label": "With three animals, \"the first two\" is a guess, not an answer.",
       "file_type": "rationale",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L464",
+      "source_location": "L462",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_identity_panel_rationale_484",
+      "id": "tests_test_identity_panel_rationale_482",
       "label": "A wheel notch must never leave the person with nothing and no way back.",
       "file_type": "rationale",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L484",
+      "source_location": "L482",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_identity_panel_rationale_497",
+      "id": "tests_test_identity_panel_rationale_495",
       "label": "They are identities, not a measurement: zooming them loses the lanes.",
       "file_type": "rationale",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L497",
+      "source_location": "L495",
       "_origin": "ast"
     },
     {
-      "id": "tests_test_identity_panel_rationale_504",
+      "id": "tests_test_identity_panel_rationale_502",
       "label": "Clicking a crossing that is already on screen keeps the zoom it had.",
       "file_type": "rationale",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L504",
+      "source_location": "L502",
       "_origin": "ast"
     },
     {
@@ -259318,7 +259318,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L446",
+      "source_location": "L444",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259328,7 +259328,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L451",
+      "source_location": "L449",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259338,7 +259338,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L463",
+      "source_location": "L461",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259348,7 +259348,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L483",
+      "source_location": "L481",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259358,7 +259358,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L496",
+      "source_location": "L494",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259368,7 +259368,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L503",
+      "source_location": "L501",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259378,7 +259378,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L517",
+      "source_location": "L515",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259873,7 +259873,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L452",
+      "source_location": "L450",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259884,7 +259884,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L465",
+      "source_location": "L463",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259895,7 +259895,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L485",
+      "source_location": "L483",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259906,13 +259906,24 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L498",
+      "source_location": "L496",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
       "source": "tests_test_identity_panel_test_reviewing_a_visible_crossing_does_not_re_frame_the_plot",
       "target": "tests_test_identity_panel_model",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_identity_panel.py",
+      "source_location": "L503",
+      "weight": 1.0,
+      "_origin": "ast"
+    },
+    {
+      "source": "tests_test_identity_panel_test_reviewing_a_visible_crossing_does_not_re_frame_the_plot",
+      "target": "tests_test_identity_panel_times",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -259922,24 +259933,13 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_identity_panel_test_reviewing_a_visible_crossing_does_not_re_frame_the_plot",
-      "target": "tests_test_identity_panel_times",
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "tests/test_identity_panel.py",
-      "source_location": "L507",
-      "weight": 1.0,
-      "_origin": "ast"
-    },
-    {
       "source": "tests_test_identity_panel_test_reviewing_an_off_screen_crossing_brings_it_into_view",
       "target": "tests_test_identity_panel_model",
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L518",
+      "source_location": "L516",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -259950,7 +259950,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L520",
+      "source_location": "L518",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -260115,42 +260115,42 @@
       "_origin": "ast"
     },
     {
-      "source": "tests_test_identity_panel_rationale_464",
+      "source": "tests_test_identity_panel_rationale_462",
       "target": "tests_test_identity_panel_test_a_swap_exchanges_the_pair_that_is_selected",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L464",
+      "source_location": "L462",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_identity_panel_rationale_484",
+      "source": "tests_test_identity_panel_rationale_482",
       "target": "tests_test_identity_panel_test_neither_plot_can_be_scrolled_off_its_own_data",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L484",
+      "source_location": "L482",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_identity_panel_rationale_497",
+      "source": "tests_test_identity_panel_rationale_495",
       "target": "tests_test_identity_panel_test_identity_rows_are_not_a_navigable_axis",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L497",
+      "source_location": "L495",
       "weight": 1.0,
       "_origin": "ast"
     },
     {
-      "source": "tests_test_identity_panel_rationale_504",
+      "source": "tests_test_identity_panel_rationale_502",
       "target": "tests_test_identity_panel_test_reviewing_a_visible_crossing_does_not_re_frame_the_plot",
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_identity_panel.py",
-      "source_location": "L504",
+      "source_location": "L502",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -365176,7 +365176,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_aol_pose_routing.py",
-      "source_location": "L666",
+      "source_location": "L665",
       "weight": 1.0,
       "_origin": "ast"
     },
@@ -365188,7 +365188,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_aol_pose_routing.py",
-      "source_location": "L670",
+      "source_location": "L668",
       "weight": 1.0,
       "_origin": "ast"
     },
