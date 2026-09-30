@@ -49,6 +49,7 @@ Everything is under **File**, and each export is a distinct job:
 | **Export Changes…** | Annotation rows, one edited pose copy per source with corrections or accepted identity swaps, and a DeepLabCut retraining set when frames were hand-corrected | Analysis and pose-model retraining |
 | **Export Snapshot…** | A composed figure of the current moment | Figures, notes, lab reports |
 | **Export Trimmed Video Clip…** | The marked range, copied out of the source | Sharing a moment without re-encoding it |
+| **Export Stimulus Grid…** | Selected sensor-triggered windows, arranged as event rows and camera columns with one shared trigger marker and relative-time ruler | Comparing repeated stimuli across cameras and trials |
 | **Export Data Slice…** | The marked range of the loaded signals | Analysis in another tool |
 
 **Export Changes…** is also the **Export…** button in the Changes tab; it is one action, so the two
@@ -80,6 +81,14 @@ silently dropped for lack of a camera.
 second generation of them, which matters when someone measures from it later. The cut is aligned to
 the nearest keyframe at or before your start point, because a clip beginning mid-GOP would have no
 frame to decode from.
+
+**Stimulus grids are aligned and re-encoded.** Choose a sensor channel, rising threshold, and minimum
+spacing; the dialog plots a decimated view of that channel and lists detected events. Select up to
+twelve events and set the time before and after each one. The first selected event's master-time
+window is shown before export. The MP4 places events in rows and cameras in columns, draws the
+stimulus at the same horizontal position in every tile, and shows the shared relative-time scale
+along the bottom. Missing video coverage is labeled in its tile, and the source recordings are never
+modified.
 
 ## What is not exported
 

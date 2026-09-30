@@ -35,13 +35,19 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread
-from PySide6.QtWidgets import QFileDialog
+from PySide6.QtWidgets import QDialog, QFileDialog
 
 from avialsync.core.errors import ExportError
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.snapshot import SnapshotFigure
+from avialsync.engine.stimulus_grid_export import GridLabels, GridVideo
+from avialsync.engine.stimulus_grid_worker import (
+    StimulusEventScanWorker,
+    StimulusGridExportWorker,
+)
 from avialsync.ui.i18n import tr
 from avialsync.ui.snapshot_capture import capture_figure, capture_pane_figure
+from avialsync.ui.stimulus_grid_dialog import StimulusChannelOption, StimulusGridDialog
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -326,3 +332,109 @@ def on_video_clip_finished(window: MainWindow, successful: int, total: int) -> N
 def on_video_clip_error(window: MainWindow, error: str) -> None:
     """Show an ffmpeg worker failure on the UI thread."""
     window.report_failure(ExportError(error), doing=tr("The clip could not be exported"))
+
+
+# ── Stimulus-aligned camera grid ─────────────────────────────────────
+
+
+def export_stimulus_grid(window: MainWindow) -> None:
+    """Choose sensor events and export their aligned camera windows."""
+    channels = [
+        StimulusChannelOption(
+            channel.name,
+            ReaderReference(
+                channel.reader.cache_dir,
+                channel.reader.channel_id,
+                channel.reader.time_map.offset,
+                channel.reader.time_map.drift_ppm,
+            ),
+            channel.reader,
+        )
+        for channel in window.plot_pane.channels
+    ]
+    videos = tuple(
+        GridVideo(
+            Path(path),
+            Path(path).name,
+            pane.time_map.offset,
+            pane.time_map.drift_ppm,
+        )
+        for path, pane in zip(window.video_grid._paths, window.video_grid.panes, strict=False)
+    )
+    dialog = StimulusGridDialog(channels, window)
+
+    def _scan(worker: StimulusEventScanWorker) -> None:
+        worker.finished.connect(dialog.set_events)
+        worker.error.connect(dialog.set_scan_error)
+        worker.cancelled.connect(dialog.set_scan_cancelled)
+        window._run_job(worker, label=tr("Finding stimulus events"))
+
+    dialog.scan_requested.connect(_scan)
+    if dialog.exec() != QDialog.DialogCode.Accepted:
+        return
+    events = dialog.selected_events()
+    if not events:
+        return
+
+    destination, _ = QFileDialog.getSaveFileName(
+        window,
+        tr("Export Stimulus Grid"),
+        "stimulus_grid.mp4",
+        tr("MP4 Video (*.mp4)"),
+    )
+    if not destination:
+        return
+    start_stimulus_grid_export(
+        window,
+        videos,
+        events,
+        dialog.before_spin.value(),
+        dialog.after_spin.value(),
+        dialog.fps_spin.value(),
+        Path(destination),
+        _grid_labels(),
+    )
+
+
+def start_stimulus_grid_export(
+    window: MainWindow,
+    videos: tuple[GridVideo, ...],
+    events: tuple[float, ...],
+    before: float,
+    after: float,
+    fps: int,
+    destination: Path,
+    labels: GridLabels,
+) -> None:
+    """Run grid decoding and encoding as a named, cancellable job."""
+    worker = StimulusGridExportWorker(videos, events, before, after, destination, fps, labels)
+
+    def _wire(_thread: QThread) -> None:
+        worker.finished.connect(window._on_stimulus_grid_export_finished)
+        worker.error.connect(window._on_stimulus_grid_export_error)
+
+    label = tr("Exporting stimulus grid to {name}").format(name=destination.name)
+    window._run_job(worker, label=label, configure=_wire)
+
+
+def _grid_labels() -> GridLabels:
+    """Capture translated burn-in templates before the worker starts."""
+    return GridLabels(
+        title=tr("Stimulus-aligned comparison"),
+        event=tr("Event {index}\n{time:.3f} s"),
+        no_footage=tr("No footage"),
+        ruler=tr("{before:.2f} s    Stimulus    +{after:.2f} s"),
+        current=tr("Current: {time:+.2f} s"),
+    )
+
+
+def on_stimulus_grid_export_finished(window: MainWindow, path: str) -> None:
+    """Report the completed comparison video through the notification strip."""
+    window.notifications.show_success(
+        tr("Stimulus grid exported to {name}").format(name=Path(path).name)
+    )
+
+
+def on_stimulus_grid_export_error(window: MainWindow, error: str) -> None:
+    """Present a failed comparison export with its recovery details available."""
+    window.report_failure(ExportError(error), doing=tr("The stimulus grid could not be exported"))

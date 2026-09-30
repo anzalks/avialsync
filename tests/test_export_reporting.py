@@ -26,6 +26,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
+from avialsync.engine.stimulus_grid_export import GridLabels, GridVideo
 from avialsync.ui import recovery
 from avialsync.ui.controllers import export_controller
 from avialsync.ui.main_window import MainWindow
@@ -92,6 +93,49 @@ def test_a_video_clip_export_is_a_registered_job(window: MainWindow, tmp_path: P
     assert len(started) == 1
     assert "clip" in started[0].lower()
     window._job_manager.shutdown()
+
+
+def test_a_stimulus_grid_export_is_a_registered_job(window: MainWindow, tmp_path: Path) -> None:
+    started: list[str] = []
+    real_start = window._job_manager.start
+
+    def recording_start(label, worker, configure=None):
+        started.append(label)
+        return real_start(label, worker, configure=configure)
+
+    window._job_manager.start = recording_start  # type: ignore[method-assign]
+
+    export_controller.start_stimulus_grid_export(
+        window,
+        (GridVideo(tmp_path / "camera.mp4", "Camera"),),
+        (1.0,),
+        0.5,
+        1.0,
+        30,
+        tmp_path / "comparison.mp4",
+        GridLabels("Title", "Event {index} {time}", "No footage", "Ruler", "Now {time}"),
+    )
+
+    assert len(started) == 1
+    assert "stimulus grid" in started[0].lower()
+    window._job_manager.shutdown()
+
+
+def test_a_finished_stimulus_grid_reports_without_a_modal(window: MainWindow) -> None:
+    export_controller.on_stimulus_grid_export_finished(window, "/data/comparison.mp4")
+
+    assert "comparison.mp4" in window.notifications.message
+    assert window.notifications.is_sticky is False
+
+
+def test_stimulus_grid_action_explains_its_missing_inputs(window: MainWindow) -> None:
+    action = next(
+        action for action in window._all_actions if action.text() == "Export Stimulus Grid…"
+    )
+
+    assert not action.isEnabled()
+    assert "video" in action.toolTip().lower()
+    assert "sensor" in action.toolTip().lower()
 
 
 # ── outcomes reach the strip, not a modal ────────────────────────────

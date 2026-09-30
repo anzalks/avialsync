@@ -121,6 +121,9 @@ Two product laws govern that phase and outrank convention:
 - Annotations (point + range markers, M key, CSV export)
 - Keyboard shortcuts dialog (`?` key)
 - Snapshot / data slice / video clip export
+- Stimulus-grid MP4 export: select a sensor rising threshold and event window, review events on a
+  decimated timeline, then compare up to twelve event rows across camera columns with an aligned
+  trigger marker and relative-time ruler. Export runs as a registered background job.
 - Import wizard (CSV format/TZ/sentinel/euro-decimal) + proxy worker
 - `plot_pane.reset_zoom()` method exists
 - Plots share one master-time page and continuous **Time span** control (`ms` / `s` / `min` / `h`),
