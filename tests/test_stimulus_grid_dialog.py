@@ -34,7 +34,7 @@ def test_dialog_shows_first_event_window_and_limits_selected_events(qtbot, tmp_p
     assert len(dialog.selected_events()) == 12
     assert dialog.selected_events()[0] == 1.0
     assert "1.000000 s" in dialog.event_details.text()
-    assert "0.000000 to 3.000000 s" in dialog.event_details.text()
+    assert "0.500000 to 2.500000 s" in dialog.event_details.text()
 
     dialog.before_spin.setValue(0.25)
     dialog.after_spin.setValue(0.75)

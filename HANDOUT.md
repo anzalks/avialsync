@@ -139,10 +139,15 @@ Two product laws govern that phase and outrank convention:
 - Keyboard shortcuts dialog (`?` key)
 - Snapshot / data slice / video clip export
 - Stimulus-grid MP4 export: select a sensor rising threshold and event window, review events on a
-  decimated timeline, then compare up to twelve event rows across camera columns with an aligned
-  trigger marker and relative-time ruler. Export runs as a registered background job.
-  trigger marker and relative-time ruler. It snapshots accepted camera mappings and display levels;
-  export runs as a registered background job.
+  decimated timeline, then compare up to twelve event rows across camera columns above one shared,
+  event-aligned signal trace and relative-time ruler. Camera pixels carry no export graphics; the
+  caption below each image shows that camera's absolute zero-based frame index. The trace uses
+  bounded pyramid queries of the selected channel on the export worker, preserving its accepted
+  TimeMap and gaps. Export snapshots accepted camera mappings and display levels, and runs as a
+  registered background job. The reproducible screenshots and two-second MP4 come from the app's
+  File export action, driven by `tools/generate_stimulus_grid_demo.py`:
+  three synthetic camera angles on a muted gray scene with movement and a transient off-white point
+  only near each TTL trigger.
 - `TimeMap.copy()` preserves affine drift anchors and accepted exact timestamp mappings in worker
   snapshots.
 - Import wizard (CSV format/TZ/sentinel/euro-decimal) + proxy worker

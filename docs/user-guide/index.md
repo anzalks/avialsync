@@ -101,6 +101,8 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 - The **Changes** tab lists what you flagged; double-click a label to name it.
 - **File → Export Changes…** writes your annotations, and any corrected pose data, out.
 - **File → Export Snapshot / Trimmed Video Clip / Data Slice** cover images, media, and signals.
+- **File → Export Stimulus Grid…** makes an event-by-camera MP4 with the selected TTL or stimulus
+  trace across the bottom. See the [illustrated export walkthrough](../tutorials/annotating-and-exporting.md#export-an-event-aligned-video-grid-with-its-ttl-trace).
   Clips are copied rather than re-encoded, so they keep the original pixels.
 
 ## Useful controls

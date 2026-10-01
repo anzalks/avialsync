@@ -15,7 +15,12 @@ from PySide6.QtCore import QObject, Signal, Slot
 from avialsync.core.errors import AvialSyncError
 from avialsync.core.triggers import TriggerKind, extract_pulses
 from avialsync.engine.export_worker import ReaderReference
-from avialsync.engine.stimulus_grid_export import GridLabels, GridVideo, export_stimulus_grid
+from avialsync.engine.stimulus_grid_export import (
+    GridLabels,
+    GridSignal,
+    GridVideo,
+    export_stimulus_grid,
+)
 from avialsync.engine.transcode import TranscodeCancelled
 
 logger = logging.getLogger(__name__)
@@ -89,6 +94,7 @@ class StimulusGridExportWorker(QObject):
         destination: Path,
         fps: int,
         labels: GridLabels,
+        signal: GridSignal | None = None,
     ) -> None:
         super().__init__()
         self._videos = videos
@@ -98,6 +104,7 @@ class StimulusGridExportWorker(QObject):
         self._destination = destination
         self._fps = fps
         self._labels = labels
+        self._signal = signal
         self._cancel = threading.Event()
 
     def cancel(self) -> None:
@@ -125,6 +132,7 @@ class StimulusGridExportWorker(QObject):
                 temporary,
                 self._labels,
                 fps=self._fps,
+                signal=self._signal,
                 progress=lambda value: self.progress.emit(round(value * 100)),
                 should_cancel=self._cancel.is_set,
             )

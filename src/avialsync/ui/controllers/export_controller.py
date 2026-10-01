@@ -40,7 +40,7 @@ from PySide6.QtWidgets import QDialog, QFileDialog
 from avialsync.core.errors import ExportError
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.snapshot import SnapshotFigure
-from avialsync.engine.stimulus_grid_export import GridLabels, GridVideo
+from avialsync.engine.stimulus_grid_export import GridLabels, GridSignal, GridVideo
 from avialsync.engine.stimulus_grid_worker import (
     StimulusEventScanWorker,
     StimulusGridExportWorker,
@@ -384,6 +384,8 @@ def export_stimulus_grid(window: MainWindow) -> None:
     )
     if not destination:
         return
+    channel = dialog.channel_option()
+    signal = GridSignal(channel.reference, channel.label, dialog.threshold_spin.value())
     start_stimulus_grid_export(
         window,
         videos,
@@ -393,6 +395,7 @@ def export_stimulus_grid(window: MainWindow) -> None:
         dialog.fps_spin.value(),
         Path(destination),
         _grid_labels(),
+        signal=signal,
     )
 
 
@@ -405,9 +408,13 @@ def start_stimulus_grid_export(
     fps: int,
     destination: Path,
     labels: GridLabels,
+    *,
+    signal: GridSignal | None = None,
 ) -> None:
     """Run grid decoding and encoding as a named, cancellable job."""
-    worker = StimulusGridExportWorker(videos, events, before, after, destination, fps, labels)
+    worker = StimulusGridExportWorker(
+        videos, events, before, after, destination, fps, labels, signal
+    )
 
     def _wire(_thread: QThread) -> None:
         worker.finished.connect(window._on_stimulus_grid_export_finished)
@@ -421,10 +428,12 @@ def _grid_labels() -> GridLabels:
     """Capture translated burn-in templates before the worker starts."""
     return GridLabels(
         title=tr("Stimulus-aligned comparison"),
-        event=tr("Event {index}\n{time:.3f} s"),
+        event=tr("Event {index}"),
         no_footage=tr("No footage"),
         ruler=tr("{before:.2f} s    Stimulus    +{after:.2f} s"),
-        current=tr("Current: {time:+.2f} s"),
+        current=tr("Relative time: {time:+.2f} s"),
+        no_signal=tr("No signal samples in the selected windows"),
+        frame=tr("Frame {index}"),
     )
 
 

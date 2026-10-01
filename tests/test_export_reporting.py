@@ -113,7 +113,15 @@ def test_a_stimulus_grid_export_is_a_registered_job(window: MainWindow, tmp_path
         1.0,
         30,
         tmp_path / "comparison.mp4",
-        GridLabels("Title", "Event {index} {time}", "No footage", "Ruler", "Now {time}"),
+        GridLabels(
+            "Title",
+            "Event {index} {time}",
+            "No footage",
+            "Ruler",
+            "Now {time}",
+            "No signal",
+            "Frame {index}",
+        ),
     )
 
     assert len(started) == 1

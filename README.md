@@ -42,6 +42,8 @@ pane draws. Nothing in AvialSync knows this lab's format.*
 - Notes the acquisition system itself recorded — read out of the file, placed on the same clock,
   and kept read-only so they never mix with your own marks.
 - Event marks, A/B time ranges, and exports of snapshots or selected spans for analysis elsewhere.
+- Event-aligned grid MP4 export, with cameras above one shared TTL or stimulus trace; see the
+  [illustrated export demo](https://avialsync.readthedocs.io/en/latest/tutorials/annotating-and-exporting.html#export-an-event-aligned-video-grid-with-its-ttl-trace).
 - Correction of a wrong pose estimate by hand, saved beside the pose file and exportable either as
   corrected data or as a DeepLabCut retraining set.
 - Undo on every edit you make, a recovery snapshot written on quit, and no modal dialog standing

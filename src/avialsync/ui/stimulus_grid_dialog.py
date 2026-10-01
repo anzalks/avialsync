@@ -139,8 +139,8 @@ class StimulusGridDialog(QDialog):
         layout.addWidget(self.scan_status)
 
         window_form = QFormLayout()
-        self.before_spin = self._seconds_spin(0, 600, 1.0, tr("Time before stimulus"))
-        self.after_spin = self._seconds_spin(0.001, 600, 2.0, tr("Time after stimulus"))
+        self.before_spin = self._seconds_spin(0, 600, 0.5, tr("Time before stimulus"))
+        self.after_spin = self._seconds_spin(0.001, 600, 1.5, tr("Time after stimulus"))
         self.fps_spin = QSpinBox(self)
         self.fps_spin.setRange(1, 120)
         self.fps_spin.setValue(30)

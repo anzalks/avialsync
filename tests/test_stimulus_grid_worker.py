@@ -14,6 +14,8 @@ _LABELS = GridLabels(
     no_footage="No footage",
     ruler="Ruler {before} {after}",
     current="Current {time}",
+    no_signal="No signal",
+    frame="Frame {index}",
 )
 
 

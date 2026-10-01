@@ -17,6 +17,14 @@ from avialsync.core.errors import ExportError
 from avialsync.core.timeline import TimeMap
 from avialsync.engine.display_pipeline import DisplayLevels, to_display_array
 from avialsync.engine.pyav_reader import PyAVReader
+from avialsync.engine.stimulus_grid_trace import (
+    GridSignal,
+    GridTrace,
+    draw_signal_trace,
+)
+from avialsync.engine.stimulus_grid_trace import (
+    read_signal_traces as _read_signal_traces,
+)
 from avialsync.engine.transcode import (
     CancelCheck,
     ProgressCallback,
@@ -33,7 +41,8 @@ _RIGHT_GUTTER = 28
 _TOP_BAND = 44
 _CELL_LABEL_HEIGHT = 26
 _ROW_LABEL_HEIGHT = 28
-_BOTTOM_BAND = 62
+_RULER_BAND = 62
+_SIGNAL_BAND = 230
 _GAP = 6
 logger = logging.getLogger(__name__)
 
@@ -60,6 +69,7 @@ class GridLayout:
     cell_width: int
     cell_height: int
     trigger_x: int
+    bottom_band: int
 
 
 @dataclass(frozen=True)
@@ -71,6 +81,8 @@ class GridLabels:
     no_footage: str
     ruler: str
     current: str
+    no_signal: str
+    frame: str
 
 
 def plan_grid(
@@ -78,6 +90,8 @@ def plan_grid(
     event_count: int,
     before: float,
     after: float,
+    *,
+    has_signal: bool = False,
 ) -> GridLayout:
     """Validate a grid request and calculate its fixed output dimensions."""
     if video_count < 1:
@@ -89,11 +103,12 @@ def plan_grid(
     duration = before + after
     if not np.isfinite(duration):
         raise ExportError("The combined stimulus window must be finite.")
+    bottom_band = _SIGNAL_BAND if has_signal else _RULER_BAND
     available = MAX_OUTPUT_WIDTH - _LEFT_GUTTER - _RIGHT_GUTTER - _GAP * (video_count - 1)
     height_for_cells = (
         MAX_OUTPUT_HEIGHT
         - _TOP_BAND
-        - _BOTTOM_BAND
+        - bottom_band
         - event_count * (_ROW_LABEL_HEIGHT + _CELL_LABEL_HEIGHT + _GAP)
     ) // event_count
     width_for_height = int(height_for_cells * 16 / 9)
@@ -103,12 +118,12 @@ def plan_grid(
     height = (
         _TOP_BAND
         + event_count * (_ROW_LABEL_HEIGHT + cell_height + _CELL_LABEL_HEIGHT + _GAP)
-        + _BOTTOM_BAND
+        + bottom_band
     )
     width += width % 2
     height += height % 2
     trigger_x = round(cell_width * before / duration)
-    return GridLayout(width, height, cell_width, cell_height, trigger_x)
+    return GridLayout(width, height, cell_width, cell_height, trigger_x, bottom_band)
 
 
 def export_stimulus_grid(
@@ -120,6 +135,7 @@ def export_stimulus_grid(
     labels: GridLabels,
     *,
     fps: int = 30,
+    signal: GridSignal | None = None,
     progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
 ) -> None:
@@ -140,10 +156,11 @@ def export_stimulus_grid(
         right <= left for left, right in zip(events, events[1:], strict=False)
     ):
         raise ExportError("Stimulus event times must be finite and strictly increasing.")
-    layout = plan_grid(len(videos), len(events), before, after)
+    layout = plan_grid(len(videos), len(events), before, after, has_signal=signal is not None)
     duration = before + after
-    frame_count = max(1, int(np.ceil(duration * fps)))
+    frame_count = max(1, int(np.ceil(np.nextafter(duration * fps, -np.inf))))
     destination.parent.mkdir(parents=True, exist_ok=True)
+    traces = _read_signal_traces(signal, events, before, after, layout.width) if signal else ()
 
     with ExitStack() as stack:
         readers: dict[int, tuple[PyAVReader, TimeMap, tuple[float, float]]] = {}
@@ -164,7 +181,16 @@ def export_stimulus_grid(
                     raise TranscodeCancelled
                 relative_time = frame_index / fps - before
                 image = _render_frame(
-                    videos, events, readers, layout, relative_time, before, after, labels
+                    videos,
+                    events,
+                    readers,
+                    layout,
+                    relative_time,
+                    before,
+                    after,
+                    labels,
+                    signal=signal,
+                    traces=traces,
                 )
                 yield _image_to_rgb(image), frame_index / fps
 
@@ -190,8 +216,11 @@ def _render_frame(
     before: float,
     after: float,
     labels: GridLabels,
+    *,
+    signal: GridSignal | None = None,
+    traces: Sequence[GridTrace] = (),
 ) -> QImage:
-    """Compose decoded tiles, event labels, a trigger line, and the time ruler."""
+    """Compose decoded tiles, frame captions, and the shared timing region."""
     image = QImage(layout.width, layout.height, QImage.Format.Format_RGB888)
     image.fill(QColor("#101719"))
     painter = QPainter(image)
@@ -230,7 +259,8 @@ def _render_frame(
             x = _LEFT_GUTTER + video_index * (layout.cell_width + _GAP)
             reader, time_map, bounds = readers[video_index]
             if bounds[0] <= master_time <= bounds[1]:
-                frame = reader.frame_at_time(time_map.to_source(master_time))
+                frame_index = reader.index_at_time(time_map.to_source(master_time))
+                frame = reader.frame_at_index(frame_index)
                 pixels, is_greyscale = to_display_array(frame, video.display_levels)
                 pixels = np.ascontiguousarray(pixels)
                 image_format = (
@@ -256,6 +286,7 @@ def _render_frame(
                     fitted.height(),
                 )
                 painter.drawImage(target, fitted)
+                caption = labels.frame.format(index=frame_index)
             else:
                 painter.fillRect(
                     QRect(x, top, layout.cell_width, layout.cell_height), QColor("#20292b")
@@ -266,17 +297,33 @@ def _render_frame(
                     Qt.AlignmentFlag.AlignCenter,
                     labels.no_footage,
                 )
-            painter.setPen(QPen(QColor("#ef665d"), 2))
-            trigger_x = x + layout.trigger_x
-            painter.drawLine(trigger_x, top, trigger_x, top + layout.cell_height)
+                caption = labels.no_footage
             painter.setPen(QColor("#c3d1cd"))
             painter.drawText(
                 QRect(x, top + layout.cell_height, layout.cell_width, _CELL_LABEL_HEIGHT),
                 Qt.AlignmentFlag.AlignVCenter,
-                f"{video.label}  ·  {relative_time:+.2f} s",
+                caption,
             )
 
-    _draw_ruler(painter, layout, len(videos), before, after, relative_time, labels)
+    if signal is not None:
+        draw_signal_trace(
+            painter,
+            QRect(
+                _LEFT_GUTTER,
+                layout.height - layout.bottom_band + 29,
+                layout.width - _LEFT_GUTTER - _RIGHT_GUTTER,
+                145,
+            ),
+            traces,
+            signal,
+            before,
+            after,
+            relative_time,
+            labels.no_signal,
+            labels.current,
+        )
+    else:
+        _draw_ruler(painter, layout, len(videos), before, after, relative_time, labels)
     painter.end()
     return image
 
@@ -291,7 +338,7 @@ def _draw_ruler(
     labels: GridLabels,
 ) -> None:
     """Draw matching relative-time scales beneath every camera column."""
-    y = layout.height - _BOTTOM_BAND + 12
+    y = layout.height - layout.bottom_band + 12
     painter.setFont(QFont("Arial", 9))
     for video_index in range(video_count):
         left = _LEFT_GUTTER + video_index * (layout.cell_width + _GAP)

@@ -7,7 +7,14 @@ from fractions import Fraction
 import numpy as np
 import pytest
 
-from avialsync.engine.stimulus_grid_export import GridLabels, GridVideo, export_stimulus_grid
+from avialsync.core.pyramid import PyramidBuilder
+from avialsync.engine.export_worker import ReaderReference
+from avialsync.engine.stimulus_grid_export import (
+    GridLabels,
+    GridSignal,
+    GridVideo,
+    export_stimulus_grid,
+)
 from avialsync.engine.transcode import encode_video
 
 _LABELS = GridLabels(
@@ -16,6 +23,8 @@ _LABELS = GridLabels(
     no_footage="No footage",
     ruler="{before:.2f} s    Stimulus    +{after:.2f} s",
     current="Current: {time:+.2f} s",
+    no_signal="No signal",
+    frame="Frame {index}",
 )
 _GRID_BUDGET_S = 2.0
 
@@ -33,6 +42,9 @@ def test_bench_three_camera_four_event_grid(benchmark, tmp_path, qapp) -> None:
     )
     videos = tuple(GridVideo(source, f"Camera {index}") for index in range(3))
     events = (0.5, 1.0, 1.5, 2.0)
+    times = np.arange(0.0, 3.0, 0.001)
+    PyramidBuilder(tmp_path, "ttl").build_and_save(times, np.sin(times * 20))
+    signal = GridSignal(ReaderReference(tmp_path, "ttl"), "TTL", 0.5)
 
     benchmark(
         export_stimulus_grid,
@@ -43,6 +55,7 @@ def test_bench_three_camera_four_event_grid(benchmark, tmp_path, qapp) -> None:
         output,
         _LABELS,
         fps=10,
+        signal=signal,
     )
 
     if benchmark.stats is None:
