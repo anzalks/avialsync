@@ -58,13 +58,13 @@ def edit_spec(window: MainWindow, name: str, bars: int, units: str, radius: floa
         return
     calibration.calibration_quietly(window)
     cameras = display.camera_models(window)
-    window._wheel_refits[name] = spec
+    window.wheel_state.refits[name] = spec
     worker = WheelFitWorker(spec, wheel.clicks, cameras, wheel.flipped)
 
     def done(labelled: LabelledFit | None, problem: str = "") -> None:
-        if window._wheel_refits.get(name) != spec:
+        if window.wheel_state.refits.get(name) != spec:
             return
-        del window._wheel_refits[name]
+        del window.wheel_state.refits[name]
         current = window.wheels.get(name)
         if current is None:
             return
@@ -124,7 +124,7 @@ def edit_encoder_offset(window: MainWindow, name: str, offset: float) -> None:
 
 def preview_bar_diameter(window: MainWindow, name: str, diameter: float) -> None:
     """Draw *name*'s bars at *diameter* while its slider is dragged; record nothing."""
-    window._wheel_diameter_preview[name] = diameter
+    window.wheel_state.diameter_preview[name] = diameter
     display.refresh(window)
 
 
@@ -134,7 +134,7 @@ def edit_bar_diameter(window: MainWindow, name: str, diameter: float) -> None:
     Held arrow keys arrive as a run of values; ``SetWheelCommand`` merges a run
     of diameter-only changes, so the run is one step.
     """
-    window._wheel_diameter_preview.pop(name, None)
+    window.wheel_state.diameter_preview.pop(name, None)
     wheel = window.wheels.get(name)
     value = diameter if diameter > 0 else None
     if wheel is None or wheel.bar_diameter == value:

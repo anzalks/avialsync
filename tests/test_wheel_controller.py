@@ -81,7 +81,7 @@ _place = place
 
 def test_clicking_two_bars_offers_a_wheel_to_accept(window: MainWindow, monkeypatch) -> None:
     _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.fit is not None
     assert window._act_add_wheel.isChecked()
     assert not window.wheel_panel.isHidden()
@@ -94,7 +94,7 @@ def test_clicking_two_bars_offers_a_wheel_to_accept(window: MainWindow, monkeypa
 def test_done_labelling_saves_and_exits_click_mode(window: MainWindow, monkeypatch) -> None:
     _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
     window.wheel_panel._accept.click()
-    assert window._wheel_placement is None
+    assert window.wheel_state.placement is None
     assert not window._act_add_wheel.isChecked()
     assert window.wheels.get("wheel") is not None
 
@@ -104,7 +104,7 @@ def test_a_poor_preview_is_drawn_and_can_be_finished(
 ) -> None:
     """D-123: however poor the fit, the user sees it, and Done Labelling saves it."""
     _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.fit is not None
     placement.fit = dataclasses.replace(
         placement.fit,
@@ -123,7 +123,7 @@ def test_a_poor_preview_is_drawn_and_can_be_finished(
     window.wheel_panel._accept.click()
 
     wheel = window.wheels.get("wheel")
-    assert wheel is not None and window._wheel_placement is None
+    assert wheel is not None and window.wheel_state.placement is None
     assert read_wheels(pose3d)[0] == [wheel], "the clicks reach the wheel file"
     assert wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0).bars
     assert wheel_display.scene(window, 0.0)
@@ -154,7 +154,7 @@ def test_a_radius_in_the_wrong_units_gives_way_to_the_clicks(
 ) -> None:
     """The reported case: a radius typed in cm against a calibration in mm."""
     _place(window, [0, 1], WheelSpec("wheel", 36, radius=10.0, units="mm"), monkeypatch)
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.fit is not None
     assert placement.fit.geometry.radius == pytest.approx(TRUTH.radius, rel=0.02)
     assert placement.quality_issue is None
@@ -166,7 +166,7 @@ def test_a_radius_in_the_wrong_units_gives_way_to_the_clicks(
 def test_discard_clicks_exits_without_wheel(window: MainWindow, monkeypatch) -> None:
     _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
     window.wheel_panel._cancel.click()
-    assert window._wheel_placement is None
+    assert window.wheel_state.placement is None
     assert window.wheels.get("wheel") is None
 
 
@@ -185,7 +185,7 @@ def test_wheel_button_uses_the_edit_action(window: MainWindow, monkeypatch) -> N
     )
     window._act_add_wheel.setEnabled(True)
     button.click()
-    assert window._wheel_placement is not None
+    assert window.wheel_state.placement is not None
     assert button.isChecked() and window._act_add_wheel.isChecked()
 
 
@@ -223,7 +223,7 @@ def test_two_views_project_into_the_third_without_inventing_a_click(
         wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
         drawing = wheel_display.pane_drawing(window, VIDEOS[camera], 0.0)
         assert drawing is not None and drawing.clicks[-1][0] == "2b"
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.step == 3
     assert window.wheel_panel._accept.isEnabled()
     camera, x, y = last.views[2]
@@ -262,9 +262,9 @@ def test_camera_first_order_can_complete_two_bars(
             x, y = next((x, y) for name, x, y in click.views if name == camera)
             wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
         if camera == "Front":
-            assert window._wheel_placement is not None
-            assert not window._wheel_placement.estimates
-    placement = window._wheel_placement
+            assert window.wheel_state.placement is not None
+            assert not window.wheel_state.placement.estimates
+    placement = window.wheel_state.placement
     assert placement is not None and placement.ready(set(CAMERAS))
     assert window.wheel_panel._accept.isEnabled()
     assert [button.text() for button in window.wheel_panel._point_buttons[:4]] == [
@@ -298,7 +298,7 @@ def test_next_point_keeps_a_single_camera_click_visible(window: MainWindow, monk
         assert drawing is not None and drawing.clicks[-1][0] == f"1{'ab'[step]}"
         assert not drawing.projections
         window.wheel_panel._next.click()
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.step == 2
     assert placement.count(0) == placement.count(1) == 1
     assert not window.wheel_panel._accept.isEnabled()
@@ -306,7 +306,7 @@ def test_next_point_keeps_a_single_camera_click_visible(window: MainWindow, monk
 
 def test_missing_view_projection_matches_synthetic_truth() -> None:
     click = clicks_for([0])[0]
-    placement = wheel_placement.Placement(WheelSpec("wheel", 36), None, FRAME)
+    placement = wheel_placement.WheelPlacement(WheelSpec("wheel", 36), None, FRAME)
     placement.clicks[(0, click.side)] = click.without_view("Right")
 
     wheel_placement.estimate_missing(placement, CAMERAS)
@@ -319,7 +319,7 @@ def test_missing_view_projection_matches_synthetic_truth() -> None:
 
 def test_three_bars_is_the_maximum_guided_input(window: MainWindow, monkeypatch) -> None:
     _place(window, [0, 1, 2], WheelSpec("wheel", 36), monkeypatch)
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.step == 6
     before = placement.ordered()
     wheel_controller.on_clicked(window, VIDEOS["Front"], 1.0, 2.0)
@@ -342,7 +342,7 @@ def test_done_labelling_is_live_from_point_2b_through_all_three_bars(
         if step == 3:
             assert "Bar 3 (3A, 3B) is optional" in panel._summary.text()
     assert enabled == [False] * 7 + [True] * 5
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.fit is not None
     assert len(placement.fit.indices) == 3, "a complete third bar joins the fit"
 
@@ -351,7 +351,7 @@ def test_done_labelling_is_live_from_point_2b_through_all_three_bars(
     wheel = window.wheels.get("wheel")
     assert wheel is not None and len(wheel.fit.indices) == 3 and len(wheel.clicks) == 6
     assert read_wheels(pose3d)[0] == [wheel]
-    assert window._wheel_placement is None and not window._act_add_wheel.isChecked()
+    assert window.wheel_state.placement is None and not window._act_add_wheel.isChecked()
     assert wheel_display.pane_drawing(window, VIDEOS["Right"], 0.0).bars
 
 
@@ -366,7 +366,7 @@ def test_a_third_bar_clicked_backwards_is_left_out_and_done_stays_live(
     # A and B swapped on bar 3: the fit refuses that bar, not the wheel.
     click_point(window, 4, clicks[5].views)
     click_point(window, 5, clicks[4].views)
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.fit is not None
     assert len(placement.fit.indices) == 2
     assert "left out of the fit" in window.wheel_panel._summary.text()
@@ -384,7 +384,7 @@ def test_a_third_bar_clicked_backwards_is_left_out_and_done_stays_live(
 def test_a_stepped_over_third_bar_is_used_as_clicked(window: MainWindow, monkeypatch) -> None:
     """Clicked bars are neighbours by declaration; a skipped one shows as click error."""
     _place(window, [0, 1, 3], WheelSpec("wheel", 36), monkeypatch)
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.fit is not None
     assert sorted(abs(i) for i in placement.fit.indices) == [0, 1, 2]
     assert placement.fit.max_px > 20.0, "the skipped bar cannot hide"
@@ -399,7 +399,7 @@ def test_started_third_bar_does_not_block_two_complete_bars(
     click = clicks_for([0, 1, 2])[4]
     camera, x, y = click.views[0]
     wheel_controller.on_clicked(window, VIDEOS[camera], x, y)
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.fit is not None
     assert window.wheel_panel._accept.isEnabled()
     assert "incomplete third bar" in window.wheel_panel._summary.text().lower()
@@ -419,7 +419,7 @@ def test_accept_is_one_undo_step_and_writes_the_file(
     wheel = window.wheels.get("wheel")
     assert wheel is not None
     assert wheel.frame == FRAME
-    assert window._wheel_placement is None
+    assert window.wheel_state.placement is None
     assert not window._act_add_wheel.isChecked()
     assert read_wheels(pose3d)[0] == [wheel]
 
@@ -441,14 +441,14 @@ def test_a_click_is_taken_back(window: MainWindow, monkeypatch) -> None:
     wheel_controller.toggled(window, True)
     wheel_controller.on_clicked(window, VIDEOS["Front"], 100.0, 200.0)
     wheel_controller.undo_click(window)
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.clicks == {}
 
 
 def test_a_click_on_another_frame_is_refused(window: MainWindow, monkeypatch, frame) -> None:
     _place(window, [0], WheelSpec("wheel", 36), monkeypatch)
     frame["now"] = FRAME + 3
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None
     before = dict(placement.clicks)
     wheel_controller.on_clicked(window, VIDEOS["Front"], 1.0, 2.0)
@@ -463,7 +463,7 @@ def test_cancel_discards_the_clicks(window: MainWindow, monkeypatch) -> None:
     _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
     window._act_add_wheel.setChecked(False)
     wheel_controller.toggled(window, False)
-    assert window._wheel_placement is None
+    assert window.wheel_state.placement is None
     assert len(window.wheels) == 0
 
 
@@ -500,7 +500,7 @@ def test_without_an_encoder_the_wheel_stays_on_its_frame(
     _place(window, [0, 1, 2], WheelSpec("wheel", 36), monkeypatch)
     wheel_controller.accept(window)
     frame["now"] = FRAME + 30
-    window._wheel_cache.clear()
+    window.wheel_state.cache.clear()
     assert wheel_display.pane_drawing(window, VIDEOS["Front"], 1.0) is None
 
 
@@ -539,9 +539,9 @@ def test_two_checks_measure_the_direction(window: MainWindow, monkeypatch, frame
         monkeypatch.setattr(wheel_display, "sample", lambda _w, _c, _t, a=-turn: a)
         frame.update(now=shown, t=float(shown))
         wheel_controller.start_checking(window, "wheel")
-        assert window._wheel_checking == "wheel"
+        assert window.wheel_state.checking == "wheel"
         wheel_controller.on_clicked(window, VIDEOS["Front"], float(x), float(y))
-        assert window._wheel_checking is None
+        assert window.wheel_state.checking is None
     checked = window.wheels.get("wheel")
     assert checked is not None and checked.binding is not None
     binding = checked.binding
@@ -592,14 +592,18 @@ def test_generic_cameras_and_tracking_share_one_wheel_folder(tmp_path: Path) -> 
         str(recording / "front" / "camera.mp4"),
         str(recording / "side" / "camera.mp4"),
     ]
-    window = SimpleNamespace(
-        video_grid=SimpleNamespace(pane_paths=lambda: videos),
-        _pose_3d_sources={},
+    sources: dict[str, object] = {}
+    context = rig_paths.RigPathsContext(
+        video_paths=lambda: videos,
+        pose_sources=sources,
+        overlays={},
+        calibrated_videos=lambda: (),
+        frame_index=lambda _index, _time: 0,
     )
 
-    assert rig_paths.pose3d_dir(window) == recording / "pose-3d"
-    window._pose_3d_sources = {str(recording / "tracking" / "points.csv"): []}
-    assert rig_paths.pose3d_dir(window) == recording / "pose-3d"
+    assert rig_paths.pose3d_dir(context) == recording / "pose-3d"
+    sources[str(recording / "tracking" / "points.csv")] = []
+    assert rig_paths.pose3d_dir(context) == recording / "pose-3d"
 
 
 def test_a_camera_opened_later_joins_the_quiet_calibration(

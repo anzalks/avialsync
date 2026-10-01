@@ -5310,3 +5310,39 @@ path for plotted tracking (it would broadcast 2D coordinates over every camera).
 **Consequences:** sessions schema v11 stores `tracking_overlay_visible` and
 `tracking_plot_visible`. The reviewer can remove individual visual sources or opt individual
 sources into plots.
+
+## 2026-10 · D-148 · Main window composition has measured boundaries
+
+**Context.** The main-window composition branch merged into mocap with plain-function controllers
+still reading many private `MainWindow` fields. The window had 129 attributes, duplicated placement
+type names, a deferred wheel/marker import cycle, and legacy job handles alongside JobManager.
+The mocap and scientific UX additions also took `main_window.py` above 4 000 lines. D-051 and D-066
+protect real Qt slots and instance-level hooks; replacing all forwarding methods with partials
+would reopen the recorded worker-thread failure.
+
+**Decision.** JobManager remains the sole owner of worker lifetimes. `VideoLoadState` and
+`ImportState` hold queue and capacity state, while `WheelState` and `SessionRuntimeState` hold
+transient gesture and session metadata. The two unrelated placement types are `MarkerPlacement`
+and `WheelPlacement`. MainWindow coordinates competing marker/wheel gestures, so their controllers
+no longer import each other. Rig path helpers accept `RigPathsContext`, which supplies only their
+required mappings and callbacks. Menus are built in `ui/menus/`; labels, shortcuts, and
+enablement remain attached to live actions. Real MainWindow Qt slot wrappers remain as required by
+D-051 and D-066.
+
+`tests/test_controller_boundaries.py` freezes every existing `window._*` controller access at its
+current per-module count, caps oversized modules and legacy long functions at their current size,
+and rejects controller import cycles. Every new controller/menu module has a 500-line cap and new
+functions a 60-line cap. The baseline only shrinks as accesses move behind explicit state or
+contexts; changing it upward requires a documented reason in the same review. The final target
+for `main_window.py` is under 1 000 lines, with further narrow contexts and widget builders
+needed to get there.
+
+**Alternatives rejected.** Qt slot mixins and partial-bound signal connections remain rejected by
+D-051. A mechanical conversion of every controller to an object would change signal ownership and
+instance-level extension points in one step; migrate a bounded responsibility with its tests
+instead. Duplicate worker registries are unnecessary because JobManager already exposes active
+jobs for cancellation and shutdown.
+
+**Consequences.** The private-access baseline makes remaining design coupling visible and prevents
+growth, but does not make every controller independent of `MainWindow` yet. This is a measured
+intermediate boundary, not completion of the line-count target.

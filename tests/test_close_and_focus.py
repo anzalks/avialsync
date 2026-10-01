@@ -166,7 +166,7 @@ def test_the_final_autosave_still_sees_the_open_videos(window, tmp_path: Path) -
     """The grid used to be torn down before the session state was built."""
     window.video_grid.add_pane(_VIDEO)
     session = tmp_path / "session.avv"
-    window._session_path = session
+    window.session_runtime.path = session
 
     window.close()
 

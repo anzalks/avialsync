@@ -206,7 +206,7 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
 
     window._save_in_progress = True
     state = window._build_session_state()
-    session_generation = window._session_generation
+    session_generation = window.session_runtime.generation
 
     from avialsync.engine.session_worker import SessionSaveWorker
 
@@ -216,9 +216,9 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
         window.transport.set_status("Saving session…")
 
     def on_finished():
-        if session_generation != window._session_generation:
+        if session_generation != window.session_runtime.generation:
             return
-        window._session_path = path
+        window.session_runtime.path = path
         add_recent(str(path))
         # The work is now in a file the user chose, so the recovery snapshot
         # describes nothing they could still lose. Leaving it would offer a
@@ -284,13 +284,13 @@ def start_session_load(window: MainWindow, path: Path) -> None:
 
     window.transport.set_status("Loading session…")
     worker = SessionLoadWorker(path)
-    session_generation = window._session_generation
+    session_generation = window.session_runtime.generation
 
     def on_finished(state: SessionState):
-        if session_generation != window._session_generation:
+        if session_generation != window.session_runtime.generation:
             return
         window.transport.set_status("")
-        window._session_path = path
+        window.session_runtime.path = path
         add_recent(str(path))
         window._restore_session(state)
 
@@ -324,8 +324,8 @@ def start_session_load(window: MainWindow, path: Path) -> None:
 
 def reset_session(window: MainWindow) -> None:
     """Return the workspace to its empty, ready-to-open state."""
-    window._session_generation += 1
-    window._session_path = None
+    window.session_runtime.generation += 1
+    window.session_runtime.path = None
     # A reset empties the workspace and drops the path. Any snapshot still on
     # disk describes work this reset has just discarded on purpose; keeping it
     # would resurrect it at the next launch, and letting the close-time write
@@ -334,20 +334,22 @@ def reset_session(window: MainWindow) -> None:
     recovery.clear_recovery()
     forget_pending_recovery(window)
 
-    for worker in list(window._video_load_jobs.values()):
+    for job in window._job_manager.jobs():
+        if job.thread not in window.video_load_state.active_probes:
+            continue
+        worker = job.worker
         _disconnect(getattr(worker, "opened", None), window._on_video_opened)
         _disconnect(getattr(worker, "error", None), window._on_video_open_error)
-        cancel = getattr(worker, "cancel", None)
-        if callable(cancel):
-            cancel()
-    window._pending_video_loads.clear()
-    window._video_request_order.clear()
-    window._probed_videos.clear()
-    window._video_load_offsets.clear()
-    window._video_load_drifts.clear()
-    window._video_pane_initializing = None
+    window.video_load_state.clear_pending()
 
-    import_worker = window._import_worker
+    import_worker = next(
+        (
+            job.worker
+            for job in window._job_manager.jobs()
+            if job.thread is window.import_state.active_thread
+        ),
+        None,
+    )
     if import_worker is not None:
         # The progress dialog this used to disconnect from is gone (D-091);
         # the activity bar takes its place and is dismissed below. Cancelling
@@ -360,7 +362,7 @@ def reset_session(window: MainWindow) -> None:
             cancel()
     window.activity_bar.end()
     window._active_cancel = None
-    window._pending_imports.clear()
+    window.import_state.pending.clear()
 
     for job in window._job_manager.jobs():
         worker = job.worker
@@ -393,7 +395,7 @@ def reset_session(window: MainWindow) -> None:
     window._video_source_bounds.clear()
     window._video_time_mappings.clear()
     window._sync_provenance.clear()
-    window._session_start_time = 0.0
+    window.session_runtime.start_time = 0.0
     # Placements belong to the session zero that produced them; carrying them
     # into the next session would place its sources against an epoch it never
     # declared.
@@ -441,11 +443,11 @@ def reset_session(window: MainWindow) -> None:
     window._sensor_cache_dirs.clear()
     window._pending_bounds_sources.clear()
     window._pending_sensor_mappings.clear()
-    window._session_camera_fps = 0.0
-    window._session_anchor_epoch = 0.0
-    window._session_item_labels.clear()
-    window._session_item_kinds.clear()
-    window._session_coverage_groups.clear()
+    window.session_runtime.camera_fps = 0.0
+    window.session_runtime.anchor_epoch = 0.0
+    window.session_runtime.item_labels.clear()
+    window.session_runtime.item_kinds.clear()
+    window.session_runtime.coverage_groups.clear()
 
     window._refresh_pose_3d()
     window.clock.set_bounds(0.0, 0.0)
@@ -469,7 +471,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     """Load all sources from a SessionState object."""
     # Sources arrive asynchronously and are indistinguishable from the user
     # opening them; `_note_source_loaded` clears this once they drain.
-    window._session_restoring = True
+    window.session_runtime.restoring = True
     # Restored before the panes exist, so each one is built already showing the
     # right layers rather than flashing the defaults first (D-090).
     window.overlay_state.load(state.overlays)
@@ -522,7 +524,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # Before any source loads: the reference is declared once, and a restored
     # session already declared it. Adopting it here stops the first file to
     # arrive from re-declaring a different one and renumbering the session.
-    window._session_start_time = float(state.session_start_time)
+    window.session_runtime.start_time = float(state.session_start_time)
     window._publish_session_epoch()
     window._sync_provenance = list(state.sync_provenance)
     # Sources arrive asynchronously, so this runs again once they have; doing
@@ -621,10 +623,10 @@ def autosave(window: MainWindow) -> None:
     """
     if window._save_in_progress:
         return
-    if window._session_path is None:
+    if window.session_runtime.path is None:
         _write_recovery_snapshot(window)
         return
-    window._start_session_save(window._session_path, is_autosave=True)
+    window._start_session_save(window.session_runtime.path, is_autosave=True)
 
 
 #: Whether the launch-time notification bar is posted at all. Off by default:
@@ -647,9 +649,9 @@ def note_pending_recovery(window: MainWindow) -> bool:
     does not belong on those events (rule 3). The clear sites drop it with the
     snapshot, so the command greys out when there is nothing behind it.
     """
-    window._pending_recovery = recovery.pending_recovery()
+    window.session_runtime.pending_recovery = recovery.pending_recovery()
     window._refresh_action_availability()
-    return window._pending_recovery is not None
+    return window.session_runtime.pending_recovery is not None
 
 
 def forget_pending_recovery(window: MainWindow) -> None:
@@ -660,7 +662,7 @@ def forget_pending_recovery(window: MainWindow) -> None:
     offer that outlives its file would put old work back over the current
     workspace.
     """
-    window._pending_recovery = None
+    window.session_runtime.pending_recovery = None
     window._refresh_action_availability()
 
 
@@ -672,7 +674,7 @@ def recover_unsaved_work(window: MainWindow) -> None:
     reached, so turning the notification off costs discoverability and not the
     work itself.
     """
-    snapshot = window._pending_recovery
+    snapshot = window.session_runtime.pending_recovery
     if snapshot is None:
         return
     restore_pending_recovery(window, snapshot)
@@ -700,7 +702,7 @@ def offer_pending_recovery(window: MainWindow) -> bool:
     then clear by hand. The snapshot is always written and **File → Recover
     Unsaved Work** always reaches it; only the unrequested bar is opt-in.
     """
-    snapshot = window._pending_recovery if note_pending_recovery(window) else None
+    snapshot = window.session_runtime.pending_recovery if note_pending_recovery(window) else None
     if snapshot is None:
         return False
     if not offers_recovery_at_launch():
@@ -738,7 +740,7 @@ def restore_pending_recovery(window: MainWindow, snapshot: recovery.RecoverySnap
         )
         return
 
-    window._session_path = Path(snapshot.session_path) if snapshot.session_path else None
+    window.session_runtime.path = Path(snapshot.session_path) if snapshot.session_path else None
     window._restore_session(state)
     recovery.clear_recovery()
     forget_pending_recovery(window)
@@ -787,12 +789,12 @@ def write_session_snapshot(window: MainWindow) -> None:
     With no session path the same state goes to the recovery snapshot instead,
     so closing an untitled session preserves it rather than discarding it.
     """
-    if window._session_path is None:
+    if window.session_runtime.path is None:
         _write_recovery_snapshot(window)
         return
     from avialsync.engine.session_worker import SessionSaveWorker
 
-    SessionSaveWorker(window._build_session_state(), window._session_path).run()
+    SessionSaveWorker(window._build_session_state(), window.session_runtime.path).run()
 
 
 def autosave_before_close(window: MainWindow) -> None:

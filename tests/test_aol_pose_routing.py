@@ -740,7 +740,7 @@ def test_the_wheel_hint_reaches_the_window(aol_session: Path, qtbot, monkeypatch
     qtbot.addWidget(window)
     apply_session_layout(window, layout)
 
-    assert window._session_rotary == layout.rotary
+    assert window.wheel_state.session_rotary == layout.rotary
     assert len(window.wheels) == 0
     window.close()
 

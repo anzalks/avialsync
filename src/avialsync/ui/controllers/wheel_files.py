@@ -35,7 +35,7 @@ __all__ = ["persist", "adopt"]
 
 def persist(window: MainWindow, name: str) -> None:
     """Write wheel *name*'s file now, from the mutation funnel only (D-099's rule)."""
-    folder = rig_paths.pose3d_dir(window)
+    folder = rig_paths.pose3d_dir(window.rig_paths)
     if folder is None:
         return
     wheel = window.wheels.get(name)
@@ -48,8 +48,8 @@ def persist(window: MainWindow, name: str) -> None:
             details=str(error),
         )
         return
-    if written is not None and name not in window._announced_wheel_files:
-        window._announced_wheel_files.add(name)
+    if written is not None and name not in window.wheel_state.announced_files:
+        window.wheel_state.announced_files.add(name)
         window.notifications.show_success(
             tr("Wheel {name} is saved beside the 3D pose, as {file}.").format(
                 name=name, file=written.name
@@ -63,22 +63,22 @@ def adopt(window: MainWindow) -> None:
     One job per folder in this session; later panes and pose files share its
     result. Existing in-memory edits win if the read finishes after an edit.
     """
-    folder = rig_paths.pose3d_dir(window)
-    if folder is None or folder in window._wheel_adopt_folders:
+    folder = rig_paths.pose3d_dir(window.rig_paths)
+    if folder is None or folder in window.wheel_state.adopt_folders:
         return
-    window._wheel_adopt_folders.add(folder)
-    generation = window._session_generation
+    window.wheel_state.adopt_folders.add(folder)
+    generation = window.session_runtime.generation
     worker = WheelFileReadWorker(folder)
 
     def on_finished(wheels: list[Wheel], unreadable: list[str]) -> None:
-        if generation != window._session_generation:
+        if generation != window.session_runtime.generation:
             return
         _accept_read(window, wheels, unreadable)
 
     def on_error(message: str) -> None:
-        if generation != window._session_generation:
+        if generation != window.session_runtime.generation:
             return
-        window._wheel_adopt_folders.discard(folder)
+        window.wheel_state.adopt_folders.discard(folder)
         window.notifications.show_warning(
             tr("Saved wheels in {folder} could not be read.").format(folder=folder.name),
             details=message,
@@ -94,8 +94,8 @@ def adopt(window: MainWindow) -> None:
 def _accept_read(window: MainWindow, wheels: list[Wheel], unreadable: list[str]) -> None:
     """Merge a completed read without replacing any wheel already in memory."""
     for file_name in unreadable:
-        if file_name not in window._announced_wheel_files:
-            window._announced_wheel_files.add(file_name)
+        if file_name not in window.wheel_state.announced_files:
+            window.wheel_state.announced_files.add(file_name)
             window.notifications.show_warning(
                 tr("{file} could not be read, so that wheel is not shown.").format(file=file_name)
             )

@@ -8,13 +8,24 @@ different frames for the same click (rule 6, one authority names the frame).
 
 from __future__ import annotations
 
+from collections.abc import Callable, Collection, Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
 from avialsync.core import calibration_ref
 
-if TYPE_CHECKING:
-    from avialsync.ui.main_window import MainWindow
+
+@dataclass(frozen=True)
+class RigPathsContext:
+    """Only the live facts needed to locate rig files and name a video frame."""
+
+    video_paths: Callable[[], list[str]]
+    pose_sources: Mapping[str, object]
+    overlays: Mapping[str, Mapping[str, Mapping[str, Any]]]
+    calibrated_videos: Callable[[], Collection[str]]
+    frame_index: Callable[[int, float], int]
+
 
 __all__ = ["camera_name", "open_videos", "pose3d_dir", "pose_2d_file", "frame_at"]
 
@@ -24,17 +35,17 @@ def camera_name(video: str) -> str:
     return Path(video).stem
 
 
-def open_videos(window: MainWindow) -> list[str]:
+def open_videos(context: RigPathsContext) -> list[str]:
     """Every video with a pane, in pane order."""
-    return list(window.video_grid.pane_paths())
+    return context.video_paths()
 
 
-def pose3d_dir(window: MainWindow) -> Path | None:
+def pose3d_dir(context: RigPathsContext) -> Path | None:
     """The recording's pose folder, shared by video-only and tracked imports."""
-    videos = open_videos(window)
+    videos = open_videos(context)
     video_root = _video_root(videos)
-    if window._pose_3d_sources:
-        source = Path(next(iter(window._pose_3d_sources)))
+    if context.pose_sources:
+        source = Path(next(iter(context.pose_sources)))
         owned = calibration_ref.pose3d_dir_for(source)
         if owned.name.lower() == calibration_ref.POSE_3D_DIR:
             return owned
@@ -56,21 +67,20 @@ def _video_root(videos: list[str]) -> Path | None:
     return first
 
 
-def pose_2d_file(window: MainWindow, video: str) -> Path | None:
+def pose_2d_file(context: RigPathsContext, video: str) -> Path | None:
     """The 2D pose file drawn over *video* -- the ensemble when there are several."""
-    entries = window._overlay_sources.get(video, {})
+    entries = context.overlays.get(video, {})
     for source_id, entry in entries.items():
         if entry.get("is_ensemble"):
             return Path(source_id)
     return Path(next(iter(entries))) if entries else None
 
 
-def frame_at(window: MainWindow, t_master: float) -> int | None:
+def frame_at(context: RigPathsContext, t_master: float) -> int | None:
     """The video frame on screen at *t_master*, named by the first calibrated pane."""
-    state = window._calibration_state
-    videos = open_videos(window)
-    ordered = [v for v in videos if state is not None and v in state.cameras] or videos
+    videos = open_videos(context)
+    calibrated = set(context.calibrated_videos())
+    ordered = [v for v in videos if v in calibrated] or videos
     if not ordered:
         return None
-    pane = window.video_grid.panes[videos.index(ordered[0])]
-    return int(pane.frame_record_at(t_master)[0])
+    return context.frame_index(videos.index(ordered[0]), t_master)

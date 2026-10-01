@@ -287,12 +287,13 @@ Two product laws govern that phase and outrank convention:
     decoder-settle-plus-rendered-frame latency are not yet recorded. Existing microbenchmarks are
     baselines, not freeze-free certification. Do not claim the BLUEPRINT latency budgets without
     those runs on a real mid-spec machine.
-  - **P2 maintainability — split done, size still over.** `ui/main_window.py` went from 2 884 to
-    1 751 lines: drop routing, session persistence, export, video probing, and time-series import
-    moved to `ui/controllers/` as plain functions taking the window (D-066). The window keeps widget
-    construction, the menu/shortcut table, and controller wiring. Still above the ~500-line rule —
-    the remaining bulk is `__init__` widget construction, `_setup_menu`, and `_setup_shortcuts`,
-    plus synchronization, which has no controller yet.
+  - **P2 maintainability — composition still in progress.** `ui/main_window.py` is about 4 000
+    lines after the mocap and scientific UX work. File, Edit, Align, View, and Help menus now live
+    in `ui/menus/`, with labels still owned by their live actions. Wheel, video-load, import, and
+    session runtime fields have typed state objects; rig path helpers take a narrow context.
+    `tests/test_controller_boundaries.py` freezes private window accesses and oversized modules at
+    their current ceilings, checks new functions, and rejects controller import cycles. The target
+    is under 1 000 lines for `main_window.py` (D-148); remaining window coupling is tracked as debt.
 - P5.2 release packaging: CI already builds a media-free one-directory artifact on every OS; the
   tag-only release workflow runs its cross-platform quality matrix, then smoke-tests the built
   wheel in a clean environment before building release-media installers. OIDC PyPI publishing
@@ -465,7 +466,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/wheel_check.py` | Tests the encoder against the video: a click on any bar end fixes the turn modulo one bar gap; two informative checks settle the direction (D-113) | `observed_turn()`, `check()`, `settle_sign()`, `CheckResult` |
 | `core/wheel_file.py` | `pose-3d/<name>.wheel.toml`: clicks (the authority) + fit + binding + checks; a removed wheel keeps its file marked `removed = true` (D-113) | `write_wheel()`, `write_removed()`, `read_wheels()`, `wheel_path()`, `is_wheel_path()` |
 | `core/toml_format.py` | The TOML writer shared by `calibration.toml` and wheel files, laid out as anipose writes | `toml_value()`, `write_atomic()` |
-| `ui/controllers/rig_paths.py` | Where a recording's pieces are, for the marker, calibration and wheel controllers alike: camera names, open videos, the shared recording's `pose-3d` folder (also for generic cameras in subfolders), each camera's 2D pose file, and **the one frame-on-screen authority** (D-114, D-132) | `camera_name()`, `open_videos()`, `pose3d_dir()`, `pose_2d_file()`, `frame_at()` |
+| `ui/controllers/rig_paths.py` | Where a recording's pieces are, for the marker, calibration and wheel controllers alike: camera names, open videos, the shared recording's `pose-3d` folder (also for generic cameras in subfolders), each camera's 2D pose file, and **the one frame-on-screen authority** (D-114, D-132). Helpers take `RigPathsContext`, not a window (D-148) | `RigPathsContext`, `camera_name()`, `open_videos()`, `pose3d_dir()`, `pose_2d_file()`, `frame_at()` |
 | `ui/controllers/calibration_controller.py` | The rig's calibration: resolve, import, fit (background job), and reprojection. The Import/Compute question is asked **only** for a gesture that asked for it; an overlay switch or Show All posts a notification with "Choose Calibration…" instead (rule 11). `CalibrationError` goes through `report_failure` (rule 12) (D-114). `calibration_quietly` is retried as each camera pane is added and extends a calibration taken with fewer cameras open, so wheels and markers read back from disk draw on every camera of a reopened session (D-125) | `CalibrationState`, `acquire_calibration()`, `resolve_calibration()`, `calibration_quietly()`, `reprojected()`, `reprojection_toggled()`, `REPROJECTION_OVERLAY` |
 | `ui/marker_overlay.py` | What a camera's overlay draws besides the tracking: hand-placed markers (rings, grabbable in Fix Tracker), reprojection (crosses), the wheel (lines). `ResolvedPoint` lives here (D-114) | `MarkerOverlayMixin`, `ResolvedPoint` |
 | `ui/video_grid_overlays.py` | Routes tracking, corrections, markers, reprojection and the wheel to panes, holding each for a pane built later (D-114) | `GridOverlayMixin` |
@@ -473,7 +474,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/wheel_file_worker.py` | Registered background reader for a recording's saved wheel files; video-only reopen uses the same reader (D-132) | `WheelFileReadWorker` |
 | `ui/controllers/wheel_files.py` | When and where a wheel's file is written and read: writes from the mutation funnel; reads as videos or pose sources register, once per folder per session, without replacing a wheel already in memory (D-113, D-132) | `persist()`, `adopt()` |
 | `ui/controllers/wheel_display.py` | What a wheel draws per frame: bars cached by frame index, encoder at the frame's presentation time, read through the plot row's own `MappedChannelReader.sample_at` -- the value the Values tab shows -- never a second reader (D-131); no file IO and no projection on the paint path (D-113, D-116). A projected mark's click target is eight *displayed* pixels at the pane's zoom (D-120) | `pane_drawing()`, `scene()`, `refresh()`, `sample()`, `encoder_binding()`, `frame_and_time()`, `projected_hit_radius()` |
-| `ui/controllers/wheel_placement.py` | The wheel being labelled, read without a window: its real clicks, the missing-view projections two clicks give (display only, never fit or file evidence, D-116), when Done Labelling is live (bars 1 and 2, not while a fit is running, D-122, D-123), and the Wheels tab's review text, including what `fit_labelled` had to give way (a third bar, or a typed radius — with a units hint when it is ~10×/100×/1000× off) | `Placement`, `estimate_missing()`, `placement_view()`, `describe_adjustment()`, `end_label()` |
+| `ui/controllers/wheel_placement.py` | The wheel being labelled, read without a window: its real clicks, the missing-view projections two clicks give (display only, never fit or file evidence, D-116), when Done Labelling is live (bars 1 and 2, not while a fit is running, D-122, D-123), and the Wheels tab's review text, including what `fit_labelled` had to give way (a third bar, or a typed radius — with a units hint when it is ~10×/100×/1000× off) | `WheelPlacement`, `estimate_missing()`, `placement_view()`, `describe_adjustment()`, `end_label()` |
 | `ui/controllers/wheel_generation.py` | Generating the wheel being labelled as a registered background job, one at a time, re-running for clicks made meanwhile; announces the first generated wheel and a poor fit once each (D-123) | `refit()` |
 | `ui/controllers/wheel_edits.py` | Changing a placed wheel from the Wheels tab: bar count, units, radius (re-fit from its own clicks in the background; the latest edit wins), encoder direction and ratio, bar diameter (`preview_bar_diameter` draws a drag without recording; `edit_bar_diameter` commits, and `SetWheelCommand.merge_with` joins a run of diameter-only steps), removal. Each is one `SetWheelCommand` (D-113, D-128) | `edit_spec()`, `edit_bar_diameter()`, `preview_bar_diameter()`, `edit_binding()`, `remove()`, `spec_from()` |
 | `ui/wheel_overlay.py` | Painting a wheel over video: thin neutral lines, dashed until accepted, bar 0 ticked; clicked ends are labelled rings and missing-view estimates labelled dashed diamonds. Placement cues elide to the pane width (D-113, D-116, D-120) | `WheelBar`, `WheelDrawing`, `draw_wheel()`, `draw_wheel_clicks()` |
@@ -520,7 +521,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/session_worker.py` | Off-UI-thread session save/load and annotation export (D-046) | `SessionSaveWorker`, `SessionLoadWorker`, `AnnotationExportWorker` |
 | `engine/export.py` | Data slice, video clip, region stats | `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `engine/snapshot.py` | Snapshot figure: tiles, negotiated page width, opaque composition (D-101). Layout is planned once and both the capture and the render use that plan | `SnapshotFigure`, `SnapshotTile`, `plan_media_layout()`, `content_width_for()`, `figure_size()`, `render_figure()`, `save_figure()` |
-| `ui/main_window.py` | Widget construction, menu/shortcut table, controller wiring; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066) | `MainWindow` |
+| `ui/main_window.py`, `ui/menus/` | Widget construction, Qt slot wiring, live action identity, and menu builders; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066, D-148) | `MainWindow`, `build_menus()` |
+| `ui/controllers/{wheel_state,video_load_state,import_state,session_state}.py` | Typed transient state for wheel gestures, bounded video probes, serial imports, and session metadata. JobManager owns worker lifetimes; these objects hold only queue/capacity state (D-148) | `WheelState`, `VideoLoadState`, `ImportState`, `SessionRuntimeState` |
 | `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075). Seeks are id-tagged so `is_seeking` answers only the newest one (D-084): `DecodeWorker.request(request_id, source_time)`, `frame_ready(request_id, index, pts, rgb)`. `video_size` is a property over `VideoSurface`, not a second copy (D-101) | `VideoPane`, `set_sync_correction()`, `video_size`, `shows_footage`, `VideoSurface.video_size` |
 | `core/video_timing.py` | **The** frame-selection authority — last frame with `pts <= t`. Headless so `engine/` can share it (D-075) | `frame_index_at()`, `adjacent_frame_time()`, `PTS_EPSILON_S` |
 | `ui/video_timing.py` | Timestamp rate/readout helpers and pane timing mixin; re-exports the two `core/video_timing.py` selectors | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
@@ -943,7 +945,7 @@ event happens to answer `delta()`, and then raises `AttributeError` on
 
 ### 0a. Three UI facts that look like features and are not (Phase 7)
 Verified against the tree, not inferred. Each has caused, or will cause, a wrong assumption.
-1. **`session_controller.autosave()` writes a recovery snapshot when `window._session_path is
+1. **`session_controller.autosave()` writes a recovery snapshot when `window.session_runtime.path is
    None`** (WP-1, D-089). It used to return early there, so the two-minute autosave protected only
    sessions already saved by hand and `closeEvent`'s "always close" contract discarded an untitled
    one silently. Both paths are covered now — the timer and the close — so do not add a "save your
@@ -1005,8 +1007,8 @@ these looked done from the module that owned it and was wrong from the window.
    `QThread`, with three named exceptions and their reasons.
 
 2. **Assign your own handle inside `configure`, never from the return value.** `import_controller`
-   gates its queue on `window._import_thread is not None`, and `video_controller` counts
-   `_video_load_jobs` against `MAX_VIDEO_PROBES`. Filling either from `_run_job`'s return value is a
+   gates its queue on `window.import_state.active_thread is not None`, and `video_controller` counts
+   `window.video_load_state.active_probes` against `MAX_VIDEO_PROBES`. Filling either from `_run_job`'s return value is a
    race a fast job wins: it finishes, its `finished` handler clears the entry, and *then* the
    assignment lands — leaving a stale handle that gates every later import forever, or a registry
    that never fills so the probe limit is never reached. Both now assign inside `_wire`, which runs

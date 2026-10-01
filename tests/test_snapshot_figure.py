@@ -519,7 +519,7 @@ def _stub_window(pane, recorded: list, qtbot) -> SimpleNamespace:
         notifications=notifications,
         clock=SimpleNamespace(state=SimpleNamespace(t=1.0)),
         plot_pane=SimpleNamespace(channels=[]),
-        _session_path=None,
+        session_runtime=SimpleNamespace(path=None),
         _start_snapshot_export=lambda figure, path: recorded.append((figure, path)),
     )
 

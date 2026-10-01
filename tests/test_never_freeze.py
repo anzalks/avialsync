@@ -124,7 +124,7 @@ def test_closing_still_writes_the_final_autosave(qapp, qtbot, release, tmp_path)
     """Abandoning jobs must not skip the session write."""
     window = MainWindow()
     qtbot.addWidget(window)
-    window._session_path = tmp_path / "final.avv"
+    window.session_runtime.path = tmp_path / "final.avv"
     window._job_manager.start("Exporting clip", _WedgedWorker(release))
 
     window.close()

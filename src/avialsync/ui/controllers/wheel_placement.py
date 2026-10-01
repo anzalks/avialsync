@@ -35,7 +35,7 @@ from avialsync.ui.wheel_text import describe_fit
 
 __all__ = [
     "POINTS",
-    "Placement",
+    "WheelPlacement",
     "end_label",
     "estimate_missing",
     "describe_adjustment",
@@ -58,7 +58,7 @@ def end_label(bar: int, side: str) -> str:
 
 
 @dataclass
-class Placement:
+class WheelPlacement:
     """A wheel being clicked: what was declared, and the clicks so far."""
 
     spec: WheelSpec
@@ -152,7 +152,7 @@ class Placement:
         return clicks, projections, cue
 
 
-def estimate_missing(placement: Placement, cameras: Mapping[str, CameraModel]) -> None:
+def estimate_missing(placement: WheelPlacement, cameras: Mapping[str, CameraModel]) -> None:
     """Project triangulated clicks into unclicked views without adding fit evidence."""
     placement.estimates.clear()
     placement.triangulation_errors.clear()
@@ -221,7 +221,7 @@ def _left_out(reason: str) -> str:
     ).format(reason=reason)
 
 
-def placement_view(placement: Placement, cameras: Sequence[str]) -> PlacementView:
+def placement_view(placement: WheelPlacement, cameras: Sequence[str]) -> PlacementView:
     """What the Wheels tab shows while *placement* is being labelled."""
     ready = placement.ready(set(cameras))
     return PlacementView(
@@ -242,7 +242,7 @@ def placement_view(placement: Placement, cameras: Sequence[str]) -> PlacementVie
     )
 
 
-def _instruction(placement: Placement, cameras: Sequence[str], ready: bool) -> str:
+def _instruction(placement: WheelPlacement, cameras: Sequence[str], ready: bool) -> str:
     """The next click wanted, and how far the selected point has got."""
     if placement.step >= POINTS:
         return (
@@ -272,7 +272,7 @@ def _instruction(placement: Placement, cameras: Sequence[str], ready: bool) -> s
     return instruction
 
 
-def _point_detail(placement: Placement, clicked: set[str], remaining: list[str]) -> str:
+def _point_detail(placement: WheelPlacement, clicked: set[str], remaining: list[str]) -> str:
     if not clicked:
         return tr("Click here, or choose another point.")
     if len(clicked) == 1:
@@ -300,7 +300,7 @@ def _point_detail(placement: Placement, clicked: set[str], remaining: list[str])
     return " ".join(parts)
 
 
-def _summary(placement: Placement, ready: bool) -> str:
+def _summary(placement: WheelPlacement, ready: bool) -> str:
     """The fit so far, and what Done Labelling would do with it."""
     if placement.fitting:
         return tr("Generating wheel…")

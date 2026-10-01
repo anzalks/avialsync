@@ -188,7 +188,7 @@ def test_a_snapshot_whose_session_file_vanished_is_offered(isolated_recovery_dir
 def test_autosave_of_an_untitled_session_writes_recovery(main_window, isolated_recovery_dir):
     """The defect this whole feature exists for."""
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
 
     session_controller.autosave(main_window)
 
@@ -200,7 +200,7 @@ def test_autosave_of_an_untitled_session_writes_recovery(main_window, isolated_r
 
 def test_closing_an_untitled_session_preserves_it(main_window, isolated_recovery_dir):
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
 
     session_controller.autosave_before_close(main_window)
 
@@ -210,7 +210,7 @@ def test_closing_an_untitled_session_preserves_it(main_window, isolated_recovery
 
 
 def test_closing_an_empty_workspace_writes_nothing(main_window, isolated_recovery_dir):
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     session_controller.autosave_before_close(main_window)
     assert recovery.read_recovery() is None
 
@@ -224,7 +224,7 @@ def test_reset_then_quit_does_not_overwrite_good_work(main_window, isolated_reco
     exists to prevent.
     """
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     session_controller.autosave(main_window)
     assert recovery.read_recovery() is not None
 
@@ -237,7 +237,7 @@ def test_reset_then_quit_does_not_overwrite_good_work(main_window, isolated_reco
 
 def test_an_unserialisable_workspace_does_not_break_the_close(main_window, isolated_recovery_dir):
     """closeEvent must survive a workspace it cannot encode."""
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     main_window._sync_provenance.append(object())  # not a dataclass; to_dict raises
 
     session_controller.autosave_before_close(main_window)  # must not raise
@@ -247,11 +247,11 @@ def test_an_unserialisable_workspace_does_not_break_the_close(main_window, isola
 
 def test_saving_clears_the_recovery_snapshot(main_window, isolated_recovery_dir, tmp_path):
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     session_controller.autosave(main_window)
     assert recovery.read_recovery() is not None
 
-    main_window._session_path = tmp_path / "saved.avv"
+    main_window.session_runtime.path = tmp_path / "saved.avv"
     main_window._mark_session_saved()
     recovery.clear_recovery()
 
@@ -263,13 +263,13 @@ def test_saving_clears_the_recovery_snapshot(main_window, isolated_recovery_dir,
 
 
 def test_an_untitled_session_says_so(main_window):
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     main_window._update_window_title()
     assert main_window.windowTitle() == "Untitled[*] — AvialSync"
 
 
 def test_the_title_names_the_open_session(main_window):
-    main_window._session_path = Path("/tmp/experiment_4.avv")
+    main_window.session_runtime.path = Path("/tmp/experiment_4.avv")
     main_window._update_window_title()
     assert "experiment_4" in main_window.windowTitle()
     assert main_window.windowTitle().endswith("— AvialSync")
@@ -370,7 +370,7 @@ def test_restoring_loads_the_work_and_marks_it_unsaved(
     main_window, isolated_recovery_dir, offer_at_launch
 ):
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     session_controller.autosave(main_window)
     main_window.annotation_store.clear()
 
@@ -493,7 +493,9 @@ def test_a_quiet_launch_keeps_the_snapshot(qapp, qtbot, isolated_recovery_dir):
     try:
         assert win.notifications.isVisible() is False, "a quiet launch posted the bar anyway"
         assert recovery.read_recovery() is not None, "the snapshot must survive the silence"
-        assert win._pending_recovery is not None, "the launch must still find the work"
+        assert win.session_runtime.pending_recovery is not None, (
+            "the launch must still find the work"
+        )
         assert _recover_action(win).isEnabled(), "the work must stay reachable from File"
     finally:
         if isValid(win):
@@ -511,7 +513,7 @@ def test_the_command_says_why_it_is_greyed_with_nothing_to_recover(
 def test_recovering_from_the_menu_restores_the_work(main_window, isolated_recovery_dir):
     """The File command is the whole reason the bar can be optional."""
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     session_controller.autosave(main_window)
     main_window.annotation_store.clear()
     session_controller.note_pending_recovery(main_window)
@@ -538,5 +540,5 @@ def test_a_reset_stops_the_command_offering_discarded_work(main_window, isolated
 
     session_controller.reset_session(main_window)
 
-    assert main_window._pending_recovery is None
+    assert main_window.session_runtime.pending_recovery is None
     assert _recover_action(main_window).isEnabled() is False

@@ -112,7 +112,7 @@ def _corrected_indices(window: MainWindow, source_id: str) -> set[int]:
 
 def _annotation_target(window: MainWindow) -> Path:
     """Default the annotation CSV beside the session, or beside the first camera."""
-    session = getattr(window, "_session_path", None)
+    session = window.session_runtime.path
     if session:
         return Path(session).with_suffix(".annotations.csv")
     videos = window.video_grid.pane_paths()

@@ -47,14 +47,13 @@ from avialsync.core.wheel import (
 )
 from avialsync.core.wheel_check import settle_sign
 from avialsync.ui.controllers import calibration_controller as calibration
-from avialsync.ui.controllers import custom_marker_controller as markers
 from avialsync.ui.controllers import rig_paths
 from avialsync.ui.controllers import wheel_display as display
 from avialsync.ui.controllers import wheel_edits as edits
 from avialsync.ui.controllers import wheel_generation as generation
 from avialsync.ui.controllers.wheel_placement import (
     POINTS,
-    Placement,
+    WheelPlacement,
 )
 from avialsync.ui.i18n import tr
 from avialsync.ui.wheel_dialogs import WheelSetup, ask_wheel_setup
@@ -95,7 +94,7 @@ def toggled(window: MainWindow, checked: bool) -> None:
         cancel(window, tr("Wheel not added."))
         return
     setup = ask_wheel_setup(
-        window, window.wheels.names(), window._session_rotary, _channels(window)
+        window, window.wheels.names(), window.wheel_state.session_rotary, _channels(window)
     )
     if setup is None:
         _set_checked(window, False)
@@ -104,7 +103,7 @@ def toggled(window: MainWindow, checked: bool) -> None:
 
 
 def _start(window: MainWindow, setup: WheelSetup, replacing: str | None = None) -> None:
-    markers.cancel(window)
+    window._cancel_competing_placement("wheel")
     stop_checking(window)
     if window._act_fix_tracker.isChecked():
         window._act_fix_tracker.setChecked(False)
@@ -116,13 +115,15 @@ def _start(window: MainWindow, setup: WheelSetup, replacing: str | None = None) 
 
 
 def _begin(window: MainWindow, setup: WheelSetup, replacing: str | None) -> None:
-    frame = rig_paths.frame_at(window, window.clock.state.t)
+    frame = rig_paths.frame_at(window.rig_paths, window.clock.state.t)
     if frame is None:
         _set_checked(window, False)
         return
     if window.clock.state.playing:
         window.transport.play_toggled.emit(False)
-    window._wheel_placement = Placement(setup.spec, setup.channel, frame, replacing=replacing)
+    window.wheel_state.placement = WheelPlacement(
+        setup.spec, setup.channel, frame, replacing=replacing
+    )
     window._left_tabs.setCurrentWidget(window.wheel_tab)
     _set_checked(window, True)
     window.video_grid.set_marker_place_mode(True)
@@ -131,11 +132,11 @@ def _begin(window: MainWindow, setup: WheelSetup, replacing: str | None) -> None
 
 def cancel(window: MainWindow, message: str | None = None) -> None:
     """Abandon a placement in progress, if there is one."""
-    had = window._wheel_placement is not None
-    window._wheel_placement = None
+    had = window.wheel_state.placement is not None
+    window.wheel_state.placement = None
     _set_checked(window, False)
     if had:
-        window.video_grid.set_marker_place_mode(window._wheel_checking is not None)
+        window.video_grid.set_marker_place_mode(window.wheel_state.checking is not None)
         display.refresh(window)
         if message:
             window.transport.set_status(message, "info")
@@ -143,10 +144,10 @@ def cancel(window: MainWindow, message: str | None = None) -> None:
 
 def on_clicked(window: MainWindow, video: str, x: float, y: float) -> bool:
     """A click in a pane: a wheel end or a check. False if no wheel wanted it."""
-    if window._wheel_checking is not None:
+    if window.wheel_state.checking is not None:
         _check_click(window, video, x, y)
         return True
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     state = window._calibration_state
     if placement is None or state is None:
         return False
@@ -158,7 +159,7 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> bool:
             "warning",
         )
         return True
-    if rig_paths.frame_at(window, window.clock.state.t) != placement.frame:
+    if rig_paths.frame_at(window.rig_paths, window.clock.state.t) != placement.frame:
         window.transport.set_status(
             tr("The wheel is being clicked on frame {frame}; use Go to Frame to return.").format(
                 frame=placement.frame
@@ -188,7 +189,7 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> bool:
 
 def select_end(window: MainWindow, step: int) -> None:
     """Choose a named endpoint, so camera-first and point-first orders both work."""
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     if placement is not None and 0 <= step < POINTS:
         placement.step = step
         display.refresh(window)
@@ -196,14 +197,14 @@ def select_end(window: MainWindow, step: int) -> None:
 
 def next_end(window: MainWindow) -> None:
     """Advance to the next named point, even if this one needs another view later."""
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     if placement is not None and placement.step < POINTS - 1:
         placement.step += 1
         display.refresh(window)
 
 
 def undo_click(window: MainWindow) -> None:
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     if placement is None or not placement.history:
         return
     step, camera, previous = placement.history.pop()
@@ -220,14 +221,14 @@ def undo_click(window: MainWindow) -> None:
 
 
 def flip(window: MainWindow) -> None:
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     if placement is not None:
         placement.flipped = not placement.flipped
         _refit(window)
 
 
 def placement_spec_changed(window: MainWindow, bars: int, units: str, radius: float) -> None:
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     if placement is None:
         return
     placement.spec = edits.spec_from(placement.spec.name, bars, units, radius)
@@ -239,7 +240,7 @@ def _refit(window: MainWindow) -> None:
 
 
 def go_to_frame(window: MainWindow) -> None:
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     t = display.frame_master_time(window, placement.frame) if placement is not None else None
     if t is not None:
         window.clock.seek(t)
@@ -253,7 +254,7 @@ def accept(window: MainWindow) -> None:
     is still saved and drawn -- the clicks are the user's work and the wheel
     is what they built -- with a warning and a Re-place offer (D-122, D-123).
     """
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     if placement is None or placement.fit is None:
         return
     if placement.fitting:
@@ -321,17 +322,17 @@ def _announce(window: MainWindow, wheel: Wheel) -> None:
 
 def start_checking(window: MainWindow, name: str) -> None:
     """Take the next click as a check of *name*'s encoder; again to stop."""
-    if window._wheel_checking == name:
+    if window.wheel_state.checking == name:
         stop_checking(window)
         return
     wheel = window.wheels.get(name)
     if wheel is None or wheel.binding is None:
         return
     cancel(window)
-    markers.cancel(window)
+    window._cancel_competing_placement("wheel")
 
     def _ready() -> None:
-        window._wheel_checking = name
+        window.wheel_state.checking = name
         if window.clock.state.playing:
             window.transport.play_toggled.emit(False)
         window.video_grid.set_marker_place_mode(True)
@@ -344,15 +345,15 @@ def start_checking(window: MainWindow, name: str) -> None:
 
 
 def stop_checking(window: MainWindow) -> None:
-    if window._wheel_checking is None:
+    if window.wheel_state.checking is None:
         return
-    window._wheel_checking = None
-    window.video_grid.set_marker_place_mode(window._wheel_placement is not None)
+    window.wheel_state.checking = None
+    window.video_grid.set_marker_place_mode(window.wheel_state.placement is not None)
     display.refresh(window)
 
 
 def _check_click(window: MainWindow, video: str, x: float, y: float) -> None:
-    name = window._wheel_checking
+    name = window.wheel_state.checking
     wheel = window.wheels.get(name) if name is not None else None
     state = window._calibration_state
     if wheel is None or wheel.binding is None or state is None or video not in state.cameras:
@@ -426,11 +427,11 @@ def connect_panel(window: MainWindow) -> None:
 def reset(window: MainWindow) -> None:
     """Forget every wheel and any placement (a new session)."""
     cancel(window)
-    window._wheel_checking = None
+    window.wheel_state.checking = None
     window.wheels.clear()
-    window._wheel_cache.clear()
-    window._wheel_refits.clear()
-    window._wheel_diameter_preview.clear()
-    window._announced_wheel_files.clear()
-    window._wheel_adopt_folders.clear()
-    window._session_rotary = None
+    window.wheel_state.cache.clear()
+    window.wheel_state.refits.clear()
+    window.wheel_state.diameter_preview.clear()
+    window.wheel_state.announced_files.clear()
+    window.wheel_state.adopt_folders.clear()
+    window.wheel_state.session_rotary = None

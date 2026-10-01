@@ -39,7 +39,7 @@ from avialsync.core.wheel import (
 )
 from avialsync.core.wheel_check import settle_sign
 from avialsync.ui.controllers import rig_paths
-from avialsync.ui.controllers.wheel_placement import Marks, Placement, placement_view
+from avialsync.ui.controllers.wheel_placement import Marks, WheelPlacement, placement_view
 from avialsync.ui.i18n import tr
 from avialsync.ui.wheel_overlay import WheelBar, WheelDrawing
 
@@ -79,7 +79,7 @@ def projected_hit_radius(window: MainWindow, video: str) -> float:
 
 def _reference_pane(window: MainWindow) -> tuple[str, VideoPane] | None:
     """The pane whose frames name wheel frames: the one :func:`rig_paths.frame_at` uses."""
-    videos = rig_paths.open_videos(window)
+    videos = rig_paths.open_videos(window.rig_paths)
     state = window._calibration_state
     ordered = [v for v in videos if state is not None and v in state.cameras] or videos
     if not ordered:
@@ -152,7 +152,7 @@ def sample(window: MainWindow, channel: tuple[str, str], t_master: float) -> flo
 
 
 def encoder_binding(
-    window: MainWindow, placement: Placement, previous: Wheel | None
+    window: MainWindow, placement: WheelPlacement, previous: Wheel | None
 ) -> EncoderBinding | None:
     """The encoder's reading on the labelled frame: the new wheel's zero turn."""
     if placement.channel is None or placement.fit is None:
@@ -206,13 +206,13 @@ def _ends(window: MainWindow, wheel: Wheel, t_master: float) -> np.ndarray | Non
         encoder = _encoder_map(window, wheel.binding.source_id)
         mapping = None if encoder is None else (encoder[1].offset, encoder[1].drift_ppm)
     key = (frame, mapping)
-    cached = window._wheel_cache.get(wheel.name)
+    cached = window.wheel_state.cache.get(wheel.name)
     if cached is not None and cached[0] == key:
         hit: np.ndarray | None = cached[1]
         return hit
     turn = _turn(window, wheel, frame, t_frame)
     ends = None if turn is None else wheel.geometry.bar_ends(turn)
-    window._wheel_cache[wheel.name] = (key, ends)
+    window.wheel_state.cache[wheel.name] = (key, ends)
     return ends
 
 
@@ -241,8 +241,8 @@ def _bars(
     ]
 
 
-def _placement_on_screen(window: MainWindow, t_master: float) -> Placement | None:
-    placement = window._wheel_placement
+def _placement_on_screen(window: MainWindow, t_master: float) -> WheelPlacement | None:
+    placement = window.wheel_state.placement
     if placement is None:
         return None
     found = frame_and_time(window, t_master)
@@ -265,7 +265,7 @@ def pane_drawing(window: MainWindow, video: str, t_master: float) -> WheelDrawin
             geometry = placement.fit.geometry
             bars += _bars(geometry, geometry.bar_ends(), camera, preview=True)
         clicks, projections, prompt = placement.marks(rig_paths.camera_name(video))
-    replacing = window._wheel_placement.replacing if window._wheel_placement else None
+    replacing = window.wheel_state.placement.replacing if window.wheel_state.placement else None
     for wheel in window.wheels:
         if wheel.name == replacing:
             continue
@@ -283,7 +283,7 @@ def diameter(window: MainWindow, wheel: Wheel) -> float | None:
     The slider and the stored value are in the units the user measures in, so
     both go through the wheel's own scale (D-130).
     """
-    typed = window._wheel_diameter_preview.get(wheel.name, wheel.bar_diameter)
+    typed = window.wheel_state.diameter_preview.get(wheel.name, wheel.bar_diameter)
     return None if typed is None else typed * wheel.world_per_unit
 
 
@@ -293,7 +293,7 @@ def scene(window: MainWindow, t_master: float) -> list[tuple[np.ndarray, bool, f
     placement = _placement_on_screen(window, t_master)
     if placement is not None and placement.fit is not None:
         out.append((placement.fit.geometry.bar_ends(), True, None))
-    replacing = window._wheel_placement.replacing if window._wheel_placement else None
+    replacing = window.wheel_state.placement.replacing if window.wheel_state.placement else None
     for wheel in window.wheels:
         ends = None if wheel.name == replacing else _ends(window, wheel, t_master)
         if ends is not None:
@@ -313,19 +313,19 @@ def encoder_offsets(window: MainWindow) -> dict[str, float]:
 
 def refresh(window: MainWindow) -> None:
     """Push wheels, the placement, and the panel to every view."""
-    window._wheel_cache.clear()
-    placement = window._wheel_placement
+    window.wheel_state.cache.clear()
+    placement = window.wheel_state.placement
     if placement is not None:
         placement.quality_issue = (
             fit_issue(placement.fit, placement.ordered()) if placement.fit is not None else None
         )
-    active = len(window.wheels) > 0 or window._wheel_placement is not None
-    window.video_grid.set_wheel_source(window._wheel_pane_source if active else None)
+    active = len(window.wheels) > 0 or window.wheel_state.placement is not None
+    window.video_grid.set_wheel_source(window.wheel_state.pane_source if active else None)
     window.video_grid.refresh_point_edits()
     window.tracking_3d_pane.canvas.set_cursor(window.clock.state.t)
     window._update_tracking_pane_visibility()
     window.wheel_panel.set_wheels(
-        list(window.wheels), window._wheel_checking, encoder_offsets(window)
+        list(window.wheels), window.wheel_state.checking, encoder_offsets(window)
     )
     view = (
         placement_view(placement, sorted(camera_models(window))) if placement is not None else None

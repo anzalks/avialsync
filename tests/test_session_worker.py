@@ -183,7 +183,7 @@ def test_ui_heartbeat_survives_a_large_session_write(qtbot, tmp_path: Path) -> N
 def test_main_window_autosave_uses_a_worker(qtbot, tmp_path: Path) -> None:
     window = MainWindow()
     qtbot.addWidget(window)
-    window._session_path = tmp_path / "auto.avv"
+    window.session_runtime.path = tmp_path / "auto.avv"
 
     window._autosave()
 
@@ -199,7 +199,7 @@ def test_main_window_close_writes_the_final_autosave_synchronously(qtbot, tmp_pa
     """Handing the last write to a thread would race widget destruction."""
     window = MainWindow()
     qtbot.addWidget(window)
-    window._session_path = tmp_path / "final.avv"
+    window.session_runtime.path = tmp_path / "final.avv"
 
     window.close()
 

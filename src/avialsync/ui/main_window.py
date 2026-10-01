@@ -2,15 +2,15 @@
 
 import dataclasses
 import logging
-from collections import deque
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import (
     QAction,
+    QActionGroup,
     QCloseEvent,
     QDragEnterEvent,
     QDropEvent,
@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QSizePolicy,
     QSplitter,
     QTabWidget,
@@ -75,7 +76,7 @@ from avialsync.core.session_time import (
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
 from avialsync.core.triggers import TriggerKind
-from avialsync.core.wheel import WheelSpec, WheelStore
+from avialsync.core.wheel import WheelStore
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
@@ -97,8 +98,12 @@ from avialsync.ui.controllers import (
     video_controller,
     wheel_controller,
     wheel_display,
-    wheel_placement,
 )
+from avialsync.ui.controllers.import_state import ImportState
+from avialsync.ui.controllers.rig_paths import RigPathsContext
+from avialsync.ui.controllers.session_state import SessionRuntimeState
+from avialsync.ui.controllers.video_load_state import VideoLoadState
+from avialsync.ui.controllers.wheel_state import WheelState
 from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.empty_state import EmptyState
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
@@ -117,13 +122,13 @@ from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_fo
 from avialsync.ui.pane_proportions import PaneProportions
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.readout_panel import ReadoutPanel
-from avialsync.ui.recovery import RecoverySnapshot
 from avialsync.ui.shortcut_overrides import apply_overrides
 from avialsync.ui.splitter import PaneSplitter
 from avialsync.ui.time_format import TimeDisplayMode
 from avialsync.ui.tracking_3d_pane import Tracking3DPane
 from avialsync.ui.transport import Transport
 from avialsync.ui.ui_heartbeat import UiHeartbeat
+from avialsync.ui.undo_adapter import UndoActions
 from avialsync.ui.video_grid import VideoGrid
 from avialsync.ui.view_toolbar import ViewToolbar
 from avialsync.ui.wheel_panel import WheelPanel
@@ -225,25 +230,6 @@ def _is_mid_edit(widget: QWidget) -> bool:
 _MAX_VIDEO_PROBES = video_controller.MAX_VIDEO_PROBES
 
 
-def _quit_legacy_jobs(registry: "dict[QThread, object]") -> None:
-    """Ask the pre-JobManager registries to stop, without blocking on them.
-
-    These export/snapshot/clip jobs still keep their own dicts. Shutdown must not
-    wait on any of them: the window closing is more important than a job
-    finishing, and their outputs are written atomically.
-    """
-    for thread in list(registry):
-        worker = registry.get(thread)
-        cancel = getattr(worker, "cancel", None)
-        if callable(cancel):
-            try:
-                cancel()
-            except RuntimeError:
-                pass
-        thread.quit()
-    registry.clear()
-
-
 class _JobWorker(Protocol):
     """A QObject with a run() slot, moved to a QThread by _run_job."""
 
@@ -252,6 +238,37 @@ class _JobWorker(Protocol):
 
 
 class MainWindow(QMainWindow):
+    # Built by ui.menus. These are declared here so every caller sees their
+    # types, while the live QAction remains the sole source of command text,
+    # shortcut, and enablement (D-092).
+    _act_open_video: QAction
+    _act_open_sensor: QAction
+    _act_save_session: QAction
+    _act_export_changes: QAction
+    _act_snapshot: QAction
+    _act_fix_tracker: QAction
+    _act_fix_identities: QAction
+    _act_add_marker: QAction
+    _act_add_wheel: QAction
+    _act_synchronize: QAction
+    _act_show_original_tracker: QAction
+    _act_detach_plots: QAction
+    _act_panels_back: QAction
+    _act_reset_zoom: QAction
+    _act_fit_videos: QAction
+    _act_fullscreen: QAction
+    _act_review_workflow: QAction
+    _act_shortcuts: QAction
+    _recent_menu: QMenu
+    _edit_menu: QMenu
+    _align_menu: QMenu
+    _overlays_menu: QMenu
+    _workspace_menu: QMenu
+    _undo_actions: UndoActions
+    _theme_group: QActionGroup
+    _font_size_group: QActionGroup
+    _time_mode_group: QActionGroup
+
     time_mode_changed = Signal(object)  # TimeDisplayMode
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -260,13 +277,8 @@ class MainWindow(QMainWindow):
         self._detached_plot_window: QDialog | None = None
         self._plots_detached = False
 
-        self._session_path: Path | None = None
-        self._session_generation = 0
-        #: Unsaved work found in the app-data snapshot at launch, held so that
-        #: File → Recover Unsaved Work can enable itself without re-reading the
-        #: file on every precondition sweep (D-133). Set before `_setup_menu`,
-        #: which registers that precondition.
-        self._pending_recovery: RecoverySnapshot | None = None
+        # Initialized before menu preconditions read the recovery offer.
+        self.session_runtime = SessionRuntimeState()
 
         # The one place that knows whether this session has unsaved changes
         # (D-087). Dirty state, undo, and the autosave trigger all derive from
@@ -282,11 +294,6 @@ class MainWindow(QMainWindow):
         #: Last mapping recorded per source, so an offset command knows what to
         #: return to. The signal carries only the new value.
         self._recorded_mappings: dict[str, tuple[float, float]] = {}
-        #: True while a saved session is being restored. Sources land
-        #: asynchronously, so their arrival looks exactly like the user opening
-        #: them; without this a freshly-loaded session would come up dirty and
-        #: undo would offer to unload what the file said to load.
-        self._session_restoring = False
         #: The camera the user last touched, so an action with no explicit
         #: target acts on the one they meant rather than on the first pane.
         self._selected_video_path: str | None = None
@@ -304,27 +311,16 @@ class MainWindow(QMainWindow):
         self.custom_markers = CustomMarkerStore()
         self.custom_markers.observe(self._on_custom_markers_changed)
         self._calibration_state: calibration_controller.CalibrationState | None = None
-        self._marker_placement: custom_marker_controller.Placement | None = None
+        self._marker_placement: custom_marker_controller.MarkerPlacement | None = None
         self._announced_marker_files = False
         #: Wheels placed with Add Wheel (D-113), the one being placed, the one
         #: whose encoder the next click checks, and what drawing them needs:
         #: bars per frame, encoder readers, and the session's own hint.
         self.wheels = WheelStore()
         self.wheels.observe(self._on_wheels_changed)
-        self._wheel_placement: wheel_placement.Placement | None = None
-        #: The spec each placed wheel is being re-fitted to in the background.
-        self._wheel_refits: dict[str, WheelSpec] = {}
-        #: A bar-diameter slider being dragged: drawn, not yet a command (D-128).
-        self._wheel_diameter_preview: dict[str, float] = {}
-        self._wheel_checking: str | None = None
-        self._wheel_cache: dict[str, tuple[object, Any]] = {}
-        self._announced_wheel_files: set[str] = set()
-        self._wheel_adopt_folders: set[Path] = set()
-        self._session_rotary: Any = None
+        self.wheel_state = WheelState()
         #: One callable, so the grid can tell "no wheel" from "same wheel source".
-        self._wheel_pane_source: Callable[[str, float], object] = lambda path, t: (
-            wheel_display.pane_drawing(self, path, t)
-        )
+        self.wheel_state.pane_source = lambda path, t: wheel_display.pane_drawing(self, path, t)
         #: Accepted identity swaps (D-141): which lanes exchanged labels and
         #: from which frame. Like corrections, written beside the pose file the
         #: moment they are accepted; unlike corrections, applied by rebuilding
@@ -386,41 +382,20 @@ class MainWindow(QMainWindow):
 
         self._update_window_title()
 
+        # Populated by the menu builders from the live QAction objects.
+        self._all_actions: list[QAction] = []
+        self._letter_shortcuts: set[str] = set()
+        self._action_preconditions: list[tuple[QAction, Callable[[], bool], str, str]] = []
+
         # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
         self._video_fps: dict[str, float] = {}
-        # Settings the last session plugin reported for a dropped folder, if
-        # any. Format-neutral: any SessionSource may declare them. Declared here
-        # rather than created on first use, because they are read outside the
-        # code that sets them and a window that never opened a session must
-        # still answer for them.
-        self._session_camera_fps: float = 0.0
-        self._session_anchor_epoch: float = 0.0
-        #: Per-item display labels the claiming session supplied, by path.
-        self._session_item_labels: dict[str, str] = {}
-        #: Per-item data kinds the claiming session declared, by path.
-        self._session_item_kinds: dict[str, str] = {}
-        #: Shared Data Streams lane names the claiming session asked for, by
-        #: path. Only a session knows which of its files cover the same span.
-        self._session_coverage_groups: dict[str, str] = {}
-        # Keep QObject workers alive until their QThread has finished. Moving an
-        # object to a thread does not transfer Python ownership.
-        self._video_load_jobs: dict[QThread, object] = {}
-        self._video_load_offsets: dict[str, float] = {}
-        self._video_load_drifts: dict[str, float] = {}
-        self._pending_video_loads: deque[tuple[Path, float, float, dict[str, Any] | None]] = deque()
-        self._video_pane_initializing: object | None = None
-        # Probes run concurrently and finish out of order; panes are built in
-        # request order, one at a time.
-        self._video_request_order: list[str] = []
-        self._probed_videos: dict[str, tuple[object, str]] = {}
+        # JobManager owns the workers; this state only tracks probe capacity
+        # and preserves pane order when probes complete out of order.
+        self.video_load_state = VideoLoadState()
         self._video_frame_times: dict[str, Any] = {}
         self._video_source_bounds: dict[str, tuple[float, float]] = {}
         self._video_time_mappings: dict[str, tuple[float, float]] = {}
         self._sync_provenance: list[SyncProvenance] = []
-        #: Unix epoch of master-clock zero, after NWB's `session_start_time`.
-        #: 0.0 until a source carrying wall-clock time declares it; see
-        #: `core/session_time.py`.
-        self._session_start_time: float = 0.0
         #: What placed each source against the session zero, by path. Zero for
         #: any source whose own clock already starts at its recording.
         #:
@@ -447,11 +422,7 @@ class MainWindow(QMainWindow):
         self._overview_gaps: dict[float, str] = {}
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
         self._frame_indexed_sources: list[tuple[Path, type, dict[str, Any]]] = []
-        self._pending_imports: deque[tuple[Path, type, dict[str, Any]]] = deque()
-        self._import_thread: QThread | None = None
-        # Held until the import thread has finished so the worker is destroyed
-        # on this thread; see the wiring in the import starter for why.
-        self._import_worker: QObject | None = None
+        self.import_state = ImportState()
         # Modal progress for the running import. Declared here rather than
         # created by the import starter: the finish and error handlers both
         # read it, and a window that has never imported must still answer.
@@ -459,9 +430,6 @@ class MainWindow(QMainWindow):
         #: Legacy workers are not registered with JobManager, so the bar needs
         #: its own handle to stop them (D-091).
         self._active_cancel: Callable[[], None] | None = None
-        # Owns worker/thread pairs started through _run_job (drop scan, session
-        # save/load). See _run_job for why this reference must be kept.
-        self._jobs: dict[QThread, _JobWorker] = {}
         # Pose sources are shown on the video overlay and in the 3D view rather
         # than as plot rows (D-046). Keyed by video path -> source path -> track.
         self._overlay_sources: dict[str, dict[str, dict[str, Any]]] = {}
@@ -506,6 +474,15 @@ class MainWindow(QMainWindow):
 
         # UI Components
         self.video_grid = VideoGrid(self)
+        self.rig_paths = RigPathsContext(
+            video_paths=lambda: list(self.video_grid.pane_paths()),
+            pose_sources=self._pose_3d_sources,
+            overlays=self._overlay_sources,
+            calibrated_videos=lambda: (
+                self._calibration_state.cameras.keys() if self._calibration_state else ()
+            ),
+            frame_index=lambda index, t: int(self.video_grid.panes[index].frame_record_at(t)[0]),
+        )
         self.video_grid.set_point_edits(self.point_edits)
         # What a marker is *drawing* once a flip is accepted (D-143). Installed
         # here, beside the store it belongs with, so a pane created later gets
@@ -1183,7 +1160,7 @@ class MainWindow(QMainWindow):
         Empty for anything the current session did not group, which is every
         ordinary drop: a file with a span of its own keeps a lane of its own.
         """
-        return self._session_coverage_groups.get(path, "")
+        return self.session_runtime.coverage_groups.get(path, "")
 
     def _refine_source_bounds(self) -> None:
         """Apply exact reader-derived bounds once every queued row exists.
@@ -1317,7 +1294,7 @@ class MainWindow(QMainWindow):
     @property
     def session_start_time(self) -> float:
         """Unix epoch of master-clock zero, or 0.0 when the session has no wall clock."""
-        return self._session_start_time
+        return self.session_runtime.start_time
 
     def adopt_session_start(self, source_start: float) -> float:
         """Declare the session's zero from a source, if it has not been declared.
@@ -1326,10 +1303,10 @@ class MainWindow(QMainWindow):
         earlier source arrived would renumber every timestamp the user had
         already written down. Returns the reference in force afterwards.
         """
-        reference = reference_epoch(self._session_start_time, source_start)
-        if reference == self._session_start_time:
+        reference = reference_epoch(self.session_runtime.start_time, source_start)
+        if reference == self.session_runtime.start_time:
             return reference
-        self._session_start_time = reference
+        self.session_runtime.start_time = reference
         self._publish_session_epoch()
         return reference
 
@@ -1392,7 +1369,7 @@ class MainWindow(QMainWindow):
         display modes silently could not work -- two of three options on a menu
         that has been there since D-020.
         """
-        epoch = self._session_start_time
+        epoch = self.session_runtime.start_time
         self.transport.set_t_epoch(epoch)
         self.plot_pane.set_time_mode(self._time_mode, epoch)
         self.message_panel.set_time_mode(self._time_mode, epoch)
@@ -1715,12 +1692,6 @@ class MainWindow(QMainWindow):
         sidecar rather than a half-written one.
         """
 
-        def _quit_all_legacy_jobs() -> None:
-            # Only the video-load probes are left outside JobManager; the four
-            # export registries this used to sweep are registered jobs now, and
-            # `self._job_manager.shutdown()` below is what stops them (D-107).
-            _quit_legacy_jobs(self._video_load_jobs)
-
         # Ordering matters twice over.
         #
         # State is captured before anything is torn down: `_build_session_state`
@@ -1743,7 +1714,6 @@ class MainWindow(QMainWindow):
         self._close_step("saving window geometry", self._save_geometry)
         self._close_step("writing the final autosave", self._autosave_before_close)
         self._close_step("stopping background jobs", self._job_manager.shutdown)
-        self._close_step("stopping legacy jobs", _quit_all_legacy_jobs)
         self._close_step("shutting down video panes", self.video_grid.shutdown)
         super().closeEvent(event)
 
@@ -1893,488 +1863,10 @@ class MainWindow(QMainWindow):
     # ── Menu ─────────────────────────────────────────────────────────
 
     def _setup_menu(self) -> None:
-        from PySide6.QtGui import QActionGroup, QKeySequence
+        """Build menus from live actions, keeping action identity in one place."""
+        from avialsync.ui.menus.builder import build_menus
 
-        # Collects every QAction with a shortcut — read by _show_shortcuts().
-        self._all_actions: list[QAction] = []
-        #: Lower-cased single-character shortcut keys, collected as actions are
-        #: registered so nothing has to restate the bindings.
-        self._letter_shortcuts: set[str] = set()
-        #: (action, precondition, reason, original tooltip) for every command
-        #: that needs something loaded. See `_require`.
-        self._action_preconditions: list[tuple[QAction, Callable[[], bool], str, str]] = []
-
-        def _reg(act: QAction, category: str) -> QAction:
-            """Tag an action with its category and add it to the registry."""
-            act.setProperty("av_category", category)
-            # No menu action is a hold-to-repeat gesture -- opening a file
-            # dialog or cycling the theme once per key repeat is never what was
-            # meant. See `_act` for why Qt's default is the wrong one here.
-            act.setAutoRepeat(False)
-            # Registered whether or not it has a shortcut. The shortcuts dialog
-            # filters for bound ones itself; the command palette wants the rest
-            # too, since a command with no key is exactly the one somebody
-            # cannot find (WP-3).
-            self._all_actions.append(act)
-            return act
-
-        menu = self.menuBar()
-
-        # ── File ──────────────────────────────────────────────────────
-        file_menu = menu.addMenu(tr("File"))
-
-        # Ctrl+Shift+V (not Ctrl+V — system Paste collision, D-022.7 / Trap §18)
-        self._act_open_video = file_menu.addAction(tr("Open Video(s)…"))
-        act = self._act_open_video
-        act.setShortcut(QKeySequence("Ctrl+Shift+V"))
-        act.triggered.connect(self._open_video)
-        _reg(act, "File")
-
-        # Ctrl+Shift+D (not Ctrl+D — bookmark/dock collision, D-022.7 / Trap §18)
-        self._act_open_sensor = file_menu.addAction(tr("Open Sensor/Ephys Data…"))
-        act = self._act_open_sensor
-        act.setShortcut(QKeySequence("Ctrl+Shift+D"))
-        act.triggered.connect(self._open_data)
-        _reg(act, "File")
-
-        file_menu.addSeparator()
-
-        self._act_save_session = file_menu.addAction(tr("Save Session…"))
-        act = self._act_save_session
-        act.setShortcut(QKeySequence(QKeySequence.StandardKey.Save))
-        act.triggered.connect(self._save_session)
-        _reg(act, "File")
-        self._require(
-            act,
-            self._anything_loaded,
-            tr("Open a recording first — an empty workspace has nothing to save."),
-        )
-
-        act = file_menu.addAction(tr("Open Session…"))
-        act.setShortcut(QKeySequence(QKeySequence.StandardKey.Open))
-        act.triggered.connect(self._open_session)
-        _reg(act, "File")
-
-        # The way to the recovery snapshot that does not depend on a launch-time
-        # notification. The snapshot is written on every quit whether or not the
-        # bar is offered, and it is not an `.avv` file, so Open Session cannot
-        # read it -- without this command, turning the offer off would put
-        # unsaved work out of reach (D-133).
-        act = file_menu.addAction(tr("Recover Unsaved Work…"))
-        act.triggered.connect(self._recover_unsaved_work)
-        _reg(act, "File")
-        self._require(
-            act,
-            lambda: self._pending_recovery is not None,
-            tr("No unsaved work from a previous run was found to recover."),
-        )
-
-        file_menu.addSeparator()
-
-        self._act_export_changes = file_menu.addAction(tr("Export Changes…"))
-        act = self._act_export_changes
-        act.triggered.connect(self._export_changes)
-        self.changes_panel.set_export_action(act)
-        self._require(
-            act,
-            lambda: (
-                bool(self.annotation_store.markers)
-                or len(self.point_edits) > 0
-                or bool(self.identity_swaps.source_ids())
-            ),
-            tr("Flag a frame, correct a tracked point, or accept an identity swap first."),
-        )
-
-        self._recent_menu = file_menu.addMenu(tr("Recent Sessions"))
-        self._rebuild_recent_menu()
-
-        file_menu.addSeparator()
-
-        # Export Snapshot — Ctrl+E is the single authority; no duplicate QShortcut
-        self._act_snapshot = file_menu.addAction(tr("Export Snapshot…"))
-        self._act_snapshot.setShortcut(QKeySequence("Ctrl+E"))
-        self._act_snapshot.triggered.connect(self._export_snapshot)
-        _reg(self._act_snapshot, "File")
-        self._require(
-            self._act_snapshot,
-            self._anything_loaded,
-            tr("Load a video or a data file to have something to snapshot."),
-        )
-
-        act = file_menu.addAction(tr("Export Trimmed Video Clip…"))
-        act.triggered.connect(self._export_video_clip)
-        self._require(
-            act,
-            lambda: bool(self.video_grid._paths) and self.transport._ab_in_t is not None,
-            tr("Load a video and mark an A/B loop — [ and ] set where a clip starts and ends."),
-        )
-
-        act = file_menu.addAction(tr("Export Stimulus Grid…"))
-        act.triggered.connect(self._export_stimulus_grid)
-        _reg(act, "File")
-        self._require(
-            act,
-            lambda: bool(self.video_grid._paths) and bool(self.plot_pane.channels),
-            tr("Load at least one video and one sensor channel first."),
-        )
-
-        act = file_menu.addAction(tr("Export Data Slice…"))
-        act.triggered.connect(self._export_data_slice)
-        self._require(
-            act,
-            lambda: bool(self.plot_pane.channels),
-            tr("Load sensor or ephys data to have a slice to export."),
-        )
-
-        act = file_menu.addAction(tr("Generate Proxy…"))
-        act.triggered.connect(self._generate_proxy)
-        self._require(
-            act,
-            lambda: bool(self.video_grid._paths),
-            tr("Load a video first — a proxy is a lighter copy of one."),
-        )
-
-        file_menu.addSeparator()
-
-        # Preferences stays in the File menu on every platform (D-135).
-        # `PreferencesRole` moved it into the macOS application menu, which is
-        # named after the running process -- so anyone who starts AvialSync
-        # from a terminal or a conda env looks in "File", is told by our own
-        # documentation to look in "File", and finds it under a menu called
-        # "python". Cmd+, still works, and About and Quit keep their roles.
-        act = file_menu.addAction(tr("Preferences…"))
-        act.setShortcut(QKeySequence(QKeySequence.StandardKey.Preferences))
-        act.setMenuRole(QAction.MenuRole.NoRole)
-        act.triggered.connect(self._help_controller.show_preferences)
-        _reg(act, "File")
-
-        file_menu.addSeparator()
-
-        # Quit — macOS QuitRole moves this to the app menu (D-022.3)
-        act = file_menu.addAction(tr("Quit"))
-        act.setShortcut(QKeySequence(QKeySequence.StandardKey.Quit))
-        act.setMenuRole(QAction.MenuRole.QuitRole)
-        act.triggered.connect(self.close)
-        _reg(act, "File")
-
-        # ── Edit ──────────────────────────────────────────────────────
-        # There was no Edit menu at all, which on macOS is a visible platform
-        # conventions violation and everywhere else means nothing is reversible.
-        from avialsync.ui.undo_adapter import install_edit_menu
-
-        # Retained: a QMenu reachable only through `menuBar().actions()` can
-        # have its C++ side collected while the Python wrapper survives, which
-        # surfaces as "Internal C++ object already deleted" on next access.
-        self._edit_menu = menu.addMenu(tr("Edit"))
-        self._undo_actions = install_edit_menu(self, self._edit_menu)
-        _reg(self._undo_actions.undo_action, "Edit")
-        _reg(self._undo_actions.redo_action, "Edit")
-
-        # Fix Tracker. One QAction drives both the menu entry and the button in
-        # the Data Streams header, so the label, the shortcut, and the checked
-        # state have a single author (D-092, architecture rule 15).
-        self._edit_menu.addSeparator()
-        self._act_fix_tracker = self._edit_menu.addAction(tr("Fix Tracker"))
-        self._act_fix_tracker.setCheckable(True)
-        self._act_fix_tracker.setShortcut(QKeySequence("Ctrl+Shift+T"))
-        self._act_fix_tracker.setToolTip(
-            tr("Drag a tracked point where it belongs, in every video pane")
-        )
-        self._act_fix_tracker.toggled.connect(self._toggle_point_edit_mode)
-        _reg(self._act_fix_tracker, "Edit")
-        self.view_toolbar.install_fix_tracker_action(self._act_fix_tracker)
-
-        # Fix Identities: the other half of the same job. Fix Tracker moves a
-        # coordinate the model got wrong; this fixes a *label* it got wrong,
-        # which is one statement about every frame from there on (D-141).
-        self._act_fix_identities = self._edit_menu.addAction(tr("Fix Identities…"))
-        self._act_fix_identities.setToolTip(
-            tr("Find and undo places where the tracker exchanged two labels")
-        )
-        self._act_fix_identities.triggered.connect(self._open_identity_panel)
-        _reg(self._act_fix_identities, "Edit")
-        self._require(
-            self._act_fix_identities,
-            lambda: bool(identity_view.pose_sources(self)),
-            tr("Import 2D tracking before fixing which point is which."),
-        )
-
-        # Add 3D Marker: name a point, click it in every camera, triangulate.
-        # Checked while a placement is in progress; unchecking cancels it. Same
-        # one-QAction-drives-menu-and-button shape as Fix Tracker (rule 15).
-        self._act_add_marker = self._edit_menu.addAction(tr("Add 3D Marker"))
-        self._act_add_marker.setCheckable(True)
-        self._act_add_marker.setToolTip(
-            tr("Name a new marker and click it once in each camera to place it in 3D")
-        )
-        self._act_add_marker.toggled.connect(
-            lambda checked: custom_marker_controller.toggled(self, checked)
-        )
-        self._require(
-            self._act_add_marker,
-            lambda: len(self.video_grid.pane_paths()) >= 2,
-            tr("Load at least two camera videos to place a 3D marker"),
-        )
-        _reg(self._act_add_marker, "Edit")
-        self.view_toolbar.install_add_marker_action(self._act_add_marker)
-
-        # Add Wheel: declare a running wheel, click both ends of a few of its
-        # bars, and the rest are generated and turned by the encoder (D-113).
-        # Checked while one is being placed; unchecking cancels it. Its numbers
-        # are edited in the Wheels inspector tab, and nowhere else.
-        self._act_add_wheel = self._edit_menu.addAction(tr("Add Wheel…"))
-        self._act_add_wheel.setCheckable(True)
-        self._act_add_wheel.setToolTip(
-            tr("Click both ends of a few neighbouring bars to place a running wheel in 3D")
-        )
-        self._act_add_wheel.toggled.connect(lambda checked: wheel_controller.toggled(self, checked))
-        self._require(
-            self._act_add_wheel,
-            lambda: len(self.video_grid.pane_paths()) >= 2,
-            tr("Load at least two camera videos to place a wheel"),
-        )
-        _reg(self._act_add_wheel, "Edit")
-        self.view_toolbar.install_add_wheel_action(self._act_add_wheel)
-        self.wheel_tab.install_add_action(self._act_add_wheel)
-
-        # ── Align ─────────────────────────────────────────────────────
-        # Promoted out of File. Alignment is not a file operation -- it is the
-        # reason this application exists, and it sat between Open Sensor Data
-        # and Save Session (WP-10).
-        self._align_menu = menu.addMenu(tr("Align"))
-
-        self._act_synchronize = self._align_menu.addAction(tr("Synchronize TTL / events…"))
-        act = self._act_synchronize
-        act.setToolTip(tr("Fit an offset from events both recordings share"))
-        act.triggered.connect(self._open_sync_wizard)
-        _reg(act, "Align")
-        self._require(
-            act,
-            self._has_alignment_evidence,
-            tr(
-                "Load a video with frame timestamps, and either a TTL-bearing sensor "
-                "channel or a second such video, to have evidence to fit."
-            ),
-        )
-
-        act = self._align_menu.addAction(tr("Open Trigger Evidence…"))
-        act.setToolTip(tr("Load a TTL or strobe file and say what each of its lines is"))
-        act.triggered.connect(self._open_trigger_evidence)
-        _reg(act, "Align")
-
-        self._align_menu.addSeparator()
-        act = self._align_menu.addAction(tr("Nudge selected source earlier"))
-        act.setShortcut(QKeySequence("Ctrl+Shift+Left"))
-        act.triggered.connect(lambda: self._nudge_alignment(-1))
-        _reg(act, "Align")
-        self._require(
-            act,
-            lambda: bool(self.video_grid._paths),
-            tr("Load a video before nudging its alignment."),
-        )
-
-        act = self._align_menu.addAction(tr("Nudge selected source later"))
-        act.setShortcut(QKeySequence("Ctrl+Shift+Right"))
-        act.triggered.connect(lambda: self._nudge_alignment(+1))
-        _reg(act, "Align")
-        self._require(
-            act,
-            lambda: bool(self.video_grid._paths),
-            tr("Load a video before nudging its alignment."),
-        )
-
-        # ── View ──────────────────────────────────────────────────────
-        view_menu = menu.addMenu(tr("View"))
-
-        theme_menu = view_menu.addMenu(tr("Theme"))
-        self._theme_group = QActionGroup(self)
-        for label, key in [("System", "system"), ("Dark", "dark"), ("Light", "light")]:
-            ta = theme_menu.addAction(label)
-            ta.setCheckable(True)
-            ta.setData(key)
-            self._theme_group.addAction(ta)
-        self._theme_group.triggered.connect(self._on_theme_selected)
-        self._sync_theme_menu()
-
-        font_menu = view_menu.addMenu(tr("Font Size"))
-        self._font_size_group = QActionGroup(self)
-        for label, key in [
-            ("System", "system"),
-            ("Small", "small"),
-            ("Medium", "medium"),
-            ("Large", "large"),
-        ]:
-            fa = font_menu.addAction(label)
-            fa.setCheckable(True)
-            fa.setData(key)
-            self._font_size_group.addAction(fa)
-        self._font_size_group.triggered.connect(self._on_font_size_selected)
-        self._sync_font_size_menu()
-
-        time_menu = view_menu.addMenu(tr("Time Display"))
-        self._time_mode_group = QActionGroup(self)
-        for label, mode in [
-            ("Relative (HH:MM:SS)", TimeDisplayMode.RELATIVE),
-            ("UTC", TimeDisplayMode.UTC),
-            ("Local time of day", TimeDisplayMode.LOCAL_TOD),
-        ]:
-            ta = time_menu.addAction(label)
-            ta.setCheckable(True)
-            ta.setData(mode)
-            ta.setChecked(mode == TimeDisplayMode.RELATIVE)
-            self._time_mode_group.addAction(ta)
-        self._time_mode_group.triggered.connect(lambda a: self._set_time_mode(a.data()))
-
-        view_menu.addSeparator()
-
-        # Reset Plot Zoom — single authority (D-022.1); QShortcut removed from _setup_shortcuts
-        # Overlays: one checkbox per registered layer, generated from the
-        # registry so a new overlay cannot ship without one (D-090).
-        self._overlays_menu = view_menu.addMenu(tr("Overlays"))
-        self._build_overlays_menu(_reg)
-        self.tracking_3d_pane.install_reprojection_action(
-            self._overlay_actions[calibration_controller.REPROJECTION_OVERLAY]
-        )
-        self.wheel_tab.install_overlay_actions(
-            self._overlay_actions["tracking.wheel"], self._overlay_actions["tracking.wheel_hidden"]
-        )
-        self._act_show_original_tracker = view_menu.addAction(tr("Play original"))
-        self._act_show_original_tracker.setCheckable(True)
-        self._act_show_original_tracker.triggered.connect(self._set_show_original_tracker)
-        _reg(self._act_show_original_tracker, "View")
-        self._act_show_original_tracker.setToolTip(
-            tr("Draw the tracking the model predicted, ignoring accepted identity swaps")
-        )
-        self.view_toolbar.install_original_tracker_action(self._act_show_original_tracker)
-        self._require(
-            self._act_show_original_tracker,
-            lambda: bool(self._pose_schemas),
-            tr("Import a pose source before comparing the original tracker."),
-        )
-        self._act_detach_plots = view_menu.addAction(tr("Detach Plots"))
-        self._act_detach_plots.setCheckable(True)
-        self._act_detach_plots.setToolTip(
-            tr("Show the plot pane in a separate window for another display")
-        )
-        self._act_detach_plots.toggled.connect(self._set_plots_detached)
-        _reg(self._act_detach_plots, "View")
-
-        self._act_panels_back = view_menu.addAction(tr("Bring Panels Back"))
-        self._act_panels_back.setToolTip(
-            tr("Re-dock every panel and move any stray window back onto this screen")
-        )
-        self._act_panels_back.triggered.connect(self._bring_panels_back)
-        _reg(self._act_panels_back, "View")
-        # Kept in the menu and nowhere else. Attaching a panel belongs on the
-        # panel -- its title bar carries that button -- and this is only the
-        # last resort for the one case the panel's own button cannot serve: a
-        # window on a screen that is no longer there to click.
-        view_menu.addSeparator()
-
-        # Workspaces: a session is looked at in more than one way, and
-        # rearranging the splitters each time is friction enough to stop
-        # people doing it (WP-11).
-        self._workspace_menu = view_menu.addMenu(tr("Workspace"))
-        self._rebuild_workspace_menu()
-        view_menu.addSeparator()
-
-        self._act_reset_zoom = view_menu.addAction(tr("Reset Plot Zoom"))
-        self._act_reset_zoom.setShortcut(QKeySequence("Ctrl+0"))
-        self._act_reset_zoom.triggered.connect(self.plot_pane.reset_zoom)
-        _reg(self._act_reset_zoom, "View")
-        self._require(
-            self._act_reset_zoom,
-            lambda: bool(self.plot_pane.channels),
-            tr("There are no plots to reset until data is loaded."),
-        )
-
-        # Fit All Videos: every camera back to the whole frame, 1.00x, unpanned --
-        # what each pane's own reset button does, for all of them at once.
-        self._act_fit_videos = view_menu.addAction(tr("Fit All Videos"))
-        self._act_fit_videos.setShortcut(QKeySequence("Ctrl+Shift+0"))
-        self._act_fit_videos.setToolTip(
-            tr("Show every camera's whole frame again: zoom 1.00x, no pan (Ctrl+Shift+0)")
-        )
-        self._act_fit_videos.triggered.connect(self.video_grid.reset_all_views)
-        _reg(self._act_fit_videos, "View")
-        self._require(
-            self._act_fit_videos,
-            lambda: bool(self.video_grid.pane_paths()),
-            tr("There are no videos to fit until one is loaded."),
-        )
-        self.view_toolbar.install_fit_videos_action(self._act_fit_videos)
-
-        # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS (D-022.2)
-        self._act_fullscreen = view_menu.addAction(tr("Toggle Pane Fullscreen"))
-        self._act_fullscreen.setShortcut(QKeySequence(QKeySequence.StandardKey.FullScreen))
-        self._act_fullscreen.triggered.connect(self._toggle_fullscreen)
-        _reg(self._act_fullscreen, "View")
-        self._require(
-            self._act_fullscreen,
-            lambda: bool(self.video_grid._paths),
-            tr("Load a video — fullscreen applies to a camera pane."),
-        )
-
-        # Pass reset-zoom action to plot pane so the context menu uses the same object (D-022)
-        self.plot_pane.set_context_actions([self._act_reset_zoom])
-
-        # ── Help ──────────────────────────────────────────────────────
-        help_menu = menu.addMenu(tr("Help"))
-
-        self._act_review_workflow = help_menu.addAction(tr("Review Workflow…"))
-        self._act_review_workflow.setToolTip(
-            tr("Open a task guide for checking timing, alignment, and observations")
-        )
-        self._act_review_workflow.triggered.connect(self._help_controller.show_review_workflow)
-        _reg(self._act_review_workflow, "View")
-
-        # Shortcuts dialog: F1 primary (HelpContents); "?" alias added in _setup_shortcuts
-        # Commands — searchable by name. The menus are deep enough now that
-        # finding a command is the problem, not typing it (WP-3).
-        act = help_menu.addAction(tr("Commands…"))
-        act.setShortcut(QKeySequence("Ctrl+Shift+P"))
-        act.setToolTip(tr("Search every command by name"))
-        act.triggered.connect(self._show_command_palette)
-        _reg(act, "View")
-
-        self._act_shortcuts = help_menu.addAction(tr("Keyboard Shortcuts…"))
-        self._act_shortcuts.setShortcut(QKeySequence(QKeySequence.StandardKey.HelpContents))
-        self._act_shortcuts.triggered.connect(self._show_shortcuts)
-        _reg(self._act_shortcuts, "View")
-
-        act = help_menu.addAction(tr("Documentation"))
-        act.triggered.connect(
-            lambda _checked=False: self._help_controller.open_project_url("Documentation")
-        )
-        act = help_menu.addAction(tr("Report a Problem…"))
-        act.triggered.connect(self._help_controller.report_a_problem)
-        act = help_menu.addAction(tr("Check for Updates"))
-        act.setToolTip(tr("The installers are not code-signed and do not update themselves"))
-        act.triggered.connect(
-            lambda _checked=False: self._help_controller.open_project_url("Changelog")
-        )
-        help_menu.addSeparator()
-
-        act = help_menu.addAction(tr("Cite AvialSync…"))
-        act.triggered.connect(self._help_controller.show_citation)
-
-        act = help_menu.addAction(tr("Diagnostics…"))
-        act.triggered.connect(self._help_controller.show_diagnostics)
-
-        # About — macOS AboutRole moves this to the app menu (D-022.3)
-        act = help_menu.addAction(tr("About AvialSync"))
-        act.setMenuRole(QAction.MenuRole.AboutRole)
-        act.triggered.connect(self._help_controller.show_about)
-
-        # Belt and braces for availability (D-107). The state-change hooks are
-        # what keep a shortcut and the command palette honest; this catches the
-        # menu itself in the case nobody predicted, at the one moment it is
-        # about to be read, for the price of a couple of dozen predicate calls.
-        for opened in (file_menu, self._align_menu, view_menu, help_menu):
-            opened.aboutToShow.connect(self._refresh_action_availability)
-
-        # Nothing is loaded yet, so most of this starts unavailable and says so.
-        self._refresh_action_availability()
+        build_menus(self)
 
     # ── Workspaces (WP-11) ───────────────────────────────────────────
 
@@ -2759,6 +2251,14 @@ class MainWindow(QMainWindow):
         del name
         if getattr(self, "wheel_panel", None) is not None:
             wheel_display.refresh(self)
+
+    def _cancel_competing_placement(self, starting: Literal["marker", "wheel"]) -> None:
+        """Give the shared video click to the placement starting now."""
+        if starting == "wheel":
+            custom_marker_controller.cancel(self)
+        else:
+            wheel_controller.cancel(self, tr("Wheel not added."))
+            wheel_controller.stop_checking(self)
 
     def _on_marker_clicked(self, path: str, x: float, y: float) -> None:
         """A placement click in a pane: a wheel's, when one is being placed or checked.
@@ -3278,14 +2778,14 @@ class MainWindow(QMainWindow):
         is not a change to the session, and undoing it would try to close a pane
         that never appeared.
         """
-        if not self._session_restoring:
+        if not self.session_runtime.restoring:
             self._record(AddSourceCommand(self._source_record(source_id, kind)))
             return
-        if self._pending_video_loads or self._pending_imports:
+        if self.video_load_state.pending or self.import_state.pending:
             return
         # The restore has drained. Everything on the log describes the file that
         # was just opened, so the session is clean by definition.
-        self._session_restoring = False
+        self.session_runtime.restoring = False
         self.document.clear()
         self._mark_session_saved()
 
@@ -3311,7 +2811,9 @@ class MainWindow(QMainWindow):
         disappears otherwise, so this stays native on each OS rather than
         hardcoding an asterisk.
         """
-        name = self._session_path.stem if self._session_path is not None else "Untitled"
+        name = (
+            self.session_runtime.path.stem if self.session_runtime.path is not None else "Untitled"
+        )
         self.setWindowTitle(f"{name}[*] — AvialSync")
         self.setWindowModified(self.document.is_dirty)
 
@@ -3327,7 +2829,9 @@ class MainWindow(QMainWindow):
 
     def _mark_session_saved(self) -> None:
         """Record that the session on disk now matches the workspace."""
-        self.document.session_path = str(self._session_path) if self._session_path else None
+        self.document.session_path = (
+            str(self.session_runtime.path) if self.session_runtime.path else None
+        )
         self.document.mark_saved()
         self._update_window_title()
 

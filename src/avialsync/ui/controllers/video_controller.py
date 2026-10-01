@@ -52,8 +52,8 @@ def load_video(
     config: dict[str, Any] | None = None,
 ) -> None:
     """Queue a video source for probing and, in request order, pane creation."""
-    window._pending_video_loads.append((path, offset, drift_ppm, config))
-    window._video_request_order.append(str(path))
+    window.video_load_state.pending.append((path, offset, drift_ppm, config))
+    window.video_load_state.request_order.append(str(path))
     window._start_next_video_load()
 
 
@@ -68,7 +68,10 @@ def start_next_video_load(window: MainWindow) -> None:
     order the user picked them (D-040; see the module docstring for why the
     original libmpv reason no longer applies).
     """
-    while len(window._video_load_jobs) < MAX_VIDEO_PROBES and window._pending_video_loads:
+    while (
+        len(window.video_load_state.active_probes) < MAX_VIDEO_PROBES
+        and window.video_load_state.pending
+    ):
         window._start_one_video_probe()
 
 
@@ -76,20 +79,17 @@ def start_one_video_probe(window: MainWindow) -> None:
     """Spawn a single off-thread metadata/timestamp probe."""
     from avialsync.engine.video_worker import VideoOpenWorker
 
-    path, offset, drift_ppm, config = window._pending_video_loads.popleft()
+    path, offset, drift_ppm, config = window.video_load_state.pending.popleft()
     worker = VideoOpenWorker(path, config)
-    window._video_load_offsets[str(path)] = offset
-    window._video_load_drifts[str(path)] = drift_ppm
-    remaining = len(window._pending_video_loads)
+    window.video_load_state.offsets[str(path)] = offset
+    window.video_load_state.drifts[str(path)] = drift_ppm
+    remaining = len(window.video_load_state.pending)
     suffix = f" ({remaining} queued)" if remaining else ""
 
     def _wire(thread: QThread) -> None:
-        # The registry is populated here, before the thread runs, because it
-        # is also the concurrency gate: filling it from `_run_job`'s return
-        # value would let a fast probe finish and clear its own entry before
-        # the entry existed, and `MAX_VIDEO_PROBES` would then be counted
-        # against a registry that never fills.
-        window._video_load_jobs[thread] = worker
+        # Count capacity before the thread runs. JobManager owns the worker;
+        # this set only bounds concurrent probes.
+        window.video_load_state.active_probes.add(thread)
         # These QObject slots are queued onto MainWindow's UI thread.  Do not
         # replace them with lambdas: a lambda runs in the emitting worker thread
         # and would create widgets off-thread.
@@ -98,8 +98,7 @@ def start_one_video_probe(window: MainWindow) -> None:
         # `JobManager` quits the thread on `finished`, `error` and `cancelled`.
         # This worker reports success as `opened`, so that one is ours.
         worker.opened.connect(thread.quit)
-        # `_on_video_thread_finished` drops the registry's reference, so the
-        # worker is destroyed on the UI thread as that slot promises. A
+        # JobManager drops worker ownership on the UI thread. A
         # `thread.finished.connect(worker.deleteLater)` here would beat it:
         # `finished` is emitted in the worker thread and the worker lives
         # there, making that connection direct and running ~QObject inside the
@@ -169,22 +168,24 @@ def on_video_opened(
     still built one at a time, in the order the user asked for them, so the
     grid layout does not depend on which file happened to probe fastest.
     """
-    window._probed_videos[original_path] = (loader, media_path)
-    if original_path not in window._video_request_order:
+    window.video_load_state.probed[original_path] = (loader, media_path)
+    if original_path not in window.video_load_state.request_order:
         # Opened outside the queue (session restore, direct call): it still
         # takes its turn, appended at the end of the current order.
-        window._video_request_order.append(original_path)
+        window.video_load_state.request_order.append(original_path)
     window._build_next_video_pane()
 
 
 def build_next_video_pane(window: MainWindow) -> None:
     """Build the next pane in request order, if one is ready and none is busy."""
-    while window._video_pane_initializing is None and window._video_request_order:
-        next_path = window._video_request_order[0]
-        probed = window._probed_videos.pop(next_path, None)
+    while (
+        window.video_load_state.pane_initializing is None and window.video_load_state.request_order
+    ):
+        next_path = window.video_load_state.request_order[0]
+        probed = window.video_load_state.probed.pop(next_path, None)
         if probed is None:
             return  # Still probing; a later completion will call back here.
-        window._video_request_order.pop(0)
+        window.video_load_state.request_order.pop(0)
         loader, media_path = probed
         window._create_video_pane(next_path, loader, media_path)
 
@@ -229,8 +230,8 @@ def create_video_pane(
     window: MainWindow, original_path: str, loader: object, media_path: str
 ) -> None:
     """Create UI state only after asynchronous source opening succeeds."""
-    offset = window._video_load_offsets.pop(original_path, 0.0)
-    drift_ppm = window._video_load_drifts.pop(original_path, 0.0)
+    offset = window.video_load_state.offsets.pop(original_path, 0.0)
+    drift_ppm = window.video_load_state.drifts.pop(original_path, 0.0)
     exact_mapping = window._pending_exact_mappings.pop(original_path, None)
     if not isinstance(loader, VideoSource):
         window._on_video_open_error(original_path, "Selected loader is not a VideoSource.")
@@ -251,7 +252,7 @@ def create_video_pane(
         exact_master,
         exact_source,
     )
-    window._video_pane_initializing = original_path
+    window.video_load_state.pane_initializing = original_path
     pane = window.video_grid.add_pane(
         original_path,
         media_path=media_path,
@@ -356,12 +357,12 @@ def create_video_pane(
 
 def on_video_open_error(window: MainWindow, path: str, error: str) -> None:
     """Show a source-open error without leaving a partially-created pane."""
-    window._video_load_offsets.pop(path, None)
-    window._video_load_drifts.pop(path, None)
-    window._probed_videos.pop(path, None)
+    window.video_load_state.offsets.pop(path, None)
+    window.video_load_state.drifts.pop(path, None)
+    window.video_load_state.probed.pop(path, None)
     # Drop the failed file from the ordering so later files still get built.
-    if path in window._video_request_order:
-        window._video_request_order.remove(path)
+    if path in window.video_load_state.request_order:
+        window.video_load_state.request_order.remove(path)
     window.transport.set_status(f"Video failed: {Path(path).name}", "error")
     # Not a modal: the rest of the session loaded and stays usable, which is
     # the point of Law 1. The raw text goes behind Show details.
@@ -373,16 +374,15 @@ def on_video_open_error(window: MainWindow, path: str, error: str) -> None:
 
 
 def on_video_thread_finished(window: MainWindow) -> None:
-    """Release the worker ownership after its thread has stopped on the UI thread."""
+    """Release one probe slot after its thread has stopped on the UI thread."""
     thread = window.sender()
     if isinstance(thread, QThread):
-        window._video_load_jobs.pop(thread, None)
-        thread.deleteLater()
+        window.video_load_state.active_probes.discard(thread)
         QTimer.singleShot(0, window._start_next_video_load)
 
 
 def on_video_pane_ready(window: MainWindow) -> None:
     """Build the next pane only after this one accepts media commands (D-040)."""
-    window._video_pane_initializing = None
+    window.video_load_state.pane_initializing = None
     window._build_next_video_pane()
     window._start_next_video_load()

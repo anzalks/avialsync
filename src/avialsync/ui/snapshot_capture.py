@@ -287,7 +287,7 @@ def _subtitle(window: MainWindow, tiles: int) -> str:
 
 def _footer(window: MainWindow) -> str:
     """Name the session and when the figure was written."""
-    session = window._session_path
+    session = window.session_runtime.path
     name = session.name if session is not None else "unsaved session"
     stamp = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     return f"AvialSync · {name} · exported {stamp}"
@@ -295,7 +295,7 @@ def _footer(window: MainWindow) -> str:
 
 def _title(window: MainWindow) -> str:
     """Title the figure after the session, matching the window title's name."""
-    session = window._session_path
+    session = window.session_runtime.path
     return session.stem if session is not None else "Untitled session"
 
 

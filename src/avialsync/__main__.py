@@ -101,14 +101,14 @@ def main() -> None:
             videos_ready = (
                 len(panes) == DEMO_VIDEO_COUNT
                 and all(pane._media_loaded for pane in panes)
-                and not win._pending_video_loads
-                and not win._video_load_jobs
-                and win._video_pane_initializing is None
+                and not win.video_load_state.pending
+                and not win.video_load_state.active_probes
+                and win.video_load_state.pane_initializing is None
             )
             data_ready = (
                 len(win.plot_pane.channels) == DEMO_CHANNEL_COUNT
-                and not win._pending_imports
-                and win._import_thread is None
+                and not win.import_state.pending
+                and win.import_state.active_thread is None
             )
             if videos_ready and data_ready:
                 win.close()

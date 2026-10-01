@@ -20,7 +20,7 @@ from avialsync.core.wheel_fit import LabelledFit
 from avialsync.engine.wheel_fit_worker import WheelFitWorker
 from avialsync.ui.controllers import wheel_display as display
 from avialsync.ui.controllers.wheel_placement import (
-    Placement,
+    WheelPlacement,
     describe_adjustment,
     estimate_missing,
 )
@@ -35,7 +35,7 @@ __all__ = ["refit"]
 
 def refit(window: MainWindow) -> None:
     """Re-project at once, and generate the wheel in the background (rule 3, D-123)."""
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     if placement is not None:
         estimate_missing(placement, display.camera_models(window))
         placement.generation += 1
@@ -44,7 +44,7 @@ def refit(window: MainWindow) -> None:
     display.refresh(window)
 
 
-def _start_fit(window: MainWindow, placement: Placement) -> None:
+def _start_fit(window: MainWindow, placement: WheelPlacement) -> None:
     """One fit job at a time; a click during it is fitted when it returns."""
     placement.fitting = True
     generation = placement.generation
@@ -53,7 +53,7 @@ def _start_fit(window: MainWindow, placement: Placement) -> None:
     )
 
     def done(labelled: LabelledFit | None, problem: str = "") -> None:
-        if window._wheel_placement is not placement:
+        if window.wheel_state.placement is not placement:
             return
         placement.fitting = False
         if generation != placement.generation:
@@ -80,7 +80,7 @@ def _start_fit(window: MainWindow, placement: Placement) -> None:
     )
 
 
-def _announce_preview(window: MainWindow, placement: Placement) -> None:
+def _announce_preview(window: MainWindow, placement: WheelPlacement) -> None:
     """Say when the wheel is generated, and when it stops being drawn.
 
     The fit runs after every click in ~10-20 ms, so there is no job to show

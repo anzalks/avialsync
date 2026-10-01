@@ -102,14 +102,14 @@ def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow
     main_window.video_grid._pane_enabled.append(True)
     main_window.sidebar.add_video(video_path, {})
     main_window.sidebar.add_sensor(sensor_path, ["force"])
-    main_window._session_path = Path("/tmp/prior.avv")
+    main_window.session_runtime.path = Path("/tmp/prior.avv")
     main_window._video_fps[video_path] = 30.0
     main_window._sensor_cache_dirs[sensor_path] = cache_dir
     main_window._overlay_sources[video_path] = {}
     main_window._pose_3d_sources[sensor_path] = []
     main_window._sync_provenance.append(object())
     main_window._overview_gaps[1.0] = "Source: sensor.csv"
-    main_window._session_item_labels[sensor_path] = "Force"
+    main_window.session_runtime.item_labels[sensor_path] = "Force"
     main_window.plot_pane._source_time_maps[cache_dir] = TimeMap()
     main_window.annotation_store.add_point(1.0, "mark")
     main_window.message_store._by_source[sensor_path] = ()
@@ -119,8 +119,8 @@ def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow
     with qtbot.waitSignal(main_window.sidebar.reset_session_requested):
         main_window.sidebar.btn_reset_session.click()
 
-    assert main_window._session_path is None
-    assert main_window._session_generation == 1
+    assert main_window.session_runtime.path is None
+    assert main_window.session_runtime.generation == 1
     assert not main_window.video_grid.panes
     assert not main_window.video_grid.pane_paths()
     assert not main_window.sidebar._video_widgets
@@ -425,8 +425,9 @@ def test_video_load_keeps_worker_alive_until_thread_finishes(
 
     main_window._load_video(Path("camera.mp4"))
 
-    assert len(main_window._video_load_jobs) == 1
-    for thread in main_window._video_load_jobs:
+    assert len(main_window.video_load_state.active_probes) == 1
+    assert len(main_window._job_manager.jobs()) == 1
+    for thread in main_window.video_load_state.active_probes:
         thread.quit()
         assert thread.wait(1_000)
 
@@ -465,14 +466,14 @@ def test_video_probes_run_bounded_in_parallel(
 
     qtbot.waitUntil(lambda: len(started) == _MAX_VIDEO_PROBES, timeout=2_000)
     # Bounded: the remaining files wait rather than spawning a probe each.
-    assert len(main_window._video_load_jobs) == _MAX_VIDEO_PROBES
-    assert len(main_window._pending_video_loads) == len(paths) - _MAX_VIDEO_PROBES
+    assert len(main_window.video_load_state.active_probes) == _MAX_VIDEO_PROBES
+    assert len(main_window.video_load_state.pending) == len(paths) - _MAX_VIDEO_PROBES
 
     release.set()
 
     qtbot.waitUntil(lambda: len(started) == len(paths), timeout=4_000)
-    qtbot.waitUntil(lambda: not main_window._video_load_jobs, timeout=4_000)
-    assert not main_window._pending_video_loads
+    qtbot.waitUntil(lambda: not main_window.video_load_state.active_probes, timeout=4_000)
+    assert not main_window.video_load_state.pending
 
 
 def test_video_panes_are_built_one_at_a_time_in_request_order(
@@ -485,10 +486,10 @@ def test_video_panes_are_built_one_at_a_time_in_request_order(
         "_create_video_pane",
         lambda self, path, loader, media: (
             built.append(path),
-            setattr(self, "_video_pane_initializing", path),
+            setattr(self.video_load_state, "pane_initializing", path),
         )[0],
     )
-    main_window._video_request_order = ["a.mp4", "b.mp4", "c.mp4"]
+    main_window.video_load_state.request_order = ["a.mp4", "b.mp4", "c.mp4"]
 
     # "b" probes first — it must still wait for "a".
     main_window._on_video_opened("b.mp4", object(), "b.mp4")
@@ -496,16 +497,16 @@ def test_video_panes_are_built_one_at_a_time_in_request_order(
 
     main_window._on_video_opened("a.mp4", object(), "a.mp4")
     assert built == ["a.mp4"]
-    assert main_window._video_pane_initializing == "a.mp4"
+    assert main_window.video_load_state.pane_initializing == "a.mp4"
 
     # Only when "a" reports ready does "b" get built — never two at once.
     main_window._on_video_pane_ready()
     assert built == ["a.mp4", "b.mp4"]
-    assert main_window._video_pane_initializing == "b.mp4"
+    assert main_window.video_load_state.pane_initializing == "b.mp4"
 
     main_window._on_video_pane_ready()
     assert built == ["a.mp4", "b.mp4"]  # "c" has not probed yet
-    assert main_window._video_request_order == ["c.mp4"]
+    assert main_window.video_load_state.request_order == ["c.mp4"]
 
 
 def test_a_failed_probe_does_not_block_later_panes(
@@ -518,11 +519,11 @@ def test_a_failed_probe_does_not_block_later_panes(
         "_create_video_pane",
         lambda self, path, loader, media: (
             built.append(path),
-            setattr(self, "_video_pane_initializing", path),
+            setattr(self.video_load_state, "pane_initializing", path),
         )[0],
     )
     monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
-    main_window._video_request_order = ["broken.mp4", "good.mp4"]
+    main_window.video_load_state.request_order = ["broken.mp4", "good.mp4"]
     main_window._on_video_opened("good.mp4", object(), "good.mp4")
 
     main_window._on_video_open_error("broken.mp4", "unreadable")
@@ -571,7 +572,7 @@ def test_drop_real_video_completes_async_open(
 
     main_window._load_video(video)
 
-    qtbot.waitUntil(lambda: not main_window._video_load_jobs, timeout=10_000)
+    qtbot.waitUntil(lambda: not main_window.video_load_state.active_probes, timeout=10_000)
     assert str(video) in main_window._video_fps
     assert widget_threads == [True]
     pane.set_vfr.assert_called_once_with(False)

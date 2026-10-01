@@ -21,9 +21,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QMimeData, QPointF, Qt, QUrl
+from PySide6.QtCore import QMimeData, QPointF, Qt, QTimer, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
-from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
+from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
 from shiboken6 import isValid
 
 from avialsync.core.commands import AddMarkerCommand
@@ -117,6 +117,7 @@ def test_a_drop_proceeds_with_unsaved_changes(
     from avialsync.core.source import SessionLayout
     from avialsync.engine.drop_worker import DropScanWorker
     from avialsync.loaders.csv_loader import CSVLoader
+    from avialsync.ui.batch_import_dialog import BatchImportDialog
 
     _with_unsaved_changes(main_window)
     sensor = tmp_path / "sensor.csv"
@@ -140,6 +141,12 @@ def test_a_drop_proceeds_with_unsaved_changes(
         )
 
     monkeypatch.setattr(main_window, "_start_drop_scan", scan_here)
+
+    def accept_review(dialog: BatchImportDialog) -> int:
+        QTimer.singleShot(0, dialog, dialog.accept)
+        return QDialog.exec(dialog)
+
+    monkeypatch.setattr(BatchImportDialog, "exec", accept_review)
 
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(str(sensor))])

@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Placement:
+class MarkerPlacement:
     """A marker being placed: its name, its frame, and the clicks so far."""
 
     name: str
@@ -71,17 +71,17 @@ def _marker_file_2d(window: MainWindow, video: str) -> Path:
     Never beside the video itself: a recording folder is the acquisition's, and
     ``pose-3d/`` is where this session's derived files already go.
     """
-    pose = rig_paths.pose_2d_file(window, video)
+    pose = rig_paths.pose_2d_file(window.rig_paths, video)
     if pose is not None:
         return custom_markers.marker_file_for(pose)
-    folder = rig_paths.pose3d_dir(window) or Path(video).parent
+    folder = rig_paths.pose3d_dir(window.rig_paths) or Path(video).parent
     return folder / f"{rig_paths.camera_name(video)}{custom_markers.MARKER_SUFFIX}"
 
 
 def _marker_file_3d(window: MainWindow) -> Path | None:
     if window._pose_3d_sources:
         return custom_markers.marker_file_for(next(iter(window._pose_3d_sources)))
-    folder = rig_paths.pose3d_dir(window)
+    folder = rig_paths.pose3d_dir(window.rig_paths)
     return None if folder is None else folder / f"pose{custom_markers.MARKER_SUFFIX}"
 
 
@@ -123,20 +123,17 @@ def toggled(window: MainWindow, checked: bool) -> None:
 
 
 def _begin_placement(window: MainWindow, name: str) -> None:
-    frame = rig_paths.frame_at(window, window.clock.state.t)
+    frame = rig_paths.frame_at(window.rig_paths, window.clock.state.t)
     if frame is None:
         _set_action_checked(window, False)
         return
     if window._act_fix_tracker.isChecked():
         window._act_fix_tracker.setChecked(False)
-    # Both take the same click; a wheel being placed or checked gives way.
-    from avialsync.ui.controllers import wheel_controller
-
-    wheel_controller.cancel(window, tr("Wheel not added."))
-    wheel_controller.stop_checking(window)
+    # Both gestures take the same click; the window coordinates ownership.
+    window._cancel_competing_placement("marker")
     if window.clock.state.playing:
         window.transport.play_toggled.emit(False)
-    window._marker_placement = Placement(name=name, frame=frame)
+    window._marker_placement = MarkerPlacement(name=name, frame=frame)
     _set_action_checked(window, True)
     window.video_grid.set_marker_place_mode(True)
     _report_progress(window)
@@ -184,7 +181,7 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> None:
             "warning",
         )
         return
-    frame = rig_paths.frame_at(window, window.clock.state.t)
+    frame = rig_paths.frame_at(window.rig_paths, window.clock.state.t)
     if frame is not None and frame != placement.frame:
         placement.frame = frame
         placement.clicks.clear()
@@ -266,7 +263,7 @@ def delete(window: MainWindow, name: str, frame: int) -> None:
 
 def refresh(window: MainWindow) -> None:
     """Push the store to every pane and the 3D view."""
-    for video in set(rig_paths.open_videos(window)) | set(window._overlay_sources):
+    for video in set(rig_paths.open_videos(window.rig_paths)) | set(window._overlay_sources):
         camera = rig_paths.camera_name(video)
         by_frame: dict[int, list[tuple[str, float, float]]] = {}
         for marker in window.custom_markers:
@@ -288,7 +285,7 @@ def points_at(window: MainWindow, t_master: float) -> list[tuple[str, np.ndarray
     """
     if not len(window.custom_markers):
         return []
-    frame = rig_paths.frame_at(window, t_master)
+    frame = rig_paths.frame_at(window.rig_paths, t_master)
     if frame is None:
         return []
     return [
@@ -307,7 +304,7 @@ def persist(window: MainWindow) -> None:
     markers = list(window.custom_markers)
     written: list[Path] = []
     try:
-        for video in rig_paths.open_videos(window):
+        for video in rig_paths.open_videos(window.rig_paths):
             target_2d = _marker_file_2d(window, video)
             # The pose-3d fallback may not exist yet; a pose file's folder does.
             target_2d.parent.mkdir(parents=True, exist_ok=True)
@@ -341,7 +338,7 @@ def adopt(window: MainWindow) -> None:
     matter.
     """
     views: dict[tuple[str, int], list[tuple[str, float, float]]] = {}
-    for video in set(rig_paths.open_videos(window)) | set(window._overlay_sources):
+    for video in set(rig_paths.open_videos(window.rig_paths)) | set(window._overlay_sources):
         camera = rig_paths.camera_name(video)
         source = _marker_file_2d(window, video)
         if not source.exists():

@@ -76,7 +76,7 @@ def _load_calibration(window: MainWindow, path: Path, sources: tuple[str, ...]) 
     except CalibrationError as error:
         window.report_failure(error, doing=tr("The calibration could not be used"))
         return False
-    videos = rig_paths.open_videos(window)
+    videos = rig_paths.open_videos(window.rig_paths)
     names = calibration_ref.camera_names(calibration, videos, sources)
     cameras = {
         video: model
@@ -120,13 +120,13 @@ def calibration_quietly(window: MainWindow) -> None:
     then never the third, so a wheel read back was drawn on two cameras only.
     """
     state = window._calibration_state
-    videos = tuple(rig_paths.open_videos(window))
+    videos = tuple(rig_paths.open_videos(window.rig_paths))
     if state is not None and set(videos) <= set(state.cameras):
         return
     if len(videos) < 2 or _QUIET_TRIED.get(id(window)) == videos:
         return
     _QUIET_TRIED[id(window)] = videos
-    folder = rig_paths.pose3d_dir(window)
+    folder = rig_paths.pose3d_dir(window.rig_paths)
     link = calibration_ref.locate(folder) if folder is not None else None
     path = state.path if state is not None else link.calibration if link is not None else None
     if path is None or not path.is_file():
@@ -150,7 +150,7 @@ def resolve_calibration(window: MainWindow) -> bool:
     """Use the calibration already found, or look for one; False if none."""
     if window._calibration_state is not None:
         return True
-    folder = rig_paths.pose3d_dir(window)
+    folder = rig_paths.pose3d_dir(window.rig_paths)
     if folder is None:
         return False
     link = calibration_ref.locate(folder)
@@ -173,7 +173,7 @@ def _import_calibration(window: MainWindow, folder: Path) -> bool:
     )
     if not chosen:
         return False
-    sources = tuple(Path(v).name for v in rig_paths.open_videos(window))
+    sources = tuple(Path(v).name for v in rig_paths.open_videos(window.rig_paths))
     if not _load_calibration(window, Path(chosen), sources):
         return False
     try:
@@ -201,8 +201,10 @@ def _fit_inputs(window: MainWindow) -> list[CameraFitInput]:
     if not window._pose_3d_sources:
         raise CalibrationError("Fitting a calibration needs the session's 3D pose; none is loaded.")
     inputs = []
-    for video, pane in zip(rig_paths.open_videos(window), window.video_grid.panes, strict=False):
-        pose = rig_paths.pose_2d_file(window, video)
+    for video, pane in zip(
+        rig_paths.open_videos(window.rig_paths), window.video_grid.panes, strict=False
+    ):
+        pose = rig_paths.pose_2d_file(window.rig_paths, video)
         size = getattr(pane, "video_size", None)
         if pose is None or not size:
             continue
@@ -229,7 +231,7 @@ def _compute_calibration(
         window.report_failure(error, doing=tr("A calibration cannot be computed"))
         on_cancel()
         return
-    videos = rig_paths.open_videos(window)
+    videos = rig_paths.open_videos(window.rig_paths)
     worker = CalibrationFitWorker(
         Path(next(iter(window._pose_3d_sources))), inputs, folder, [Path(v).name for v in videos]
     )
@@ -276,7 +278,7 @@ def acquire_calibration(
     if resolve_calibration(window):
         on_ready()
         return
-    folder = rig_paths.pose3d_dir(window)
+    folder = rig_paths.pose3d_dir(window.rig_paths)
     if folder is None:
         on_cancel()
         return

@@ -104,19 +104,21 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     if not isinstance(layout, SessionLayout):
         return
 
-    window._session_camera_fps = layout.camera_fps
-    window._session_anchor_epoch = layout.anchor_epoch
+    window.session_runtime.camera_fps = layout.camera_fps
+    window.session_runtime.anchor_epoch = layout.anchor_epoch
     # A session knows what each item is; the dialog can only re-derive a name
     # from the path. Keyed by path rather than carried in the candidate tuple,
     # which several consumers and any third-party signal reader unpack by arity.
-    window._session_item_labels = {
+    window.session_runtime.item_labels = {
         str(item.path): item.label for item in layout.items if item.label
     }
-    window._session_item_kinds = {str(item.path): item.kind for item in layout.items if item.kind}
+    window.session_runtime.item_kinds = {
+        str(item.path): item.kind for item in layout.items if item.kind
+    }
     # Which items share one Data Streams lane is the session's call for the same
     # reason: seven files extracted from three videos cover one span, and only
     # the thing that laid them out knows that they do.
-    window._session_coverage_groups = {
+    window.session_runtime.coverage_groups = {
         str(item.path): item.coverage_group for item in layout.items if item.coverage_group
     }
     # What instant each file's timestamps count from. The session is the only
@@ -148,7 +150,7 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     window.tracking_3d_pane.set_skeleton(list(layout.skeleton or []))
     # Likewise the wheel: which channel turns it is the rig's to say, and it
     # only pre-fills Add Wheel -- it is never applied on its own (D-113).
-    window._session_rotary = layout.rotary
+    window.wheel_state.session_rotary = layout.rotary
 
     # A scan that left something out has to say so on screen.  The log already
     # holds the detail; what belongs here is the fact that the session in front
@@ -208,8 +210,8 @@ def process_drop_candidates(
     dialog = BatchImportDialog(
         candidates,
         window,
-        labels=window._session_item_labels,
-        kinds=window._session_item_kinds,
+        labels=window.session_runtime.item_labels,
+        kinds=window.session_runtime.item_kinds,
         video_paths=window.video_grid.pane_paths(),
     )
     if dialog.exec() == QDialog.DialogCode.Accepted:

@@ -71,10 +71,10 @@ def test_add_wheel_button_in_the_tab_starts_and_stops_placing(
     assert button.isEnabled()
 
     button.click()
-    assert window._wheel_placement is not None and button.isChecked()
+    assert window.wheel_state.placement is not None and button.isChecked()
 
     button.click()
-    assert window._wheel_placement is None and not button.isChecked()
+    assert window.wheel_state.placement is None and not button.isChecked()
 
 
 def test_cancelling_the_setup_dialog_leaves_add_wheel_unchecked(
@@ -82,7 +82,7 @@ def test_cancelling_the_setup_dialog_leaves_add_wheel_unchecked(
 ) -> None:
     monkeypatch.setattr(wheel_controller, "ask_wheel_setup", lambda *_a: None)
     window._act_add_wheel.trigger()
-    assert window._wheel_placement is None
+    assert window.wheel_state.placement is None
     assert not window._act_add_wheel.isChecked()
 
 
@@ -95,7 +95,7 @@ def test_point_buttons_select_the_end_the_next_click_places(
     start_placing(window, monkeypatch)
     buttons = window.wheel_panel._point_buttons
     buttons[3].click()
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.step == 3
     assert [button.isChecked() for button in buttons] == [False, False, False, True, False, False]
 
@@ -111,7 +111,7 @@ def test_next_point_walks_to_3b_and_then_stops(window: MainWindow, monkeypatch) 
     panel = window.wheel_panel
     for expected in range(1, 6):
         panel._next.click()
-        assert window._wheel_placement.step == expected
+        assert window.wheel_state.placement.step == expected
     assert not panel._next.isEnabled()
 
 
@@ -125,7 +125,7 @@ def test_undo_click_button_takes_back_the_last_click(window: MainWindow, monkeyp
 
     panel._undo.click()
 
-    assert window._wheel_placement.clicks == {}
+    assert window.wheel_state.placement.clicks == {}
     assert not panel._undo.isEnabled()
 
 
@@ -135,7 +135,7 @@ def test_flip_side_button_picks_the_mirrored_wheel(window: MainWindow, monkeypat
     assert not panel._flip.isEnabled(), "nothing to flip before a fit"
     for step, click in enumerate(clicks_for([0, 1])):
         click_point(window, step, click.views)
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     before = placement.fit.geometry.centre
     assert panel._flip.isEnabled()
 
@@ -165,7 +165,7 @@ def test_review_fields_refit_the_placement(window: MainWindow, monkeypatch) -> N
     fields.radius.setValue(100.0)
     fields.bars.setValue(40)
 
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement.spec == WheelSpec("wheel", 40, 100.0, "mm")
     assert placement.fit is not None and placement.fit.geometry.bar_count == 40
 
@@ -227,7 +227,7 @@ def test_done_labelling_reads_the_encoder_from_its_real_cache(
     window.wheel_panel._accept.click()
 
     wheel = window.wheels.get("wheel")
-    assert wheel is not None and window._wheel_placement is None
+    assert wheel is not None and window.wheel_state.placement is None
     assert wheel.binding == EncoderBinding("encoder.csv", "angle", pytest.approx(30.0))
     assert read_wheels(pose3d)[0] == [wheel]
 
@@ -324,17 +324,17 @@ def test_row_verify_here_enters_and_leaves_checking(window: MainWindow, placed) 
     _bind(window, wheel)
     row = window.wheel_panel._rows["wheel"]
     row.verify.click()
-    assert window._wheel_checking == "wheel"
+    assert window.wheel_state.checking == "wheel"
     assert window.wheel_panel._rows["wheel"].verify.text() == "Click a Bar End…"
     window.wheel_panel._rows["wheel"].verify.click()
-    assert window._wheel_checking is None
+    assert window.wheel_state.checking is None
 
 
 def test_row_replace_starts_a_placement_that_swaps_the_wheel_in(
     window: MainWindow, monkeypatch, placed
 ) -> None:
     placed.replace.click()
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement is not None and placement.replacing == "wheel"
     for step, click in enumerate(clicks_for([0, 1])):
         click_point(window, step, click.views)
@@ -364,7 +364,7 @@ def threaded(
 
 
 def _idle(window: MainWindow) -> bool:
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     return (placement is None or not placement.fitting) and not window._job_manager.is_busy()
 
 
@@ -380,7 +380,7 @@ def test_the_wheel_is_generated_as_a_registered_background_job(
     for step, click in enumerate(clicks_for([0, 1])):
         click_point(window, step, click.views)
 
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement.fitting, "the click returns before the fit does"
     assert window.wheel_panel._summary.text() == "Generating wheel…"
     assert not window.wheel_panel._accept.isEnabled(), "Done waits for the latest clicks' fit"
@@ -403,7 +403,7 @@ def test_clicks_during_a_fit_are_fitted_when_it_returns(
 
     qtbot.waitUntil(lambda: _idle(window), timeout=10_000)
 
-    placement = window._wheel_placement
+    placement = window.wheel_state.placement
     assert placement.fit is not None and len(placement.fit.indices) == 3
     window.wheel_panel._accept.click()
     assert len(window.wheels.get("wheel").fit.indices) == 3
@@ -507,7 +507,7 @@ def test_dragging_the_diameter_previews_and_releasing_commits_once(
 
     assert window.wheels.get("wheel").bar_diameter is None, "a drag records nothing"
     assert len(window.document) == depth
-    preview = window._wheel_diameter_preview["wheel"]
+    preview = window.wheel_state.diameter_preview["wheel"]
     assert preview > 0
     assert wheel_display.scene(window, 0.0)[0][2] == pytest.approx(preview), "drawn in 3D"
 
@@ -517,7 +517,7 @@ def test_dragging_the_diameter_previews_and_releasing_commits_once(
     assert wheel.bar_diameter == pytest.approx(preview)
     assert len(window.document) == depth + 1
     assert read_wheels(pose3d)[0] == [wheel]
-    assert window._wheel_diameter_preview == {}
+    assert window.wheel_state.diameter_preview == {}
     assert wheel_display.scene(window, 0.0)[0][2] == pytest.approx(preview)
 
     assert window.document.undo(window._mutations)

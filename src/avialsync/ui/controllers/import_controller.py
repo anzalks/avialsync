@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 from PySide6.QtCore import QThread, QTimer
@@ -24,6 +24,7 @@ from avialsync.ui.controllers import identity_controller
 from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
+    from avialsync.engine.importer import ImportWorker
     from avialsync.ui.main_window import MainWindow
 
 logger = logging.getLogger(__name__)
@@ -141,20 +142,23 @@ def enqueue_import(
     window: MainWindow, path: Path, loader_cls: type, config: dict[str, Any]
 ) -> None:
     """Queue a source import so only one worker owns the import UI at a time."""
-    if window._import_thread is not None:
-        window._pending_imports.append((path, loader_cls, config))
+    if window.import_state.active_thread is not None:
+        window.import_state.pending.append((path, loader_cls, config))
         return
     window._start_import(path, loader_cls, config)
+
+
+def active_worker(window: MainWindow) -> ImportWorker | None:
+    """Look up the active import in the sole worker owner, JobManager."""
+    thread = window.import_state.active_thread
+    worker = next((job.worker for job in window._job_manager.jobs() if job.thread is thread), None)
+    return cast("ImportWorker | None", worker)
 
 
 def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[str, Any]) -> None:
     """Start the next queued background import."""
     from avialsync.engine.importer import ImportWorker
 
-    # The local is what `_wire` closes over. `window._import_worker` is typed
-    # `QObject | None`, and that narrowing does not survive into a nested
-    # function -- so reading it back inside `_wire` costs an assert and three
-    # `attr-defined` errors rather than buying anything.
     # The session's declared zero travels with the import. A loader reading
     # clock times -- "09:35:40" -- needs a date to place them on, and when the
     # session already knows when it happened, asking the user again is asking
@@ -164,7 +168,6 @@ def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[
     config.setdefault("session_start_time", window.session_start_time)
 
     worker = ImportWorker(path, config, loader_cls)
-    window._import_worker = worker
 
     # No modal dialog (D-091). The work was always on a worker; the modality
     # was gratuitous, and the budget allows a 1 GB CSV sixty seconds -- a full
@@ -178,12 +181,12 @@ def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[
         # `_on_import_thread_finished` can clear this back to None -- before
         # the assignment lands. The stale handle would then gate every later
         # import forever, since `enqueue_import` treats non-None as "busy".
-        window._import_thread = thread
+        window.import_state.active_thread = thread
         worker.progress.connect(window.activity_bar.set_progress)
         worker.finished.connect(window._on_import_finished)
         worker.error.connect(window._on_import_error)
-        # The worker is released in `_on_import_thread_finished`, on this
-        # thread. It must NOT be `deleteLater`-ed from its own `finished`:
+        # JobManager releases the worker after the thread finishes. It must
+        # NOT be `deleteLater`-ed from its own `finished`:
         # that signal is emitted in the worker thread, the worker lives there
         # too, so the connection is direct and ~QObject then runs inside the
         # worker's event loop. Destroying a QObject severs its connections
@@ -204,14 +207,10 @@ def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[
 
 def on_import_thread_finished(window: MainWindow) -> None:
     """Release the completed import and begin the next queued source."""
-    window._import_thread = None
-    # Dropping the last reference destroys the worker here, on the GUI
-    # thread, which already holds the GIL that ~QObject needs to sever the
-    # progress dialog's `canceled` connection.
-    window._import_worker = None
-    if not window._pending_imports:
+    window.import_state.active_thread = None
+    if not window.import_state.pending:
         return
-    path, loader_cls, config = window._pending_imports.popleft()
+    path, loader_cls, config = window.import_state.pending.popleft()
     QTimer.singleShot(0, lambda: window._start_import(path, loader_cls, config))
 
 
@@ -622,7 +621,7 @@ def update_tracking_pane_visibility(window: MainWindow) -> None:
         window.tracking_3d_pane.canvas.point_count > 0
         or len(window.custom_markers) > 0
         or len(window.wheels) > 0
-        or window._wheel_placement is not None
+        or window.wheel_state.placement is not None
     )
     if window.tracking_3d_pane.isVisible() == has_points:
         return
@@ -688,7 +687,7 @@ def on_import_error(window: MainWindow, err_msg: str) -> None:
     # Name the format that actually failed. This said "Failed to import CSV"
     # whatever the loader was, so an ephys directory read by the wrong format
     # reported a CSV problem and pointed at nothing the user had chosen.
-    worker = getattr(window, "_import_worker", None)
+    worker = active_worker(window)
     loader_cls = getattr(worker, "loader_class", None)
     fmt = loader_cls.display_name() if loader_cls is not None else "data"
     source = Path(worker.path).name if worker is not None else ""
