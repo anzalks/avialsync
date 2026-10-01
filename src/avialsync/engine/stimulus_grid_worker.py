@@ -95,6 +95,7 @@ class StimulusGridExportWorker(QObject):
         fps: int,
         labels: GridLabels,
         signal: GridSignal | None = None,
+        playback_speed: float = 1.0,
     ) -> None:
         super().__init__()
         self._videos = videos
@@ -105,6 +106,7 @@ class StimulusGridExportWorker(QObject):
         self._fps = fps
         self._labels = labels
         self._signal = signal
+        self._playback_speed = playback_speed
         self._cancel = threading.Event()
 
     def cancel(self) -> None:
@@ -132,6 +134,7 @@ class StimulusGridExportWorker(QObject):
                 temporary,
                 self._labels,
                 fps=self._fps,
+                playback_speed=self._playback_speed,
                 signal=self._signal,
                 progress=lambda value: self.progress.emit(round(value * 100)),
                 should_cancel=self._cancel.is_set,

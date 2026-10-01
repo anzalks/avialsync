@@ -29,6 +29,7 @@ from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.stimulus_grid_export import MAX_GRID_EVENTS
 from avialsync.engine.stimulus_grid_worker import StimulusEventScanWorker
 from avialsync.ui.i18n import tr
+from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
 
 
 @dataclass(frozen=True)
@@ -146,9 +147,36 @@ class StimulusGridDialog(QDialog):
         self.fps_spin.setValue(30)
         self.fps_spin.setSuffix(tr(" fps"))
         self.fps_spin.setAccessibleName(tr("Output frame rate"))
+        self.speed_combo = QComboBox(self)
+        self.speed_combo.setAccessibleName(tr("Export playback speed"))
+        self.speed_combo.setAccessibleDescription(
+            tr("Select a playback speed preset or choose Custom to enter a precise speed")
+        )
+        for rate in PLAYBACK_RATE_STEPS:
+            self.speed_combo.addItem(rate_label(rate), rate)
+        self.speed_combo.addItem(tr("Custom…"), None)
+        self.speed_combo.setCurrentIndex(PLAYBACK_RATE_STEPS.index(1.0))
+        self.custom_speed_spin = QDoubleSpinBox(self)
+        self.custom_speed_spin.setRange(0.01, 10.0)
+        self.custom_speed_spin.setDecimals(6)
+        self.custom_speed_spin.setSingleStep(0.01)
+        self.custom_speed_spin.setValue(1.0)
+        self.custom_speed_spin.setSuffix(tr("x"))
+        self.custom_speed_spin.setKeyboardTracking(False)
+        self.custom_speed_spin.setAccessibleName(tr("Custom export playback speed"))
+        self.custom_speed_spin.setAccessibleDescription(
+            tr("Source seconds played per output second, from 0.01 to 10")
+        )
+        self.custom_speed_spin.hide()
+        speed_controls = QWidget(self)
+        speed_layout = QHBoxLayout(speed_controls)
+        speed_layout.setContentsMargins(0, 0, 0, 0)
+        speed_layout.addWidget(self.speed_combo)
+        speed_layout.addWidget(self.custom_speed_spin)
         window_form.addRow(tr("Before"), self.before_spin)
         window_form.addRow(tr("After"), self.after_spin)
         window_form.addRow(tr("Frame rate"), self.fps_spin)
+        window_form.addRow(tr("Playback speed"), speed_controls)
         layout.addLayout(window_form)
 
         self.buttons = QDialogButtonBox(
@@ -166,6 +194,8 @@ class StimulusGridDialog(QDialog):
         self.min_interval_spin.valueChanged.connect(self._detection_settings_changed)
         self.before_spin.valueChanged.connect(self._window_changed)
         self.after_spin.valueChanged.connect(self._window_changed)
+        self.speed_combo.currentIndexChanged.connect(self._speed_changed)
+        self.custom_speed_spin.valueChanged.connect(self._window_changed)
         self.event_table.itemChanged.connect(self._event_selection_changed)
         self._refresh_timeline()
 
@@ -199,6 +229,11 @@ class StimulusGridDialog(QDialog):
             ):
                 selected.append(float(cast(float, value.data(Qt.ItemDataRole.UserRole))))
         return tuple(selected)
+
+    def playback_speed(self) -> float:
+        """Return the selected source-time multiplier for the encoded movie."""
+        preset = self.speed_combo.currentData()
+        return self.custom_speed_spin.value() if preset is None else float(preset)
 
     @Slot()
     def _scan(self) -> None:
@@ -296,6 +331,14 @@ class StimulusGridDialog(QDialog):
     def _window_changed(self, _value: float) -> None:
         self._update_event_details(self.selected_events())
 
+    @Slot(int)
+    def _speed_changed(self, _index: int) -> None:
+        preset = self.speed_combo.currentData()
+        if preset is not None:
+            self.custom_speed_spin.setValue(float(preset))
+        self.custom_speed_spin.setVisible(preset is None)
+        self._update_event_details(self.selected_events())
+
     @Slot()
     def _event_selection_changed(self, _item: QTableWidgetItem | None = None) -> None:
         if self._updating_events:
@@ -322,10 +365,13 @@ class StimulusGridDialog(QDialog):
             return
         event_time = selected[0]
         start, end = event_time - self.before_spin.value(), event_time + self.after_spin.value()
+        speed = self.playback_speed()
+        output_duration = (self.before_spin.value() + self.after_spin.value()) / speed
         self.event_details.setText(
             tr(
-                "First selected event: {time:.6f} s. Export window: {start:.6f} to {end:.6f} s."
-            ).format(time=event_time, start=start, end=end)
+                "First selected event: {time:.6f} s. Export window: {start:.6f} to {end:.6f} s. "
+                "Video length: {duration:.2f} s at {speed:g}x."
+            ).format(time=event_time, start=start, end=end, duration=output_duration, speed=speed)
         )
 
     def _refresh_timeline(self) -> None:

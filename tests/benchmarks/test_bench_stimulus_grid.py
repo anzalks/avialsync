@@ -95,3 +95,37 @@ def test_bench_three_camera_twelve_event_wide_grid(benchmark, tmp_path, qapp) ->
     if benchmark.stats is None:
         pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
     assert benchmark.stats.stats.median < _GRID_BUDGET_S
+
+
+@pytest.mark.benchmark(group="stimulus-grid-export")
+def test_bench_high_frame_rate_slow_motion_grid(benchmark, tmp_path, qapp) -> None:
+    """Render a 230 fps source frame sequence at 30 output fps and 0.130435x."""
+    source = tmp_path / "high_speed.mp4"
+    output = tmp_path / "slow_grid.mp4"
+    frame = np.full((72, 128, 3), (80, 120, 160), dtype=np.uint8)
+    encode_video(
+        source,
+        ((frame, index / 230) for index in range(46)),
+        rate=Fraction(230, 1),
+    )
+    videos = tuple(GridVideo(source, f"Camera {index}") for index in range(3))
+    times = np.arange(0.0, 0.2, 0.0001)
+    PyramidBuilder(tmp_path, "ttl").build_and_save(times, np.sin(times * 20))
+    signal = GridSignal(ReaderReference(tmp_path, "ttl"), "TTL", 0.5)
+
+    benchmark(
+        export_stimulus_grid,
+        videos,
+        (0.0,),
+        0.0,
+        0.2,
+        output,
+        _LABELS,
+        fps=30,
+        playback_speed=0.130435,
+        signal=signal,
+    )
+
+    if benchmark.stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert benchmark.stats.stats.median < _GRID_BUDGET_S

@@ -150,18 +150,21 @@ def export_stimulus_grid(
     labels: GridLabels,
     *,
     fps: int = 30,
+    playback_speed: float = 1.0,
     signal: GridSignal | None = None,
     progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
 ) -> None:
     """Encode cameras as rows and selected event windows as columns.
 
-    Every column advances through the same relative-time window, so the trigger
-    lands at the same relative instant. Missing coverage is rendered explicitly
-    rather than extending a camera's first or last frame into the window.
+    Every column advances through the same relative-time window. Playback speed
+    scales the source clock while output timestamps remain at ``fps``. Missing
+    coverage is rendered explicitly rather than extending a camera's footage.
     """
     if fps < 1 or fps > 120:
         raise ExportError("Output frame rate must be between 1 and 120 fps.")
+    if not np.isfinite(playback_speed) or not 0.01 <= playback_speed <= 10.0:
+        raise ExportError("Playback speed must be between 0.01x and 10x.")
     if not videos:
         raise ExportError("At least one video is required.")
     if not event_times or len(event_times) > MAX_GRID_EVENTS:
@@ -173,7 +176,8 @@ def export_stimulus_grid(
         raise ExportError("Stimulus event times must be finite and strictly increasing.")
     layout = plan_grid(len(videos), len(events), before, after, has_signal=signal is not None)
     duration = before + after
-    frame_count = max(1, int(np.ceil(np.nextafter(duration * fps, -np.inf))))
+    output_duration = duration / playback_speed
+    frame_count = max(1, int(np.ceil(np.nextafter(output_duration * fps, -np.inf))))
     destination.parent.mkdir(parents=True, exist_ok=True)
     traces = _read_signal_traces(signal, events, before, after, layout.width) if signal else ()
 
@@ -183,18 +187,22 @@ def export_stimulus_grid(
             reader = stack.enter_context(PyAVReader(video.path, max_cached_frames=2))
             reader.stream.thread_type = "SLICE"
             time_map = video.time_map
-            source_times = reader.frame_times
-            bounds = (
-                time_map.to_master(float(source_times[0])),
-                time_map.to_master(float(source_times[-1])),
-            )
+            bounds = _reader_bounds(reader, time_map)
             readers[video_index] = (reader, time_map, bounds)
 
         def frames() -> Iterator[tuple[np.ndarray, float]]:
             for frame_index in range(frame_count):
                 if should_cancel is not None and should_cancel():
                     raise TranscodeCancelled
-                relative_time = frame_index / fps - before
+                # Slow motion samples the centre of each output interval. A nominal
+                # 230 fps instant can sit microseconds before its rounded video PTS;
+                # centre sampling keeps that frame visible instead of repeating its
+                # predecessor. At 1x, retain the established exact-start semantics.
+                sample_index = frame_index + (0.5 if playback_speed < 1.0 else 0.0)
+                source_elapsed = min(
+                    sample_index * (playback_speed / fps), np.nextafter(duration, -np.inf)
+                )
+                relative_time = source_elapsed - before
                 image = _render_frame(
                     videos,
                     events,
@@ -211,7 +219,7 @@ def export_stimulus_grid(
 
         def report_progress(seconds: float) -> None:
             if progress is not None:
-                progress(min(1.0, (seconds + 1.0 / fps) / duration))
+                progress(min(1.0, (seconds + 1.0 / fps) / output_duration))
 
         encode_video(
             destination,
@@ -220,6 +228,22 @@ def export_stimulus_grid(
             progress=report_progress if progress is not None else None,
             should_cancel=should_cancel,
         )
+
+
+def _reader_bounds(reader: PyAVReader, time_map: TimeMap) -> tuple[float, float]:
+    """Include the last frame's presentation interval in source coverage."""
+    times = reader.frame_times
+    intervals = np.diff(times[-17:])
+    positive = intervals[intervals > 0]
+    if len(positive):
+        final_interval = float(np.median(positive))
+    else:
+        nominal_rate = reader.stream.average_rate or reader.stream.base_rate
+        final_interval = 1.0 / float(nominal_rate) if nominal_rate else 1.0 / 30.0
+    return (
+        time_map.to_master(float(times[0])),
+        time_map.to_master(float(times[-1]) + final_interval),
+    )
 
 
 def _render_frame(
@@ -326,7 +350,7 @@ def _draw_camera_tile(
     labels: GridLabels,
 ) -> None:
     """Draw one decoded camera frame and its absolute frame caption."""
-    if bounds[0] <= master_time <= bounds[1]:
+    if bounds[0] <= master_time < bounds[1]:
         frame_index = reader.index_at_time(time_map.to_source(master_time))
         frame = reader.frame_at_index(frame_index)
         pixels, is_greyscale = to_display_array(frame, video.display_levels)

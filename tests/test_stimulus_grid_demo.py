@@ -2,6 +2,7 @@
 
 import av
 import numpy as np
+import pytest
 
 from tools import generate_stimulus_grid_demo as demo
 
@@ -25,7 +26,10 @@ def test_camera_angles_show_distinct_views_of_the_same_trigger() -> None:
     assert not np.array_equal(views[1], views[2])
 
 
-def test_demo_export_runs_through_the_app_action(qapp, tmp_path, monkeypatch) -> None:
+@pytest.mark.parametrize(("speed", "frame_count"), [(1.0, 24), (0.5, 48)])
+def test_demo_export_runs_through_the_app_action(
+    qapp, tmp_path, monkeypatch, speed: float, frame_count: int
+) -> None:
     """The published demo path must use the live dialog and export worker."""
     monkeypatch.setattr(demo, "EVENTS", (1.5,))
     monkeypatch.setattr(demo, "SOURCE_SECONDS", 3.0)
@@ -35,9 +39,9 @@ def test_demo_export_runs_through_the_app_action(qapp, tmp_path, monkeypatch) ->
     signal_csv = demo._write_signal_csv(tmp_path)
     movie = tmp_path / "app_export.mp4"
 
-    demo._export_via_app(qapp, tmp_path, (camera,), signal_csv, movie)
+    demo._export_via_app(qapp, tmp_path, (camera,), signal_csv, movie, speed)
 
     with av.open(str(movie)) as container:
         frames = list(container.decode(video=0))
-    assert len(frames) == 24
+    assert len(frames) == frame_count
     assert (tmp_path / "stimulus_grid_select_events.png").is_file()

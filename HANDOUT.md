@@ -144,7 +144,11 @@ Two product laws govern that phase and outrank convention:
   caption below each image shows that camera's absolute zero-based frame index. The trace uses
   bounded pyramid queries of the selected channel on the export worker, preserving its accepted
   TimeMap and gaps. Export snapshots accepted camera mappings and display levels, and runs as a
-  registered background job. The reproducible screenshots and two-second MP4 come from the app's
+  registered background job. Output frame rate and playback speed are separate: the dialog offers
+  the player's rate presets plus a precise custom rate, previews output duration, and slow-motion
+  frames sample the middle of each output presentation interval so rounded high-fps PTS do not
+  silently skip source frames. The final source frame remains visible for its presentation interval.
+  The reproducible screenshots and default two-second MP4 come from the app's
   File export action, driven by `tools/generate_stimulus_grid_demo.py`:
   three synthetic camera angles on a muted gray scene with movement and a transient off-white point
   only near each TTL trigger.

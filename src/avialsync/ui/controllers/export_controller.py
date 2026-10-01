@@ -375,7 +375,6 @@ def export_stimulus_grid(window: MainWindow) -> None:
     events = dialog.selected_events()
     if not events:
         return
-
     destination, _ = QFileDialog.getSaveFileName(
         window,
         tr("Export Stimulus Grid"),
@@ -396,6 +395,7 @@ def export_stimulus_grid(window: MainWindow) -> None:
         Path(destination),
         _grid_labels(),
         signal=signal,
+        playback_speed=dialog.playback_speed(),
     )
 
 
@@ -410,10 +410,11 @@ def start_stimulus_grid_export(
     labels: GridLabels,
     *,
     signal: GridSignal | None = None,
+    playback_speed: float = 1.0,
 ) -> None:
     """Run grid decoding and encoding as a named, cancellable job."""
     worker = StimulusGridExportWorker(
-        videos, events, before, after, destination, fps, labels, signal
+        videos, events, before, after, destination, fps, labels, signal, playback_speed
     )
 
     def _wire(_thread: QThread) -> None:

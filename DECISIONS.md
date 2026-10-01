@@ -5390,3 +5390,29 @@ The first UI slice adds one Props tab, one registered camera layer, and discover
 and pose import. This deliberately raises D-148's reviewed ceilings for `MainWindow.__init__`
 (565→569 lines), the window (3991→4001), and the affected import, video, and session controller
 functions/lines by only their routing calls; prop editing and persistence live in separate modules.
+
+## 2026-10 · D-150 · Stimulus-grid playback speed scales source time, not output frame rate
+
+**Context.** A 230 fps source exported at 30 fps and 1x keeps real time, so the comparison MP4
+shows only about every eighth source frame. Reinterpreting the source's nominal fps as 30 would
+silently alter its accepted camera/TTL alignment. Exact nominal sample times can also fall a few
+microseconds before rounded source PTS, repeating one frame while skipping the next.
+
+**Decision.** The stimulus-grid dialog offers the player's speed presets and a precise custom
+rate, separately from output fps. One speed scales the shared master-time clock for every camera
+and the TTL cursor. The output duration is the selected source window divided by that speed; at
+1x, the default two-second source window remains a two-second MP4. For speeds below 1x, each
+output frame samples the middle of its source-time presentation interval. At 1x, it retains the
+existing exact-start seek. The camera frame caption always names the frame selected at that same
+sample time. The final source frame remains available through its estimated presentation interval,
+bounded by recent positive PTS spacing rather than stopping at its start timestamp.
+
+**Alternatives rejected.** Changing the encoded fps alone changes file cadence but cannot reveal
+source frames skipped by real-time sampling. A separate speed per camera would break the shared
+master-time comparison. Sampling slow-motion frames exactly at nominal source-frame boundaries
+loses frames when the container rounded those PTS upward.
+
+**Consequences.** A 230 fps source window can show every frame in a 30 fps MP4 at about 0.130435x;
+the output lasts about 7.67 times as long. A ground-truth PyAV fixture checks every requested frame
+index, output cadence, and duration, and the app-action test checks that the dialog speed reaches
+the registered export worker.

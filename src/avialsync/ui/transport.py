@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.ui.i18n import tr
+from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
 from avialsync.ui.theme import (
     evidence_color,
     follow_palette,
@@ -894,7 +895,7 @@ class Transport(QWidget):
     jump_requested = Signal(float)  # delta in seconds
 
     # Ordered playback-rate steps (J/K/L model, D-022.4)
-    _RATE_STEPS = [0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 10.0]
+    _RATE_STEPS = PLAYBACK_RATE_STEPS
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -1024,8 +1025,7 @@ class Transport(QWidget):
         # ── Rate combo (0.01× – 10×) ──────────────────────────────────
         self.rate_combo = QComboBox()
         for r in self._RATE_STEPS:
-            label = f"{r}x" if r >= 0.1 else f"{r:.2f}x"
-            self.rate_combo.addItem(label, r)
+            self.rate_combo.addItem(rate_label(r), r)
         self.rate_combo.setCurrentText("1.0x")
         self.rate_combo.setToolTip(tr("Playback rate (L = step up, K = pause)"))
         self.rate_combo.currentIndexChanged.connect(self._on_rate_changed)

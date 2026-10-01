@@ -87,15 +87,24 @@ frame to decode from.
 Run `avialsync demo` for four generated cameras and a channel named **TTL**, or open your own
 aligned videos and stimulus channel. Choose **File → Export Stimulus Grid…**. In the dialog, select
 the stimulus channel, set a rising threshold and minimum event spacing, then choose **Scan events**.
-Select up to twelve events and set the time before and after each one.
+Select up to twelve events and set the time before and after each one. **Frame rate** sets the
+encoded MP4's frames per second; **Playback speed** controls how quickly source time advances.
+The dialog shows the resulting video length before you export.
 
-![The stimulus-grid dialog showing the TTL trace, threshold, selected events, and export window](../_static/screenshots/stimulus_grid_select_events.png)
+![The stimulus-grid dialog showing the TTL trace, selected events, export window, frame rate, and playback speed](../_static/screenshots/stimulus_grid_select_events.png)
 
 Choose **Continue to export**, then save the MP4. The default half-second before and 1.5 seconds
-after each event produce a **two-second video**. Each camera becomes a row and
-each selected event becomes a column, so a three-camera, twelve-event export is a wide grid.
-The camera images contain no export graphics. Beneath each image,
-**Frame N** names that camera's absolute, zero-based frame index at the current instant.
+after each event at **1x** produce a **two-second video**. Slower speeds lengthen the MP4 while
+showing more source frames: steady 230 fps footage exported at 30 fps can use **0.1x** from the
+player-style presets to show every source frame over 20 seconds, or **Custom… → 0.130435x** for
+about 15.33 seconds with roughly one output frame per source frame. The shared TTL cursor slows with
+the video; its labels remain relative to the stimulus, while camera frame numbers remain absolute.
+
+![The export dialog at 30 fps and a custom 0.130435x playback speed, previewing a 15.33-second MP4](../_static/screenshots/stimulus_grid_slow_motion.png)
+
+Each camera becomes a row and each selected event becomes a column, so a three-camera, twelve-event
+export is a wide grid. The camera images contain no export graphics. Beneath each image, **Frame N**
+names that camera's absolute, zero-based frame index at the current instant.
 
 All selected signal windows are overlaid in **one full-width trace below the video grid** on a
 shared relative-time axis. The axis labels and moving light cursor show time relative to stimulus

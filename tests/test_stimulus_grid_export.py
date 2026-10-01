@@ -120,6 +120,99 @@ def test_stimulus_grid_export_is_decodable(tmp_path, qapp) -> None:
     assert (frames[0].width, frames[0].height) == (expected.width, expected.height)
 
 
+def test_230_fps_source_can_play_every_frame_in_a_30_fps_slow_movie(
+    tmp_path, qapp, monkeypatch
+) -> None:
+    source = tmp_path / "high_speed.mp4"
+    frame = np.full((18, 32, 3), (120, 150, 180), dtype=np.uint8)
+    encode_video(
+        source,
+        [(frame, index / 230) for index in range(46)],
+        rate=Fraction(230, 1),
+    )
+    requested: list[int] = []
+    reader_type = stimulus_grid_export.PyAVReader
+    frame_at_index = reader_type.frame_at_index
+
+    def record_frame_index(reader, index):
+        requested.append(index)
+        return frame_at_index(reader, index)
+
+    monkeypatch.setattr(reader_type, "frame_at_index", record_frame_index)
+    real_time_destination = tmp_path / "real_time.mp4"
+    export_stimulus_grid(
+        [GridVideo(source, "High-speed camera")],
+        [0.0],
+        before=0.0,
+        after=0.2,
+        destination=real_time_destination,
+        labels=_LABELS,
+        fps=30,
+    )
+    assert len(requested) == 6
+    assert len(set(requested)) == 6
+    requested.clear()
+
+    destination = tmp_path / "slow.mp4"
+    export_stimulus_grid(
+        [GridVideo(source, "High-speed camera")],
+        [0.0],
+        before=0.0,
+        after=0.2,
+        destination=destination,
+        labels=_LABELS,
+        fps=30,
+        playback_speed=0.130435,
+    )
+
+    with av.open(str(destination)) as container:
+        stream = container.streams.video[0]
+        frames = list(container.decode(stream))
+        duration = float(stream.duration * stream.time_base)
+    assert len(frames) == 46
+    assert duration == pytest.approx(46 / 30)
+    assert requested == list(range(46))
+
+
+def test_last_frame_is_shown_for_its_interval_then_coverage_ends(tmp_path, qapp) -> None:
+    source = tmp_path / "source.mp4"
+    destination = tmp_path / "comparison.mp4"
+    frame = np.full((18, 32, 3), (20, 40, 210), dtype=np.uint8)
+    encode_video(source, [(frame, 0.0), (frame, 0.1)], rate=Fraction(10, 1))
+    export_stimulus_grid(
+        [GridVideo(source, "Camera")],
+        [0.0],
+        before=0.0,
+        after=0.4,
+        destination=destination,
+        labels=_LABELS,
+        fps=10,
+    )
+
+    with av.open(str(destination)) as container:
+        frames = list(container.decode(video=0))
+    cell = plan_grid(1, 1, 0.0, 0.4).cell_rect(0, 0)
+    x, y = cell.x() + 20, cell.y() + 20
+    last_interval = frames[1].to_ndarray(format="rgb24")[y, x]
+    after_end = frames[2].to_ndarray(format="rgb24")[y, x]
+    assert last_interval[2] > 130
+    assert after_end[2] < 100
+
+
+@pytest.mark.parametrize("speed", [0.0, -0.5, 10.1, float("nan")])
+def test_grid_rejects_invalid_playback_speed(tmp_path, speed: float) -> None:
+    with pytest.raises(ExportError, match="Playback speed"):
+        export_stimulus_grid(
+            [GridVideo(tmp_path / "unused.mp4", "Camera")],
+            [0.0],
+            0.0,
+            1.0,
+            tmp_path / "unused_export.mp4",
+            _LABELS,
+            playback_speed=speed,
+        )
+
+
 def test_grid_exports_one_shared_trace_for_aligned_event_windows(tmp_path, qapp) -> None:
     source = tmp_path / "source.mp4"
     destination = tmp_path / "comparison.mp4"

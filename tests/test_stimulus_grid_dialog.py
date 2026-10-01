@@ -35,6 +35,18 @@ def test_dialog_shows_first_event_window_and_limits_selected_events(qtbot, tmp_p
     assert dialog.selected_events()[0] == 1.0
     assert "1.000000 s" in dialog.event_details.text()
     assert "0.500000 to 2.500000 s" in dialog.event_details.text()
+    assert "Video length: 2.00 s at 1x" in dialog.event_details.text()
+    assert dialog.custom_speed_spin.isHidden()
+
+    preset = dialog.speed_combo.findData(0.1)
+    dialog.speed_combo.setCurrentIndex(preset)
+    assert dialog.playback_speed() == 0.1
+    assert "Video length: 20.00 s at 0.1x" in dialog.event_details.text()
+    dialog.speed_combo.setCurrentIndex(dialog.speed_combo.count() - 1)
+    assert not dialog.custom_speed_spin.isHidden()
+    dialog.custom_speed_spin.setValue(0.130435)
+    assert dialog.playback_speed() == 0.130435
+    assert "Video length: 15.33 s at 0.130435x" in dialog.event_details.text()
 
     dialog.before_spin.setValue(0.25)
     dialog.after_spin.setValue(0.75)

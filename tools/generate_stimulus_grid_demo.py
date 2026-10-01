@@ -141,7 +141,7 @@ def _wait_until(app: QApplication, ready: Callable[[], bool], label: str) -> Non
         raise RuntimeError(f"Timed out waiting for {label}.")
 
 
-def _drive_dialog(window: MainWindow, errors: list[str]) -> None:
+def _drive_dialog(window: MainWindow, errors: list[str], playback_speed: float) -> None:
     """Use the real stimulus dialog and scan job, then accept the selected events."""
     dialogs = [dialog for dialog in window.findChildren(StimulusGridDialog) if dialog.isVisible()]
     if len(dialogs) != 1:
@@ -152,12 +152,17 @@ def _drive_dialog(window: MainWindow, errors: list[str]) -> None:
     dialog.before_spin.setValue(0.5)
     dialog.after_spin.setValue(1.5)
     dialog.fps_spin.setValue(12)
+    preset = dialog.speed_combo.findData(playback_speed)
+    dialog.speed_combo.setCurrentIndex(preset if preset >= 0 else dialog.speed_combo.count() - 1)
+    if preset < 0:
+        dialog.custom_speed_spin.setValue(playback_speed)
     dialog.threshold_spin.setValue(0.5)
     deadline = time.monotonic() + 20.0
 
     def finish_scan() -> None:
         if dialog.event_table.rowCount() == len(EVENTS) and dialog.scan_button.isEnabled():
             capture(dialog, OUTPUT / "stimulus_grid_select_events.png")
+            _capture_slow_speed_example(dialog)
             dialog.accept()
         elif time.monotonic() > deadline:
             errors.append(
@@ -171,12 +176,28 @@ def _drive_dialog(window: MainWindow, errors: list[str]) -> None:
     QTimer.singleShot(20, dialog, finish_scan)
 
 
+def _capture_slow_speed_example(dialog: StimulusGridDialog) -> None:
+    """Show the precise 230-to-30 fps choice without changing the demo export."""
+    original_fps = dialog.fps_spin.value()
+    original_speed = dialog.playback_speed()
+    dialog.fps_spin.setValue(30)
+    dialog.speed_combo.setCurrentIndex(dialog.speed_combo.count() - 1)
+    dialog.custom_speed_spin.setValue(0.130435)
+    capture(dialog, OUTPUT / "stimulus_grid_slow_motion.png")
+    dialog.fps_spin.setValue(original_fps)
+    preset = dialog.speed_combo.findData(original_speed)
+    dialog.speed_combo.setCurrentIndex(preset if preset >= 0 else dialog.speed_combo.count() - 1)
+    if preset < 0:
+        dialog.custom_speed_spin.setValue(original_speed)
+
+
 def _export_via_app(
     app: QApplication,
     folder: Path,
     cameras: tuple[CameraFixture, ...],
     signal_csv: Path,
     movie: Path,
+    playback_speed: float = 1.0,
 ) -> None:
     """Open generated sources and run File → Export Stimulus Grid through MainWindow."""
     appdata = folder / "appdata"
@@ -203,7 +224,7 @@ def _export_via_app(
             errors: list[str] = []
             movie.unlink(missing_ok=True)
             with patch.object(QFileDialog, "getSaveFileName", return_value=(str(movie), "MP4")):
-                QTimer.singleShot(0, window, lambda: _drive_dialog(window, errors))
+                QTimer.singleShot(0, window, lambda: _drive_dialog(window, errors, playback_speed))
                 action.trigger()
             if errors:
                 raise RuntimeError(errors[0])
