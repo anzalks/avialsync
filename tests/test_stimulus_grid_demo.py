@@ -26,7 +26,7 @@ def test_camera_angles_show_distinct_views_of_the_same_trigger() -> None:
     assert not np.array_equal(views[1], views[2])
 
 
-@pytest.mark.parametrize(("speed", "frame_count"), [(1.0, 24), (0.5, 48)])
+@pytest.mark.parametrize(("speed", "frame_count"), [(1.0, 60), (0.5, 60)])
 def test_demo_export_runs_through_the_app_action(
     qapp, tmp_path, monkeypatch, speed: float, frame_count: int
 ) -> None:
@@ -42,6 +42,9 @@ def test_demo_export_runs_through_the_app_action(
     demo._export_via_app(qapp, tmp_path, (camera,), signal_csv, movie, speed)
 
     with av.open(str(movie)) as container:
-        frames = list(container.decode(video=0))
+        stream = container.streams.video[0]
+        frames = list(container.decode(stream))
+        duration = float(stream.duration * stream.time_base)
     assert len(frames) == frame_count
+    assert duration == pytest.approx(2.0 / speed, abs=2e-6)
     assert (tmp_path / "stimulus_grid_select_events.png").is_file()

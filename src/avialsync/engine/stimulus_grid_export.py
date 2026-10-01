@@ -7,6 +7,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from fractions import Fraction
+from heapq import merge
 from pathlib import Path
 
 import numpy as np
@@ -45,6 +46,7 @@ _RULER_BAND = 62
 _SIGNAL_BAND = 230
 _GAP = 6
 logger = logging.getLogger(__name__)
+_OUTPUT_TICKS_PER_SECOND = 1_000_000
 
 
 @dataclass(frozen=True)
@@ -157,9 +159,9 @@ def export_stimulus_grid(
 ) -> None:
     """Encode cameras as rows and selected event windows as columns.
 
-    Every column advances through the same relative-time window. Playback speed
-    scales the source clock while output timestamps remain at ``fps``. Missing
-    coverage is rendered explicitly rather than extending a camera's footage.
+    Every column advances through the same relative-time window. Each source
+    frame transition is retained at its mapped presentation time; ``fps`` sets
+    the base cadence between transitions. Missing coverage is explicit.
     """
     if fps < 1 or fps > 120:
         raise ExportError("Output frame rate must be between 1 and 120 fps.")
@@ -177,7 +179,6 @@ def export_stimulus_grid(
     layout = plan_grid(len(videos), len(events), before, after, has_signal=signal is not None)
     duration = before + after
     output_duration = duration / playback_speed
-    frame_count = max(1, int(np.ceil(np.nextafter(output_duration * fps, -np.inf))))
     destination.parent.mkdir(parents=True, exist_ok=True)
     traces = _read_signal_traces(signal, events, before, after, layout.width) if signal else ()
 
@@ -191,18 +192,10 @@ def export_stimulus_grid(
             readers[video_index] = (reader, time_map, bounds)
 
         def frames() -> Iterator[tuple[np.ndarray, float]]:
-            for frame_index in range(frame_count):
+            for output_time in _frame_schedule(readers, events, before, after, fps, playback_speed):
                 if should_cancel is not None and should_cancel():
                     raise TranscodeCancelled
-                # Slow motion samples the centre of each output interval. A nominal
-                # 230 fps instant can sit microseconds before its rounded video PTS;
-                # centre sampling keeps that frame visible instead of repeating its
-                # predecessor. At 1x, retain the established exact-start semantics.
-                sample_index = frame_index + (0.5 if playback_speed < 1.0 else 0.0)
-                source_elapsed = min(
-                    sample_index * (playback_speed / fps), np.nextafter(duration, -np.inf)
-                )
-                relative_time = source_elapsed - before
+                relative_time = output_time * playback_speed - before
                 image = _render_frame(
                     videos,
                     events,
@@ -215,19 +208,78 @@ def export_stimulus_grid(
                     signal=signal,
                     traces=traces,
                 )
-                yield _image_to_rgb(image), frame_index / fps
+                yield _image_to_rgb(image), output_time
 
         def report_progress(seconds: float) -> None:
             if progress is not None:
-                progress(min(1.0, (seconds + 1.0 / fps) / output_duration))
+                progress(min(1.0, seconds / output_duration))
 
         encode_video(
             destination,
             frames(),
             rate=Fraction(fps, 1),
+            time_base=Fraction(1, _OUTPUT_TICKS_PER_SECOND),
+            end_seconds=output_duration,
             progress=report_progress if progress is not None else None,
             should_cancel=should_cancel,
         )
+        if progress is not None:
+            progress(1.0)
+
+
+def _frame_schedule(
+    readers: dict[int, tuple[PyAVReader, TimeMap, tuple[float, float]]],
+    events: Sequence[float],
+    before: float,
+    after: float,
+    fps: int,
+    playback_speed: float,
+) -> Iterator[float]:
+    """Merge each tile's real frame changes into one presentation timeline."""
+    ticks_per_second = _OUTPUT_TICKS_PER_SECOND
+    end_tick = int(round((before + after) * ticks_per_second / playback_speed))
+    step_ticks = max(1, round(ticks_per_second / fps))
+    # Rounded source PTS can land slightly beside a nominal cadence tick.
+    # Treat them as one update instead of creating a near-zero duplicate frame.
+    cadence_tolerance = max(10, round(step_ticks * 0.01))
+
+    def tile_ticks(
+        reader: PyAVReader, mapping: TimeMap, bounds: tuple[float, float], event: float
+    ) -> Iterator[int]:
+        start = mapping.to_source(event - before)
+        end = mapping.to_source(event + after)
+        times = reader.frame_times
+        first = int(np.searchsorted(times, start, side="left"))
+        stop = int(np.searchsorted(times, end, side="left"))
+        for source_time in times[first:stop]:
+            elapsed = (mapping.to_master(float(source_time)) - event + before) / playback_speed
+            # The rendered instant must never precede this source frame's PTS.
+            tick = int(np.ceil(elapsed * ticks_per_second - 1e-9))
+            if 0 < tick < end_tick:
+                yield tick
+        coverage_end = (bounds[1] - event + before) / playback_speed
+        tick = int(np.ceil(coverage_end * ticks_per_second - 1e-9))
+        if 0 < tick < end_tick:
+            yield tick
+
+    timelines = (
+        tile_ticks(reader, mapping, bounds, event)
+        for reader, mapping, bounds in readers.values()
+        for event in events
+    )
+    previous = 0
+    yield 0.0
+    for tick in merge(*timelines):
+        if tick <= previous:
+            continue
+        while tick - previous > step_ticks + cadence_tolerance:
+            previous += step_ticks
+            yield previous / ticks_per_second
+        previous = tick
+        yield tick / ticks_per_second
+    while end_tick - previous > step_ticks + cadence_tolerance:
+        previous += step_ticks
+        yield previous / ticks_per_second
 
 
 def _reader_bounds(reader: PyAVReader, time_map: TimeMap) -> tuple[float, float]:

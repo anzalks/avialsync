@@ -13,6 +13,7 @@ from avialsync.core.timeline import TimeMap
 from avialsync.engine import stimulus_grid_export
 from avialsync.engine.display_pipeline import DisplayLevels
 from avialsync.engine.export_worker import ReaderReference
+from avialsync.engine.pyav_reader import PyAVReader
 from avialsync.engine.stimulus_grid_export import (
     MAX_GRID_EVENTS,
     GridLabels,
@@ -116,12 +117,17 @@ def test_stimulus_grid_export_is_decodable(tmp_path, qapp) -> None:
         frames = list(container.decode(stream))
 
     expected = plan_grid(video_count=1, event_count=1, before=0.1, after=0.2)
-    assert len(frames) == 2
+    assert len(frames) == 3
+    assert [float(frame.pts * frame.time_base) for frame in frames] == pytest.approx(
+        [0.0, 0.1, 0.2]
+    )
+    assert float(stream.duration * stream.time_base) == pytest.approx(0.3)
     assert (frames[0].width, frames[0].height) == (expected.width, expected.height)
 
 
-def test_230_fps_source_can_play_every_frame_in_a_30_fps_slow_movie(
-    tmp_path, qapp, monkeypatch
+@pytest.mark.parametrize("speed", [0.130435, 1.0, 2.0])
+def test_230_fps_source_keeps_every_frame_at_each_export_speed(
+    tmp_path, qapp, monkeypatch, speed: float
 ) -> None:
     source = tmp_path / "high_speed.mp4"
     frame = np.full((18, 32, 3), (120, 150, 180), dtype=np.uint8)
@@ -130,6 +136,8 @@ def test_230_fps_source_can_play_every_frame_in_a_30_fps_slow_movie(
         [(frame, index / 230) for index in range(46)],
         rate=Fraction(230, 1),
     )
+    with PyAVReader(source) as reader:
+        source_times = reader.frame_times.copy()
     requested: list[int] = []
     reader_type = stimulus_grid_export.PyAVReader
     frame_at_index = reader_type.frame_at_index
@@ -139,21 +147,7 @@ def test_230_fps_source_can_play_every_frame_in_a_30_fps_slow_movie(
         return frame_at_index(reader, index)
 
     monkeypatch.setattr(reader_type, "frame_at_index", record_frame_index)
-    real_time_destination = tmp_path / "real_time.mp4"
-    export_stimulus_grid(
-        [GridVideo(source, "High-speed camera")],
-        [0.0],
-        before=0.0,
-        after=0.2,
-        destination=real_time_destination,
-        labels=_LABELS,
-        fps=30,
-    )
-    assert len(requested) == 6
-    assert len(set(requested)) == 6
-    requested.clear()
-
-    destination = tmp_path / "slow.mp4"
+    destination = tmp_path / "grid.mp4"
     export_stimulus_grid(
         [GridVideo(source, "High-speed camera")],
         [0.0],
@@ -162,7 +156,7 @@ def test_230_fps_source_can_play_every_frame_in_a_30_fps_slow_movie(
         destination=destination,
         labels=_LABELS,
         fps=30,
-        playback_speed=0.130435,
+        playback_speed=speed,
     )
 
     with av.open(str(destination)) as container:
@@ -170,8 +164,64 @@ def test_230_fps_source_can_play_every_frame_in_a_30_fps_slow_movie(
         frames = list(container.decode(stream))
         duration = float(stream.duration * stream.time_base)
     assert len(frames) == 46
-    assert duration == pytest.approx(46 / 30)
+    assert duration == pytest.approx(0.2 / speed, abs=2e-6)
     assert requested == list(range(46))
+    assert [float(frame.pts * frame.time_base) for frame in frames] == pytest.approx(
+        (source_times / speed).tolist(), abs=2e-6
+    )
+
+
+def test_camera_event_union_retains_offset_vfr_frames(tmp_path, qapp, monkeypatch) -> None:
+    paths = (tmp_path / "first.mp4", tmp_path / "second.mp4")
+    frame = np.full((18, 32, 3), (120, 150, 180), dtype=np.uint8)
+    camera_times = (
+        (0.0, 0.04, 0.08, 1.0, 1.04, 1.08),
+        (0.01, 0.03, 0.095, 1.01, 1.03, 1.095),
+    )
+    for path, times in zip(paths, camera_times, strict=True):
+        encode_video(path, [(frame, time) for time in times], rate=Fraction(30, 1))
+
+    seen: dict[Path, set[int]] = {path: set() for path in paths}
+    reader_type = stimulus_grid_export.PyAVReader
+    frame_at_index = reader_type.frame_at_index
+
+    def record_frame_index(reader, index):
+        seen[reader.path].add(index)
+        return frame_at_index(reader, index)
+
+    monkeypatch.setattr(reader_type, "frame_at_index", record_frame_index)
+    destination = tmp_path / "union.mp4"
+    export_stimulus_grid(
+        [GridVideo(paths[0], "First"), GridVideo(paths[1], "Second", TimeMap(offset=0.005))],
+        [0.0, 1.0],
+        before=0.0,
+        after=0.12,
+        destination=destination,
+        labels=_LABELS,
+        fps=10,
+    )
+
+    assert all(indices == set(range(6)) for indices in seen.values())
+    with av.open(str(destination)) as container:
+        stream = container.streams.video[0]
+        packets = [packet for packet in container.demux(stream) if packet.pts is not None]
+    presentation = sorted(float(packet.pts * packet.time_base) for packet in packets)
+    assert presentation == pytest.approx([0.0, 0.005, 0.025, 0.04, 0.08, 0.09], abs=2e-6)
+    assert sorted(float(packet.duration * packet.time_base) for packet in packets) == pytest.approx(
+        sorted([0.005, 0.02, 0.015, 0.04, 0.01, 0.03]), abs=2e-6
+    )
+
+
+def test_timed_encoder_reports_timestamps_it_cannot_preserve(tmp_path) -> None:
+    frame = np.zeros((18, 32, 3), dtype=np.uint8)
+    with pytest.raises(ExportError, match="too close to preserve every frame"):
+        encode_video(
+            tmp_path / "too_close.mp4",
+            [(frame, 0.0), (frame, 0.0000001)],
+            rate=Fraction(30, 1),
+            time_base=Fraction(1, 1_000_000),
+            end_seconds=0.01,
+        )
 
 
 def test_last_frame_is_shown_for_its_interval_then_coverage_ends(tmp_path, qapp) -> None:
@@ -242,7 +292,7 @@ def test_grid_exports_one_shared_trace_for_aligned_event_windows(tmp_path, qapp)
         frames = list(container.decode(video=0))
     layout = plan_grid(2, 2, 0.2, 0.4, has_signal=True)
     image = frames[0].to_ndarray(format="rgb24")
-    assert len(frames) == 3
+    assert len(frames) == 7
     assert image.shape[:2] == (layout.height, layout.width)
     # The chart spans both event columns, below every camera row.
     chart = image[layout.height - 140 : layout.height - 50, 110 : layout.width - 28]
@@ -328,8 +378,8 @@ def test_stimulus_grid_uses_a_snapshot_of_exact_video_mapping(tmp_path, qapp, mo
         fps=10,
     )
 
-    assert requested_times == pytest.approx([0.15])
-    assert requested_indices == [1]
+    assert requested_times == pytest.approx([0.15, 0.2, 0.3])
+    assert requested_indices == [1, 2, 3]
 
 
 def test_stimulus_grid_applies_high_bit_depth_display_levels(qapp) -> None:

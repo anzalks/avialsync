@@ -432,7 +432,7 @@ def _grid_labels() -> GridLabels:
         event=tr("Event {index}"),
         no_footage=tr("No footage"),
         ruler=tr("{before:.2f} s    Stimulus    +{after:.2f} s"),
-        current=tr("Relative time: {time:+.2f} s"),
+        current=tr("Relative time: {time:+.3f} s"),
         no_signal=tr("No signal samples in the selected windows"),
         frame=tr("Frame {index}"),
     )

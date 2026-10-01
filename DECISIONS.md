@@ -5416,3 +5416,23 @@ loses frames when the container rounded those PTS upward.
 the output lasts about 7.67 times as long. A ground-truth PyAV fixture checks every requested frame
 index, output cadence, and duration, and the app-action test checks that the dialog speed reaches
 the registered export worker.
+
+## 2026-10 · D-151 · Stimulus-grid exports retain every mapped camera frame transition
+
+**Context.** D-150's fixed output cadence omitted most 230 fps frames at 1x, even though slow
+motion could expose them. A scientific comparison must preserve the source's presentation sequence
+at any selected playback speed, including across cameras with different frame timestamps.
+
+**Decision.** Merge every camera and event column's mapped frame presentation times into one
+variable-rate output schedule. Playback speed scales those times; the dialog's frame-rate setting
+is a base cursor cadence in gaps between source transitions. Encode with microsecond timestamps,
+without B-frames, and write each MP4 packet's duration through the next presentation time, ending
+the last packet at the selected window boundary. Frame captions use the same timestamp and reader
+index as the tile image. D-150's midpoint sampling is superseded by this event-driven schedule.
+
+**Consequences.** A 230 fps window retains 230 distinct frames per source second at 1x, and the
+same source sequence at slower or faster playback speeds. A player may skip display refreshes if
+the encoded rate exceeds the device's display capacity; the MP4 still contains the frames. The
+grid is resized and encoded with lossy H.264 for visual comparison, not pixel-identical measurement.
+Ground-truth tests cover 230 fps, camera offsets, VFR, multiple events, packet timestamps, and
+packet durations. The published demo still goes through the application's export action.

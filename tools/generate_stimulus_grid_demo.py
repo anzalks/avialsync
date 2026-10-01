@@ -247,7 +247,7 @@ def _save_video_frame(movie: Path, image_path: Path) -> None:
     """Save a decoded frame near stimulus onset, when every view shows the dot."""
     with av.open(str(movie)) as container:
         frames = list(container.decode(video=0))
-    index = min(round(0.6 * 12), len(frames) - 1)
+    index = min(range(len(frames)), key=lambda position: abs(float(frames[position].time) - 0.6))
     frame = np.ascontiguousarray(frames[index].to_ndarray(format="rgb24"))
     image = QImage(
         frame.data, frame.shape[1], frame.shape[0], frame.strides[0], QImage.Format.Format_RGB888
