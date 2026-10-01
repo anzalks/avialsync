@@ -3,6 +3,9 @@
 This example uses one camera and one sensor file. The same steps work with several cameras and many
 recordings.
 
+The camera and signal data shown in the screenshots are generated examples, not recordings from an
+experiment.
+
 For an in-app checklist while reviewing, open **Help → Review Workflow**.
 
 ## 1. Load the camera

@@ -59,9 +59,11 @@ Three routes, in the order to try them — all covered field by field, with anno
   when recordings agree at the start and separate by the end — a fixed offset cannot express that.
 - **Align → Synchronize TTL / events…** fits the mapping from TTL pulses or frame triggers. Choose reference and target
   evidence, set the **TTL high threshold** (or tick **Use all samples as events** when the reference
-  is already a list of event times), pick **Affine Fit** for two independent clocks or **Exact
-  Index** when the reference triggered each exposure, then **Preview alignment** and read the match
-  count and residual before **Accept mapping**. Nothing is applied until you accept it.
+  is already a list of event times), then leave **Alignment strategy** on **Automatic** unless you
+  have a specific reason to override what the evidence supports. **Exact Index** is valid only when
+  each recorded frame has a corresponding event, not merely when an exposure was requested. Choose
+  **Preview alignment**, inspect the matches and residuals, then **Accept mapping**. Nothing is
+  applied until you accept it.
 
 ## Messages the recording carries
 

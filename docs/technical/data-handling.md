@@ -12,17 +12,16 @@ Importers process data in chunks. A time-series plugin yields time/value chunks 
 the importer validates them, records import statistics, and builds the cache away from the interface
 thread. Video loaders provide a playable media path and frame timing metadata when available.
 
-The 2026-07-29 hardening now gives CSV and tracking loaders a single bulk parser pass and gives
-ImportWorker a content/config-validated manifest cache fast path. The worker still retains complete
-channels before constructing their pyramids, and Neo's default reader can materialize a complete
-recording block. These are worker-thread operations, so they usually do not stop Qt directly, but
-they create memory/storage pressure and prevent target-scale certification. The remaining design is
-bounded per-channel cache builders with backpressure, cancellation, recoverable partial output, and
-peak memory independent of recording duration apart from fixed buffers.
+The P3.5 implementation audit closed on 2026-07-30. `ChannelStage` stages parser chunks to disk
+before materializing a channel, `NeoLoader` reads blocks lazily, and a content/config-validated
+manifest enables the cache fast path. These changes address the former full-channel and full-block
+materialization gaps. Representative peak-memory and warm-reopen measurements remain open; see
+[Performance verification](performance.md).
 
-Replacing a cache must preserve the last valid sidecar until the new sidecar is durable. The current
-remove-then-rename sequence has a failure window and must be replaced by a cross-platform
-swap/rollback protocol before cache writes are called atomic.
+Cache replacement uses a recoverable swap and a file-level fallback when the cache directory cannot
+be renamed. The previous valid sidecar is retained or restored on replacement failure; fault-
+injection coverage exercises recovery. Cache durability is implemented, while target-scale import
+performance remains to be measured.
 
 ## Time and precision
 
@@ -32,11 +31,17 @@ from the exact cached source representation. Every source needs its own `TimeMap
 receive master time and convert to source time through that mapping. Frame stepping uses actual video
 presentation timestamps when they are available, rather than assuming a fixed frame rate.
 
-The audit identified four accuracy blockers:
+The P0 accuracy audit closed on 2026-07-30. Plot rows render pyramid minima and maxima, gap evidence
+is propagated into coarser buckets, CSV timestamps use an explicit schema with chronology checks
+across chunks and the selected timezone, and time-series sources map through their own `TimeMap`.
+These are implemented behaviors; the representative workloads that certify their scale remain open
+in [Performance verification](performance.md).
 
-1. Plot rows currently draw the midpoint of each min/max pyramid bucket. This can erase a short real
-   excursion. The display must render the full bounded envelope, with a golden spike fixture proving
-   that both extrema remain visible at 1×, 16×, 256×, and 4096×.
+The numbered audit details below preserve the 2026-07-29 diagnosis; all four implementation issues
+were resolved by 2026-07-30 and are not current blockers.
+
+1. Plot rows render both extrema of each pyramid bucket. Spike fixtures verify the envelope across
+   the tested display scales.
 2. Coarse-level gap masks are recalculated from coarse timestamps. A real gap only slightly above the
    raw threshold can disappear after decimation. Raw gap evidence must be OR-reduced into its parent
    buckets, never inferred again at a different sampling interval.
@@ -49,11 +54,10 @@ The audit identified four accuracy blockers:
    all be treated as master time. Raw timestamps stay unchanged; accepted mappings belong beside the
    source and must be applied consistently by plots, readouts, overlays, exports, and sessions.
 
-Sampling semantics must also be explicit and shared. The current readout uses the sample at or before
-the cursor, while tracking views use the nearest sample. A source/channel declares nearest,
-sample-and-hold, or interpolation behavior; one core query API applies that policy everywhere and
-returns a no-data result outside a rate-derived tolerance. A fixed 100 ms tolerance is not valid for
-both 1 Hz and 50 kHz data.
+Sampling uses one shared rule: `sample_at` returns the last sample at or before the requested source
+time. `MappedChannelReader` converts master time through the source's `TimeMap` before delegating,
+so readouts, plots, exports, and tracking consumers do not independently choose a nearest-sample or
+interpolation policy.
 
 ## Gaps and missing values
 

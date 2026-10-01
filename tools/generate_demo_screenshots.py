@@ -1,8 +1,9 @@
 """Capture the synchronization walkthrough used in the README.
 
 Run with ``conda run -n avialsync python tools/generate_demo_screenshots.py``.
-Uses the checked-in sample session, so the images are reproducible from a
-clean clone and never depend on private field data (AGENTS.md rule 5).
+Builds short synthetic camera, sensor, and strobe inputs in a temporary
+directory, so the images are reproducible from a clean clone and never depend
+on private field data (AGENTS.md rule 5).
 
 **Do not set QT_QPA_PLATFORM=offscreen for this.** The offscreen plugin has no
 native menu bar, so Qt draws one inside the window and every captured image
@@ -17,6 +18,7 @@ dark-mode on another, and the docs ended up with a mix.
 
 import argparse
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -29,7 +31,13 @@ from avialsync.ui.main_window import MainWindow
 from avialsync.ui.sync_wizard import SyncWizard
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from screenshot_kit import pin_appearance, pin_layout, settle, staged_fixture  # noqa: E402
+from screenshot_kit import (  # noqa: E402
+    pin_appearance,
+    pin_layout,
+    settle,
+    wait_until,
+    write_synthetic_sync_fixture,
+)
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"
@@ -55,8 +63,9 @@ def _select_by_text(combo, fragment: str) -> None:
 
 
 def generate_screenshots(out_dir: Path = DEFAULT_OUTPUT_DIR):
-    """Write every demo screenshot, opening a temporary copy of the sample session."""
-    with staged_fixture(REPOSITORY_ROOT / "tests/fixtures/sample_session") as session:
+    """Write every demo screenshot using synthetic inputs in a temporary directory."""
+    with tempfile.TemporaryDirectory(prefix="avialsync-demo-screenshots-") as scratch:
+        session = write_synthetic_sync_fixture(Path(scratch))
         _generate_screenshots(out_dir, session)
 
 
@@ -89,6 +98,12 @@ def _generate_screenshots(out_dir: Path, session: Path):
     video_loader = VideoStandardLoader()
     video_loader.open(video_path, {})
     window._on_video_opened(str(video_path), video_loader, str(video_path))
+    pane = window.video_grid.panes[-1]
+    wait_until(
+        app,
+        lambda: pane.surface._buffer is not None,
+        "the first decoded video frame",
+    )
 
     # Needs to process events so it loads in the UI
     settle(app)
