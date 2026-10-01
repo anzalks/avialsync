@@ -2,9 +2,23 @@
 
 from __future__ import annotations
 
-from avialsync.core.commands import MoveLadderStepCommand, SetLadderCommand, SetLadderStepCommand
+from avialsync.core.commands import (
+    MoveLadderStepCommand,
+    SetLadderCommand,
+    SetLadderStepCommand,
+    SetPhysicalPropCommand,
+)
 from avialsync.core.document import Document
-from avialsync.core.physical_props import Ladder, LadderPoint, LadderStep, PropStore, StepClick
+from avialsync.core.physical_props import (
+    BeltProp,
+    BeltTrack,
+    Ladder,
+    LadderPoint,
+    LadderStep,
+    PhysicalProp,
+    PropStore,
+    StepClick,
+)
 
 
 class Target:
@@ -15,6 +29,9 @@ class Target:
 
     def set_ladder(self, name: str, ladder: Ladder | None) -> None:
         self.props.set(name, ladder)
+
+    def set_physical_prop(self, name: str, prop: PhysicalProp | None) -> None:
+        self.props.set(name, prop)
 
     def set_ladder_step(
         self, name: str, step_id: str, step: LadderStep | None, position: int | None = None
@@ -67,6 +84,19 @@ def test_remove_one_step_is_undoable_without_removing_the_ladder() -> None:
     assert target.props.get("steps").steps == (second,)
     assert document.undo(target)
     assert target.props.get("steps").steps == (first, second)
+
+
+def test_generic_prop_declarations_are_undoable_as_one_inverse_record() -> None:
+    target = Target()
+    document = Document()
+    belt = BeltProp("belt", BeltTrack(((0.0, 0.0, 0.0), (1.0, 0.0, 0.0))))
+    command = SetPhysicalPropCommand("belt", None, belt, "Add belt")
+    document.execute(command, target)
+    assert target.props.get("belt") == belt
+    assert document.undo(target)
+    assert target.props.get("belt") is None
+    assert document.redo(target)
+    assert target.props.get("belt") == belt
 
 
 def test_reorder_keeps_irregular_steps_and_undo_restores_order() -> None:

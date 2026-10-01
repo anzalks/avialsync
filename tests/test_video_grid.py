@@ -30,13 +30,14 @@ def test_file_loaded_callback_is_connected_before_playback(monkeypatch, qapp) ->
 
     monkeypatch.setattr(video_grid, "VideoPane", _ImmediatePane)
     grid = video_grid.VideoGrid()
+    grid.pane_attached.connect(lambda _path: events.append("attached"))
 
     grid.add_pane(
         "camera.mp4",
         on_file_loaded=lambda: events.append("ready"),
     )
 
-    assert events == ["open", "ready"]
+    assert events == ["open", "ready", "attached"]
     assert grid.pane_paths() == ["camera.mp4"]
 
 

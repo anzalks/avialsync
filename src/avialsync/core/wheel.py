@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -60,7 +60,6 @@ __all__ = [
     "WheelCheck",
     "EncoderBinding",
     "Wheel",
-    "WheelStore",
     "camera_centre",
     "facing",
     "project_bars",
@@ -286,7 +285,7 @@ class Wheel:
     binding: EncoderBinding | None = None
     #: The calibration file the clicks were triangulated with.
     calibration: str = ""
-    #: Each bar's diameter, set with the Wheels tab's slider; None until then.
+    #: Each bar's diameter, set on the Props Wheel page; None until then.
     #: In the same units as the measured radius when one was entered -- real
     #: lengths -- else in the calibration's; see :attr:`world_per_unit`. Drawn
     #: as cylinders in the 3D view only. The fit does not use it (D-128, D-130).
@@ -316,71 +315,6 @@ class Wheel:
         if measured is None or self.geometry.radius <= 0:
             return 1.0
         return self.geometry.radius / measured
-
-
-class WheelStore:
-    """Every wheel in the session, keyed by name.
-
-    Observers hear the name that changed, or None for a bulk load -- the
-    contract of :class:`~avialsync.core.custom_markers.CustomMarkerStore`, and
-    for the same reason: files are written from the mutation, not from here.
-    """
-
-    def __init__(self) -> None:
-        self._wheels: dict[str, Wheel] = {}
-        self._observers: list[Callable[[str | None], None]] = []
-
-    def __len__(self) -> int:
-        return len(self._wheels)
-
-    def __iter__(self) -> Iterator[Wheel]:
-        return iter(list(self._wheels.values()))
-
-    def get(self, name: str) -> Wheel | None:
-        """The wheel called *name*, or None."""
-        return self._wheels.get(name)
-
-    def names(self) -> set[str]:
-        """Every wheel name in use."""
-        return set(self._wheels)
-
-    def set(self, name: str, wheel: Wheel | None) -> bool:
-        """Store *wheel* under *name*, or remove it; whether anything changed."""
-        if wheel is None:
-            if name not in self._wheels:
-                return False
-            del self._wheels[name]
-        else:
-            if self._wheels.get(name) == wheel:
-                return False
-            self._wheels[name] = wheel
-        self._notify(name)
-        return True
-
-    def load(self, wheels: Iterable[Wheel]) -> None:
-        """Replace everything with *wheels*, as read back from disk."""
-        self._wheels = {wheel.name: wheel for wheel in wheels}
-        self._notify(None)
-
-    def clear(self) -> None:
-        """Forget every wheel (a new session)."""
-        if self._wheels:
-            self._wheels.clear()
-            self._notify(None)
-
-    def observe(self, callback: Callable[[str | None], None]) -> Callable[[], None]:
-        """Call *callback* after every change; returns a disposer."""
-        self._observers.append(callback)
-
-        def _dispose() -> None:
-            if callback in self._observers:
-                self._observers.remove(callback)
-
-        return _dispose
-
-    def _notify(self, name: str | None) -> None:
-        for callback in list(self._observers):
-            callback(name)
 
 
 # ── seeing the wheel from a camera ───────────────────────────────────

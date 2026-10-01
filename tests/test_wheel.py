@@ -14,7 +14,9 @@ import numpy as np
 import pytest
 
 from avialsync.core.commands import SetWheelCommand
-from avialsync.core.errors import WheelFitError
+from avialsync.core.errors import PropModelError, WheelFitError
+from avialsync.core.physical_props import Ladder, PropStore, WheelView
+from avialsync.core.prop_file import is_prop_path, prop_path
 from avialsync.core.wheel import (
     LEFT,
     RIGHT,
@@ -23,15 +25,12 @@ from avialsync.core.wheel import (
     Wheel,
     WheelCheck,
     WheelSpec,
-    WheelStore,
     fit_issue,
     project_bars,
 )
 from avialsync.core.wheel_check import check, observed_turn, settle_sign
 from avialsync.core.wheel_file import (
-    is_wheel_path,
     read_wheels,
-    wheel_path,
     write_removed,
     write_wheel,
 )
@@ -274,38 +273,51 @@ def _wheel() -> Wheel:
 
 
 def test_the_store_reports_only_real_changes() -> None:
-    store = WheelStore()
+    props = PropStore()
+    store = WheelView(props)
     heard: list[str | None] = []
     store.observe(heard.append)
     wheel = _wheel()
     assert store.set("wheel", wheel)
+    assert props.get("wheel") is wheel
+    assert props.set("ladder", Ladder("ladder"))
+    assert store.names() == {"wheel"}
+    with pytest.raises(PropModelError, match="different kind"):
+        props.set("wheel", Ladder("wheel"))
+    with pytest.raises(PropModelError, match="another record"):
+        props.set("Wheel", Ladder("Wheel"))
     assert not store.set("wheel", wheel)
     assert store.set("wheel", None)
+    assert props.get("wheel") is None
+    assert props.get("ladder") == Ladder("ladder")
     assert heard == ["wheel", "wheel"]
 
 
 def test_a_wheel_survives_its_file(tmp_path) -> None:
     wheel = _wheel()
     path = write_wheel(tmp_path / "pose-3d", wheel)
-    assert is_wheel_path(path)
-    wheels, unreadable = read_wheels(tmp_path / "pose-3d")
-    assert unreadable == []
-    assert wheels == [wheel]
+    assert path == prop_path(tmp_path / "pose-3d", wheel.name)
+    assert is_prop_path(path)
+    assert read_wheels(tmp_path / "pose-3d") == [wheel]
 
 
 def test_a_removed_wheel_keeps_its_file(tmp_path) -> None:
-    write_wheel(tmp_path, _wheel())
+    wheel = _wheel()
+    write_wheel(tmp_path, wheel)
     path = write_removed(tmp_path, "wheel")
     assert path is not None and path.exists()
-    assert read_wheels(tmp_path) == ([], [])
+    assert read_wheels(tmp_path) == []
 
 
-def test_a_damaged_file_costs_only_its_own_wheel(tmp_path) -> None:
-    write_wheel(tmp_path, _wheel())
-    (tmp_path / "broken.wheel.toml").write_text("[wheel\n", encoding="utf-8")
-    wheels, unreadable = read_wheels(tmp_path)
-    assert len(wheels) == 1
-    assert unreadable == ["broken.wheel.toml"]
+def test_wheel_discovery_reads_only_generalized_sidecars(tmp_path) -> None:
+    wheel = _wheel()
+    write_wheel(tmp_path, wheel)
+    ignored = tmp_path / "old.wheel.toml"
+    ignored.write_text("[wheel\n", encoding="utf-8")
+    original = ignored.read_bytes()
+
+    assert read_wheels(tmp_path) == [wheel]
+    assert ignored.read_bytes() == original
 
 
 def test_the_binding_turns_by_sign_and_ratio() -> None:
@@ -328,11 +340,11 @@ def test_the_bar_diameter_travels_in_the_wheel_file(tmp_path) -> None:
     fit = fit_wheel(WheelSpec("wheel", 36), clicks_for([0, 1]), CAMERAS)
     wheel = Wheel(WheelSpec("wheel", 36), 7, clicks_for([0, 1]), fit, bar_diameter=6.5)
     write_wheel(tmp_path, wheel)
-    assert read_wheels(tmp_path)[0] == [wheel]
+    assert read_wheels(tmp_path) == [wheel]
     plain = dataclasses.replace(wheel, bar_diameter=None)
     write_wheel(tmp_path, plain)
-    assert "bar_diameter" not in wheel_path(tmp_path, "wheel").read_text()
-    assert read_wheels(tmp_path)[0] == [plain], "a file without it reads as not set"
+    assert "bar_diameter" not in prop_path(tmp_path, "wheel").read_text()
+    assert read_wheels(tmp_path) == [plain], "a file without it reads as not set"
 
 
 def test_diameter_steps_merge_into_one_undo_step() -> None:

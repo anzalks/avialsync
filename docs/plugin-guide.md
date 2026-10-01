@@ -105,7 +105,7 @@ measured from — it also switches the display to wall-clock time), `camera_fps`
 skeleton the 3D view otherwise detects from pairwise rigidity, D-082), and
 `rotary` (a `RotaryHint` naming the channel that carries a running wheel's
 cumulative angle in degrees, and the wheel's bar count and radius when your rig
-records them, D-113 — it pre-fills Add Wheel and is never applied on its own). Set a
+records them, D-113 — it pre-fills the wheel setup in Props and is never applied on its own). Set a
 `SessionItem.loader` of `None` to let capability resolution pick one, which is
 what you should do for ordinary video.
 

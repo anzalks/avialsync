@@ -76,7 +76,6 @@ from avialsync.core.session_time import (
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
 from avialsync.core.triggers import TriggerKind
-from avialsync.core.wheel import WheelStore
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
@@ -250,7 +249,6 @@ class MainWindow(QMainWindow):
     _act_fix_tracker: QAction
     _act_fix_identities: QAction
     _act_add_marker: QAction
-    _act_add_wheel: QAction
     _act_add_prop: QAction
     _act_synchronize: QAction
     _act_show_original_tracker: QAction
@@ -315,13 +313,13 @@ class MainWindow(QMainWindow):
         self._calibration_state: calibration_controller.CalibrationState | None = None
         self._marker_placement: custom_marker_controller.MarkerPlacement | None = None
         self._announced_marker_files = False
-        #: Wheels placed with Add Wheel (D-113), the one being placed, the one
+        #: Wheels placed through Props (D-113), the one being placed, the one
         #: whose encoder the next click checks, and what drawing them needs:
         #: bars per frame, encoder readers, and the session's own hint.
-        self.wheels = WheelStore()
-        self.wheels.observe(self._on_wheels_changed)
         self.wheel_state = WheelState()
         self.props_app = PropsApp(self)
+        self.wheels = self.props_app.wheels
+        self.wheels.observe(self._on_wheels_changed)
         #: One callable, so the grid can tell "no wheel" from "same wheel source".
         self.wheel_state.pane_source = lambda path, t: wheel_display.pane_drawing(self, path, t)
         #: Accepted identity swaps (D-141): which lanes exchanged labels and
@@ -561,7 +559,7 @@ class MainWindow(QMainWindow):
 
         self.sidebar = SidebarPane(self)
         self.wheel_panel = WheelPanel()
-        self.wheel_tab = WheelTab(self.wheel_panel, self)
+        self.wheel_tab = WheelTab(self.wheel_panel, self, scrollable=False)
         wheel_controller.connect_panel(self)
         self.sidebar.open_video_requested.connect(self._open_video)
         self.sidebar.open_sensor_requested.connect(self._open_data)
@@ -631,8 +629,7 @@ class MainWindow(QMainWindow):
         self._left_tabs.addTab(self.readout_panel, tr("Values"))
         self._left_tabs.addTab(self.message_panel, tr("Messages"))
         self._left_tabs.addTab(self.changes_panel, tr("Changes"))
-        self._left_tabs.addTab(self.wheel_tab, tr("Wheels"))
-        self._left_tabs.addTab(self.props_app.make_panel(), tr("Props"))
+        self._left_tabs.addTab(self.props_app.make_panel(self.wheel_tab), tr("Props"))
         # Last tab: consulted when something is taking longer than expected,
         # which is not most of the time.
         self._left_tabs.addTab(self.jobs_panel, tr("Tasks"))
@@ -2169,7 +2166,7 @@ class MainWindow(QMainWindow):
         """Push resolved visibility to every pane and re-check the menu."""
         self.video_grid.set_overlay_visibility(self.overlay_state.visibility_for)
         # Unblocked, so a button or check box following an action (the 3D pane's
-        # reprojection, the Wheels tab's wheel switches) hears an undo too. The
+        # reprojection, the Props Wheel page's switches) hears an undo too. The
         # echo is harmless: _on_overlay_toggled ignores a state already held.
         for overlay_id, action in getattr(self, "_overlay_actions", {}).items():
             action.setChecked(self.overlay_state.is_visible(overlay_id))
@@ -2253,7 +2250,7 @@ class MainWindow(QMainWindow):
             panel.refresh()
 
     def _on_wheels_changed(self, name: object) -> None:
-        """Repaint every view and the Wheels tab after a wheel changed or loaded."""
+        """Repaint every view and the Props Wheel page after a wheel changed or loaded."""
         del name
         if getattr(self, "wheel_panel", None) is not None:
             wheel_display.refresh(self)
@@ -3702,7 +3699,7 @@ class MainWindow(QMainWindow):
         self.readout_panel.set_cursor(self.clock.state.t)
         if any(w.binding is not None and w.binding.source_id == path for w in self.wheels):
             # The wheel turns by this encoder: redraw it, and show the new
-            # offset in its Wheels tab row as well as in Sources.
+            # offset on its Props Wheel page row as well as in Sources.
             wheel_display.refresh(self)
 
     def _on_channel_remove_requested(self, path: str, channel: str) -> None:

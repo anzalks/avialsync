@@ -433,9 +433,11 @@ The detector proposes only. An accepted event passes through the command bus; re
 
 Generalize the existing wheel feature to the belt, ball, and horizontal ladder
 without treating their motion as an angle. `PHYSICAL_PROPS_PLAN.md` is the
-executable plan; D-149 settles the model and compatibility boundary. The work
-is complete only when each kind can be placed, reviewed, saved, reopened, and
-shown in the app with its evidence and missing information visible.
+executable plan; D-149 settles the model and D-154 the unified Props inspector
+and generalized `.prop.toml` boundary; D-155 rejects legacy wheel-sidecar
+discovery. The work is complete only when each kind
+can be placed, reviewed, saved, reopened, and shown in the app with its evidence
+and missing information visible.
 
 ---
 

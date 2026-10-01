@@ -7,9 +7,9 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Slot
 
 from avialsync.core.errors import PropModelError
-from avialsync.core.physical_props import Ladder
-from avialsync.core.prop_file import read_props, write_ladder, write_removed
-from avialsync.core.wheel_file import wheel_path
+from avialsync.core.physical_props import PhysicalProp
+from avialsync.core.prop_file import PropKind, read_props, write_prop, write_removed
+from avialsync.core.wheel import Wheel
 
 
 class PropFileReadWorker(QObject):
@@ -39,26 +39,32 @@ class PropFileWriteWorker(QObject):
     error = Signal(str)
 
     def __init__(
-        self, folder: Path, name: str, ladder: Ladder | None, *, overwrite_existing: bool = True
+        self,
+        folder: Path,
+        name: str,
+        prop: PhysicalProp | Wheel | None,
+        *,
+        kind: PropKind = "ladder",
+        overwrite_existing: bool = True,
     ) -> None:
         super().__init__()
         self._folder = folder
         self._name = name
-        self._ladder = ladder
+        self._prop = prop
+        self._kind = kind
         self._overwrite_existing = overwrite_existing
 
     @Slot()
     def run(self) -> None:
         try:
-            if wheel_path(self._folder, self._name).exists():
-                raise PropModelError("A wheel sidecar already uses this prop name.")
             path = (
-                write_ladder(
-                    self._folder, self._ladder, overwrite_existing=self._overwrite_existing
-                )
-                if self._ladder is not None
+                write_prop(self._folder, self._prop, overwrite_existing=self._overwrite_existing)
+                if self._prop is not None
                 else write_removed(
-                    self._folder, self._name, overwrite_existing=self._overwrite_existing
+                    self._folder,
+                    self._name,
+                    kind=self._kind,
+                    overwrite_existing=self._overwrite_existing,
                 )
             )
         except (OSError, ValueError, PropModelError) as error:

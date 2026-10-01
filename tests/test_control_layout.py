@@ -69,7 +69,6 @@ def test_every_tool_is_in_its_row(window: MainWindow) -> None:
         toolbar.flag_button,
         toolbar.fix_tracker_button,
         toolbar.add_marker_button,
-        toolbar.add_wheel_button,
         toolbar.snapshot_button,
         toolbar.fit_videos_button,
         toolbar.fullscreen_button,

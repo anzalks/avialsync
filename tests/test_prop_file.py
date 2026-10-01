@@ -6,13 +6,23 @@ import numpy as np
 import pytest
 
 from avialsync.core.errors import PropModelError
-from avialsync.core.physical_props import Ladder, LadderPoint, LadderStep, StepClick
+from avialsync.core.physical_props import (
+    BallProp,
+    BallSurface,
+    BeltProp,
+    BeltTrack,
+    Ladder,
+    LadderPoint,
+    LadderStep,
+    StepClick,
+)
 from avialsync.core.prop_file import (
     PROP_SUFFIX,
     is_prop_path,
     prop_path,
     read_props,
     write_ladder,
+    write_prop,
     write_removed,
 )
 from avialsync.core.registry import LoaderRegistry
@@ -59,6 +69,24 @@ def test_ladder_sidecar_round_trips_clicks_order_and_fit_without_calibration(tmp
     assert len(loaded[0].steps[1].points[1].clicks) == 1
 
 
+def test_belt_and_ball_round_trip_kind_specific_geometry(tmp_path) -> None:
+    belt = BeltProp(
+        "belt",
+        BeltTrack(((0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 2.0, 0.0)), closed=True),
+        "mm",
+        (1.0, 1.0, 0.0),
+    )
+    ball = BallProp("ball", BallSurface((1.0, 2.0, 3.0), 4.0), "cm", ((1.0, 0.0, 0.0),))
+    write_prop(tmp_path, belt)
+    write_prop(tmp_path, ball)
+    loaded, issues = read_props(tmp_path)
+    assert issues == []
+    assert loaded[0] == ball
+    assert loaded[1].track == belt.track
+    assert loaded[1].units == belt.units
+    assert loaded[1].travel_direction == pytest.approx(belt.travel_direction)
+
+
 def test_removal_keeps_a_tombstone_and_rewriting_restores_the_prop(tmp_path) -> None:
     ladder = _ladder()
     target = write_ladder(tmp_path, ladder)
@@ -83,9 +111,29 @@ def test_unadopted_sidecar_cannot_be_replaced_but_its_tombstone_can_be_reused(tm
     assert read_props(tmp_path) == ([ladder], [])
 
 
+def test_sidecar_names_are_unique_without_case_distinctions(tmp_path) -> None:
+    write_ladder(tmp_path, Ladder("Prop"))
+    with pytest.raises(PropModelError, match="already uses this name"):
+        write_ladder(tmp_path, Ladder("prop"))
+
+
 def test_removing_a_prop_that_was_never_saved_writes_nothing(tmp_path) -> None:
     assert write_removed(tmp_path, "absent") is None
     assert list(tmp_path.iterdir()) == []
+
+
+def test_misnamed_tombstone_reports_an_issue_without_hiding_another_prop(tmp_path) -> None:
+    ladder = _ladder()
+    write_ladder(tmp_path, ladder)
+    (tmp_path / f"wrong{PROP_SUFFIX}").write_text(
+        '[prop]\nversion = 1\nkind = "wheel"\nname = "another"\nremoved = true\n',
+        encoding="utf-8",
+    )
+    props, issues = read_props(tmp_path)
+    assert props == [ladder]
+    assert [(issue.filename, issue.reason) for issue in issues] == [
+        ("wrong.prop.toml", "name_mismatch")
+    ]
 
 
 def test_future_version_and_kind_are_reported_without_hiding_good_props(tmp_path) -> None:
@@ -94,12 +142,15 @@ def test_future_version_and_kind_are_reported_without_hiding_good_props(tmp_path
     (tmp_path / f"future{PROP_SUFFIX}").write_text(
         '[prop]\nversion = 2\nkind = "ladder"\nname = "future"\n', encoding="utf-8"
     )
-    (tmp_path / f"ball{PROP_SUFFIX}").write_text(
-        '[prop]\nversion = 1\nkind = "ball"\nname = "ball"\n', encoding="utf-8"
+    (tmp_path / f"unsupported{PROP_SUFFIX}").write_text(
+        '[prop]\nversion = 1\nkind = "unknown_kind"\nname = "unsupported"\n', encoding="utf-8"
     )
     props, issues = read_props(tmp_path)
     assert props == [good]
-    assert {issue.filename for issue in issues} == {"future.prop.toml", "ball.prop.toml"}
+    assert {issue.filename for issue in issues} == {
+        "future.prop.toml",
+        "unsupported.prop.toml",
+    }
     assert {issue.reason for issue in issues} == {"unsupported_version", "unsupported_kind"}
 
 
@@ -163,8 +214,8 @@ def test_prop_filename_is_safe_on_all_platforms(tmp_path, name: str) -> None:
         prop_path(tmp_path, name)
 
 
-def test_prop_sidecars_are_not_sources_or_wheel_files(tmp_path) -> None:
+def test_prop_sidecars_are_not_imported_as_sources(tmp_path) -> None:
     target = write_ladder(tmp_path, _ladder())
     assert is_prop_path(target)
-    assert not is_prop_path(tmp_path / "existing.wheel.toml")
+    assert not is_prop_path(tmp_path / "existing.csv")
     assert LoaderRegistry().find_best_loader(target) is None

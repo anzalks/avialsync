@@ -5462,3 +5462,68 @@ gap at one pixel.
 
 **Consequences.** Mixed-aspect camera rows have different heights, but event columns remain aligned
 and neither horizontal nor vertical letterbox bands separate the video tiles.
+
+## 2026-10 · D-154 · Physical props share one editor and sidecar
+
+**Context.** The first physical-props slice kept wheels in a separate Wheels tab and treated
+`.wheel.toml` as authoritative, while ladders used the new Props inspector and `.prop.toml`. That
+split leaves belt and ball unable to share the user's prop workflow and gives each kind a separate
+file authority.
+
+**Decision.** Wheel, belt, ball, and horizontal ladder use one Props inspector with a kind selector
+and kind-specific fields. A kind-sensitive Add control inside Props is the only entry point for
+wheel placement; there is no separate Add Wheel menu or toolbar action. The proven wheel
+placement/review flow remains intact as the Wheel page inside that inspector. Every new or edited
+prop writes a versioned, kind-tagged `.prop.toml` record.
+Existing `.wheel.toml` files are read-only import input: they are never rewritten, moved, or removed.
+A generalized active record or tombstone takes precedence over a same-named legacy wheel. All
+visible edits remain inverse document commands, and overlays remain registered. Missing or
+unobservable motion stays explicitly unknown.
+
+**Alternatives rejected.** Keeping separate editor tabs and authoritative formats preserves the
+split the shared inspector is meant to remove. Rewriting old wheel files in place risks accepted
+evidence. Universal angle/speed fields lose the belt's signed travel and the ball's 3D orientation.
+
+**Consequences.** `wheel_file` imports old wheel files but new mutations use `prop_file`; the wheel
+model and fitting/controller logic remain specialized. Belt/ball geometry declarations and static
+guides are integrated, while sensor binding and later-frame motion verification remain future work.
+This supersedes D-149's wheel-format/editor compatibility boundary only; its mathematical and
+evidence rules remain in force.
+
+**Status.** D-155 supersedes this decision's read-only `.wheel.toml` import allowance.
+
+## 2026-10 · D-155 · Physical props have no legacy wheel-sidecar reader
+
+**Context.** D-154 kept `.wheel.toml` discovery as a read-only bridge while new wheel mutations
+used `.prop.toml`. That still leaves two recognized persistence formats and keeps a second parser,
+suffix filter, tombstone interaction, and name-collision rule in the app.
+
+**Decision.** `.prop.toml` is the only supported physical-prop sidecar. The app does not discover,
+read, migrate, rewrite, or delete `.wheel.toml` files. All four prop kinds, including wheels, use
+versioned kind-tagged `.prop.toml` records. Existing old files remain untouched on disk.
+
+**Alternatives rejected.** Keeping a read-only importer still maintains a second format and a
+parallel reader; automatic conversion would write to user data without an explicit request.
+
+**Consequences.** The wheel-specific codec handles tables embedded in `.prop.toml`; wheel discovery
+filters generalized prop records only. This supersedes D-154's legacy import allowance and D-113's
+wheel-specific sidecar path, while preserving wheel click, fit, binding, and verification evidence.
+
+## 2026-10 · D-156 · One accepted prop store and one sidecar job path
+
+**Context.** Moving wheel records to `.prop.toml` still left a separate wheel store,
+reader job, and synchronous wheel writer. Two discovery jobs could race to adopt
+the same name, and a wheel save could perform file IO on the UI thread.
+
+**Decision.** `PropStore` owns all four accepted kinds. `WheelView` filters that
+store for the existing wheel fitting and drawing code without holding another
+copy. Every prop mutation queues the same `PropsApp.persist` background writer,
+and video and pose registration call the same `PropsApp.adopt` reader. The
+wheel-specific module only encodes and decodes tables within `.prop.toml`.
+Names are reserved across kinds without case distinctions, matching the filesystems
+on which two names differing only by case would share a sidecar path.
+
+**Consequences.** One name namespace and one read/write queue determine prop
+state and persistence. The former wheel file controller, worker, and store are
+removed; the wheel gesture, fit, encoder checks, and registered overlays remain
+kind-specific. Existing `.wheel.toml` files remain untouched and unsupported.

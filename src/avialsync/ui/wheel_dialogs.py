@@ -1,6 +1,6 @@
 """The one question Add Wheel asks before the clicking starts (D-113).
 
-A dialog the user explicitly asked for by choosing Add Wheel…, the case AGENTS
+A dialog the user explicitly asked for by choosing Add wheel in Props, the case AGENTS
 rule 11 allows a modal for. It collects what the clicks cannot supply:
 
 * **the bar count**, without which two or three neighbouring bars cannot give
@@ -52,7 +52,7 @@ __all__ = [
     "bar_count_spin",
 ]
 
-#: A wheel's name becomes a file name, ``<name>.wheel.toml``.
+#: A wheel's name becomes a file name, ``<name>.prop.toml``.
 _NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$")
 _MAX_BARS = 720
 
@@ -328,7 +328,7 @@ class _WheelSetupDialog(QDialog):
         elif not _NAME_PATTERN.match(name):
             problem = tr("Use letters, digits, underscore or hyphen only.")
         elif name.lower() in self._taken:
-            problem = tr("A wheel already uses this name.")
+            problem = tr("A physical prop already uses this name.")
         elif self.bars.value() < MIN_BAR_COUNT:
             problem = tr("Enter how many bars the whole wheel has (at least 3).")
         self.problem.setText(problem)

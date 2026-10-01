@@ -149,7 +149,7 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     # what hands the 3D view over to its own detection (D-082).
     window.tracking_3d_pane.set_skeleton(list(layout.skeleton or []))
     # Likewise the wheel: which channel turns it is the rig's to say, and it
-    # only pre-fills Add Wheel -- it is never applied on its own (D-113).
+    # only pre-fills wheel setup in Props -- it is never applied on its own (D-113).
     window.wheel_state.session_rotary = layout.rotary
 
     # A scan that left something out has to say so on screen.  The log already

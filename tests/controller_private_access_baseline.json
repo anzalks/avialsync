@@ -256,7 +256,6 @@
       "_video_time_mappings": 2
     },
     "wheel_controller.py": {
-      "_act_add_wheel": 1,
       "_act_fix_tracker": 2,
       "_calibration_state": 3,
       "_cancel_competing_placement": 2,
@@ -272,9 +271,6 @@
     "wheel_edits.py": {
       "_mutations": 4,
       "_on_sensor_mapping_changed": 1,
-      "_run_job": 1
-    },
-    "wheel_files.py": {
       "_run_job": 1
     },
     "wheel_generation.py": {

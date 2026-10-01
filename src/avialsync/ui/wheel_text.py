@@ -1,4 +1,4 @@
-"""What the Wheels tab says about a wheel: its fit and its encoder, in words (D-113, D-123).
+"""What the Props Wheel page says about a wheel and its encoder (D-113, D-123).
 
 Split from :mod:`avialsync.ui.wheel_panel`, which lays the tab out; the
 placement review in :mod:`avialsync.ui.controllers.wheel_placement` uses the

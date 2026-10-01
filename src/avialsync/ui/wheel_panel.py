@@ -1,11 +1,11 @@
-"""The Wheels inspector tab: review a wheel being placed, edit one placed (D-113).
+"""The Wheel page in Props: review a wheel being placed or edit one placed (D-113).
 
-**The one place a wheel's numbers are edited** (AGENTS rule 15). The Add Wheel
+**The one place a wheel's numbers are edited** (AGENTS rule 15). The setup
 dialog asks for the first answers; after that the bar count, units, radius,
 direction and ratio live here, beside the fit they produced. The 3D view shows a wheel but
 never edits one.
 
-**Non-modal review.** While a wheel is being clicked the tab shows what is
+**Non-modal review.** While a wheel is being clicked the page shows what is
 wanted next, the fit so far (click error, spacing, parallelism, the radius the
 clicks imply), and Done Labelling / Flip / Undo Click / Discard Clicks. Done
 Labelling is available from the moment bars 1 and 2 are labelled (D-122);
@@ -276,7 +276,7 @@ class WheelPanel(QGroupBox):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(tr("Wheels"), parent)
         self.setAccessibleName(tr("Wheels"))
-        self.setAccessibleDescription(tr("Wheels placed with Add Wheel, and their settings"))
+        self.setAccessibleDescription(tr("Wheels placed through Props, and their settings"))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
 

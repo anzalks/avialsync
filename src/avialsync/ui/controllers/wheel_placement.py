@@ -185,7 +185,7 @@ def estimate_missing(placement: WheelPlacement, cameras: Mapping[str, CameraMode
 
 
 def describe_adjustment(spec: WheelSpec, labelled: LabelledFit) -> str:
-    """What gave way for a plausible fit, in the words the Wheels tab uses."""
+    """What gave way for a plausible fit, in the words the Wheel page uses."""
     notes = []
     if labelled.dropped_third is not None:
         notes.append(
@@ -222,7 +222,7 @@ def _left_out(reason: str) -> str:
 
 
 def placement_view(placement: WheelPlacement, cameras: Sequence[str]) -> PlacementView:
-    """What the Wheels tab shows while *placement* is being labelled."""
+    """What the Wheel page shows while *placement* is being labelled."""
     ready = placement.ready(set(cameras))
     return PlacementView(
         spec=placement.spec,

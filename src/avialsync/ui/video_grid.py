@@ -36,6 +36,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
     # path = the pane's video path; pos = QPoint (global screen position).
     pane_right_clicked = Signal(str, object)
     displayed_panes_changed = Signal()
+    pane_attached = Signal(str)
     #: A pane has left the grid's model but its decoder is still being stopped.
     #:
     #: Tearing a libmpv client down could take the whole process with it on
@@ -202,6 +203,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
         if self._batch_depth == 0:
             self._relayout()
             self._update_labels()
+        self.pane_attached.emit(path)
         return pane
 
     def remove_pane(self, path: str) -> None:

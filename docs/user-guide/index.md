@@ -15,10 +15,10 @@
 - **Data Streams** shows when every loaded file is available. A coloured span means the source has
   data; an empty span means it does not.
 - **Shared time bar** moves every view together.
-- **Left panel** has five tabs: **Sources** (files, visibility, offsets, properties),
-  **Values**, **Messages** (prose the recording itself carries), **Changes** (everything you
-  flagged, labelled, or corrected), and **Tasks** (what is loading, with a cancel where the work
-  supports one — worth opening when something is taking longer than you expected).
+- **Left panel** has **Sources** (files, visibility, offsets, properties), **Values**,
+  **Messages** (prose the recording itself carries), **Changes** (everything you flagged,
+  labelled, or corrected), **Props** (physical apparatus), and **Tasks** (what is loading,
+  with a cancel where the work supports one).
 - **Tasks lists everything the application is doing** — imports, session saves and loads, proxy
   builds, every export, and the metadata probe each video runs when it opens. A job that has gone
   quiet for longer than it should is marked *not responding* rather than left looking busy, which
@@ -109,9 +109,10 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 ## Useful controls
 
 Controls sit under what they act on. Under the videos: **Flag Frame**, **Fix Tracker**, **Add 3D
-Marker**, **Add Wheel…**, **Snapshot**, **Fit All Videos** and **Fullscreen Toggle**. Under the
-plots: the live presentation, **Fit all**, **Rows**, **Reset** and the time span. Under the Data
-Streams lanes: **Hide** and the status line. Then the play controls.
+Marker**, **Snapshot**, **Fit All Videos** and **Fullscreen Toggle**. Physical props are managed
+from **Edit → Add Physical Prop…**; select a kind in **Props** to see its controls. Under the plots:
+the live presentation, **Fit all**, **Rows**, **Reset** and the time span. Under the Data Streams
+lanes: **Hide** and the status line. Then the play controls.
 
 Before anything is open, the drop area takes almost the whole window and the empty plot and Data
 Streams areas stay small. The layout you had comes back when the first recording opens.
@@ -297,9 +298,9 @@ you; a message offers **Choose Calibration…**.
 
 ## Placing a running wheel
 
-When the animal runs on a wheel, choose **Add Wheel…** beside **Add 3D Marker** under the videos
-(or **Edit → Add Wheel…**). This uses the same calibrated camera-click workflow. It draws bars over
-every camera and in the 3D view, turned from frame to frame by the wheel's encoder. It needs at
+When the animal runs on a wheel, open **Edit → Add Physical Prop…**, select **Wheel** in **Props**,
+and choose **Add wheel** there. This uses the same calibrated camera-click workflow. It draws bars
+over every camera and in the 3D view, turned from frame to frame by the wheel's encoder. It needs at
 least two cameras and their calibration (the same one Add 3D Marker uses).
 
 1. Give the wheel a name, the **number of bars on the whole wheel**, and the encoder channel that
@@ -323,44 +324,44 @@ least two cameras and their calibration (the same one Add 3D Marker uses).
    fit. If you have only one view of an end, select another point and return when a second view is
    available; that end cannot be located in 3D yet.
 5. From the second bar on, the whole wheel is generated after each click and drawn **dashed** as
-   a preview. There is no separate Generate step. While it is generating, the Wheels tab says
+   a preview. There is no separate Generate step. While it is generating, the Wheel page says
    **Generating wheel…**, and the status bar and **Tasks** panel show the job. A notification
-   says when the wheel is first generated, and the Wheels tab shows how far the clicks sit from it. Use **Flip Side** if the wheel is
+   says when the wheel is first generated, and the Wheel page shows how far the clicks sit from it. Use **Flip Side** if the wheel is
    drawn on the wrong side of the bars, **Undo Click** to take a click back, and **Done Labelling** to save
    the wheel. **Done Labelling** becomes available when **2B** has its second camera click, that is,
    once both ends of bars 1 and 2 have two camera clicks each. It stays available while you label
    bar 3, which is optional and can improve the fit. You can finish with bar 3 only partly clicked:
    those clicks are saved, and the fit uses the two complete bars. If a complete bar 3 does not
    agree with bars 1 and 2, for example because its ends were clicked the other way round, the
-   Wheels tab says it was left out of the fit. Its clicks are still saved.
+   Wheel page says it was left out of the fit. Its clicks are still saved.
    **Done Labelling** exits click mode and is one undo step; **Discard Clicks** exits without saving.
 
 The wheel is always drawn from exactly the bars you clicked, taken as neighbours in the order you
-clicked them, even when it fits poorly. A poor fit is labelled **Poor fit** in the Wheels tab, with
+clicked them, even when it fits poorly. A poor fit is labelled **Poor fit** on the Wheel page, with
 how far your clicks sit from it; check the clicked bar ends, the 3D units and the calibration.
 **Done Labelling** still saves it, and a notification offers **Re-place**. If you entered a radius
 that contradicts your clicks, the wheel is built from the radius the clicks imply, and the tab
 says so. It also says when the two are about 10× or 100× apart, which usually means the **3D units**
 are wrong, for example cm entered for a calibration in mm. To fix a placed wheel, change its
-**3D units** or **Radius** in the Wheels tab: it is re-fitted from your original clicks.
+**3D units** or **Radius** on the Wheel page: it is re-fitted from your original clicks.
 
 Until you check it, the direction the encoder turns the wheel is **assumed**. Go to a frame a few
-turns away, select **Verify Here** in the Wheels tab, and click any bar end in any camera. Two
-such checks measure the direction; the Wheels tab says which it is and how far off the checks
+turns away, select **Verify Here** on the Wheel page, and click any bar end in any camera. Two
+such checks measure the direction; the Wheel page says which it is and how far off the checks
 were.
 
 The wheel's bars are thin lines, never points, so they are not mistaken for tracking. Bars behind
 the side plate are hidden unless you turn on **View → Overlays → Wheel bars out of sight**. The
-**Wheel model** and **Wheel bars out of sight** check boxes at the top of the Wheels tab are the
+**Wheel model** and **Wheel bars out of sight** check boxes at the top of the Wheel page are the
 same switches as those View → Overlays entries. Bar count,
-units, radius, direction and ratio can be changed in the Wheels tab at any time; each change
+units, radius, direction and ratio can be changed on the Wheel page at any time; each change
 re-fits the wheel from your original clicks and is one undo step.
 
 **Bar diameter** sets how thick the bars are. In the 3D view the bars become solid cylinders of
 that diameter; the camera views keep their plain bar lines. If you entered the wheel's radius as
 measured on the rig, type the diameter in the same real units, e.g. 0.3 for a 3 mm bar with the
 radius in cm. AvialSync converts it with the ratio between the radius you measured and the one your
-clicks imply, and the Wheels tab shows that ratio. Without a measured radius, the diameter is in the
+clicks imply, and the Wheel page shows that ratio. Without a measured radius, the diameter is in the
 calibration's own units. Dragging only previews; releasing the slider or
 typing a value keeps it, as one undo step, and it is saved with the wheel. 0 means not set.
 
@@ -368,7 +369,7 @@ A constant delay between the encoder and the cameras goes in the wheel's **Encod
 seconds. It is the encoder's own offset, the same number as its row in the **Sources** tab. It
 therefore moves the encoder's plots with the wheel, and is one undo step. Adjust it while
 watching the bars on a frame where the wheel is turning. Each wheel is saved as
-`pose-3d/<name>.wheel.toml` in the recording folder, beside a 3D pose when there is one. It is
+`pose-3d/<name>.prop.toml` in the recording folder, beside a 3D pose when there is one. It is
 read back when the recording's videos open, even if no tracking file is loaded. For cameras in
 separate subfolders, `pose-3d/` is under their shared recording folder.
 

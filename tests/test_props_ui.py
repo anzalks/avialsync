@@ -12,7 +12,14 @@ from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
-from avialsync.core.physical_props import Ladder, LadderPoint, LadderStep, StepClick
+from avialsync.core.physical_props import (
+    BallProp,
+    BeltProp,
+    Ladder,
+    LadderPoint,
+    LadderStep,
+    StepClick,
+)
 from avialsync.core.prop_file import read_props, write_ladder
 from avialsync.engine import prop_file_worker
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
@@ -232,6 +239,87 @@ def test_closed_outline_requires_three_explicit_points_and_keeps_their_shape(
         (24.0, 44.0),
     ]
     assert window.props_app.camera_drawing(VIDEOS["Front"], 0.0)[0][2] is True
+
+
+def test_belt_and_ball_geometry_are_editable_and_reopen_from_the_props_tab(
+    window: MainWindow, qtbot, monkeypatch, tmp_path: Path
+) -> None:
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.kind.setCurrentIndex(panel.kind.findData("belt"))
+    assert panel.editor_stack.currentWidget() is panel.belt_editor
+    panel.name.setText("belt")
+    for values in ((0.0, 0.0, 70.0), (10.0, 0.0, 70.0)):
+        for field, value in zip(panel.belt_point_fields, values, strict=True):
+            field.setValue(value)
+        panel.belt_add_vertex.click()
+    panel.belt_direction_fields[0].setValue(1.0)
+    panel.belt_units.setCurrentIndex(panel.belt_units.findData("mm"))
+    panel.save_belt.click()
+    belt = window.props_app.store.get("belt")
+    assert isinstance(belt, BeltProp)
+    assert belt.track.vertices == ((0.0, 0.0, 70.0), (10.0, 0.0, 70.0))
+    assert "unknown" in panel.belt_motion_status.text().lower()
+
+    panel.belt_direction_fields[1].setValue(1.0)
+    panel.save_belt.click()
+    changed_belt = window.props_app.store.get("belt")
+    assert isinstance(changed_belt, BeltProp)
+    assert changed_belt.travel_direction == pytest.approx((2**-0.5, 2**-0.5, 0.0))
+    assert window.document.undo(window._mutations)
+    assert window.props_app.store.get("belt") == belt
+    assert window.document.redo(window._mutations)
+
+    panel.kind.setCurrentIndex(panel.kind.findData("ball"))
+    assert panel.editor_stack.currentWidget() is panel.ball_editor
+    assert panel.name.text() == ""
+    panel.name.setText("ball")
+    for field, value in zip(panel.ball_centre_fields, (20.0, 0.0, 75.0), strict=True):
+        field.setValue(value)
+    panel.ball_radius.setValue(5.0)
+    panel.ball_units.setCurrentIndex(panel.ball_units.findData("cm"))
+    panel.save_ball.click()
+    ball = window.props_app.store.get("ball")
+    assert isinstance(ball, BallProp)
+    assert ball.surface.centre == (20.0, 0.0, 75.0)
+    assert ball.surface.radius == 5.0
+    assert "unknown" in panel.ball_motion_status.text().lower()
+
+    folder = tmp_path / "pose-3d"
+    qtbot.waitUntil(lambda: len(read_props(folder)[0]) == 2, timeout=3000)
+    reopened, issues = read_props(folder)
+    assert issues == []
+    reopened_by_name = {prop.name: prop for prop in reopened}
+    reopened_belt = reopened_by_name["belt"]
+    assert isinstance(reopened_belt, BeltProp)
+    assert reopened_belt.track == changed_belt.track
+    assert reopened_belt.travel_direction == pytest.approx(changed_belt.travel_direction)
+    assert reopened_by_name["ball"] == ball
+
+    monkeypatch.setattr(
+        "avialsync.ui.props_app.wheel_display.camera_models", lambda _window: dict(CAMERAS)
+    )
+    drawings = window.props_app.camera_drawing(VIDEOS["Front"], 0.0)
+    assert any(
+        "belt" in label and "motion unknown" in label for label, _points, _closed in drawings
+    )
+    assert (
+        sum(
+            "ball" in label and "orientation unknown" in label
+            for label, _points, _closed in drawings
+        )
+        == 3
+    )
+    scene = window.props_app.scene_steps(0.0)
+    assert (
+        sum("ball" in label and "orientation unknown" in label for label, _points, _closed in scene)
+        == 3
+    )
+
+    panel.remove_ball.click()
+    assert window.props_app.store.get("ball") is None
+    assert window.document.undo(window._mutations)
+    assert window.props_app.store.get("ball") == ball
 
 
 def test_reordering_and_removing_irregular_steps_preserves_clicks_and_undo(

@@ -1,9 +1,9 @@
-"""Add Wheel through the running window: click, review, accept, undo, check (D-113).
+"""Wheel placement through Props: click, review, accept, undo, check (D-113).
 
 The panes are not decoded here -- which frame is on screen is stubbed to the
 frame the bars are clicked on -- because what is under test is the flow the
-window runs: clicks reaching the placement, the fit appearing in the Wheels
-tab, Done Labelling being one undo step, the file written from the mutation funnel,
+window runs: clicks reaching the placement, the fit appearing on the Wheel
+page, Done Labelling being one undo step, the file written from the mutation funnel,
 and the encoder check settling the direction. The geometry itself is judged
 against ground truth in ``test_wheel.py``, whose synthetic rig these tests reuse.
 """
@@ -21,8 +21,10 @@ from shiboken6 import isValid
 
 from avialsync.core.calibration import Calibration, write_calibration
 from avialsync.core.commands import SetWheelCommand
+from avialsync.core.physical_props import Ladder
+from avialsync.core.prop_file import prop_path
 from avialsync.core.wheel import EncoderBinding, Wheel, WheelSpec, project_bars
-from avialsync.core.wheel_file import read_wheels, wheel_path, write_wheel
+from avialsync.core.wheel_file import read_wheels, write_wheel
 from avialsync.core.wheel_fit import fit_wheel
 from avialsync.ui import recovery
 from avialsync.ui.controllers import (
@@ -31,7 +33,6 @@ from avialsync.ui.controllers import (
     wheel_controller,
     wheel_display,
     wheel_edits,
-    wheel_files,
     wheel_placement,
 )
 from avialsync.ui.main_window import MainWindow
@@ -79,15 +80,31 @@ def window(
 _place = place
 
 
+def test_wheel_setup_reserves_names_from_every_prop_kind(window: MainWindow, monkeypatch) -> None:
+    assert window.props_app.store.set("ladder", Ladder("ladder"))
+    captured: list[set[str]] = []
+
+    def cancelled(_window, taken, _hint, _channels):
+        captured.append(set(taken))
+        return None
+
+    monkeypatch.setattr(wheel_controller, "ask_wheel_setup", cancelled)
+    wheel_controller.toggled(window, True)
+    assert captured == [{"ladder"}]
+
+
 def test_clicking_two_bars_offers_a_wheel_to_accept(window: MainWindow, monkeypatch) -> None:
     _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
     placement = window.wheel_state.placement
     assert placement is not None and placement.fit is not None
-    assert window._act_add_wheel.isChecked()
+    assert window.props_app.panel is not None
+    assert window.props_app.panel.create_button.isChecked()
     assert not window.wheel_panel.isHidden()
     assert not window.wheel_panel._review.isHidden()
     assert window.wheel_panel._accept.isEnabled()
-    assert window._left_tabs.currentWidget() is window.wheel_tab
+    assert window._left_tabs.currentWidget() is window.props_app.tab
+    assert window.props_app.panel is not None
+    assert window.props_app.panel.kind.currentData() == "wheel"
     assert window.wheel_panel._accept.text() == "Done Labelling"
 
 
@@ -95,7 +112,7 @@ def test_done_labelling_saves_and_exits_click_mode(window: MainWindow, monkeypat
     _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
     window.wheel_panel._accept.click()
     assert window.wheel_state.placement is None
-    assert not window._act_add_wheel.isChecked()
+    assert not window.props_app.panel.create_button.isChecked()
     assert window.wheels.get("wheel") is not None
 
 
@@ -124,7 +141,7 @@ def test_a_poor_preview_is_drawn_and_can_be_finished(
 
     wheel = window.wheels.get("wheel")
     assert wheel is not None and window.wheel_state.placement is None
-    assert read_wheels(pose3d)[0] == [wheel], "the clicks reach the wheel file"
+    assert read_wheels(pose3d) == [wheel], "the clicks reach the wheel record"
     assert wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0).bars
     assert wheel_display.scene(window, 0.0)
     assert "fits your clicks poorly" in window.notifications.message
@@ -170,12 +187,13 @@ def test_discard_clicks_exits_without_wheel(window: MainWindow, monkeypatch) -> 
     assert window.wheels.get("wheel") is None
 
 
-def test_wheel_button_uses_the_edit_action(window: MainWindow, monkeypatch) -> None:
-    """The new entry point has one label, tooltip, state and command."""
-    button = window.view_toolbar.add_wheel_button
-    assert button.action is window._act_add_wheel
-    assert button.text() == window._act_add_wheel.text()
-    assert button.toolTip() == window._act_add_wheel.toolTip()
+def test_wheel_add_button_lives_in_the_selected_props_kind(window: MainWindow, monkeypatch) -> None:
+    """Wheel placement has one kind-sensitive Add control inside Props."""
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.kind.setCurrentIndex(panel.kind.findData("wheel"))
+    button = panel.create_button
+    assert button.text() == "Add wheel"
     assert button.isCheckable()
     assert button.accessibleDescription()
     monkeypatch.setattr(
@@ -183,10 +201,11 @@ def test_wheel_button_uses_the_edit_action(window: MainWindow, monkeypatch) -> N
         "ask_wheel_setup",
         lambda *_a: WheelSetup(WheelSpec("wheel", 36), channel=None),
     )
-    window._act_add_wheel.setEnabled(True)
+    button.setEnabled(True)
     button.click()
     assert window.wheel_state.placement is not None
-    assert button.isChecked() and window._act_add_wheel.isChecked()
+    assert button.isChecked()
+    assert button.text() == "Cancel wheel placement"
 
 
 def test_projected_click_target_follows_display_scale() -> None:
@@ -277,7 +296,7 @@ def test_camera_first_order_can_complete_two_bars(
     wheel = window.wheels.get("wheel")
     assert wheel is not None
     assert all(len(click.views) == 2 for click in wheel.clicks)
-    saved, _removed = read_wheels(pose3d)
+    saved = read_wheels(pose3d)
     assert saved == [wheel]
     assert all(len(click.views) == 2 for click in saved[0].clicks)
     assert len(wheel_display.pane_drawing(window, VIDEOS["Right"], 0.0).bars) > 3
@@ -350,8 +369,9 @@ def test_done_labelling_is_live_from_point_2b_through_all_three_bars(
 
     wheel = window.wheels.get("wheel")
     assert wheel is not None and len(wheel.fit.indices) == 3 and len(wheel.clicks) == 6
-    assert read_wheels(pose3d)[0] == [wheel]
-    assert window.wheel_state.placement is None and not window._act_add_wheel.isChecked()
+    assert read_wheels(pose3d) == [wheel]
+    assert window.wheel_state.placement is None
+    assert not window.props_app.panel.create_button.isChecked()
     assert wheel_display.pane_drawing(window, VIDEOS["Right"], 0.0).bars
 
 
@@ -377,7 +397,7 @@ def test_a_third_bar_clicked_backwards_is_left_out_and_done_stays_live(
     wheel = window.wheels.get("wheel")
     assert wheel is not None and len(wheel.clicks) == 6, "bar 3's clicks are kept"
     assert len(wheel.fit.indices) == 2
-    assert read_wheels(pose3d)[0] == [wheel]
+    assert read_wheels(pose3d) == [wheel]
     assert wheel_display.pane_drawing(window, VIDEOS["Front"], 0.0).bars
 
 
@@ -408,7 +428,7 @@ def test_started_third_bar_does_not_block_two_complete_bars(
     assert wheel is not None
     assert len(wheel.fit.indices) == 2
     assert len(wheel.clicks) == 5
-    assert read_wheels(pose3d)[0] == [wheel]
+    assert read_wheels(pose3d) == [wheel]
 
 
 def test_accept_is_one_undo_step_and_writes_the_file(
@@ -420,13 +440,13 @@ def test_accept_is_one_undo_step_and_writes_the_file(
     assert wheel is not None
     assert wheel.frame == FRAME
     assert window.wheel_state.placement is None
-    assert not window._act_add_wheel.isChecked()
-    assert read_wheels(pose3d)[0] == [wheel]
+    assert not window.props_app.panel.create_button.isChecked()
+    assert read_wheels(pose3d) == [wheel]
 
     assert window.document.undo(window._mutations)
     assert window.wheels.get("wheel") is None
-    assert wheel_path(pose3d, "wheel").exists(), "removing a wheel never deletes its file"
-    assert read_wheels(pose3d)[0] == []
+    assert prop_path(pose3d, "wheel").exists(), "removing a wheel keeps its sidecar tombstone"
+    assert read_wheels(pose3d) == []
 
     assert window.document.redo(window._mutations)
     assert window.wheels.get("wheel") == wheel
@@ -461,7 +481,7 @@ def test_without_a_placement_the_click_is_a_markers(window: MainWindow) -> None:
 
 def test_cancel_discards_the_clicks(window: MainWindow, monkeypatch) -> None:
     _place(window, [0, 1], WheelSpec("wheel", 36), monkeypatch)
-    window._act_add_wheel.setChecked(False)
+    window.props_app.panel.create_button.setChecked(False)
     wheel_controller.toggled(window, False)
     assert window.wheel_state.placement is None
     assert len(window.wheels) == 0
@@ -558,13 +578,17 @@ def test_a_new_session_forgets_its_wheels(window: MainWindow, monkeypatch) -> No
     assert window.wheel_panel.isHidden()
 
 
-def test_wheels_on_disk_are_adopted_once(window: MainWindow, monkeypatch, pose3d: Path) -> None:
+def test_wheels_on_disk_are_adopted_once(
+    window: MainWindow, monkeypatch, pose3d: Path, qtbot
+) -> None:
     _place(window, [0, 1, 2], WheelSpec("wheel", 36), monkeypatch)
     wheel_controller.accept(window)
     wheel = window.wheels.get("wheel")
-    window.wheels.clear()
-    wheel_files.adopt(window)
-    assert window.wheels.get("wheel") == wheel
+    qtbot.waitUntil(lambda: read_wheels(pose3d) == [wheel])
+    window.props_app.reset()
+    window.props_app.adopt()
+    qtbot.waitUntil(lambda: window.wheels.get("wheel") == wheel)
+    assert window.props_app.store.get("wheel") is window.wheels.get("wheel")
 
 
 def test_video_only_recording_rediscovers_its_saved_wheel(qapp, qtbot, tmp_path: Path) -> None:

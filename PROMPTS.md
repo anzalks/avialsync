@@ -288,12 +288,13 @@ Read BLUEPRINT's Identity repair section and D-141–D-145. Continue one slice a
 
 ## Physical props kickoff (`feat/physical-props`)
 
-Read `PHYSICAL_PROPS_PLAN.md`, D-149, and the existing D-113 wheel flow. Implement one reviewable
-slice at a time. Keep wheel sidecars readable and their animation unchanged. Test each kind's
-actual state space with synthetic ground truth, then connect it through commands, registered
-overlays, the Props inspector, and persistence. Never infer a ball's orientation from one scalar or
-animate a belt whose direction is unknown. A core-only implementation is a foundation, not a
-finished user feature.
+Read `PHYSICAL_PROPS_PLAN.md`, D-149, D-154, D-155, and the existing D-113 wheel flow. Implement one
+reviewable slice at a time. All four kinds use the Props inspector and the canonical `.prop.toml`
+sidecar; no `.wheel.toml` reader or migration path is supported, and existing files must remain
+untouched. Preserve the existing wheel gesture and animation inside the Wheel page. Test each kind's actual state space with
+synthetic ground truth, then connect it through commands, registered overlays, and persistence.
+Never infer a ball's orientation from one scalar or animate a belt whose direction is unknown. A
+core-only implementation is a foundation, not a finished user feature.
 
 ## Debugging prompt template (any phase)
 

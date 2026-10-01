@@ -1,11 +1,9 @@
 """Versioned sidecars for physical props, beside their recording (D-149).
 
-The first supported kind is a user-clicked ladder. A future kind or damaged
-file costs only that prop: :func:`read_props` returns a per-file issue for the
-UI to report. Raw camera clicks are the authority; stored 3D coordinates and
-reprojection errors retain the last fit for inspection, while the UI derives
-display coordinates from the calibration currently in force.
-Wheel files retain their D-113 format and are read by ``wheel_file``.
+Each kind has its own typed table under one versioned ``.prop.toml`` record.
+Raw camera clicks remain authoritative for ladders and wheels; declared belt
+and ball geometry is kept separate from motion evidence. Damaged or future
+records cost only that prop and are reported individually.
 """
 
 from __future__ import annotations
@@ -19,17 +17,37 @@ from pathlib import Path
 from typing import Any, Literal
 
 from avialsync.core.errors import PropModelError
-from avialsync.core.physical_props import Ladder, LadderPoint, LadderStep, Point3, StepClick
+from avialsync.core.physical_props import (
+    BallProp,
+    BallSurface,
+    BeltProp,
+    BeltTrack,
+    Ladder,
+    LadderPoint,
+    LadderStep,
+    PhysicalProp,
+    Point3,
+    StepClick,
+)
 from avialsync.core.toml_format import toml_value, write_atomic
+from avialsync.core.wheel import Wheel
+from avialsync.core.wheel_file import parse_wheel_document, wheel_sections
 
 __all__ = [
     "PROP_SUFFIX",
+    "PropRecord",
     "PropFileIssueCode",
     "PropFileIssue",
     "prop_path",
     "is_prop_path",
+    "prop_kind",
+    "write_prop",
     "write_ladder",
+    "write_belt",
+    "write_ball",
+    "write_wheel",
     "write_removed",
+    "read_prop_records",
     "read_props",
 ]
 
@@ -37,6 +55,8 @@ logger = logging.getLogger(__name__)
 PROP_SUFFIX = ".prop.toml"
 _VERSION = 1
 _HEADER = "# AvialSync physical prop (D-149). Camera clicks are the authority."
+PropKind = Literal["ladder", "wheel", "belt", "ball"]
+PropRecord = PhysicalProp
 _WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL"} | {
     f"{prefix}{index}" for prefix in ("COM", "LPT") for index in range(1, 10)
 }
@@ -82,7 +102,7 @@ def _table(header: str, fields: list[tuple[str, object | None]]) -> list[str]:
     ]
 
 
-def _assert_owned(target: Path, name: str) -> bool:
+def _assert_owned(target: Path, name: str, kind: PropKind) -> bool:
     """Validate an existing record; return whether it contains an active prop."""
     if not target.exists():
         return False
@@ -91,7 +111,7 @@ def _assert_owned(target: Path, name: str) -> bool:
         head = _mapping(document["prop"])
         if (
             _integer(head["version"]) != _VERSION
-            or head.get("kind") != "ladder"
+            or head.get("kind") != kind
             or _text(head["name"]) != name
         ):
             raise PropModelError("A different or newer prop file already uses this name.")
@@ -104,26 +124,9 @@ def _assert_owned(target: Path, name: str) -> bool:
         raise PropModelError("An unreadable prop file already uses this name.") from exc
 
 
-def write_ladder(folder: Path | str, ladder: Ladder, *, overwrite_existing: bool = True) -> Path:
-    """Atomically write actual step clicks and their last solved 3D positions."""
-    folder = Path(folder)
-    target = prop_path(folder, ladder.name)
-    active = _assert_owned(target, ladder.name)
-    if active and not overwrite_existing:
-        raise PropModelError("A saved prop already uses this name; its evidence was kept.")
-    folder.mkdir(parents=True, exist_ok=True)
-    lines = [_HEADER]
-    lines += _table(
-        "[prop]",
-        [
-            ("version", _VERSION),
-            ("kind", "ladder"),
-            ("name", ladder.name),
-            ("calibration", ladder.calibration),
-            ("units", ladder.units),
-            ("removed", False),
-        ],
-    )
+def _ladder_sections(ladder: Ladder) -> list[str]:
+    """Serialize actual step clicks and their last solved 3D positions."""
+    lines: list[str] = []
     for step in ladder.steps:
         lines += _table(
             "[[step]]",
@@ -148,22 +151,126 @@ def write_ladder(folder: Path | str, ladder: Ladder, *, overwrite_existing: bool
                         ("y", click.y),
                     ],
                 )
+    return lines
+
+
+def _belt_sections(belt: BeltProp) -> list[str]:
+    lines = _table(
+        "[belt]",
+        [
+            ("units", belt.units),
+            ("closed", belt.track.closed),
+            ("travel_direction", belt.travel_direction),
+        ],
+    )
+    for vertex in belt.track.vertices:
+        lines += _table("[[belt.vertex]]", [("xyz", vertex)])
+    return lines
+
+
+def _ball_sections(ball: BallProp) -> list[str]:
+    lines = _table(
+        "[ball]",
+        [
+            ("units", ball.units),
+            ("centre", ball.surface.centre),
+            ("radius", ball.surface.radius),
+        ],
+    )
+    for mark in ball.surface_marks:
+        lines += _table("[[ball.surface_mark]]", [("direction", mark)])
+    return lines
+
+
+def prop_kind(prop: PropRecord) -> PropKind:
+    """Return the stable sidecar kind for a typed prop record."""
+    if isinstance(prop, Wheel):
+        return "wheel"
+    if isinstance(prop, Ladder):
+        return "ladder"
+    if isinstance(prop, BeltProp):
+        return "belt"
+    if isinstance(prop, BallProp):
+        return "ball"
+    raise PropModelError("This physical-prop kind cannot be saved.")
+
+
+def write_prop(folder: Path | str, prop: PropRecord, *, overwrite_existing: bool = True) -> Path:
+    """Atomically write one typed prop record to its generalized sidecar."""
+    folder = Path(folder)
+    name = prop.name
+    kind = prop_kind(prop)
+    target = prop_path(folder, name)
+    if not target.exists() and folder.is_dir():
+        for other in folder.glob(f"*{PROP_SUFFIX}"):
+            if other.name.casefold() == target.name.casefold():
+                raise PropModelError("A saved prop already uses this name.")
+    active = _assert_owned(target, name, kind)
+    if active and not overwrite_existing:
+        raise PropModelError("A saved prop already uses this name; its evidence was kept.")
+    folder.mkdir(parents=True, exist_ok=True)
+    lines = [_HEADER]
+    lines += _table(
+        "[prop]",
+        [
+            ("version", _VERSION),
+            ("kind", kind),
+            ("name", name),
+            ("calibration", prop.calibration if isinstance(prop, Ladder) else None),
+            ("units", prop.units if isinstance(prop, Ladder) else None),
+            ("removed", False),
+        ],
+    )
+    if isinstance(prop, Ladder):
+        lines += _ladder_sections(prop)
+    elif isinstance(prop, BeltProp):
+        lines += _belt_sections(prop)
+    elif isinstance(prop, BallProp):
+        lines += _ball_sections(prop)
+    else:
+        lines += wheel_sections(prop)
     return write_atomic(target, lines)
 
 
-def write_removed(folder: Path | str, name: str, *, overwrite_existing: bool = True) -> Path | None:
+def write_ladder(folder: Path | str, ladder: Ladder, *, overwrite_existing: bool = True) -> Path:
+    """Compatibility wrapper for writing a ladder in the generalized format."""
+    return write_prop(folder, ladder, overwrite_existing=overwrite_existing)
+
+
+def write_belt(folder: Path | str, belt: BeltProp, *, overwrite_existing: bool = True) -> Path:
+    """Write a belt's declared fixed path and optional direction."""
+    return write_prop(folder, belt, overwrite_existing=overwrite_existing)
+
+
+def write_ball(folder: Path | str, ball: BallProp, *, overwrite_existing: bool = True) -> Path:
+    """Write a ball's declared sphere and optional surface marks."""
+    return write_prop(folder, ball, overwrite_existing=overwrite_existing)
+
+
+def write_wheel(folder: Path | str, wheel: Wheel, *, overwrite_existing: bool = True) -> Path:
+    """Write wheel clicks, fit, and binding in the generalized format."""
+    return write_prop(folder, wheel, overwrite_existing=overwrite_existing)
+
+
+def write_removed(
+    folder: Path | str,
+    name: str,
+    *,
+    kind: PropKind = "ladder",
+    overwrite_existing: bool = True,
+) -> Path | None:
     """Mark an existing prop removed, retaining a sidecar for undo/recovery."""
     target = prop_path(folder, name)
     if not target.exists():
         return None
-    active = _assert_owned(target, name)
+    active = _assert_owned(target, name, kind)
     if active and not overwrite_existing:
         raise PropModelError("A saved prop already uses this name; its evidence was kept.")
     lines = [
         _HEADER,
         *_table(
             "[prop]",
-            [("version", _VERSION), ("kind", "ladder"), ("name", name), ("removed", True)],
+            [("version", _VERSION), ("kind", kind), ("name", name), ("removed", True)],
         ),
     ]
     return write_atomic(target, lines)
@@ -255,7 +362,32 @@ def _parse_ladder(head: Mapping[str, Any], document: Mapping[str, Any]) -> Ladde
     )
 
 
-def _parse(document: Mapping[str, Any], path: Path) -> tuple[Ladder | None, PropFileIssue | None]:
+def _parse_belt(head: Mapping[str, Any], document: Mapping[str, Any]) -> BeltProp:
+    table = _mapping(document["belt"])
+    vertices = tuple(_point3(row["xyz"]) for row in _records(table.get("vertex", [])))
+    direction = table.get("travel_direction")
+    return BeltProp(
+        name=_text(head["name"]),
+        track=BeltTrack(vertices, closed=_flag(table, "closed")),
+        units=_text(table.get("units", "")),
+        travel_direction=None if direction is None else _point3(direction),
+    )
+
+
+def _parse_ball(head: Mapping[str, Any], document: Mapping[str, Any]) -> BallProp:
+    table = _mapping(document["ball"])
+    marks = tuple(_point3(row["direction"]) for row in _records(table.get("surface_mark", [])))
+    return BallProp(
+        name=_text(head["name"]),
+        surface=BallSurface(_point3(table["centre"]), _number(table["radius"])),
+        units=_text(table.get("units", "")),
+        surface_marks=marks,
+    )
+
+
+def _parse(
+    document: Mapping[str, Any], path: Path
+) -> tuple[PropRecord | None, PropFileIssue | None]:
     head = _mapping(document["prop"])
     version = _integer(head["version"])
     if version != _VERSION:
@@ -263,24 +395,52 @@ def _parse(document: Mapping[str, Any], path: Path) -> tuple[Ladder | None, Prop
     if _flag(head, "removed"):
         return None, None
     kind = head.get("kind")
-    if kind != "ladder":
+    if kind not in ("ladder", "wheel", "belt", "ball"):
         return None, PropFileIssue(path.name, "unsupported_kind", str(kind))
-    ladder = _parse_ladder(head, document)
-    if prop_path(path.parent, ladder.name) != path:
-        return None, PropFileIssue(path.name, "name_mismatch", ladder.name)
-    return ladder, None
+    prop: PropRecord
+    if kind == "ladder":
+        prop = _parse_ladder(head, document)
+    elif kind == "wheel":
+        wheel = parse_wheel_document(document)
+        if wheel is None:
+            return None, PropFileIssue(path.name, "damaged")
+        prop = wheel
+    elif kind == "belt":
+        prop = _parse_belt(head, document)
+    else:
+        prop = _parse_ball(head, document)
+    if prop.name != _text(head["name"]) or prop_path(path.parent, prop.name) != path:
+        return None, PropFileIssue(path.name, "name_mismatch", prop.name)
+    return prop, None
 
 
-def read_props(folder: Path | str) -> tuple[list[Ladder], list[PropFileIssue]]:
-    """Read every supported prop while reporting damaged and future records."""
-    props: list[Ladder] = []
+def read_prop_records(
+    folder: Path | str,
+) -> tuple[list[PropRecord], list[PropFileIssue], set[str]]:
+    """Read generalized records, issues, and names hidden by removal tombstones."""
+    props: list[PropRecord] = []
     issues: list[PropFileIssue] = []
+    tombstones: set[str] = set()
+    seen_names: set[str] = set()
     folder = Path(folder)
     if not folder.is_dir():
-        return props, issues
+        return props, issues, tombstones
     for path in sorted(folder.glob(f"*{PROP_SUFFIX}")):
         try:
-            prop, issue = _parse(tomllib.loads(path.read_text(encoding="utf-8")), path)
+            document = tomllib.loads(path.read_text(encoding="utf-8"))
+            head = _mapping(document["prop"])
+            if (
+                _integer(head["version"]) == _VERSION
+                and head.get("kind") in ("ladder", "wheel", "belt", "ball")
+                and _flag(head, "removed")
+            ):
+                name = _text(head["name"])
+                if prop_path(path.parent, name) != path:
+                    issues.append(PropFileIssue(path.name, "name_mismatch", name))
+                    continue
+                tombstones.add(name)
+                continue
+            prop, issue = _parse(document, path)
         except (
             OSError,
             UnicodeError,
@@ -296,5 +456,16 @@ def read_props(folder: Path | str) -> tuple[list[Ladder], list[PropFileIssue]]:
         if issue is not None:
             issues.append(issue)
         elif prop is not None:
+            folded_name = prop.name.casefold()
+            if folded_name in seen_names:
+                issues.append(PropFileIssue(path.name, "name_mismatch", prop.name))
+                continue
+            seen_names.add(folded_name)
             props.append(prop)
+    return props, issues, tombstones
+
+
+def read_props(folder: Path | str) -> tuple[list[PropRecord], list[PropFileIssue]]:
+    """Read every supported prop while reporting damaged and future records."""
+    props, issues, _tombstones = read_prop_records(folder)
     return props, issues

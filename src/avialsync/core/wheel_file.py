@@ -1,4 +1,4 @@
-"""Where a wheel lives: ``pose-3d/<name>.wheel.toml`` (D-113).
+"""Wheel-specific encoding inside the generalized physical-prop sidecar (D-155).
 
 Beside the 3D pose, like the calibration it was triangulated with, and never
 inside a pose file (the D-099 rule). The **clicks are the authority**: they are
@@ -16,13 +16,11 @@ Headless (architecture rule 2).
 
 from __future__ import annotations
 
-import logging
-import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from avialsync.core.toml_format import toml_value, write_atomic
+from avialsync.core.toml_format import toml_value
 from avialsync.core.wheel import (
     ClickResidual,
     EncoderBinding,
@@ -34,29 +32,11 @@ from avialsync.core.wheel import (
     WheelSpec,
 )
 
-logger = logging.getLogger(__name__)
-
 __all__ = [
-    "WHEEL_SUFFIX",
-    "wheel_path",
-    "is_wheel_path",
     "write_wheel",
     "write_removed",
     "read_wheels",
 ]
-
-WHEEL_SUFFIX = ".wheel.toml"
-_HEADER = "# AvialSync wheel (D-113). The clicks are the authority; the rest was fitted from them."
-
-
-def wheel_path(folder: Path | str, name: str) -> Path:
-    """The file wheel *name* is kept in, inside *folder*."""
-    return Path(folder) / f"{name}{WHEEL_SUFFIX}"
-
-
-def is_wheel_path(path: Path | str) -> bool:
-    """Whether *path* is one of our wheel files, which no loader may claim."""
-    return Path(path).name.lower().endswith(WHEEL_SUFFIX)
 
 
 def _line(key: str, value: object) -> str:
@@ -69,11 +49,16 @@ def _table(header: str, fields: list[tuple[str, object]]) -> list[str]:
 
 
 def write_wheel(folder: Path | str, wheel: Wheel) -> Path:
-    """Write *wheel* atomically, creating the ``pose-3d`` folder if needed."""
-    folder = Path(folder)
-    folder.mkdir(parents=True, exist_ok=True)
+    """Write *wheel* using the generalized physical-prop sidecar."""
+    from avialsync.core.prop_file import write_prop
+
+    return write_prop(folder, wheel)
+
+
+def wheel_sections(wheel: Wheel) -> list[str]:
+    """Serialize wheel-specific tables for a generalized prop record."""
     spec, geometry, fit, binding = wheel.spec, wheel.geometry, wheel.fit, wheel.binding
-    lines = [_HEADER]
+    lines: list[str] = []
     lines += _table(
         "[wheel]",
         [
@@ -125,7 +110,7 @@ def write_wheel(folder: Path | str, wheel: Wheel) -> Path:
             ],
         )
     lines += _records(wheel)
-    return write_atomic(wheel_path(folder, spec.name), lines)
+    return lines
 
 
 def _records(wheel: Wheel) -> list[str]:
@@ -167,12 +152,10 @@ def _records(wheel: Wheel) -> list[str]:
 
 
 def write_removed(folder: Path | str, name: str) -> Path | None:
-    """Mark wheel *name*'s file removed, keeping the file; None if it never existed."""
-    target = wheel_path(folder, name)
-    if not target.exists():
-        return None
-    lines = [_HEADER, *_table("[wheel]", [("name", name), ("removed", True)])]
-    return write_atomic(target, lines)
+    """Mark a wheel removed in its generalized prop sidecar."""
+    from avialsync.core.prop_file import write_removed as write_prop_removed
+
+    return write_prop_removed(folder, name, kind="wheel")
 
 
 def _triple(values: Any) -> tuple[float, float, float]:
@@ -265,23 +248,14 @@ def _parse(document: Mapping[str, Any]) -> Wheel | None:
     )
 
 
-def read_wheels(folder: Path | str) -> tuple[list[Wheel], list[str]]:
-    """Every wheel kept in *folder*, and the names of files that could not be read.
+def parse_wheel_document(document: Mapping[str, Any]) -> Wheel | None:
+    """Parse wheel-specific tables embedded in one generalized prop record."""
+    return _parse(document)
 
-    A damaged file costs that wheel only (AGENTS rule 10); the caller says which.
-    """
-    wheels: list[Wheel] = []
-    unreadable: list[str] = []
-    folder = Path(folder)
-    if not folder.is_dir():
-        return wheels, unreadable
-    for path in sorted(folder.glob(f"*{WHEEL_SUFFIX}")):
-        try:
-            wheel = _parse(tomllib.loads(path.read_text(encoding="utf-8")))
-        except (OSError, UnicodeError, tomllib.TOMLDecodeError, KeyError, TypeError, ValueError):
-            logger.warning("Could not read wheel file %s", path, exc_info=True)
-            unreadable.append(path.name)
-            continue
-        if wheel is not None:
-            wheels.append(wheel)
-    return wheels, unreadable
+
+def read_wheels(folder: Path | str) -> list[Wheel]:
+    """Read wheel records from canonical ``.prop.toml`` sidecars only."""
+    from avialsync.core.prop_file import read_props
+
+    props, _issues = read_props(folder)
+    return [prop for prop in props if isinstance(prop, Wheel)]

@@ -104,7 +104,7 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         group="Tracking",
         default_visible=True,
         description=(
-            "Bars generated from a wheel you placed with Add Wheel, turned by its "
+            "Bars generated from a wheel you placed in Props, turned by its "
             "encoder: drawn as thin lines, never as points, because they are a "
             "model rather than anything the tracker saw."
         ),

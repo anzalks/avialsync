@@ -1,7 +1,7 @@
 """The row under the video panes: what acts on the cameras and what is drawn on them.
 
 Controls sit under the thing they act on. Flagging a frame, tracking
-correction, hand-placed markers and wheels are all done on the video, and Snapshot, Fit All Videos
+correction and hand-placed markers are all done on the video, and Snapshot, Fit All Videos
 and Fullscreen change how the video is shown, so they live here -- not in the
 Data Streams header, where they used to share one row with the lanes'
 own controls.
@@ -24,7 +24,7 @@ __all__ = ["ViewToolbar"]
 
 
 class ViewToolbar(QWidget):
-    """Flag Frame, Fix Tracker, Add 3D Marker, Add Wheel | Snapshot, Fit All Videos, Fullscreen."""
+    """Flag Frame, Fix Tracker, Add 3D Marker | Snapshot, Fit All Videos, Fullscreen."""
 
     flag_requested = Signal()
     snapshot_requested = Signal()
@@ -34,10 +34,7 @@ class ViewToolbar(QWidget):
         super().__init__(parent)
         self.setAccessibleName(tr("Video tools"))
         self.setAccessibleDescription(
-            tr(
-                "Flag frames, correct tracking, place markers and wheels, and change how the "
-                "videos are shown"
-            )
+            tr("Flag frames, correct tracking, place markers, and change how the videos are shown")
         )
         row = QHBoxLayout(self)
         row.setContentsMargins(2, 2, 2, 2)
@@ -51,7 +48,6 @@ class ViewToolbar(QWidget):
         # QActions; in the layout from the start so they do not shuffle the row.
         self.fix_tracker_button = ActionButton(self)
         self.add_marker_button = ActionButton(self)
-        self.add_wheel_button = ActionButton(self)
         # Ticked, the panes draw what the model predicted instead of what the
         # accepted swaps make of it -- beside the other video controls, because
         # it changes what the video shows (D-141).
@@ -59,7 +55,6 @@ class ViewToolbar(QWidget):
         for button in (
             self.fix_tracker_button,
             self.add_marker_button,
-            self.add_wheel_button,
             self.original_tracker_box,
         ):
             row.addWidget(button)
@@ -96,13 +91,6 @@ class ViewToolbar(QWidget):
         self.add_marker_button.set_action(action)
         self.add_marker_button.setAccessibleDescription(
             tr("Name a new marker, then click it once in each camera to place it in 3D")
-        )
-
-    def install_add_wheel_action(self, action: QAction) -> None:
-        """Show Add Wheel beside Add 3D Marker, driven by the same menu QAction."""
-        self.add_wheel_button.set_action(action)
-        self.add_wheel_button.setAccessibleDescription(
-            tr("Click both ends of two or three bars in at least two calibrated cameras")
         )
 
     def install_fit_videos_action(self, action: QAction) -> None:

@@ -1,4 +1,4 @@
-"""The Wheels tab's bar-diameter control: a slider to match by eye, a box to type (D-128).
+"""The Props Wheel page's bar-diameter control: a slider and a box (D-128).
 
 A bar's diameter is not something the clicks measure -- they are on the bar's
 centre line -- so it is set by sliding until the drawn bars are as thick as the

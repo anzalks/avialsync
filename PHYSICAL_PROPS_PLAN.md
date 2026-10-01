@@ -1,14 +1,19 @@
 # Physical props — implementation plan
 
-Branch: `feat/physical-props`. Decision: D-149. This plan extends the wheel
-feature without changing what existing wheel files mean. Complete one slice at
-a time; a model that exists only in `core/` is not an app feature.
+Branch: `feat/physical-props`. Decisions: D-149, D-154, and D-155. All kinds use one
+versioned `.prop.toml` sidecar and one Props inspector; no legacy wheel-file
+reader or migration path is supported. Existing old files are left untouched.
+Complete one slice at a time; a model that
+exists only in `core/` is not an app feature.
 
-Current branch status: the wheel editor remains intact; horizontal ladders have
-clicked placement, undo, sidecars, registered overlays, 3D display, and tests for
-irregular points, calibration changes, damaged files, and write ordering. Belt
-and ball have headless material-motion mathematics only. Their placement,
-source binding, later-frame verification, and app overlays remain in slices 4–5.
+Current branch status: the Props inspector contains the existing wheel placement
+and review flow, clicked horizontal ladders, and declared belt-path and ball
+geometry forms. All four kinds save to `.prop.toml`; old `.wheel.toml` files
+are ignored and left untouched. One accepted `PropStore` and one background
+sidecar read/write path serve all four kinds (D-156). Ladder clicks and declared belt/ball geometry
+draw in the registered camera and 3D props layer. Belt displacement and ball
+orientation remain explicitly unknown until sensor/landmark binding and later
+frame verification are implemented.
 
 ## 1. Vocabulary and mathematical contract
 
@@ -52,11 +57,15 @@ or changed evidence invalidate derived geometry or motion, not raw clicks.
 
 ## 2. Visible workflow
 
-`Edit → Add Physical Prop…` and an action-backed **Props** inspector expose
-Wheel, Belt, Ball, and Ladder. Preserve the current wheel gesture and its
-fields inside the Wheel editor. Each other kind asks for only its own geometry
-and evidence; every click is immediately labelled as an observation or a
-projection. For a ladder, Add Step records a point or the two ends of a rung;
+`Edit → Add Physical Prop…` and one action-backed **Props** inspector expose
+Wheel, Belt, Ball, and Ladder. Its kind-sensitive Add control is the only way
+to start wheel placement; no separate Add Wheel menu or toolbar action remains.
+The existing wheel gesture and review fields are the Wheel page inside that
+inspector, not a separate top-level tab. Each kind asks for only its own geometry and evidence; every click is immediately labelled
+as an observation or a projection. Belt edits declare support-path vertices,
+units, loop state, and optional travel direction. Ball edits declare centre,
+radius, units, and optional surface marks. Both show unknown motion until actual
+motion evidence is bound. For a ladder, Add Step records a point or the two ends of a rung;
 the user can add, relabel, reorder, move, or remove individual steps without
 refitting its neighbours. The inspector shows the fit and ambiguity before an
 explicit acceptance, then holds per-prop edits, source binding, verification,
@@ -72,12 +81,13 @@ still loads and reports partial evidence when calibration or a source is absent.
 
 ## 3. Persistence and compatibility
 
-Existing `pose-3d/<name>.wheel.toml` files remain the authoritative wheel
-format and must round-trip without semantic change. New prop records use
-versioned, kind-tagged `pose-3d/<name>.prop.toml` sidecars, beside their data.
-The sidecar stores declared geometry, raw clicks, source references, fit and
-check reports, plus an explicit removed tombstone; it does not store generated
-per-frame geometry. Discovery must reserve both suffixes from source loaders.
+Every kind uses the versioned, kind-tagged `pose-3d/<name>.prop.toml` sidecar,
+beside its data. It stores declared geometry, raw clicks, source references, fit
+and check reports, plus an explicit removed tombstone; it does not store
+generated per-frame geometry. Discovery reads only `.prop.toml` records. The old
+`pose-3d/<name>.wheel.toml` format is unsupported: the app does not read,
+convert, rewrite, or delete those files. New wheel mutations write only
+`.prop.toml`.
 The `.avv` session stores presentation choices and references, not a second
 copy of the prop's measurements. Names are unique across all prop kinds in a
 recording. Unsupported future kinds remain visible as unreadable records with
@@ -92,7 +102,7 @@ a quality message rather than preventing the recording from opening.
    Test static invariance, belt signed travel and wrapping, wheel periodicity,
    and ball quaternion normalization/composition against ground truth.
 3. **Geometry and persistence.** Add kind-specific geometry, evidence and
-   versioned sidecar IO, a shared store, and legacy wheel discovery. Test
+   versioned sidecar IO, and a shared store. Test
    round-trips, malformed or future records, tombstones, and name collisions.
 4. **Document and UI.** Add inverse commands and the mutation funnel; build
    the Props inspector, action, registered layers, and per-kind placement.
@@ -110,5 +120,5 @@ a quality message rather than preventing the recording from opening.
 The final acceptance examples are a static ladder with unequal step spacing and
 height, preserving every clicked point; a belt whose
 surface moves while its frame stays fixed, a ball with two-axis rotation, and
-an old wheel sidecar that reopens and animates exactly as before. A scalar ball
+an existing wheel saved as a `.prop.toml` sidecar that reopens and animates exactly as before. A scalar ball
 encoder and a belt with no direction must remain explicitly underdetermined.

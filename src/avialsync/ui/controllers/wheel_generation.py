@@ -97,13 +97,13 @@ def _announce_preview(window: MainWindow, placement: WheelPlacement) -> None:
         window.notifications.show_success(
             tr(
                 "Wheel generated from {bars} bars and drawn dashed in every camera. Check it, "
-                "then choose Done Labelling in the Wheels tab."
+                "then choose Done Labelling on the Wheel page."
             ).format(bars=len(placement.fit.indices))
         )
     else:
         window.notifications.show_warning(
             tr(
                 "Wheel generated, but it fits your clicks poorly. It is drawn dashed anyway; "
-                "the Wheels tab says what to check."
+                "the Wheel page says what to check."
             )
         )

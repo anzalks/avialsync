@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QMenu, QMenuBar
 
-from avialsync.ui.controllers import custom_marker_controller, identity_view, wheel_controller
+from avialsync.ui.controllers import custom_marker_controller, identity_view
 from avialsync.ui.i18n import tr
 from avialsync.ui.undo_adapter import install_edit_menu
 
@@ -80,25 +80,6 @@ def _edit_geometry(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None
     )
     _reg(window._act_add_marker, "Edit")
     window.view_toolbar.install_add_marker_action(window._act_add_marker)
-
-    # Add Wheel: declare a running wheel, click both ends of a few of its
-    # bars, and the rest are generated and turned by the encoder (D-113).
-    # Checked while one is being placed; unchecking cancels it. Its numbers
-    # are edited in the Wheels inspector tab, and nowhere else.
-    window._act_add_wheel = window._edit_menu.addAction(tr("Add Wheel…"))
-    window._act_add_wheel.setCheckable(True)
-    window._act_add_wheel.setToolTip(
-        tr("Click both ends of a few neighbouring bars to place a running wheel in 3D")
-    )
-    window._act_add_wheel.toggled.connect(lambda checked: wheel_controller.toggled(window, checked))
-    window._require(
-        window._act_add_wheel,
-        lambda: len(window.video_grid.pane_paths()) >= 2,
-        tr("Load at least two camera videos to place a wheel"),
-    )
-    _reg(window._act_add_wheel, "Edit")
-    window.view_toolbar.install_add_wheel_action(window._act_add_wheel)
-    window.wheel_tab.install_add_action(window._act_add_wheel)
 
     window._act_add_prop = edit_menu.addAction(tr("Add Physical Prop…"))
     window._act_add_prop.setToolTip(tr("Open the physical props inspector"))

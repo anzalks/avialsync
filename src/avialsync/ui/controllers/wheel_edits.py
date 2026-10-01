@@ -1,4 +1,4 @@
-"""Changing a placed wheel from the Wheels tab: its numbers, its encoder, or removing it (D-113).
+"""Changing a placed wheel from Props: its numbers, encoder, or removal (D-113).
 
 Split from :mod:`avialsync.ui.controllers.wheel_controller`, which places and
 verifies wheels. Every change here is one

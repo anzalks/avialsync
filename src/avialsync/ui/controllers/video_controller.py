@@ -29,7 +29,6 @@ from avialsync.ui.controllers import (
     calibration_controller,
     custom_marker_controller,
     wheel_display,
-    wheel_files,
 )
 
 if TYPE_CHECKING:
@@ -273,9 +272,7 @@ def create_video_pane(
     # A camera opened after a layer was switched off must not come up showing
     # it, and a restored session must not flash the defaults first (D-090).
     window._apply_overlays_to_new_pane(original_path)
-    # Video-only recordings have no pose-source registration to discover their
-    # wheel files. A background read also lets later panes reuse the result.
-    wheel_files.adopt(window)
+    # Video-only recordings discover the same prop records as pose sessions.
     window.props_app.adopt()
     # Wheels and markers read back before this camera opened are drawn through
     # the calibration, which may now cover it: extend it, then draw them here.

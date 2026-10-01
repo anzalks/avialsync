@@ -137,6 +137,9 @@ class FakeTarget:
     def set_ladder(self, name: str, ladder: Ladder | None) -> None:
         self.props.set(name, ladder)
 
+    def set_physical_prop(self, name: str, prop: Any) -> None:
+        self.props.set(name, prop)
+
     def set_ladder_step(
         self, name: str, step_id: str, step: LadderStep | None, position: int | None = None
     ) -> None:

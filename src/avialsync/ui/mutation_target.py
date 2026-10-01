@@ -258,19 +258,28 @@ class WindowMutationTarget:
         observers -- reading it back in must not echo it out (D-099).
         """
         from avialsync.core.wheel import Wheel
-        from avialsync.ui.controllers import wheel_files
 
         window = self._window
         value = wheel if isinstance(wheel, Wheel) else None
         with self.replaying():
             if window.wheels.set(name, value):
-                wheel_files.persist(window, name)
+                window.props_app.persist(name)
 
     def set_ladder(self, name: str, ladder: object) -> None:
         """Accept a ladder through the same undo and persistence funnel."""
         from avialsync.core.physical_props import Ladder
 
         value = ladder if isinstance(ladder, Ladder) else None
+        with self.replaying():
+            if self._window.props_app.store.set(name, value):
+                self._window.props_app.persist(name)
+
+    def set_physical_prop(self, name: str, prop: object) -> None:
+        """Accept or remove a typed prop through undo and generalized persistence."""
+        from avialsync.core.physical_props import BallProp, BeltProp, Ladder
+        from avialsync.core.wheel import Wheel
+
+        value = prop if isinstance(prop, (Ladder, BeltProp, BallProp, Wheel)) else None
         with self.replaying():
             if self._window.props_app.store.set(name, value):
                 self._window.props_app.persist(name)

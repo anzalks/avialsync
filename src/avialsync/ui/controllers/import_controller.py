@@ -435,10 +435,9 @@ def register_tracking_source(
             if channel in channels
         ]
         window._refresh_pose_3d()
-        from avialsync.ui.controllers import custom_marker_controller, wheel_files
+        from avialsync.ui.controllers import custom_marker_controller
 
         custom_marker_controller.adopt(window)
-        wheel_files.adopt(window)
         window.props_app.adopt()
         if role == "pose3d":
             return
@@ -518,10 +517,9 @@ def register_tracking_source(
     identity_controller.adopt(window, path)
     window._refresh_overlays(video)
     # Markers and wheels placed on this recording, now its camera's pose file is known.
-    from avialsync.ui.controllers import custom_marker_controller, wheel_files
+    from avialsync.ui.controllers import custom_marker_controller
 
     custom_marker_controller.adopt(window)
-    wheel_files.adopt(window)
     window.props_app.adopt()
 
 

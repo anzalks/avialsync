@@ -6,7 +6,6 @@ from pathlib import Path
 
 from avialsync.core.physical_props import Ladder
 from avialsync.core.prop_file import prop_path
-from avialsync.core.wheel_file import wheel_path
 from avialsync.engine import prop_file_worker
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
 
@@ -28,9 +27,9 @@ def test_read_worker_reports_io_failure_without_a_partial_success(
     assert errors == ["folder became unavailable"]
 
 
-def test_write_worker_refuses_to_replace_an_existing_wheel_record(tmp_path: Path) -> None:
-    wheel = wheel_path(tmp_path, "shared")
-    wheel.write_text("existing wheel evidence", encoding="utf-8")
+def test_write_worker_refuses_to_replace_an_existing_prop_record(tmp_path: Path) -> None:
+    record = prop_path(tmp_path, "shared")
+    record.write_text("existing prop evidence", encoding="utf-8")
     worker = PropFileWriteWorker(tmp_path, "shared", Ladder("shared"))
     finished: list[object] = []
     errors: list[str] = []
@@ -38,6 +37,5 @@ def test_write_worker_refuses_to_replace_an_existing_wheel_record(tmp_path: Path
     worker.error.connect(errors.append)
     worker.run()
     assert finished == []
-    assert len(errors) == 1 and "wheel sidecar" in errors[0]
-    assert wheel.read_text(encoding="utf-8") == "existing wheel evidence"
-    assert not prop_path(tmp_path, "shared").exists()
+    assert len(errors) == 1 and "prop file" in errors[0]
+    assert record.read_text(encoding="utf-8") == "existing prop evidence"

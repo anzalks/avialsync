@@ -20,7 +20,7 @@ from typing import Any
 
 from avialsync.core.custom_markers import CustomMarker
 from avialsync.core.document import MarkerRecord, MutationTarget, SourceRecord
-from avialsync.core.physical_props import Ladder, LadderStep
+from avialsync.core.physical_props import Ladder, LadderStep, PhysicalProp
 from avialsync.core.wheel import Wheel
 
 __all__ = [
@@ -41,6 +41,7 @@ __all__ = [
     "SetCustomMarkerCommand",
     "SetWheelCommand",
     "SetLadderCommand",
+    "SetPhysicalPropCommand",
     "SetLadderStepCommand",
     "MoveLadderStepCommand",
     "AcceptSyncCommand",
@@ -529,6 +530,23 @@ class SetLadderCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_ladder(self.name, self.before)
+
+
+@dataclasses.dataclass
+class SetPhysicalPropCommand:
+    """Add, edit, or remove one physical prop through the document bus."""
+
+    name: str
+    before: PhysicalProp | None
+    after: PhysicalProp | None
+    label: str
+    command_id: str = "props.physical_prop"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_physical_prop(self.name, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_physical_prop(self.name, self.before)
 
 
 @dataclasses.dataclass

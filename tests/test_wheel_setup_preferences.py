@@ -30,6 +30,14 @@ def _dialog(qtbot, hint: RotaryHint | None = None) -> _WheelSetupDialog:
     return dialog
 
 
+def test_existing_prop_name_disables_wheel_setup(qapp: QApplication, qtbot) -> None:
+    dialog = _WheelSetupDialog(("ladder",), None, [], None)
+    qtbot.addWidget(dialog)
+    dialog.name_edit.setText("LADDER")
+    dialog.bars.setValue(36)
+    assert "physical prop" in dialog.problem.text().lower()
+
+
 def test_first_setup_is_remembered_and_reused(qapp: QApplication, qtbot) -> None:
     first = _dialog(qtbot)
     assert first.remember.isChecked()

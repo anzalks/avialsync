@@ -136,26 +136,30 @@ def test_a_video_enables_the_proxy_builder(window: MainWindow) -> None:
     assert action.isEnabled() is True
 
 
-def test_second_camera_enables_marker_and_wheel_buttons_after_pane_creation(
+def test_second_camera_enables_marker_and_wheel_add_in_props_after_pane_creation(
     window: MainWindow, monkeypatch
 ) -> None:
     """A queued probe can build its pane after the last source-loaded callback."""
     marker = window.view_toolbar.add_marker_button
-    wheel = window.view_toolbar.add_wheel_button
-    assert not marker.isEnabled() and not wheel.isEnabled()
-    monkeypatch.setattr(
-        video_controller,
-        "create_video_pane",
-        lambda _window, path, _loader, _media: window.video_grid._paths.append(path),
-    )
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.kind.setCurrentIndex(panel.kind.findData("wheel"))
+    wheel_add = panel.create_button
+    assert not marker.isEnabled() and not wheel_add.isEnabled()
+    assert "two camera videos" in wheel_add.toolTip()
+
+    def add_path(_window, path, _loader, _media):
+        window.video_grid._paths.append(path)
+        window.video_grid.pane_attached.emit(path)
+
+    monkeypatch.setattr(video_controller, "create_video_pane", add_path)
 
     window._create_video_pane("cam1.mp4", object(), "cam1.mp4")
-    assert not marker.isEnabled() and not wheel.isEnabled()
+    assert not marker.isEnabled() and not wheel_add.isEnabled()
     window._create_video_pane("cam2.mp4", object(), "cam2.mp4")
 
-    assert marker.isEnabled() and wheel.isEnabled()
+    assert marker.isEnabled() and wheel_add.isEnabled()
     assert marker.toolTip() == window._act_add_marker.toolTip()
-    assert wheel.toolTip() == window._act_add_wheel.toolTip()
 
 
 def test_a_marker_enables_the_changes_export(window: MainWindow) -> None:

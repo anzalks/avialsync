@@ -67,7 +67,7 @@ def test_data_streams_uses_the_video_plot_native_splitter_style(
     assert main_window.transport.parentWidget() is not main_window._content_splitter
 
 
-def test_inspector_uses_compact_tabs_for_sources_values_messages_and_annotations(
+def test_inspector_uses_compact_tabs_for_sources_values_messages_annotations_and_props(
     main_window: MainWindow,
 ) -> None:
     """The inspector preserves its panels without stacked panes consuming workspace height.
@@ -83,10 +83,10 @@ def test_inspector_uses_compact_tabs_for_sources_values_messages_and_annotations
     assert main_window._left_tabs.widget(1) is main_window.readout_panel
     assert main_window._left_tabs.widget(2) is main_window.message_panel
     assert main_window._left_tabs.widget(3) is main_window.changes_panel
-    assert main_window._left_tabs.tabText(4) == "Wheels"
-    assert main_window._left_tabs.widget(4) is main_window.wheel_tab
+    assert main_window._left_tabs.tabText(4) == "Props"
+    assert main_window._left_tabs.widget(4) is main_window.props_app.tab
+    assert main_window.wheel_tab.parentWidget() is not None
     assert main_window.wheel_panel.parentWidget() is not main_window.sidebar
-    assert main_window.wheel_tab.add_button.action is main_window._act_add_wheel
 
 
 def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow, qtbot) -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import math
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,14 +11,37 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from PySide6.QtCore import QThread
+from PySide6.QtWidgets import QWidget
 
 from avialsync.core.calibration import CameraModel
-from avialsync.core.commands import MoveLadderStepCommand, SetLadderCommand, SetLadderStepCommand
+from avialsync.core.commands import (
+    MoveLadderStepCommand,
+    SetLadderCommand,
+    SetLadderStepCommand,
+    SetPhysicalPropCommand,
+)
 from avialsync.core.errors import PropModelError
-from avialsync.core.physical_props import Ladder, LadderPoint, LadderStep, PropStore, StepClick
-from avialsync.core.prop_file import PropFileIssue, prop_path
+from avialsync.core.physical_props import (
+    BallProp,
+    BallSurface,
+    BeltProp,
+    BeltTrack,
+    Ladder,
+    LadderPoint,
+    LadderStep,
+    Point3,
+    PropStore,
+    StepClick,
+    WheelView,
+)
+from avialsync.core.prop_file import PropFileIssue, PropKind, PropRecord, prop_kind, prop_path
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
-from avialsync.ui.controllers import calibration_controller, rig_paths, wheel_display
+from avialsync.ui.controllers import (
+    calibration_controller,
+    rig_paths,
+    wheel_controller,
+    wheel_display,
+)
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
 from avialsync.ui.prop_overlay import PropDrawing, PropPixel
@@ -39,6 +63,44 @@ class StepDraft:
     before: LadderStep | None = None
 
 
+def _ball_rings(ball: BallProp) -> tuple[tuple[str, tuple[Point3, ...]], ...]:
+    """Return declared great-circle guides, not an orientation estimate."""
+    centre = ball.surface.centre
+    radius = ball.surface.radius
+    axes = (
+        ("XY", (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        ("XZ", (1.0, 0.0, 0.0), (0.0, 0.0, 1.0)),
+        ("YZ", (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)),
+    )
+    rings: list[tuple[str, tuple[Point3, ...]]] = []
+    for name, first_axis, second_axis in axes:
+        points = tuple(
+            (
+                centre[0]
+                + radius
+                * (
+                    math.cos(math.tau * index / 24) * first_axis[0]
+                    + math.sin(math.tau * index / 24) * second_axis[0]
+                ),
+                centre[1]
+                + radius
+                * (
+                    math.cos(math.tau * index / 24) * first_axis[1]
+                    + math.sin(math.tau * index / 24) * second_axis[1]
+                ),
+                centre[2]
+                + radius
+                * (
+                    math.cos(math.tau * index / 24) * first_axis[2]
+                    + math.sin(math.tau * index / 24) * second_axis[2]
+                ),
+            )
+            for index in range(24)
+        )
+        rings.append((name, points))
+    return tuple(rings)
+
+
 class PropsApp:
     """Small coordinator for props; the document bus owns accepted edits."""
 
@@ -46,18 +108,20 @@ class PropsApp:
         self.window = window
         self.store = PropStore()
         self.store.observe(self._changed)
+        self.wheels = WheelView(self.store)
         self.panel: PropsPanel | None = None
         self.tab: PropsTab | None = None
         self.draft: StepDraft | None = None
         self._adopted: set[Path] = set()
+        self._known_kinds: dict[str, PropKind] = {}
         self._edited: set[str] = set()
         self._writing: set[Path] = set()
-        self._pending: dict[Path, dict[str, Ladder | None]] = {}
+        self._pending: dict[Path, dict[str, tuple[PropRecord | None, PropKind]]] = {}
         self._known_sidecars: set[tuple[Path, str]] = set()
         self._display_key: tuple[tuple[str, int], ...] | None = None
         self._display_ladders: tuple[Ladder, ...] = ()
 
-    def make_panel(self) -> PropsTab:
+    def make_panel(self, wheel_tab: QWidget | None = None) -> PropsTab:
         """Create the one inspector and connect its controls."""
         panel = PropsPanel(self.store, self.window)
         panel.create_requested.connect(self.create)
@@ -70,46 +134,53 @@ class PropsApp:
         panel.relabel_step_requested.connect(self.relabel_step)
         panel.move_step_requested.connect(self.move_step)
         panel.remove_ladder_requested.connect(self.remove_ladder)
+        panel.belt_save_requested.connect(self.save_belt)
+        panel.ball_save_requested.connect(self.save_ball)
+        panel.remove_prop_requested.connect(self.remove_prop)
+        panel.prop_selected.connect(self._show_selected_prop)
         self.panel = panel
         panel.kind.currentIndexChanged.connect(self._update_create_availability)
-        self.tab = PropsTab(panel, self.window)
+        self.window.video_grid.pane_attached.connect(self._update_create_availability)
+        self.window.video_grid.pane_detached.connect(self._update_create_availability)
+        self.tab = PropsTab(panel, wheel_tab, self.window)
         self._update_create_availability()
         return self.tab
 
-    def show(self) -> None:
+    def show(self, kind: str | None = None) -> None:
         """Show the inspector from the live Edit action."""
         if self.panel is not None and self.tab is not None:
+            if kind is not None:
+                index = self.panel.kind.findData(kind)
+                if index >= 0:
+                    self.panel.kind.setCurrentIndex(index)
             self._update_create_availability()
             self.window._left_tabs.setCurrentWidget(self.tab)
-            self.panel.name.setFocus()
+            if self.panel.kind.currentData() != "wheel":
+                self.panel.name.setFocus()
 
     def _update_create_availability(self) -> None:
         """Explain missing video context before a creation gesture (D-107)."""
         panel = self.panel
         if panel is None:
             return
-        if panel.kind.currentData() == "wheel":
-            available = (
-                self.window._act_add_wheel.isEnabled()
-                if hasattr(self.window, "_act_add_wheel")
-                else False
-            )
-            reason = (
-                self.window._act_add_wheel.toolTip()
-                if hasattr(self.window, "_act_add_wheel")
-                else tr("Load two camera videos first.")
-            )
+        kind = panel.kind.currentData()
+        if kind == "wheel":
+            available = len(self.window.video_grid.pane_paths()) >= 2
+            reason = tr("Load at least two camera videos to place a wheel.")
         else:
             available = rig_paths.pose3d_dir(self.window.rig_paths) is not None
             reason = tr("Open a recording before adding a prop.")
         panel.create_button.setEnabled(available)
         panel.create_button.setToolTip("" if available else reason)
+        panel.save_belt.setEnabled(kind == "belt" and available)
+        panel.save_ball.setEnabled(kind == "ball" and available)
+        panel.save_belt.setToolTip("" if available else reason)
+        panel.save_ball.setToolTip("" if available else reason)
 
-    def create(self, name: str) -> None:
-        """Accept one named static ladder, or open the existing wheel editor."""
+    def create(self, name: str, checked: bool = False) -> None:
+        """Add the selected prop kind or toggle wheel placement."""
         if self.panel is not None and self.panel.kind.currentData() == "wheel":
-            self.window._left_tabs.setCurrentWidget(self.window.wheel_tab)
-            self.window._act_add_wheel.trigger()
+            wheel_controller.toggled(self.window, checked)
             return
         if not name:
             self._status(tr("Enter a ladder name first."))
@@ -120,7 +191,7 @@ class PropsApp:
                 self._status(tr("Open a recording before adding a prop."))
                 return
             prop_path(folder, name)
-            if self.store.get(name) is not None or self.window.wheels.get(name) is not None:
+            if name.casefold() in {used.casefold() for used in self.store.names()}:
                 self._status(tr("That prop name is already used in this recording."))
                 return
             ladder = Ladder(name)
@@ -132,12 +203,116 @@ class PropsApp:
             self.window._mutations,
         )
         if self.panel is not None:
-            self.panel.select(name)
+            self.panel.select_prop(name, "ladder")
+
+    def _show_selected_prop(self, kind: str, name: str) -> None:
+        """Load declared belt or ball fields for the selected saved record."""
+        if self.panel is None or not name:
+            return
+        prop = self.store.get(name)
+        self.panel.name.setText(name)
+        if kind == "belt" and isinstance(prop, BeltProp):
+            self.panel.set_belt_fields(prop)
+        elif kind == "ball" and isinstance(prop, BallProp):
+            self.panel.set_ball_fields(prop)
+
+    def save_belt(self) -> None:
+        """Add or edit a declared belt path without claiming surface motion."""
+        panel = self.panel
+        if panel is None:
+            return
+        name = panel.name.text().strip() or panel.current_ladder()
+        try:
+            folder = rig_paths.pose3d_dir(self.window.rig_paths)
+            if folder is None:
+                self._status(tr("Open a recording before adding a prop."))
+                return
+            prop_path(folder, name)
+            before = self.store.get(name)
+            if before is None and name.casefold() in {
+                used.casefold() for used in self.store.names()
+            }:
+                self._status(tr("That prop name is already used in this recording."))
+                return
+            if before is not None and not isinstance(before, BeltProp):
+                self._status(tr("That name belongs to a different prop kind."))
+                return
+            vertices, closed, units, direction = panel.belt_values()
+            belt = BeltProp(name, BeltTrack(vertices, closed), units, direction)
+        except PropModelError:
+            self._status(tr("Check the belt path and choose a filename-safe prop name."))
+            return
+        label = (
+            tr("Edit belt {name}").format(name=name)
+            if before
+            else tr("Add belt {name}").format(name=name)
+        )
+        self.window.document.execute(
+            SetPhysicalPropCommand(name, before, belt, label), self.window._mutations
+        )
+        panel.select_prop(name, "belt")
+        self._status(tr("Belt geometry saved; surface motion remains unknown."))
+
+    def save_ball(self) -> None:
+        """Add or edit a declared sphere without inventing its orientation."""
+        panel = self.panel
+        if panel is None:
+            return
+        name = panel.name.text().strip() or panel.current_ladder()
+        try:
+            folder = rig_paths.pose3d_dir(self.window.rig_paths)
+            if folder is None:
+                self._status(tr("Open a recording before adding a prop."))
+                return
+            prop_path(folder, name)
+            before = self.store.get(name)
+            if before is None and name.casefold() in {
+                used.casefold() for used in self.store.names()
+            }:
+                self._status(tr("That prop name is already used in this recording."))
+                return
+            if before is not None and not isinstance(before, BallProp):
+                self._status(tr("That name belongs to a different prop kind."))
+                return
+            centre, radius, units = panel.ball_values()
+            ball = BallProp(name, BallSurface(centre, radius), units)
+        except PropModelError:
+            self._status(tr("Check the ball dimensions and choose a filename-safe prop name."))
+            return
+        label = (
+            tr("Edit ball {name}").format(name=name)
+            if before
+            else tr("Add ball {name}").format(name=name)
+        )
+        self.window.document.execute(
+            SetPhysicalPropCommand(name, before, ball, label), self.window._mutations
+        )
+        panel.select_prop(name, "ball")
+        self._status(tr("Ball geometry saved; orientation remains unknown."))
+
+    def remove_prop(self, kind: str, name: str) -> None:
+        """Remove a selected belt or ball through an inverse command."""
+        prop = self.store.get(name)
+        if kind == "belt":
+            if not isinstance(prop, BeltProp):
+                return
+        elif kind == "ball":
+            if not isinstance(prop, BallProp):
+                return
+        else:
+            return
+        self.window.document.execute(
+            SetPhysicalPropCommand(
+                name, prop, None, tr("Remove {kind} {name}").format(kind=kind, name=name)
+            ),
+            self.window._mutations,
+        )
+        self._status(tr("Removed {kind} {name}.").format(kind=kind, name=name))
 
     def start_step(self, name: str, label: str, rung: bool) -> None:
         """Start collecting a foothold or explicit rung endpoints."""
         ladder = self.store.get(name)
-        if ladder is None:
+        if not isinstance(ladder, Ladder):
             return
         self.window._cancel_competing_placement("prop")
         if self.window.clock.state.playing:
@@ -237,7 +412,7 @@ class PropsApp:
     def remove_step(self, name: str, step_id: str) -> None:
         """Delete one step without changing its neighbours."""
         ladder = self.store.get(name)
-        if ladder is None:
+        if not isinstance(ladder, Ladder):
             return
         for position, step in enumerate(ladder.steps):
             if step.step_id == step_id:
@@ -257,7 +432,7 @@ class PropsApp:
     def reclick_step(self, name: str, step_id: str) -> None:
         """Revisit the exact points and overwrite only cameras the user clicks."""
         ladder = self.store.get(name)
-        if ladder is None:
+        if not isinstance(ladder, Ladder):
             return
         step = next((item for item in ladder.steps if item.step_id == step_id), None)
         if step is None:
@@ -275,7 +450,7 @@ class PropsApp:
     def relabel_step(self, name: str, step_id: str, label: str) -> None:
         """Rename one step without rebuilding any neighbour or pixel click."""
         ladder = self.store.get(name)
-        if ladder is None:
+        if not isinstance(ladder, Ladder):
             return
         step = next((item for item in ladder.steps if item.step_id == step_id), None)
         if step is None or step.label == label:
@@ -291,7 +466,7 @@ class PropsApp:
     def move_step(self, name: str, step_id: str, offset: int) -> None:
         """Reorder one step by index, preserving each observation."""
         ladder = self.store.get(name)
-        if ladder is None:
+        if not isinstance(ladder, Ladder):
             return
         old = next((i for i, s in enumerate(ladder.steps) if s.step_id == step_id), -1)
         new = old + offset
@@ -305,7 +480,7 @@ class PropsApp:
     def remove_ladder(self, name: str) -> None:
         """Remove the selected ladder with an inverse retaining its clicks."""
         previous = self.store.get(name)
-        if previous is not None:
+        if isinstance(previous, Ladder):
             self.window.document.execute(
                 SetLadderCommand(
                     name, previous, None, tr("Remove ladder {name}").format(name=name)
@@ -320,6 +495,13 @@ class PropsApp:
 
     def _changed(self, _name: str | None) -> None:
         self._display_key = None
+        if _name is None:
+            for prop in self.store:
+                self._known_kinds[prop.name] = prop_kind(prop)
+        else:
+            changed_prop = self.store.get(_name)
+            if changed_prop is not None:
+                self._known_kinds[_name] = prop_kind(changed_prop)
         if self.panel is not None:
             self.panel.refresh()
         self.refresh()
@@ -334,6 +516,7 @@ class PropsApp:
                     steps=tuple(step.resolved(cameras) for step in ladder.steps),
                 )
                 for ladder in self.store
+                if isinstance(ladder, Ladder)
             )
             self._display_key = key
         return self._display_ladders
@@ -376,6 +559,32 @@ class PropsApp:
                         pixels.append(None)
                 if any(pixel is not None for pixel in pixels):
                     drawings.append((step.label, tuple(pixels), step.closed))
+        for prop in self.store:
+            if isinstance(prop, BeltProp):
+                belt_pixels = tuple(
+                    self._project_declared(model, point) for point in prop.track.vertices
+                )
+                if any(pixel is not None for pixel in belt_pixels):
+                    drawings.append(
+                        (
+                            tr("{name} (declared; motion unknown)").format(name=prop.name),
+                            belt_pixels,
+                            prop.track.closed,
+                        )
+                    )
+            elif isinstance(prop, BallProp):
+                for plane, points in _ball_rings(prop):
+                    ball_pixels = tuple(self._project_declared(model, point) for point in points)
+                    if any(pixel is not None for pixel in ball_pixels):
+                        drawings.append(
+                            (
+                                tr("{name} {plane} (declared; orientation unknown)").format(
+                                    name=prop.name, plane=plane
+                                ),
+                                ball_pixels,
+                                True,
+                            )
+                        )
         if self.draft is not None:
             pixels = []
             for point in self.draft.points:
@@ -399,13 +608,48 @@ class PropsApp:
                 )
                 if any(position is not None for position in positions):
                     steps.append((step.label, positions, step.closed))
+        for prop in self.store:
+            if isinstance(prop, BeltProp):
+                steps.append(
+                    (
+                        tr("{name} (declared; motion unknown)").format(name=prop.name),
+                        tuple(np.asarray(point, dtype=np.float64) for point in prop.track.vertices),
+                        prop.track.closed,
+                    )
+                )
+            elif isinstance(prop, BallProp):
+                for plane, points in _ball_rings(prop):
+                    steps.append(
+                        (
+                            tr("{name} {plane} (declared; orientation unknown)").format(
+                                name=prop.name, plane=plane
+                            ),
+                            tuple(np.asarray(point, dtype=np.float64) for point in points),
+                            True,
+                        )
+                    )
         return steps
+
+    @staticmethod
+    def _project_declared(camera: CameraModel | None, point: Point3) -> PropPixel | None:
+        """Project declared 3D geometry as a guide, not a clicked observation."""
+        if camera is None:
+            return None
+        xyz = np.asarray(point, dtype=np.float64)
+        camera_point = camera.rotation_matrix() @ xyz + camera.translation
+        if not np.isfinite(camera_point).all() or camera_point[2] <= 0.0:
+            return None
+        pixel = camera.project(xyz)[0]
+        if not np.isfinite(pixel).all():
+            return None
+        return (float(pixel[0]), float(pixel[1]), False)
 
     def reset(self) -> None:
         """Forget this session's props and discovery state."""
         self.cancel_step()
         self.store.clear()
         self._adopted.clear()
+        self._known_kinds.clear()
         self._edited.clear()
         self._known_sidecars.clear()
 
@@ -415,16 +659,22 @@ class PropsApp:
         folder = rig_paths.pose3d_dir(self.window.rig_paths)
         if folder is None:
             return
-        self._pending.setdefault(folder, {})[name] = self.store.get(name)
+        prop = self.store.get(name)
+        kind = prop_kind(prop) if prop is not None else self._known_kinds.get(name, "ladder")
+        self._pending.setdefault(folder, {})[name] = (prop, kind)
         self._write_next(folder)
 
     def _write_next(self, folder: Path) -> None:
         if folder in self._writing or not self._pending.get(folder):
             return
-        name, ladder = self._pending[folder].popitem()
+        name, (prop, kind) = self._pending[folder].popitem()
         self._writing.add(folder)
         worker = PropFileWriteWorker(
-            folder, name, ladder, overwrite_existing=(folder, name) in self._known_sidecars
+            folder,
+            name,
+            prop,
+            kind=kind,
+            overwrite_existing=(folder, name) in self._known_sidecars,
         )
 
         def complete(path: Path | None = None, error: str = "") -> None:
@@ -457,7 +707,7 @@ class PropsApp:
         generation = self.window.session_runtime.generation
         worker = PropFileReadWorker(folder)
 
-        def finished(props: list[Ladder], issues: list[PropFileIssue]) -> None:
+        def finished(props: list[PropRecord], issues: list[PropFileIssue]) -> None:
             if generation != self.window.session_runtime.generation:
                 return
             for issue in issues:
@@ -465,15 +715,11 @@ class PropsApp:
                     tr("Saved prop {file} could not be shown.").format(file=issue.filename),
                     details=issue.reason,
                 )
-            existing = {ladder.name: ladder for ladder in self.store}
-            for ladder in props:
-                if (
-                    ladder.name not in self._edited
-                    and ladder.name not in existing
-                    and self.window.wheels.get(ladder.name) is None
-                ):
-                    existing[ladder.name] = ladder
-                    self._known_sidecars.add((folder, ladder.name))
+            existing = {prop.name: prop for prop in self.store}
+            for prop in props:
+                if prop.name not in self._edited and prop.name not in existing:
+                    existing[prop.name] = prop
+                    self._known_sidecars.add((folder, prop.name))
             self.store.load(existing.values())
             if existing:
                 calibration_controller.calibration_quietly(self.window)

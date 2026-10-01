@@ -101,7 +101,7 @@ class ActionCheckBox(QCheckBox):
     The same contract as :class:`ActionButton` -- the action authors the text,
     tooltip, enablement and checked state -- for a switch that reads as a
     setting beside a panel's other fields, such as an overlay's View ->
-    Overlays entry repeated in the Wheels tab (rules 13 and 15).
+    Overlays entry repeated on the Props Wheel page (rules 13 and 15).
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:

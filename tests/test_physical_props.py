@@ -12,11 +12,14 @@ from hypothesis import strategies as st
 
 from avialsync.core.errors import PropModelError
 from avialsync.core.physical_props import (
+    BallProp,
     BallSurface,
+    BeltProp,
     BeltTrack,
     Ladder,
     LadderPoint,
     LadderStep,
+    PropStore,
     StepClick,
     UnitQuaternion,
     WheelMaterialMap,
@@ -131,6 +134,32 @@ def test_open_belt_moves_a_mark_but_not_its_support_path() -> None:
     assert track.material_point(7.0, -3.0) == pytest.approx((4.0, 0.0, 0.0))
     assert track.material_point(8.0, 3.0) is None
     assert track.vertices == fixed
+
+
+def test_named_belt_and_ball_declarations_validate_their_kind_specific_geometry() -> None:
+    belt = BeltProp(
+        "treadmill", BeltTrack(((0.0, 0.0, 0.0), (4.0, 0.0, 0.0))), "mm", (0.0, 3.0, 0.0)
+    )
+    ball = BallProp("sphere", BallSurface((1.0, 2.0, 3.0), 5.0), "cm", ((1.0, 0.0, 0.0),))
+    assert belt.travel_direction == pytest.approx((0.0, 1.0, 0.0))
+    assert ball.surface_marks == ((1.0, 0.0, 0.0),)
+    with pytest.raises(PropModelError, match="nonzero"):
+        BeltProp("treadmill", belt.track, travel_direction=(0.0, 0.0, 0.0))
+    with pytest.raises(PropModelError, match="unit directions"):
+        BallProp("sphere", ball.surface, surface_marks=((2.0, 0.0, 0.0),))
+
+
+def test_prop_store_accepts_multiple_static_prop_kinds_without_losing_ladder_edits() -> None:
+    store = PropStore()
+    ladder = Ladder("steps")
+    belt = BeltProp("belt", BeltTrack(((0.0, 0.0, 0.0), (1.0, 0.0, 0.0))))
+    ball = BallProp("ball", BallSurface((0.0, 0.0, 0.0), 1.0))
+    assert store.set(ladder.name, ladder)
+    assert store.set(belt.name, belt)
+    assert store.set(ball.name, ball)
+    assert list(store) == [ladder, belt, ball]
+    with pytest.raises(PropModelError, match="existing ladder"):
+        store.set_step("ball", "step", None)
 
 
 def test_closed_belt_wraps_only_on_the_declared_loop() -> None:

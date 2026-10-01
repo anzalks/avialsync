@@ -3,9 +3,9 @@
 The fixed apparatus and its moving material are different things. A belt's
 support stays put while a mark on its surface travels; a ball's centre stays
 put while a local surface direction rotates. A ladder records each clicked
-step independently, without a generated pitch or level. The existing wheel
-owns its fit and file; :class:`WheelMaterialMap` only adapts its proven bar
-geometry to the same material-point vocabulary.
+step independently, without a generated pitch or level. The wheel owns its fit;
+the shared prop store owns every accepted apparatus. :class:`WheelMaterialMap`
+adapts its proven bar geometry to the same material-point vocabulary.
 
 No state here is inferred from a source channel. A caller must supply measured
 travel, orientation, or turn at the displayed frame's presentation time; when
@@ -24,7 +24,7 @@ import numpy as np
 
 from avialsync.core.calibration import CameraModel, triangulate
 from avialsync.core.errors import PropModelError
-from avialsync.core.wheel import WheelGeometry
+from avialsync.core.wheel import Wheel, WheelGeometry
 
 __all__ = [
     "Point3",
@@ -33,7 +33,11 @@ __all__ = [
     "LadderPoint",
     "LadderStep",
     "Ladder",
+    "BeltProp",
+    "BallProp",
+    "PhysicalProp",
     "PropStore",
+    "WheelView",
     "BeltTrack",
     "UnitQuaternion",
     "BallSurface",
@@ -257,37 +261,97 @@ class Ladder:
         return dataclasses.replace(self, steps=tuple(by_id[key] for key in step_ids))
 
 
+@dataclass(frozen=True)
+class BeltProp:
+    """A declared belt path, kept fixed while its surface motion is unknown."""
+
+    name: str
+    track: BeltTrack
+    units: str = ""
+    travel_direction: Point3 | None = None
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise PropModelError("A belt needs a name.")
+        if self.units not in ("", "mm", "cm", "m"):
+            raise PropModelError("A belt needs supported calibration units.")
+        if self.travel_direction is not None:
+            if not _finite_point(self.travel_direction):
+                raise PropModelError("A belt travel direction must be finite.")
+            norm = math.hypot(*self.travel_direction)
+            if norm < 1e-12:
+                raise PropModelError("A belt travel direction must be nonzero.")
+            object.__setattr__(
+                self, "travel_direction", tuple(value / norm for value in self.travel_direction)
+            )
+
+
+@dataclass(frozen=True)
+class BallProp:
+    """A declared sphere and optional, explicitly identified surface marks."""
+
+    name: str
+    surface: BallSurface
+    units: str = ""
+    surface_marks: tuple[Point3, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise PropModelError("A ball needs a name.")
+        if self.units not in ("", "mm", "cm", "m"):
+            raise PropModelError("A ball needs supported calibration units.")
+        if any(
+            not _finite_point(mark) or not math.isclose(math.hypot(*mark), 1.0, abs_tol=1e-6)
+            for mark in self.surface_marks
+        ):
+            raise PropModelError("Ball surface marks must be finite unit directions.")
+
+
+PhysicalProp = Ladder | BeltProp | BallProp | Wheel
+
+
 class PropStore:
-    """Accepted new props in one session; currently the user-clicked ladders.
+    """Accepted props of every kind in one session, keyed by distinct names.
 
     Observers hear a name, or None for a bulk load. Mutations are in memory;
     persistence belongs to the document's mutation target, never an observer.
     """
 
     def __init__(self) -> None:
-        self._props: dict[str, Ladder] = {}
+        self._props: dict[str, PhysicalProp] = {}
         self._observers: list[Callable[[str | None], None]] = []
 
     def __len__(self) -> int:
         return len(self._props)
 
-    def __iter__(self) -> Iterator[Ladder]:
+    def __iter__(self) -> Iterator[PhysicalProp]:
         return iter(list(self._props.values()))
 
-    def get(self, name: str) -> Ladder | None:
-        """The accepted ladder called *name*, if any."""
+    def get(self, name: str) -> PhysicalProp | None:
+        """The accepted prop called *name*, if any."""
         return self._props.get(name)
 
-    def set(self, name: str, ladder: Ladder | None) -> bool:
+    def names(self) -> set[str]:
+        """Return the names reserved by every accepted prop kind."""
+        return set(self._props)
+
+    def set(self, name: str, prop: PhysicalProp | None) -> bool:
         """Set or remove one prop; report whether its stored value changed."""
-        if ladder is not None and ladder.name != name:
+        if prop is not None and prop.name != name:
             raise PropModelError("A prop's stored key must match its name.")
-        if self._props.get(name) == ladder:
+        if prop is not None and any(
+            used != name and used.casefold() == name.casefold() for used in self._props
+        ):
+            raise PropModelError("A prop name already belongs to another record.")
+        previous = self._props.get(name)
+        if previous is not None and prop is not None and type(previous) is not type(prop):
+            raise PropModelError("A prop name already belongs to a different kind.")
+        if self._props.get(name) == prop:
             return False
-        if ladder is None:
+        if prop is None:
             self._props.pop(name, None)
         else:
-            self._props[name] = ladder
+            self._props[name] = prop
         self._notify(name)
         return True
 
@@ -295,26 +359,26 @@ class PropStore:
         self, name: str, step_id: str, step: LadderStep | None, position: int | None = None
     ) -> bool:
         """Edit one step, retaining every other step by identity and value."""
-        ladder = self.get(name)
-        if ladder is None:
+        prop = self.get(name)
+        if not isinstance(prop, Ladder):
             raise PropModelError("A step needs an existing ladder.")
         if step is not None and step.step_id != step_id:
             raise PropModelError("A step's stored key must match its id.")
-        changed = ladder.without_step(step_id) if step is None else ladder.with_step(step, position)
+        changed = prop.without_step(step_id) if step is None else prop.with_step(step, position)
         return self.set(name, changed)
 
     def move_step(self, name: str, step_id: str, position: int) -> bool:
         """Move one step without reconstructing or editing its observations."""
-        ladder = self.get(name)
-        if ladder is None:
+        prop = self.get(name)
+        if not isinstance(prop, Ladder):
             raise PropModelError("A step needs an existing ladder.")
-        order = [step.step_id for step in ladder.steps]
+        order = [step.step_id for step in prop.steps]
         if step_id not in order or not 0 <= position < len(order):
             raise PropModelError("A step move needs an existing step and position.")
         order.insert(position, order.pop(order.index(step_id)))
-        return self.set(name, ladder.reordered(order))
+        return self.set(name, prop.reordered(order))
 
-    def load(self, props: Iterable[Ladder]) -> None:
+    def load(self, props: Iterable[PhysicalProp]) -> None:
         """Replace session props with records read from disk."""
         self._props = {prop.name: prop for prop in props}
         self._notify(None)
@@ -338,6 +402,64 @@ class PropStore:
     def _notify(self, name: str | None) -> None:
         for callback in list(self._observers):
             callback(name)
+
+
+class WheelView:
+    """Wheel-specific view of the shared prop store for fitting and drawing."""
+
+    def __init__(self, store: PropStore) -> None:
+        self._store = store
+        self._observers: list[Callable[[str | None], None]] = []
+        self._names: set[str] = set()
+        store.observe(self._changed)
+
+    def __len__(self) -> int:
+        return len(self.names())
+
+    def __iter__(self) -> Iterator[Wheel]:
+        return (prop for prop in self._store if isinstance(prop, Wheel))
+
+    def get(self, name: str) -> Wheel | None:
+        """Return a wheel by name, if the shared record is a wheel."""
+        prop = self._store.get(name)
+        return prop if isinstance(prop, Wheel) else None
+
+    def names(self) -> set[str]:
+        """Return the names of accepted wheels."""
+        return {wheel.name for wheel in self}
+
+    def set(self, name: str, wheel: Wheel | None) -> bool:
+        """Change a wheel through the shared store."""
+        if wheel is None and self.get(name) is None:
+            return False
+        return self._store.set(name, wheel)
+
+    def load(self, wheels: Iterable[Wheel]) -> None:
+        """Replace wheels while preserving other kinds in the shared store."""
+        others = (prop for prop in self._store if not isinstance(prop, Wheel))
+        self._store.load((*others, *wheels))
+
+    def clear(self) -> None:
+        """Forget wheels while preserving the other props."""
+        if self._names:
+            self.load(())
+
+    def observe(self, callback: Callable[[str | None], None]) -> Callable[[], None]:
+        """Observe wheel changes through the shared store."""
+        self._observers.append(callback)
+
+        def dispose() -> None:
+            if callback in self._observers:
+                self._observers.remove(callback)
+
+        return dispose
+
+    def _changed(self, name: str | None) -> None:
+        old_names = self._names
+        self._names = self.names()
+        if name is None or name in old_names or name in self._names:
+            for callback in list(self._observers):
+                callback(name)
 
 
 @dataclass(frozen=True)

@@ -55,16 +55,17 @@ def _two_bars(window: MainWindow, monkeypatch, channel=None) -> None:
 # ── starting and leaving a placement ────────────────────────────────
 
 
-def test_add_wheel_button_in_the_tab_starts_and_stops_placing(
-    window: MainWindow, monkeypatch
-) -> None:
-    button = window.wheel_tab.add_button
-    assert button.text() == window._act_add_wheel.text()
+def test_props_wheel_add_button_starts_and_stops_placing(window: MainWindow, monkeypatch) -> None:
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.kind.setCurrentIndex(panel.kind.findData("wheel"))
+    button = panel.create_button
+    assert button.text() == "Add wheel"
     assert not button.isEnabled(), "greyed until two cameras are open (rule 15)"
     assert "two camera videos" in button.toolTip()
 
     monkeypatch.setattr(window.video_grid, "pane_paths", lambda: list(VIDEOS.values()))
-    window._refresh_action_availability()
+    window.video_grid.pane_attached.emit("cam1.mp4")
     monkeypatch.setattr(
         wheel_controller, "ask_wheel_setup", lambda *_a: WheelSetup(WheelSpec("wheel", 36), None)
     )
@@ -80,10 +81,15 @@ def test_add_wheel_button_in_the_tab_starts_and_stops_placing(
 def test_cancelling_the_setup_dialog_leaves_add_wheel_unchecked(
     window: MainWindow, monkeypatch
 ) -> None:
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.kind.setCurrentIndex(panel.kind.findData("wheel"))
+    monkeypatch.setattr(window.video_grid, "pane_paths", lambda: list(VIDEOS.values()))
+    window.video_grid.pane_attached.emit("cam1.mp4")
     monkeypatch.setattr(wheel_controller, "ask_wheel_setup", lambda *_a: None)
-    window._act_add_wheel.trigger()
+    panel.create_button.click()
     assert window.wheel_state.placement is None
-    assert not window._act_add_wheel.isChecked()
+    assert not panel.create_button.isChecked()
 
 
 # ── the review while placing ─────────────────────────────────────────
@@ -229,7 +235,7 @@ def test_done_labelling_reads_the_encoder_from_its_real_cache(
     wheel = window.wheels.get("wheel")
     assert wheel is not None and window.wheel_state.placement is None
     assert wheel.binding == EncoderBinding("encoder.csv", "angle", pytest.approx(30.0))
-    assert read_wheels(pose3d)[0] == [wheel]
+    assert read_wheels(pose3d) == [wheel]
 
 
 def test_synced_encoder_turn_reprojects_the_same_bars_in_every_camera(
@@ -272,7 +278,7 @@ def test_done_labelling_without_an_encoder_reading_still_saves(
 
     wheel = window.wheels.get("wheel")
     assert wheel is not None and wheel.binding is None
-    assert read_wheels(pose3d)[0] == [wheel]
+    assert read_wheels(pose3d) == [wheel]
 
 
 def test_done_labelling_is_greyed_with_its_reason_until_2b(window: MainWindow, monkeypatch) -> None:
@@ -516,7 +522,7 @@ def test_dragging_the_diameter_previews_and_releasing_commits_once(
     wheel = window.wheels.get("wheel")
     assert wheel.bar_diameter == pytest.approx(preview)
     assert len(window.document) == depth + 1
-    assert read_wheels(pose3d)[0] == [wheel]
+    assert read_wheels(pose3d) == [wheel]
     assert window.wheel_state.diameter_preview == {}
     assert wheel_display.scene(window, 0.0)[0][2] == pytest.approx(preview)
 

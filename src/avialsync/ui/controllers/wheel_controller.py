@@ -1,9 +1,9 @@
-"""Add Wheel end to end: declare, click, fit, review, accept, turn, verify (D-113).
+"""Wheel placement in Props: declare, click, fit, review, accept, turn, verify (D-113).
 
-1. **Declare.** Edit → Add Wheel… asks for a name, the bar count, the 3D units,
+1. **Declare.** Props → Wheel → Add wheel asks for a name, bar count, 3D units,
    an optional radius and the encoder channel (:mod:`avialsync.ui.wheel_dialogs`),
    pre-filled from the session plugin's :class:`~avialsync.core.source.RotaryHint`.
-2. **Click.** With the calibration resolved, the Wheels tab names six ends
+2. **Click.** With the calibration resolved, the Wheel page names six ends
    (1A…3B), their real camera-click counts, and the selected point. Select
    any point or use Next Point to work camera by camera; an end seen in all
    cameras advances automatically. Two real views locate a point in 3D and
@@ -11,13 +11,13 @@
    (:mod:`avialsync.ui.controllers.wheel_placement`).
 3. **Review.** From two complete bars on, the wheel is fitted after every click
    (:func:`~avialsync.core.wheel.fit_wheel`, ~10 ms) and drawn dashed over
-   every camera and the 3D view, with its numbers in the Wheels tab.
+   every camera and the 3D view, with its numbers on the Wheel page.
    Nothing is committed yet; Flip picks the mirrored wheel.
 4. **Done Labelling** is available from the moment bars 1 and 2 are labelled,
    and stays so through an optional third bar. It runs one
    :class:`~avialsync.core.commands.SetWheelCommand`, so the wheel is one undo
-   step and dirties the session (rule 14). An unreliable fit is saved with its
-   geometry hidden, never refused, so the clicks are not lost (D-122).
+   step and dirties the session (rule 14). An unreliable fit is still drawn
+   with a quality warning, so the clicks are not lost (D-122, D-123).
 5. **Turn.** On any other frame the wheel is turned by the encoder, read at the
    presentation time of the frame on screen -- never the clock's raw time, which
    sits anywhere inside that frame's interval (rule 6) -- and with the encoder's
@@ -65,12 +65,9 @@ logger = logging.getLogger(__name__)
 
 
 def _set_checked(window: MainWindow, checked: bool) -> None:
-    action = window._act_add_wheel
-    blocked = action.blockSignals(True)
-    try:
-        action.setChecked(checked)
-    finally:
-        action.blockSignals(blocked)
+    panel = window.props_app.panel
+    if panel is not None:
+        panel.set_wheel_placing(checked)
 
 
 # ── placing ──────────────────────────────────────────────────────────
@@ -89,12 +86,13 @@ def _channels(window: MainWindow) -> list[tuple[str, str, str]]:
 
 
 def toggled(window: MainWindow, checked: bool) -> None:
-    """The Add Wheel action: start a placement, or cancel the one running."""
+    """The Props Add button: start wheel placement, or cancel the one running."""
     if not checked:
         cancel(window, tr("Wheel not added."))
         return
+    _set_checked(window, True)
     setup = ask_wheel_setup(
-        window, window.wheels.names(), window.wheel_state.session_rotary, _channels(window)
+        window, window.props_app.store.names(), window.wheel_state.session_rotary, _channels(window)
     )
     if setup is None:
         _set_checked(window, False)
@@ -124,7 +122,7 @@ def _begin(window: MainWindow, setup: WheelSetup, replacing: str | None) -> None
     window.wheel_state.placement = WheelPlacement(
         setup.spec, setup.channel, frame, replacing=replacing
     )
-    window._left_tabs.setCurrentWidget(window.wheel_tab)
+    window.props_app.show("wheel")
     _set_checked(window, True)
     window.video_grid.set_marker_place_mode(True)
     display.refresh(window)
@@ -173,7 +171,7 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> bool:
         placement.step = near
     if placement.step >= POINTS:
         window.transport.set_status(
-            tr("Select a point in the Wheels tab to place or correct another click."), "info"
+            tr("Select a point on the Wheel page to place or correct another click."), "info"
         )
         return True
     key = placement.end
@@ -309,7 +307,7 @@ def _announce(window: MainWindow, wheel: Wheel) -> None:
             action_label=tr("How to Verify"),
             on_action=lambda: window.transport.set_status(
                 tr(
-                    "Go a few turns away, press Verify Here in the Wheels tab, and click "
+                    "Go a few turns away, press Verify Here on the Wheel page, and click "
                     "any bar end in any camera."
                 ),
                 "info",
@@ -401,7 +399,7 @@ def replace(window: MainWindow, name: str) -> None:
 
 
 def connect_panel(window: MainWindow) -> None:
-    """Route the Wheels tab's requests here."""
+    """Route the Wheel page's requests here."""
     panel = window.wheel_panel
     panel.point_requested.connect(lambda step: select_end(window, step))
     panel.next_end_requested.connect(lambda: next_end(window))
@@ -432,6 +430,4 @@ def reset(window: MainWindow) -> None:
     window.wheel_state.cache.clear()
     window.wheel_state.refits.clear()
     window.wheel_state.diameter_preview.clear()
-    window.wheel_state.announced_files.clear()
-    window.wheel_state.adopt_folders.clear()
     window.wheel_state.session_rotary = None
