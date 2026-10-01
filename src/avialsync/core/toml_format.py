@@ -10,6 +10,7 @@ Headless (architecture rule 2).
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -23,8 +24,9 @@ def toml_value(value: object) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, str):
-        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-        return f'"{escaped}"'
+        # JSON's basic-string escapes are also TOML basic-string escapes;
+        # unlike a two-character replacement they cover pasted newlines.
+        return json.dumps(value, ensure_ascii=False)
     if isinstance(value, (int, np.integer)):
         return str(int(value))
     if isinstance(value, (float, np.floating)):
