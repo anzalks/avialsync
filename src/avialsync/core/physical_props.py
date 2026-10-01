@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -33,6 +33,7 @@ __all__ = [
     "LadderPoint",
     "LadderStep",
     "Ladder",
+    "PropStore",
     "BeltTrack",
     "UnitQuaternion",
     "BallSurface",
@@ -207,12 +208,15 @@ class Ladder:
         if not self.name or len(ids) != len(set(ids)):
             raise PropModelError("A ladder needs a name and unique step ids.")
 
-    def with_step(self, step: LadderStep) -> Ladder:
-        """Replace a step in place, or append a newly clicked step."""
+    def with_step(self, step: LadderStep, position: int | None = None) -> Ladder:
+        """Replace a step in place, or insert a newly clicked step."""
         if any(item.step_id == step.step_id for item in self.steps):
             steps = tuple(step if item.step_id == step.step_id else item for item in self.steps)
         else:
-            steps = (*self.steps, step)
+            at = len(self.steps) if position is None else position
+            if not 0 <= at <= len(self.steps):
+                raise PropModelError("A step position must be within the ladder's order.")
+            steps = (*self.steps[:at], step, *self.steps[at:])
         return dataclasses.replace(self, steps=steps)
 
     def without_step(self, step_id: str) -> Ladder:
@@ -228,6 +232,89 @@ class Ladder:
             raise PropModelError("Step order must contain each existing step exactly once.")
         by_id = {step.step_id: step for step in self.steps}
         return dataclasses.replace(self, steps=tuple(by_id[key] for key in step_ids))
+
+
+class PropStore:
+    """Accepted new props in one session; currently the user-clicked ladders.
+
+    Observers hear a name, or None for a bulk load. Mutations are in memory;
+    persistence belongs to the document's mutation target, never an observer.
+    """
+
+    def __init__(self) -> None:
+        self._props: dict[str, Ladder] = {}
+        self._observers: list[Callable[[str | None], None]] = []
+
+    def __len__(self) -> int:
+        return len(self._props)
+
+    def __iter__(self) -> Iterator[Ladder]:
+        return iter(list(self._props.values()))
+
+    def get(self, name: str) -> Ladder | None:
+        """The accepted ladder called *name*, if any."""
+        return self._props.get(name)
+
+    def set(self, name: str, ladder: Ladder | None) -> bool:
+        """Set or remove one prop; report whether its stored value changed."""
+        if ladder is not None and ladder.name != name:
+            raise PropModelError("A prop's stored key must match its name.")
+        if self._props.get(name) == ladder:
+            return False
+        if ladder is None:
+            self._props.pop(name, None)
+        else:
+            self._props[name] = ladder
+        self._notify(name)
+        return True
+
+    def set_step(
+        self, name: str, step_id: str, step: LadderStep | None, position: int | None = None
+    ) -> bool:
+        """Edit one step, retaining every other step by identity and value."""
+        ladder = self.get(name)
+        if ladder is None:
+            raise PropModelError("A step needs an existing ladder.")
+        if step is not None and step.step_id != step_id:
+            raise PropModelError("A step's stored key must match its id.")
+        changed = ladder.without_step(step_id) if step is None else ladder.with_step(step, position)
+        return self.set(name, changed)
+
+    def move_step(self, name: str, step_id: str, position: int) -> bool:
+        """Move one step without reconstructing or editing its observations."""
+        ladder = self.get(name)
+        if ladder is None:
+            raise PropModelError("A step needs an existing ladder.")
+        order = [step.step_id for step in ladder.steps]
+        if step_id not in order or not 0 <= position < len(order):
+            raise PropModelError("A step move needs an existing step and position.")
+        order.insert(position, order.pop(order.index(step_id)))
+        return self.set(name, ladder.reordered(order))
+
+    def load(self, props: Iterable[Ladder]) -> None:
+        """Replace session props with records read from disk."""
+        self._props = {prop.name: prop for prop in props}
+        self._notify(None)
+
+    def clear(self) -> None:
+        """Forget every prop for a new session."""
+        if self._props:
+            self._props.clear()
+            self._notify(None)
+
+    def observe(self, callback: Callable[[str | None], None]) -> Callable[[], None]:
+        """Register a change listener and return its disposer."""
+        self._observers.append(callback)
+
+        def dispose() -> None:
+            if callback in self._observers:
+                self._observers.remove(callback)
+
+        return dispose
+
+    def _notify(self, name: str | None) -> None:
+        for callback in list(self._observers):
+            callback(name)
 
 
 @dataclass(frozen=True)

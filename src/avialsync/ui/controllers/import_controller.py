@@ -439,6 +439,7 @@ def register_tracking_source(
 
         custom_marker_controller.adopt(window)
         wheel_files.adopt(window)
+        window.props_app.adopt()
         if role == "pose3d":
             return
 
@@ -521,6 +522,7 @@ def register_tracking_source(
 
     custom_marker_controller.adopt(window)
     wheel_files.adopt(window)
+    window.props_app.adopt()
 
 
 def calibrate_overlay_timing(window: MainWindow, video: str) -> None:

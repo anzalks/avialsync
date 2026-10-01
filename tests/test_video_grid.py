@@ -93,6 +93,7 @@ class _RecordingPane(QWidget):
         self.point_edits: object | None = None
         self.identity_resolver: object | None = None
         self.point_edit_mode = False
+        self.prop_source: object | None = None
 
     def open(self, _path: str) -> None:
         self.file_loaded.emit()
@@ -126,6 +127,9 @@ class _RecordingPane(QWidget):
 
     def set_wheel_source(self, _source: object) -> None:
         return
+
+    def set_prop_source(self, source: object) -> None:
+        self.prop_source = source
 
 
 def test_overlay_tracks_wait_for_a_pane_that_does_not_exist_yet(monkeypatch, qtbot) -> None:
@@ -179,6 +183,19 @@ def test_broadcast_tracking_readers_reach_a_later_pane(monkeypatch, qtbot) -> No
 
     assert early.tracking_readers == ["reader"]
     assert late.tracking_readers == ["reader"]
+
+
+def test_physical_props_reach_panes_built_after_the_store(monkeypatch, qtbot) -> None:
+    """A later camera gets its own projected prop source before first paint."""
+    monkeypatch.setattr(video_grid, "VideoPane", _RecordingPane)
+    grid = video_grid.VideoGrid()
+    qtbot.addWidget(grid)
+    grid.set_prop_source(lambda path, _time: [path])
+
+    first = grid.add_pane("Front.mp4")
+    second = grid.add_pane("Side.mp4")
+    assert first.prop_source is not None and first.prop_source(0.0) == ["Front.mp4"]
+    assert second.prop_source is not None and second.prop_source(0.0) == ["Side.mp4"]
 
 
 def test_removing_a_camera_releases_its_held_tracks(monkeypatch, qtbot) -> None:

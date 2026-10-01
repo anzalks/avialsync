@@ -5385,3 +5385,8 @@ alter accepted evidence without a user command.
 **Consequences.** The typed core model can be tested against synthetic ground truth for all four
 kinds. Each kind still needs its own placement, fitting, validation, and renderer. The detailed
 slices and app acceptance criteria are in `PHYSICAL_PROPS_PLAN.md`.
+
+The first UI slice adds one Props tab, one registered camera layer, and discovery calls at video
+and pose import. This deliberately raises D-148's reviewed ceilings for `MainWindow.__init__`
+(565→569 lines), the window (3991→4001), and the affected import, video, and session controller
+functions/lines by only their routing calls; prop editing and persistence live in separate modules.

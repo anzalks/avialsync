@@ -20,6 +20,7 @@ from typing import Any
 
 from avialsync.core.custom_markers import CustomMarker
 from avialsync.core.document import MarkerRecord, MutationTarget, SourceRecord
+from avialsync.core.physical_props import Ladder, LadderStep
 from avialsync.core.wheel import Wheel
 
 __all__ = [
@@ -39,6 +40,9 @@ __all__ = [
     "ClearIdentitySwapsCommand",
     "SetCustomMarkerCommand",
     "SetWheelCommand",
+    "SetLadderCommand",
+    "SetLadderStepCommand",
+    "MoveLadderStepCommand",
     "AcceptSyncCommand",
     "AddSourceCommand",
     "RemoveSourceCommand",
@@ -508,6 +512,60 @@ class SetWheelCommand:
         ):
             return None
         return dataclasses.replace(self, after=other.after)
+
+
+@dataclasses.dataclass
+class SetLadderCommand:
+    """Accept or remove one ladder; removal's inverse retains its evidence."""
+
+    name: str
+    before: Ladder | None
+    after: Ladder | None
+    label: str
+    command_id: str = "props.ladder"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_ladder(self.name, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_ladder(self.name, self.before)
+
+
+@dataclasses.dataclass
+class SetLadderStepCommand:
+    """Change one clicked step; other steps are not copied into undo history."""
+
+    ladder_name: str
+    step_id: str
+    before: LadderStep | None
+    after: LadderStep | None
+    label: str
+    position: int | None = None
+    command_id: str = "props.ladder_step"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_ladder_step(self.ladder_name, self.step_id, self.after, self.position)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_ladder_step(self.ladder_name, self.step_id, self.before, self.position)
+
+
+@dataclasses.dataclass
+class MoveLadderStepCommand:
+    """Reorder one step using only its old and new indices."""
+
+    ladder_name: str
+    step_id: str
+    before: int
+    after: int
+    label: str
+    command_id: str = "props.ladder_step_move"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.move_ladder_step(self.ladder_name, self.step_id, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.move_ladder_step(self.ladder_name, self.step_id, self.before)
 
 
 @dataclasses.dataclass

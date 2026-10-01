@@ -15,6 +15,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 from avialsync.core.cache import is_cache_path
 from avialsync.core.custom_markers import is_custom_marker_path
 from avialsync.core.point_edit_sidecar import is_correction_path
+from avialsync.core.prop_file import is_prop_path
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.source import SessionLayout, TimeSeriesSource
 from avialsync.core.wheel_file import is_wheel_path
@@ -101,6 +102,7 @@ class DropScanWorker(QObject):
                     is_correction_path(child)
                     or is_custom_marker_path(child)
                     or is_wheel_path(child)
+                    or is_prop_path(child)
                 ):
                     # Also ours: a corrections file is a CSV, so without this a
                     # folder the user has corrected offers to import the

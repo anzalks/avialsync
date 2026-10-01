@@ -312,6 +312,9 @@ def test_the_new_modules_are_fully_wrapped() -> None:
         "wheel_panel.py",
         "wheel_overlay.py",
         "marker_overlay.py",
+        "props_panel.py",
+        "props_app.py",
+        "prop_overlay.py",
     ):
         path = Path("src/avialsync/ui") / name
         assert untranslated_calls(path) == [], f"{name} has unwrapped user-facing text"

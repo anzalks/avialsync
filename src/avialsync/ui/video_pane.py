@@ -841,6 +841,10 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Where this camera asks for the wheel model, projected into its pixels."""
         self.paint_canvas.set_wheel_source(source)
 
+    def set_prop_source(self, source: Callable[[float], list] | None) -> None:
+        """Draw this camera's clicked physical props."""
+        self.paint_canvas.set_prop_source(source)
+
     def set_marker_place_mode(self, enabled: bool) -> None:
         """Take the next left click as a new 3D marker's position in this camera."""
         self.paint_canvas.set_place_mode(enabled)
@@ -936,6 +940,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.paint_canvas.set_wheel_visible(
             visibility.get("tracking.wheel", True), visibility.get("tracking.wheel_hidden", False)
         )
+        self.paint_canvas.set_props_visible(visibility.get("tracking.props", True))
 
         self.lbl_osd.setVisible(visibility.get("camera.osd", True))
         # Through set_label so an empty name stays hidden either way: a pane

@@ -56,6 +56,7 @@ CustomPointSource = Callable[[float], list[tuple[str, np.ndarray]]]
 #: ``t_master -> [(ends (N, 2, 3), preview, bar diameter)]``: every wheel's bars at *t*
 #: (D-113); the diameter, in world units, is None until one is set (D-128).
 WheelSceneSource = Callable[[float], list[tuple[np.ndarray, bool, float | None]]]
+PropSceneSource = Callable[[float], list[tuple[str, tuple[np.ndarray | None, ...], bool]]]
 #: A wheel is structure, not a tracked point: achromatic, and behind the pose.
 _WHEEL_WEIGHT = 0.40
 _SAMPLE_TOLERANCE_S = 0.1
@@ -284,6 +285,8 @@ class Tracking3DCanvas(QWidget):
         #: Wheels: where to ask, and what it said at ``_time``.
         self._wheel_source: WheelSceneSource | None = None
         self._wheels: list[tuple[np.ndarray, bool, float | None]] = []
+        self._prop_source: PropSceneSource | None = None
+        self._prop_steps: list[tuple[str, tuple[np.ndarray | None, ...], bool]] = []
 
         # Topology the data declared, and topology derived from its geometry.
         # They are kept apart so a declared skeleton is never diluted by a
@@ -343,6 +346,11 @@ class Tracking3DCanvas(QWidget):
     def set_wheel_source(self, source: WheelSceneSource | None) -> None:
         """Ask *source* for every wheel's bars each time the cursor moves."""
         self._wheel_source = source
+        self.set_cursor(self._time)
+
+    def set_prop_source(self, source: PropSceneSource | None) -> None:
+        """Ask for solved physical-prop geometry on cursor changes."""
+        self._prop_source = source
         self.set_cursor(self._time)
 
     @property
@@ -541,6 +549,7 @@ class Tracking3DCanvas(QWidget):
         # Not part of the scene bounds: a wheel is several times the animal's
         # size, and fitting the view to it would shrink the pose to a speck.
         self._wheels = [] if self._wheel_source is None else self._wheel_source(t_master)
+        self._prop_steps = [] if self._prop_source is None else self._prop_source(t_master)
         self._expand_scene_bounds()
         self.update()
 
@@ -673,8 +682,9 @@ class Tracking3DCanvas(QWidget):
         self._draw_grid(painter, width, height, palette)
 
         self._draw_wheels(painter, width, height, palette)
+        self._draw_props(painter, width, height, palette)
         valid_indices = np.flatnonzero(self._valid)
-        if len(valid_indices) == 0 and (self._custom_points or self._wheels):
+        if len(valid_indices) == 0 and (self._custom_points or self._wheels or self._prop_steps):
             self._draw_custom_points(painter, width, height, palette)
             self._draw_corner_axes(painter, width, height)
             return
@@ -717,6 +727,29 @@ class Tracking3DCanvas(QWidget):
 
         self._draw_custom_points(painter, width, height, palette)
         self._draw_corner_axes(painter, width, height)
+
+    def _draw_props(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
+        """Draw only solved step points, without bridging unsolved ones."""
+        painter.setPen(QPen(neutral_on_canvas(palette, _WHEEL_WEIGHT), 2))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        for label, positions, closed in self._prop_steps:
+            screen: list[QPointF | None] = []
+            for position in positions:
+                if position is None:
+                    screen.append(None)
+                else:
+                    xy, _depth = self._project(position.reshape(1, 3), width, height)
+                    screen.append(QPointF(float(xy[0, 0]), float(xy[0, 1])))
+            for index, point in enumerate(screen):
+                if point is None:
+                    continue
+                painter.drawRect(QRect(round(point.x()) - 4, round(point.y()) - 4, 8, 8))
+                if index == 0:
+                    painter.drawText(point + QPointF(7, -6), label)
+                following = index + 1 if index + 1 < len(screen) else 0 if closed else -1
+                other = screen[following] if following >= 0 else None
+                if other is not None:
+                    painter.drawLine(point, other)
 
     def _draw_wheels(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
         """Each wheel: its bars, and the two rims through their ends; dashed until accepted.

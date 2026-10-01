@@ -121,6 +121,7 @@ from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
 from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_for
 from avialsync.ui.pane_proportions import PaneProportions
 from avialsync.ui.plot_pane import PlotPane
+from avialsync.ui.props_app import PropsApp
 from avialsync.ui.readout_panel import ReadoutPanel
 from avialsync.ui.shortcut_overrides import apply_overrides
 from avialsync.ui.splitter import PaneSplitter
@@ -250,6 +251,7 @@ class MainWindow(QMainWindow):
     _act_fix_identities: QAction
     _act_add_marker: QAction
     _act_add_wheel: QAction
+    _act_add_prop: QAction
     _act_synchronize: QAction
     _act_show_original_tracker: QAction
     _act_detach_plots: QAction
@@ -319,6 +321,7 @@ class MainWindow(QMainWindow):
         self.wheels = WheelStore()
         self.wheels.observe(self._on_wheels_changed)
         self.wheel_state = WheelState()
+        self.props_app = PropsApp(self)
         #: One callable, so the grid can tell "no wheel" from "same wheel source".
         self.wheel_state.pane_source = lambda path, t: wheel_display.pane_drawing(self, path, t)
         #: Accepted identity swaps (D-141): which lanes exchanged labels and
@@ -506,7 +509,9 @@ class MainWindow(QMainWindow):
         self.video_grid.set_reprojection_source(
             lambda path, t: calibration_controller.reprojected(self, path, t)
         )
+        self.video_grid.set_prop_source(self.props_app.camera_drawing)
         self.tracking_3d_pane.canvas.set_wheel_source(lambda t: wheel_display.scene(self, t))
+        self.tracking_3d_pane.canvas.set_prop_source(self.props_app.scene_steps)
         self.plot_pane = PlotPane(self)
         self.transport = Transport(self)
         self.data_streams = self.transport.detach_data_streams()
@@ -627,6 +632,7 @@ class MainWindow(QMainWindow):
         self._left_tabs.addTab(self.message_panel, tr("Messages"))
         self._left_tabs.addTab(self.changes_panel, tr("Changes"))
         self._left_tabs.addTab(self.wheel_tab, tr("Wheels"))
+        self._left_tabs.addTab(self.props_app.make_panel(), tr("Props"))
         # Last tab: consulted when something is taking longer than expected,
         # which is not most of the time.
         self._left_tabs.addTab(self.jobs_panel, tr("Tasks"))
@@ -2252,19 +2258,23 @@ class MainWindow(QMainWindow):
         if getattr(self, "wheel_panel", None) is not None:
             wheel_display.refresh(self)
 
-    def _cancel_competing_placement(self, starting: Literal["marker", "wheel"]) -> None:
+    def _cancel_competing_placement(self, starting: Literal["marker", "wheel", "prop"]) -> None:
         """Give the shared video click to the placement starting now."""
-        if starting == "wheel":
+        if starting != "marker":
             custom_marker_controller.cancel(self)
-        else:
+        if starting != "wheel":
             wheel_controller.cancel(self, tr("Wheel not added."))
             wheel_controller.stop_checking(self)
+        if starting != "prop":
+            self.props_app.cancel_step()
 
     def _on_marker_clicked(self, path: str, x: float, y: float) -> None:
         """A placement click in a pane: a wheel's, when one is being placed or checked.
 
         Otherwise a 3D marker's. The two placements never run at once.
         """
+        if self.props_app.on_clicked(path, x, y):
+            return
         if not wheel_controller.on_clicked(self, path, x, y):
             custom_marker_controller.on_clicked(self, path, x, y)
 

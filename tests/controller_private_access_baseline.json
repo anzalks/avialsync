@@ -8,10 +8,10 @@
     },
     "import_controller.py": {
       "on_import_finished": 149,
-      "register_tracking_source": 129
+      "register_tracking_source": 131
     },
     "main_window.py": {
-      "__init__": 565,
+      "__init__": 569,
       "_accept_sync_proposal": 110,
       "_on_pane_right_clicked": 74,
       "_open_sync_wizard": 68,
@@ -19,18 +19,18 @@
     },
     "session_controller.py": {
       "build_session_state": 81,
-      "reset_session": 137,
+      "reset_session": 138,
       "restore_session": 141,
       "start_session_save": 64
     },
     "video_controller.py": {
-      "create_video_pane": 127
+      "create_video_pane": 129
     }
   },
-  "main_window_lines": 3991,
+  "main_window_lines": 4001,
   "oversized_controller_lines": {
-    "import_controller.py": 696,
-    "session_controller.py": 837
+    "import_controller.py": 698,
+    "session_controller.py": 838
   },
   "private_accesses": {
     "calibration_controller.py": {

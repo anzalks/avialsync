@@ -431,6 +431,7 @@ def reset_session(window: MainWindow) -> None:
     window._calibration_state = None
     window._announced_marker_files = False
     wheel_controller.reset(window)
+    window.props_app.reset()
     window._point_edit_storage.clear()
     window._expected_correction_counts.clear()
     window._swap_storage.clear()

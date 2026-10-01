@@ -54,6 +54,7 @@ class GridOverlayMixin:
         self._reprojection: Callable[[str, float], list] | None = None
         #: ``(path, t_master) -> WheelDrawing``: the wheel model in a camera (D-113).
         self._wheel: Callable[[str, float], object] | None = None
+        self._props: Callable[[str, float], list] | None = None
 
     def _apply_held_overlays(self, pane: VideoPane, path: str) -> None:
         """Give a pane built now whatever already resolved for its camera."""
@@ -78,6 +79,8 @@ class GridOverlayMixin:
             pane.set_reprojection_source(self._reprojection_for(path))
         if self._wheel is not None:
             pane.set_wheel_source(self._wheel_for(path))
+        if self._props is not None:
+            pane.set_prop_source(self._props_for(path))
 
     def set_tracking_readers(self, readers: list) -> None:
         """Pass tracking data readers to all video panes for overlay rendering.
@@ -185,6 +188,16 @@ class GridOverlayMixin:
         if source is None:
             return None
         return lambda t: source(path, t)
+
+    def set_prop_source(self, source: Callable[[str, float], list] | None) -> None:
+        """Give current and future camera panes their prop drawings."""
+        self._props = source
+        for path, pane in zip(self._paths, self.panes, strict=False):
+            pane.set_prop_source(self._props_for(path))
+
+    def _props_for(self, path: str) -> Callable[[float], list] | None:
+        source = self._props
+        return None if source is None else lambda t: source(path, t)
 
     def _reprojection_for(self, path: str) -> Callable[[float], list] | None:
         source = self._reprojection

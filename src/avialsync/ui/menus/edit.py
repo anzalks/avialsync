@@ -99,3 +99,8 @@ def _edit_geometry(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None
     _reg(window._act_add_wheel, "Edit")
     window.view_toolbar.install_add_wheel_action(window._act_add_wheel)
     window.wheel_tab.install_add_action(window._act_add_wheel)
+
+    window._act_add_prop = edit_menu.addAction(tr("Add Physical Prop…"))
+    window._act_add_prop.setToolTip(tr("Open the physical props inspector"))
+    window._act_add_prop.triggered.connect(window.props_app.show)
+    _reg(window._act_add_prop, "Edit")

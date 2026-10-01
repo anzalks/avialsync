@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from avialsync.core.custom_markers import CustomMarker
+    from avialsync.core.physical_props import Ladder, LadderStep
     from avialsync.core.wheel import Wheel
 
 __all__ = [
@@ -176,6 +177,17 @@ class MutationTarget(Protocol):
         resolved before the command was built, so replaying it needs neither the
         calibration nor the encoder. None removes it from every view.
         """
+
+    def set_ladder(self, name: str, ladder: Ladder | None) -> None:
+        """Accept or remove one physical prop, preserving its click evidence."""
+
+    def set_ladder_step(
+        self, name: str, step_id: str, step: LadderStep | None, position: int | None = None
+    ) -> None:
+        """Change one ladder step without copying the other steps into history."""
+
+    def move_ladder_step(self, name: str, step_id: str, position: int) -> None:
+        """Change one step's position without storing all its neighbours."""
 
     def add_source(self, record: SourceRecord) -> None:
         """Load a source back into the workspace."""

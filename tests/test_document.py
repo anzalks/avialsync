@@ -37,6 +37,7 @@ from avialsync.core.document import (
     SourceRecord,
 )
 from avialsync.core.identity_swaps import SwapEvent, SwapGroup
+from avialsync.core.physical_props import Ladder, LadderStep, PropStore
 
 
 class FakeTarget:
@@ -55,6 +56,7 @@ class FakeTarget:
         self.original_tracker_visible = False
         self.custom_markers: dict[tuple[str, int], Any] = {}
         self.wheels: dict[str, Any] = {}
+        self.props = PropStore()
         self.sources: dict[str, SourceRecord] = {}
         self.sync_evidence: dict[str, Any] = {}
         self.cleared = 0
@@ -131,6 +133,17 @@ class FakeTarget:
             self.wheels.pop(name, None)
         else:
             self.wheels[name] = wheel
+
+    def set_ladder(self, name: str, ladder: Ladder | None) -> None:
+        self.props.set(name, ladder)
+
+    def set_ladder_step(
+        self, name: str, step_id: str, step: LadderStep | None, position: int | None = None
+    ) -> None:
+        self.props.set_step(name, step_id, step, position)
+
+    def move_ladder_step(self, name: str, step_id: str, position: int) -> None:
+        self.props.move_step(name, step_id, position)
 
     def add_source(self, record: SourceRecord) -> None:
         self.sources[record.source_id] = record

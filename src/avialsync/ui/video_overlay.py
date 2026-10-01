@@ -21,6 +21,7 @@ from avialsync.core.point_edits import PointKey
 from avialsync.core.pose import split_channel
 from avialsync.ui.marker_overlay import MarkerOverlayMixin, ResolvedPoint
 from avialsync.ui.overlay_registry import default_visible_for
+from avialsync.ui.prop_overlay import draw_props
 from avialsync.ui.tracking_colors import color_for_point
 from avialsync.ui.wheel_overlay import draw_wheel, draw_wheel_clicks
 
@@ -265,7 +266,8 @@ class PaintCanvas(MarkerOverlayMixin):
         # The wheel is its own layer, not a kind of point: hiding the tracking
         # must not hide the wheel the animal is running on, or the reverse.
         wheel = self._wheel(self.t) if self._wheel is not None else None
-        if not draw_points and wheel is None:
+        props = self._props(self.t) if self._props is not None and self._props_visible else []
+        if not draw_points and wheel is None and not props:
             return
         geometry = self._video_scale()
         if geometry is None:
@@ -274,6 +276,9 @@ class PaintCanvas(MarkerOverlayMixin):
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        if props:
+            draw_props(painter, props, scale, offset_x, offset_y)
 
         if wheel is not None:
             # Under the tracking, so a bar never hides the paw standing on it.

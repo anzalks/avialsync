@@ -20,7 +20,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 
 from avialsync.core.point_edits import PointKey
+from avialsync.ui.overlay_registry import default_visible_for
 from avialsync.ui.point_edit_tool import CUSTOM_MARKER_SOURCE, PointEditMixin
+from avialsync.ui.prop_overlay import PropDrawing
 from avialsync.ui.tracking_colors import color_for_point
 from avialsync.ui.wheel_overlay import WheelDrawing
 
@@ -86,6 +88,18 @@ class MarkerOverlayMixin(PointEditMixin):
         self._wheel: Callable[[float], WheelDrawing | None] | None = None
         self._wheel_visible = True
         self._wheel_hidden_visible = False
+        self._props: Callable[[float], list[PropDrawing]] | None = None
+        self._props_visible = default_visible_for("tracking.props")
+
+    def set_prop_source(self, source: Callable[[float], list[PropDrawing]] | None) -> None:
+        """Ask for this camera's accepted and currently clicked props."""
+        self._props = source
+        self.update()
+
+    def set_props_visible(self, visible: bool) -> None:
+        """Apply the registered props overlay switch."""
+        self._props_visible = visible
+        self.update()
 
     def set_custom_markers(self, markers: dict[int, list[tuple[str, float, float]]]) -> None:
         """Replace this camera's hand-placed 3D markers, keyed by video frame."""

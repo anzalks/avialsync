@@ -266,6 +266,32 @@ class WindowMutationTarget:
             if window.wheels.set(name, value):
                 wheel_files.persist(window, name)
 
+    def set_ladder(self, name: str, ladder: object) -> None:
+        """Accept a ladder through the same undo and persistence funnel."""
+        from avialsync.core.physical_props import Ladder
+
+        value = ladder if isinstance(ladder, Ladder) else None
+        with self.replaying():
+            if self._window.props_app.store.set(name, value):
+                self._window.props_app.persist(name)
+
+    def set_ladder_step(
+        self, name: str, step_id: str, step: object, position: int | None = None
+    ) -> None:
+        """Edit one step; its neighbours remain untouched."""
+        from avialsync.core.physical_props import LadderStep
+
+        value = step if isinstance(step, LadderStep) else None
+        with self.replaying():
+            if self._window.props_app.store.set_step(name, step_id, value, position):
+                self._window.props_app.persist(name)
+
+    def move_ladder_step(self, name: str, step_id: str, position: int) -> None:
+        """Reorder a step through the accepted store and sidecar queue."""
+        with self.replaying():
+            if self._window.props_app.store.move_step(name, step_id, position):
+                self._window.props_app.persist(name)
+
     # ── sources ──────────────────────────────────────────────────────
 
     def add_source(self, record: SourceRecord) -> None:

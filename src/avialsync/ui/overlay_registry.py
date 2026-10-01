@@ -120,6 +120,16 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         ),
     ),
     OverlayLayer(
+        overlay_id="tracking.props",
+        label="Physical props",
+        group="Tracking",
+        default_visible=True,
+        description=(
+            "User-clicked ladder steps: solid squares mark actual camera clicks; "
+            "dashed squares and lines mark projections from accepted 3D geometry."
+        ),
+    ),
+    OverlayLayer(
         overlay_id="tracking.reprojection",
         label="3D reprojection",
         group="Tracking",

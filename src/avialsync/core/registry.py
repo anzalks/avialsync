@@ -14,6 +14,7 @@ from typing import Protocol, TypeVar
 
 from avialsync.core.custom_markers import is_custom_marker_path
 from avialsync.core.point_edit_sidecar import is_correction_path
+from avialsync.core.prop_file import is_prop_path
 from avialsync.core.source import SessionSource, TimeSeriesSource, TriggerSource, VideoSource
 from avialsync.core.wheel_file import is_wheel_path
 
@@ -374,7 +375,12 @@ class LoaderRegistry:
         they belong to (D-099). One place, so a plugin cannot reintroduce it.
         """
         self.ensure_discovered()
-        if is_correction_path(path) or is_custom_marker_path(path) or is_wheel_path(path):
+        if (
+            is_correction_path(path)
+            or is_custom_marker_path(path)
+            or is_wheel_path(path)
+            or is_prop_path(path)
+        ):
             return None
         return self._best_by_capability(self._loaders, path, "loader")
 

@@ -276,12 +276,14 @@ def create_video_pane(
     # Video-only recordings have no pose-source registration to discover their
     # wheel files. A background read also lets later panes reuse the result.
     wheel_files.adopt(window)
+    window.props_app.adopt()
     # Wheels and markers read back before this camera opened are drawn through
     # the calibration, which may now cover it: extend it, then draw them here.
-    if len(window.wheels) or len(window.custom_markers):
+    if len(window.wheels) or len(window.custom_markers) or len(window.props_app.store):
         calibration_controller.calibration_quietly(window)
         wheel_display.refresh(window)
         custom_marker_controller.refresh(window)
+        window.props_app.refresh()
     # The pane reports what the recording turned out to be once it has decoded
     # a frame; the levels panel sizes itself from that rather than guessing.
     pane.source_format_detected.connect(
