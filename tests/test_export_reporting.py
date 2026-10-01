@@ -130,10 +130,27 @@ def test_a_stimulus_grid_export_is_a_registered_job(window: MainWindow, tmp_path
 
 
 def test_a_finished_stimulus_grid_reports_without_a_modal(window: MainWindow) -> None:
-    export_controller.on_stimulus_grid_export_finished(window, "/data/comparison.mp4")
+    export_controller.on_stimulus_grid_export_finished(window, "/data/comparison.mp4", False)
 
-    assert "comparison.mp4" in window.notifications.message
+    assert "/data/comparison.mp4" in window.notifications.message
     assert window.notifications.is_sticky is False
+
+
+def test_replaced_stimulus_grid_reports_replacement(window: MainWindow) -> None:
+    export_controller.on_stimulus_grid_export_finished(window, "/data/comparison.mp4", True)
+
+    assert "Replaced" in window.notifications.message
+    assert "/data/comparison.mp4" in window.notifications.message
+    assert "Reopen" in window.notifications.message
+
+
+def test_stimulus_grid_path_always_has_an_mp4_suffix(tmp_path) -> None:
+    assert export_controller._mp4_output_path(str(tmp_path / "comparison")) == (
+        tmp_path / "comparison.mp4"
+    )
+    assert export_controller._mp4_output_path(str(tmp_path / "comparison.avi")) == (
+        tmp_path / "comparison.mp4"
+    )
 
 
 def test_stimulus_grid_action_explains_its_missing_inputs(window: MainWindow) -> None:

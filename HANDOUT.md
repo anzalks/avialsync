@@ -140,17 +140,24 @@ Two product laws govern that phase and outrank convention:
 - Snapshot / data slice / video clip export
 - Stimulus-grid MP4 export: select a sensor rising threshold and event window, review events on a
   decimated timeline, then compare camera rows across up to twelve event columns above one shared,
-  event-aligned signal trace and relative-time ruler. One-pixel seams join the video tiles, and a
-  registered, locked frame-number badge inside each tile shows that camera's absolute zero-based
-  frame index. The trace uses
+  event-aligned signal trace and relative-time ruler. One-pixel seams join the video tiles; camera
+  names and event labels stay outside the tiles, with no per-frame badge. The trace uses
   bounded pyramid queries of the selected channel on the export worker, preserving its accepted
   TimeMap and gaps. Export snapshots accepted camera mappings and display levels, and runs as a
   registered background job. Base output cadence and playback speed are separate: the dialog
   offers the player's rate presets plus a precise custom rate and previews output duration.
-  Export merges mapped presentation timestamps from every camera and event column into one
-  variable-rate MP4, then fills long gaps at the chosen base cadence. The 230 fps fixture now
-  retains every frame at 1x, slow speed, and 2x; the encoder writes explicit packet durations so
-  the last frame ends at the selected window. The composite is still resized, lossy H.264.
+  Export merges mapped camera-change candidates with cursor ticks into one rate-capped, variable-
+  timestamp MP4. The dialog defaults to 10 composite frames per second; transitions between
+  output timestamps are sampled rather than all encoded. Slow motion retains transitions when
+  they fit the selected output rate. The encoder writes explicit packet durations so the last frame
+  ends at the selected window. Static labels and TTL envelopes are rendered once per export; the
+  moving cursor and camera tiles change per output frame. Frame-number badges are omitted. The grid
+  uses an ultrafast H.264 encoder preset to favor export speed. The composite is still resized,
+  lossy H.264.
+  The worker atomically replaces an existing MP4 after encoding; its finished signal identifies
+  replacements so the UI tells users to reopen a player that may still hold the previous file.
+  Cancelled or failed publishes leave the previous file intact. The app-driven demo checks the
+  success notification, so an existing output can no longer mask a failed export.
   The reproducible screenshots and default two-second MP4 come from the app's
   File export action, driven by `tools/generate_stimulus_grid_demo.py`:
   three synthetic camera angles on a muted gray scene with movement and a transient off-white point

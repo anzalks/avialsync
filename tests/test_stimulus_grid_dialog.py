@@ -37,6 +37,13 @@ def test_dialog_shows_first_event_window_and_limits_selected_events(qtbot, tmp_p
     assert "0.500000 to 2.500000 s" in dialog.event_details.text()
     assert "Video length: 2.00 s at 1x" in dialog.event_details.text()
     assert dialog.custom_speed_spin.isHidden()
+    assert dialog.fps_spin.value() == 10
+    assert dialog.fps_spin.accessibleName() == "Cursor update rate"
+    assert not dialog.high_detail()
+
+    dialog.output_detail_combo.setCurrentIndex(1)
+    assert dialog.high_detail()
+    dialog.output_detail_combo.setCurrentIndex(0)
 
     preset = dialog.speed_combo.findData(0.1)
     dialog.speed_combo.setCurrentIndex(preset)

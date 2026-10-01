@@ -21,7 +21,8 @@ from avialsync.engine.pyav_reader import PyAVReader
 from avialsync.engine.stimulus_grid_trace import (
     GridSignal,
     GridTrace,
-    draw_signal_trace,
+    draw_signal_trace_background,
+    draw_signal_trace_cursor,
 )
 from avialsync.engine.stimulus_grid_trace import (
     read_signal_traces as _read_signal_traces,
@@ -36,7 +37,10 @@ from avialsync.engine.transcode import (
 MAX_GRID_EVENTS = 12
 MAX_OUTPUT_WIDTH = 2560
 MAX_OUTPUT_HEIGHT = 4320
+MAX_HIGH_DETAIL_WIDTH = 3840
+MAX_HIGH_DETAIL_HEIGHT = 2160
 _MAX_CELL_WIDTH = 640
+_MAX_HIGH_DETAIL_CELL_WIDTH = 1920
 _LEFT_GUTTER = 110
 _RIGHT_GUTTER = 28
 _TOP_BAND = 44
@@ -70,14 +74,18 @@ class GridLayout:
     cell_width: int
     cell_height: int
     bottom_band: int
+    cell_heights: tuple[int, ...] = ()
 
     def cell_rect(self, camera_index: int, event_index: int) -> QRect:
         """Return the image bounds for one camera and event."""
+        row_heights = self.cell_heights or (self.cell_height,) * (camera_index + 1)
+        row_height = row_heights[camera_index]
+        row_offset = sum(row_heights[:camera_index]) + camera_index * _GAP
         return QRect(
             _LEFT_GUTTER + event_index * (self.cell_width + _GAP),
-            _TOP_BAND + _COLUMN_LABEL_HEIGHT + camera_index * (self.cell_height + _GAP),
+            _TOP_BAND + _COLUMN_LABEL_HEIGHT + row_offset,
             self.cell_width,
-            self.cell_height,
+            row_height,
         )
 
 
@@ -101,6 +109,9 @@ def plan_grid(
     after: float,
     *,
     has_signal: bool = False,
+    high_detail: bool = False,
+    cell_aspect_ratio: float = 16 / 9,
+    cell_aspect_ratios: Sequence[float] | None = None,
 ) -> GridLayout:
     """Validate a grid request and calculate its fixed output dimensions."""
     if video_count < 1:
@@ -112,23 +123,43 @@ def plan_grid(
     duration = before + after
     if not np.isfinite(duration):
         raise ExportError("The combined stimulus window must be finite.")
+    aspect_ratios = (
+        (cell_aspect_ratio,) * video_count
+        if cell_aspect_ratios is None
+        else tuple(cell_aspect_ratios)
+    )
+    if len(aspect_ratios) != video_count or any(
+        not np.isfinite(ratio) or ratio <= 0 for ratio in aspect_ratios
+    ):
+        raise ExportError("Each camera must have a finite, positive aspect ratio.")
+    max_width, max_height, max_cell_width = (
+        (MAX_HIGH_DETAIL_WIDTH, MAX_HIGH_DETAIL_HEIGHT, _MAX_HIGH_DETAIL_CELL_WIDTH)
+        if high_detail
+        else (MAX_OUTPUT_WIDTH, MAX_OUTPUT_HEIGHT, _MAX_CELL_WIDTH)
+    )
     bottom_band = _SIGNAL_BAND if has_signal else _RULER_BAND
-    available = MAX_OUTPUT_WIDTH - _LEFT_GUTTER - _RIGHT_GUTTER - _GAP * (event_count - 1)
-    height_for_cells = (
-        MAX_OUTPUT_HEIGHT - _TOP_BAND - _COLUMN_LABEL_HEIGHT - bottom_band - video_count * _GAP
-    ) // video_count
-    width_for_height = int(height_for_cells * 16 / 9)
-    cell_width = min(_MAX_CELL_WIDTH, available // event_count, width_for_height)
+    available = max_width - _LEFT_GUTTER - _RIGHT_GUTTER - _GAP * (event_count - 1)
+    height_for_rows = max_height - _TOP_BAND - _COLUMN_LABEL_HEIGHT - bottom_band
+    height_for_rows -= _GAP * (video_count - 1)
+    width_for_height = int(height_for_rows / sum(1 / ratio for ratio in aspect_ratios))
+    cell_width = min(max_cell_width, available // event_count, width_for_height)
     if cell_width < 96:
         raise ExportError("Too many cameras or events to fit in the export grid.")
-    cell_height = round(cell_width * 9 / 16)
+    cell_heights = tuple(round(cell_width / ratio) for ratio in aspect_ratios)
+    cell_height = max(cell_heights)
     width = _LEFT_GUTTER + event_count * cell_width + (event_count - 1) * _GAP + _RIGHT_GUTTER
-    height = _TOP_BAND + _COLUMN_LABEL_HEIGHT + video_count * (cell_height + _GAP) + bottom_band
-    if height > MAX_OUTPUT_HEIGHT:
+    height = (
+        _TOP_BAND
+        + _COLUMN_LABEL_HEIGHT
+        + sum(cell_heights)
+        + _GAP * (video_count - 1)
+        + bottom_band
+    )
+    if height > max_height:
         raise ExportError("Too many cameras to fit in the export grid.")
     width += width % 2
     height += height % 2
-    return GridLayout(width, height, cell_width, cell_height, bottom_band)
+    return GridLayout(width, height, cell_width, cell_height, bottom_band, cell_heights)
 
 
 def export_stimulus_grid(
@@ -142,14 +173,15 @@ def export_stimulus_grid(
     fps: int = 30,
     playback_speed: float = 1.0,
     signal: GridSignal | None = None,
+    high_detail: bool = False,
     progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
 ) -> None:
     """Encode cameras as rows and selected event windows as columns.
 
-    Every column advances through the same relative-time window. Each source
-    frame transition is retained at its mapped presentation time; ``fps`` sets
-    the base cadence between transitions. Missing coverage is explicit.
+    Every column advances through the same relative-time window. ``fps`` caps
+    composite updates; camera tiles sample their mapped frame at each output
+    time. Selected timestamps remain variable-rate and missing coverage is explicit.
     """
     if fps < 1 or fps > 120:
         raise ExportError("Output frame rate must be between 1 and 120 fps.")
@@ -164,20 +196,36 @@ def export_stimulus_grid(
         right <= left for left, right in zip(events, events[1:], strict=False)
     ):
         raise ExportError("Stimulus event times must be finite and strictly increasing.")
-    layout = plan_grid(len(videos), len(events), before, after, has_signal=signal is not None)
     duration = before + after
     output_duration = duration / playback_speed
     destination.parent.mkdir(parents=True, exist_ok=True)
-    traces = _read_signal_traces(signal, events, before, after, layout.width) if signal else ()
 
     with ExitStack() as stack:
         readers: dict[int, tuple[PyAVReader, TimeMap, tuple[float, float]]] = {}
+        aspect_ratios: list[float] = []
         for video_index, video in enumerate(videos):
             reader = stack.enter_context(PyAVReader(video.path, max_cached_frames=2))
             reader.stream.thread_type = "SLICE"
+            codec = reader.stream.codec_context
+            aspect_ratios.append(
+                codec.width / codec.height if codec.width > 0 and codec.height > 0 else 16 / 9
+            )
             time_map = video.time_map
             bounds = _reader_bounds(reader, time_map)
             readers[video_index] = (reader, time_map, bounds)
+        layout = plan_grid(
+            len(videos),
+            len(events),
+            before,
+            after,
+            has_signal=signal is not None,
+            high_detail=high_detail,
+            cell_aspect_ratios=aspect_ratios,
+        )
+        traces = _read_signal_traces(signal, events, before, after, layout.width) if signal else ()
+        background = _render_background(
+            videos, events, layout, before, after, labels, signal, traces
+        )
 
         def frames() -> Iterator[tuple[np.ndarray, float]]:
             for output_time in _frame_schedule(readers, events, before, after, fps, playback_speed):
@@ -195,6 +243,7 @@ def export_stimulus_grid(
                     labels,
                     signal=signal,
                     traces=traces,
+                    background=background,
                 )
                 yield _image_to_rgb(image), output_time
 
@@ -208,6 +257,8 @@ def export_stimulus_grid(
             rate=Fraction(fps, 1),
             time_base=Fraction(1, _OUTPUT_TICKS_PER_SECOND),
             end_seconds=output_duration,
+            encoder_preset="ultrafast",
+            encoder_crf="17",
             progress=report_progress if progress is not None else None,
             should_cancel=should_cancel,
         )
@@ -223,7 +274,7 @@ def _frame_schedule(
     fps: int,
     playback_speed: float,
 ) -> Iterator[float]:
-    """Merge each tile's real frame changes into one presentation timeline."""
+    """Merge cursor ticks and camera changes without exceeding the output rate."""
     ticks_per_second = _OUTPUT_TICKS_PER_SECOND
     end_tick = int(round((before + after) * ticks_per_second / playback_speed))
     step_ticks = max(1, round(ticks_per_second / fps))
@@ -263,6 +314,8 @@ def _frame_schedule(
         while tick - previous > step_ticks + cadence_tolerance:
             previous += step_ticks
             yield previous / ticks_per_second
+        if tick - previous < step_ticks - cadence_tolerance:
+            continue
         previous = tick
         yield tick / ticks_per_second
     while end_tick - previous > step_ticks + cadence_tolerance:
@@ -298,13 +351,15 @@ def _render_frame(
     *,
     signal: GridSignal | None = None,
     traces: Sequence[GridTrace] = (),
+    background: QImage | None = None,
 ) -> QImage:
-    """Compose decoded tiles with frame badges and the shared timing region."""
-    image = QImage(layout.width, layout.height, QImage.Format.Format_RGB888)
-    image.fill(QColor("#101719"))
+    """Compose decoded tiles with the shared timing region."""
+    static = background or _render_background(
+        videos, events, layout, before, after, labels, signal, traces
+    )
+    image = static.copy()
     painter = QPainter(image)
     painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-    _draw_grid_labels(painter, videos, events, layout, labels)
 
     for video_index, video in enumerate(videos):
         reader, time_map, bounds = readers[video_index]
@@ -321,24 +376,48 @@ def _render_frame(
             )
 
     if signal is not None:
-        draw_signal_trace(
+        draw_signal_trace_cursor(
             painter,
-            QRect(
-                _LEFT_GUTTER,
-                layout.height - layout.bottom_band + 29,
-                layout.width - _LEFT_GUTTER - _RIGHT_GUTTER,
-                145,
-            ),
-            traces,
-            signal,
+            _trace_area(layout),
             before,
             after,
             relative_time,
-            labels.no_signal,
             labels.current,
         )
     else:
         _draw_ruler(painter, layout, before, after, relative_time, labels)
+    painter.end()
+    return image
+
+
+def _trace_area(layout: GridLayout) -> QRect:
+    return QRect(
+        _LEFT_GUTTER,
+        layout.height - layout.bottom_band + 29,
+        layout.width - _LEFT_GUTTER - _RIGHT_GUTTER,
+        145,
+    )
+
+
+def _render_background(
+    videos: Sequence[GridVideo],
+    events: Sequence[float],
+    layout: GridLayout,
+    before: float,
+    after: float,
+    labels: GridLabels,
+    signal: GridSignal | None,
+    traces: Sequence[GridTrace],
+) -> QImage:
+    """Cache labels and the shared trace that do not change between frames."""
+    image = QImage(layout.width, layout.height, QImage.Format.Format_RGB888)
+    image.fill(QColor("#101719"))
+    painter = QPainter(image)
+    _draw_grid_labels(painter, videos, events, layout, labels)
+    if signal is not None:
+        draw_signal_trace_background(
+            painter, _trace_area(layout), traces, signal, before, after, labels.no_signal
+        )
     painter.end()
     return image
 
@@ -373,7 +452,7 @@ def _draw_grid_labels(
         first_cell = layout.cell_rect(video_index, 0)
         painter.setPen(QColor("#c3d1cd"))
         painter.drawText(
-            QRect(8, first_cell.y(), _LEFT_GUTTER - 16, layout.cell_height),
+            QRect(8, first_cell.y(), _LEFT_GUTTER - 16, first_cell.height()),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             video.label,
         )
@@ -389,7 +468,7 @@ def _draw_camera_tile(
     master_time: float,
     labels: GridLabels,
 ) -> None:
-    """Draw one decoded camera frame and its absolute index inside the tile."""
+    """Draw one decoded camera frame inside its tile."""
     if bounds[0] <= master_time < bounds[1]:
         frame_index = reader.index_at_time(time_map.to_source(master_time))
         frame = reader.frame_at_index(frame_index)
@@ -414,27 +493,10 @@ def _draw_camera_tile(
             fitted.height(),
         )
         painter.drawImage(image_rect, fitted)
-        _draw_frame_badge(painter, image_rect, labels.frame.format(index=frame_index))
     else:
         painter.fillRect(cell, QColor("#20292b"))
         painter.setPen(QColor("#c3d1cd"))
         painter.drawText(cell, Qt.AlignmentFlag.AlignCenter, labels.no_footage)
-
-
-def _draw_frame_badge(painter: QPainter, cell: QRect, caption: str) -> None:
-    """Keep the frame index readable against light and dark camera footage."""
-    font = QFont("Arial", 12, QFont.Weight.DemiBold)
-    painter.setFont(font)
-    metrics = painter.fontMetrics()
-    while metrics.horizontalAdvance(caption) > cell.width() - 20 and font.pointSize() > 6:
-        font.setPointSize(font.pointSize() - 1)
-        painter.setFont(font)
-        metrics = painter.fontMetrics()
-    badge_width = min(cell.width() - 8, metrics.horizontalAdvance(caption) + 12)
-    badge = QRect(cell.x() + 4, cell.bottom() - 29, badge_width, 26)
-    painter.fillRect(badge, QColor(16, 23, 25, 210))
-    painter.setPen(QColor("#f1f4f2"))
-    painter.drawText(badge.adjusted(6, 0, -3, 0), Qt.AlignmentFlag.AlignVCenter, caption)
 
 
 def _draw_ruler(

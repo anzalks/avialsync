@@ -97,9 +97,12 @@ def test_bench_three_camera_twelve_event_wide_grid(benchmark, tmp_path, qapp) ->
     assert benchmark.stats.stats.median < _GRID_BUDGET_S
 
 
+@pytest.mark.parametrize(("fps", "playback_speed"), [(30, 0.130435), (10, 1.0)])
 @pytest.mark.benchmark(group="stimulus-grid-export")
-def test_bench_high_frame_rate_slow_motion_grid(benchmark, tmp_path, qapp) -> None:
-    """Render a 230 fps source frame sequence at 30 output fps and 0.130435x."""
+def test_bench_high_frame_rate_grid(
+    benchmark, tmp_path, qapp, fps: int, playback_speed: float
+) -> None:
+    """Measure a 230 fps source in slow motion and rate-capped real time."""
     source = tmp_path / "high_speed.mp4"
     output = tmp_path / "slow_grid.mp4"
     frame = np.full((72, 128, 3), (80, 120, 160), dtype=np.uint8)
@@ -121,9 +124,39 @@ def test_bench_high_frame_rate_slow_motion_grid(benchmark, tmp_path, qapp) -> No
         0.2,
         output,
         _LABELS,
-        fps=30,
-        playback_speed=0.130435,
+        fps=fps,
+        playback_speed=playback_speed,
         signal=signal,
+    )
+
+    if benchmark.stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert benchmark.stats.stats.median < _GRID_BUDGET_S
+
+
+@pytest.mark.benchmark(group="stimulus-grid-export")
+def test_bench_high_detail_four_event_grid(benchmark, tmp_path, qapp) -> None:
+    """Measure the UHD profile with generated low-resolution camera fixtures."""
+    source = tmp_path / "camera.mp4"
+    output = tmp_path / "high_detail_comparison.mp4"
+    frame = np.full((72, 128, 3), (80, 120, 160), dtype=np.uint8)
+    encode_video(
+        source,
+        ((frame, index / 10) for index in range(31)),
+        rate=Fraction(10, 1),
+    )
+    videos = tuple(GridVideo(source, f"Camera {index}") for index in range(3))
+
+    benchmark(
+        export_stimulus_grid,
+        videos,
+        (0.5, 1.0, 1.5, 2.0),
+        0.2,
+        0.4,
+        output,
+        _LABELS,
+        fps=10,
+        high_detail=True,
     )
 
     if benchmark.stats is None:

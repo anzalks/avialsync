@@ -3089,9 +3089,9 @@ class MainWindow(QMainWindow):
     def _export_stimulus_grid(self) -> None:
         export_controller.export_stimulus_grid(self)
 
-    @Slot(str)
-    def _on_stimulus_grid_export_finished(self, path: str) -> None:
-        export_controller.on_stimulus_grid_export_finished(self, path)
+    @Slot(str, bool)
+    def _on_stimulus_grid_export_finished(self, path: str, replaced: bool) -> None:
+        export_controller.on_stimulus_grid_export_finished(self, path, replaced)
 
     @Slot(str)
     def _on_stimulus_grid_export_error(self, error: str) -> None:

@@ -144,11 +144,11 @@ class StimulusGridDialog(QDialog):
         self.after_spin = self._seconds_spin(0.001, 600, 1.5, tr("Time after stimulus"))
         self.fps_spin = QSpinBox(self)
         self.fps_spin.setRange(1, 120)
-        self.fps_spin.setValue(30)
+        self.fps_spin.setValue(10)
         self.fps_spin.setSuffix(tr(" fps"))
-        self.fps_spin.setAccessibleName(tr("Base output frame rate"))
+        self.fps_spin.setAccessibleName(tr("Cursor update rate"))
         self.fps_spin.setAccessibleDescription(
-            tr("Additional frames preserve every camera frame transition at its mapped time")
+            tr("Maximum output frame rate; each camera is sampled at every output timestamp")
         )
         self.speed_combo = QComboBox(self)
         self.speed_combo.setAccessibleName(tr("Export playback speed"))
@@ -159,6 +159,13 @@ class StimulusGridDialog(QDialog):
             self.speed_combo.addItem(rate_label(rate), rate)
         self.speed_combo.addItem(tr("Custom…"), None)
         self.speed_combo.setCurrentIndex(PLAYBACK_RATE_STEPS.index(1.0))
+        self.output_detail_combo = QComboBox(self)
+        self.output_detail_combo.setAccessibleName(tr("Output detail"))
+        self.output_detail_combo.setAccessibleDescription(
+            tr("Choose the standard compact grid or a higher-detail UHD 4K grid")
+        )
+        self.output_detail_combo.addItem(tr("Standard"), False)
+        self.output_detail_combo.addItem(tr("High detail (UHD 4K)"), True)
         self.custom_speed_spin = QDoubleSpinBox(self)
         self.custom_speed_spin.setRange(0.01, 10.0)
         self.custom_speed_spin.setDecimals(6)
@@ -178,8 +185,9 @@ class StimulusGridDialog(QDialog):
         speed_layout.addWidget(self.custom_speed_spin)
         window_form.addRow(tr("Before"), self.before_spin)
         window_form.addRow(tr("After"), self.after_spin)
-        window_form.addRow(tr("Base frame rate"), self.fps_spin)
+        window_form.addRow(tr("Cursor update rate"), self.fps_spin)
         window_form.addRow(tr("Playback speed"), speed_controls)
+        window_form.addRow(tr("Output detail"), self.output_detail_combo)
         layout.addLayout(window_form)
 
         self.buttons = QDialogButtonBox(
@@ -237,6 +245,10 @@ class StimulusGridDialog(QDialog):
         """Return the selected source-time multiplier for the encoded movie."""
         preset = self.speed_combo.currentData()
         return self.custom_speed_spin.value() if preset is None else float(preset)
+
+    def high_detail(self) -> bool:
+        """Whether the export should use the larger UHD output bounds."""
+        return bool(self.output_detail_combo.currentData())
 
     @Slot()
     def _scan(self) -> None:

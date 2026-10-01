@@ -5403,8 +5403,8 @@ rate, separately from output fps. One speed scales the shared master-time clock 
 and the TTL cursor. The output duration is the selected source window divided by that speed; at
 1x, the default two-second source window remains a two-second MP4. For speeds below 1x, each
 output frame samples the middle of its source-time presentation interval. At 1x, it retains the
-existing exact-start seek. The camera frame caption always names the frame selected at that same
-sample time. The final source frame remains available through its estimated presentation interval,
+existing exact-start seek. Each camera tile uses the frame selected at that same sample time. The
+final source frame remains available through its estimated presentation interval,
 bounded by recent positive PTS spacing rather than stopping at its start timestamp.
 
 **Alternatives rejected.** Changing the encoded fps alone changes file cadence but cannot reveal
@@ -5417,38 +5417,48 @@ the output lasts about 7.67 times as long. A ground-truth PyAV fixture checks ev
 index, output cadence, and duration, and the app-action test checks that the dialog speed reaches
 the registered export worker.
 
-## 2026-10 · D-151 · Stimulus-grid exports retain every mapped camera frame transition
+## 2026-10 · D-151 · Stimulus-grid exports cap composite frame rate
 
-**Context.** D-150's fixed output cadence omitted most 230 fps frames at 1x, even though slow
-motion could expose them. A scientific comparison must preserve the source's presentation sequence
-at any selected playback speed, including across cameras with different frame timestamps.
+**Context.** Merging every source transition made a 230 fps camera produce hundreds of composite
+frames per second, even when the comparison only needed a moving cursor and a representative view
+of each camera. Encoding and rendering every transition made exports slow and produced larger files.
 
-**Decision.** Merge every camera and event column's mapped frame presentation times into one
-variable-rate output schedule. Playback speed scales those times; the dialog's frame-rate setting
-is a base cursor cadence in gaps between source transitions. Encode with microsecond timestamps,
-without B-frames, and write each MP4 packet's duration through the next presentation time, ending
-the last packet at the selected window boundary. Frame captions use the same timestamp and reader
-index as the tile image. D-150's midpoint sampling is superseded by this event-driven schedule.
+**Decision.** The dialog's cursor update rate is also the maximum composite output rate (default
+10 fps). Merge mapped camera-change candidates with cursor ticks, but emit no composite frames
+closer than the configured rate permits. At each emitted timestamp, every tile samples its latest
+camera frame through the accepted TimeMap. Preserve the selected, potentially variable timestamps
+and explicit packet durations, without B-frames; omit source transitions that fall between emitted
+times. Playback speed scales source time, so slow motion can retain more transitions when they fit
+the selected output rate. Keep the final packet duration at the selected window boundary.
 
-**Consequences.** A 230 fps window retains 230 distinct frames per source second at 1x, and the
-same source sequence at slower or faster playback speeds. A player may skip display refreshes if
-the encoded rate exceeds the device's display capacity; the MP4 still contains the frames. The
-grid is resized and encoded with lossy H.264 for visual comparison, not pixel-identical measurement.
-Ground-truth tests cover 230 fps, camera offsets, VFR, multiple events, packet timestamps, and
-packet durations. The published demo still goes through the application's export action.
+**Consequences.** A 230 fps source at real time is sampled at no more than the chosen composite
+rate; setting 30 fps and about 0.130435x can represent its roughly 30 output-frame-per-second
+slow-motion sequence. Output remains VFR-capable, but no longer promises every source frame.
+Ground-truth tests cover rate-capped real-time sampling, slow-motion retention, offsets, packet
+timestamps, and durations. The published demo still goes through the application's export action.
 
-## 2026-10 · D-152 · Stimulus-grid frame identity belongs inside each tile
+## 2026-10 · D-152 · Stimulus-grid exports omit frame-number badges
 
-**Context.** A separate caption band under every camera tile created broad dark gutters between
-rows and made three-camera, twelve-event comparisons unnecessarily tall. The frame number is
-required provenance for identifying the exact camera frame shown at each output instant.
+**Context.** Frame-number badges are redrawn over camera pixels on every composite frame. They
+consume render time and obscure footage, while the camera row names and event column labels already
+identify the comparison layout.
 
-**Decision.** Keep camera rows and event columns one pixel apart. Burn the absolute, zero-based
-frame number into a small dark badge at the lower-left of each video tile. Register that export
-graphic as the locked `export.frame_number` overlay in View → Overlays: it is always present in a
-scientific grid export, while live camera overlays remain independently switchable. Missing
-coverage keeps its centered No Footage label and never invents a frame number.
+**Decision.** Keep camera rows and event columns one pixel apart. Do not burn frame-number badges
+or other changing text over the camera tiles. Keep camera names in the left gutter, event labels
+above their columns, and the moving cursor in the shared trace/ruler area. Missing coverage retains
+its centered No Footage label.
 
-**Consequences.** Exported grids are denser and retain a readable frame identifier against light
-or dark source footage. The generated MP4 and guide screenshot are captured again through the app
-export action, and layout tests pin the one-pixel seams and the in-tile badge.
+**Consequences.** The composite avoids per-frame badge painting and leaves the video tiles clear.
+The generated MP4 and tests cover the remaining labels and camera imagery.
+
+## 2026-10 · D-153 · Stimulus-grid columns follow camera aspect ratio
+
+**Context.** The physical column gap is one pixel, but fixed 16:9 cells leave wide horizontal
+letterbox bands around 4:3 camera footage, which look like gaps between event columns.
+
+**Decision.** Use each camera's coded aspect ratio for its row height, with a shared column width
+across the grid. Fit each camera without cropping or stretching. Keep the physical row and column
+gap at one pixel.
+
+**Consequences.** Mixed-aspect camera rows have different heights, but event columns remain aligned
+and neither horizontal nor vertical letterbox bands separate the video tiles.

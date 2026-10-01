@@ -51,7 +51,20 @@ def test_three_cameras_and_twelve_events_make_a_wide_grid() -> None:
     assert layout.cell_rect(2, 11).bottom() < layout.height - layout.bottom_band
 
 
-def test_three_camera_twelve_event_export_puts_cameras_in_rows(tmp_path, qapp) -> None:
+def test_high_detail_grid_uses_uhd_bounds_and_expands_event_tiles() -> None:
+    standard = plan_grid(3, 12, 0.5, 1.5, has_signal=True)
+    high_detail = plan_grid(3, 12, 0.5, 1.5, has_signal=True, high_detail=True)
+
+    assert high_detail.width <= 3840
+    assert high_detail.height <= 2160
+    assert high_detail.cell_width >= 300
+    assert high_detail.cell_width > standard.cell_width
+
+
+@pytest.mark.parametrize("high_detail", [False, True])
+def test_three_camera_twelve_event_export_puts_cameras_in_rows(
+    tmp_path, qapp, high_detail: bool
+) -> None:
     videos = []
     for camera_index in range(3):
         path = tmp_path / f"camera_{camera_index}.mp4"
@@ -78,12 +91,13 @@ def test_three_camera_twelve_event_export_puts_cameras_in_rows(tmp_path, qapp) -
         destination=destination,
         labels=_LABELS,
         fps=1,
+        high_detail=high_detail,
     )
     with av.open(str(destination)) as container:
         frames = list(container.decode(video=0))
     assert len(frames) == 1
     image = frames[0].to_ndarray(format="rgb24")
-    layout = plan_grid(3, 12, 0.0, 1.0)
+    layout = plan_grid(3, 12, 0.0, 1.0, high_detail=high_detail)
     assert image.shape[:2] == (layout.height, layout.width)
     for camera_index in range(3):
         for event_index in range(12):
@@ -111,7 +125,7 @@ def test_stimulus_grid_export_is_decodable(tmp_path, qapp) -> None:
         after=0.2,
         destination=destination,
         labels=_LABELS,
-        fps=5,
+        fps=10,
     )
 
     with av.open(str(destination)) as container:
@@ -127,12 +141,11 @@ def test_stimulus_grid_export_is_decodable(tmp_path, qapp) -> None:
     assert (frames[0].width, frames[0].height) == (expected.width, expected.height)
     cell = expected.cell_rect(0, 0)
     image = frames[0].to_ndarray(format="rgb24")
-    badge = image[cell.bottom() - 29 : cell.bottom() - 3, cell.x() + 4 : cell.x() + 86]
-    assert np.count_nonzero(np.all(badge < 80, axis=2)) > 10
-    assert np.count_nonzero(np.all(badge > 170, axis=2)) > 10
+    lower_left = image[cell.bottom() - 29 : cell.bottom() - 3, cell.x() + 4 : cell.x() + 86]
+    assert np.allclose(np.mean(lower_left, axis=(0, 1)), red_frame[0, 0], atol=15)
 
 
-def test_frame_badge_stays_on_letterboxed_camera_image(tmp_path, qapp) -> None:
+def test_camera_aspect_ratio_fills_tile_without_frame_badge(tmp_path, qapp) -> None:
     source = tmp_path / "four_by_three.mp4"
     destination = tmp_path / "comparison.mp4"
     frame = np.full((48, 64, 3), (160, 110, 90), dtype=np.uint8)
@@ -143,16 +156,54 @@ def test_frame_badge_stays_on_letterboxed_camera_image(tmp_path, qapp) -> None:
 
     with av.open(str(destination)) as container:
         image = next(container.decode(video=0)).to_ndarray(format="rgb24")
-    cell = plan_grid(1, 1, 0.0, 1.0).cell_rect(0, 0)
-    fitted_left = cell.x() + (cell.width() - cell.height() * 4 // 3) // 2
-    badge = image[cell.bottom() - 29 : cell.bottom() - 3, fitted_left + 4 : fitted_left + 96]
-    letterbox = image[cell.bottom() - 29 : cell.bottom() - 3, cell.x() + 4 : fitted_left - 4]
-    assert np.count_nonzero(np.all(badge > 170, axis=2)) > 10
-    assert np.count_nonzero(np.all(letterbox > 170, axis=2)) == 0
+    cell = plan_grid(1, 1, 0.0, 1.0, cell_aspect_ratio=4 / 3).cell_rect(0, 0)
+    camera_pixels = image[
+        cell.y() + 5 : cell.bottom() - 5,
+        cell.x() + 5 : cell.right() - 5,
+    ]
+    assert cell.width() / cell.height() == pytest.approx(4 / 3, abs=0.01)
+    assert np.allclose(np.mean(camera_pixels, axis=(0, 1)), frame[0, 0], atol=15)
+
+
+def test_mixed_camera_aspects_fill_their_rows_without_letterboxing(tmp_path, qapp) -> None:
+    sources = (tmp_path / "four_by_three.mp4", tmp_path / "wide.mp4")
+    colors = ((190, 60, 40), (30, 90, 190))
+    for source, shape, color in zip(sources, ((48, 64), (36, 64)), colors, strict=True):
+        frame = np.full((*shape, 3), color, dtype=np.uint8)
+        encode_video(source, [(frame, 0.0)], rate=Fraction(1, 1))
+
+    destination = tmp_path / "mixed_aspects.mp4"
+    export_stimulus_grid(
+        [GridVideo(sources[0], "Four by three"), GridVideo(sources[1], "Wide")],
+        [0.0],
+        0.0,
+        1.0,
+        destination,
+        _LABELS,
+        fps=1,
+    )
+
+    with av.open(str(destination)) as container:
+        image = next(container.decode(video=0)).to_ndarray(format="rgb24")
+    layout = plan_grid(
+        2,
+        1,
+        0.0,
+        1.0,
+        cell_aspect_ratios=(4 / 3, 16 / 9),
+    )
+    assert layout.cell_rect(0, 0).height() != layout.cell_rect(1, 0).height()
+    for camera_index, color in enumerate(colors):
+        cell = layout.cell_rect(camera_index, 0)
+        camera_pixels = image[
+            cell.y() + 5 : cell.bottom() - 5,
+            cell.x() + 5 : cell.right() - 5,
+        ]
+        assert np.allclose(np.mean(camera_pixels, axis=(0, 1)), color, atol=15)
 
 
 @pytest.mark.parametrize("speed", [0.130435, 1.0, 2.0])
-def test_230_fps_source_keeps_every_frame_at_each_export_speed(
+def test_230_fps_source_obeys_output_rate_and_retains_slow_motion_frames(
     tmp_path, qapp, monkeypatch, speed: float
 ) -> None:
     source = tmp_path / "high_speed.mp4"
@@ -189,15 +240,25 @@ def test_230_fps_source_keeps_every_frame_at_each_export_speed(
         stream = container.streams.video[0]
         frames = list(container.decode(stream))
         duration = float(stream.duration * stream.time_base)
-    assert len(frames) == 46
     assert duration == pytest.approx(0.2 / speed, abs=2e-6)
-    assert requested == list(range(46))
-    assert [float(frame.pts * frame.time_base) for frame in frames] == pytest.approx(
-        (source_times / speed).tolist(), abs=2e-6
+    presentation_times = [float(frame.pts * frame.time_base) for frame in frames]
+    assert all(
+        right > left
+        for left, right in zip(presentation_times, presentation_times[1:], strict=False)
     )
+    if speed < 1.0:
+        assert len(frames) == 46
+        assert requested == list(range(46))
+        assert presentation_times == pytest.approx((source_times / speed).tolist(), abs=2e-6)
+    else:
+        assert len(frames) <= int(np.ceil(duration * 30)) + 1
+        assert len(requested) == len(frames)
+        assert requested[0] == 0
+        assert requested == sorted(set(requested))
+        assert len(requested) < 46
 
 
-def test_camera_event_union_retains_offset_vfr_frames(tmp_path, qapp, monkeypatch) -> None:
+def test_camera_event_union_respects_the_global_vfr_rate_cap(tmp_path, qapp, monkeypatch) -> None:
     paths = (tmp_path / "first.mp4", tmp_path / "second.mp4")
     frame = np.full((18, 32, 3), (120, 150, 180), dtype=np.uint8)
     camera_times = (
@@ -227,14 +288,15 @@ def test_camera_event_union_retains_offset_vfr_frames(tmp_path, qapp, monkeypatc
         fps=10,
     )
 
-    assert all(indices == set(range(6)) for indices in seen.values())
+    assert all(indices for indices in seen.values())
+    assert all(len(indices) < 6 for indices in seen.values())
     with av.open(str(destination)) as container:
         stream = container.streams.video[0]
         packets = [packet for packet in container.demux(stream) if packet.pts is not None]
     presentation = sorted(float(packet.pts * packet.time_base) for packet in packets)
-    assert presentation == pytest.approx([0.0, 0.005, 0.025, 0.04, 0.08, 0.09], abs=2e-6)
+    assert presentation == pytest.approx([0.0, 0.1], abs=2e-6)
     assert sorted(float(packet.duration * packet.time_base) for packet in packets) == pytest.approx(
-        sorted([0.005, 0.02, 0.015, 0.04, 0.01, 0.03]), abs=2e-6
+        [0.02, 0.1], abs=2e-6
     )
 
 
@@ -318,7 +380,7 @@ def test_grid_exports_one_shared_trace_for_aligned_event_windows(tmp_path, qapp)
         frames = list(container.decode(video=0))
     layout = plan_grid(2, 2, 0.2, 0.4, has_signal=True)
     image = frames[0].to_ndarray(format="rgb24")
-    assert len(frames) == 7
+    assert len(frames) == 3
     assert image.shape[:2] == (layout.height, layout.width)
     # The chart spans both event columns, below every camera row.
     chart = image[layout.height - 140 : layout.height - 50, 110 : layout.width - 28]
@@ -404,8 +466,8 @@ def test_stimulus_grid_uses_a_snapshot_of_exact_video_mapping(tmp_path, qapp, mo
         fps=10,
     )
 
-    assert requested_times == pytest.approx([0.15, 0.2, 0.3])
-    assert requested_indices == [1, 2, 3]
+    assert requested_times == pytest.approx([0.15])
+    assert requested_indices == [1]
 
 
 def test_stimulus_grid_applies_high_bit_depth_display_levels(qapp) -> None:

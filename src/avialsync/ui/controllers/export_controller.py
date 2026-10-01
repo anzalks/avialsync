@@ -353,12 +353,7 @@ def export_stimulus_grid(window: MainWindow) -> None:
         for channel in window.plot_pane.channels
     ]
     videos = tuple(
-        GridVideo(
-            Path(path),
-            Path(path).name,
-            pane.time_map,
-            pane.display_levels(),
-        )
+        GridVideo(Path(path), Path(path).name, pane.time_map, pane.display_levels())
         for path, pane in zip(window.video_grid._paths, window.video_grid.panes, strict=False)
     )
     dialog = StimulusGridDialog(channels, window)
@@ -383,6 +378,7 @@ def export_stimulus_grid(window: MainWindow) -> None:
     )
     if not destination:
         return
+    destination_path = _mp4_output_path(destination)
     channel = dialog.channel_option()
     signal = GridSignal(channel.reference, channel.label, dialog.threshold_spin.value())
     start_stimulus_grid_export(
@@ -392,10 +388,11 @@ def export_stimulus_grid(window: MainWindow) -> None:
         dialog.before_spin.value(),
         dialog.after_spin.value(),
         dialog.fps_spin.value(),
-        Path(destination),
+        destination_path,
         _grid_labels(),
         signal=signal,
         playback_speed=dialog.playback_speed(),
+        high_detail=dialog.high_detail(),
     )
 
 
@@ -411,17 +408,27 @@ def start_stimulus_grid_export(
     *,
     signal: GridSignal | None = None,
     playback_speed: float = 1.0,
+    high_detail: bool = False,
 ) -> None:
     """Run grid decoding and encoding as a named, cancellable job."""
     worker = StimulusGridExportWorker(
-        videos, events, before, after, destination, fps, labels, signal, playback_speed
+        videos,
+        events,
+        before,
+        after,
+        destination,
+        fps,
+        labels,
+        signal,
+        playback_speed,
+        high_detail,
     )
 
     def _wire(_thread: QThread) -> None:
         worker.finished.connect(window._on_stimulus_grid_export_finished)
         worker.error.connect(window._on_stimulus_grid_export_error)
 
-    label = tr("Exporting stimulus grid to {name}").format(name=destination.name)
+    label = tr("Exporting stimulus grid to {path}").format(path=destination)
     window._run_job(worker, label=label, configure=_wire)
 
 
@@ -438,11 +445,25 @@ def _grid_labels() -> GridLabels:
     )
 
 
-def on_stimulus_grid_export_finished(window: MainWindow, path: str) -> None:
+def _mp4_output_path(value: str) -> Path:
+    """Return a selected grid destination with the required MP4 suffix."""
+    path = Path(value)
+    return path if path.suffix.lower() == ".mp4" else path.with_suffix(".mp4")
+
+
+def on_stimulus_grid_export_finished(window: MainWindow, path: str, replaced: bool) -> None:
     """Report the completed comparison video through the notification strip."""
-    window.notifications.show_success(
-        tr("Stimulus grid exported to {name}").format(name=Path(path).name)
-    )
+    output_path = str(Path(path).resolve())
+    if replaced:
+        window.notifications.show_success(
+            tr("Replaced stimulus grid at {path}. Reopen the video to see the new export.").format(
+                path=output_path
+            )
+        )
+    else:
+        window.notifications.show_success(
+            tr("Stimulus grid exported to {path}").format(path=output_path)
+        )
 
 
 def on_stimulus_grid_export_error(window: MainWindow, error: str) -> None:

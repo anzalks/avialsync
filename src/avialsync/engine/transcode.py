@@ -178,6 +178,8 @@ def encode_video(
     time_base: Fraction = Fraction(1, 90_000),
     gop_size: int = 30,
     end_seconds: float | None = None,
+    encoder_preset: str | None = None,
+    encoder_crf: str | None = None,
     progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
 ) -> None:
@@ -198,6 +200,8 @@ def encode_video(
         gop_size: Frames between keyframes.
         end_seconds: End of the final frame's presentation interval, when known.
             Timed exports disable B-frames so packet order follows presentation order.
+        encoder_preset: Optional libx264 speed preset for large composites.
+        encoder_crf: Optional libx264 constant-quality value.
         progress: Called with the elapsed presentation time in seconds, so a
             caller that knows the intended duration can turn it into a
             percentage without this function having to know one.
@@ -240,6 +244,13 @@ def encode_video(
                 stream.height = _even(height)
                 stream.pix_fmt = "yuv420p"
                 stream.codec_context.gop_size = gop_size
+                encoder_options: dict[str, object] = {}
+                if encoder_preset is not None:
+                    encoder_options["preset"] = encoder_preset
+                if encoder_crf is not None:
+                    encoder_options["crf"] = encoder_crf
+                if encoder_options:
+                    stream.options = encoder_options
                 if end_seconds is not None:
                     stream.codec_context.max_b_frames = 0
                 # Both are required; setting only the stream's makes mux()

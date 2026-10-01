@@ -26,7 +26,7 @@ def test_camera_angles_show_distinct_views_of_the_same_trigger() -> None:
     assert not np.array_equal(views[1], views[2])
 
 
-@pytest.mark.parametrize(("speed", "frame_count"), [(1.0, 60), (0.5, 60)])
+@pytest.mark.parametrize(("speed", "frame_count"), [(1.0, 24), (0.5, 48)])
 def test_demo_export_runs_through_the_app_action(
     qapp, tmp_path, monkeypatch, speed: float, frame_count: int
 ) -> None:
@@ -38,6 +38,7 @@ def test_demo_export_runs_through_the_app_action(
     demo._write_camera(camera)
     signal_csv = demo._write_signal_csv(tmp_path)
     movie = tmp_path / "app_export.mp4"
+    movie.write_bytes(b"previous export")
 
     demo._export_via_app(qapp, tmp_path, (camera,), signal_csv, movie, speed)
 

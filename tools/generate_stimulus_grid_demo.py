@@ -222,7 +222,7 @@ def _export_via_app(
             if not action.isEnabled():
                 raise RuntimeError(f"The app disabled stimulus-grid export: {action.toolTip()}")
             errors: list[str] = []
-            movie.unlink(missing_ok=True)
+            replacing = movie.exists()
             with patch.object(QFileDialog, "getSaveFileName", return_value=(str(movie), "MP4")):
                 QTimer.singleShot(0, window, lambda: _drive_dialog(window, errors, playback_speed))
                 action.trigger()
@@ -238,6 +238,16 @@ def _export_via_app(
                 ),
                 "the app's stimulus-grid export",
             )
+            expected_path = str(movie.resolve())
+            expected = (
+                f"Replaced stimulus grid at {expected_path}"
+                if replacing
+                else f"Stimulus grid exported to {expected_path}"
+            )
+            if not window.notifications.message.startswith(expected):
+                raise RuntimeError(
+                    f"The app did not confirm saving {movie.name}: {window.notifications.message}"
+                )
         finally:
             window.close()
             settle(app)

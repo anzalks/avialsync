@@ -97,28 +97,21 @@ def _draw_envelopes(
             previous = (x, mid)
 
 
-def draw_signal_trace(
+def draw_signal_trace_background(
     painter: QPainter,
     area: QRect,
     traces: Sequence[GridTrace],
     signal: GridSignal,
     before: float,
     after: float,
-    relative_time: float,
     no_signal: str,
-    current_label: str,
 ) -> None:
-    """Overlay all event windows beneath the cameras on one relative-time axis."""
+    """Draw the event envelopes once for all frames of a grid export."""
     left, top, width, height = area.x(), area.y(), area.width(), area.height()
     painter.fillRect(area, QColor("#1b282b"))
     painter.setFont(QFont("Arial", 9))
     painter.setPen(QColor("#f1f4f2"))
     painter.drawText(QRect(left, top - 24, width, 22), signal.label)
-    painter.drawText(
-        QRect(left, top - 24, width, 22),
-        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-        current_label.format(time=relative_time),
-    )
     minimum, maximum, has_samples = _value_range(traces, signal.threshold)
 
     def x_at(time: float) -> int:
@@ -135,13 +128,36 @@ def draw_signal_trace(
     _draw_envelopes(painter, traces, x_at, y_at)
     painter.setPen(QPen(QColor("#ef665d"), 2))
     painter.drawLine(x_at(0.0), top, x_at(0.0), top + height)
-    painter.setPen(QPen(QColor("#f1f4f2"), 2))
-    painter.drawLine(x_at(relative_time), top, x_at(relative_time), top + height)
     painter.restore()
     if not has_samples and no_signal:
         painter.setPen(QColor("#c3d1cd"))
         painter.drawText(area, Qt.AlignmentFlag.AlignCenter, no_signal)
     _draw_relative_ticks(painter, left, top + height + 4, width, before, after)
+
+
+def draw_signal_trace_cursor(
+    painter: QPainter,
+    area: QRect,
+    before: float,
+    after: float,
+    relative_time: float,
+    current_label: str,
+) -> None:
+    """Draw only the relative-time marker that changes on each output frame."""
+    left, top, width, height = area.x(), area.y(), area.width(), area.height()
+    painter.setPen(QColor("#f1f4f2"))
+    painter.setFont(QFont("Arial", 9))
+    painter.drawText(
+        QRect(left, top - 24, width, 22),
+        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+        current_label.format(time=relative_time),
+    )
+    x = left + round(width * (relative_time + before) / (before + after))
+    painter.save()
+    painter.setClipRect(area)
+    painter.setPen(QPen(QColor("#f1f4f2"), 2))
+    painter.drawLine(x, top, x, top + height)
+    painter.restore()
 
 
 def _draw_relative_ticks(

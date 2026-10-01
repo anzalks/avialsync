@@ -87,29 +87,37 @@ frame to decode from.
 Run `avialsync demo` for four generated cameras and a channel named **TTL**, or open your own
 aligned videos and stimulus channel. Choose **File → Export Stimulus Grid…**. In the dialog, select
 the stimulus channel, set a rising threshold and minimum event spacing, then choose **Scan events**.
-Select up to twelve events and set the time before and after each one. **Base frame rate**
-controls how often the TTL cursor updates between camera frames. The MP4 also includes every
-camera frame change at its actual, mapped presentation time, so its frame rate can be higher.
-**Playback speed** stretches or compresses those timestamps for the whole grid. The dialog shows
-the resulting video length before you export.
+Select up to twelve events and set the time before and after each one. **Cursor update rate**
+defaults to 10 fps and caps the composite output rate. Each camera is sampled at emitted output
+times; source transitions between them are skipped. **Playback speed** stretches or compresses
+the mapped timestamps for the whole grid. The dialog shows the resulting video length before you
+export.
 
 ![The stimulus-grid dialog showing the TTL trace, selected events, export window, frame rate, and playback speed](../_static/screenshots/stimulus_grid_select_events.png)
 
 Choose **Continue to export**, then save the MP4. The default half-second before and 1.5 seconds
-after each event at **1x** produce a **two-second video**. A 230 fps source retains all its frames
-at **1x**, even when the base rate is 30 fps. **Custom… → 0.130435x** stretches the same two-second
-source window to about 15.33 seconds, with source frames displayed for about 33 ms each. Faster
-speeds shorten the MP4 while retaining the frame timestamps; a display or player may be unable to
-show every frame when that rate exceeds its refresh capacity. The shared TTL cursor follows the
-selected speed. Its labels remain relative to the stimulus, while camera frame numbers remain
-absolute.
+after each event at **1x** produce a **two-second video**. At the default 10 fps, each output frame
+samples every camera at that instant; a 230 fps source is therefore rate-limited instead of writing
+all 230 transitions per second. **Custom… → 0.130435x** stretches the same two-second source
+window to about 15.33 seconds. At 30 fps, that slow-motion rate can represent the 230 fps source's
+transitions at about 33 ms each. Faster playback may skip more transitions. The shared TTL cursor
+follows the selected speed, and its labels remain relative to stimulus onset.
+
+Saving over an existing MP4 replaces it when the export finishes. AvialSync confirms the
+replacement in its notification strip. If that MP4 is already open in a video player, reopen it
+to see the new version. Choose an output path separate from the camera source videos; AvialSync
+rejects source/output collisions. A cancelled or failed export leaves the existing file intact.
+While encoding, a visible `.exporting.*.part.mp4` file is written beside the target and renamed to
+the final MP4 only after a successful encode.
 
 ![The export dialog at a 30 fps base rate and a custom 0.130435x playback speed, previewing a 15.33-second MP4](../_static/screenshots/stimulus_grid_slow_motion.png)
 
 Each camera becomes a row and each selected event becomes a column, so a three-camera, twelve-event
-export is a wide grid. Video tiles are separated by just one pixel. A small **Frame N** badge
-inside the lower-left of each tile names that camera's absolute, zero-based frame index at the
-current instant; the badge belongs to the exported comparison and leaves the source file unchanged.
+export is a wide grid. Video tiles are separated by just one pixel. Camera names remain in the left
+gutter and event labels remain above their columns; frame-number badges are not burned into the
+video. Each camera row follows that camera's aspect ratio, so mixed-aspect footage fills its tile
+without cropping, stretching, or letterboxing. Camera names and event labels remain aligned outside
+the tiles; the static trace is rendered once, while the cursor follows the output time.
 
 All selected signal windows are overlaid in **one full-width trace below the video grid** on a
 shared relative-time axis. The axis labels and moving light cursor show time relative to stimulus
@@ -128,8 +136,13 @@ those details are part of the generated source videos, not export graphics.
 
 Missing video coverage is labeled in its tile. The MP4 uses each camera's accepted time mapping and
 display levels; the source recordings are never modified. The grid is resized and encoded as an
-H.264 MP4, so it is a visual comparison rather than a pixel-identical copy of the source. The
-screenshots and video above are
+H.264 MP4, so it is a visual comparison rather than a pixel-identical copy of the source. **Output
+detail** defaults to **Standard**, which keeps the existing compact bounds. **High detail (UHD 4K)**
+allows a 3840×2160 composite and larger tiles; a three-camera, twelve-event grid gets about
+307×173 pixels per tile instead of about 200×112. Larger output dimensions can increase file size,
+so keep Standard for compact comparisons. H.264 uses the `ultrafast` preset at CRF 17 for higher visual
+quality while retaining source frame timing. The embedded screenshots and demo video were captured
+before frame-number badges were removed. The screenshots and video above are
 captured through the app's File → Export Stimulus Grid action, using synthetic data generated by
 `conda run -n avialsync python tools/generate_stimulus_grid_demo.py`.
 

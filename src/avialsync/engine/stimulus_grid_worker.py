@@ -12,7 +12,7 @@ import av
 import numpy as np
 from PySide6.QtCore import QObject, Signal, Slot
 
-from avialsync.core.errors import AvialSyncError
+from avialsync.core.errors import AvialSyncError, ExportError
 from avialsync.core.triggers import TriggerKind, extract_pulses
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.stimulus_grid_export import (
@@ -80,7 +80,7 @@ class StimulusEventScanWorker(QObject):
 class StimulusGridExportWorker(QObject):
     """Render and atomically publish the selected event-aligned video grid."""
 
-    finished = Signal(str)
+    finished = Signal(str, bool)
     error = Signal(str)
     cancelled = Signal()
     progress = Signal(int)
@@ -96,6 +96,7 @@ class StimulusGridExportWorker(QObject):
         labels: GridLabels,
         signal: GridSignal | None = None,
         playback_speed: float = 1.0,
+        high_detail: bool = False,
     ) -> None:
         super().__init__()
         self._videos = videos
@@ -107,19 +108,33 @@ class StimulusGridExportWorker(QObject):
         self._labels = labels
         self._signal = signal
         self._playback_speed = playback_speed
+        self._high_detail = high_detail
         self._cancel = threading.Event()
 
     def cancel(self) -> None:
         """Request cancellation between rendered output frames."""
         self._cancel.set()
 
+    def _destination_is_source(self) -> bool:
+        destination = self._destination.resolve()
+        for video in self._videos:
+            if destination == video.path.resolve():
+                return True
+            if self._destination.exists() and video.path.exists():
+                if self._destination.samefile(video.path):
+                    return True
+        return False
+
     @Slot()
     def run(self) -> None:
         temporary: Path | None = None
+        replaced = False
         try:
+            if self._destination_is_source():
+                raise ExportError("Choose an output file separate from the source videos.")
             self._destination.parent.mkdir(parents=True, exist_ok=True)
             with tempfile.NamedTemporaryFile(
-                prefix=f".{self._destination.stem}.",
+                prefix=f"{self._destination.stem}.exporting.",
                 suffix=f".part{self._destination.suffix or '.mp4'}",
                 dir=self._destination.parent,
                 delete=False,
@@ -136,18 +151,21 @@ class StimulusGridExportWorker(QObject):
                 fps=self._fps,
                 playback_speed=self._playback_speed,
                 signal=self._signal,
+                high_detail=self._high_detail,
                 progress=lambda value: self.progress.emit(round(value * 100)),
                 should_cancel=self._cancel.is_set,
             )
             if self._cancel.is_set():
                 self.cancelled.emit()
                 return
+            replaced = self._destination.exists()
             temporary.replace(self._destination)
         except TranscodeCancelled:
             self.cancelled.emit()
             return
-        except (AvialSyncError, av.FFmpegError, OSError, RuntimeError, ValueError) as error:
-            self.error.emit(str(error))
+        except Exception as error:  # noqa: BLE001 - worker boundary must report every job failure
+            logger.exception("Stimulus grid export failed")
+            self.error.emit(str(error) or "Unexpected failure while encoding the stimulus grid.")
             return
         finally:
             if temporary is not None:
@@ -157,4 +175,4 @@ class StimulusGridExportWorker(QObject):
                     logger.warning(
                         "Could not remove temporary grid export %s", temporary, exc_info=True
                     )
-        self.finished.emit(str(self._destination))
+        self.finished.emit(str(self._destination), replaced)
