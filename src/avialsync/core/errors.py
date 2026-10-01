@@ -101,3 +101,7 @@ class WheelFitError(AvialSyncError):
     the same bar, a bar count that does not fit the spacing clicked. The
     recovery is always more or better clicks, never a guessed wheel.
     """
+
+
+class PropModelError(AvialSyncError):
+    """Raised when declared prop geometry or motion is mathematically invalid."""
