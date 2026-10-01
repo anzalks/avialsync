@@ -1,8 +1,5 @@
-# Commit portable graph artifacts only. The remaining files contain a local
-# interpreter, absolute scan root, caches, or transient extraction work.
+# Keep generated graphs, reports, caches, and local interpreter paths out of
+# commits. README.md documents how to regenerate the graph in a clone.
 *
 !.gitignore
 !README.md
-!graph.json
-!graph.html
-!GRAPH_REPORT.md
