@@ -391,7 +391,7 @@ class ViconC3DLoader(TimeSeriesSource):
                     fraction = float(targets[next_target] - left)
                     if fraction == 0.0 or previous is None:
                         positions = np.asarray(points[:, :3], dtype=np.float64)
-                        valid = np.isfinite(positions).all(axis=1)
+                        valid = np.asarray(np.isfinite(positions).all(axis=1), dtype=np.bool_)
                         if points.shape[1] > 3:
                             valid &= np.asarray(points[:, 3], dtype=np.float64) >= 0.0
                     else:
@@ -399,7 +399,7 @@ class ViconC3DLoader(TimeSeriesSource):
                             np.asarray(previous[:, :3], dtype=np.float64) * (1.0 - fraction)
                             + np.asarray(points[:, :3], dtype=np.float64) * fraction
                         )
-                        valid = np.isfinite(positions).all(axis=1)
+                        valid = np.asarray(np.isfinite(positions).all(axis=1), dtype=np.bool_)
                         if points.shape[1] > 3:
                             valid &= (previous[:, 3] >= 0.0) & (points[:, 3] >= 0.0)
                     if self._role == "overlay2d":

@@ -259,6 +259,8 @@ def test_resize_storm_triggers_one_deferred_redecimation(
     monkeypatch,
 ) -> None:
     pane = sweep_pane
+    # Windows' font metrics can make the real minimum wider than 1,000 px.
+    pane.setMinimumWidth(1200)
     pane.show()
     qtbot.wait(100)
     calls = 0
@@ -271,10 +273,14 @@ def test_resize_storm_triggers_one_deferred_redecimation(
 
     monkeypatch.setattr(pane, "update_plots", counted_update)
     pane._last_point_budget = 0
-    for width in range(920, 1021, 10):
+    initial_viewport_width = pane.graphics_layout.viewport().width()
+    start_width = pane.width() + 100
+    for width in range(start_width, start_width + 101, 10):
         pane.resize(width, 500)
+    qtbot.waitUntil(lambda: calls >= 1, timeout=1000)
     qtbot.wait(100)
 
+    assert pane.graphics_layout.viewport().width() > initial_viewport_width + 64
     assert calls == 1
 
 
