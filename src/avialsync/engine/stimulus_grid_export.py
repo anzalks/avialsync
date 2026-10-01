@@ -40,7 +40,7 @@ _LEFT_GUTTER = 110
 _RIGHT_GUTTER = 28
 _TOP_BAND = 44
 _CELL_LABEL_HEIGHT = 26
-_ROW_LABEL_HEIGHT = 28
+_COLUMN_LABEL_HEIGHT = 28
 _RULER_BAND = 62
 _SIGNAL_BAND = 230
 _GAP = 6
@@ -62,14 +62,24 @@ class GridVideo:
 
 @dataclass(frozen=True)
 class GridLayout:
-    """Stable geometry for an event-by-camera comparison grid."""
+    """Stable geometry for camera rows and event columns."""
 
     width: int
     height: int
     cell_width: int
     cell_height: int
-    trigger_x: int
     bottom_band: int
+
+    def cell_rect(self, camera_index: int, event_index: int) -> QRect:
+        """Return the image bounds for one camera and event."""
+        return QRect(
+            _LEFT_GUTTER + event_index * (self.cell_width + _GAP),
+            _TOP_BAND
+            + _COLUMN_LABEL_HEIGHT
+            + camera_index * (self.cell_height + _CELL_LABEL_HEIGHT + _GAP),
+            self.cell_width,
+            self.cell_height,
+        )
 
 
 @dataclass(frozen=True)
@@ -104,26 +114,31 @@ def plan_grid(
     if not np.isfinite(duration):
         raise ExportError("The combined stimulus window must be finite.")
     bottom_band = _SIGNAL_BAND if has_signal else _RULER_BAND
-    available = MAX_OUTPUT_WIDTH - _LEFT_GUTTER - _RIGHT_GUTTER - _GAP * (video_count - 1)
+    available = MAX_OUTPUT_WIDTH - _LEFT_GUTTER - _RIGHT_GUTTER - _GAP * (event_count - 1)
     height_for_cells = (
         MAX_OUTPUT_HEIGHT
         - _TOP_BAND
+        - _COLUMN_LABEL_HEIGHT
         - bottom_band
-        - event_count * (_ROW_LABEL_HEIGHT + _CELL_LABEL_HEIGHT + _GAP)
-    ) // event_count
+        - video_count * (_CELL_LABEL_HEIGHT + _GAP)
+    ) // video_count
     width_for_height = int(height_for_cells * 16 / 9)
-    cell_width = max(96, min(_MAX_CELL_WIDTH, available // video_count, width_for_height))
-    cell_height = max(64, round(cell_width * 9 / 16))
-    width = _LEFT_GUTTER + video_count * cell_width + (video_count - 1) * _GAP + _RIGHT_GUTTER
+    cell_width = min(_MAX_CELL_WIDTH, available // event_count, width_for_height)
+    if cell_width < 96:
+        raise ExportError("Too many cameras or events to fit in the export grid.")
+    cell_height = round(cell_width * 9 / 16)
+    width = _LEFT_GUTTER + event_count * cell_width + (event_count - 1) * _GAP + _RIGHT_GUTTER
     height = (
         _TOP_BAND
-        + event_count * (_ROW_LABEL_HEIGHT + cell_height + _CELL_LABEL_HEIGHT + _GAP)
+        + _COLUMN_LABEL_HEIGHT
+        + video_count * (cell_height + _CELL_LABEL_HEIGHT + _GAP)
         + bottom_band
     )
+    if height > MAX_OUTPUT_HEIGHT:
+        raise ExportError("Too many cameras to fit in the export grid.")
     width += width % 2
     height += height % 2
-    trigger_x = round(cell_width * before / duration)
-    return GridLayout(width, height, cell_width, cell_height, trigger_x, bottom_band)
+    return GridLayout(width, height, cell_width, cell_height, bottom_band)
 
 
 def export_stimulus_grid(
@@ -139,10 +154,10 @@ def export_stimulus_grid(
     progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
 ) -> None:
-    """Encode selected event windows as rows and cameras as columns.
+    """Encode cameras as rows and selected event windows as columns.
 
-    Every row advances through the same relative-time window, so the trigger
-    lands on one shared vertical line. Missing coverage is rendered explicitly
+    Every column advances through the same relative-time window, so the trigger
+    lands at the same relative instant. Missing coverage is rendered explicitly
     rather than extending a camera's first or last frame into the window.
     """
     if fps < 1 or fps > 120:
@@ -225,84 +240,20 @@ def _render_frame(
     image.fill(QColor("#101719"))
     painter = QPainter(image)
     painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-    painter.setPen(QColor("#f1f4f2"))
-    painter.setFont(QFont("Arial", 11, QFont.Weight.DemiBold))
-    painter.drawText(
-        QRect(12, 0, layout.width - 24, _TOP_BAND),
-        Qt.AlignmentFlag.AlignVCenter,
-        labels.title,
-    )
+    _draw_grid_labels(painter, videos, events, layout, labels)
 
     for video_index, video in enumerate(videos):
-        x = _LEFT_GUTTER + video_index * (layout.cell_width + _GAP)
-        painter.setPen(QColor("#c3d1cd"))
-        painter.drawText(
-            QRect(x, _TOP_BAND, layout.cell_width, _CELL_LABEL_HEIGHT),
-            Qt.AlignmentFlag.AlignVCenter,
-            video.label,
-        )
-
-    for event_index, event_time in enumerate(events):
-        row_y = _TOP_BAND + event_index * (
-            _ROW_LABEL_HEIGHT + layout.cell_height + _CELL_LABEL_HEIGHT + _GAP
-        )
-        painter.setPen(QColor("#c3d1cd"))
-        painter.setFont(QFont("Arial", 9))
-        painter.drawText(
-            QRect(8, row_y, _LEFT_GUTTER - 16, _ROW_LABEL_HEIGHT),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            labels.event.format(index=event_index + 1, time=event_time),
-        )
-        top = row_y + _ROW_LABEL_HEIGHT
-        master_time = event_time + relative_time
-        for video_index, video in enumerate(videos):
-            x = _LEFT_GUTTER + video_index * (layout.cell_width + _GAP)
-            reader, time_map, bounds = readers[video_index]
-            if bounds[0] <= master_time <= bounds[1]:
-                frame_index = reader.index_at_time(time_map.to_source(master_time))
-                frame = reader.frame_at_index(frame_index)
-                pixels, is_greyscale = to_display_array(frame, video.display_levels)
-                pixels = np.ascontiguousarray(pixels)
-                image_format = (
-                    QImage.Format.Format_Grayscale8 if is_greyscale else QImage.Format.Format_RGB888
-                )
-                tile = QImage(
-                    pixels.data,
-                    pixels.shape[1],
-                    pixels.shape[0],
-                    pixels.strides[0],
-                    image_format,
-                ).copy()
-                fitted = tile.scaled(
-                    layout.cell_width,
-                    layout.cell_height,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-                target = QRect(
-                    x + (layout.cell_width - fitted.width()) // 2,
-                    top + (layout.cell_height - fitted.height()) // 2,
-                    fitted.width(),
-                    fitted.height(),
-                )
-                painter.drawImage(target, fitted)
-                caption = labels.frame.format(index=frame_index)
-            else:
-                painter.fillRect(
-                    QRect(x, top, layout.cell_width, layout.cell_height), QColor("#20292b")
-                )
-                painter.setPen(QColor("#c3d1cd"))
-                painter.drawText(
-                    QRect(x, top, layout.cell_width, layout.cell_height),
-                    Qt.AlignmentFlag.AlignCenter,
-                    labels.no_footage,
-                )
-                caption = labels.no_footage
-            painter.setPen(QColor("#c3d1cd"))
-            painter.drawText(
-                QRect(x, top + layout.cell_height, layout.cell_width, _CELL_LABEL_HEIGHT),
-                Qt.AlignmentFlag.AlignVCenter,
-                caption,
+        reader, time_map, bounds = readers[video_index]
+        for event_index, event_time in enumerate(events):
+            _draw_camera_tile(
+                painter,
+                layout.cell_rect(video_index, event_index),
+                video,
+                reader,
+                time_map,
+                bounds,
+                event_time + relative_time,
+                labels,
             )
 
     if signal is not None:
@@ -323,45 +274,130 @@ def _render_frame(
             labels.current,
         )
     else:
-        _draw_ruler(painter, layout, len(videos), before, after, relative_time, labels)
+        _draw_ruler(painter, layout, before, after, relative_time, labels)
     painter.end()
     return image
+
+
+def _draw_grid_labels(
+    painter: QPainter,
+    videos: Sequence[GridVideo],
+    events: Sequence[float],
+    layout: GridLayout,
+    labels: GridLabels,
+) -> None:
+    """Name each event column and camera row outside the image tiles."""
+    painter.setPen(QColor("#f1f4f2"))
+    painter.setFont(QFont("Arial", 11, QFont.Weight.DemiBold))
+    painter.drawText(
+        QRect(12, 0, layout.width - 24, _TOP_BAND),
+        Qt.AlignmentFlag.AlignVCenter,
+        labels.title,
+    )
+
+    for event_index, event_time in enumerate(events):
+        x = layout.cell_rect(0, event_index).x()
+        painter.setPen(QColor("#c3d1cd"))
+        painter.setFont(QFont("Arial", 9))
+        painter.drawText(
+            QRect(x, _TOP_BAND, layout.cell_width, _COLUMN_LABEL_HEIGHT),
+            Qt.AlignmentFlag.AlignCenter,
+            labels.event.format(index=event_index + 1, time=event_time),
+        )
+
+    for video_index, video in enumerate(videos):
+        first_cell = layout.cell_rect(video_index, 0)
+        painter.setPen(QColor("#c3d1cd"))
+        painter.drawText(
+            QRect(8, first_cell.y(), _LEFT_GUTTER - 16, layout.cell_height),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            video.label,
+        )
+
+
+def _draw_camera_tile(
+    painter: QPainter,
+    cell: QRect,
+    video: GridVideo,
+    reader: PyAVReader,
+    time_map: TimeMap,
+    bounds: tuple[float, float],
+    master_time: float,
+    labels: GridLabels,
+) -> None:
+    """Draw one decoded camera frame and its absolute frame caption."""
+    if bounds[0] <= master_time <= bounds[1]:
+        frame_index = reader.index_at_time(time_map.to_source(master_time))
+        frame = reader.frame_at_index(frame_index)
+        pixels, is_greyscale = to_display_array(frame, video.display_levels)
+        pixels = np.ascontiguousarray(pixels)
+        image_format = (
+            QImage.Format.Format_Grayscale8 if is_greyscale else QImage.Format.Format_RGB888
+        )
+        tile = QImage(
+            pixels.data, pixels.shape[1], pixels.shape[0], pixels.strides[0], image_format
+        ).copy()
+        fitted = tile.scaled(
+            cell.width(),
+            cell.height(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        painter.drawImage(
+            QRect(
+                cell.x() + (cell.width() - fitted.width()) // 2,
+                cell.y() + (cell.height() - fitted.height()) // 2,
+                fitted.width(),
+                fitted.height(),
+            ),
+            fitted,
+        )
+        caption = labels.frame.format(index=frame_index)
+    else:
+        painter.fillRect(cell, QColor("#20292b"))
+        painter.setPen(QColor("#c3d1cd"))
+        painter.drawText(cell, Qt.AlignmentFlag.AlignCenter, labels.no_footage)
+        caption = labels.no_footage
+    painter.setPen(QColor("#c3d1cd"))
+    painter.drawText(
+        QRect(cell.x(), cell.y() + cell.height(), cell.width(), _CELL_LABEL_HEIGHT),
+        Qt.AlignmentFlag.AlignVCenter,
+        caption,
+    )
 
 
 def _draw_ruler(
     painter: QPainter,
     layout: GridLayout,
-    video_count: int,
     before: float,
     after: float,
     relative_time: float,
     labels: GridLabels,
 ) -> None:
-    """Draw matching relative-time scales beneath every camera column."""
+    """Draw one relative-time scale beneath the whole comparison grid."""
     y = layout.height - layout.bottom_band + 12
+    left = _LEFT_GUTTER
+    width = layout.width - _LEFT_GUTTER - _RIGHT_GUTTER
     painter.setFont(QFont("Arial", 9))
-    for video_index in range(video_count):
-        left = _LEFT_GUTTER + video_index * (layout.cell_width + _GAP)
-        right = left + layout.cell_width
-        painter.setPen(QPen(QColor("#879894"), 1))
-        painter.drawLine(left, y, right, y)
-        painter.setPen(QColor("#c3d1cd"))
-        painter.drawText(
-            QRect(left, y + 8, layout.cell_width, 20),
-            Qt.AlignmentFlag.AlignCenter,
-            labels.ruler.format(before=-before, after=after),
-        )
-        trigger_x = left + layout.trigger_x
-        current_x = left + round(layout.cell_width * (before + relative_time) / (before + after))
-        painter.setPen(QPen(QColor("#ef665d"), 2))
-        painter.drawLine(trigger_x, y - 8, trigger_x, y + 5)
-        painter.setPen(QPen(QColor("#f1f4f2"), 1))
-        painter.drawLine(current_x, y - 5, current_x, y + 5)
-        painter.drawText(
-            QRect(left, y + 30, layout.cell_width, 20),
-            Qt.AlignmentFlag.AlignCenter,
-            labels.current.format(time=relative_time),
-        )
+    painter.setPen(QPen(QColor("#879894"), 1))
+    painter.drawLine(left, y, left + width, y)
+    painter.setPen(QColor("#c3d1cd"))
+    painter.drawText(
+        QRect(left, y + 8, width, 20),
+        Qt.AlignmentFlag.AlignCenter,
+        labels.ruler.format(before=-before, after=after),
+    )
+    trigger_x = left + round(width * before / (before + after))
+    current_x = left + round(width * (before + relative_time) / (before + after))
+    painter.setPen(QPen(QColor("#ef665d"), 2))
+    painter.drawLine(trigger_x, y - 8, trigger_x, y + 5)
+    painter.setPen(QPen(QColor("#f1f4f2"), 1))
+    painter.drawLine(current_x, y - 5, current_x, y + 5)
+    painter.drawText(
+        QRect(left, y + 30, width, 20),
+        Qt.AlignmentFlag.AlignCenter,
+        labels.current.format(time=relative_time),
+    )
 
 
 def _image_to_rgb(image: QImage) -> np.ndarray:

@@ -34,15 +34,60 @@ _LABELS = GridLabels(
 )
 
 
-def test_grid_places_trigger_at_shared_relative_time_position() -> None:
-    layout = plan_grid(video_count=3, event_count=4, before=1.5, after=2.5)
+def test_three_cameras_and_twelve_events_make_a_wide_grid() -> None:
+    layout = plan_grid(video_count=3, event_count=12, before=0.5, after=1.5, has_signal=True)
 
     assert layout.width <= 2560
     assert layout.height <= 4320
     assert layout.width % 2 == 0
     assert layout.height % 2 == 0
-    assert layout.height > layout.cell_height * 4
-    assert layout.trigger_x == round(layout.cell_width * 1.5 / 4.0)
+    assert layout.width > 3 * layout.height
+    assert layout.cell_rect(0, 11).x() > layout.cell_rect(0, 0).x()
+    assert layout.cell_rect(0, 11).y() == layout.cell_rect(0, 0).y()
+    assert layout.cell_rect(2, 0).y() > layout.cell_rect(0, 0).y()
+    assert layout.cell_rect(2, 11).bottom() < layout.height - layout.bottom_band
+
+
+def test_three_camera_twelve_event_export_puts_cameras_in_rows(tmp_path, qapp) -> None:
+    videos = []
+    for camera_index in range(3):
+        path = tmp_path / f"camera_{camera_index}.mp4"
+        frames = [
+            (
+                np.full(
+                    (36, 64, 3),
+                    (35 + 65 * camera_index, 25 + 12 * event_index, 70),
+                    dtype=np.uint8,
+                ),
+                float(event_index),
+            )
+            for event_index in range(12)
+        ]
+        encode_video(path, frames, rate=Fraction(1, 1))
+        videos.append(GridVideo(path, f"Camera {camera_index + 1}"))
+
+    destination = tmp_path / "wide.mp4"
+    export_stimulus_grid(
+        videos,
+        [float(index) for index in range(12)],
+        before=0.0,
+        after=1.0,
+        destination=destination,
+        labels=_LABELS,
+        fps=1,
+    )
+    with av.open(str(destination)) as container:
+        frames = list(container.decode(video=0))
+    assert len(frames) == 1
+    image = frames[0].to_ndarray(format="rgb24")
+    layout = plan_grid(3, 12, 0.0, 1.0)
+    assert image.shape[:2] == (layout.height, layout.width)
+    for camera_index in range(3):
+        for event_index in range(12):
+            cell = layout.cell_rect(camera_index, event_index)
+            pixel = image[cell.y() + cell.height() // 2, cell.x() + cell.width() // 2]
+            assert abs(int(pixel[0]) - (35 + 65 * camera_index)) < 20
+            assert abs(int(pixel[1]) - (25 + 12 * event_index)) < 20
 
 
 def test_stimulus_grid_export_is_decodable(tmp_path, qapp) -> None:
@@ -106,10 +151,13 @@ def test_grid_exports_one_shared_trace_for_aligned_event_windows(tmp_path, qapp)
     image = frames[0].to_ndarray(format="rgb24")
     assert len(frames) == 3
     assert image.shape[:2] == (layout.height, layout.width)
-    # The chart spans both camera columns, below every video tile.
+    # The chart spans both event columns, below every camera row.
     chart = image[layout.height - 140 : layout.height - 50, 110 : layout.width - 28]
     assert np.count_nonzero((chart[:, :, 1] > 100) & (chart[:, :, 2] > 100)) > 50
-    pixel_on_former_video_marker = image[44 + 28 + 100, 110 + layout.trigger_x]
+    cell = layout.cell_rect(0, 0)
+    pixel_on_former_video_marker = image[
+        cell.y() + cell.height() // 2, cell.x() + cell.width() // 2
+    ]
     assert pixel_on_former_video_marker[2] > 130
     assert pixel_on_former_video_marker[0] < 100
 
@@ -221,7 +269,8 @@ def test_stimulus_grid_applies_high_bit_depth_display_levels(qapp) -> None:
         _LABELS,
     )
 
-    pixel = image.pixelColor(200, 44 + 28 + layout.cell_height // 2)
+    cell = layout.cell_rect(0, 0)
+    pixel = image.pixelColor(cell.x() + cell.width() // 2, cell.y() + cell.height() // 2)
     assert pixel.red() < 5
     assert pixel.green() < 5
     assert pixel.blue() < 5

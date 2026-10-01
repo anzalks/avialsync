@@ -49,7 +49,7 @@ Everything is under **File**, and each export is a distinct job:
 | **Export Changes…** | Annotation rows, one edited pose copy per source with corrections or accepted identity swaps, and a DeepLabCut retraining set when frames were hand-corrected | Analysis and pose-model retraining |
 | **Export Snapshot…** | A composed figure of the current moment | Figures, notes, lab reports |
 | **Export Trimmed Video Clip…** | The marked range, copied out of the source | Sharing a moment without re-encoding it |
-| **Export Stimulus Grid…** | Selected sensor-triggered windows, arranged as event rows and camera columns above one shared signal trace and relative-time ruler | Comparing repeated stimuli across cameras and trials |
+| **Export Stimulus Grid…** | Selected sensor-triggered windows, arranged as camera rows and event columns above one shared signal trace and relative-time ruler | Comparing repeated stimuli across cameras and trials |
 | **Export Data Slice…** | The marked range of the loaded signals | Analysis in another tool |
 
 **Export Changes…** is also the **Export…** button in the Changes tab; it is one action, so the two
@@ -92,8 +92,9 @@ Select up to twelve events and set the time before and after each one.
 ![The stimulus-grid dialog showing the TTL trace, threshold, selected events, and export window](../_static/screenshots/stimulus_grid_select_events.png)
 
 Choose **Continue to export**, then save the MP4. The default half-second before and 1.5 seconds
-after each event produce a **two-second video**. Each selected event becomes a row and
-each camera becomes a column. The camera images contain no export graphics. Beneath each image,
+after each event produce a **two-second video**. Each camera becomes a row and
+each selected event becomes a column, so a three-camera, twelve-event export is a wide grid.
+The camera images contain no export graphics. Beneath each image,
 **Frame N** names that camera's absolute, zero-based frame index at the current instant.
 
 All selected signal windows are overlaid in **one full-width trace below the video grid** on a
@@ -104,7 +105,7 @@ The short example below uses generated footage of a three-prong marker from thre
 a muted gray background. The marker moves and an off-white point appears only around each trigger;
 those details are part of the generated source videos, not export graphics.
 
-![Three event rows and three camera columns with absolute frame captions above one shared, relative-time TTL trace](../_static/screenshots/stimulus_grid_export.png)
+![Three camera rows and three event columns with absolute frame captions above one shared, relative-time TTL trace](../_static/screenshots/stimulus_grid_export.png)
 
 <video controls playsinline preload="metadata" poster="../_static/screenshots/stimulus_grid_export.png" aria-label="Demo of an event-aligned three-camera grid with a shared TTL trace">
   <source src="../_static/screenshots/stimulus_grid_demo.mp4" type="video/mp4">
