@@ -20,7 +20,7 @@ from avialsync.core.wheel import (
 )
 from avialsync.core.wheel_check import settle_sign
 from avialsync.core.wheel_fit import fit_labelled, fit_wheel
-from avialsync.ui.controllers.wheel_placement import Placement, estimate_missing
+from avialsync.ui.controllers.wheel_placement import WheelPlacement, estimate_missing
 from tests.wheel_fixture import CAMERAS, TRUTH, clicks_for
 
 _FIT_BUDGET_S = 0.030
@@ -84,7 +84,7 @@ def test_bench_wheel_bars_for_one_frame(benchmark) -> None:
 
 def test_bench_project_six_clicked_ends_into_a_missing_view(benchmark) -> None:
     """Projection happens after a click beside the fit, not during video paint."""
-    placement = Placement(WheelSpec("wheel", 36), None, 7)
+    placement = WheelPlacement(WheelSpec("wheel", 36), None, 7)
     for click in clicks_for([0, 1, 2]):
         placement.clicks[(click.bar, click.side)] = click.without_view("Right")
 
