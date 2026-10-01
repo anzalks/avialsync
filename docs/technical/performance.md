@@ -9,7 +9,7 @@ pyramid, 5 milliseconds to query it, 2 milliseconds for a fully populated cursor
 250 milliseconds for the 10,000-event synchronization preview. No UI-thread callback may exceed
 30 milliseconds; the target is 8 milliseconds or less so the event loop retains headroom.
 
-## Audit status (2026-07-29)
+## Audit status (2026-07-30)
 
 The following paths already have the correct ownership model:
 
@@ -25,21 +25,21 @@ The following paths already have the correct ownership model:
 - Current-pose 3D sampling shares one timestamp lookup per source and never loads a trajectory into
   the paint path.
 
-Those protections do not make the entire application freeze-free. The implemented hardening and
-remaining work are:
+The implementation gaps recorded in the 2026-07-29 audit were closed by 2026-07-30. Session
+save/load/autosave and annotation export run on workers; import staging is chunked; cache replacement
+is recoverable; evidence and plot hot paths are indexed; and video metadata probes run in a bounded
+pool. The former P0/P1 table described work that has since shipped and is intentionally removed.
 
-| Severity | Path | Why it can stall or lose responsiveness | Required fix |
-|---|---|---|---|
-| P0 | Session save/load and two-minute autosave | Large exact mappings now use compressed, checksum-validated sidecars instead of JSON float lists. Session serialization and IO still run on the UI thread. | Snapshot state quickly; serialize/write/read in a worker; coalesce autosaves and commit atomically. |
-| P0 | Region statistics and data export | Searchsorted range slices and worker-owned readers move reductions, CSV, and Parquet work out of the UI event loop. | Add cancellable/chunked writers, progress, and a Qt heartbeat integration test. |
-| P0 | Video clip and snapshot export | Packet-copy trimming and PNG composition/encoding run in workers; widget grabbing stays on the UI thread by Qt requirement. | Add cancellable/progress-aware jobs and a Qt heartbeat integration test. |
-| P0 | First import and session reopen | CSV/tracking use one bulk parser pass and a valid cache manifest reopens without parsing. Import still accumulates complete channels; Neo can materialize a full block. | Parse into bounded per-channel builders; stream plugin data; measure peak RSS and warm reopen. |
-| P0 | Exact alignment acceptance | Exact fitting retains bounded display evidence; UI acceptance keeps NumPy arrays and session save writes large arrays to a compact sidecar. | Benchmark one-million-frame accept/save/load/seek memory and move session IO to workers. |
-| P1 | 60 Hz observers | Every readout label is reformatted each tick; readout and 3D sampling continue when their panels are collapsed; tracking overlay performs a lookup per reader during paint. | Retain the latest master time, skip hidden consumers, sample once per source, batch label updates, and cap presentation rate without changing clock accuracy. |
-| P1 | Evidence and plot overlays | Timeline paint/hover scans all TTL/gap/annotation evidence. Sweep boundaries remove and recreate every visible gap/annotation graphics item. | Index by timestamp, query only the visible range, deduplicate by pixel, and pool/reposition graphics items. |
-| P1 | Source materialization | Plot, readout, sidebar, and tracking structures are built synchronously for every imported channel. Recursive drop classification and plugin discovery also run on the UI thread. | Prepare metadata off-thread, add/virtualize rows in event-loop-sized batches, and cancel obsolete work. |
-| P1 | Multi-video open | Expensive video probes are serialized with the one-at-a-time native pane lifecycle. ffprobe frame output is captured as one large text string. | Probe with a bounded worker pool, stream timestamp output, and serialize only native render-pane construction. |
-| P2 | Theme accent lookup | The first macOS custom paint may synchronously execute `defaults` with a one-second timeout. | Resolve once during startup diagnostics or use the palette immediately and apply the discovered accent later. |
+The remaining release gate is measurement, not another implementation claim:
+
+- Record populated 4/32/128-channel latency, peak RSS and warm reopen for the 1 GB import workload.
+- Measure decoder settle through the frame actually painted, including p50/p95/p99 and maximum UI
+  heartbeat delay.
+- Retain the representative operating-system and mid-spec-machine checks described in the
+  project `HANDOUT.md`; existing microbenchmarks are baselines, not certification.
+
+**Known responsiveness caveat:** On macOS, the first system-accent lookup can synchronously run
+`defaults` with a one-second timeout. The result is cached, so this does not repeat on each paint.
 
 Correctness and throughput are co-equal. The companion data-path findings and required fixtures are
 documented in [Data handling](data-handling.md).
@@ -83,8 +83,7 @@ Do not tune an individual threshold to make a slow machine pass. A changed produ
 needs a documented decision and a new ground-truth benchmark.
 
 Pyramid sidecars keep their exact level-1 arrays and published envelope format. Their independent
-array writes use a bounded three-worker pool so storage I/O overlaps without creating an
-unbounded number of threads during large imports. A write failure is propagated to the import
-worker; it must never leave the UI reporting a successful cache. This write pool does not make the
-current importer streaming: source parsing, concatenation, pyramid construction, and sidecar commit
-must also become bounded-memory operations before the import path is certified.
+array writes use a bounded three-worker pool, and failures propagate to the import worker. The
+importer now stages parser chunks through `ChannelStage` rather than retaining the full parsed input
+before cache construction. That implementation is complete; representative peak-memory and latency
+measurements remain open before the path can be called certified.

@@ -15,6 +15,9 @@ trigger. That shared event is what you will judge alignment against.
 
 Load your files first; [the first-session tutorial](first-session.md) covers that.
 
+The screenshots use generated camera footage and frame-trigger evidence. Real recordings will show
+their own source names, timing, and fit results.
+
 ## 1. A fixed offset, when one recording is simply early or late
 
 Every source carries its own **Offset** and **Drift** in the left panel.

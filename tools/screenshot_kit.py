@@ -19,16 +19,21 @@ a step actually uses, and numbers them when order matters.
 
 from __future__ import annotations
 
+import csv
+import math
 import shutil
 import tempfile
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
+from fractions import Fraction
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QPoint, QRect, Qt
+import numpy as np
+from PySide6.QtCore import QEvent, QEventLoop, QPoint, QRect, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QApplication, QWidget
 
+from avialsync.engine.transcode import encode_video
 from avialsync.ui import theme
 
 #: Highlight colour. Chosen to stay legible on both the dark chrome and the
@@ -69,6 +74,78 @@ def staged_fixture(source: Path) -> Iterator[Path]:
         target = Path(scratch) / source.name
         shutil.copytree(source, target, ignore=shutil.ignore_patterns("*.avialcache"))
         yield target
+
+
+def write_synthetic_sync_fixture(folder: Path) -> Path:
+    """Create short synthetic camera and trigger files in a caller-owned temp folder."""
+    folder.mkdir(parents=True, exist_ok=True)
+    video_path = folder / "camera_1.mp4"
+
+    def frames() -> Iterator[tuple[np.ndarray, float]]:
+        for index in range(120):
+            timestamp = index / 30.0
+            image = np.full((360, 640, 3), (54, 62, 67), dtype=np.uint8)
+            x = 80 + (index * 4) % 480
+            image[155:205, x : x + 50] = (205, 215, 211)
+            image[170:190, x + 15 : x + 35] = (245, 242, 224)
+            yield image, timestamp
+
+    encode_video(video_path, frames(), rate=Fraction(30, 1))
+
+    signal_path = folder / "signal_base.csv"
+    trigger_path = folder / "frame_triggers.csv"
+    with (
+        signal_path.open("w", newline="", encoding="utf-8") as signal_file,
+        trigger_path.open("w", newline="", encoding="utf-8") as trigger_file,
+    ):
+        signal_writer = csv.writer(signal_file)
+        trigger_writer = csv.writer(trigger_file)
+        signal_writer.writerow(("time", "ch0", "ch1", "ch2", "TTL"))
+        trigger_writer.writerow(("t", "cam_strobe"))
+        for sample_index in range(4250):
+            timestamp = sample_index / 1000.0
+            pulse_index = round((timestamp - 0.25) * 30)
+            pulse_start = 0.25 + pulse_index / 30.0
+            high = 0 <= pulse_index < 120 and pulse_start <= timestamp < pulse_start + 0.004
+            pulse = 1.0 if high else 0.0
+            signal_writer.writerow(
+                (
+                    f"{timestamp:.3f}",
+                    f"{math.sin(2 * math.pi * timestamp):.6f}",
+                    f"{math.cos(2 * math.pi * 0.5 * timestamp):.6f}",
+                    "1" if timestamp >= 2.0 else "0",
+                    f"{pulse:.1f}",
+                )
+            )
+            trigger_writer.writerow((f"{timestamp:.3f}", f"{pulse:.1f}"))
+
+    return folder
+
+
+def wait_until(
+    app: QApplication,
+    ready: Callable[[], bool],
+    description: str,
+    timeout_ms: int = 5000,
+) -> None:
+    """Drive Qt until a screenshot prerequisite is ready or raise on timeout."""
+    if ready():
+        return
+    loop = QEventLoop(app)
+    poll = QTimer(loop)
+    poll.setInterval(10)
+    poll.timeout.connect(lambda: loop.quit() if ready() else None)
+    deadline = QTimer(loop)
+    deadline.setSingleShot(True)
+    deadline.timeout.connect(loop.quit)
+    poll.start()
+    deadline.start(timeout_ms)
+    loop.exec()
+    poll.stop()
+    deadline.stop()
+    loop.deleteLater()
+    if not ready():
+        raise RuntimeError(f"Timed out waiting for {description}.")
 
 
 def pin_layout(window: QWidget) -> None:
