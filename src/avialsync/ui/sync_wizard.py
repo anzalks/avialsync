@@ -140,7 +140,10 @@ class SyncWizard(QDialog):
                 "it is a quarter of the smaller median interval between events."
             )
         )
+        self._tolerance.valueChanged.connect(self._on_tolerance_changed)
         form.addRow(tr("Match tolerance:"), self._tolerance)
+        self._effective_tolerance = QLabel(tr("Calculated when you preview the evidence."), self)
+        form.addRow(tr("Effective match tolerance:"), self._effective_tolerance)
 
         self._restrict = QCheckBox(tr("Fit only part of the recording"))
         self._restrict.setToolTip(
@@ -214,6 +217,7 @@ class SyncWizard(QDialog):
         self._preview_button.setEnabled(False)
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         self._summary.setText(tr("Extracting event evidence and fitting alignment…"))
+        self._effective_tolerance.setText(tr("Calculating from the selected evidence…"))
 
         self._thread = QThread(self)
         mode = self._strategy_combo.currentData()
@@ -306,6 +310,7 @@ class SyncWizard(QDialog):
                 "that way wherever the alignment is shown."
             ).format(offset=self._manual_offset.value(), drift=self._manual_drift.value())
         )
+        self._effective_tolerance.setText(tr("Not used for a manual mapping."))
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
 
     @Slot(object)
@@ -322,6 +327,15 @@ class SyncWizard(QDialog):
         # quarter-second band is a different claim from one judged by a
         # millisecond, and the number was previously nowhere on the dialog.
         self._show_tolerance(proposal.tolerance)
+        provenance = (
+            tr("derived from pulse spacing") if self._tolerance.value() == 0 else tr("set by you")
+        )
+        self._effective_tolerance.setText(
+            tr("{value:.6g} s ({provenance})").format(
+                value=proposal.tolerance,
+                provenance=provenance,
+            )
+        )
         summary = fit.describe()
         refusal = proposal.refusal
         if refusal:
@@ -347,6 +361,16 @@ class SyncWizard(QDialog):
         finally:
             self._tolerance.blockSignals(blocked)
 
+    def _on_tolerance_changed(self, _value: float) -> None:
+        """Discard a proposal judged with a different tolerance."""
+        if self._proposal is None:
+            return
+        self._proposal = None
+        self._evidence.show_proposal(None)
+        self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+        self._summary.setText(tr("Match tolerance changed. Preview again before accepting."))
+        self._effective_tolerance.setText(tr("Preview is out of date; preview again."))
+
     @Slot(str)
     def _on_error(self, message: str) -> None:
         """Say why no mapping was proposed, in the summary that is already there.
@@ -357,6 +381,7 @@ class SyncWizard(QDialog):
         user's next move is to pick different evidence, which is behind it.
         """
         self._summary.setText(tr("No mapping proposed: {reason}").format(reason=message))
+        self._effective_tolerance.setText(tr("Unavailable because preview did not produce a fit."))
 
     @Slot()
     def _on_thread_finished(self) -> None:

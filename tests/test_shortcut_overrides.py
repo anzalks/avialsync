@@ -265,7 +265,9 @@ def test_the_window_applies_overrides_at_startup(qapp: QApplication, qtbot) -> N
     identifier = action_id(target)
     probe.close()
 
-    QSettings("AvialSync", "AvialSync").setValue(f"shortcuts/{identifier}", "Ctrl+Alt+Shift+K")
+    settings = QSettings("AvialSync", "AvialSync")
+    settings.setValue(f"shortcuts/{identifier}", "Ctrl+Alt+Shift+K")
+    settings.sync()
 
     fresh = MainWindow()
     qtbot.addWidget(fresh)

@@ -3,6 +3,8 @@
 This example uses one camera and one sensor file. The same steps work with several cameras and many
 recordings.
 
+For an in-app checklist while reviewing, open **Help → Review Workflow**.
+
 ## 1. Load the camera
 
 ![Load the camera](../_static/screenshots/demo_step2_video_loaded.png)
@@ -22,10 +24,20 @@ data](importing-data.md) walks every field.
 
 The traces appear below the video.
 
+Use the inspector's **Filter sources and channels** field to find a source or channel across the
+loaded recordings. Filtering only narrows the inspector list; it does not unload data or change
+visibility.
+
+To put plots on a second display, choose **View → Detach Plots**. Close that window or choose
+**Return to main window** to restore the pane; named workspaces remember its detached position.
+
 ## 3. Find an event
 
 Drag the shared time bar until you see a meaningful event. Watch the video, traces, and values in
 the left panel together — they are all showing the same instant.
+
+For a copyable text view of the current channel values, sample indices, and camera frames, open the
+**Values** inspector tab and choose **Text view**.
 
 For a closer look, set **Window limit** and drag the slider below the traces. Every trace keeps the
 same window: they sweep left to right together and restart together, because comparing them is the
