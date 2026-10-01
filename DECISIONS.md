@@ -5346,3 +5346,42 @@ jobs for cancellation and shutdown.
 **Consequences.** The private-access baseline makes remaining design coupling visible and prevents
 growth, but does not make every controller independent of `MainWindow` yet. This is a measured
 intermediate boundary, not completion of the line-count target.
+
+## 2026-10 · D-149 · Physical props separate fixed structure, material motion, and evidence
+
+**Context.** D-113 correctly models one running wheel, but a belt, a ball, and a horizontal ladder
+do not share its bar geometry or its scalar rotation. Naming them all wheels, or generalizing
+`EncoderBinding.turn()` to every object, would produce convincing but false animation.
+
+**Decision.** A physical prop has fixed structure in a calibrated frame, a kind-specific map from
+material coordinates and motion state to world coordinates, and separately recorded evidence.
+Wheel motion is axial angle, belt surface motion is signed travel along a declared direction,
+ball motion is 3D orientation, and a ladder is static. Ladder geometry is the ordered set of
+individual user-clicked points or rung ends. No equal pitch, common height, missing rung, or rail
+is inferred from its name: regular and irregular steps use the same evidence model. A one-camera
+click stays a 2D observation until calibrated multi-view evidence locates it in 3D (D-116).
+A moving surface need not move its support geometry. Each sensor mapping states its units and
+observability; one scalar never determines a ball's full orientation. Unknown motion is reported as
+unknown and never filled by an assumed animal trajectory. Fit residuals, ambiguous alternatives,
+user checks, and raw clicks remain
+inspectable; an accepted model requires an explicit command. The plugin may offer apparatus hints
+but cannot silently accept one (D-113, D-132).
+
+**Compatibility.** Existing wheels keep `Wheel`, `SetWheelCommand`, their Wheels editor and
+`.wheel.toml` semantics during the migration. A general Props inspector may contain that editor;
+only after the new action and surfaces work end to end may it replace the current label. New kinds
+use versioned, kind-tagged `.prop.toml` sidecars in `pose-3d/`, with tombstones on removal.
+The `.avv` session holds references and presentation state, not duplicate measurements. Both
+suffixes are reserved from source loaders. Motion samples use the existing TimeMap and the shown
+frame's presentation time (D-113, D-124, D-131). All visible edits use the command bus, all
+overlays are registered, and long fits use `_run_job` (rules 11, 13, 14).
+
+**Alternatives rejected.** A universal angle or speed field loses ball orientation and static
+apparatus. A single rigid transform for the whole prop moves a belt's frame with its surface.
+A free-form dictionary of shape-specific parameters would hide units and unobservable degrees of
+freedom from mypy and from the review panel. Rewriting wheel files into a new schema on read would
+alter accepted evidence without a user command.
+
+**Consequences.** The typed core model can be tested against synthetic ground truth for all four
+kinds. Each kind still needs its own placement, fitting, validation, and renderer. The detailed
+slices and app acceptance criteria are in `PHYSICAL_PROPS_PLAN.md`.

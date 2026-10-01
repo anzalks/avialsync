@@ -429,6 +429,16 @@ The detector proposes only. An accepted event passes through the command bus; re
 
 ---
 
+## Physical props — branch `feat/physical-props`
+
+Generalize the existing wheel feature to the belt, ball, and horizontal ladder
+without treating their motion as an angle. `PHYSICAL_PROPS_PLAN.md` is the
+executable plan; D-149 settles the model and compatibility boundary. The work
+is complete only when each kind can be placed, reviewed, saved, reopened, and
+shown in the app with its evidence and missing information visible.
+
+---
+
 ## Working method with AI agents (all phases)
 
 - One phase = one milestone = a series of small PR-sized tasks. Agents work from `PROMPTS.md` kickoff prompts + `AGENTS.md` standing rules.

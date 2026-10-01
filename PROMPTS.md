@@ -286,6 +286,15 @@ which numbered steps you completed and which remain.
 
 Read BLUEPRINT's Identity repair section and D-141–D-145. Continue one slice at a time: the headless event model and sidecar; the common edit program and derived cache; evidence detection and the interactive group/part braid; review surfaces; the single edited CSV export. A candidate is never applied without a user command. Keep the recording and imported cache untouched, and verify correction-before-routing against a multi-animal fixture. Run the focused tests after each slice, then the full project gate.
 
+## Physical props kickoff (`feat/physical-props`)
+
+Read `PHYSICAL_PROPS_PLAN.md`, D-149, and the existing D-113 wheel flow. Implement one reviewable
+slice at a time. Keep wheel sidecars readable and their animation unchanged. Test each kind's
+actual state space with synthetic ground truth, then connect it through commands, registered
+overlays, the Props inspector, and persistence. Never infer a ball's orientation from one scalar or
+animate a belt whose direction is unknown. A core-only implementation is a foundation, not a
+finished user feature.
+
 ## Debugging prompt template (any phase)
 
 ```

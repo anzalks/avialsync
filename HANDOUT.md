@@ -100,6 +100,11 @@ the result on that video's frame grid. The session scanner pairs by camera devic
 trials whose calibration or video match is missing or ambiguous. Projected points use the existing
 camera-specific tracking overlay and its visibility controls.
 
+**Physical props are in progress on `feat/physical-props`.** Read `PHYSICAL_PROPS_PLAN.md` and
+D-149 before changing wheels or adding another apparatus. The wheel remains the only implemented
+kind until the plan's core, persistence, and UI slices are complete. Its `.wheel.toml` evidence
+must stay readable; a general prop cannot assume every apparatus rotates about one axis.
+
 Two product laws govern that phase and outrank convention:
 
 - **Law 1 — never block, always inform.** Opening a file is never refused or gated. The user is
