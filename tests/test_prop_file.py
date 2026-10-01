@@ -69,6 +69,20 @@ def test_removal_keeps_a_tombstone_and_rewriting_restores_the_prop(tmp_path) -> 
     assert read_props(tmp_path) == ([ladder], [])
 
 
+def test_unadopted_sidecar_cannot_be_replaced_but_its_tombstone_can_be_reused(tmp_path) -> None:
+    ladder = _ladder()
+    target = write_ladder(tmp_path, ladder)
+    original = target.read_bytes()
+    with pytest.raises(PropModelError, match="already uses this name"):
+        write_ladder(tmp_path, Ladder(ladder.name), overwrite_existing=False)
+    with pytest.raises(PropModelError, match="already uses this name"):
+        write_removed(tmp_path, ladder.name, overwrite_existing=False)
+    assert target.read_bytes() == original
+    write_removed(tmp_path, ladder.name)
+    write_ladder(tmp_path, ladder, overwrite_existing=False)
+    assert read_props(tmp_path) == ([ladder], [])
+
+
 def test_removing_a_prop_that_was_never_saved_writes_nothing(tmp_path) -> None:
     assert write_removed(tmp_path, "absent") is None
     assert list(tmp_path.iterdir()) == []

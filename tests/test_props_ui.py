@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.core.physical_props import Ladder, LadderPoint, LadderStep, StepClick
 from avialsync.core.prop_file import read_props, write_ladder
+from avialsync.engine import prop_file_worker
+from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
 from avialsync.ui.main_window import MainWindow
 from tests.wheel_fixture import CAMERAS
 from tests.wheel_window import VIDEOS, build_window
@@ -149,3 +153,247 @@ def test_saved_ladder_reopens_with_original_clicks(
         ("Raised step", ((118.5, 92.0, True),), False)
     ]
     assert window.props_app.scene_steps(0.0) == []
+
+
+def test_failed_discovery_can_be_retried_without_losing_a_saved_ladder(
+    window: MainWindow, qtbot, monkeypatch, tmp_path: Path
+) -> None:
+    saved = Ladder(
+        "recovered",
+        (LadderStep("one", "step", (LadderPoint((StepClick("Front", 7, 1.0, 2.0),)),)),),
+    )
+    write_ladder(tmp_path / "pose-3d", saved)
+    original_read = prop_file_worker.read_props
+    attempts = 0
+
+    def fail_once(folder: Path):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError("temporary read failure")
+        return original_read(folder)
+
+    monkeypatch.setattr(prop_file_worker, "read_props", fail_once)
+    window.props_app.adopt()
+    qtbot.waitUntil(lambda: attempts == 1, timeout=3000)
+    window.props_app.adopt()
+    qtbot.waitUntil(lambda: window.props_app.store.get("recovered") is not None, timeout=3000)
+    assert attempts == 2
+    assert window.props_app.store.get("recovered") == saved
+
+
+def test_incomplete_rung_cannot_be_saved_and_cancelling_keeps_no_partial_step(
+    window: MainWindow, monkeypatch
+) -> None:
+    window._act_add_prop.trigger()
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.name.setText("incomplete")
+    panel.create_button.click()
+    with monkeypatch.context() as patches:
+        _fake_panes(window, patches)
+        panel.add_rung.click()
+        window._on_marker_clicked(VIDEOS["Front"], 12.0, 34.0)
+        panel.save_step.click()
+        assert window.props_app.draft is not None
+        assert window.props_app.store.get("incomplete").steps == ()
+        panel.next_point.click()
+        panel.save_step.click()
+        assert window.props_app.store.get("incomplete").steps == ()
+        panel.cancel_step.click()
+    assert window.props_app.draft is None
+    assert window.props_app.store.get("incomplete").steps == ()
+
+
+def test_closed_outline_requires_three_explicit_points_and_keeps_their_shape(
+    window: MainWindow, monkeypatch
+) -> None:
+    window._act_add_prop.trigger()
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.name.setText("outline")
+    panel.create_button.click()
+    with monkeypatch.context() as patches:
+        _fake_panes(window, patches)
+        panel.closed.setChecked(True)
+        panel.add_point.click()
+        window._on_marker_clicked(VIDEOS["Front"], 10.0, 20.0)
+        panel.save_step.click()
+        assert window.props_app.store.get("outline").steps == ()
+        for x, y in ((30.0, 12.0), (24.0, 44.0)):
+            panel.next_point.click()
+            window._on_marker_clicked(VIDEOS["Front"], x, y)
+        panel.save_step.click()
+    step = window.props_app.store.get("outline").steps[0]
+    assert step.closed
+    assert [(point.clicks[0].x, point.clicks[0].y) for point in step.points] == [
+        (10.0, 20.0),
+        (30.0, 12.0),
+        (24.0, 44.0),
+    ]
+    assert window.props_app.camera_drawing(VIDEOS["Front"], 0.0)[0][2] is True
+
+
+def test_reordering_and_removing_irregular_steps_preserves_clicks_and_undo(
+    window: MainWindow, monkeypatch
+) -> None:
+    window._act_add_prop.trigger()
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.name.setText("ordered")
+    panel.create_button.click()
+    with monkeypatch.context() as patches:
+        _fake_panes(window, patches)
+        for label, x in (("low", 10.0), ("high", 42.0), ("uneven", 27.0)):
+            panel.step_label.setText(label)
+            panel.add_point.click()
+            window._on_marker_clicked(VIDEOS["Front"], x, x + 2.0)
+            panel.save_step.click()
+    before = window.props_app.store.get("ordered")
+    assert before is not None
+    assert [step.points[0].clicks[0].x for step in before.steps] == [10.0, 42.0, 27.0]
+    panel.steps.setCurrentRow(2)
+    panel.up.click()
+    moved = window.props_app.store.get("ordered")
+    assert moved is not None
+    assert [step.step_id for step in moved.steps] == [
+        before.steps[0].step_id,
+        before.steps[2].step_id,
+        before.steps[1].step_id,
+    ]
+    assert moved.steps[1] == before.steps[2]
+    assert window.document.undo(window._mutations)
+    assert window.props_app.store.get("ordered") == before
+    panel.steps.setCurrentRow(1)
+    panel.remove_step.click()
+    reduced = window.props_app.store.get("ordered")
+    assert reduced is not None and reduced.steps == (before.steps[0], before.steps[2])
+    assert window.document.undo(window._mutations)
+    assert window.props_app.store.get("ordered") == before
+
+
+def test_third_camera_projection_does_not_become_an_observed_click(
+    window: MainWindow, monkeypatch
+) -> None:
+    window._act_add_prop.trigger()
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.name.setText("projection")
+    panel.create_button.click()
+    world = np.asarray([[0.1, 0.2, 0.3]])
+    with monkeypatch.context() as patches:
+        _fake_panes(window, patches)
+        panel.add_point.click()
+        for camera in ("Front", "Left"):
+            x, y = CAMERAS[camera].project(world)[0]
+            window._on_marker_clicked(VIDEOS[camera], float(x), float(y))
+        panel.save_step.click()
+    point = window.props_app.store.get("projection").steps[0].points[0]
+    assert {click.camera for click in point.clicks} == {"Front", "Left"}
+    front = window.props_app.camera_drawing(VIDEOS["Front"], 0.0)[0][1][0]
+    right = window.props_app.camera_drawing(VIDEOS["Right"], 0.0)[0][1][0]
+    assert front is not None and front[2] is True
+    assert right is not None and right[2] is False
+    assert right[:2] == pytest.approx(CAMERAS["Right"].project(world)[0], abs=0.01)
+    scene = window.props_app.scene_steps(0.0)
+    assert len(scene) == 1 and scene[0][1][0] == pytest.approx(world[0], abs=0.01)
+
+    behind = dataclasses.replace(
+        CAMERAS["Right"],
+        translation=-(CAMERAS["Right"].rotation_matrix() @ world[0]) - np.asarray((0.0, 0.0, 1.0)),
+    )
+    window._calibration_state = SimpleNamespace(
+        cameras={
+            VIDEOS["Front"]: CAMERAS["Front"],
+            VIDEOS["Left"]: CAMERAS["Left"],
+            VIDEOS["Right"]: behind,
+        }
+    )
+    assert window.props_app.camera_drawing(VIDEOS["Right"], 0.0) == []
+
+    window._calibration_state = None
+    assert window.props_app.scene_steps(0.0) == []
+    assert window.props_app.camera_drawing(VIDEOS["Front"], 0.0)[0][1][0] == front
+    assert window.props_app.camera_drawing(VIDEOS["Right"], 0.0) == []
+
+
+def test_rapid_edits_write_the_latest_accepted_revision_in_order(
+    window: MainWindow, qtbot, monkeypatch, tmp_path: Path
+) -> None:
+    queued: list[PropFileWriteWorker] = []
+
+    def hold_writes(worker, label: str = "Working", configure=None):
+        del label
+        if configure is not None:
+            configure(QThread())
+        if isinstance(worker, PropFileWriteWorker):
+            queued.append(worker)
+        else:
+            worker.run()
+        return QThread()
+
+    monkeypatch.setattr(window, "_run_job", hold_writes)
+    window._act_add_prop.trigger()
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.name.setText("rapid")
+    panel.create_button.click()
+    assert len(queued) == 1
+    with monkeypatch.context() as patches:
+        _fake_panes(window, patches)
+        panel.add_point.click()
+        window._on_marker_clicked(VIDEOS["Front"], 10.0, 20.0)
+        panel.save_step.click()
+        panel.add_point.click()
+        window._on_marker_clicked(VIDEOS["Front"], 30.0, 40.0)
+        panel.save_step.click()
+    assert len(queued) == 1
+    queued[0].run()
+    qtbot.waitUntil(lambda: len(queued) == 2, timeout=3000)
+    queued[1].run()
+    folder = tmp_path / "pose-3d"
+    qtbot.waitUntil(lambda: len(read_props(folder)[0][0].steps) == 2, timeout=3000)
+    assert read_props(folder)[0] == [window.props_app.store.get("rapid")]
+
+
+def test_creation_during_discovery_keeps_the_unread_sidecar_intact(
+    window: MainWindow, qtbot, monkeypatch, tmp_path: Path
+) -> None:
+    folder = tmp_path / "pose-3d"
+    saved = Ladder(
+        "occupied",
+        (LadderStep("old", "Existing step", (LadderPoint((StepClick("Front", 7, 9.0, 8.0),)),)),),
+    )
+    target = write_ladder(folder, saved)
+    original = target.read_bytes()
+    held_reads: list[PropFileReadWorker] = []
+
+    def hold_read(worker, label: str = "Working", configure=None):
+        del label
+        if configure is not None:
+            configure(QThread())
+        if isinstance(worker, PropFileReadWorker):
+            held_reads.append(worker)
+        else:
+            worker.run()
+        return QThread()
+
+    monkeypatch.setattr(window, "_run_job", hold_read)
+    window.props_app.adopt()
+    assert len(held_reads) == 1
+    window._act_add_prop.trigger()
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.name.setText("occupied")
+    panel.create_button.click()
+    qtbot.waitUntil(lambda: window.props_app.store.get("occupied") is not None, timeout=3000)
+    assert target.read_bytes() == original
+    held_reads[0].run()
+    assert target.read_bytes() == original
+    assert window.props_app.store.get("occupied") == Ladder("occupied")
+    with monkeypatch.context() as patches:
+        _fake_panes(window, patches)
+        panel.add_point.click()
+        window._on_marker_clicked(VIDEOS["Front"], 12.0, 34.0)
+        panel.save_step.click()
+    assert target.read_bytes() == original

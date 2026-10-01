@@ -7,6 +7,8 @@ import math
 
 import numpy as np
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from avialsync.core.errors import PropModelError
 from avialsync.core.physical_props import (
@@ -141,6 +143,26 @@ def test_closed_belt_wraps_only_on_the_declared_loop() -> None:
     assert track.material_point(1.0, -3.0) == pytest.approx((0.0, 2.0, 0.0))
 
 
+@settings(max_examples=50)
+@given(
+    reference=st.floats(min_value=-100, max_value=100, allow_nan=False),
+    travel=st.floats(min_value=-100, max_value=100, allow_nan=False),
+    turns=st.integers(min_value=-10, max_value=10),
+)
+def test_closed_belt_position_is_periodic_without_moving_its_frame(
+    reference: float, travel: float, turns: int
+) -> None:
+    track = BeltTrack(
+        ((0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 10.0, 0.0), (0.0, 10.0, 0.0)),
+        closed=True,
+    )
+    vertices = track.vertices
+    assert track.material_point(reference, travel + turns * track.length) == pytest.approx(
+        track.material_point(reference, travel), abs=1e-8
+    )
+    assert track.vertices == vertices
+
+
 def test_ball_orientation_has_two_independent_axes() -> None:
     ball = BallSurface((10.0, 20.0, 30.0), 5.0)
     around_z = UnitQuaternion.about_axis((0.0, 0.0, 1.0), math.pi / 2)
@@ -163,6 +185,20 @@ def test_quaternion_normalization_and_sign_do_not_change_ball_position() -> None
     assert ball.material_point((0.0, 1.0, 0.0), q) == pytest.approx(
         ball.material_point((0.0, 1.0, 0.0), opposite)
     )
+
+
+@settings(max_examples=50)
+@given(
+    pitch=st.floats(min_value=-math.pi, max_value=math.pi, allow_nan=False),
+    yaw=st.floats(min_value=-math.pi, max_value=math.pi, allow_nan=False),
+)
+def test_ball_orientation_keeps_a_mark_on_the_declared_sphere(pitch: float, yaw: float) -> None:
+    ball = BallSurface((3.0, -4.0, 7.0), 12.0)
+    q = UnitQuaternion.about_axis((1.0, 0.0, 0.0), pitch).composed(
+        UnitQuaternion.about_axis((0.0, 0.0, 1.0), yaw)
+    )
+    mark = ball.material_point((1.0, 0.0, 0.0), q)
+    assert math.dist(mark, ball.centre) == pytest.approx(ball.radius, abs=1e-10)
 
 
 def test_wheel_adapter_preserves_the_existing_bar_generator() -> None:

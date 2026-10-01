@@ -4,6 +4,12 @@ Branch: `feat/physical-props`. Decision: D-149. This plan extends the wheel
 feature without changing what existing wheel files mean. Complete one slice at
 a time; a model that exists only in `core/` is not an app feature.
 
+Current branch status: the wheel editor remains intact; horizontal ladders have
+clicked placement, undo, sidecars, registered overlays, 3D display, and tests for
+irregular points, calibration changes, damaged files, and write ordering. Belt
+and ball have headless material-motion mathematics only. Their placement,
+source binding, later-frame verification, and app overlays remain in slices 4–5.
+
 ## 1. Vocabulary and mathematical contract
 
 A **physical prop** is apparatus visible with the animal. Its name and kind

@@ -3,7 +3,8 @@
 The first supported kind is a user-clicked ladder. A future kind or damaged
 file costs only that prop: :func:`read_props` returns a per-file issue for the
 UI to report. Raw camera clicks are the authority; stored 3D coordinates and
-reprojection errors let a prop draw when calibration is temporarily absent.
+reprojection errors retain the last fit for inspection, while the UI derives
+display coordinates from the calibration currently in force.
 Wheel files retain their D-113 format and are read by ``wheel_file``.
 """
 
@@ -81,10 +82,10 @@ def _table(header: str, fields: list[tuple[str, object | None]]) -> list[str]:
     ]
 
 
-def _assert_owned(target: Path, name: str) -> None:
-    """Never replace a damaged or future-format record with an older writer."""
+def _assert_owned(target: Path, name: str) -> bool:
+    """Validate an existing record; return whether it contains an active prop."""
     if not target.exists():
-        return
+        return False
     try:
         document = tomllib.loads(target.read_text(encoding="utf-8"))
         head = _mapping(document["prop"])
@@ -95,18 +96,21 @@ def _assert_owned(target: Path, name: str) -> None:
         ):
             raise PropModelError("A different or newer prop file already uses this name.")
         _flag(head, "removed")
-        _, issue = _parse(document, target)
+        prop, issue = _parse(document, target)
         if issue is not None:
             raise PropModelError("An unreadable prop file already uses this name.")
+        return prop is not None
     except (OSError, UnicodeError, tomllib.TOMLDecodeError, KeyError, PropModelError) as exc:
         raise PropModelError("An unreadable prop file already uses this name.") from exc
 
 
-def write_ladder(folder: Path | str, ladder: Ladder) -> Path:
+def write_ladder(folder: Path | str, ladder: Ladder, *, overwrite_existing: bool = True) -> Path:
     """Atomically write actual step clicks and their last solved 3D positions."""
     folder = Path(folder)
     target = prop_path(folder, ladder.name)
-    _assert_owned(target, ladder.name)
+    active = _assert_owned(target, ladder.name)
+    if active and not overwrite_existing:
+        raise PropModelError("A saved prop already uses this name; its evidence was kept.")
     folder.mkdir(parents=True, exist_ok=True)
     lines = [_HEADER]
     lines += _table(
@@ -147,12 +151,14 @@ def write_ladder(folder: Path | str, ladder: Ladder) -> Path:
     return write_atomic(target, lines)
 
 
-def write_removed(folder: Path | str, name: str) -> Path | None:
+def write_removed(folder: Path | str, name: str, *, overwrite_existing: bool = True) -> Path | None:
     """Mark an existing prop removed, retaining a sidecar for undo/recovery."""
     target = prop_path(folder, name)
     if not target.exists():
         return None
-    _assert_owned(target, name)
+    active = _assert_owned(target, name)
+    if active and not overwrite_existing:
+        raise PropModelError("A saved prop already uses this name; its evidence was kept.")
     lines = [
         _HEADER,
         *_table(

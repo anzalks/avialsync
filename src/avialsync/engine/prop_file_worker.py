@@ -38,11 +38,14 @@ class PropFileWriteWorker(QObject):
     finished = Signal(object)
     error = Signal(str)
 
-    def __init__(self, folder: Path, name: str, ladder: Ladder | None) -> None:
+    def __init__(
+        self, folder: Path, name: str, ladder: Ladder | None, *, overwrite_existing: bool = True
+    ) -> None:
         super().__init__()
         self._folder = folder
         self._name = name
         self._ladder = ladder
+        self._overwrite_existing = overwrite_existing
 
     @Slot()
     def run(self) -> None:
@@ -50,9 +53,13 @@ class PropFileWriteWorker(QObject):
             if wheel_path(self._folder, self._name).exists():
                 raise PropModelError("A wheel sidecar already uses this prop name.")
             path = (
-                write_ladder(self._folder, self._ladder)
+                write_ladder(
+                    self._folder, self._ladder, overwrite_existing=self._overwrite_existing
+                )
                 if self._ladder is not None
-                else write_removed(self._folder, self._name)
+                else write_removed(
+                    self._folder, self._name, overwrite_existing=self._overwrite_existing
+                )
             )
         except (OSError, ValueError, PropModelError) as error:
             self.error.emit(str(error))

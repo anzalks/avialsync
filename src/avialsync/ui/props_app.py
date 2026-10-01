@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from PySide6.QtCore import QThread
 
+from avialsync.core.calibration import CameraModel
 from avialsync.core.commands import MoveLadderStepCommand, SetLadderCommand, SetLadderStepCommand
 from avialsync.core.errors import PropModelError
 from avialsync.core.physical_props import Ladder, LadderPoint, LadderStep, PropStore, StepClick
@@ -52,6 +53,9 @@ class PropsApp:
         self._edited: set[str] = set()
         self._writing: set[Path] = set()
         self._pending: dict[Path, dict[str, Ladder | None]] = {}
+        self._known_sidecars: set[tuple[Path, str]] = set()
+        self._display_key: tuple[tuple[str, int], ...] | None = None
+        self._display_ladders: tuple[Ladder, ...] = ()
 
     def make_panel(self) -> PropsTab:
         """Create the one inspector and connect its controls."""
@@ -315,9 +319,24 @@ class PropsApp:
         self.window.transport.set_status(message, "info")
 
     def _changed(self, _name: str | None) -> None:
+        self._display_key = None
         if self.panel is not None:
             self.panel.refresh()
         self.refresh()
+
+    def _resolved_for_display(self, cameras: dict[str, CameraModel]) -> tuple[Ladder, ...]:
+        """Cache derived positions against the current calibration and raw clicks."""
+        key = tuple(sorted((name, id(model)) for name, model in cameras.items()))
+        if key != self._display_key:
+            self._display_ladders = tuple(
+                dataclasses.replace(
+                    ladder,
+                    steps=tuple(step.resolved(cameras) for step in ladder.steps),
+                )
+                for ladder in self.store
+            )
+            self._display_key = key
+        return self._display_ladders
 
     def refresh(self) -> None:
         """Repaint every pane and the 3D view after a store or draft change."""
@@ -330,9 +349,11 @@ class PropsApp:
     def camera_drawing(self, video: str, _time: float) -> list[PropDrawing]:
         """Observed pixels first; only solved points may project to another view."""
         camera = rig_paths.camera_name(video)
-        model = wheel_display.camera_models(self.window).get(camera)
+        cameras = wheel_display.camera_models(self.window)
+        model = cameras.get(camera)
+        depth_axis = model.rotation_matrix()[2] if model is not None else None
         drawings: list[PropDrawing] = []
-        for ladder in self.store:
+        for ladder in self._resolved_for_display(cameras):
             for step in ladder.steps:
                 pixels: list[PropPixel] = []
                 for point in step.points:
@@ -340,7 +361,13 @@ class PropsApp:
                     if click is not None:
                         pixels.append((click.x, click.y, True))
                     elif model is not None and point.xyz is not None:
-                        xy = model.project(np.asarray([point.xyz], dtype=np.float64))[0]
+                        xyz = np.asarray(point.xyz, dtype=np.float64)
+                        assert depth_axis is not None
+                        depth = float(depth_axis @ xyz + model.translation[2])
+                        if not np.isfinite(depth) or depth <= 0.0:
+                            pixels.append(None)
+                            continue
+                        xy = model.project(xyz)[0]
                         if np.all(np.isfinite(xy)):
                             pixels.append((float(xy[0]), float(xy[1]), False))
                         else:
@@ -364,7 +391,7 @@ class PropsApp:
     def scene_steps(self, _time: float) -> list[tuple[str, tuple[np.ndarray | None, ...], bool]]:
         """Only triangulated points enter 3D; unsolved points stay in camera views."""
         steps: list[tuple[str, tuple[np.ndarray | None, ...], bool]] = []
-        for ladder in self.store:
+        for ladder in self._resolved_for_display(wheel_display.camera_models(self.window)):
             for step in ladder.steps:
                 positions = tuple(
                     None if point.xyz is None else np.asarray(point.xyz, dtype=np.float64)
@@ -380,6 +407,7 @@ class PropsApp:
         self.store.clear()
         self._adopted.clear()
         self._edited.clear()
+        self._known_sidecars.clear()
 
     def persist(self, name: str) -> None:
         """Queue the latest accepted revision, serialized per recording folder."""
@@ -395,7 +423,9 @@ class PropsApp:
             return
         name, ladder = self._pending[folder].popitem()
         self._writing.add(folder)
-        worker = PropFileWriteWorker(folder, name, ladder)
+        worker = PropFileWriteWorker(
+            folder, name, ladder, overwrite_existing=(folder, name) in self._known_sidecars
+        )
 
         def complete(path: Path | None = None, error: str = "") -> None:
             self._writing.discard(folder)
@@ -405,6 +435,7 @@ class PropsApp:
                     details=error,
                 )
             elif path is not None:
+                self._known_sidecars.add((folder, name))
                 self.window.notifications.show_success(
                     tr("Prop {name} saved as {file}.").format(name=name, file=path.name)
                 )
@@ -442,12 +473,25 @@ class PropsApp:
                     and self.window.wheels.get(ladder.name) is None
                 ):
                     existing[ladder.name] = ladder
+                    self._known_sidecars.add((folder, ladder.name))
             self.store.load(existing.values())
             if existing:
                 calibration_controller.calibration_quietly(self.window)
                 self.refresh()
 
+        def failed(error: str) -> None:
+            if generation != self.window.session_runtime.generation:
+                return
+            self._adopted.discard(folder)
+            self.window.notifications.show_warning(
+                tr("Saved physical props could not be read."),
+                details=error,
+                action_label=tr("Retry"),
+                on_action=self.adopt,
+            )
+
         def wire(_thread: QThread) -> None:
             worker.finished.connect(on_ui_thread(finished, self.window))
+            worker.error.connect(on_ui_thread(failed, self.window))
 
         self.window._run_job(worker, label=tr("Reading saved physical props"), configure=wire)
