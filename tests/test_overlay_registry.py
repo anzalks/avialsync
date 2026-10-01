@@ -24,8 +24,8 @@ from avialsync.ui.overlay_registry import (
 )
 from avialsync.ui.video_overlay import PaintCanvas
 
-#: What the panes actually draw. Kept here, apart from the registry, so the two
-#: have to be changed together and a new overlay cannot be added silently.
+#: What the panes and grid exporter draw. Kept apart from the registry so a new
+#: overlay cannot be added silently.
 EXPECTED_INVENTORY = {
     "tracking.points",
     "tracking.point_labels",
@@ -40,6 +40,7 @@ EXPECTED_INVENTORY = {
     "camera.name",
     "camera.osd",
     "camera.no_footage",
+    "export.frame_number",
 }
 
 
@@ -158,6 +159,12 @@ def test_the_locked_layer_is_registered_and_shown_greyed(window: MainWindow) -> 
     action = window._overlay_actions["camera.no_footage"]
     assert action.isEnabled() is False
     assert action.toolTip(), "the reason it is locked must be readable"
+
+
+def test_export_frame_number_is_registered_and_locked(window: MainWindow) -> None:
+    layer = layer_for("export.frame_number")
+    assert layer is not None and layer.locked and layer.default_visible
+    assert window._overlay_actions[layer.overlay_id].isEnabled() is False
 
 
 def test_hide_all_leaves_the_locked_layer_alone(window: MainWindow) -> None:

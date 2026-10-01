@@ -107,8 +107,9 @@ absolute.
 ![The export dialog at a 30 fps base rate and a custom 0.130435x playback speed, previewing a 15.33-second MP4](../_static/screenshots/stimulus_grid_slow_motion.png)
 
 Each camera becomes a row and each selected event becomes a column, so a three-camera, twelve-event
-export is a wide grid. The camera images contain no export graphics. Beneath each image, **Frame N**
-names that camera's absolute, zero-based frame index at the current instant.
+export is a wide grid. Video tiles are separated by just one pixel. A small **Frame N** badge
+inside the lower-left of each tile names that camera's absolute, zero-based frame index at the
+current instant; the badge belongs to the exported comparison and leaves the source file unchanged.
 
 All selected signal windows are overlaid in **one full-width trace below the video grid** on a
 shared relative-time axis. The axis labels and moving light cursor show time relative to stimulus
@@ -118,7 +119,7 @@ The short example below uses generated footage of a three-prong marker from thre
 a muted gray background. The marker moves and an off-white point appears only around each trigger;
 those details are part of the generated source videos, not export graphics.
 
-![Three camera rows and three event columns with absolute frame captions above one shared, relative-time TTL trace](../_static/screenshots/stimulus_grid_export.png)
+![Three tightly joined camera rows and event columns with in-tile frame numbers above one shared, relative-time TTL trace](../_static/screenshots/stimulus_grid_export.png)
 
 <video controls playsinline preload="metadata" poster="../_static/screenshots/stimulus_grid_export.png" aria-label="Demo of an event-aligned three-camera grid with a shared TTL trace">
   <source src="../_static/screenshots/stimulus_grid_demo.mp4" type="video/mp4">

@@ -46,6 +46,8 @@ def test_three_cameras_and_twelve_events_make_a_wide_grid() -> None:
     assert layout.cell_rect(0, 11).x() > layout.cell_rect(0, 0).x()
     assert layout.cell_rect(0, 11).y() == layout.cell_rect(0, 0).y()
     assert layout.cell_rect(2, 0).y() > layout.cell_rect(0, 0).y()
+    assert layout.cell_rect(0, 1).x() - layout.cell_rect(0, 0).right() - 1 == 1
+    assert layout.cell_rect(1, 0).y() - layout.cell_rect(0, 0).bottom() - 1 == 1
     assert layout.cell_rect(2, 11).bottom() < layout.height - layout.bottom_band
 
 
@@ -123,6 +125,30 @@ def test_stimulus_grid_export_is_decodable(tmp_path, qapp) -> None:
     )
     assert float(stream.duration * stream.time_base) == pytest.approx(0.3)
     assert (frames[0].width, frames[0].height) == (expected.width, expected.height)
+    cell = expected.cell_rect(0, 0)
+    image = frames[0].to_ndarray(format="rgb24")
+    badge = image[cell.bottom() - 29 : cell.bottom() - 3, cell.x() + 4 : cell.x() + 86]
+    assert np.count_nonzero(np.all(badge < 80, axis=2)) > 10
+    assert np.count_nonzero(np.all(badge > 170, axis=2)) > 10
+
+
+def test_frame_badge_stays_on_letterboxed_camera_image(tmp_path, qapp) -> None:
+    source = tmp_path / "four_by_three.mp4"
+    destination = tmp_path / "comparison.mp4"
+    frame = np.full((48, 64, 3), (160, 110, 90), dtype=np.uint8)
+    encode_video(source, [(frame, 0.0)], rate=Fraction(1, 1))
+    export_stimulus_grid(
+        [GridVideo(source, "Camera")], [0.0], 0.0, 1.0, destination, _LABELS, fps=1
+    )
+
+    with av.open(str(destination)) as container:
+        image = next(container.decode(video=0)).to_ndarray(format="rgb24")
+    cell = plan_grid(1, 1, 0.0, 1.0).cell_rect(0, 0)
+    fitted_left = cell.x() + (cell.width() - cell.height() * 4 // 3) // 2
+    badge = image[cell.bottom() - 29 : cell.bottom() - 3, fitted_left + 4 : fitted_left + 96]
+    letterbox = image[cell.bottom() - 29 : cell.bottom() - 3, cell.x() + 4 : fitted_left - 4]
+    assert np.count_nonzero(np.all(badge > 170, axis=2)) > 10
+    assert np.count_nonzero(np.all(letterbox > 170, axis=2)) == 0
 
 
 @pytest.mark.parametrize("speed", [0.130435, 1.0, 2.0])

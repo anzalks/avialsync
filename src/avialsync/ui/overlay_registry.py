@@ -11,9 +11,9 @@ registry adds the next unreachable method.
 So there is one declaration of what exists.  :data:`OVERLAY_LAYERS` is the
 inventory; the **View → Overlays** menu is generated from it, per-camera
 overrides use the same labels in the pane context menu, and
-``tests/test_overlay_registry.py`` enumerates it against what the panes
-actually draw, so drawing something new without registering it fails CI rather
-than review.
+``tests/test_overlay_registry.py`` enumerates it against what the panes and
+grid exporter draw, so drawing something new without registering it fails CI
+rather than review.
 
 A plugin contributing an overlay registers a layer here and gets its checkbox
 automatically — the registry is the extension point, not a fixed list.
@@ -22,6 +22,8 @@ automatically — the registry is the extension point, not a fixed list.
 from __future__ import annotations
 
 import dataclasses
+
+from avialsync.ui.i18n import tr
 
 __all__ = [
     "OverlayLayer",
@@ -178,6 +180,15 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
             "Always shown. Hiding it would let a blank pane be mistaken for black "
             "footage, which is the misreading D-010 exists to prevent."
         ),
+    ),
+    OverlayLayer(
+        overlay_id="export.frame_number",
+        label=tr("Export frame number"),
+        group=tr("Export"),
+        default_visible=True,
+        locked=True,
+        per_camera=False,
+        description=tr("Always identifies the source frame inside each stimulus-grid tile."),
     ),
 )
 

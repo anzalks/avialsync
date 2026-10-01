@@ -5436,3 +5436,19 @@ the encoded rate exceeds the device's display capacity; the MP4 still contains t
 grid is resized and encoded with lossy H.264 for visual comparison, not pixel-identical measurement.
 Ground-truth tests cover 230 fps, camera offsets, VFR, multiple events, packet timestamps, and
 packet durations. The published demo still goes through the application's export action.
+
+## 2026-10 · D-152 · Stimulus-grid frame identity belongs inside each tile
+
+**Context.** A separate caption band under every camera tile created broad dark gutters between
+rows and made three-camera, twelve-event comparisons unnecessarily tall. The frame number is
+required provenance for identifying the exact camera frame shown at each output instant.
+
+**Decision.** Keep camera rows and event columns one pixel apart. Burn the absolute, zero-based
+frame number into a small dark badge at the lower-left of each video tile. Register that export
+graphic as the locked `export.frame_number` overlay in View → Overlays: it is always present in a
+scientific grid export, while live camera overlays remain independently switchable. Missing
+coverage keeps its centered No Footage label and never invents a frame number.
+
+**Consequences.** Exported grids are denser and retain a readable frame identifier against light
+or dark source footage. The generated MP4 and guide screenshot are captured again through the app
+export action, and layout tests pin the one-pixel seams and the in-tile badge.

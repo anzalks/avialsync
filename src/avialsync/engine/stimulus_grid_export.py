@@ -40,11 +40,10 @@ _MAX_CELL_WIDTH = 640
 _LEFT_GUTTER = 110
 _RIGHT_GUTTER = 28
 _TOP_BAND = 44
-_CELL_LABEL_HEIGHT = 26
 _COLUMN_LABEL_HEIGHT = 28
 _RULER_BAND = 62
 _SIGNAL_BAND = 230
-_GAP = 6
+_GAP = 1
 logger = logging.getLogger(__name__)
 _OUTPUT_TICKS_PER_SECOND = 1_000_000
 
@@ -76,9 +75,7 @@ class GridLayout:
         """Return the image bounds for one camera and event."""
         return QRect(
             _LEFT_GUTTER + event_index * (self.cell_width + _GAP),
-            _TOP_BAND
-            + _COLUMN_LABEL_HEIGHT
-            + camera_index * (self.cell_height + _CELL_LABEL_HEIGHT + _GAP),
+            _TOP_BAND + _COLUMN_LABEL_HEIGHT + camera_index * (self.cell_height + _GAP),
             self.cell_width,
             self.cell_height,
         )
@@ -118,11 +115,7 @@ def plan_grid(
     bottom_band = _SIGNAL_BAND if has_signal else _RULER_BAND
     available = MAX_OUTPUT_WIDTH - _LEFT_GUTTER - _RIGHT_GUTTER - _GAP * (event_count - 1)
     height_for_cells = (
-        MAX_OUTPUT_HEIGHT
-        - _TOP_BAND
-        - _COLUMN_LABEL_HEIGHT
-        - bottom_band
-        - video_count * (_CELL_LABEL_HEIGHT + _GAP)
+        MAX_OUTPUT_HEIGHT - _TOP_BAND - _COLUMN_LABEL_HEIGHT - bottom_band - video_count * _GAP
     ) // video_count
     width_for_height = int(height_for_cells * 16 / 9)
     cell_width = min(_MAX_CELL_WIDTH, available // event_count, width_for_height)
@@ -130,12 +123,7 @@ def plan_grid(
         raise ExportError("Too many cameras or events to fit in the export grid.")
     cell_height = round(cell_width * 9 / 16)
     width = _LEFT_GUTTER + event_count * cell_width + (event_count - 1) * _GAP + _RIGHT_GUTTER
-    height = (
-        _TOP_BAND
-        + _COLUMN_LABEL_HEIGHT
-        + video_count * (cell_height + _CELL_LABEL_HEIGHT + _GAP)
-        + bottom_band
-    )
+    height = _TOP_BAND + _COLUMN_LABEL_HEIGHT + video_count * (cell_height + _GAP) + bottom_band
     if height > MAX_OUTPUT_HEIGHT:
         raise ExportError("Too many cameras to fit in the export grid.")
     width += width % 2
@@ -311,7 +299,7 @@ def _render_frame(
     signal: GridSignal | None = None,
     traces: Sequence[GridTrace] = (),
 ) -> QImage:
-    """Compose decoded tiles, frame captions, and the shared timing region."""
+    """Compose decoded tiles with frame badges and the shared timing region."""
     image = QImage(layout.width, layout.height, QImage.Format.Format_RGB888)
     image.fill(QColor("#101719"))
     painter = QPainter(image)
@@ -401,7 +389,7 @@ def _draw_camera_tile(
     master_time: float,
     labels: GridLabels,
 ) -> None:
-    """Draw one decoded camera frame and its absolute frame caption."""
+    """Draw one decoded camera frame and its absolute index inside the tile."""
     if bounds[0] <= master_time < bounds[1]:
         frame_index = reader.index_at_time(time_map.to_source(master_time))
         frame = reader.frame_at_index(frame_index)
@@ -419,27 +407,34 @@ def _draw_camera_tile(
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
-        painter.drawImage(
-            QRect(
-                cell.x() + (cell.width() - fitted.width()) // 2,
-                cell.y() + (cell.height() - fitted.height()) // 2,
-                fitted.width(),
-                fitted.height(),
-            ),
-            fitted,
+        image_rect = QRect(
+            cell.x() + (cell.width() - fitted.width()) // 2,
+            cell.y() + (cell.height() - fitted.height()) // 2,
+            fitted.width(),
+            fitted.height(),
         )
-        caption = labels.frame.format(index=frame_index)
+        painter.drawImage(image_rect, fitted)
+        _draw_frame_badge(painter, image_rect, labels.frame.format(index=frame_index))
     else:
         painter.fillRect(cell, QColor("#20292b"))
         painter.setPen(QColor("#c3d1cd"))
         painter.drawText(cell, Qt.AlignmentFlag.AlignCenter, labels.no_footage)
-        caption = labels.no_footage
-    painter.setPen(QColor("#c3d1cd"))
-    painter.drawText(
-        QRect(cell.x(), cell.y() + cell.height(), cell.width(), _CELL_LABEL_HEIGHT),
-        Qt.AlignmentFlag.AlignVCenter,
-        caption,
-    )
+
+
+def _draw_frame_badge(painter: QPainter, cell: QRect, caption: str) -> None:
+    """Keep the frame index readable against light and dark camera footage."""
+    font = QFont("Arial", 12, QFont.Weight.DemiBold)
+    painter.setFont(font)
+    metrics = painter.fontMetrics()
+    while metrics.horizontalAdvance(caption) > cell.width() - 20 and font.pointSize() > 6:
+        font.setPointSize(font.pointSize() - 1)
+        painter.setFont(font)
+        metrics = painter.fontMetrics()
+    badge_width = min(cell.width() - 8, metrics.horizontalAdvance(caption) + 12)
+    badge = QRect(cell.x() + 4, cell.bottom() - 29, badge_width, 26)
+    painter.fillRect(badge, QColor(16, 23, 25, 210))
+    painter.setPen(QColor("#f1f4f2"))
+    painter.drawText(badge.adjusted(6, 0, -3, 0), Qt.AlignmentFlag.AlignVCenter, caption)
 
 
 def _draw_ruler(

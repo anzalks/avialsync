@@ -140,8 +140,9 @@ Two product laws govern that phase and outrank convention:
 - Snapshot / data slice / video clip export
 - Stimulus-grid MP4 export: select a sensor rising threshold and event window, review events on a
   decimated timeline, then compare camera rows across up to twelve event columns above one shared,
-  event-aligned signal trace and relative-time ruler. Camera pixels carry no export graphics; the
-  caption below each image shows that camera's absolute zero-based frame index. The trace uses
+  event-aligned signal trace and relative-time ruler. One-pixel seams join the video tiles, and a
+  registered, locked frame-number badge inside each tile shows that camera's absolute zero-based
+  frame index. The trace uses
   bounded pyramid queries of the selected channel on the export worker, preserving its accepted
   TimeMap and gaps. Export snapshots accepted camera mappings and display levels, and runs as a
   registered background job. Base output cadence and playback speed are separate: the dialog
