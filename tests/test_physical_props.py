@@ -75,6 +75,25 @@ def test_near_parallel_ladder_views_do_not_claim_a_3d_point() -> None:
     assert len(result.clicks) == 2
 
 
+def test_two_rays_from_one_optical_centre_cannot_establish_depth() -> None:
+    """Different pixels do not create a stereo baseline between cloned cameras."""
+    clone = dataclasses.replace(CAMERAS["Front"], name="Clone")
+    original = _clicked_point((20.0, 0.0, 75.0), ("Front",))
+    first = original.clicks[0]
+    contradictory = original.with_click(StepClick("Clone", first.frame, first.x + 100.0, first.y))
+    result = contradictory.resolved({"Front": CAMERAS["Front"], "Clone": clone})
+    assert result.xyz is None
+    assert result.clicks == contradictory.clicks
+
+
+def test_triangulation_behind_a_camera_is_not_accepted_as_visible_geometry() -> None:
+    """Finite algebraic coordinates behind a lens are not a photographed rung."""
+    point = _clicked_point((0.0, 0.0, 1000.0), ("Front", "Left"))
+    result = point.resolved(CAMERAS)
+    assert result.xyz is None
+    assert result.issue == "invalid_solution"
+
+
 def test_reclicking_a_ladder_point_invalidates_only_its_derived_position() -> None:
     first = _clicked_point((20.0, 0.0, 75.0), ("Front", "Left")).resolved(CAMERAS)
     second = _clicked_point((60.0, 0.0, 85.0), ("Front", "Left")).resolved(CAMERAS)

@@ -76,18 +76,39 @@ class StepClick:
 
 
 def _rays_have_depth(views: Sequence[tuple[CameraModel, tuple[float, float]]]) -> bool:
-    """Whether two camera rays cross at a useful angle, independent of their names."""
+    """Whether two distinct camera centres provide a useful stereo angle."""
     directions: list[np.ndarray] = []
+    centres: list[np.ndarray] = []
     for camera, pixel in views:
         x, y = camera.normalise(np.asarray([pixel], dtype=np.float64))[0]
-        direction = camera.rotation_matrix().T @ np.asarray((x, y, 1.0))
+        inverse_rotation = camera.rotation_matrix().T
+        direction = inverse_rotation @ np.asarray((x, y, 1.0))
         directions.append(direction / np.linalg.norm(direction))
+        centres.append(-inverse_rotation @ camera.translation)
     threshold = math.sin(math.radians(_MIN_RAY_ANGLE_DEG))
     return any(
         float(np.linalg.norm(np.cross(a, b))) >= threshold
+        and float(np.linalg.norm(centres[index] - centres[other]))
+        > 1e-9
+        * max(
+            1.0,
+            float(np.linalg.norm(centres[index])),
+            float(np.linalg.norm(centres[other])),
+        )
         for index, a in enumerate(directions)
-        for b in directions[index + 1 :]
+        for other, b in enumerate(directions[index + 1 :], start=index + 1)
     )
+
+
+def _in_front_of_views(
+    xyz: np.ndarray, views: Sequence[tuple[CameraModel, tuple[float, float]]]
+) -> bool:
+    """A 3D fit behind a contributing lens is algebra, not visible geometry."""
+    for camera, _pixel in views:
+        depth = float((camera.rotation_matrix() @ xyz + camera.translation)[2])
+        if not math.isfinite(depth) or depth <= 0.0:
+            return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -163,6 +184,8 @@ class LadderPoint:
         xyz, error = triangulate(views)
         result: Point3 = (float(xyz[0]), float(xyz[1]), float(xyz[2]))
         if not _finite_point(result) or not math.isfinite(error):
+            return dataclasses.replace(self, xyz=None, error_px=None, issue="invalid_solution")
+        if not _in_front_of_views(xyz, views):
             return dataclasses.replace(self, xyz=None, error_px=None, issue="invalid_solution")
         return dataclasses.replace(self, xyz=result, error_px=error, issue=None)
 
