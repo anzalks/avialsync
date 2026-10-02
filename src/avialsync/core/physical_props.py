@@ -35,6 +35,8 @@ __all__ = [
     "Ladder",
     "BeltProp",
     "BallProp",
+    "BeltVisualFrame",
+    "BallVisualFrame",
     "BeltBinding",
     "BallBinding",
     "MotionCheck",
@@ -265,6 +267,35 @@ class Ladder:
 
 
 @dataclass(frozen=True)
+class BeltVisualFrame:
+    """One identified belt mark observed on a reference camera frame."""
+
+    frame: int
+    point: LadderPoint = LadderPoint()
+    lap: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.frame < 0 or (self.lap is not None and type(self.lap) is not int):
+            raise PropModelError("A belt visual frame needs a valid frame and lap count.")
+
+
+@dataclass(frozen=True)
+class BallVisualFrame:
+    """Three identified surface landmarks observed on one reference camera frame."""
+
+    frame: int
+    marks: tuple[LadderPoint, LadderPoint, LadderPoint] = (
+        LadderPoint(),
+        LadderPoint(),
+        LadderPoint(),
+    )
+
+    def __post_init__(self) -> None:
+        if self.frame < 0 or len(self.marks) != 3:
+            raise PropModelError("A ball visual frame needs three named landmarks.")
+
+
+@dataclass(frozen=True)
 class BeltProp:
     """A fixed belt support and optional measured surface displacement."""
 
@@ -273,6 +304,8 @@ class BeltProp:
     units: str = ""
     travel_direction: Point3 | None = None
     binding: BeltBinding | None = None
+    visual_reference_frame: int | None = None
+    visual_frames: tuple[BeltVisualFrame, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -288,9 +321,18 @@ class BeltProp:
             object.__setattr__(
                 self, "travel_direction", tuple(value / norm for value in self.travel_direction)
             )
-        if self.binding is not None and self.travel_direction is None:
+        if (self.binding is not None or self.visual_frames) and self.travel_direction is None:
             raise PropModelError("A moving belt needs a declared travel direction.")
-        if self.binding is not None:
+        if self.binding is not None and self.visual_frames:
+            raise PropModelError("A belt has one motion source at a time.")
+        frames = [item.frame for item in self.visual_frames]
+        if len(frames) != len(set(frames)) or (
+            frames and self.visual_reference_frame not in frames
+        ):
+            raise PropModelError("Belt visual frames need a unique observed reference.")
+        if self.visual_reference_frame is not None and self.visual_reference_frame < 0:
+            raise PropModelError("A belt reference frame cannot be negative.")
+        if self.binding is not None or self.visual_frames:
             tangent = tuple(
                 b - a for a, b in zip(self.track.vertices[0], self.track.vertices[1], strict=True)
             )
@@ -298,7 +340,9 @@ class BeltProp:
             alignment = sum(a * b for a, b in zip(tangent, self.travel_direction, strict=True))
             if abs(alignment) < 1e-9 * math.hypot(*tangent):
                 raise PropModelError("Belt direction must follow the first path segment.")
-            if not 0 <= self.binding.reference_distance <= self.track.length:
+            if self.binding is not None and not (
+                0 <= self.binding.reference_distance <= self.track.length
+            ):
                 raise PropModelError("Belt mark must begin on the declared path.")
 
     def material_point(
@@ -330,6 +374,8 @@ class BallProp:
     units: str = ""
     surface_marks: tuple[Point3, ...] = ()
     binding: BallBinding | None = None
+    visual_reference_frame: int | None = None
+    visual_frames: tuple[BallVisualFrame, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -343,6 +389,15 @@ class BallProp:
             raise PropModelError("Ball surface marks must be finite unit directions.")
         if self.binding is not None and not self.surface_marks:
             raise PropModelError("A rotating ball needs an identified surface mark.")
+        if self.binding is not None and self.visual_frames:
+            raise PropModelError("A ball has one motion source at a time.")
+        frames = [item.frame for item in self.visual_frames]
+        if len(frames) != len(set(frames)) or (
+            frames and self.visual_reference_frame not in frames
+        ):
+            raise PropModelError("Ball visual frames need a unique observed reference.")
+        if self.visual_reference_frame is not None and self.visual_reference_frame < 0:
+            raise PropModelError("A ball reference frame cannot be negative.")
 
     def material_point(
         self, orientation: UnitQuaternion, reference_orientation: UnitQuaternion | None = None

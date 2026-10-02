@@ -21,9 +21,11 @@ from avialsync.core.physical_props import (
     BallBinding,
     BallProp,
     BallSurface,
+    BallVisualFrame,
     BeltBinding,
     BeltProp,
     BeltTrack,
+    BeltVisualFrame,
     Ladder,
     LadderPoint,
     LadderStep,
@@ -183,6 +185,13 @@ def _belt_sections(belt: BeltProp) -> list[str]:
             ],
         )
         lines += _motion_check_sections("belt", binding.checks)
+    if belt.visual_frames:
+        lines += _table("[belt.visual]", [("reference_frame", belt.visual_reference_frame)])
+        for observed in belt.visual_frames:
+            lines += _table(
+                "[[belt.visual.frame]]", [("frame", observed.frame), ("lap", observed.lap)]
+            )
+            lines += _visual_clicks("belt.visual.frame", observed.point)
     return lines
 
 
@@ -218,6 +227,24 @@ def _ball_sections(ball: BallProp) -> list[str]:
             ],
         )
         lines += _motion_check_sections("ball", binding.checks)
+    if ball.visual_frames:
+        lines += _table("[ball.visual]", [("reference_frame", ball.visual_reference_frame)])
+        for observed in ball.visual_frames:
+            lines += _table("[[ball.visual.frame]]", [("frame", observed.frame)])
+            for index, visual_mark in enumerate(observed.marks):
+                lines += _table("[[ball.visual.frame.mark]]", [("index", index)])
+                lines += _visual_clicks("ball.visual.frame.mark", visual_mark)
+    return lines
+
+
+def _visual_clicks(parent: str, point: LadderPoint) -> list[str]:
+    """Write only raw pixels; triangulation is derived from current calibration."""
+    lines: list[str] = []
+    for click in point.clicks:
+        lines += _table(
+            f"[[{parent}.click]]",
+            [("camera", click.camera), ("frame", click.frame), ("x", click.x), ("y", click.y)],
+        )
     return lines
 
 
@@ -465,12 +492,30 @@ def _parse_belt(head: Mapping[str, Any], document: Mapping[str, Any]) -> BeltPro
             _number(row["units_per_reading"]),
             _motion_checks(row.get("check", [])),
         )
+    visual = table.get("visual")
+    visual_table = _mapping(visual) if visual is not None else None
+    visual_frames = (
+        tuple(
+            BeltVisualFrame(
+                _integer(row["frame"]),
+                _parse_point({"click": row.get("click", [])}),
+                None if "lap" not in row else _integer(row["lap"]),
+            )
+            for row in _records(visual_table.get("frame", []))
+        )
+        if visual_table is not None
+        else ()
+    )
     return BeltProp(
         name=_text(head["name"]),
         track=BeltTrack(vertices, closed=_flag(table, "closed")),
         units=_text(table.get("units", "")),
         travel_direction=None if direction is None else _point3(direction),
         binding=binding,
+        visual_reference_frame=None
+        if visual_table is None
+        else _integer(visual_table["reference_frame"]),
+        visual_frames=visual_frames,
     )
 
 
@@ -492,12 +537,37 @@ def _parse_ball(head: Mapping[str, Any], document: Mapping[str, Any]) -> BallPro
             _motion_checks(row.get("check", [])),
             None if "reference_values" not in row else _point4(row["reference_values"]),
         )
+    visual = table.get("visual")
+    visual_table = _mapping(visual) if visual is not None else None
+    visual_frames: tuple[BallVisualFrame, ...] = ()
+    if visual_table is not None:
+        parsed: list[BallVisualFrame] = []
+        for row in _records(visual_table.get("frame", [])):
+            mark_rows = _records(row.get("mark", []))
+            if len(mark_rows) != 3 or {_integer(mark["index"]) for mark in mark_rows} != {0, 1, 2}:
+                raise PropModelError("Ball visual frames need three named marks.")
+            by_index = {_integer(mark["index"]): mark for mark in mark_rows}
+            parsed.append(
+                BallVisualFrame(
+                    _integer(row["frame"]),
+                    (
+                        _parse_point({"click": by_index[0].get("click", [])}),
+                        _parse_point({"click": by_index[1].get("click", [])}),
+                        _parse_point({"click": by_index[2].get("click", [])}),
+                    ),
+                )
+            )
+        visual_frames = tuple(parsed)
     return BallProp(
         name=_text(head["name"]),
         surface=BallSurface(_point3(table["centre"]), _number(table["radius"])),
         units=_text(table.get("units", "")),
         surface_marks=marks,
         binding=binding,
+        visual_reference_frame=None
+        if visual_table is None
+        else _integer(visual_table["reference_frame"]),
+        visual_frames=visual_frames,
     )
 
 

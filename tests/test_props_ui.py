@@ -53,6 +53,87 @@ def _fake_panes(window: MainWindow, monkeypatch) -> None:
     monkeypatch.setattr(window.video_grid, "panes", [pane for _ in paths])
 
 
+def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
+    window: MainWindow, monkeypatch
+) -> None:
+    """The one Props inspector records visual motion without sensor channels."""
+    panel = window.props_app.panel
+    assert panel is not None
+    _fake_panes(window, monkeypatch)
+    moment = {"frame": 7, "time": 0.0}
+    for pane in window.video_grid.panes:
+        pane.frame_record_at = lambda _t: (moment["frame"], moment["time"])
+    monkeypatch.setattr(
+        "avialsync.ui.props_app.wheel_display.frame_and_time",
+        lambda _window, _t: (moment["frame"], moment["time"]),
+    )
+    monkeypatch.setattr(
+        "avialsync.ui.props_app.wheel_display.camera_models", lambda _window: CAMERAS
+    )
+
+    def click_mark(world: tuple[float, float, float]) -> None:
+        for camera in ("Front", "Left"):
+            xy = CAMERAS[camera].project(np.asarray(world))[0]
+            assert window.props_app.on_clicked(VIDEOS[camera], float(xy[0]), float(xy[1]))
+
+    window.props_app.show("belt")
+    panel.name.setText("visual belt")
+    for vertex in ((0.0, 0.0, 70.0), (10.0, 0.0, 70.0)):
+        for field, value in zip(panel.belt_point_fields, vertex, strict=True):
+            field.setValue(value)
+        panel.belt_add_vertex.click()
+    panel.belt_direction_fields[0].setValue(1.0)
+    panel.save_belt.click()
+    assert panel.track_belt.isEnabled()
+    panel.track_belt.click()
+    moment.update(frame=-1)
+    assert window.props_app.on_clicked(VIDEOS["Front"], 100.0, 100.0)
+    assert "Show a video frame" in panel.status.text()
+    moment.update(frame=7)
+    click_mark((2.0, 0.0, 70.0))
+    moment.update(frame=8, time=1.0)
+    click_mark((7.0, 0.0, 70.0))
+    belt = window.props_app.store.get("visual belt")
+    assert isinstance(belt, BeltProp) and belt.binding is None
+    assert len(belt.visual_frames) == 2
+    assert any(
+        "moving mark" in label
+        for label, _pixels, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
+    )
+    moment.update(frame=9, time=2.0)
+    assert not any(
+        "moving mark" in label
+        for label, _pixels, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 2.0)
+    )
+    panel.track_belt.click()
+
+    panel.kind.setCurrentIndex(panel.kind.findData("ball"))
+    panel.name.setText("visual ball")
+    panel.ball_centre_fields[2].setValue(70.0)
+    panel.ball_radius.setValue(5.0)
+    panel.save_ball.click()
+    panel.track_ball.click()
+    reference_marks = ((5.0, 0.0, 70.0), (0.0, 5.0, 70.0), (0.0, 0.0, 75.0))
+    later_marks = ((0.0, 5.0, 70.0), (-5.0, 0.0, 70.0), (0.0, 0.0, 75.0))
+    for frame, marks in ((7, reference_marks), (8, later_marks)):
+        moment.update(frame=frame, time=float(frame - 7))
+        for index, world in enumerate(marks):
+            panel.ball_visual_mark.setCurrentIndex(index)
+            click_mark(world)
+    ball = window.props_app.store.get("visual ball")
+    assert isinstance(ball, BallProp) and ball.binding is None
+    assert len(ball.visual_frames) == 2
+    assert any(
+        "moving mark A" in label
+        for label, _pixels, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
+    )
+    panel.clear_ball_visual.click()
+    cleared = window.props_app.store.get("visual ball")
+    assert isinstance(cleared, BallProp) and not cleared.visual_frames
+    window.document.undo(window._mutations)
+    assert window.props_app.store.get("visual ball") == ball
+
+
 def test_belt_and_ball_bind_verify_and_persist_later_frame_evidence(
     window: MainWindow, monkeypatch, tmp_path: Path
 ) -> None:

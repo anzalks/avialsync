@@ -8,6 +8,12 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from avialsync.core.physical_props import BallProp, BeltProp, MotionCheck, Point3, UnitQuaternion
+from avialsync.core.visual_prop_tracking import (
+    BallVisualState,
+    BeltVisualState,
+    ball_visual_state,
+    belt_visual_state,
+)
 from avialsync.ui.controllers import rig_paths, wheel_display
 
 if TYPE_CHECKING:
@@ -111,6 +117,16 @@ def material_point(window: MainWindow, prop: BeltProp | BallProp, t_frame: float
     """The moving mark at a frame time, or unknown where evidence is absent."""
     found = sampled_point(window, prop, t_frame)
     return None if found is None else found[0]
+
+
+def visual_state(
+    window: MainWindow, prop: BeltProp | BallProp, frame: int
+) -> BeltVisualState | BallVisualState | None:
+    """Solve only the observed frame against the current camera calibration."""
+    cameras = wheel_display.camera_models(window)
+    if isinstance(prop, BeltProp):
+        return belt_visual_state(prop, frame, cameras)
+    return ball_visual_state(prop, frame, cameras)
 
 
 def check_click(

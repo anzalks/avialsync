@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -14,6 +16,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QPushButton,
     QScrollArea,
+    QSpinBox,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -40,6 +43,9 @@ class PropsPanel(QWidget):
     ball_save_requested = Signal()
     belt_bind_requested = Signal()
     ball_bind_requested = Signal()
+    visual_track_requested = Signal(str, str)
+    visual_clear_requested = Signal(str, str)
+    visual_lap_requested = Signal(str)
     motion_check_requested = Signal(str, str)
     prop_selected = Signal(str, str)
     remove_prop_requested = Signal(str, str)
@@ -253,6 +259,36 @@ class PropsPanel(QWidget):
             lambda: self.motion_check_requested.emit("belt", self.current_prop())
         )
         layout.addWidget(self.check_belt)
+        self.track_belt = QPushButton(tr("Track belt mark from camera clicks"), self.belt_editor)
+        self.track_belt.setAccessibleName(self.track_belt.text())
+        self.track_belt.setAccessibleDescription(
+            tr("Click the same material mark in two calibrated cameras on each observed frame.")
+        )
+        self.track_belt.clicked.connect(
+            lambda: self.visual_track_requested.emit("belt", self.current_prop())
+        )
+        layout.addWidget(self.track_belt)
+        lap_row = QHBoxLayout()
+        self.belt_lap = QSpinBox(self.belt_editor)
+        self.belt_lap.setRange(-1_000_000, 1_000_000)
+        self.belt_lap.setAccessibleName(tr("Belt visual lap count"))
+        self.belt_lap.setAccessibleDescription(
+            tr("Whole laps of the identified mark since the visual reference frame.")
+        )
+        self.set_belt_lap = QPushButton(tr("Set lap count on current frame"), self.belt_editor)
+        self.set_belt_lap.setAccessibleName(self.set_belt_lap.text())
+        self.set_belt_lap.clicked.connect(
+            lambda: self.visual_lap_requested.emit(self.current_prop())
+        )
+        lap_row.addWidget(self.belt_lap)
+        lap_row.addWidget(self.set_belt_lap)
+        layout.addLayout(lap_row)
+        self.clear_belt_visual = QPushButton(tr("Clear belt visual track"), self.belt_editor)
+        self.clear_belt_visual.setAccessibleName(self.clear_belt_visual.text())
+        self.clear_belt_visual.clicked.connect(
+            lambda: self.visual_clear_requested.emit("belt", self.current_prop())
+        )
+        layout.addWidget(self.clear_belt_visual)
         self.save_belt = QPushButton(tr("Save belt geometry"), self.belt_editor)
         self.save_belt.setAccessibleName(self.save_belt.text())
         self.save_belt.clicked.connect(self.belt_save_requested)
@@ -334,6 +370,29 @@ class PropsPanel(QWidget):
             lambda: self.motion_check_requested.emit("ball", self.current_prop())
         )
         layout.addWidget(self.check_ball)
+        self.ball_visual_mark = QComboBox(self.ball_editor)
+        for index, label in enumerate(("A", "B", "C")):
+            self.ball_visual_mark.addItem(tr("Surface mark {label}").format(label=label), index)
+        self.ball_visual_mark.setAccessibleName(tr("Ball visual landmark identity"))
+        self.ball_visual_mark.setAccessibleDescription(
+            tr("Choose the same surface mark identity at the reference and later frames.")
+        )
+        layout.addWidget(self.ball_visual_mark)
+        self.track_ball = QPushButton(tr("Track ball mark from camera clicks"), self.ball_editor)
+        self.track_ball.setAccessibleName(self.track_ball.text())
+        self.track_ball.setAccessibleDescription(
+            tr("Click each of three named marks in two calibrated cameras per observed frame.")
+        )
+        self.track_ball.clicked.connect(
+            lambda: self.visual_track_requested.emit("ball", self.current_prop())
+        )
+        layout.addWidget(self.track_ball)
+        self.clear_ball_visual = QPushButton(tr("Clear ball visual track"), self.ball_editor)
+        self.clear_ball_visual.setAccessibleName(self.clear_ball_visual.text())
+        self.clear_ball_visual.clicked.connect(
+            lambda: self.visual_clear_requested.emit("ball", self.current_prop())
+        )
+        layout.addWidget(self.clear_ball_visual)
         self.save_ball = QPushButton(tr("Save ball geometry"), self.ball_editor)
         self.save_ball.setAccessibleName(self.save_ball.text())
         self.save_ball.clicked.connect(self.ball_save_requested)
@@ -412,7 +471,14 @@ class PropsPanel(QWidget):
         self.belt_scale.setValue(binding.units_per_reading if binding else 1.0)
         if binding is not None:
             self.select_channel(self.belt_channel, (binding.source_id, binding.channel))
-        if binding and binding.checks:
+        if belt.visual_frames:
+            solved = sum(len(frame.point.clicks) >= 2 for frame in belt.visual_frames)
+            self.belt_motion_status.setText(
+                tr("Visual belt track: {solved}/{total} frames have two camera clicks.").format(
+                    solved=solved, total=len(belt.visual_frames)
+                )
+            )
+        elif binding and binding.checks:
             last = binding.checks[-1]
             self.belt_motion_status.setText(
                 tr("Bound; {count} checks. Last: {residual:.1f} px (frame {frame}).").format(
@@ -426,6 +492,8 @@ class PropsPanel(QWidget):
                 tr("Surface motion is unknown until displacement evidence is bound.")
             )
         self.check_belt.setEnabled(binding is not None)
+        self.clear_belt_visual.setEnabled(bool(belt.visual_frames))
+        self.set_belt_lap.setEnabled(belt.track.closed and bool(belt.visual_frames))
         self._update_motion_enablement()
 
     def ball_values(self) -> tuple[tuple[float, float, float], float, str]:
@@ -448,7 +516,16 @@ class PropsPanel(QWidget):
         if binding is not None:
             for combo, channel in zip(self.ball_channels, binding.channels, strict=True):
                 self.select_channel(combo, (binding.source_id, channel))
-        if binding and binding.checks:
+        if ball.visual_frames:
+            solved = sum(
+                all(len(mark.clicks) >= 2 for mark in frame.marks) for frame in ball.visual_frames
+            )
+            self.ball_motion_status.setText(
+                tr("Visual ball track: {solved}/{total} frames have three stereo marks.").format(
+                    solved=solved, total=len(ball.visual_frames)
+                )
+            )
+        elif binding and binding.checks:
             last = binding.checks[-1]
             self.ball_motion_status.setText(
                 tr("Bound; {count} checks. Last: {residual:.1f} px (frame {frame}).").format(
@@ -462,6 +539,7 @@ class PropsPanel(QWidget):
                 tr("Orientation is unknown until four orientation channels are bound.")
             )
         self.check_ball.setEnabled(binding is not None)
+        self.clear_ball_visual.setEnabled(bool(ball.visual_frames))
         self._update_motion_enablement()
 
     def set_motion_channels(self, channels: list[tuple[str, str, str]]) -> None:
@@ -483,6 +561,19 @@ class PropsPanel(QWidget):
         self.bind_belt.setToolTip(
             "" if belt_ready else tr("Save a belt and choose a displacement channel first.")
         )
+        visual_belt_ready = isinstance(selected, BeltProp) and selected.travel_direction is not None
+        if visual_belt_ready and isinstance(selected, BeltProp):
+            assert selected.travel_direction is not None
+            tangent = tuple(
+                b - a
+                for a, b in zip(selected.track.vertices[0], selected.track.vertices[1], strict=True)
+            )
+            alignment = sum(a * b for a, b in zip(tangent, selected.travel_direction, strict=True))
+            visual_belt_ready = abs(alignment) >= 1e-9 * math.hypot(*tangent)
+        self.track_belt.setEnabled(visual_belt_ready)
+        self.track_belt.setToolTip(
+            "" if visual_belt_ready else tr("Save a belt with a path travel direction first.")
+        )
         belt_checked = isinstance(selected, BeltProp) and selected.binding is not None
         self.check_belt.setEnabled(belt_checked)
         self.check_belt.setToolTip(
@@ -500,6 +591,7 @@ class PropsPanel(QWidget):
         self.bind_ball.setToolTip(
             "" if ball_ready else tr("Save a ball and choose four channels from one source first.")
         )
+        self.track_ball.setEnabled(isinstance(selected, BallProp))
         ball_checked = isinstance(selected, BallProp) and selected.binding is not None
         self.check_ball.setEnabled(ball_checked)
         self.check_ball.setToolTip(

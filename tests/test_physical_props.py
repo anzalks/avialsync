@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -15,9 +16,11 @@ from avialsync.core.physical_props import (
     BallBinding,
     BallProp,
     BallSurface,
+    BallVisualFrame,
     BeltBinding,
     BeltProp,
     BeltTrack,
+    BeltVisualFrame,
     Ladder,
     LadderPoint,
     LadderStep,
@@ -26,6 +29,11 @@ from avialsync.core.physical_props import (
     StepClick,
     UnitQuaternion,
     WheelMaterialMap,
+)
+from avialsync.core.visual_prop_tracking import (
+    ball_visual_state,
+    belt_visual_state,
+    belt_visual_travel,
 )
 from tests.wheel_fixture import CAMERAS, TRUTH
 
@@ -36,6 +44,149 @@ def _clicked_point(world: tuple[float, float, float], cameras: tuple[str, ...]) 
         x, y = CAMERAS[name].project(np.asarray(world))[0]
         point = point.with_click(StepClick(name, 12 + index, float(x), float(y)))
     return point
+
+
+def test_visual_belt_marks_follow_only_stereo_observed_frames() -> None:
+    with pytest.raises(PropModelError, match="travel direction"):
+        BeltProp(
+            "underdetermined",
+            BeltTrack(((0.0, 0.0, 70.0), (10.0, 0.0, 70.0))),
+            visual_reference_frame=12,
+            visual_frames=(BeltVisualFrame(12),),
+        )
+    belt = BeltProp(
+        "belt",
+        BeltTrack(((0.0, 0.0, 70.0), (10.0, 0.0, 70.0))),
+        travel_direction=(1.0, 0.0, 0.0),
+        visual_reference_frame=12,
+        visual_frames=(
+            BeltVisualFrame(12, _clicked_point((2.0, 0.0, 70.0), ("Front", "Left"))),
+            BeltVisualFrame(13, _clicked_point((5.0, 0.0, 70.0), ("Front",))),
+            BeltVisualFrame(14, _clicked_point((7.0, 0.0, 70.0), ("Front", "Left"))),
+        ),
+    )
+    first = belt_visual_state(belt, 12, CAMERAS)
+    last = belt_visual_state(belt, 14, CAMERAS)
+    assert first is not None and last is not None
+    assert first.path_distance == pytest.approx(2.0, abs=1e-7)
+    assert last.path_distance - first.path_distance == pytest.approx(5.0, abs=1e-7)
+    assert belt_visual_travel(belt, 14, CAMERAS) == pytest.approx(5.0, abs=1e-7)
+    reverse = dataclasses.replace(belt, travel_direction=(-1.0, 0.0, 0.0))
+    assert belt_visual_travel(reverse, 14, CAMERAS) == pytest.approx(-5.0, abs=1e-7)
+    assert last.point == pytest.approx((7.0, 0.0, 70.0), abs=1e-7)
+    assert belt_visual_state(belt, 13, CAMERAS) is None
+    assert belt_visual_state(belt, 15, CAMERAS) is None
+    assert belt_visual_state(belt, 14, {"Front": CAMERAS["Front"]}) is None
+
+
+def test_closed_visual_belt_needs_explicit_laps_for_signed_travel(tmp_path: Path) -> None:
+    belt = BeltProp(
+        "loop",
+        BeltTrack(
+            ((0.0, 0.0, 70.0), (10.0, 0.0, 70.0), (10.0, 10.0, 70.0), (0.0, 10.0, 70.0)),
+            closed=True,
+        ),
+        travel_direction=(1.0, 0.0, 0.0),
+        visual_reference_frame=12,
+        visual_frames=(
+            BeltVisualFrame(12, _clicked_point((2.0, 0.0, 70.0), ("Front", "Left"))),
+            BeltVisualFrame(14, _clicked_point((7.0, 0.0, 70.0), ("Front", "Left"))),
+        ),
+    )
+    assert belt_visual_state(belt, 14, CAMERAS) is not None
+    assert belt_visual_travel(belt, 14, CAMERAS) is None
+    frames = (
+        dataclasses.replace(belt.visual_frames[0], lap=0),
+        dataclasses.replace(belt.visual_frames[1], lap=2),
+    )
+    measured = belt_visual_travel(dataclasses.replace(belt, visual_frames=frames), 14, CAMERAS)
+    assert measured == pytest.approx(85.0)
+    from avialsync.core.prop_file import read_props, write_prop
+
+    write_prop(tmp_path, dataclasses.replace(belt, visual_frames=frames))
+    restored = read_props(tmp_path)[0][0]
+    assert isinstance(restored, BeltProp)
+    assert belt_visual_travel(restored, 14, CAMERAS) == pytest.approx(85.0)
+
+
+def test_visual_ball_solves_three_named_marks_and_rejects_missing_evidence() -> None:
+    centre = np.asarray((0.0, 0.0, 70.0))
+    marks = np.eye(3) * 5.0
+    rotation = UnitQuaternion.about_axis((0.0, 0.0, 1.0), math.pi / 2)
+    reference = BallVisualFrame(
+        12,
+        tuple(_clicked_point(tuple(centre + mark), ("Front", "Left")) for mark in marks),
+    )
+    later = BallVisualFrame(
+        14,
+        tuple(
+            _clicked_point(tuple(centre + rotation.rotate(tuple(mark))), ("Front", "Left"))
+            for mark in marks
+        ),
+    )
+    ball = BallProp(
+        "ball",
+        BallSurface(tuple(centre), 5.0),
+        visual_reference_frame=12,
+        visual_frames=(reference, later),
+    )
+    state = ball_visual_state(ball, 14, CAMERAS)
+    assert state is not None
+    assert state.marks[0] == pytest.approx((0.0, 5.0, 70.0), abs=1e-6)
+    assert state.residual == pytest.approx(0.0, abs=1e-6)
+    assert ball_visual_state(ball, 13, CAMERAS) is None
+    incomplete = dataclasses.replace(later, marks=(later.marks[0], later.marks[1], LadderPoint()))
+    missing = dataclasses.replace(ball, visual_frames=(reference, incomplete))
+    assert ball_visual_state(missing, 14, CAMERAS) is None
+    duplicated = dataclasses.replace(later, marks=(later.marks[0], later.marks[0], later.marks[2]))
+    repeated = dataclasses.replace(ball, visual_frames=(reference, duplicated))
+    assert ball_visual_state(repeated, 14, CAMERAS) is None
+
+
+def test_visual_tracks_round_trip_raw_clicks_without_storing_old_fits(tmp_path: Path) -> None:
+    from avialsync.core.prop_file import read_props, write_prop
+
+    belt = BeltProp(
+        "belt",
+        BeltTrack(((0.0, 0.0, 70.0), (10.0, 0.0, 70.0))),
+        travel_direction=(1.0, 0.0, 0.0),
+        visual_reference_frame=12,
+        visual_frames=(
+            BeltVisualFrame(
+                12, _clicked_point((2.0, 0.0, 70.0), ("Front", "Left")).resolved(CAMERAS)
+            ),
+        ),
+    )
+    ball = BallProp(
+        "ball",
+        BallSurface((0.0, 0.0, 70.0), 5.0),
+        visual_reference_frame=12,
+        visual_frames=(
+            BallVisualFrame(
+                12,
+                tuple(
+                    _clicked_point(world, ("Front", "Left"))
+                    for world in ((5.0, 0.0, 70.0), (0.0, 5.0, 70.0), (0.0, 0.0, 75.0))
+                ),
+            ),
+        ),
+    )
+    write_prop(tmp_path, belt)
+    write_prop(tmp_path, ball)
+    props, issues = read_props(tmp_path)
+    assert not issues
+    by_name = {prop.name: prop for prop in props}
+    restored_belt = by_name["belt"]
+    assert isinstance(restored_belt, BeltProp)
+    assert restored_belt.visual_frames[0].point.clicks == belt.visual_frames[0].point.clicks
+    assert restored_belt.visual_frames[0].point.xyz is None
+    assert belt_visual_state(restored_belt, 12, CAMERAS) is not None
+    restored_ball = by_name["ball"]
+    assert isinstance(restored_ball, BallProp)
+    assert tuple(mark.clicks for mark in restored_ball.visual_frames[0].marks) == tuple(
+        mark.clicks for mark in ball.visual_frames[0].marks
+    )
+    assert ball_visual_state(restored_ball, 12, CAMERAS) is not None
 
 
 def test_irregular_ladder_keeps_each_clicked_step_without_generating_neighbours() -> None:

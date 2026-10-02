@@ -25,9 +25,11 @@ from avialsync.core.physical_props import (
     BallBinding,
     BallProp,
     BallSurface,
+    BallVisualFrame,
     BeltBinding,
     BeltProp,
     BeltTrack,
+    BeltVisualFrame,
     Ladder,
     LadderPoint,
     LadderStep,
@@ -38,6 +40,11 @@ from avialsync.core.physical_props import (
     WheelView,
 )
 from avialsync.core.prop_file import PropFileIssue, PropKind, PropRecord, prop_kind, prop_path
+from avialsync.core.visual_prop_tracking import (
+    BallVisualState,
+    BeltVisualState,
+    belt_visual_travel,
+)
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
 from avialsync.ui import prop_motion
 from avialsync.ui.controllers import (
@@ -117,6 +124,7 @@ class PropsApp:
         self.tab: PropsTab | None = None
         self.draft: StepDraft | None = None
         self.checking: str | None = None
+        self.visual_tracking: tuple[str, str] | None = None
         self._adopted: set[Path] = set()
         self._known_kinds: dict[str, PropKind] = {}
         self._edited: set[str] = set()
@@ -143,6 +151,9 @@ class PropsApp:
         panel.ball_save_requested.connect(self.save_ball)
         panel.belt_bind_requested.connect(self.bind_belt)
         panel.ball_bind_requested.connect(self.bind_ball)
+        panel.visual_track_requested.connect(self.start_visual_track)
+        panel.visual_clear_requested.connect(self.clear_visual_track)
+        panel.visual_lap_requested.connect(self.set_visual_lap)
         panel.motion_check_requested.connect(self.start_check)
         panel.remove_prop_requested.connect(self.remove_prop)
         panel.prop_selected.connect(self._show_selected_prop)
@@ -282,7 +293,22 @@ class PropsApp:
                 and same_direction
                 else None
             )
-            belt = dataclasses.replace(declared, binding=binding)
+            visual_frames = (
+                before.visual_frames
+                if isinstance(before, BeltProp) and before.track == declared.track
+                else ()
+            )
+            visual_reference = (
+                before.visual_reference_frame
+                if isinstance(before, BeltProp) and visual_frames
+                else None
+            )
+            belt = dataclasses.replace(
+                declared,
+                binding=binding,
+                visual_frames=visual_frames,
+                visual_reference_frame=visual_reference,
+            )
         except PropModelError:
             self._status(tr("Check the belt path and choose a filename-safe prop name."))
             return
@@ -325,13 +351,28 @@ class PropsApp:
             centre, radius, units = panel.ball_values()
             marks = before.surface_marks if isinstance(before, BallProp) else ()
             binding = before.binding if isinstance(before, BallProp) else None
-            if (
-                isinstance(before, BallProp)
-                and binding is not None
-                and (before.surface != BallSurface(centre, radius) or before.units != units)
+            visual_frames = before.visual_frames if isinstance(before, BallProp) else ()
+            visual_reference = (
+                before.visual_reference_frame
+                if isinstance(before, BallProp) and visual_frames
+                else None
+            )
+            if isinstance(before, BallProp) and (
+                before.surface != BallSurface(centre, radius) or before.units != units
             ):
-                binding = dataclasses.replace(binding, checks=())
-            ball = BallProp(name, BallSurface(centre, radius), units, marks, binding)
+                if binding is not None:
+                    binding = dataclasses.replace(binding, checks=())
+                visual_frames = ()
+                visual_reference = None
+            ball = BallProp(
+                name,
+                BallSurface(centre, radius),
+                units,
+                marks,
+                binding,
+                visual_reference,
+                visual_frames,
+            )
         except PropModelError:
             self._status(tr("Check the ball dimensions and choose a filename-safe prop name."))
             return
@@ -375,7 +416,9 @@ class PropsApp:
                 panel.belt_reference_distance.value(),
                 panel.belt_scale.value(),
             )
-            candidate = dataclasses.replace(belt, binding=binding)
+            candidate = dataclasses.replace(
+                belt, binding=binding, visual_reference_frame=None, visual_frames=()
+            )
             candidate.material_point(reading)
         except PropModelError:
             self._status(tr("Set a travel direction along the path and a valid mark distance."))
@@ -417,7 +460,9 @@ class PropsApp:
                 # Read below from the same sample index before accepting the binding.
                 UnitQuaternion.identity(),
             )
-            provisional = dataclasses.replace(provisional, binding=binding)
+            provisional = dataclasses.replace(
+                provisional, binding=binding, visual_reference_frame=None, visual_frames=()
+            )
             raw = prop_motion.orientation_values(self.window, provisional, found[1])
             if raw is None:
                 self._status(
@@ -442,6 +487,197 @@ class PropsApp:
                 frame=found[0]
             )
         )
+
+    def start_visual_track(self, kind: str, name: str) -> None:
+        """Collect named marks at displayed frames without inventing motion between them."""
+        prop = self.store.get(name)
+        if (
+            (kind == "belt" and not isinstance(prop, BeltProp))
+            or (kind == "ball" and not isinstance(prop, BallProp))
+            or not isinstance(prop, (BeltProp, BallProp))
+        ):
+            return
+        if isinstance(prop, BeltProp) and prop.travel_direction is None:
+            self._status(tr("Set and save the belt travel direction before visual tracking."))
+            return
+        if isinstance(prop, BeltProp):
+            assert prop.travel_direction is not None
+            tangent = tuple(
+                b - a for a, b in zip(prop.track.vertices[0], prop.track.vertices[1], strict=True)
+            )
+            alignment = sum(a * b for a, b in zip(tangent, prop.travel_direction, strict=True))
+            if abs(alignment) < 1e-9 * math.hypot(*tangent):
+                self._status(tr("Set the belt direction along its first path segment."))
+                return
+        if self.visual_tracking == (kind, name):
+            self.cancel_step()
+            return
+        self.window._cancel_competing_placement("prop")
+        if self.window.clock.state.playing:
+            self.window.transport.play_toggled.emit(False)
+        self.draft = None
+        self.checking = None
+        self.visual_tracking = (kind, name)
+        self.window.video_grid.set_marker_place_mode(True)
+        self._status(
+            tr("Click the same belt mark in two calibrated cameras on each frame.")
+            if kind == "belt"
+            else tr("Choose A, B, or C; click that ball mark in two cameras on each frame.")
+        )
+
+    def clear_visual_track(self, kind: str, name: str) -> None:
+        """Remove visual motion through an inverse command, preserving fixed geometry."""
+        prop = self.store.get(name)
+        if (
+            (kind == "belt" and not isinstance(prop, BeltProp))
+            or (kind == "ball" and not isinstance(prop, BallProp))
+            or not isinstance(prop, (BeltProp, BallProp))
+            or not prop.visual_frames
+        ):
+            return
+        if isinstance(prop, BeltProp):
+            changed: BeltProp | BallProp = dataclasses.replace(
+                prop, visual_reference_frame=None, visual_frames=()
+            )
+        else:
+            changed = dataclasses.replace(prop, visual_reference_frame=None, visual_frames=())
+        self.window.document.execute(
+            SetPhysicalPropCommand(name, prop, changed, tr("Clear visual prop track")),
+            self.window._mutations,
+        )
+        self.cancel_step()
+
+    def set_visual_lap(self, name: str) -> None:
+        """Accept the user's explicit winding for one observed closed-path frame."""
+        belt = self.store.get(name)
+        panel = self.panel
+        reference = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+        if not isinstance(belt, BeltProp) or panel is None or reference is None:
+            return
+        if not belt.track.closed:
+            return
+        before = next((item for item in belt.visual_frames if item.frame == reference[0]), None)
+        if before is None or not before.point.clicks:
+            self._status(tr("Click the belt mark on this frame before setting its lap count."))
+            return
+        observed = dataclasses.replace(before, lap=panel.belt_lap.value())
+        frames = tuple(
+            observed if item.frame == before.frame else item for item in belt.visual_frames
+        )
+        changed = dataclasses.replace(belt, visual_frames=frames)
+        self.window.document.execute(
+            SetPhysicalPropCommand(name, belt, changed, tr("Set belt visual lap count")),
+            self.window._mutations,
+        )
+        self._status(
+            tr("Belt mark lap count set to {count} at frame {frame}.").format(
+                count=observed.lap, frame=observed.frame
+            )
+        )
+
+    def _record_visual_click(self, video: str, x: float, y: float) -> None:
+        """Save one actual camera observation at the reference pane's current frame."""
+        tracking = self.visual_tracking
+        if tracking is None:
+            return
+        _kind, name = tracking
+        prop = self.store.get(name)
+        reference = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+        camera_frame = prop_motion.frame_time(self.window, video, self.window.clock.state.t)
+        if (
+            reference is None
+            or camera_frame is None
+            or reference[0] < 0
+            or camera_frame[0] < 0
+            or not isinstance(prop, (BeltProp, BallProp))
+        ):
+            self._status(tr("Show a video frame before recording a visual prop mark."))
+            return
+        frame = reference[0]
+        click = StepClick(rig_paths.camera_name(video), camera_frame[0], float(x), float(y))
+        cameras = wheel_display.camera_models(self.window)
+        changed: BeltProp | BallProp = (
+            self._visual_belt_click(prop, frame, click, cameras)
+            if isinstance(prop, BeltProp)
+            else self._visual_ball_click(prop, frame, click, cameras)
+        )
+        self.window.document.execute(
+            SetPhysicalPropCommand(name, prop, changed, tr("Record visual prop mark")),
+            self.window._mutations,
+        )
+        self._visual_feedback(changed, frame, cameras)
+
+    @staticmethod
+    def _visual_belt_click(
+        prop: BeltProp, frame: int, click: StepClick, cameras: dict[str, CameraModel]
+    ) -> BeltProp:
+        """Replace one camera's belt observation without losing its other views."""
+        before = next((item for item in prop.visual_frames if item.frame == frame), None)
+        observed = before or BeltVisualFrame(frame)
+        observed = dataclasses.replace(
+            observed, point=observed.point.with_click(click).resolved(cameras)
+        )
+        frames = tuple(item for item in prop.visual_frames if item.frame != frame) + (observed,)
+        return dataclasses.replace(
+            prop,
+            binding=None,
+            visual_reference_frame=prop.visual_reference_frame
+            if prop.visual_reference_frame is not None
+            else frame,
+            visual_frames=tuple(sorted(frames, key=lambda item: item.frame)),
+        )
+
+    def _visual_ball_click(
+        self, prop: BallProp, frame: int, click: StepClick, cameras: dict[str, CameraModel]
+    ) -> BallProp:
+        """Replace one named landmark's camera observation on this frame."""
+        mark_index = int(self.panel.ball_visual_mark.currentData()) if self.panel else 0
+        before = next((item for item in prop.visual_frames if item.frame == frame), None)
+        observed = before or BallVisualFrame(frame)
+        marks = list(observed.marks)
+        marks[mark_index] = marks[mark_index].with_click(click).resolved(cameras)
+        observed = dataclasses.replace(observed, marks=(marks[0], marks[1], marks[2]))
+        frames = tuple(item for item in prop.visual_frames if item.frame != frame) + (observed,)
+        return dataclasses.replace(
+            prop,
+            binding=None,
+            visual_reference_frame=prop.visual_reference_frame
+            if prop.visual_reference_frame is not None
+            else frame,
+            visual_frames=tuple(sorted(frames, key=lambda item: item.frame)),
+        )
+
+    def _visual_feedback(
+        self, changed: BeltProp | BallProp, frame: int, cameras: dict[str, CameraModel]
+    ) -> None:
+        """Report fit quality and ambiguity without changing the raw observations."""
+        result = prop_motion.visual_state(self.window, changed, frame)
+        if isinstance(changed, BeltProp) and isinstance(result, BeltVisualState):
+            travel = belt_visual_travel(changed, frame, cameras)
+            detail = (
+                tr("Signed travel {distance:g} {unit}.").format(
+                    distance=travel, unit=changed.units or tr("calibration units")
+                )
+                if travel is not None
+                else tr("Position solved; set lap counts for signed travel.")
+            )
+            self._status(
+                tr("Frame {frame}: {detail} Offset {offset:.3g}; fit {error:.1f} px.").format(
+                    frame=frame, detail=detail, offset=result.offset, error=result.error_px
+                )
+            )
+        elif isinstance(result, BallVisualState):
+            self._status(
+                tr("Frame {frame}: rotation fit {residual:.3g}; pixel error {error:.1f}.").format(
+                    frame=frame, residual=result.residual, error=result.error_px
+                )
+            )
+        else:
+            self._status(
+                tr("Frame {frame} saved; more camera views or landmarks needed.").format(
+                    frame=frame
+                )
+            )
 
     def start_check(self, kind: str, name: str) -> None:
         """Take the next video click as a later-frame motion check."""
@@ -517,6 +753,9 @@ class PropsApp:
 
     def on_clicked(self, video: str, x: float, y: float) -> bool:
         """Record exactly the clicked camera pixel and its displayed frame."""
+        if self.visual_tracking is not None:
+            self._record_visual_click(video, x, y)
+            return True
         if self.checking is not None:
             prop = self.store.get(self.checking)
             if isinstance(prop, (BeltProp, BallProp)) and prop.binding is not None:
@@ -616,6 +855,7 @@ class PropsApp:
         """Discard an unfinished prop click or motion check."""
         self.draft = None
         self.checking = None
+        self.visual_tracking = None
         self.window.video_grid.set_marker_place_mode(False)
         self.refresh()
 
@@ -739,6 +979,51 @@ class PropsApp:
         if hasattr(self.window, "tracking_3d_pane"):
             self.window.tracking_3d_pane.canvas.set_cursor(self.window.clock.state.t)
 
+    def _motion_at(
+        self, prop: BeltProp | BallProp, frame: int, t_frame: float
+    ) -> tuple[Point3, ...]:
+        """Return observed visual marks or the channel-driven mark at this frame."""
+        if prop.visual_frames:
+            state = prop_motion.visual_state(self.window, prop, frame)
+            if isinstance(state, BeltVisualState):
+                return (state.point,)
+            if isinstance(state, BallVisualState):
+                return state.marks
+            return ()
+        point = prop_motion.material_point(self.window, prop, t_frame)
+        return () if point is None else (point,)
+
+    def _visual_pixels(
+        self, prop: BeltProp | BallProp, camera: str, frame: int, camera_frame: int
+    ) -> list[PropDrawing]:
+        """Show actual visual clicks on their own video frame, even before stereo fit."""
+        observation = next((item for item in prop.visual_frames if item.frame == frame), None)
+        if observation is None:
+            return []
+        points = (
+            (observation.point,) if isinstance(observation, BeltVisualFrame) else observation.marks
+        )
+        drawings: list[PropDrawing] = []
+        for index, point in enumerate(points):
+            click = next(
+                (
+                    item
+                    for item in point.clicks
+                    if item.camera == camera and item.frame == camera_frame
+                ),
+                None,
+            )
+            if click is not None:
+                label = (
+                    tr("{name} visual belt mark").format(name=prop.name)
+                    if isinstance(prop, BeltProp)
+                    else tr("{name} visual ball mark {mark}").format(
+                        name=prop.name, mark=("A", "B", "C")[index]
+                    )
+                )
+                drawings.append((label, ((click.x, click.y, True),), False))
+        return drawings
+
     def camera_drawing(self, video: str, _time: float) -> list[PropDrawing]:
         """Observed pixels first; only solved points may project to another view."""
         camera = rig_paths.camera_name(video)
@@ -771,10 +1056,10 @@ class PropsApp:
                     drawings.append((step.label, tuple(pixels), step.closed))
         for prop in self.store:
             if isinstance(prop, BeltProp):
-                frame = prop_motion.frame_time(self.window, video, _time) if prop.binding else None
-                material = (
-                    prop_motion.material_point(self.window, prop, frame[1]) if frame else None
-                )
+                camera_frame = prop_motion.frame_time(self.window, video, _time)
+                reference = wheel_display.frame_and_time(self.window, _time)
+                marks = self._motion_at(prop, reference[0], reference[1]) if reference else ()
+                material = marks[0] if marks else None
                 belt_pixels = tuple(
                     self._project_declared(model, point) for point in prop.track.vertices
                 )
@@ -783,7 +1068,7 @@ class PropsApp:
                         (
                             (
                                 tr("{name} (declared; motion unknown)").format(name=prop.name)
-                                if prop.binding is None
+                                if prop.binding is None and not prop.visual_frames
                                 else tr("{name} (motion unavailable)").format(name=prop.name)
                                 if material is None
                                 else tr("{name} support").format(name=prop.name)
@@ -798,11 +1083,15 @@ class PropsApp:
                         drawings.append(
                             (tr("{name} moving mark").format(name=prop.name), (pixel,), False)
                         )
+                if reference is not None and camera_frame is not None and prop.visual_frames:
+                    drawings.extend(
+                        self._visual_pixels(prop, camera, reference[0], camera_frame[0])
+                    )
             elif isinstance(prop, BallProp):
-                frame = prop_motion.frame_time(self.window, video, _time) if prop.binding else None
-                material = (
-                    prop_motion.material_point(self.window, prop, frame[1]) if frame else None
-                )
+                camera_frame = prop_motion.frame_time(self.window, video, _time)
+                reference = wheel_display.frame_and_time(self.window, _time)
+                marks = self._motion_at(prop, reference[0], reference[1]) if reference else ()
+                material = marks[0] if marks else None
                 for plane, points in _ball_rings(prop):
                     ball_pixels = tuple(self._project_declared(model, point) for point in points)
                     if any(pixel is not None for pixel in ball_pixels):
@@ -812,7 +1101,7 @@ class PropsApp:
                                     tr("{name} {plane} (declared; orientation unknown)").format(
                                         name=prop.name, plane=plane
                                     )
-                                    if prop.binding is None
+                                    if prop.binding is None and not prop.visual_frames
                                     else tr("{name} {plane} (orientation unavailable)").format(
                                         name=prop.name, plane=plane
                                     )
@@ -825,12 +1114,24 @@ class PropsApp:
                                 True,
                             )
                         )
-                if material is not None:
-                    pixel = self._project_declared(model, material)
+                for index, mark in enumerate(marks):
+                    pixel = self._project_declared(model, mark)
                     if pixel is not None:
                         drawings.append(
-                            (tr("{name} moving mark").format(name=prop.name), (pixel,), False)
+                            (
+                                tr("{name} moving mark {mark}").format(
+                                    name=prop.name, mark=("A", "B", "C")[index]
+                                )
+                                if prop.visual_frames
+                                else tr("{name} moving mark").format(name=prop.name),
+                                (pixel,),
+                                False,
+                            )
                         )
+                if reference is not None and camera_frame is not None and prop.visual_frames:
+                    drawings.extend(
+                        self._visual_pixels(prop, camera, reference[0], camera_frame[0])
+                    )
         if self.draft is not None:
             pixels = []
             for point in self.draft.points:
@@ -857,18 +1158,17 @@ class PropsApp:
         for prop in self.store:
             if isinstance(prop, BeltProp):
                 reference = (
-                    wheel_display.frame_and_time(self.window, _time) if prop.binding else None
-                )
-                material = (
-                    prop_motion.material_point(self.window, prop, reference[1])
-                    if reference
+                    wheel_display.frame_and_time(self.window, _time)
+                    if prop.binding or prop.visual_frames
                     else None
                 )
+                marks = self._motion_at(prop, reference[0], reference[1]) if reference else ()
+                material = marks[0] if marks else None
                 steps.append(
                     (
                         (
                             tr("{name} (declared; motion unknown)").format(name=prop.name)
-                            if prop.binding is None
+                            if prop.binding is None and not prop.visual_frames
                             else tr("{name} (motion unavailable)").format(name=prop.name)
                             if material is None
                             else tr("{name} support").format(name=prop.name)
@@ -887,13 +1187,12 @@ class PropsApp:
                     )
             elif isinstance(prop, BallProp):
                 reference = (
-                    wheel_display.frame_and_time(self.window, _time) if prop.binding else None
-                )
-                material = (
-                    prop_motion.material_point(self.window, prop, reference[1])
-                    if reference
+                    wheel_display.frame_and_time(self.window, _time)
+                    if prop.binding or prop.visual_frames
                     else None
                 )
+                marks = self._motion_at(prop, reference[0], reference[1]) if reference else ()
+                material = marks[0] if marks else None
                 for plane, points in _ball_rings(prop):
                     steps.append(
                         (
@@ -901,7 +1200,7 @@ class PropsApp:
                                 tr("{name} {plane} (declared; orientation unknown)").format(
                                     name=prop.name, plane=plane
                                 )
-                                if prop.binding is None
+                                if prop.binding is None and not prop.visual_frames
                                 else tr("{name} {plane} (orientation unavailable)").format(
                                     name=prop.name, plane=plane
                                 )
@@ -914,11 +1213,15 @@ class PropsApp:
                             True,
                         )
                     )
-                if material is not None:
+                for index, mark in enumerate(marks):
                     steps.append(
                         (
-                            tr("{name} moving mark").format(name=prop.name),
-                            (np.asarray(material),),
+                            tr("{name} moving mark {mark}").format(
+                                name=prop.name, mark=("A", "B", "C")[index]
+                            )
+                            if prop.visual_frames
+                            else tr("{name} moving mark").format(name=prop.name),
+                            (np.asarray(mark),),
                             False,
                         )
                     )

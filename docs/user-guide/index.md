@@ -126,6 +126,16 @@ Use **Check ... mark on later frame**, then click the visible mark in a calibrat
 the observed pixel and its difference from the predicted mark. Checks do not change the binding
 automatically. The camera overlay and 3D view use the frame actually displayed.
 
+For **visual-only belt tracking**, choose **Track belt mark from camera clicks** and click the same
+painted mark in two calibrated cameras at the reference frame and each later frame you want to
+measure. The path stays fixed; the mark appears only on frames with a valid stereo fit. On a
+closed path, set the whole lap count on each observed frame to measure signed travel; a position
+alone cannot reveal how many complete laps passed. For **visual-only ball tracking**, choose mark
+A, B, or C and click each distinct surface mark in two calibrated cameras on the reference frame.
+Repeat the same identities on later frames. Three valid marks give a 3D orientation; missing or
+ambiguous observations leave it unknown. These visual tracks use the same Props record and can be
+cleared or undone. Clicking a visual mark replaces the prop's channel motion binding.
+
 Before anything is open, the drop area takes almost the whole window and the empty plot and Data
 Streams areas stay small. The layout you had comes back when the first recording opens.
 

@@ -16,8 +16,12 @@ surface mark and four synchronized quaternion channels from one source. Both
 sample the displayed and reference frames' presentation times through the live source mapping,
 and later-frame camera clicks record source readings and pixel residuals. The
 support geometry stays fixed; absent, gapped, or out-of-coverage readings leave material
-motion unknown. Visual-only belt tracking and multi-landmark ball orientation
-remain future evidence sources; a scalar ball encoder is underdetermined.
+motion unknown. Visual-only motion is also available: a belt mark can be clicked
+in two calibrated cameras on each observed frame, and a ball needs three named
+surface marks in two cameras at both reference and later frames. Fits are
+recomputed from raw clicks using current calibration. Missing frames remain
+unknown; closed belts need explicit lap counts before signed travel is known.
+A scalar ball encoder remains underdetermined.
 
 ## 1. Vocabulary and mathematical contract
 
