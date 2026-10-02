@@ -1,19 +1,23 @@
 # Physical props — implementation plan
 
-Branch: `feat/physical-props`. Decisions: D-149, D-154, and D-155. All kinds use one
+Branch: `feat/physical-props`. Decisions: D-149, D-154–D-157. All kinds use one
 versioned `.prop.toml` sidecar and one Props inspector; no legacy wheel-file
 reader or migration path is supported. Existing old files are left untouched.
 Complete one slice at a time; a model that
 exists only in `core/` is not an app feature.
 
-Current branch status: the Props inspector contains the existing wheel placement
-and review flow, clicked horizontal ladders, and declared belt-path and ball
-geometry forms. All four kinds save to `.prop.toml`; old `.wheel.toml` files
-are ignored and left untouched. One accepted `PropStore` and one background
-sidecar read/write path serve all four kinds (D-156). Ladder clicks and declared belt/ball geometry
-draw in the registered camera and 3D props layer. Belt displacement and ball
-orientation remain explicitly unknown until sensor/landmark binding and later
-frame verification are implemented.
+Current branch status: the Props inspector contains wheel placement and review,
+clicked horizontal ladders, and belt and ball geometry and motion binding. All
+four kinds save to `.prop.toml`; old `.wheel.toml` files are ignored and left
+untouched. One accepted `PropStore` and one background sidecar read/write path
+serve all four kinds (D-156). Belt displacement needs an explicit path direction,
+mark distance, and displacement channel. Ball orientation needs an identified
+surface mark and four synchronized quaternion channels from one source. Both
+sample the displayed and reference frames' presentation times through the live source mapping,
+and later-frame camera clicks record source readings and pixel residuals. The
+support geometry stays fixed; absent, gapped, or out-of-coverage readings leave material
+motion unknown. Visual-only belt tracking and multi-landmark ball orientation
+remain future evidence sources; a scalar ball encoder is underdetermined.
 
 ## 1. Vocabulary and mathematical contract
 

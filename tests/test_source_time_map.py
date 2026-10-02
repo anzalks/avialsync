@@ -95,6 +95,17 @@ def test_sample_at_maps_the_query_into_source_time(shifted: MappedChannelReader)
     assert value == pytest.approx((5.0 + OFFSET) * 2.0)
 
 
+def test_available_sample_rejects_clamped_time_and_observed_gap(tmp_path: Path) -> None:
+    times = np.asarray((0.0, 1.0, 2.0, 20.0, 21.0))
+    PyramidBuilder(tmp_path, "position").build_and_save(times, times)
+    reader = MappedChannelReader(PyramidReader(tmp_path, "position"), TimeMap(offset=5.0))
+    assert reader.available_sample_at(-5.0) == (0, 0.0)
+    assert reader.available_sample_at(-2.9) is None
+    assert reader.available_sample_at(15.0) == (3, 20.0)
+    assert reader.available_sample_at(-6.0) is None
+    assert reader.available_sample_at(17.0) is None
+
+
 def test_value_at_maps_the_query_into_source_time(shifted: MappedChannelReader) -> None:
     assert shifted.value_at(5.0) == pytest.approx((5.0 + OFFSET) * 2.0)
 

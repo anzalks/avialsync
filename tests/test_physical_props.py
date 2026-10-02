@@ -12,13 +12,16 @@ from hypothesis import strategies as st
 
 from avialsync.core.errors import PropModelError
 from avialsync.core.physical_props import (
+    BallBinding,
     BallProp,
     BallSurface,
+    BeltBinding,
     BeltProp,
     BeltTrack,
     Ladder,
     LadderPoint,
     LadderStep,
+    MotionCheck,
     PropStore,
     StepClick,
     UnitQuaternion,
@@ -147,6 +150,50 @@ def test_named_belt_and_ball_declarations_validate_their_kind_specific_geometry(
         BeltProp("treadmill", belt.track, travel_direction=(0.0, 0.0, 0.0))
     with pytest.raises(PropModelError, match="unit directions"):
         BallProp("sphere", ball.surface, surface_marks=((2.0, 0.0, 0.0),))
+
+
+def test_belt_binding_uses_signed_displacement_and_requires_direction() -> None:
+    track = BeltTrack(((0.0, 0.0, 0.0), (10.0, 0.0, 0.0)))
+    binding = BeltBinding("sensor", "distance", 4, 100.0, 5.0, 0.5)
+    with pytest.raises(PropModelError, match="direction"):
+        BeltProp("belt", track, binding=binding)
+    belt = BeltProp("belt", track, travel_direction=(1.0, 0.0, 0.0), binding=binding)
+    assert belt.material_point(104.0) == pytest.approx((7.0, 0.0, 0.0))
+    assert belt.material_point(104.0, reference_reading=102.0) == pytest.approx((6.0, 0.0, 0.0))
+    reverse = dataclasses.replace(belt, travel_direction=(-1.0, 0.0, 0.0))
+    assert reverse.material_point(104.0) == pytest.approx((3.0, 0.0, 0.0))
+    assert belt.material_point(112.0) is None
+    assert track.vertices == ((0.0, 0.0, 0.0), (10.0, 0.0, 0.0))
+
+
+def test_ball_binding_requires_four_channels_and_real_surface_mark() -> None:
+    binding = BallBinding("imu", ("qw", "qx", "qy", "qz"), 2, UnitQuaternion.identity())
+    with pytest.raises(PropModelError, match="surface mark"):
+        BallProp("ball", BallSurface((0.0, 0.0, 0.0), 2.0), binding=binding)
+    ball = BallProp(
+        "ball", BallSurface((0.0, 0.0, 0.0), 2.0), surface_marks=((1.0, 0.0, 0.0),), binding=binding
+    )
+    assert ball.material_point(
+        UnitQuaternion.about_axis((0.0, 0.0, 1.0), math.pi / 2)
+    ) == pytest.approx((0.0, 2.0, 0.0))
+    with pytest.raises(PropModelError, match="four distinct"):
+        BallBinding("imu", ("angle", "angle", "angle", "angle"), 2, UnitQuaternion.identity())
+    with pytest.raises(PropModelError, match="residual"):
+        MotionCheck(8, "Front", 1.0, 2.0, float("nan"))
+
+
+def test_ball_reference_orientation_keeps_the_identified_mark_at_reference() -> None:
+    reference = UnitQuaternion.about_axis((0.0, 1.0, 0.0), math.pi / 3)
+    later = UnitQuaternion.about_axis((0.0, 0.0, 1.0), math.pi / 2).composed(reference)
+    ball = BallProp(
+        "ball",
+        BallSurface((0.0, 0.0, 0.0), 2.0),
+        surface_marks=((1.0, 0.0, 0.0),),
+        binding=BallBinding("imu", ("w", "x", "y", "z"), 7, reference),
+    )
+    assert ball.material_point(reference) == pytest.approx((2.0, 0.0, 0.0))
+    assert ball.material_point(later) == pytest.approx((0.0, 2.0, 0.0))
+    assert ball.material_point(later, reference_orientation=later) == pytest.approx((2.0, 0.0, 0.0))
 
 
 def test_prop_store_accepts_multiple_static_prop_kinds_without_losing_ladder_edits() -> None:

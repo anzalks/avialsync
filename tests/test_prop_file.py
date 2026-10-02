@@ -7,14 +7,18 @@ import pytest
 
 from avialsync.core.errors import PropModelError
 from avialsync.core.physical_props import (
+    BallBinding,
     BallProp,
     BallSurface,
+    BeltBinding,
     BeltProp,
     BeltTrack,
     Ladder,
     LadderPoint,
     LadderStep,
+    MotionCheck,
     StepClick,
+    UnitQuaternion,
 )
 from avialsync.core.prop_file import (
     PROP_SUFFIX,
@@ -85,6 +89,27 @@ def test_belt_and_ball_round_trip_kind_specific_geometry(tmp_path) -> None:
     assert loaded[1].track == belt.track
     assert loaded[1].units == belt.units
     assert loaded[1].travel_direction == pytest.approx(belt.travel_direction)
+
+
+def test_motion_evidence_and_later_frame_checks_round_trip(tmp_path) -> None:
+    check = MotionCheck(20, "Front", 150.0, 175.0, 1.25)
+    belt = BeltProp(
+        "belt",
+        BeltTrack(((0.0, 0.0, 0.0), (10.0, 0.0, 0.0))),
+        "mm",
+        (1.0, 0.0, 0.0),
+        BeltBinding("sensor", "distance", 3, 100.0, 2.0, 0.5, (check,)),
+    )
+    ball = BallProp(
+        "ball",
+        BallSurface((0.0, 0.0, 0.0), 4.0),
+        "cm",
+        ((1.0, 0.0, 0.0),),
+        BallBinding("imu", ("qw", "qx", "qy", "qz"), 3, UnitQuaternion.identity(), (check,)),
+    )
+    write_prop(tmp_path, belt)
+    write_prop(tmp_path, ball)
+    assert read_props(tmp_path) == ([ball, belt], [])
 
 
 def test_removal_keeps_a_tombstone_and_rewriting_restores_the_prop(tmp_path) -> None:

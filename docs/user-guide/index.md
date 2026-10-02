@@ -116,6 +116,16 @@ from **Edit → Add Physical Prop…**; select a kind in **Props** to see its co
 the live presentation, **Fit all**, **Rows**, **Reset** and the time span. Under the Data Streams
 lanes: **Hide** and the status line. Then the play controls.
 
+For a **belt**, save its fixed path and travel direction, identify a surface mark by its distance
+along the path, select a displacement channel, and choose **Bind displacement at current frame**.
+Set **Distance per reading unit** in the path's units. For a **ball**, save its centre and radius,
+identify the surface mark's world direction on the reference frame, select four quaternion channels (`w`, `x`, `y`, `z`) from
+one source, and bind them at a reference frame. The support path or sphere stays fixed while the
+identified mark follows the measured channel values. Missing readings leave that mark hidden.
+Use **Check ... mark on later frame**, then click the visible mark in a calibrated camera to save
+the observed pixel and its difference from the predicted mark. Checks do not change the binding
+automatically. The camera overlay and 3D view use the frame actually displayed.
+
 Before anything is open, the drop area takes almost the whole window and the empty plot and Data
 Streams areas stay small. The layout you had comes back when the first recording opens.
 

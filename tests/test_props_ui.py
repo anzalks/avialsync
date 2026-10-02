@@ -19,6 +19,7 @@ from avialsync.core.physical_props import (
     LadderPoint,
     LadderStep,
     StepClick,
+    UnitQuaternion,
 )
 from avialsync.core.prop_file import read_props, write_ladder
 from avialsync.engine import prop_file_worker
@@ -42,11 +43,110 @@ def _fake_panes(window: MainWindow, monkeypatch) -> None:
     paths = list(VIDEOS.values())
     pane = SimpleNamespace(
         frame_record_at=lambda _t: (7, 0.0),
+        time_map=SimpleNamespace(to_master=lambda t: t),
         paint_canvas=SimpleNamespace(update=lambda: None),
         set_marker_place_mode=lambda _enabled: None,
+        close=lambda: None,
+        deleteLater=lambda: None,
     )
     monkeypatch.setattr(window.video_grid, "pane_paths", lambda: paths)
     monkeypatch.setattr(window.video_grid, "panes", [pane for _ in paths])
+
+
+def test_belt_and_ball_bind_verify_and_persist_later_frame_evidence(
+    window: MainWindow, monkeypatch, tmp_path: Path
+) -> None:
+    """The inspector's commands bind live rows and keep real check clicks."""
+    panel = window.props_app.panel
+    assert panel is not None
+    _fake_panes(window, monkeypatch)
+    pane = window.video_grid.panes[0]
+    moment = {"frame": 7, "time": 0.0}
+    pane.frame_record_at = lambda _t: (moment["frame"], moment["time"])
+    monkeypatch.setattr(
+        "avialsync.ui.props_app.wheel_display.frame_and_time",
+        lambda _window, _t: (moment["frame"], moment["time"]),
+    )
+    window._sensor_cache_dirs.update({"sensor": Path("/cache/sensor"), "imu": Path("/cache/imu")})
+    rotated = UnitQuaternion.about_axis((0.0, 0.0, 1.0), np.pi / 2)
+    quaternion = (rotated.w, rotated.x, rotated.y, rotated.z)
+    rows = []
+    for channel, values, cache, source in [
+        ("distance", (100.0, 102.0), "sensor", "sensor"),
+        *(
+            (name, (start, end), "imu", "imu")
+            for name, start, end in zip(
+                ("qw", "qx", "qy", "qz"), (1.0, 0.0, 0.0, 0.0), quaternion, strict=True
+            )
+        ),
+    ]:
+        reader = SimpleNamespace(
+            source_id=source,
+            channel_id=channel,
+            cache_dir=Path(f"/cache/{cache}"),
+            available_sample_at=lambda t, values=values: (int(t), values[int(t)]),
+        )
+        rows.append(SimpleNamespace(reader=reader))
+    monkeypatch.setattr(window.plot_pane, "channels", rows)
+    window.props_app.show("belt")
+    panel.name.setText("belt")
+    for vertex in ((0.0, 0.0, 70.0), (10.0, 0.0, 70.0)):
+        for field, value in zip(panel.belt_point_fields, vertex, strict=True):
+            field.setValue(value)
+        panel.belt_add_vertex.click()
+    panel.belt_direction_fields[0].setValue(1.0)
+    panel.save_belt.click()
+    panel.select_channel(panel.belt_channel, ("sensor", "distance"))
+    assert panel.belt_channel.currentData() == ("sensor", "distance")
+    panel.belt_reference_distance.setValue(5.0)
+    panel.bind_belt.click()
+    belt = window.props_app.store.get("belt")
+    assert isinstance(belt, BeltProp) and belt.binding is not None, panel.status.text()
+    assert belt.binding.reference_reading == 100.0
+    moment.update(frame=8, time=1.0)
+    panel.check_belt.click()
+    xy = CAMERAS["Front"].project(np.asarray((7.0, 0.0, 70.0)))[0]
+    window._on_marker_clicked(VIDEOS["Front"], float(xy[0]), float(xy[1]))
+    belt = window.props_app.store.get("belt")
+    assert isinstance(belt, BeltProp) and belt.binding is not None
+    assert belt.binding.checks[0].residual_px == pytest.approx(0.0)
+    assert belt.binding.checks[0].source_values == (102.0,)
+    available = rows[0].reader.available_sample_at
+    rows[0].reader.available_sample_at = lambda _t: None
+    assert any(
+        "motion unavailable" in label
+        for label, _points, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
+    )
+    rows[0].reader.available_sample_at = available
+
+    moment.update(frame=7, time=0.0)
+    panel.kind.setCurrentIndex(panel.kind.findData("ball"))
+    panel.name.setText("ball")
+    panel.ball_centre_fields[2].setValue(70.0)
+    panel.ball_radius.setValue(2.0)
+    panel.save_ball.click()
+    for combo, channel in zip(panel.ball_channels, ("qw", "qx", "qy", "qz"), strict=True):
+        panel.select_channel(combo, ("imu", channel))
+    panel.bind_ball.click()
+    ball = window.props_app.store.get("ball")
+    assert isinstance(ball, BallProp) and ball.binding is not None
+    assert ball.binding.reference_values == (1.0, 0.0, 0.0, 0.0)
+    moment.update(frame=8, time=1.0)
+    panel.check_ball.click()
+    xy = CAMERAS["Front"].project(np.asarray((0.0, 2.0, 70.0)))[0]
+    window._on_marker_clicked(VIDEOS["Front"], float(xy[0]), float(xy[1]))
+    ball = window.props_app.store.get("ball")
+    assert isinstance(ball, BallProp) and ball.binding is not None
+    assert ball.binding.checks[0].residual_px == pytest.approx(0.0, abs=1e-8)
+    assert ball.binding.checks[0].source_values == pytest.approx(quaternion)
+    available = rows[-1].reader.available_sample_at
+    rows[-1].reader.available_sample_at = lambda _t: None
+    assert any(
+        "orientation unavailable" in label
+        for label, _points, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
+    )
+    rows[-1].reader.available_sample_at = available
+    assert read_props(tmp_path / "pose-3d")[0] == [ball, belt]
 
 
 def test_clicked_uneven_ladder_add_undo_reopen_and_draw(

@@ -38,6 +38,9 @@ class PropsPanel(QWidget):
     remove_ladder_requested = Signal(str)
     belt_save_requested = Signal()
     ball_save_requested = Signal()
+    belt_bind_requested = Signal()
+    ball_bind_requested = Signal()
+    motion_check_requested = Signal(str, str)
     prop_selected = Signal(str, str)
     remove_prop_requested = Signal(str, str)
 
@@ -213,6 +216,43 @@ class PropsPanel(QWidget):
         )
         self.belt_motion_status.setWordWrap(True)
         layout.addWidget(self.belt_motion_status)
+        motion_form = QFormLayout()
+        self.belt_channel = QComboBox(self.belt_editor)
+        self.belt_channel.setAccessibleName(tr("Belt displacement channel"))
+        self.belt_channel.setAccessibleDescription(
+            tr("Choose the loaded channel that measures signed belt travel.")
+        )
+        motion_form.addRow(tr("Displacement channel"), self.belt_channel)
+        self.belt_reference_distance = self._coordinate(
+            self.belt_editor, tr("Belt mark distance along path on reference frame")
+        )
+        motion_form.addRow(tr("Mark distance along path"), self.belt_reference_distance)
+        self.belt_scale = QDoubleSpinBox(self.belt_editor)
+        self.belt_scale.setRange(0.000001, 1_000_000_000.0)
+        self.belt_scale.setDecimals(6)
+        self.belt_scale.setValue(1.0)
+        self.belt_scale.setAccessibleName(tr("Belt distance per channel unit"))
+        self.belt_scale.setAccessibleDescription(
+            tr("Enter path distance moved for one unit of displacement reading.")
+        )
+        motion_form.addRow(tr("Distance per reading unit"), self.belt_scale)
+        layout.addLayout(motion_form)
+        self.bind_belt = QPushButton(tr("Bind displacement at current frame"), self.belt_editor)
+        self.bind_belt.setAccessibleName(self.bind_belt.text())
+        self.bind_belt.setAccessibleDescription(
+            tr("Use the displayed frame as the reference for belt displacement.")
+        )
+        self.bind_belt.clicked.connect(self.belt_bind_requested)
+        layout.addWidget(self.bind_belt)
+        self.check_belt = QPushButton(tr("Check belt mark on later frame"), self.belt_editor)
+        self.check_belt.setAccessibleName(self.check_belt.text())
+        self.check_belt.setAccessibleDescription(
+            tr("Click the identified mark on a later displayed frame to measure prediction error.")
+        )
+        self.check_belt.clicked.connect(
+            lambda: self.motion_check_requested.emit("belt", self.current_prop())
+        )
+        layout.addWidget(self.check_belt)
         self.save_belt = QPushButton(tr("Save belt geometry"), self.belt_editor)
         self.save_belt.setAccessibleName(self.save_belt.text())
         self.save_belt.clicked.connect(self.belt_save_requested)
@@ -227,6 +267,7 @@ class PropsPanel(QWidget):
         self.belt_update_vertex.clicked.connect(self._replace_belt_vertex)
         self.belt_remove_vertex.clicked.connect(self._remove_belt_vertex)
         self.belt_vertices.currentRowChanged.connect(self._show_belt_vertex)
+        self.belt_channel.currentIndexChanged.connect(self._update_motion_enablement)
         self.editor_stack.addWidget(self.belt_editor)
 
     def _build_ball_editor(self) -> None:
@@ -255,6 +296,44 @@ class PropsPanel(QWidget):
         )
         self.ball_motion_status.setWordWrap(True)
         layout.addWidget(self.ball_motion_status)
+        motion_form = QFormLayout()
+        self.ball_channels = [QComboBox(self.ball_editor) for _ in range(4)]
+        for component, combo in zip(("w", "x", "y", "z"), self.ball_channels, strict=True):
+            combo.setAccessibleName(
+                tr("Ball quaternion {component} channel").format(component=component)
+            )
+            combo.setAccessibleDescription(
+                tr("Choose one component of a synchronized orientation quaternion.")
+            )
+            motion_form.addRow(tr("Orientation {component}").format(component=component), combo)
+        self.ball_mark_fields = [
+            self._coordinate(self.ball_editor, tr("Ball surface mark {axis}").format(axis=axis))
+            for axis in ("X", "Y", "Z")
+        ]
+        for field in self.ball_mark_fields:
+            field.setAccessibleDescription(
+                tr("World direction of the identified mark on the reference frame.")
+            )
+        self.ball_mark_fields[0].setValue(1.0)
+        for axis, field in zip(("X", "Y", "Z"), self.ball_mark_fields, strict=True):
+            motion_form.addRow(tr("Mark direction {axis}").format(axis=axis), field)
+        layout.addLayout(motion_form)
+        self.bind_ball = QPushButton(tr("Bind orientation at current frame"), self.ball_editor)
+        self.bind_ball.setAccessibleName(self.bind_ball.text())
+        self.bind_ball.setAccessibleDescription(
+            tr("Use four synchronized orientation readings on the displayed frame.")
+        )
+        self.bind_ball.clicked.connect(self.ball_bind_requested)
+        layout.addWidget(self.bind_ball)
+        self.check_ball = QPushButton(tr("Check ball mark on later frame"), self.ball_editor)
+        self.check_ball.setAccessibleName(self.check_ball.text())
+        self.check_ball.setAccessibleDescription(
+            tr("Click the identified ball mark on a later frame to measure prediction error.")
+        )
+        self.check_ball.clicked.connect(
+            lambda: self.motion_check_requested.emit("ball", self.current_prop())
+        )
+        layout.addWidget(self.check_ball)
         self.save_ball = QPushButton(tr("Save ball geometry"), self.ball_editor)
         self.save_ball.setAccessibleName(self.save_ball.text())
         self.save_ball.clicked.connect(self.ball_save_requested)
@@ -266,6 +345,8 @@ class PropsPanel(QWidget):
         )
         layout.addWidget(self.remove_ball)
         self.editor_stack.addWidget(self.ball_editor)
+        for combo in self.ball_channels:
+            combo.currentIndexChanged.connect(self._update_motion_enablement)
 
     def _append_belt_vertex(self) -> None:
         point = tuple(float(field.value()) for field in self.belt_point_fields)
@@ -326,6 +407,26 @@ class PropsPanel(QWidget):
         direction = belt.travel_direction or (0.0, 0.0, 0.0)
         for field, value in zip(self.belt_direction_fields, direction, strict=True):
             field.setValue(value)
+        binding = belt.binding
+        self.belt_reference_distance.setValue(binding.reference_distance if binding else 0.0)
+        self.belt_scale.setValue(binding.units_per_reading if binding else 1.0)
+        if binding is not None:
+            self.select_channel(self.belt_channel, (binding.source_id, binding.channel))
+        if binding and binding.checks:
+            last = binding.checks[-1]
+            self.belt_motion_status.setText(
+                tr("Bound; {count} checks. Last: {residual:.1f} px (frame {frame}).").format(
+                    count=len(binding.checks), residual=last.residual_px, frame=last.frame
+                )
+            )
+        elif binding:
+            self.belt_motion_status.setText(tr("Displacement bound; no later-frame checks yet."))
+        else:
+            self.belt_motion_status.setText(
+                tr("Surface motion is unknown until displacement evidence is bound.")
+            )
+        self.check_belt.setEnabled(binding is not None)
+        self._update_motion_enablement()
 
     def ball_values(self) -> tuple[tuple[float, float, float], float, str]:
         centre = (
@@ -340,6 +441,79 @@ class PropsPanel(QWidget):
             field.setValue(value)
         self.ball_radius.setValue(ball.surface.radius)
         self.ball_units.setCurrentIndex(max(0, self.ball_units.findData(ball.units)))
+        mark = ball.surface_marks[0] if ball.surface_marks else (1.0, 0.0, 0.0)
+        for field, value in zip(self.ball_mark_fields, mark, strict=True):
+            field.setValue(value)
+        binding = ball.binding
+        if binding is not None:
+            for combo, channel in zip(self.ball_channels, binding.channels, strict=True):
+                self.select_channel(combo, (binding.source_id, channel))
+        if binding and binding.checks:
+            last = binding.checks[-1]
+            self.ball_motion_status.setText(
+                tr("Bound; {count} checks. Last: {residual:.1f} px (frame {frame}).").format(
+                    count=len(binding.checks), residual=last.residual_px, frame=last.frame
+                )
+            )
+        elif binding:
+            self.ball_motion_status.setText(tr("Orientation bound; no later-frame checks yet."))
+        else:
+            self.ball_motion_status.setText(
+                tr("Orientation is unknown until four orientation channels are bound.")
+            )
+        self.check_ball.setEnabled(binding is not None)
+        self._update_motion_enablement()
+
+    def set_motion_channels(self, channels: list[tuple[str, str, str]]) -> None:
+        """Populate binding choices from live plot readers, retaining selections."""
+        for combo in (self.belt_channel, *self.ball_channels):
+            current = combo.currentData()
+            combo.clear()
+            combo.addItem(tr("Choose channel"), None)
+            for source, channel, label in channels:
+                combo.addItem(label, (source, channel))
+            self.select_channel(combo, current)
+        self._update_motion_enablement()
+
+    def _update_motion_enablement(self) -> None:
+        """Expose missing binding inputs before an unavailable gesture."""
+        selected = self._store.get(self.current_prop())
+        belt_ready = isinstance(selected, BeltProp) and self.belt_channel.currentData() is not None
+        self.bind_belt.setEnabled(belt_ready)
+        self.bind_belt.setToolTip(
+            "" if belt_ready else tr("Save a belt and choose a displacement channel first.")
+        )
+        belt_checked = isinstance(selected, BeltProp) and selected.binding is not None
+        self.check_belt.setEnabled(belt_checked)
+        self.check_belt.setToolTip(
+            "" if belt_checked else tr("Bind belt displacement before checking a later frame.")
+        )
+        keys = [combo.currentData() for combo in self.ball_channels]
+        chosen = [key for key in keys if key is not None]
+        ball_ready = (
+            isinstance(selected, BallProp)
+            and len(chosen) == 4
+            and len({key[0] for key in chosen}) == 1
+            and len({key[1] for key in chosen}) == 4
+        )
+        self.bind_ball.setEnabled(ball_ready)
+        self.bind_ball.setToolTip(
+            "" if ball_ready else tr("Save a ball and choose four channels from one source first.")
+        )
+        ball_checked = isinstance(selected, BallProp) and selected.binding is not None
+        self.check_ball.setEnabled(ball_checked)
+        self.check_ball.setToolTip(
+            "" if ball_checked else tr("Bind ball orientation before checking a later frame.")
+        )
+
+    @staticmethod
+    def select_channel(combo: QComboBox, key: tuple[str, str] | None) -> None:
+        """Select a tuple key without QVariant's unreliable tuple comparison."""
+        for index in range(combo.count()):
+            if combo.itemData(index) == key:
+                combo.setCurrentIndex(index)
+                return
+        combo.setCurrentIndex(0)
 
     def set_wheel_placing(self, placing: bool) -> None:
         """Reflect wheel placement state on the kind-sensitive Add button."""
@@ -444,6 +618,7 @@ class PropsPanel(QWidget):
         self.remove_ball.setEnabled(kind == "ball" and has_selection)
         self._refresh_steps()
         self._selection_changed()
+        self._update_motion_enablement()
 
     def select(self, name: str) -> None:
         """Select a saved prop in the current kind page."""

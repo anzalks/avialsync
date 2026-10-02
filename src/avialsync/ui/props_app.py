@@ -22,8 +22,10 @@ from avialsync.core.commands import (
 )
 from avialsync.core.errors import PropModelError
 from avialsync.core.physical_props import (
+    BallBinding,
     BallProp,
     BallSurface,
+    BeltBinding,
     BeltProp,
     BeltTrack,
     Ladder,
@@ -32,10 +34,12 @@ from avialsync.core.physical_props import (
     Point3,
     PropStore,
     StepClick,
+    UnitQuaternion,
     WheelView,
 )
 from avialsync.core.prop_file import PropFileIssue, PropKind, PropRecord, prop_kind, prop_path
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
+from avialsync.ui import prop_motion
 from avialsync.ui.controllers import (
     calibration_controller,
     rig_paths,
@@ -112,6 +116,7 @@ class PropsApp:
         self.panel: PropsPanel | None = None
         self.tab: PropsTab | None = None
         self.draft: StepDraft | None = None
+        self.checking: str | None = None
         self._adopted: set[Path] = set()
         self._known_kinds: dict[str, PropKind] = {}
         self._edited: set[str] = set()
@@ -136,6 +141,9 @@ class PropsApp:
         panel.remove_ladder_requested.connect(self.remove_ladder)
         panel.belt_save_requested.connect(self.save_belt)
         panel.ball_save_requested.connect(self.save_ball)
+        panel.belt_bind_requested.connect(self.bind_belt)
+        panel.ball_bind_requested.connect(self.bind_ball)
+        panel.motion_check_requested.connect(self.start_check)
         panel.remove_prop_requested.connect(self.remove_prop)
         panel.prop_selected.connect(self._show_selected_prop)
         self.panel = panel
@@ -154,6 +162,7 @@ class PropsApp:
                 if index >= 0:
                     self.panel.kind.setCurrentIndex(index)
             self._update_create_availability()
+            self._refresh_motion_channels()
             self.window._left_tabs.setCurrentWidget(self.tab)
             if self.panel.kind.currentData() != "wheel":
                 self.panel.name.setFocus()
@@ -210,14 +219,27 @@ class PropsApp:
         if self.panel is None or not name:
             return
         prop = self.store.get(name)
+        self._refresh_motion_channels()
         self.panel.name.setText(name)
         if kind == "belt" and isinstance(prop, BeltProp):
             self.panel.set_belt_fields(prop)
         elif kind == "ball" and isinstance(prop, BallProp):
             self.panel.set_ball_fields(prop)
 
+    def _refresh_motion_channels(self) -> None:
+        if self.panel is None:
+            return
+        seen: set[tuple[str, str]] = set()
+        channels: list[tuple[str, str, str]] = []
+        for row in self.window.plot_pane.channels:
+            key = (row.reader.source_id, row.reader.channel_id)
+            if key[0] and key not in seen:
+                seen.add(key)
+                channels.append((*key, f"{key[1]} · {Path(key[0]).name}"))
+        self.panel.set_motion_channels(channels)
+
     def save_belt(self) -> None:
-        """Add or edit a declared belt path without claiming surface motion."""
+        """Edit the fixed path, invalidating motion only if geometry changes."""
         panel = self.panel
         if panel is None:
             return
@@ -238,7 +260,29 @@ class PropsApp:
                 self._status(tr("That name belongs to a different prop kind."))
                 return
             vertices, closed, units, direction = panel.belt_values()
-            belt = BeltProp(name, BeltTrack(vertices, closed), units, direction)
+            declared = BeltProp(name, BeltTrack(vertices, closed), units, direction)
+            same_direction = isinstance(before, BeltProp) and (
+                (before.travel_direction is None and declared.travel_direction is None)
+                or (
+                    before.travel_direction is not None
+                    and declared.travel_direction is not None
+                    and all(
+                        math.isclose(a, b, abs_tol=1e-4)
+                        for a, b in zip(
+                            before.travel_direction, declared.travel_direction, strict=True
+                        )
+                    )
+                )
+            )
+            binding = (
+                before.binding
+                if isinstance(before, BeltProp)
+                and before.track == declared.track
+                and before.units == units
+                and same_direction
+                else None
+            )
+            belt = dataclasses.replace(declared, binding=binding)
         except PropModelError:
             self._status(tr("Check the belt path and choose a filename-safe prop name."))
             return
@@ -251,7 +295,11 @@ class PropsApp:
             SetPhysicalPropCommand(name, before, belt, label), self.window._mutations
         )
         panel.select_prop(name, "belt")
-        self._status(tr("Belt geometry saved; surface motion remains unknown."))
+        self._status(
+            tr("Belt geometry saved; displacement binding kept.")
+            if belt.binding
+            else tr("Belt geometry saved; surface motion remains unknown.")
+        )
 
     def save_ball(self) -> None:
         """Add or edit a declared sphere without inventing its orientation."""
@@ -275,7 +323,15 @@ class PropsApp:
                 self._status(tr("That name belongs to a different prop kind."))
                 return
             centre, radius, units = panel.ball_values()
-            ball = BallProp(name, BallSurface(centre, radius), units)
+            marks = before.surface_marks if isinstance(before, BallProp) else ()
+            binding = before.binding if isinstance(before, BallProp) else None
+            if (
+                isinstance(before, BallProp)
+                and binding is not None
+                and (before.surface != BallSurface(centre, radius) or before.units != units)
+            ):
+                binding = dataclasses.replace(binding, checks=())
+            ball = BallProp(name, BallSurface(centre, radius), units, marks, binding)
         except PropModelError:
             self._status(tr("Check the ball dimensions and choose a filename-safe prop name."))
             return
@@ -288,7 +344,127 @@ class PropsApp:
             SetPhysicalPropCommand(name, before, ball, label), self.window._mutations
         )
         panel.select_prop(name, "ball")
-        self._status(tr("Ball geometry saved; orientation remains unknown."))
+        self._status(
+            tr("Ball geometry saved; orientation binding kept.")
+            if ball.binding
+            else tr("Ball geometry saved; orientation remains unknown.")
+        )
+
+    def bind_belt(self) -> None:
+        """Bind a measured displacement channel at the currently displayed frame."""
+        panel = self.panel
+        belt = self.store.get(panel.current_prop()) if panel is not None else None
+        if panel is None or not isinstance(belt, BeltProp):
+            return
+        channel = panel.belt_channel.currentData()
+        found = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+        reading = (
+            prop_motion.scalar_reading(self.window, channel[0], channel[1], found[1])
+            if channel and found
+            else None
+        )
+        if reading is None or found is None:
+            self._status(tr("Choose a loaded displacement channel with a reading on this frame."))
+            return
+        try:
+            binding = BeltBinding(
+                channel[0],
+                channel[1],
+                found[0],
+                reading,
+                panel.belt_reference_distance.value(),
+                panel.belt_scale.value(),
+            )
+            candidate = dataclasses.replace(belt, binding=binding)
+            candidate.material_point(reading)
+        except PropModelError:
+            self._status(tr("Set a travel direction along the path and a valid mark distance."))
+            return
+        self.window.document.execute(
+            SetPhysicalPropCommand(belt.name, belt, candidate, tr("Bind belt displacement")),
+            self.window._mutations,
+        )
+        self._status(
+            tr("Belt displacement bound at frame {frame}; check a later frame.").format(
+                frame=found[0]
+            )
+        )
+
+    def bind_ball(self) -> None:
+        """Bind four same-source quaternion channels and one identified mark."""
+        panel = self.panel
+        ball = self.store.get(panel.current_prop()) if panel is not None else None
+        if panel is None or not isinstance(ball, BallProp):
+            return
+        keys = [combo.currentData() for combo in panel.ball_channels]
+        if any(key is None for key in keys) or len({key[0] for key in keys if key}) != 1:
+            self._status(tr("Choose four orientation channels from one source."))
+            return
+        typed_keys = [key for key in keys if key is not None]
+        found = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+        mark = tuple(float(field.value()) for field in panel.ball_mark_fields)
+        norm = math.hypot(*mark)
+        if found is None or norm < 1e-12:
+            self._status(tr("Choose a displayed reference frame and a nonzero surface mark."))
+            return
+        mark = (mark[0] / norm, mark[1] / norm, mark[2] / norm)
+        try:
+            provisional = dataclasses.replace(ball, surface_marks=(mark,))
+            binding = BallBinding(
+                typed_keys[0][0],
+                tuple(key[1] for key in typed_keys),
+                found[0],
+                # Read below from the same sample index before accepting the binding.
+                UnitQuaternion.identity(),
+            )
+            provisional = dataclasses.replace(provisional, binding=binding)
+            raw = prop_motion.orientation_values(self.window, provisional, found[1])
+            if raw is None:
+                self._status(
+                    tr("The four orientation components need one valid synchronized sample.")
+                )
+                return
+            candidate = dataclasses.replace(
+                provisional,
+                binding=dataclasses.replace(
+                    binding, reference_orientation=UnitQuaternion(*raw), reference_values=raw
+                ),
+            )
+        except PropModelError:
+            self._status(tr("Choose four distinct quaternion channels and a valid surface mark."))
+            return
+        self.window.document.execute(
+            SetPhysicalPropCommand(ball.name, ball, candidate, tr("Bind ball orientation")),
+            self.window._mutations,
+        )
+        self._status(
+            tr("Ball orientation bound at frame {frame}; check a later frame.").format(
+                frame=found[0]
+            )
+        )
+
+    def start_check(self, kind: str, name: str) -> None:
+        """Take the next video click as a later-frame motion check."""
+        prop = self.store.get(name)
+        if (
+            (kind == "belt" and not isinstance(prop, BeltProp))
+            or (kind == "ball" and not isinstance(prop, BallProp))
+            or not isinstance(prop, (BeltProp, BallProp))
+            or prop.binding is None
+        ):
+            return
+        if self.checking == name:
+            self.cancel_step()
+            return
+        self.window._cancel_competing_placement("prop")
+        if self.window.clock.state.playing:
+            self.window.transport.play_toggled.emit(False)
+        self.draft = None
+        self.checking = name
+        self.window.video_grid.set_marker_place_mode(True)
+        self._status(
+            tr("Click the identified moving mark on a later frame in any calibrated camera.")
+        )
 
     def remove_prop(self, kind: str, name: str) -> None:
         """Remove a selected belt or ball through an inverse command."""
@@ -341,6 +517,39 @@ class PropsApp:
 
     def on_clicked(self, video: str, x: float, y: float) -> bool:
         """Record exactly the clicked camera pixel and its displayed frame."""
+        if self.checking is not None:
+            prop = self.store.get(self.checking)
+            if isinstance(prop, (BeltProp, BallProp)) and prop.binding is not None:
+                check = prop_motion.check_click(self.window, prop, video, x, y)
+                if check is None:
+                    self._status(
+                        tr("No predicted mark on this frame; check the camera and channels.")
+                    )
+                else:
+                    if isinstance(prop, BeltProp):
+                        belt_binding = dataclasses.replace(
+                            prop.binding, checks=(*prop.binding.checks, check)
+                        )
+                        changed_belt = dataclasses.replace(prop, binding=belt_binding)
+                    else:
+                        ball_binding = dataclasses.replace(
+                            prop.binding, checks=(*prop.binding.checks, check)
+                        )
+                        changed_ball = dataclasses.replace(prop, binding=ball_binding)
+                    changed: BeltProp | BallProp = (
+                        changed_belt if isinstance(prop, BeltProp) else changed_ball
+                    )
+                    self.window.document.execute(
+                        SetPhysicalPropCommand(prop.name, prop, changed, tr("Check prop motion")),
+                        self.window._mutations,
+                    )
+                    self._status(
+                        tr("Frame {frame} check: {residual:.1f} px from predicted mark.").format(
+                            frame=check.frame, residual=check.residual_px
+                        )
+                    )
+                    self.cancel_step()
+            return True
         draft = self.draft
         if draft is None:
             return False
@@ -404,8 +613,9 @@ class PropsApp:
             self._status(tr("Step saved with its original clicks and 3D fit."))
 
     def cancel_step(self) -> None:
-        """Discard only the unfinished click draft."""
+        """Discard an unfinished prop click or motion check."""
         self.draft = None
+        self.checking = None
         self.window.video_grid.set_marker_place_mode(False)
         self.refresh()
 
@@ -561,29 +771,65 @@ class PropsApp:
                     drawings.append((step.label, tuple(pixels), step.closed))
         for prop in self.store:
             if isinstance(prop, BeltProp):
+                frame = prop_motion.frame_time(self.window, video, _time) if prop.binding else None
+                material = (
+                    prop_motion.material_point(self.window, prop, frame[1]) if frame else None
+                )
                 belt_pixels = tuple(
                     self._project_declared(model, point) for point in prop.track.vertices
                 )
                 if any(pixel is not None for pixel in belt_pixels):
                     drawings.append(
                         (
-                            tr("{name} (declared; motion unknown)").format(name=prop.name),
+                            (
+                                tr("{name} (declared; motion unknown)").format(name=prop.name)
+                                if prop.binding is None
+                                else tr("{name} (motion unavailable)").format(name=prop.name)
+                                if material is None
+                                else tr("{name} support").format(name=prop.name)
+                            ),
                             belt_pixels,
                             prop.track.closed,
                         )
                     )
+                if material is not None:
+                    pixel = self._project_declared(model, material)
+                    if pixel is not None:
+                        drawings.append(
+                            (tr("{name} moving mark").format(name=prop.name), (pixel,), False)
+                        )
             elif isinstance(prop, BallProp):
+                frame = prop_motion.frame_time(self.window, video, _time) if prop.binding else None
+                material = (
+                    prop_motion.material_point(self.window, prop, frame[1]) if frame else None
+                )
                 for plane, points in _ball_rings(prop):
                     ball_pixels = tuple(self._project_declared(model, point) for point in points)
                     if any(pixel is not None for pixel in ball_pixels):
                         drawings.append(
                             (
-                                tr("{name} {plane} (declared; orientation unknown)").format(
-                                    name=prop.name, plane=plane
+                                (
+                                    tr("{name} {plane} (declared; orientation unknown)").format(
+                                        name=prop.name, plane=plane
+                                    )
+                                    if prop.binding is None
+                                    else tr("{name} {plane} (orientation unavailable)").format(
+                                        name=prop.name, plane=plane
+                                    )
+                                    if material is None
+                                    else tr("{name} {plane} support").format(
+                                        name=prop.name, plane=plane
+                                    )
                                 ),
                                 ball_pixels,
                                 True,
                             )
+                        )
+                if material is not None:
+                    pixel = self._project_declared(model, material)
+                    if pixel is not None:
+                        drawings.append(
+                            (tr("{name} moving mark").format(name=prop.name), (pixel,), False)
                         )
         if self.draft is not None:
             pixels = []
@@ -610,22 +856,70 @@ class PropsApp:
                     steps.append((step.label, positions, step.closed))
         for prop in self.store:
             if isinstance(prop, BeltProp):
+                reference = (
+                    wheel_display.frame_and_time(self.window, _time) if prop.binding else None
+                )
+                material = (
+                    prop_motion.material_point(self.window, prop, reference[1])
+                    if reference
+                    else None
+                )
                 steps.append(
                     (
-                        tr("{name} (declared; motion unknown)").format(name=prop.name),
+                        (
+                            tr("{name} (declared; motion unknown)").format(name=prop.name)
+                            if prop.binding is None
+                            else tr("{name} (motion unavailable)").format(name=prop.name)
+                            if material is None
+                            else tr("{name} support").format(name=prop.name)
+                        ),
                         tuple(np.asarray(point, dtype=np.float64) for point in prop.track.vertices),
                         prop.track.closed,
                     )
                 )
+                if material is not None:
+                    steps.append(
+                        (
+                            tr("{name} moving mark").format(name=prop.name),
+                            (np.asarray(material),),
+                            False,
+                        )
+                    )
             elif isinstance(prop, BallProp):
+                reference = (
+                    wheel_display.frame_and_time(self.window, _time) if prop.binding else None
+                )
+                material = (
+                    prop_motion.material_point(self.window, prop, reference[1])
+                    if reference
+                    else None
+                )
                 for plane, points in _ball_rings(prop):
                     steps.append(
                         (
-                            tr("{name} {plane} (declared; orientation unknown)").format(
-                                name=prop.name, plane=plane
+                            (
+                                tr("{name} {plane} (declared; orientation unknown)").format(
+                                    name=prop.name, plane=plane
+                                )
+                                if prop.binding is None
+                                else tr("{name} {plane} (orientation unavailable)").format(
+                                    name=prop.name, plane=plane
+                                )
+                                if material is None
+                                else tr("{name} {plane} support").format(
+                                    name=prop.name, plane=plane
+                                )
                             ),
                             tuple(np.asarray(point, dtype=np.float64) for point in points),
                             True,
+                        )
+                    )
+                if material is not None:
+                    steps.append(
+                        (
+                            tr("{name} moving mark").format(name=prop.name),
+                            (np.asarray(material),),
+                            False,
                         )
                     )
         return steps

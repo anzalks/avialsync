@@ -35,6 +35,9 @@ __all__ = [
     "Ladder",
     "BeltProp",
     "BallProp",
+    "BeltBinding",
+    "BallBinding",
+    "MotionCheck",
     "PhysicalProp",
     "PropStore",
     "WheelView",
@@ -263,12 +266,13 @@ class Ladder:
 
 @dataclass(frozen=True)
 class BeltProp:
-    """A declared belt path, kept fixed while its surface motion is unknown."""
+    """A fixed belt support and optional measured surface displacement."""
 
     name: str
     track: BeltTrack
     units: str = ""
     travel_direction: Point3 | None = None
+    binding: BeltBinding | None = None
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -284,16 +288,48 @@ class BeltProp:
             object.__setattr__(
                 self, "travel_direction", tuple(value / norm for value in self.travel_direction)
             )
+        if self.binding is not None and self.travel_direction is None:
+            raise PropModelError("A moving belt needs a declared travel direction.")
+        if self.binding is not None:
+            tangent = tuple(
+                b - a for a, b in zip(self.track.vertices[0], self.track.vertices[1], strict=True)
+            )
+            assert self.travel_direction is not None
+            alignment = sum(a * b for a, b in zip(tangent, self.travel_direction, strict=True))
+            if abs(alignment) < 1e-9 * math.hypot(*tangent):
+                raise PropModelError("Belt direction must follow the first path segment.")
+            if not 0 <= self.binding.reference_distance <= self.track.length:
+                raise PropModelError("Belt mark must begin on the declared path.")
+
+    def material_point(
+        self, reading: float, reference_reading: float | None = None
+    ) -> Point3 | None:
+        """Locate the mark, optionally rereading the reference through today's TimeMap."""
+        if self.binding is None:
+            return None
+        tangent = tuple(
+            b - a for a, b in zip(self.track.vertices[0], self.track.vertices[1], strict=True)
+        )
+        assert self.travel_direction is not None
+        alignment = sum(a * b for a, b in zip(tangent, self.travel_direction, strict=True))
+        if abs(alignment) < 1e-9 * math.hypot(*tangent):
+            raise PropModelError("Belt direction must follow the first path segment.")
+        signed = math.copysign(1.0, alignment) * self.binding.units_per_reading
+        origin = self.binding.reference_reading if reference_reading is None else reference_reading
+        return self.track.material_point(
+            self.binding.reference_distance, signed * (reading - origin)
+        )
 
 
 @dataclass(frozen=True)
 class BallProp:
-    """A declared sphere and optional, explicitly identified surface marks."""
+    """A fixed sphere and marks identified in the reference frame's world axes."""
 
     name: str
     surface: BallSurface
     units: str = ""
     surface_marks: tuple[Point3, ...] = ()
+    binding: BallBinding | None = None
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -305,6 +341,99 @@ class BallProp:
             for mark in self.surface_marks
         ):
             raise PropModelError("Ball surface marks must be finite unit directions.")
+        if self.binding is not None and not self.surface_marks:
+            raise PropModelError("A rotating ball needs an identified surface mark.")
+
+    def material_point(
+        self, orientation: UnitQuaternion, reference_orientation: UnitQuaternion | None = None
+    ) -> Point3 | None:
+        """Rotate the reference mark by live relative orientation."""
+        if self.binding is None or not self.surface_marks:
+            return None
+        reference = (
+            self.binding.reference_orientation
+            if reference_orientation is None
+            else reference_orientation
+        )
+        relative = orientation.composed(reference.inverse())
+        return self.surface.material_point(self.surface_marks[0], relative)
+
+
+@dataclass(frozen=True)
+class MotionCheck:
+    """One actual later-frame click and its residual from a predicted mark."""
+
+    frame: int
+    camera: str
+    x: float
+    y: float
+    residual_px: float
+    source_values: tuple[float, ...] = ()
+
+    def __post_init__(self) -> None:
+        if (
+            self.frame < 0
+            or not self.camera
+            or not all(math.isfinite(value) for value in (self.x, self.y, self.residual_px))
+            or self.residual_px < 0
+        ):
+            raise PropModelError("A motion check needs a frame, camera, pixels, and residual.")
+        if not all(math.isfinite(value) for value in self.source_values):
+            raise PropModelError("A motion check needs finite source readings.")
+
+
+@dataclass(frozen=True)
+class BeltBinding:
+    """Signed displacement evidence for one identified belt surface mark."""
+
+    source_id: str
+    channel: str
+    reference_frame: int
+    reference_reading: float
+    reference_distance: float
+    units_per_reading: float
+    checks: tuple[MotionCheck, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.source_id or not self.channel or self.reference_frame < 0:
+            raise PropModelError("A belt binding needs a channel and reference frame.")
+        if (
+            not all(
+                math.isfinite(value)
+                for value in (
+                    self.reference_reading,
+                    self.reference_distance,
+                    self.units_per_reading,
+                )
+            )
+            or self.units_per_reading <= 0
+        ):
+            raise PropModelError("A belt binding needs finite reference and positive scale.")
+
+
+@dataclass(frozen=True)
+class BallBinding:
+    """Four synchronized orientation channels and a measured reference sample."""
+
+    source_id: str
+    channels: tuple[str, str, str, str]
+    reference_frame: int
+    reference_orientation: UnitQuaternion
+    checks: tuple[MotionCheck, ...] = ()
+    reference_values: tuple[float, float, float, float] | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            not self.source_id
+            or self.reference_frame < 0
+            or len(self.channels) != 4
+            or (len(set(self.channels)) != 4 or not all(self.channels))
+        ):
+            raise PropModelError("Ball orientation needs four distinct channels from one source.")
+        if self.reference_values is not None and not all(
+            math.isfinite(value) for value in self.reference_values
+        ):
+            raise PropModelError("Ball reference readings must be finite.")
 
 
 PhysicalProp = Ladder | BeltProp | BallProp | Wheel
@@ -559,6 +688,10 @@ class UnitQuaternion:
             a * g - b * h + c * e + d * f,
             a * h + b * g - c * f + d * e,
         )
+
+    def inverse(self) -> UnitQuaternion:
+        """Inverse rotation of a unit quaternion."""
+        return UnitQuaternion(self.w, -self.x, -self.y, -self.z)
 
     def rotate(self, point: Point3) -> Point3:
         """Rotate a vector without changing its length."""

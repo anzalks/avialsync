@@ -5527,3 +5527,28 @@ on which two names differing only by case would share a sidecar path.
 state and persistence. The former wheel file controller, worker, and store are
 removed; the wheel gesture, fit, encoder checks, and registered overlays remain
 kind-specific. Existing `.wheel.toml` files remain untouched and unsupported.
+
+## 2026-10 · D-157 · Belt and ball motion use explicit sampled evidence
+
+**Context.** Fixed belt paths and sphere guides were visible, but moving their
+material from an unqualified scalar would claim information the source did not
+provide. The same displayed video frame can cover many master-clock times.
+
+**Decision.** A belt moves an identified path mark only after the user declares
+travel direction, reference distance, displacement channel, and positive distance
+per reading unit. A ball rotates an identified surface direction only when four
+distinct quaternion components from one loaded source have a synchronized sample.
+The ball mark is entered as a world direction on the reference frame; later
+orientation applies `q(t) × inverse(q(reference))` to that direction.
+Both sample the current and reference readings through the plot row's live TimeMap at each
+displayed frame's presentation time, keeping the identified mark anchored on its reference frame
+after an alignment edit. They hide moving marks outside source coverage or inside observed
+timestamp gaps. A later-frame verification click
+records the real camera pixel, displayed frame, source readings, and pixel residual;
+it never silently changes a binding. Geometry, bindings, and checks remain in the
+single prop store and `.prop.toml` sidecar, with document commands for every edit.
+
+**Consequences.** Static support guides remain usable without motion data.
+A scalar ball encoder and a belt lacking direction remain underdetermined.
+Visual-only displacement and multi-landmark orientation can be added later as
+distinct evidence adapters without changing the prop store's authority.

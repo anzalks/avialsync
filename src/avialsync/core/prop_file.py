@@ -18,16 +18,20 @@ from typing import Any, Literal
 
 from avialsync.core.errors import PropModelError
 from avialsync.core.physical_props import (
+    BallBinding,
     BallProp,
     BallSurface,
+    BeltBinding,
     BeltProp,
     BeltTrack,
     Ladder,
     LadderPoint,
     LadderStep,
+    MotionCheck,
     PhysicalProp,
     Point3,
     StepClick,
+    UnitQuaternion,
 )
 from avialsync.core.toml_format import toml_value, write_atomic
 from avialsync.core.wheel import Wheel
@@ -165,6 +169,20 @@ def _belt_sections(belt: BeltProp) -> list[str]:
     )
     for vertex in belt.track.vertices:
         lines += _table("[[belt.vertex]]", [("xyz", vertex)])
+    if belt.binding is not None:
+        binding = belt.binding
+        lines += _table(
+            "[belt.binding]",
+            [
+                ("source_id", binding.source_id),
+                ("channel", binding.channel),
+                ("reference_frame", binding.reference_frame),
+                ("reference_reading", binding.reference_reading),
+                ("reference_distance", binding.reference_distance),
+                ("units_per_reading", binding.units_per_reading),
+            ],
+        )
+        lines += _motion_check_sections("belt", binding.checks)
     return lines
 
 
@@ -179,6 +197,44 @@ def _ball_sections(ball: BallProp) -> list[str]:
     )
     for mark in ball.surface_marks:
         lines += _table("[[ball.surface_mark]]", [("direction", mark)])
+    if ball.binding is not None:
+        binding = ball.binding
+        lines += _table(
+            "[ball.binding]",
+            [
+                ("source_id", binding.source_id),
+                ("channels", binding.channels),
+                ("reference_frame", binding.reference_frame),
+                (
+                    "reference_orientation",
+                    (
+                        binding.reference_orientation.w,
+                        binding.reference_orientation.x,
+                        binding.reference_orientation.y,
+                        binding.reference_orientation.z,
+                    ),
+                ),
+                ("reference_values", binding.reference_values),
+            ],
+        )
+        lines += _motion_check_sections("ball", binding.checks)
+    return lines
+
+
+def _motion_check_sections(kind: str, checks: tuple[MotionCheck, ...]) -> list[str]:
+    lines: list[str] = []
+    for check in checks:
+        lines += _table(
+            f"[[{kind}.binding.check]]",
+            [
+                ("frame", check.frame),
+                ("camera", check.camera),
+                ("x", check.x),
+                ("y", check.y),
+                ("residual_px", check.residual_px),
+                ("source_values", check.source_values),
+            ],
+        )
     return lines
 
 
@@ -322,6 +378,36 @@ def _point3(value: object) -> Point3:
     return (_number(value[0]), _number(value[1]), _number(value[2]))
 
 
+def _quaternion(value: object) -> UnitQuaternion:
+    return UnitQuaternion(*_point4(value))
+
+
+def _point4(value: object) -> tuple[float, float, float, float]:
+    if not isinstance(value, list) or len(value) != 4:
+        raise PropModelError("A ball orientation needs four quaternion components.")
+    return (_number(value[0]), _number(value[1]), _number(value[2]), _number(value[3]))
+
+
+def _values(value: object) -> tuple[float, ...]:
+    if not isinstance(value, list):
+        raise PropModelError("Motion source readings must be a list.")
+    return tuple(_number(item) for item in value)
+
+
+def _motion_checks(value: object) -> tuple[MotionCheck, ...]:
+    return tuple(
+        MotionCheck(
+            _integer(row["frame"]),
+            _text(row["camera"]),
+            _number(row["x"]),
+            _number(row["y"]),
+            _number(row["residual_px"]),
+            _values(row.get("source_values", [])),
+        )
+        for row in _records(value)
+    )
+
+
 def _parse_point(row: Mapping[str, Any]) -> LadderPoint:
     clicks = tuple(
         StepClick(
@@ -366,22 +452,52 @@ def _parse_belt(head: Mapping[str, Any], document: Mapping[str, Any]) -> BeltPro
     table = _mapping(document["belt"])
     vertices = tuple(_point3(row["xyz"]) for row in _records(table.get("vertex", [])))
     direction = table.get("travel_direction")
+    binding_table = table.get("binding")
+    binding = None
+    if binding_table is not None:
+        row = _mapping(binding_table)
+        binding = BeltBinding(
+            _text(row["source_id"]),
+            _text(row["channel"]),
+            _integer(row["reference_frame"]),
+            _number(row["reference_reading"]),
+            _number(row["reference_distance"]),
+            _number(row["units_per_reading"]),
+            _motion_checks(row.get("check", [])),
+        )
     return BeltProp(
         name=_text(head["name"]),
         track=BeltTrack(vertices, closed=_flag(table, "closed")),
         units=_text(table.get("units", "")),
         travel_direction=None if direction is None else _point3(direction),
+        binding=binding,
     )
 
 
 def _parse_ball(head: Mapping[str, Any], document: Mapping[str, Any]) -> BallProp:
     table = _mapping(document["ball"])
     marks = tuple(_point3(row["direction"]) for row in _records(table.get("surface_mark", [])))
+    binding_table = table.get("binding")
+    binding = None
+    if binding_table is not None:
+        row = _mapping(binding_table)
+        channels = row["channels"]
+        if not isinstance(channels, list) or len(channels) != 4:
+            raise PropModelError("A ball orientation needs four channel names.")
+        binding = BallBinding(
+            _text(row["source_id"]),
+            (_text(channels[0]), _text(channels[1]), _text(channels[2]), _text(channels[3])),
+            _integer(row["reference_frame"]),
+            _quaternion(row["reference_orientation"]),
+            _motion_checks(row.get("check", [])),
+            None if "reference_values" not in row else _point4(row["reference_values"]),
+        )
     return BallProp(
         name=_text(head["name"]),
         surface=BallSurface(_point3(table["centre"]), _number(table["radius"])),
         units=_text(table.get("units", "")),
         surface_marks=marks,
+        binding=binding,
     )
 
 

@@ -137,6 +137,24 @@ class MappedChannelReader:
     def sample_at(self, t_master: float) -> tuple[int, float] | None:
         return self._reader.sample_at(self._time_map.to_source(t_master))
 
+    def available_sample_at(self, t_master: float) -> tuple[int, float] | None:
+        """Sample only inside coverage and outside an observed timestamp gap.
+
+        ``sample_at`` deliberately clamps for cursor readouts. Motion evidence
+        cannot claim a value before acquisition, after it, or inside a gap.
+        """
+        source_time = self._time_map.to_source(t_master)
+        found = self._reader.sample_at(source_time)
+        if found is None:
+            return None
+        times, _values, gaps = self._reader.mapped_columns()
+        index = found[0]
+        if source_time < times[0] or source_time > times[-1]:
+            return None
+        if index + 1 < len(times) and source_time > times[index] and gaps[index]:
+            return None
+        return found
+
     def value_at(self, t_master: float) -> float:
         return self._reader.value_at(self._time_map.to_source(t_master))
 
