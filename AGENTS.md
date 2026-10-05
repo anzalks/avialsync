@@ -15,10 +15,11 @@ formats, TTL/event semantics, and optional analysis through plugins. Open-source
 `DECISIONS.md` for settled choices. Do not re-litigate settled decisions; propose changes as a
 DECISIONS.md entry in the PR description instead of silently diverging.
 
-**If you are working on Phase 7 (UX foundations, branch `ux_foundations`), `UX_FOUNDATIONS_PLAN.md`
-is your executable plan** — twelve work packages with file lists, numbered steps, acceptance
-evidence, and a dependency graph. Read this file first, then that plan's §0–§4, then your one work
-package. Rules 10–17 below are new in that phase and binding everywhere.
+**The next phase is Phase 9 (interface design, branch `feat/interface-design`), and
+`INTERFACE_DESIGN_PLAN.md` is its executable plan** — fifteen work packages (DS-0 … DS-14) with evidence, file
+lists, numbered steps, acceptance evidence, and a dependency graph. Read this file first, then that
+plan's §0–§4, then your one work package. Completed plans live in `archive/plans/` as record only;
+do not work from them. Rules 10–17 below came from Phase 7 and are binding everywhere.
 
 ## Naming & casing — BINDING (never invent variants)
 

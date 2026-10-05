@@ -174,7 +174,7 @@ Paused/scrubbed **Review** shows the complete selected page. Live **Sweep** reta
 page only until a narrow eraser gap overwrites it; compatibility **Scope** clears/restarts at the
 left edge as in D-042. At a deterministic page boundary, plots load the next bounded slice.
 Retained display data is limited to the current and immediately previous page, and the full cursor
-path remains within the ≤ 2 ms budget (D-044, `PLOT_UX_PLAN.md`).
+path remains within the ≤ 2 ms budget (D-044, `archive/plans/PLOT_UX_PLAN.md`).
 The 3D tracking view follows the same rule: it recognizes complete `name_x`, `name_y`, `name_z`
 channel triplets already imported through a `TimeSeriesSource`, samples only the nearest mmap-backed
 cache row at `t_master`, and paints only the current pose. Coordinates sharing one source reuse one

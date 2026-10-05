@@ -5,12 +5,9 @@ Desktop tool for scrubbing time-synchronized multi-camera video with dense time-
 **License:** AGPL-3.0-or-later, single licence — no dual licence, no CLA (D-076).  
 **Env:** `conda run -n avialsync <cmd>` — every command without exception
 
-> **⚠ Migration in flight — read MIGRATION_PYAV.md before touching video code.**
-> Branch `shift_from_libmpv_to_pyav` replaced libmpv with PyAV so that `pip install avialsync`
-> needs no OS-level install on any platform (D-075). **All eight steps are done.** Decoding,
-> probing, proxy generation, clip export, and the demo generator run in-process against the FFmpeg
-> inside PyAV's wheel; nothing in the application shells out to a media runtime. That file carries
-> the step-by-step record and the traps worth keeping.
+> **Next phase: interface design — read `INTERFACE_DESIGN_PLAN.md`.** Completed plans (including the
+> finished libmpv → PyAV migration, `archive/plans/MIGRATION_PYAV.md`) are kept in `archive/plans/`
+> as record only.
 
 ---
 
@@ -56,8 +53,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
 packages. It added seven pieces of shared infrastructure — command bus, settings registry, the
 action/shortcut layer (identity derived from the live `QAction`s rather than a second table, D-092,
 so there is no `ui/action_registry.py`), overlay registry, feedback surface, string/a11y layer,
-display pipeline — and wired the missing interaction behaviour onto them. **The executable plan is
-`UX_FOUNDATIONS_PLAN.md`**, whose header records the two deliberate scope boundaries: WP-11 left the
+display pipeline — and wired the missing interaction behaviour onto them. **The executable plan was
+`archive/plans/UX_FOUNDATIONS_PLAN.md`**, whose header records the two deliberate scope boundaries: WP-11 left the
 four nested splitters as splitters rather than `QDockWidget`s, and WP-12 wrapped 106 of 166
 user-facing literals, the remainder being f-strings `lupdate` cannot extract (`translatable_ratio`
 measures it). Kickoff prompts are in PROMPTS.md §Phase 7; the binding rules are AGENTS.md
@@ -101,8 +98,9 @@ the result on that video's frame grid. The session scanner pairs by camera devic
 trials whose calibration or video match is missing or ambiguous. Projected points use the existing
 camera-specific tracking overlay and its visibility controls.
 
-**Physical props are in progress on `feat/physical-props`.** Read `PHYSICAL_PROPS_PLAN.md`, D-149,
-and D-154–D-157 before changing a prop. One Props inspector contains wheel placement/review,
+**Physical props are implemented on `feat/physical-props`** (merge and release gate pending). Read
+D-149, D-154–D-157 and D-162–D-166 before changing a prop; the plan is archived at
+`archive/plans/PHYSICAL_PROPS_PLAN.md`. One Props inspector contains wheel placement/review,
 clicked horizontal ladders, and editable geometry and motion binding for belts and balls. Wheel
 placement starts from the selected kind's Add control. All four kinds use versioned `_prop.toml`
 sidecars; old `.wheel.toml` files are ignored and untouched. Belt marks can follow an explicit
@@ -246,7 +244,7 @@ Two product laws govern that phase and outrank convention:
   Release staging rejects a bundle without `ffmpeg` and `ffprobe`; no video library is staged or
   required (D-075). A pip install carries its own decoder, so there is no missing-library first run
   and no guided dialog. FFmpeg remains external for proxy generation, clip export, and the demo
-  generator — MIGRATION_PYAV.md step 7. The prohibition on an in-app downloader still stands (D-014):
+  generator — archive/plans/MIGRATION_PYAV.md step 7. The prohibition on an in-app downloader still stands (D-014):
   an application must not fetch its own binaries at runtime; that is what the wheel is for.
 - **Video pane shutdown**: `MainWindow.closeEvent()` calls `Player.stop()` and then
   `VideoGrid.shutdown()` before Qt destroys child widgets. This removes the precise 60 Hz timer and
@@ -303,51 +301,78 @@ Two product laws govern that phase and outrank convention:
 - Follow-up: native plugin event providers remain separate API work; manual offset/drift fallback is
   available in the Sync Wizard.
 
-### Pending
+### Open items
+- **Next: Phase 9 interface design** — `INTERFACE_DESIGN_PLAN.md` (BLUEPRINT.md Phase 9).
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
-  (D-044):** `PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
+  (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
   fit/auto/manual Y control, compact inspector tabs, native focus, and compatibility action proxies
   are implemented and covered by focused offscreen tests. The remaining release certification is the
   full representative 4/32/128-channel performance and three-platform manual field-data checklist;
   do not claim the latency budgets without those measurements.
-- P3.5 performance/accurate-streaming hardening (audit 2026-07-29; closed 2026-07-30):
-  - **P0 accuracy — done.** Plot envelopes render pyramid min/max; raw gap evidence is OR-reduced
-    into every coarser level; CSV enforces an explicit timestamp schema with cross-chunk
-    chronology/duplicate validation and the wizard timezone. Every time-series source now has a
-    `TimeMap` (D-045): `MappedChannelReader` presents cached channels on the master clock, session
-    schema v6 persists sensor `offset`/`drift_ppm`, and the sidebar offers the same offset/drift
-    controls video already had. Re-aligning a source is a redraw, never a re-import.
-  - **P0 streaming — done.** `ChannelStage` stages parser chunks to disk and materialises once, so
-    peak import memory is one chunk per channel instead of the whole recording. `NeoLoader` reads
-    blocks lazily and slices per batch. Gap *locations* are capped at 10 000 as display evidence
-    while `gap_count` stays exact.
-  - **P0 UI freeze — done.** Region statistics, CSV/Parquet export, PNG encoding, ffmpeg clipping,
-    and now session save/load/autosave and annotation export all run on workers (D-046). A Qt
-    heartbeat test fails if the event loop stalls during a one-million-pair session write. The
-    close-time autosave is deliberately synchronous — the window is being destroyed.
-  - **P1 identity — done.** `ChannelKey(source_id, channel_id)` keys plots, readouts, units,
-    visibility, region statistics, and export (D-045). CSV export labels each block with its source;
-    Parquet is long-form and never assumes a shared time axis.
-  - **P1 hot path — done.** Authoritative time stays at 60 Hz; readout/pose presentation is
-    rate-limited to 20 Hz and skipped when hidden; timeline evidence lanes are indexed by time so
-    paint and hover scale with pixels, not event count (D-047).
-  - **P1 loading — done.** Video metadata probes run bounded-parallel (3 at a time) while native
-    pane construction stays serialized and in request order, preserving D-040 (D-048).
-  - **P1 cache durability — done.** Cache commits retain the previous valid sidecar until the
-    replacement is installed and recover an interrupted backup on the next validity check.
-  - **Still open:** the representative *measurements*. The populated 4/32/128-channel performance
-    certification, peak-RSS and second-open-latency numbers for a 1 GB / 180 M-sample import, and
-    decoder-settle-plus-rendered-frame latency are not yet recorded. Existing microbenchmarks are
-    baselines, not freeze-free certification. Do not claim the BLUEPRINT latency budgets without
-    those runs on a real mid-spec machine.
-  - **P2 maintainability — composition still in progress.** `ui/main_window.py` is about 4 000
-    lines after the mocap and scientific UX work. File, Edit, Align, View, and Help menus now live
-    in `ui/menus/`, with labels still owned by their live actions. Wheel, video-load, import, and
-    session runtime fields have typed state objects; rig path helpers take a narrow context.
-    `tests/test_controller_boundaries.py` freezes private window accesses and oversized modules at
-    their current ceilings, checks new functions, and rejects controller import cycles. The target
-    is under 1 000 lines for `main_window.py` (D-148); remaining window coupling is tracked as debt.
+- **P3.5 measurements still open.** The populated 4/32/128-channel performance
+  certification, peak-RSS and second-open-latency numbers for a 1 GB / 180 M-sample import, and
+  decoder-settle-plus-rendered-frame latency are not yet recorded. Existing microbenchmarks are
+  baselines, not freeze-free certification. Do not claim the BLUEPRINT latency budgets without
+  those runs on a real mid-spec machine.
+- **P2 maintainability — composition still in progress.** `ui/main_window.py` is about 4 000
+  lines after the mocap and scientific UX work. File, Edit, Align, View, and Help menus now live
+  in `ui/menus/`, with labels still owned by their live actions. Wheel, video-load, import, and
+  session runtime fields have typed state objects; rig path helpers take a narrow context.
+  `tests/test_controller_boundaries.py` freezes private window accesses and oversized modules at
+  their current ceilings, checks new functions, and rejects controller import cycles. The target
+  is under 1 000 lines for `main_window.py` (D-148); remaining window coupling is tracked as debt.
+- **Still open — the scripted heartbeat test.** No test drives the full
+  open → play → scrub → resize → theme-switch sequence with real paint events. Judged not worth
+  it: `ui/ui_heartbeat.py` already monitors every real session on real hardware, which a fixture
+  run cannot match, and the distribution assertions now cover the tail it would have caught. A
+  scripted-interaction test here would be the flakiest thing in the suite. Revisit only if a
+  stall is reported that the runtime heartbeat did not catch.
+- **Still open — absolute UI budgets are unverified.** The tail assertions bound p95 and the
+  worst callback *relative to the median*, deliberately, so they survive a loaded CI runner. They
+  do not prove AGENTS' ≤8 ms target. Measured on a settled 32-channel window (macOS, offscreen):
+  ticks 0.01/0.02/2.6 ms p50/p95/max, visibility 9.2/20.1/21.5, scrub 29.2/32.8/49.0, resize
+  48.0/86.8/90.1. Scrub and resize exceed the 30 ms ceiling under an adversarial loop that
+  defeats `_PANE_RESIZE_COALESCE_MS`; whether that reflects real interaction is unmeasured and
+  needs the field checklist to settle.
+- Physical props: merge `feat/physical-props` and run its release gate
+  (`archive/plans/PHYSICAL_PROPS_PLAN.md` §4 slice 6).
+- Shipped translations: the machinery and 100 % wrapping exist; no `.qm` catalogue ships yet.
+- Native synchronization plugin API (D-026).
+
+### Done (P3.5 performance/accurate-streaming hardening — audit 2026-07-29, closed 2026-07-30)
+- **P0 accuracy — done.** Plot envelopes render pyramid min/max; raw gap evidence is OR-reduced
+  into every coarser level; CSV enforces an explicit timestamp schema with cross-chunk
+  chronology/duplicate validation and the wizard timezone. Every time-series source now has a
+  `TimeMap` (D-045): `MappedChannelReader` presents cached channels on the master clock, session
+  schema v6 persists sensor `offset`/`drift_ppm`, and the sidebar offers the same offset/drift
+  controls video already had. Re-aligning a source is a redraw, never a re-import.
+- **P0 streaming — done.** `ChannelStage` stages parser chunks to disk and materialises once, so
+  peak import memory is one chunk per channel instead of the whole recording. `NeoLoader` reads
+  blocks lazily and slices per batch. Gap *locations* are capped at 10 000 as display evidence
+  while `gap_count` stays exact.
+- **P0 UI freeze — done.** Region statistics, CSV/Parquet export, PNG encoding, ffmpeg clipping,
+  and now session save/load/autosave and annotation export all run on workers (D-046). A Qt
+  heartbeat test fails if the event loop stalls during a one-million-pair session write. The
+  close-time autosave is deliberately synchronous — the window is being destroyed.
+- **P1 identity — done.** `ChannelKey(source_id, channel_id)` keys plots, readouts, units,
+  visibility, region statistics, and export (D-045). CSV export labels each block with its source;
+  Parquet is long-form and never assumes a shared time axis.
+- **P1 hot path — done.** Authoritative time stays at 60 Hz; readout/pose presentation is
+  rate-limited to 20 Hz and skipped when hidden; timeline evidence lanes are indexed by time so
+  paint and hover scale with pixels, not event count (D-047).
+- **P1 loading — done.** Video metadata probes run bounded-parallel (3 at a time) while native
+  pane construction stays serialized and in request order, preserving D-040 (D-048).
+- **P1 cache durability — done.** Cache commits retain the previous valid sidecar until the
+  replacement is installed and recover an interrupted backup on the next validity check.
+- Closed 2026-08-03: plugin load errors are collected and shown in Diagnostics; the
+  `benchmark.stats` guard, the `.gitignore` entry, and the `ui/theme.py` subprocess note all
+  landed; `tests/test_workload_responsiveness.py` gained per-callback distribution assertions.
+- Superseded, not skipped: the plan's `PyramidBuilder.append`/`finalize` never landed because the
+  bounded-memory problem was solved at the importer layer instead (disk staging plus
+  `materialize()`, pinned by `tests/test_import_streaming.py`). Do not re-open it.
+
+### Done (Phase 5 packaging, docs, and plugin surfaces)
 - P5.2 release packaging: CI already builds a media-free one-directory artifact on every OS; the
   tag-only release workflow runs its cross-platform quality matrix, then smoke-tests the built
   wheel in a clean environment before building release-media installers. OIDC PyPI publishing
@@ -370,7 +395,12 @@ Two product laws govern that phase and outrank convention:
   3.12 documentation environment with warnings as errors. A release tag synchronizes and activates
   its exact Read the Docs version through the project API before distributions may publish; the
   repository secret `READTHEDOCS_TOKEN` is therefore a release prerequisite.
-- Native synchronization plugin API (D-026).
+- Session/folder plugin API — **done 2026-08-03 (D-068)**. `SessionSource` in `core/source.py`,
+  published under the `avialsync.sessions` entry-point group and also discovered from drop-in plugin
+  directories. `engine/drop_worker.py` holds no format knowledge; AOL moved wholesale into
+  `loaders/aol_session_loader.AOLSessionSource` as its first implementation. Formats also name
+  themselves for the import dialog (`display_name`/`display_aliases`), so the UI has no format
+  table. Do not reintroduce a format name into `engine/` or `ui/`.
 - **Windows: intermittent native fault around libmpv client lifetime — CLOSED by removal (D-075).**
   Two faults were chased for weeks on `windows-2022`: an access violation inside python-mpv's
   `_enqueue_exceptions`, and a hang in `MPV.__init__` at `_event_thread.start()`. Neither was ever
@@ -385,34 +415,6 @@ Two product laws govern that phase and outrank convention:
   writes the autosave and geometry before `video_grid.shutdown`, and `tests/conftest.py` still
   neutralises the startup diagnostics probe so background work cannot land on an unrelated test.
   A manual `windows-diagnostic.yml` workflow existed and was deleted; do not restore it.
-- Session/folder plugin API — **done 2026-08-03 (D-068)**. `SessionSource` in `core/source.py`,
-  published under the `avialsync.sessions` entry-point group and also discovered from drop-in plugin
-  directories. `engine/drop_worker.py` holds no format knowledge; AOL moved wholesale into
-  `loaders/aol_session_loader.AOLSessionSource` as its first implementation. Formats also name
-  themselves for the import dialog (`display_name`/`display_aliases`), so the UI has no format
-  table. Do not reintroduce a format name into `engine/` or `ui/`.
-- **Post-refactor repair leftovers (audit 2026-07-30; `RECOVERY_PLAN.md` / `RECOVERY_PROMPT.md`
-  retired 2026-08-03).** 25 of that plan's 33 tasks shipped, verified against the code; its progress
-  tracker was never ticked, which is why the two files read as unstarted. What is genuinely left:
-  - Closed 2026-08-03: plugin load errors are collected and shown in Diagnostics; the
-    `benchmark.stats` guard, the `.gitignore` entry, and the `ui/theme.py` subprocess note all
-    landed; `tests/test_workload_responsiveness.py` gained per-callback distribution assertions.
-  - **Still open — the scripted heartbeat test.** No test drives the full
-    open → play → scrub → resize → theme-switch sequence with real paint events. Judged not worth
-    it: `ui/ui_heartbeat.py` already monitors every real session on real hardware, which a fixture
-    run cannot match, and the distribution assertions now cover the tail it would have caught. A
-    scripted-interaction test here would be the flakiest thing in the suite. Revisit only if a
-    stall is reported that the runtime heartbeat did not catch.
-  - **Still open — absolute UI budgets are unverified.** The tail assertions bound p95 and the
-    worst callback *relative to the median*, deliberately, so they survive a loaded CI runner. They
-    do not prove AGENTS' ≤8 ms target. Measured on a settled 32-channel window (macOS, offscreen):
-    ticks 0.01/0.02/2.6 ms p50/p95/max, visibility 9.2/20.1/21.5, scrub 29.2/32.8/49.0, resize
-    48.0/86.8/90.1. Scrub and resize exceed the 30 ms ceiling under an adversarial loop that
-    defeats `_PANE_RESIZE_COALESCE_MS`; whether that reflects real interaction is unmeasured and
-    needs the field checklist to settle.
-  - Superseded, not skipped: the plan's `PyramidBuilder.append`/`finalize` never landed because the
-    bounded-memory problem was solved at the importer layer instead (disk staging plus
-    `materialize()`, pinned by `tests/test_import_streaming.py`). Do not re-open it.
 
 ### Cross-platform pressure audit (D-040)
 - Rendering is no longer platform-specific at all (D-075): every OS decodes to a `QImage` and
@@ -751,7 +753,7 @@ _start_data_import(path)
 > teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
-> traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
+> traps that replaced them are the pts-table and frame-selection ones below, plus archive/plans/MIGRATION_PYAV.md.
 
 ### 0-fork. Nothing a repaint can reach may shell out, and a miss must be cached
 

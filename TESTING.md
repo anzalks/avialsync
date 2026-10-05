@@ -122,7 +122,7 @@ Run these as slice-level regression gates; do not wait until the entire visual r
 
 | Area | Required automated evidence |
 |---|---|
-| Compatibility | Characterize every item in `PLOT_UX_PLAN.md` §2 before moving controls. Assert the same QAction/signal result after relocation and that close still changes the sidebar checkbox. |
+| Compatibility | Characterize every item in `archive/plans/PLOT_UX_PLAN.md` §2 before moving controls. Assert the same QAction/signal result after relocation and that close still changes the sidebar checkbox. |
 | Modes | Review paints the complete selected page; Sweep retains the previous pass only until overwrite; Scope preserves D-042 blank/restart; all three map cursor, gaps, measures, annotations, and coverage to identical absolute times. |
 | Shared X state | Add/remove/hide, resize, theme change, save/load, slider, typed value, shortcuts, and navigator changes leave every visible row X-linked with one duration and page. No per-row horizontal scrollbar exists. |
 | Time span | Unit changes preserve seconds exactly within display precision; the continuous mapping is monotonic at ms/s/min/h scales; drag updates are coalesced and release commits the newest value. |
