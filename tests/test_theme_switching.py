@@ -769,3 +769,33 @@ def test_the_identity_braid_redraws_when_the_palette_changes(qtbot, both_themes)
     light, dark = both_themes(panel)
 
     assert light != dark, "the braid kept its colours across a theme change"
+
+
+# ── The edges of a coverage wash ─────────────────────────────────────────
+
+
+@pytest.mark.parametrize("palette", _surfaces(), ids=["dark", "light"])
+def test_coverage_edges_are_neutral_and_visible(palette: QPalette) -> None:
+    """pyqtgraph's default edge pen is an olive ``(200, 200, 100)``: the only
+    yellow on the plot, read as a data mark at the end of every row."""
+    from avialsync.ui.theme import coverage_edge_color
+
+    edge = coverage_edge_color(palette)
+    canvas = palette.color(QPalette.ColorRole.Base)
+    assert edge.saturationF() < _CHROMATIC
+    assert abs(edge.lightnessF() - canvas.lightnessF()) > _MIN_CONTRAST
+
+
+def test_a_coverage_region_is_re_penned_for_the_palette(qtbot) -> None:
+    import pyqtgraph as pg
+
+    from avialsync.ui.plot_theme import apply_coverage_region_palette
+    from avialsync.ui.theme import coverage_edge_color
+
+    region = pg.LinearRegionItem(values=[0.0, 1.0], movable=False)
+    for palette in _surfaces():
+        apply_coverage_region_palette(region, palette)
+        expected = coverage_edge_color(palette)
+        for line in region.lines:
+            assert line.pen.color() == expected
+            assert line.hoverPen.color() == expected

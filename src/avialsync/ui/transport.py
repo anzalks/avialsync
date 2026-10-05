@@ -21,7 +21,6 @@ from PySide6.QtGui import (
     QMouseEvent,
     QPainter,
     QPaintEvent,
-    QPalette,
     QPen,
     QPolygon,
     QRegularExpressionValidator,
@@ -43,6 +42,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.ui.i18n import tr
+from avialsync.ui.icons import set_glyph_icon
 from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
 from avialsync.ui.theme import (
     evidence_color,
@@ -52,6 +52,7 @@ from avialsync.ui.theme import (
     separator_color,
     set_font_family,
     status_color,
+    surface_color,
     system_accent,
 )
 from avialsync.ui.time_format import TimeDisplayMode, format_time
@@ -90,7 +91,7 @@ def _lane_ground(palette: QColor | object) -> QColor:
     Derived from the surface rather than stated, so it lifts on a dark theme
     and settles on a light one instead of being a grey that only works in one.
     """
-    base = palette.color(QPalette.ColorRole.AlternateBase)  # type: ignore[union-attr]
+    base = surface_color(palette)  # type: ignore[arg-type]
     dark = base.lightnessF() < 0.5
     lift = _GROUND_LIFT if dark else -_GROUND_LIFT
     return QColor(
@@ -550,7 +551,7 @@ class TimelineOverview(QWidget):
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
         palette = self.palette()
-        painter.fillRect(self.rect(), palette.color(palette.ColorRole.AlternateBase))
+        painter.fillRect(self.rect(), surface_color(palette))
         t0, t1 = self._bounds
         lanes = self._lanes()
         if t1 <= t0:
@@ -954,49 +955,45 @@ class Transport(QWidget):
 
         # ── Jump back 1 s ─────────────────────────────────────────────
         self._jump_back_btn = QPushButton(tr("Back 1 s"))
-        self._jump_back_btn.setFixedWidth(64)
-        self._jump_back_btn.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSkipBackward)
-        )
+        self._jump_back_btn.setMinimumWidth(64)
+        set_glyph_icon(self._jump_back_btn, QStyle.StandardPixmap.SP_MediaSkipBackward)
         self._jump_back_btn.setAccessibleName(tr("Jump back one second"))
         self._jump_back_btn.setToolTip(tr("Jump back 1 second (J or Shift+←)"))
         self._jump_back_btn.clicked.connect(lambda: self.jump_requested.emit(-1.0))
 
         # ── Frame step back ───────────────────────────────────────────
         self._step_back_btn = QPushButton(tr("Prev frame"))
-        self._step_back_btn.setFixedWidth(78)
-        self._step_back_btn.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSeekBackward)
-        )
+        self._step_back_btn.setMinimumWidth(78)
+        set_glyph_icon(self._step_back_btn, QStyle.StandardPixmap.SP_MediaSeekBackward)
         self._step_back_btn.setAccessibleName(tr("Step back one frame"))
         self._step_back_btn.setToolTip(tr("Step back 1 frame (← or ,)"))
         self._step_back_btn.clicked.connect(lambda: self.frame_step_requested.emit(-1))
 
         # ── Play / Pause ──────────────────────────────────────────────
         self.play_btn = QPushButton(tr("Play"))
-        self.play_btn.setFixedWidth(60)
         self.play_btn.setCheckable(True)
-        self.play_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        set_glyph_icon(self.play_btn, QStyle.StandardPixmap.SP_MediaPlay)
+        # Wide enough for either label, so toggling playback does not reflow
+        # the row under the pointer.
+        self.play_btn.setText(tr("Pause"))
+        self.play_btn.setMinimumWidth(max(60, self.play_btn.sizeHint().width()))
+        self.play_btn.setText(tr("Play"))
         self.play_btn.setAccessibleName(tr("Start playback"))
         self.play_btn.setToolTip(tr("Play / Pause (Space)"))
         self.play_btn.clicked.connect(self._on_play_clicked)
 
         # ── Frame step forward ────────────────────────────────────────
         self._step_fwd_btn = QPushButton(tr("Next frame"))
-        self._step_fwd_btn.setFixedWidth(78)
-        self._step_fwd_btn.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSeekForward)
-        )
+        self._step_fwd_btn.setMinimumWidth(78)
+        set_glyph_icon(self._step_fwd_btn, QStyle.StandardPixmap.SP_MediaSeekForward)
         self._step_fwd_btn.setAccessibleName(tr("Step forward one frame"))
         self._step_fwd_btn.setToolTip(tr("Step forward 1 frame (→ or .)"))
         self._step_fwd_btn.clicked.connect(lambda: self.frame_step_requested.emit(1))
 
         # ── Jump forward 1 s ──────────────────────────────────────────
         self._jump_fwd_btn = QPushButton(tr("Forward 1 s"))
-        self._jump_fwd_btn.setFixedWidth(76)
-        self._jump_fwd_btn.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSkipForward)
-        )
+        self._jump_fwd_btn.setMinimumWidth(76)
+        set_glyph_icon(self._jump_fwd_btn, QStyle.StandardPixmap.SP_MediaSkipForward)
         self._jump_fwd_btn.setAccessibleName(tr("Jump forward one second"))
         self._jump_fwd_btn.setToolTip(tr("Jump forward 1 second (Shift+→)"))
         self._jump_fwd_btn.clicked.connect(lambda: self.jump_requested.emit(1.0))
@@ -1209,12 +1206,9 @@ class Transport(QWidget):
         self.play_btn.blockSignals(True)
         self.play_btn.setChecked(playing)
         self.play_btn.setText(tr("Pause") if playing else tr("Play"))
-        self.play_btn.setIcon(
-            self.style().standardIcon(
-                QStyle.StandardPixmap.SP_MediaPause
-                if playing
-                else QStyle.StandardPixmap.SP_MediaPlay
-            )
+        set_glyph_icon(
+            self.play_btn,
+            QStyle.StandardPixmap.SP_MediaPause if playing else QStyle.StandardPixmap.SP_MediaPlay,
         )
         self.play_btn.setAccessibleName(tr("Pause playback") if playing else tr("Start playback"))
         self.play_btn.blockSignals(False)

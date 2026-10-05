@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import TypeVar
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
@@ -18,7 +17,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
-    QStyle,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -29,9 +27,10 @@ from avialsync.core.inspection import SourceInspection
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
+from avialsync.ui.icons import set_status_icon
 from avialsync.ui.quality_badge import findings_for, worst_severity
 from avialsync.ui.source_properties import VideoPropertiesPanel
-from avialsync.ui.theme import follow_palette, set_bold
+from avialsync.ui.theme import follow_palette, separator_color, set_bold
 
 _W = TypeVar("_W", bound=QWidget)
 
@@ -108,7 +107,7 @@ def _issues_button(parent: QWidget) -> QPushButton:
     button = QPushButton(parent)
     button.setFixedSize(24, 24)
     button.setIconSize(QSize(16, 16))
-    button.setIcon(button.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning))
+    set_status_icon(button, "warning")
     button.setAccessibleName(tr("Source issues"))
     button.setAccessibleDescription(
         tr("Open details about this source's data quality and alignment.")
@@ -310,7 +309,7 @@ class SensorInfoWidget(QFrame):
             self.tree,
             lambda palette: (
                 "QTreeWidget { border: 1px solid "
-                f"{palette.color(QPalette.ColorRole.Mid).name()}"
+                f"{separator_color(palette).name()}"
                 "; background: transparent; }"
             ),
         )
@@ -665,12 +664,7 @@ def _render_badge(
     button.setToolTip("\n\n".join(lines))
     button.setAccessibleDescription(" ".join(finding.summary for finding in findings))
 
-    standard_icon = {
-        "error": QStyle.StandardPixmap.SP_MessageBoxCritical,
-        "warning": QStyle.StandardPixmap.SP_MessageBoxWarning,
-        "info": QStyle.StandardPixmap.SP_MessageBoxInformation,
-    }[severity]
-    button.setIcon(button.style().standardIcon(standard_icon))
+    set_status_icon(button, severity)
     button.setVisible(True)
 
 

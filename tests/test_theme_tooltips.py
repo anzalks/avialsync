@@ -24,14 +24,68 @@ def test_explicit_palettes_define_readable_tooltip_colours() -> None:
 
 
 def test_explicit_appearances_preserve_the_platform_accent() -> None:
-    """A custom OS accent must flow into links and interactive controls."""
+    """A custom OS accent must flow into links and interactive controls.
+
+    Links keep the accent's *hue*, not its exact value: the accent is the
+    user's choice of colour, not a promise of legibility, so a link is held to
+    a lightness readable on its surface.
+    """
     accent = QColor("#b455ff")
     light = theme._palette_with_surfaces(False, accent)
     dark = theme._palette_with_surfaces(True, accent)
 
-    assert light.color(QPalette.ColorRole.Link) == accent
-    assert dark.color(QPalette.ColorRole.Link) == accent
+    for palette in (light, dark):
+        assert palette.color(QPalette.ColorRole.Accent) == accent
+        link = palette.color(QPalette.ColorRole.Link)
+        assert link.hslHueF() == pytest.approx(accent.hslHueF(), abs=0.01)
     assert light.color(QPalette.ColorRole.Highlight) == accent
+
+
+@pytest.mark.parametrize("accent", ["#0a60ff", "#ffd60a", "#8e8e93", "#bf5af2"])
+def test_links_are_readable_whatever_the_accent(accent: str) -> None:
+    """A yellow accent was an unreadable link on white; the default blue a dim
+    navy on the Dark surface."""
+    for dark in (True, False):
+        palette = theme._palette_with_surfaces(dark, QColor(accent))
+        link = palette.color(QPalette.ColorRole.Link).lightnessF()
+        base = palette.color(QPalette.ColorRole.Base).lightnessF()
+        assert abs(link - base) > 0.4, f"{accent} link unreadable on {'dark' if dark else 'light'}"
+
+
+@pytest.mark.parametrize("dark", [True, False], ids=["dark", "light"])
+def test_explicit_appearances_state_their_bevels_in_order(dark: bool) -> None:
+    """Unset bevel roles were the platform's, so ``Dark`` was a near-white rule
+    on the Dark surface wherever a separator or frame was drawn from it."""
+    palette = theme._palette_with_surfaces(dark, QColor("#0a60ff"))
+    ordered = [
+        QPalette.ColorRole.Light,
+        QPalette.ColorRole.Midlight,
+        QPalette.ColorRole.Mid,
+        QPalette.ColorRole.Dark,
+        QPalette.ColorRole.Shadow,
+    ]
+    for role in ordered:
+        assert palette.isBrushSet(QPalette.ColorGroup.Active, role), f"{role.name} left unset"
+    lightness = [palette.color(role).lightnessF() for role in ordered]
+    assert lightness == sorted(lightness, reverse=True)
+
+
+def test_explicit_appearances_take_the_platform_accent_not_its_selection_tint() -> None:
+    """macOS reports a dimmed selection colour as ``Highlight`` and the real
+    accent as ``Accent``; reading ``Highlight`` made every selection, link and
+    coverage span a muddy navy beside bright native controls."""
+    platform = QPalette()
+    platform.setColor(QPalette.ColorRole.Highlight, QColor("#314f78"))
+    platform.setColor(QPalette.ColorRole.Accent, QColor("#0a60ff"))
+
+    assert theme._accent(platform, platform=True) == QColor("#0a60ff")
+
+
+def test_a_hand_built_palette_still_states_its_accent_through_highlight() -> None:
+    palette = QPalette()
+    palette.setColor(QPalette.ColorRole.Highlight, QColor("#bf5af2"))
+
+    assert theme._accent(palette) == QColor("#bf5af2")
 
 
 def test_macos_accent_uses_the_system_preference_not_selection_blue(monkeypatch) -> None:
@@ -64,15 +118,16 @@ def test_toggle_applies_light_then_restores_system_palette(monkeypatch) -> None:
 
     monkeypatch.setattr(theme, "QSettings", Settings)
     app = QApplication.instance() or QApplication([])
-    native_accent = app.palette().color(QPalette.ColorRole.Highlight)
+    native_accent = theme.system_accent(app.palette(), platform=True)
+    native_highlight = app.palette().color(QPalette.ColorRole.Highlight)
 
     theme.apply_theme(app, theme.THEME_LIGHT)
     assert values["theme/preference"] == theme.THEME_LIGHT
-    assert app.palette().color(QPalette.ColorRole.Link) == native_accent
+    assert app.palette().color(QPalette.ColorRole.Accent) == native_accent
     assert bool(app.property("avialsync_theme_dark")) is False
 
     theme.apply_theme(app, theme.THEME_SYSTEM)
-    assert app.palette().color(QPalette.ColorRole.Highlight) == native_accent
+    assert app.palette().color(QPalette.ColorRole.Highlight) == native_highlight
     assert app.styleSheet() == ""
 
 

@@ -20,7 +20,13 @@ import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette, QPen
 
-from avialsync.ui.theme import PlotColors, evidence_color, loop_pin_color, plot_colors
+from avialsync.ui.theme import (
+    PlotColors,
+    coverage_edge_color,
+    evidence_color,
+    loop_pin_color,
+    plot_colors,
+)
 
 
 def apply_canvas_palette(view: pg.GraphicsView, palette: QPalette) -> PlotColors:
@@ -67,6 +73,14 @@ def apply_plot_item_palette(plot_item: pg.PlotItem, colors: PlotColors) -> None:
         axis.setPen(colors.axis)
         axis.setTextPen(colors.axis)
         axis.setLabel(color=colors.axis.name())
+
+
+def apply_coverage_region_palette(region: pg.LinearRegionItem, palette: QPalette) -> None:
+    """Re-pen the two rules bounding a coverage wash, idle and hovered alike."""
+    pen = pg.mkPen(coverage_edge_color(palette), width=1)
+    for line in region.lines:
+        line.setPen(pen)
+        line.setHoverPen(pen)
 
 
 def gap_marker_pen(palette: QPalette) -> QPen:

@@ -6,6 +6,7 @@ import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontDatabase, QPalette
 from PySide6.QtWidgets import (
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -193,6 +194,11 @@ class ReadoutPanel(QGroupBox):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # No sunken frame and no filled viewport, as the Messages and Changes
+        # tabs beside it: a filled viewport painted a Window-coloured slab
+        # inside the group box, so this one tab sat on a different surface.
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.viewport().setAutoFillBackground(False)
         outer.addWidget(self._scroll)
 
         self._content = QWidget()
@@ -201,6 +207,8 @@ class ReadoutPanel(QGroupBox):
         self._layout.setSpacing(2)
         self._layout.addStretch()
         self._scroll.setWidget(self._content)
+        # After setWidget, which switches the content's own fill back on.
+        self._content.setAutoFillBackground(False)
 
         # Keyed by (source_id, channel_id): two files may both contain the
         # same channel name, and neither may overwrite the other's row.

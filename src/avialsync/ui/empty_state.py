@@ -46,7 +46,6 @@ class EmptyState(QWidget):
         # dictates the window's minimum height -- which is what made a 640x480
         # window impossible to reach.
         content = QWidget(self)
-        content.setAutoFillBackground(False)
 
         layout = QVBoxLayout(content)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -94,6 +93,9 @@ class EmptyState(QWidget):
         scroll = QScrollArea(self)
         scroll.setWidget(content)
         scroll.setWidgetResizable(True)
+        # After setWidget, never before: QScrollArea.setWidget switches the
+        # content's fill back on, so setting it earlier did nothing.
+        content.setAutoFillBackground(False)
         # No frame and no filled viewport: this reads as part of the video
         # area, not as a sunken box inside it. Both are widget properties
         # rather than QSS, which would reach every QWidget under it.

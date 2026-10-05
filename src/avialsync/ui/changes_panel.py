@@ -127,6 +127,9 @@ class ChangesPanel(QGroupBox):
 
         self._empty = QLabel(tr("Nothing has been changed in this session yet."), self)
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Wrapped: the sidebar is narrower than the sentence, and an unwrapped
+        # centred label is clipped at both ends rather than at one.
+        self._empty.setWordWrap(True)
         layout.addWidget(self._empty)
 
         buttons = QHBoxLayout()

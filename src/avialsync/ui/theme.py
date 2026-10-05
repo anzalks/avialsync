@@ -284,10 +284,37 @@ def _apply_font_to_existing_widgets(app: QApplication, factor: float) -> None:
     _font_scales[id(app)] = factor
 
 
-def _accent(palette: QPalette) -> QColor:
-    """Read the platform's selected/accent colour with a safe fallback."""
+def _accent(palette: QPalette, *, platform: bool = False) -> QColor:
+    """Read the accent colour with a safe fallback.
+
+    ``Accent`` is the platform's own answer where it has one: on macOS it is
+    the colour the native checkboxes, sliders and tabs are drawn in, while
+    ``Highlight`` is the dimmed *selection* colour — measured ``#314f78`` against
+    an ``Accent`` of ``#0a60ff``. Reading ``Highlight`` made every selection,
+    link and coverage span a muddy navy beside bright native controls.
+
+    ``Accent`` silently defaults to ``Highlight`` and does not follow a later
+    change to it, so it is only trusted where it means something: a palette
+    that set it explicitly (the Dark and Light appearances do), the platform's
+    own palette, and the System appearance, where the live palette *is* the
+    platform's. Anywhere else ``Highlight`` remains the accent.
+    """
+    role = QPalette.ColorRole.Accent
+    # Under System the live palette carries no explicit roles at all; one that
+    # does was built by hand and states its accent through `Highlight`.
+    platform_palette = _platform_owns_palette() and palette.resolveMask() == 0
+    if platform or platform_palette or palette.isBrushSet(QPalette.ColorGroup.Active, role):
+        accent = palette.color(role)
+        if accent.isValid():
+            return accent
     accent = palette.color(QPalette.ColorRole.Highlight)
     return accent if accent.isValid() else QColor("#0078d4")
+
+
+def _platform_owns_palette() -> bool:
+    """Whether the System appearance is active, so the live palette is the platform's."""
+    app = QApplication.instance()
+    return app is not None and bool(app.property("avialsync_theme_native"))
 
 
 _MACOS_ACCENT_COLORS = {
@@ -302,12 +329,14 @@ _MACOS_ACCENT_COLORS = {
 }
 
 
-def system_accent(palette: QPalette) -> QColor:
+def system_accent(palette: QPalette, *, platform: bool = False) -> QColor:
     """Return the user's platform accent, including macOS's explicit preference.
 
     Qt exposes macOS's pale selection colour through ``Highlight`` on some
     versions, rather than the actual Accent Color selected in System Settings.
     ``AppleAccentColor`` is the authoritative setting for custom-painted UI.
+    Pass ``platform=True`` when *palette* is the platform's own, so its
+    ``Accent`` role is read even though nothing set it explicitly.
     """
     global _macos_accent
     if sys.platform == "darwin":
@@ -319,7 +348,7 @@ def system_accent(palette: QPalette) -> QColor:
             # it existed every caller paid a `fork`+`exec` for the same answer.
             # `evidence_color` sits in the plot repaint path, which made a
             # 128-row zoom spawn processes (D-111).
-            return _accent(palette)
+            return _accent(palette, platform=platform)
         # Set before the call, not after: every exit from here has asked.
         _macos_accent = _NO_ACCENT
         try:
@@ -339,7 +368,7 @@ def system_accent(palette: QPalette) -> QColor:
             return QColor(_macos_accent)
         except (OSError, subprocess.SubprocessError, ValueError, KeyError):
             pass
-    return _accent(palette)
+    return _accent(palette, platform=platform)
 
 
 # ── Derived colours for custom-painted evidence ──────────────────────────
@@ -393,9 +422,33 @@ _IDENTITY_DARK = (144, 133, 233)
 _IDENTITY_LIGHT = (74, 58, 167)
 
 
+#: How far an evidence surface sits from ``Window`` toward its opposite pole when
+#: the platform's ``AlternateBase`` cannot be used. Matches the step between
+#: ``Base`` and ``AlternateBase`` in the Dark and Light appearances.
+_SURFACE_STEP = 0.05
+
+
+def surface_color(palette: QPalette) -> QColor:
+    """Return the surface custom-painted evidence is drawn on.
+
+    ``AlternateBase``, unless it contradicts the window it sits in. macOS hands
+    Qt a dark-appearance palette whose ``AlternateBase`` is an opaque
+    ``#989898`` inside a ``#323232`` ``Window`` — measured. Taken at its word,
+    the System appearance on a dark desktop filled the timeline lanes with a
+    light grey slab, and every mark solved against it chose the ink meant for a
+    light surface. A surface whose polarity disagrees with ``Window`` is
+    therefore replaced by one stepped off ``Window`` instead.
+    """
+    alternate = palette.color(QPalette.ColorRole.AlternateBase)
+    window = palette.color(QPalette.ColorRole.Window)
+    if (alternate.lightnessF() < 0.5) == (window.lightnessF() < 0.5):
+        return alternate
+    return _neutral_against(palette, QPalette.ColorRole.Window, _SURFACE_STEP)
+
+
 def _surface(palette: QPalette) -> QColor:
     """Return the surface custom-painted evidence is drawn on."""
-    return palette.color(QPalette.ColorRole.AlternateBase)
+    return surface_color(palette)
 
 
 def on_surface(palette: QPalette, hue: float, saturation: float = _MARK_SATURATION) -> QColor:
@@ -669,6 +722,21 @@ def playhead_color(palette: QPalette) -> QColor:
     return neutral_on_canvas(palette, _PLAYHEAD_WEIGHT)
 
 
+#: Weight of the rule marking where a source's data starts and ends. Quieter
+#: than the playhead and the traces: it is the edge of the coverage wash.
+_COVERAGE_EDGE_WEIGHT = 0.45
+
+
+def coverage_edge_color(palette: QPalette) -> QColor:
+    """Return the colour of the rules bounding a source's coverage wash.
+
+    Stated because pyqtgraph would otherwise draw them in its own default
+    ``(200, 200, 100)`` olive — the only yellow on the plot, which read as a
+    data mark at the end of every row in both appearances.
+    """
+    return neutral_on_canvas(palette, _COVERAGE_EDGE_WEIGHT)
+
+
 def coverage_color(palette: QPalette) -> QColor:
     """Return the translucent wash marking where a source has data.
 
@@ -703,8 +771,48 @@ def plot_colors(palette: QPalette) -> PlotColors:
     )
 
 
+def _inherited_palette(widget: QWidget) -> QPalette:
+    """Return the palette *widget* would have if it carried no stylesheet.
+
+    Built from the application palette rather than read off the widget or its
+    ancestors. A stylesheet pins its widget's palette — one that names a
+    ``color`` writes it into the widget's own palette, where it survives even
+    clearing the sheet — and ancestors are no better a source while a theme
+    switch is in flight: measured, they still answer with the outgoing theme
+    when ``paletteChanged`` fires and after a zero-delay timer too. The
+    application palette is already the new one. Roles an ancestor sets locally
+    are layered on top, outermost first, so a deliberate local palette still
+    wins exactly as inheritance would have it.
+    """
+    chain: list[QWidget] = []
+    ancestor = widget.parentWidget()
+    while ancestor is not None:
+        chain.append(ancestor)
+        ancestor = ancestor.parentWidget()
+    palette = QPalette(QApplication.palette(widget))
+    for ancestor in reversed(chain):
+        if ancestor.testAttribute(Qt.WidgetAttribute.WA_SetPalette) and not ancestor.styleSheet():
+            palette = ancestor.palette().resolve(palette)
+    return palette
+
+
 class _PaletteStyleFollower(QObject):
-    """Re-runs a widget's stylesheet builder whenever its palette changes."""
+    """Re-runs a widget's stylesheet builder whenever its palette changes.
+
+    Listening on the widget alone is not enough, and for a theme switch it hears
+    nothing at all. Measured: once a widget carries a stylesheet, Qt's stylesheet
+    style pins its palette, and ``app.setPalette`` then delivers neither
+    ``PaletteChange`` nor ``ApplicationPaletteChange`` to it. Every follower
+    therefore froze at the theme it was built under — white channel names on the
+    Light surface after starting Dark. The application's ``paletteChanged`` is
+    what a theme switch reliably emits, so that is the trigger. The widget's
+    own ``PaletteChange`` still matters — it is what arrives when the widget is
+    reparented under a differently-paletted ancestor.
+
+    Either way the colours come from :func:`_inherited_palette`, never from the
+    widget: its own palette is the one the sheet pinned, and reading it fed the
+    previous theme's colour straight back into the new sheet.
+    """
 
     def __init__(self, widget: QWidget, build: Callable[[QPalette], str]) -> None:
         super().__init__(widget)
@@ -712,16 +820,24 @@ class _PaletteStyleFollower(QObject):
         self._build = build
         self._applying = False
         widget.installEventFilter(self)
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            # A bound method of a QObject: Qt drops the connection when the
+            # follower dies with its widget.
+            app.paletteChanged.connect(self._on_application_palette)  # type: ignore[arg-type]
         self._apply()
 
     def _apply(self) -> None:
-        if self._applying:
+        if self._applying or not isValid(self._widget):
             return
         self._applying = True
         try:
-            self._widget.setStyleSheet(self._build(self._widget.palette()))
+            self._widget.setStyleSheet(self._build(_inherited_palette(self._widget)))
         finally:
             self._applying = False
+
+    def _on_application_palette(self, _palette: QPalette) -> None:
+        self._apply()
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if event.type() == QEvent.Type.PaletteChange:
@@ -747,8 +863,32 @@ def follow_palette(widget: QWidget, build: Callable[[QPalette], str]) -> None:
     _PaletteStyleFollower(widget, build)
 
 
+#: Lightness a link is held to, per surface. The accent itself is the user's
+#: choice of hue, not a promise of legibility: the default macOS blue is a dark
+#: navy on the Dark surface and a yellow accent is unreadable on white.
+_LINK_MIN_LIGHTNESS_ON_DARK = 0.68
+_LINK_MAX_LIGHTNESS_ON_LIGHT = 0.42
+
+
+def _link_color(accent: QColor, dark: bool) -> QColor:
+    """Return the accent at a lightness text can be read at on the surface."""
+    hue, saturation, lightness = accent.hslHueF(), accent.hslSaturationF(), accent.lightnessF()
+    if dark:
+        lightness = max(lightness, _LINK_MIN_LIGHTNESS_ON_DARK)
+    else:
+        lightness = min(lightness, _LINK_MAX_LIGHTNESS_ON_LIGHT)
+    return QColor.fromHslF(max(0.0, hue), saturation, lightness)
+
+
 def _palette_with_surfaces(dark: bool, accent: QColor) -> QPalette:
-    """Build an explicit appearance while retaining the platform accent colour."""
+    """Build an explicit appearance while retaining the platform accent colour.
+
+    Every role is stated, the bevel roles included. ``QPalette()`` copies the
+    *current* application palette, so a role left unset is whatever the
+    platform or the previous appearance said: measured, ``Dark`` stayed the
+    platform's ``#bfbfbf`` under both appearances, which is a near-white rule
+    on the Dark surface wherever a frame or separator is drawn from it.
+    """
     p = QPalette()
     if dark:
         p.setColor(QPalette.ColorRole.Window, QColor("#1e1e1e"))
@@ -764,6 +904,12 @@ def _palette_with_surfaces(dark: bool, accent: QColor) -> QPalette:
         p.setColor(QPalette.ColorRole.PlaceholderText, QColor("#9a9a9a"))
         p.setColor(QPalette.ColorRole.Highlight, accent.darker(160))
         p.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+        # Bevels, lightest to darkest, as Qt's styles expect them ordered.
+        p.setColor(QPalette.ColorRole.Light, QColor("#4a4a4a"))
+        p.setColor(QPalette.ColorRole.Midlight, QColor("#3c3c3c"))
+        p.setColor(QPalette.ColorRole.Mid, QColor("#262626"))
+        p.setColor(QPalette.ColorRole.Dark, QColor("#181818"))
+        p.setColor(QPalette.ColorRole.Shadow, QColor("#000000"))
         disabled = QColor("#8a8a8a")
     else:
         p.setColor(QPalette.ColorRole.Window, QColor("#f5f5f5"))
@@ -779,9 +925,19 @@ def _palette_with_surfaces(dark: bool, accent: QColor) -> QPalette:
         p.setColor(QPalette.ColorRole.PlaceholderText, QColor("#707070"))
         p.setColor(QPalette.ColorRole.Highlight, accent)
         p.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+        p.setColor(QPalette.ColorRole.Light, QColor("#ffffff"))
+        p.setColor(QPalette.ColorRole.Midlight, QColor("#f2f2f2"))
+        p.setColor(QPalette.ColorRole.Mid, QColor("#b4b4b4"))
+        p.setColor(QPalette.ColorRole.Dark, QColor("#9a9a9a"))
+        p.setColor(QPalette.ColorRole.Shadow, QColor("#5a5a5a"))
         disabled = QColor("#747474")
 
-    p.setColor(QPalette.ColorRole.Link, accent)
+    # Stated, so native controls, custom paint and `system_accent` agree on one
+    # colour instead of the platform's selection tint standing in for it.
+    p.setColor(QPalette.ColorRole.Accent, accent)
+    link = _link_color(accent, dark)
+    p.setColor(QPalette.ColorRole.Link, link)
+    p.setColor(QPalette.ColorRole.LinkVisited, link)
     for role in (
         QPalette.ColorRole.WindowText,
         QPalette.ColorRole.Text,
@@ -873,7 +1029,9 @@ def _apply(app: QApplication, pref: str, *, persist: bool) -> None:
             # it is where the accent for the explicit appearances comes from.
             _system_palettes[app_id] = QPalette(app.palette())
         else:
-            app.setPalette(_palette_with_surfaces(dark, system_accent(system_palette)))
+            app.setPalette(
+                _palette_with_surfaces(dark, system_accent(system_palette, platform=True))
+            )
         # A QApplication stylesheet wraps Qt's native style and selector rules can alter
         # control metrics and interaction affordances.  Palette roles cover all allowed
         # theme variation (surfaces, text, selection, accent, and tooltips) without

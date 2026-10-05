@@ -172,23 +172,34 @@ def test_a_stylesheet_widget_re_derives_its_colour_on_a_palette_change(qtbot) ->
     the moment it is set — nothing re-runs the f-string that built it. Every
     hardcoded ``setStyleSheet("color: #...")`` in this application froze at
     whichever theme was current when its widget was built.
+
+    Driven by an application palette change, because that is what a theme
+    switch is. This test used to set the palette on the label itself — the one
+    path Qt still delivers to a styled widget — and so passed while every real
+    switch left followed widgets on the launch theme. The full switch is covered
+    in ``test_theme_followers.py``.
     """
-    from PySide6.QtWidgets import QLabel
+    from PySide6.QtWidgets import QApplication, QLabel
 
     from avialsync.ui.theme import follow_palette
 
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
     label = QLabel()
     qtbot.addWidget(label)
     follow_palette(label, lambda palette: f"color: {status_color(palette, 'error').name()};")
     before = label.styleSheet()
 
-    label.setPalette(
-        LIGHT
-        if label.palette().color(QPalette.ColorRole.AlternateBase).lightnessF() < 0.5
-        else DARK
-    )
-
-    assert label.styleSheet() != before, "a theme switch must re-derive the colour"
+    entry = QPalette(app.palette())
+    try:
+        app.setPalette(
+            LIGHT
+            if label.palette().color(QPalette.ColorRole.AlternateBase).lightnessF() < 0.5
+            else DARK
+        )
+        assert label.styleSheet() != before, "a theme switch must re-derive the colour"
+    finally:
+        app.setPalette(entry)
 
 
 def test_the_timeline_lanes_repaint_when_the_appearance_changes(qtbot) -> None:
@@ -286,3 +297,31 @@ def test_the_identity_lane_is_tellable_from_every_status_colour(palette: QPalett
 
     for severity in ("busy", "warning", "error"):
         assert _distance(identity, status_color(palette, severity)) > 0.15, severity
+
+
+# ── The surface evidence is drawn on ─────────────────────────────────────
+
+
+def test_a_contradictory_platform_surface_is_not_taken_at_its_word() -> None:
+    """macOS's dark palette reports an opaque light-grey ``AlternateBase``.
+
+    Measured ``#989898`` inside a ``#323232`` window. The timeline filled its
+    lanes with it under the System appearance on a dark desktop, and every mark
+    solved against it chose ink for a light surface.
+    """
+    from avialsync.ui.theme import surface_color
+
+    palette = QPalette()
+    palette.setColor(QPalette.ColorRole.Window, QColor("#323232"))
+    palette.setColor(QPalette.ColorRole.Base, QColor("#171717"))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#989898"))
+
+    assert surface_color(palette).lightnessF() < 0.5
+    assert on_surface(palette, 0.33).lightnessF() > 0.5, "marks chose light-surface ink"
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_a_consistent_surface_is_used_as_given(palette: QPalette) -> None:
+    from avialsync.ui.theme import surface_color
+
+    assert surface_color(palette) == palette.color(QPalette.ColorRole.AlternateBase)

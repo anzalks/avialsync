@@ -64,6 +64,7 @@ from avialsync.engine.display_pipeline import (
 )
 from avialsync.engine.pyav_reader import PyAVReader
 from avialsync.ui.i18n import tr
+from avialsync.ui.icons import set_glyph_icon
 from avialsync.ui.theme import set_font_family
 from avialsync.ui.video_overlay import PaintCanvas
 from avialsync.ui.video_timing import VideoTimingMixin, displayed_frame_rate, format_video_osd
@@ -1053,9 +1054,9 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.zoom_out_button.clicked.connect(lambda: self.surface.zoom_by(1.0 / 1.25))
 
         self.reset_zoom_button = QPushButton(self.zoom_controls)
-        self.reset_zoom_button.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
-        )
+        # Inked like the +/- labels beside it rather than in the platform's
+        # full-colour reload artwork, which was the one blue mark in the strip.
+        set_glyph_icon(self.reset_zoom_button, QStyle.StandardPixmap.SP_BrowserReload)
         self.reset_zoom_button.setToolTip(tr("Reset zoom"))
         self.reset_zoom_button.clicked.connect(self.surface.reset_view)
 

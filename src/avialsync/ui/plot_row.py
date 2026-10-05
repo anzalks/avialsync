@@ -18,7 +18,7 @@ from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_sweep import SweepCurveItem
-from avialsync.ui.plot_theme import gap_marker_pen
+from avialsync.ui.plot_theme import apply_coverage_region_palette, gap_marker_pen
 from avialsync.ui.theme import coverage_color, playhead_color, trace_color
 
 # Every row's left axis is pinned to one width so the gutters line up down the
@@ -268,6 +268,7 @@ def create_channel_plot(
             brush=pg.mkBrush(coverage_color(palette)),
         )
         coverage_region.setZValue(-10)
+        apply_coverage_region_palette(coverage_region, palette)
         plot_item.addItem(coverage_region)
 
     return ChannelPlot(
@@ -298,6 +299,7 @@ def apply_channel_palette(channel: ChannelPlot, palette: QPalette) -> None:
     channel.cursor_line.setPen(pg.mkPen(playhead_color(palette), width=2))
     if channel.coverage_region is not None:
         channel.coverage_region.setBrush(pg.mkBrush(coverage_color(palette)))
+        apply_coverage_region_palette(channel.coverage_region, palette)
     gap_pen = gap_marker_pen(palette)
     for marker in channel.gap_markers:
         marker.setPen(gap_pen)
