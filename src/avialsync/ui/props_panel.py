@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QStackedWidget,
     QVBoxLayout,
@@ -87,6 +88,9 @@ class PropsPanel(QWidget):
         root_layout.addWidget(self.editor_stack)
         self.ladder_editor = QWidget(self.editor_stack)
         layout = QVBoxLayout(self.ladder_editor)
+        # The panel already has the outer margin; a second one inside each page
+        # put the belt and ball editors a few pixels past a 280 px sidebar.
+        layout.setContentsMargins(0, 0, 0, 0)
         self.steps = QListWidget(self)
         self.steps.setAccessibleName(tr("Clicked ladder steps"))
         self.steps.setAccessibleDescription(
@@ -151,6 +155,11 @@ class PropsPanel(QWidget):
         self.editor_stack.addWidget(self.ladder_editor)
         self._build_belt_editor()
         self._build_ball_editor()
+        # Labels such as "Distance per reading unit" beside a six-decimal spin
+        # box needed 327 px in a 280 px sidebar. A row that does not fit puts
+        # its label above its field instead of forcing the panel wider.
+        for form in self.findChildren(QFormLayout):
+            form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         self.kind.currentIndexChanged.connect(self._kind_changed)
         self._kind_changed()
         self.refresh()
@@ -176,6 +185,7 @@ class PropsPanel(QWidget):
     def _build_belt_editor(self) -> None:
         self.belt_editor = QWidget(self.editor_stack)
         layout = QVBoxLayout(self.belt_editor)
+        layout.setContentsMargins(0, 0, 0, 0)
         form = QFormLayout()
         self.belt_units = self._units(self.belt_editor)
         self.belt_closed = QCheckBox(tr("Closed return path"), self.belt_editor)
@@ -199,7 +209,9 @@ class PropsPanel(QWidget):
         for axis, field in zip(("X", "Y", "Z"), self.belt_point_fields, strict=True):
             point_form.addRow(tr("Point {axis}").format(axis=axis), field)
         layout.addLayout(point_form)
-        point_buttons = QHBoxLayout()
+        # One per line, as every other action in this panel: three of these
+        # side by side needed 435 px in a 280 px sidebar.
+        point_buttons = QVBoxLayout()
         self.belt_add_vertex = QPushButton(tr("Add path point"), self.belt_editor)
         self.belt_update_vertex = QPushButton(tr("Update selected point"), self.belt_editor)
         self.belt_remove_vertex = QPushButton(tr("Remove selected point"), self.belt_editor)
@@ -268,7 +280,7 @@ class PropsPanel(QWidget):
             lambda: self.visual_track_requested.emit("belt", self.current_prop())
         )
         layout.addWidget(self.track_belt)
-        lap_row = QHBoxLayout()
+        lap_form = QFormLayout()
         self.belt_lap = QSpinBox(self.belt_editor)
         self.belt_lap.setRange(-1_000_000, 1_000_000)
         self.belt_lap.setAccessibleName(tr("Belt visual lap count"))
@@ -280,9 +292,9 @@ class PropsPanel(QWidget):
         self.set_belt_lap.clicked.connect(
             lambda: self.visual_lap_requested.emit(self.current_prop())
         )
-        lap_row.addWidget(self.belt_lap)
-        lap_row.addWidget(self.set_belt_lap)
-        layout.addLayout(lap_row)
+        lap_form.addRow(tr("Laps"), self.belt_lap)
+        layout.addLayout(lap_form)
+        layout.addWidget(self.set_belt_lap)
         self.clear_belt_visual = QPushButton(tr("Clear belt visual track"), self.belt_editor)
         self.clear_belt_visual.setAccessibleName(self.clear_belt_visual.text())
         self.clear_belt_visual.clicked.connect(
@@ -309,6 +321,7 @@ class PropsPanel(QWidget):
     def _build_ball_editor(self) -> None:
         self.ball_editor = QWidget(self.editor_stack)
         layout = QVBoxLayout(self.ball_editor)
+        layout.setContentsMargins(0, 0, 0, 0)
         form = QFormLayout()
         self.ball_units = self._units(self.ball_editor)
         self.ball_centre_fields = [
@@ -643,6 +656,17 @@ class PropsPanel(QWidget):
         page = {"ladder": self.ladder_editor, "belt": self.belt_editor, "ball": self.ball_editor}
         if kind in page:
             self.editor_stack.setCurrentWidget(page[kind])
+            # A stack is as wide as its widest page, hidden ones included, so
+            # the belt editor set the width of the ladder editor too. Only the
+            # page on show takes part in layout.
+            for widget in page.values():
+                policy = (
+                    QSizePolicy.Policy.Preferred
+                    if widget is page[kind]
+                    else QSizePolicy.Policy.Ignored
+                )
+                widget.setSizePolicy(policy, policy)
+            self.editor_stack.adjustSize()
         self.refresh()
 
     def _place(self, rung: bool) -> None:

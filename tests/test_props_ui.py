@@ -666,3 +666,27 @@ def test_creation_during_discovery_keeps_the_unread_sidecar_intact(
         window._on_marker_clicked(VIDEOS["Front"], 12.0, 34.0)
         panel.save_step.click()
     assert target.read_bytes() == original
+
+
+@pytest.mark.parametrize("kind", ["ladder", "wheel", "belt", "ball"])
+def test_every_prop_editor_fits_the_sidebar_without_scrolling_sideways(qtbot, kind: str) -> None:
+    """The stack took its widest page's width, hidden pages included, and the
+    belt editor put three long buttons on one line: 453 px in a 280 px
+    sidebar, with every button clipped at its right edge."""
+    from avialsync.core.physical_props import PropStore
+    from avialsync.ui.props_panel import PropsPanel, PropsTab
+
+    panel = PropsPanel(PropStore())
+    tab = PropsTab(panel)
+    qtbot.addWidget(tab)
+    tab.resize(280, 600)
+    tab.show()
+    qtbot.waitExposed(tab)
+    panel.kind.setCurrentIndex(panel.kind.findData(kind))
+    QApplication.processEvents()
+
+    assert panel.minimumSizeHint().width() <= tab.viewport().width(), (
+        f"the {kind} editor needs {panel.minimumSizeHint().width()} px "
+        f"in a {tab.viewport().width()} px sidebar"
+    )
+    assert tab.horizontalScrollBar().maximum() == 0
