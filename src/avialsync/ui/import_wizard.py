@@ -198,11 +198,11 @@ class ImportWizard(QDialog):
         main_layout = QVBoxLayout(self)
 
         # Preview table
-        preview_group = QGroupBox("Preview (first 20 rows)")
+        preview_group = QGroupBox(tr("Preview (first 20 rows)"))
         preview_layout = QVBoxLayout(preview_group)
 
         self._has_headers = True
-        self._has_headers_cb = QCheckBox("File has headers")
+        self._has_headers_cb = QCheckBox(tr("File has headers"))
         self._has_headers_cb.setChecked(self._has_headers)
         self._has_headers_cb.toggled.connect(self._on_has_headers_toggled)
         preview_layout.addWidget(self._has_headers_cb)
@@ -214,7 +214,7 @@ class ImportWizard(QDialog):
         main_layout.addWidget(preview_group)
 
         # Config form
-        config_group = QGroupBox("Import Settings")
+        config_group = QGroupBox(tr("Import Settings"))
         self._form = QFormLayout(config_group)
 
         # Separator
@@ -226,18 +226,18 @@ class ImportWizard(QDialog):
                 self._sep_combo.setCurrentIndex(i)
                 break
         self._sep_combo.currentIndexChanged.connect(self._on_separator_changed)
-        self._form.addRow("Separator:", self._sep_combo)
+        self._form.addRow(tr("Separator:"), self._sep_combo)
 
         # Time column
         self._time_col_combo = QComboBox()
-        self._form.addRow("Time column:", self._time_col_combo)
+        self._form.addRow(tr("Time column:"), self._time_col_combo)
 
         # Timestamp format
         self._fmt_combo = QComboBox()
         for label, val in _COMMON_FORMATS:
             self._fmt_combo.addItem(label, val)
         self._select_format(guessed_fmt)
-        self._form.addRow("Format:", self._fmt_combo)
+        self._form.addRow(tr("Format:"), self._fmt_combo)
 
         # Custom format input
         self._custom_fmt = QLineEdit()
@@ -251,24 +251,24 @@ class ImportWizard(QDialog):
         for label, val in _TIME_UNITS:
             self._unit_combo.addItem(label, val)
 
-        self._form.addRow("Numeric unit:", self._unit_combo)
+        self._form.addRow(tr("Numeric unit:"), self._unit_combo)
 
         # Timezone
         self._tz_combo = QComboBox()
         for label, val in _TIMEZONES:
             self._tz_combo.addItem(label, val)
-        self._form.addRow("Timezone:", self._tz_combo)
+        self._form.addRow(tr("Timezone:"), self._tz_combo)
 
         # Anchor date (for time-only formats)
         anchor_row = QHBoxLayout()
         self._anchor_date = QLineEdit()
         self._anchor_date.setPlaceholderText(tr("YYYY-MM-DD (for time-only data)"))
-        self._anchor_chk = QCheckBox("Use anchor date")
+        self._anchor_chk = QCheckBox(tr("Use anchor date"))
         self._anchor_chk.toggled.connect(self._anchor_date.setEnabled)
         self._anchor_date.setEnabled(False)
         anchor_row.addWidget(self._anchor_chk)
         anchor_row.addWidget(self._anchor_date, stretch=1)
-        self._form.addRow("Anchor:", anchor_row)
+        self._form.addRow(tr("Anchor:"), anchor_row)
 
         # Sentinel → NaN mapping
         sentinel_row = QHBoxLayout()
@@ -281,10 +281,10 @@ class ImportWizard(QDialog):
         self._sentinel_combo.currentIndexChanged.connect(self._on_sentinel_changed)
         sentinel_row.addWidget(self._sentinel_combo)
         sentinel_row.addWidget(self._sentinel_custom)
-        self._form.addRow("Sentinel → NaN:", sentinel_row)
+        self._form.addRow(tr("Sentinel → NaN:"), sentinel_row)
 
         # Euro decimal (comma as decimal separator)
-        self._euro_chk = QCheckBox("European decimals (comma = decimal separator)")
+        self._euro_chk = QCheckBox(tr("European decimals (comma = decimal separator)"))
         self._form.addRow("", self._euro_chk)
 
         main_layout.addWidget(config_group)

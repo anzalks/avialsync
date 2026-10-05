@@ -108,7 +108,7 @@ class SweepWindowControl(QWidget):
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 2, 8, 2)
-        layout.addWidget(QLabel("Time span", self))
+        layout.addWidget(QLabel(tr("Time span"), self))
 
         self.limit_spin = QDoubleSpinBox(self)
         self.limit_spin.setDecimals(3)

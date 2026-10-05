@@ -116,7 +116,9 @@ def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow
     main_window.transport.set_source_coverage(video_path, 0.0, 2.0, "video")
     main_window.transport.set_gap_events([(1.0, "gap")])
 
-    with qtbot.waitSignal(main_window.sidebar.reset_session_requested):
+    # The button is File → Reset Session's own action (rule 15).
+    assert main_window.sidebar.btn_reset_session.action is main_window._act_reset_session
+    with qtbot.waitSignal(main_window._act_reset_session.triggered):
         main_window.sidebar.btn_reset_session.click()
 
     assert main_window.session_runtime.path is None

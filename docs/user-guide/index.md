@@ -114,7 +114,7 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 
 Controls sit under what they act on. Under the videos: **Flag Frame**, **Fix Tracker**, **Add 3D
 Marker**, **Play original**, **Snapshot**, **Fit All Videos** and **Fullscreen Toggle**. Under the
-plots: the **Live** presentation, **Fit Y**, **Rows** (Compact, Comfortable or Large), **Reset plots**,
+plots: the **Live** presentation, **Fit Y**, **Rows** (Compact, Comfortable or Large), **Reset Plots**,
 and below them **Time span** with its unit and slider. Beside the Data Streams lanes: **Hide**, the
 status line, **Loop region** (**Set In**, **Set Out**, **Clear Loop**) and **Speed**. Then the play
 controls: **Back 1 s**, **Prev frame**, **Play**, **Next frame**, **Forward 1 s**, the time readout and
@@ -141,7 +141,7 @@ Streams areas stay small. The layout you had comes back when the first recording
 - Select the small **×** beside a plot to hide it. This unchecks the same channel in the left panel.
 - Unchecking a video or plot keeps it loaded but hidden through window resizing, grid changes, and
   fullscreen toggles. Hidden videos are paused until shown again, then resynchronize automatically.
-- **Reset plots** under the plots (**View → Reset Plot Zoom**, `Ctrl+0`) expands the shared plot
+- **Reset Plots** under the plots (also **View → Reset Plots**, `Ctrl+0`) expands the shared plot
   window to the full loaded timeline and refits every visible plot.
 - **Rows** sets the height of every plot row at once: Compact, Comfortable, or Large.
 - **Loop region** marks an A/B range for inspection or export: **Set In** (`[` or `I`) and **Set Out**

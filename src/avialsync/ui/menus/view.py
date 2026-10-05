@@ -132,9 +132,12 @@ def _view_panels(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
 
 def _view_navigation(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
     """Offer plot zoom and video fitting commands."""
-    window._act_reset_zoom = view_menu.addAction(tr("Reset Plot Zoom"))
+    # The plot pane's own action, so the button under the plots is this same
+    # command. Renamed from "Reset Plot Zoom": it resets the time span too.
+    window._act_reset_zoom = window.plot_pane.reset_action
+    view_menu.addAction(window._act_reset_zoom)
+    window._act_reset_zoom.setProperty("av_id", "view_reset_plot_zoom")
     window._act_reset_zoom.setShortcut(QKeySequence("Ctrl+0"))
-    window._act_reset_zoom.triggered.connect(window.plot_pane.reset_zoom)
     _reg(window._act_reset_zoom, "View")
     window._require(
         window._act_reset_zoom,

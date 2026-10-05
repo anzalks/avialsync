@@ -770,10 +770,10 @@ class TimelineEvidence(QWidget):
         header = QHBoxLayout()
         header.setContentsMargins(2, 0, 2, 0)
         header.setSpacing(6)
-        self.title = QLabel("Data Streams", self)
+        self.title = QLabel(tr("Data Streams"), self)
         self.title.setAccessibleName(tr("Data Streams title"))
         header.addWidget(self.title)
-        self.collapse_button = QPushButton("Hide", self)
+        self.collapse_button = QPushButton(tr("Hide"), self)
         self.collapse_button.setAccessibleName(tr("Hide Data Streams"))
         self.collapse_button.setToolTip(tr("Hide or show the Data Streams lanes"))
         self.collapse_button.clicked.connect(self.toggle_collapsed)
@@ -1023,7 +1023,7 @@ class Transport(QWidget):
         self.rate_combo.setCurrentText("1.0x")
         self.rate_combo.setToolTip(tr("Playback rate (L = step up, K = pause)"))
         self.rate_combo.currentIndexChanged.connect(self._on_rate_changed)
-        self._speed_label = QLabel("Speed", self)
+        self._speed_label = QLabel(tr("Speed"), self)
         self._speed_label.setToolTip(tr("Playback speed selector"))
 
         playhead_buttons = (

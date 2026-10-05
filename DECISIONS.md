@@ -5775,3 +5775,41 @@ layout is not deterministic from paint to paint, so labels would jitter while sc
 
 **Consequences.** `draw_props` and `draw_wheel_clicks` accept the picture bounds and chrome to avoid;
 the wheel placement cue moves to the bottom of the picture.
+
+## 2026-10 · D-167 · Every button that reaches a command is that command's action; literals are gated wherever they are shown
+
+**Context.** Phase 7 made the live `QAction` the one authority for a command's label (rule 15,
+D-092), naming "Open Video(s)…" against "Open Videos" as the case it existed to end. The sidebar's
+Open Files group kept three plain buttons with their own text; the empty state wrote a third
+spelling, "Open Sensor / Ephys Data…"; the plot header's "Reset plots" and View's "Reset Plot Zoom"
+were one Ctrl+0 command under two names; and Reset Session existed only as a sidebar button, so
+the menu bar, the command palette and the shortcut editor could not reach the most destructive
+command in the application. Separately, the translation gate scanned setter calls only, so 77
+literals handed to widget constructors, combo entries and form rows sat unwrapped while
+`translatable_ratio` read 100 % (INTERFACE_DESIGN_PLAN F-18 – F-21).
+
+**Decision.**
+* Open Files and the empty state's two open buttons are `ActionButton`s on File's actions. File
+  gains **Reset Session** (undoable, unconfirmed, as UX_FOUNDATIONS WP-2 settled), and the sidebar
+  button is that action.
+* The plot pane owns one **Reset Plots** action; its header button and View show the same object.
+  "Open Video(s)…" becomes **Open Videos…**.
+* A renamed action keeps the shortcut-override id its old label produced, pinned in its `av_id`
+  property beside the rename, so a remapped shortcut survives (`file_open_video_s`,
+  `view_reset_plot_zoom`).
+* `i18n.untranslated_calls` also scans the first argument of `QLabel`, `QPushButton`, `QCheckBox`,
+  `QRadioButton`, `QGroupBox`, `QToolButton`, `QAction` and `QMenu` constructors and of `addItem`
+  and `addRow`. A string with fewer than two letters ("✕", "—", "00:00:00.000") is a glyph, not
+  text, and is not counted. All 77 found are wrapped.
+* The settings store is opened only through `ui/app_settings.app_settings()` (Phase 9 DS-0); the
+  layout state still kept outside `core/settings_schema.py` (splitters, collapse flags, the
+  inspector page, recent files) is mechanical rather than a preference and stays where it is.
+
+**Alternatives rejected.** Keeping the sidebar's request signals beside the actions would leave two
+paths to one command. A table mapping new ids to old ones is the second naming place D-092 forbids;
+the pin sits on the action. Wrapping glyphs would put untranslatable strings in every catalogue.
+
+**Consequences.** `SidebarPane.open_video_requested`, `open_sensor_requested`,
+`reset_session_requested`, `EmptyState.open_videos_requested`, `open_data_requested` and
+`PlotHeader.reset_requested` are gone. A button's text can no longer be asserted on a standalone
+panel without installing an action first.

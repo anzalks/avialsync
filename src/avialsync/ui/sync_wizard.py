@@ -57,8 +57,10 @@ class SyncWizard(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(
             QLabel(
-                "Choose reference and video event evidence. The proposed mapping is not applied "
-                "until you explicitly accept it."
+                tr(
+                    "Choose reference and video event evidence. The proposed mapping is "
+                    "not applied until you explicitly accept it."
+                )
             )
         )
         self._evidence = SyncEvidenceView(self)
@@ -71,16 +73,16 @@ class SyncWizard(QDialog):
             self._reference_combo.addItem(spec.source_id)
         for spec in self._targets:
             self._target_combo.addItem(spec.source_id)
-        form.addRow("Reference evidence:", self._reference_combo)
-        form.addRow("Target video evidence:", self._target_combo)
+        form.addRow(tr("Reference evidence:"), self._reference_combo)
+        form.addRow(tr("Target video evidence:"), self._target_combo)
         self._threshold = QDoubleSpinBox(self)
         self._threshold.setRange(-1e12, 1e12)
         self._threshold.setDecimals(6)
         self._threshold.setValue(0.5)
         self._threshold.setToolTip(tr("Logical high threshold for a signal-channel TTL reference"))
-        form.addRow("TTL high threshold:", self._threshold)
+        form.addRow(tr("TTL high threshold:"), self._threshold)
 
-        self._use_all_times_chk = QCheckBox("Use all samples as events (ignore threshold)")
+        self._use_all_times_chk = QCheckBox(tr("Use all samples as events (ignore threshold)"))
         self._use_all_times_chk.setToolTip(
             tr(
                 "Check this if your reference data is a list of event timestamps "
@@ -120,7 +122,7 @@ class SyncWizard(QDialog):
                 self._strategy_combo.currentData() == "exact_index"
             )
         )
-        form.addRow("Index Offset:", self._index_offset)
+        form.addRow(tr("Index Offset:"), self._index_offset)
 
         # The number that decided which events counted, shown rather than
         # implied. Left at zero it is derived from the pulse rate -- a quarter
@@ -164,17 +166,17 @@ class SyncWizard(QDialog):
         self._manual_drift.setRange(-1e6, 1e6)
         self._manual_drift.setDecimals(3)
         self._manual_drift.setSuffix(" ppm")
-        form.addRow("Manual offset:", self._manual_offset)
-        form.addRow("Manual drift:", self._manual_drift)
+        form.addRow(tr("Manual offset:"), self._manual_offset)
+        form.addRow(tr("Manual drift:"), self._manual_drift)
         layout.addLayout(form)
 
-        self._summary = QLabel("Choose evidence and preview the proposed fit.", self)
+        self._summary = QLabel(tr("Choose evidence and preview the proposed fit."), self)
         self._summary.setWordWrap(True)
         layout.addWidget(self._summary)
-        self._preview_button = QPushButton("Preview alignment", self)
+        self._preview_button = QPushButton(tr("Preview alignment"), self)
         self._preview_button.clicked.connect(self._preview)
         layout.addWidget(self._preview_button)
-        self._manual_button = QPushButton("Use manual mapping", self)
+        self._manual_button = QPushButton(tr("Use manual mapping"), self)
         self._manual_button.clicked.connect(self._use_manual_mapping)
         layout.addWidget(self._manual_button)
 

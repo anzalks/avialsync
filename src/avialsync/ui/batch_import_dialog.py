@@ -144,7 +144,7 @@ class BatchImportDialog(QDialog):
                 combo.addItem(tr("Unsupported Vicon camera data; not a tracking source"), None)
                 combo.setEnabled(False)
             else:
-                combo.addItem("— Skip / Do Not Load —", None)
+                combo.addItem(tr("— Skip / Do Not Load —"), None)
 
                 # A declared kind selects among the loader's own labels; without one
                 # the loader's primary name is the default, as before.

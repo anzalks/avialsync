@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.inspection import SourceInspection
+from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_font_family
 
 
@@ -42,9 +43,9 @@ class ImportReportDialog(QDialog):
         layout.addWidget(scroll)
 
         btn_row = QHBoxLayout()
-        copy_btn = QPushButton("Copy as text")
+        copy_btn = QPushButton(tr("Copy as text"))
         copy_btn.clicked.connect(self._copy)
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(tr("Close"))
         close_btn.clicked.connect(self.accept)
         btn_row.addWidget(copy_btn)
         btn_row.addStretch()

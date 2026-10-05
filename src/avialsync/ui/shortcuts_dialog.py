@@ -59,7 +59,7 @@ class ShortcutsDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addWidget(
-            QLabel("Double-click a key to change it. Reset restores the built-in binding.")
+            QLabel(tr("Double-click a key to change it. Reset restores the built-in binding."))
         )
 
         rows: list[tuple[str, str, str, QAction]] = []
@@ -116,7 +116,7 @@ class ShortcutsDialog(QDialog):
 
         layout.addWidget(table)
         if not rows:
-            layout.addWidget(QLabel("No commands registered."))
+            layout.addWidget(QLabel(tr("No commands registered.")))
 
         self._table = table
         table.itemChanged.connect(self._on_key_edited)

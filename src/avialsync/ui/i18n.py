@@ -127,6 +127,66 @@ def _is_translated(node: ast.AST) -> bool:
     return False
 
 
+#: Widgets whose first positional argument is text a person reads. A literal
+#: passed here slipped past a scan of setter calls alone: 52 of them, the plot
+#: header's "Signals" and "Rows" and the video pane's "No Footage" among them,
+#: sat untranslated while the ratio read 100 % (INTERFACE_DESIGN_PLAN F-21).
+USER_FACING_CONSTRUCTORS = frozenset(
+    {
+        "QLabel",
+        "QPushButton",
+        "QCheckBox",
+        "QRadioButton",
+        "QGroupBox",
+        "QToolButton",
+        "QAction",
+        "QMenu",
+    }
+)
+
+#: Methods whose *first* argument is user-facing text when it is a string at
+#: all: a combo or list entry, a form row's label. ``QLayout.addItem`` shares
+#: the name and takes a layout item, which is never a string, so it is skipped
+#: by the literal check rather than by name.
+USER_FACING_FIRST_ARGUMENT = frozenset({"addItem", "addRow"})
+
+
+def _user_facing_arguments(tree: ast.AST) -> list[tuple[int, ast.AST]]:
+    """Every argument the application shows as text, with its line number."""
+    found: list[tuple[int, ast.AST]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr in USER_FACING_SETTERS:
+            found += [(node.lineno, argument) for argument in node.args]
+        elif node.args and (
+            (isinstance(func, ast.Name) and func.id in USER_FACING_CONSTRUCTORS)
+            or (isinstance(func, ast.Attribute) and func.attr in USER_FACING_FIRST_ARGUMENT)
+        ):
+            found.append((node.lineno, node.args[0]))
+    return found
+
+
+def _literal(argument: ast.AST) -> str | None:
+    """The text of a string literal that holds a word, or None.
+
+    Fewer than two letters is a glyph or a placeholder -- "✕", "—",
+    "00:00:00.000" -- with nothing in it to translate.
+    """
+    if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+        letters = sum(character.isalpha() for character in argument.value)
+        return argument.value if letters >= 2 else None
+    return None
+
+
+def _parse(path: Path) -> ast.AST | None:
+    try:
+        return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except (OSError, SyntaxError):
+        return None
+
+
 def untranslated_calls(path: Path) -> list[tuple[int, str]]:
     """User-facing string literals in *path* that are not wrapped for translation.
 
@@ -134,22 +194,14 @@ def untranslated_calls(path: Path) -> list[tuple[int, str]]:
     is not text a person reads -- and so is an f-string, which cannot be
     extracted by ``lupdate`` and needs restructuring rather than wrapping.
     """
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    except (OSError, SyntaxError):
+    tree = _parse(path)
+    if tree is None:
         return []
-
     found: list[tuple[int, str]] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        name = node.func.attr if isinstance(node.func, ast.Attribute) else None
-        if name not in USER_FACING_SETTERS:
-            continue
-        for argument in node.args:
-            if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
-                if argument.value.strip() and not _is_translated(argument):
-                    found.append((node.lineno, argument.value[:60]))
+    for line, argument in _user_facing_arguments(tree):
+        text = _literal(argument)
+        if text is not None:
+            found.append((line, text[:60]))
     return found
 
 
@@ -162,22 +214,13 @@ def translatable_ratio(root: Path) -> tuple[int, int]:
     total = 0
     unwrapped = 0
     for path in sorted(root.rglob("*.py")):
-        calls = untranslated_calls(path)
-        unwrapped += len(calls)
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        except (OSError, SyntaxError):
+        tree = _parse(path)
+        if tree is None:
             continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            name = node.func.attr if isinstance(node.func, ast.Attribute) else None
-            if name not in USER_FACING_SETTERS:
-                continue
-            for argument in node.args:
-                if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
-                    if argument.value.strip():
-                        total += 1
-                elif _is_translated(argument):
-                    total += 1
+        for _line, argument in _user_facing_arguments(tree):
+            if _literal(argument) is not None:
+                total += 1
+                unwrapped += 1
+            elif _is_translated(argument):
+                total += 1
     return total - unwrapped, total

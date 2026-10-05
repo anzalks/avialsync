@@ -167,7 +167,7 @@ class PreferencesDialog(QDialog):
             self._editors[setting.key] = editor
             row.addWidget(editor, stretch=1)
 
-            reset = QPushButton("Reset")
+            reset = QPushButton(tr("Reset"))
             reset.setToolTip(
                 tr("Back to the default ({value})").format(value=repr(setting.default))
             )

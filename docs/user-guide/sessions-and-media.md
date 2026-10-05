@@ -8,9 +8,10 @@ The parts of day-to-day use that are not alignment, annotation, or import.
 drift, any accepted mappings and the evidence behind them, your annotations, and the layout. **File
 → Open Session…** restores it, and **File → Recent Sessions** lists the ones you opened last.
 
-Use **Reset Session** in the **Sources** tab's **Open Files** section to close every loaded source and
-clear annotations, messages, synchronization evidence, and timeline state before opening or dropping a
-different recording. It does not modify your recordings, their cache, or an already-saved `.avv` file.
+Use **File → Reset Session** (also in the **Sources** tab's **Open Files** section) to close every
+loaded source and clear annotations, messages, synchronization evidence, and timeline state before opening or dropping a
+different recording. It does not modify your recordings, their cache, or an already-saved `.avv` file,
+and **Edit → Undo** brings the workspace back.
 
 A session stores *paths*, not copies. Your recordings stay where they are and are never modified,
 which means a session is small and safe to share with a colleague — provided they can reach the
@@ -96,7 +97,7 @@ right and restarts at the left edge when the window completes.
   gives fine control, a larger one gives coarse.
 - The single slider below the plots sets the visible span and controls every row together. Rows do
   not zoom or scroll independently — they share one time axis because comparing them is the point.
-- **Reset plots** (`Ctrl+0`) returns to the full loaded timeline and refits every visible plot.
+- **Reset Plots** (`Ctrl+0`) returns to the full loaded timeline and refits every visible plot.
 - **Fit Y** fits and holds the vertical range of every visible channel.
 - **Rows** sets one height for every row: Compact, Comfortable, or Large.
 - The small **×** beside a plot hides that row, which also unchecks it in the left panel.

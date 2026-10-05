@@ -10,6 +10,7 @@ import numpy as np
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy, QWidget
 
+from avialsync.ui.i18n import tr
 from avialsync.ui.video_grid_overlays import GridOverlayMixin
 from avialsync.ui.video_pane import VideoPane
 
@@ -68,8 +69,10 @@ class VideoGrid(GridOverlayMixin, QWidget):
         self._layout.setSpacing(2)
 
         self.lbl_empty = QLabel(
-            "No videos loaded.\nDrag and drop videos or CSV "
-            "files here.\nDouble-click a pane to maximise."
+            tr(
+                "No videos loaded.\nDrag and drop videos or CSV "
+                "files here.\nDouble-click a pane to maximise."
+            )
         )
         self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # The placeholder asks for a drop-target's worth of height but must not

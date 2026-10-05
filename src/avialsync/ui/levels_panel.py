@@ -55,12 +55,12 @@ class LevelsPanel(QGroupBox):
         self._white.setValue(_STEPS)
         self._gamma.setValue(_STEPS // 2)
 
-        self._auto = QPushButton("Auto")
+        self._auto = QPushButton(tr("Auto"))
         self._auto.setToolTip(tr("Choose black and white from what this frame contains"))
         self._auto.clicked.connect(self.auto_requested)
         layout.addWidget(self._auto, 3, 1)
 
-        self._reset = QPushButton("Full range")
+        self._reset = QPushButton(tr("Full range"))
         self._reset.setToolTip(tr("Show the whole recorded range"))
         self._reset.clicked.connect(self.reset)
         layout.addWidget(self._reset, 3, 2)

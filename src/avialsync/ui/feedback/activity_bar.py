@@ -83,7 +83,7 @@ class ActivityBar(QWidget):
         self._eta = QLabel("")
         self._eta.setAccessibleName(tr("Estimated time remaining"))
 
-        self._cancel = QPushButton("Cancel")
+        self._cancel = QPushButton(tr("Cancel"))
         self._cancel.setAccessibleName(tr("Cancel the running background task"))
         self._cancel.clicked.connect(self.cancel_requested)
 

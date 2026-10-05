@@ -13,6 +13,7 @@ the way the moment anything is loaded.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFrame,
     QLabel,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.action_button import ActionButton
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import follow_palette
 
@@ -29,8 +31,6 @@ from avialsync.ui.theme import follow_palette
 class EmptyState(QWidget):
     """The first thing a new user sees."""
 
-    open_videos_requested = Signal()
-    open_data_requested = Signal()
     demo_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -51,7 +51,7 @@ class EmptyState(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(10)
 
-        headline = QLabel("Drop recordings here")
+        headline = QLabel(tr("Drop recordings here"))
         headline.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font = headline.font()
         font.setPointSize(max(font.pointSize() + 4, 14))
@@ -59,8 +59,10 @@ class EmptyState(QWidget):
         headline.setFont(font)
 
         detail = QLabel(
-            "Video, sensor, ephys, and tracking files — together or one at a time.\n"
-            "A folder that is a recording is recognised as one."
+            tr(
+                "Video, sensor, ephys, and tracking files — together or one at a time.\n"
+                "A folder that is a recording is recognised as one."
+            )
         )
         detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # Secondary text, so the headline stays the thing read first.
@@ -69,12 +71,13 @@ class EmptyState(QWidget):
             lambda palette: f"color: {palette.placeholderText().color().name()};",
         )
 
-        open_videos = QPushButton("Open Videos…")
-        open_videos.clicked.connect(self.open_videos_requested)
-        open_data = QPushButton("Open Sensor / Ephys Data…")
-        open_data.clicked.connect(self.open_data_requested)
+        # The File menu's own actions, installed by the window: this said "Open
+        # Sensor / Ephys Data…" beside a menu saying "Open Sensor/Ephys Data…"
+        # while it carried its own text (rule 15, D-092).
+        self.open_videos_button = open_videos = ActionButton(content)
+        self.open_data_button = open_data = ActionButton(content)
 
-        demo = QPushButton("Try the demo session")
+        demo = QPushButton(tr("Try the demo session"))
         demo.setToolTip(
             tr(
                 "Generate and open a complete sample session: four cameras, "
@@ -112,3 +115,8 @@ class EmptyState(QWidget):
         outer.addWidget(scroll)
 
         self.setAccessibleName(tr("No recordings are open"))
+
+    def install_open_actions(self, open_video: QAction, open_data: QAction) -> None:
+        """Show the two open buttons, driven by the File menu's actions."""
+        self.open_videos_button.set_action(open_video)
+        self.open_data_button.set_action(open_data)

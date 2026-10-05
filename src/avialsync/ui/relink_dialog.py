@@ -41,9 +41,11 @@ class RelinkDialog(QDialog):
         layout = QVBoxLayout(self)
 
         info = QLabel(
-            "The following files referenced by this session could not be found.\n"
-            "Use the Browse button to locate each file, or press Skip to open "
-            "the session without them."
+            tr(
+                "The following files referenced by this session could not be found.\n"
+                "Use the Browse button to locate each file, or press Skip to open "
+                "the session without them."
+            )
         )
         info.setWordWrap(True)
         layout.addWidget(info)
@@ -76,7 +78,7 @@ class RelinkDialog(QDialog):
             new_item = QTableWidgetItem("")
             self._table.setItem(row, 2, new_item)
 
-            browse_btn = QPushButton("Browse…")
+            browse_btn = QPushButton(tr("Browse…"))
             browse_btn.clicked.connect(lambda _checked, r=row, o=orig: self._browse(r, o))
             self._table.setCellWidget(row, 3, browse_btn)
 

@@ -126,7 +126,7 @@ class SyncEvidenceView(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
 
-        self._headline = QLabel("No alignment has been proposed.")
+        self._headline = QLabel(tr("No alignment has been proposed."))
         self._headline.setWordWrap(True)
         layout.addWidget(self._headline)
 

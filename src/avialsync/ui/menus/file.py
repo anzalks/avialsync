@@ -20,6 +20,7 @@ def build_file_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
     """Create File actions in their original order."""
     file_menu = menu.addMenu(tr("File"))
     _file_open(window, file_menu, _reg)
+    _file_reset(window, file_menu, _reg)
     _file_changes(window, file_menu, _reg)
     _file_exports(window, file_menu, _reg)
     _file_cache(window, file_menu, _reg)
@@ -30,8 +31,11 @@ def build_file_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
 def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     """Open recordings, sessions, and recovery snapshots."""
     # Ctrl+Shift+V (not Ctrl+V — system Paste collision, D-022.7 / Trap §18)
-    window._act_open_video = file_menu.addAction(tr("Open Video(s)…"))
+    window._act_open_video = file_menu.addAction(tr("Open Videos…"))
     act = window._act_open_video
+    # Renamed from "Open Video(s)…"; keep that label's id so a remapped
+    # shortcut survives the rename.
+    act.setProperty("av_id", "file_open_video_s")
     act.setShortcut(QKeySequence("Ctrl+Shift+V"))
     act.triggered.connect(window._open_video)
     _reg(act, "File")
@@ -74,6 +78,22 @@ def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
         lambda: window.session_runtime.pending_recovery is not None,
         tr("No unsaved work from a previous run was found to recover."),
     )
+
+
+def _file_reset(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
+    """Reset Session, and the buttons that reach Open and Reset outside the menu.
+
+    Reset had only a sidebar button with its own text, so it was the one
+    workspace command the palette, the shortcut editor and the menu bar could
+    not reach. It is undoable and never asks first (UX_FOUNDATIONS WP-2).
+    """
+    window._act_reset_session = file_menu.addAction(tr("Reset Session"))
+    act = window._act_reset_session
+    act.setToolTip(tr("Close all loaded sources and start a fresh session (undoable)"))
+    act.triggered.connect(window._reset_session)
+    _reg(act, "File")
+    window.sidebar.install_open_actions(window._act_open_video, window._act_open_sensor, act)
+    file_menu.addSeparator()
 
 
 def _file_changes(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:

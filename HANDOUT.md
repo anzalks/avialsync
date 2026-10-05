@@ -141,7 +141,7 @@ Two product laws govern that phase and outrank convention:
 
 ### Done (Phase 4)
 - Session save/load `.avv` schema v5, autosave 2 min, recent files, relink dialog
-- Sources → Open Files → Reset Session cancels pending loads and clears the current workspace without
+- File → Reset Session (also Sources → Open Files) cancels pending loads and clears the current workspace without
   modifying recordings, their cache, or a saved `.avv` file.
 - File → Cache: Delete Cache for This Trial / Delete All Cache / Show Cache Folder
   (`ui/controllers/cache_controller.py`, D-160). A loaded trial is closed, its entries removed
@@ -450,7 +450,7 @@ Two product laws govern that phase and outrank convention:
   the export lacks), and failing that are detected from pairwise rigidity by `core/skeleton.py`,
   drawn dashed and rooted on the vertical axis; the header's `Bones:` selector pins
   Auto / Detected / Off (D-082). Names never imply topology.
-- Reset Zoom: wired to View → Reset Plot Zoom (Ctrl+0), the plots' own Reset button, and shortcuts dialog; the Data Streams twin was removed (D-126)
+- Reset Plots: `PlotPane.reset_action`, shown in View (Ctrl+0) and as the plots' own button (D-167), and shortcuts dialog; the Data Streams twin was removed (D-126)
 - Transport UX: the full-width **Data Streams** section is distinct from both plots and the
   seek/transport section with the same splitter handles used for video/plot resizing (drawn end to end, D-106). Its controls row, *below* the lanes (D-126), owns Hide, compact status, loop marks, and the labelled Speed selector; the video tools moved under the videos (`ui/view_toolbar.py`); busy work remains visible while ordinary messages clear shortly.
   Playhead controls precede master time and the seek bar; end time follows it.
@@ -1891,7 +1891,7 @@ and returns focus to the containing playback surface, so the next Space immediat
 |---|---|
 | `Ctrl+S` / `Cmd+S` | Save session (`StandardKey.Save`) |
 | `Ctrl+O` / `Cmd+O` | Open session (`StandardKey.Open`) |
-| `Ctrl+Shift+V` | Open Video(s)… |
+| `Ctrl+Shift+V` | Open Videos… |
 | `Ctrl+Shift+D` | Open Sensor/Ephys Data… |
 | `Ctrl+E` | Export Snapshot (single QAction authority) |
 | `Ctrl+Q` / `Cmd+Q` | Quit (`StandardKey.Quit`, `QuitRole`) |

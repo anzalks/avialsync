@@ -244,6 +244,7 @@ class MainWindow(QMainWindow):
     _act_open_video: QAction
     _act_open_sensor: QAction
     _act_save_session: QAction
+    _act_reset_session: QAction
     _act_export_changes: QAction
     _act_snapshot: QAction
     _act_fix_tracker: QAction
@@ -561,9 +562,6 @@ class MainWindow(QMainWindow):
         self.wheel_panel = WheelPanel()
         self.wheel_tab = WheelTab(self.wheel_panel, self, scrollable=False)
         wheel_controller.connect_panel(self)
-        self.sidebar.open_video_requested.connect(self._open_video)
-        self.sidebar.open_sensor_requested.connect(self._open_data)
-        self.sidebar.reset_session_requested.connect(self._reset_session)
         self.sidebar.video_offset_changed.connect(self._select_video)
         self.sidebar.video_offset_changed.connect(self._on_video_offset_changed)
         self.sidebar.video_mapping_changed.connect(self._on_video_mapping_changed)
@@ -863,8 +861,7 @@ class MainWindow(QMainWindow):
     def _install_empty_state(self) -> None:
         """Put the empty state over the video area until something is loaded."""
         self.empty_state = EmptyState(self)
-        self.empty_state.open_videos_requested.connect(self._open_video)
-        self.empty_state.open_data_requested.connect(self._open_data)
+        self.empty_state.install_open_actions(self._act_open_video, self._act_open_sensor)
         self.empty_state.demo_requested.connect(self._launch_demo)
         grid_layout = self.video_grid.layout()
         if grid_layout is not None:

@@ -90,7 +90,7 @@ class _PropertiesBase(QGroupBox):
         self._toggle_btn.clicked.connect(self._toggle)
         hdr.addWidget(self._toggle_btn, stretch=1)
 
-        self._copy_btn = QPushButton("Copy")
+        self._copy_btn = QPushButton(tr("Copy"))
         self._copy_btn.setFixedWidth(44)
         self._copy_btn.setToolTip(tr("Copy properties as plain text"))
         self._copy_btn.clicked.connect(

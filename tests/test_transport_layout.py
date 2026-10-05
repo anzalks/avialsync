@@ -3,7 +3,7 @@
 import pytest
 from PySide6.QtCore import QPoint, Qt
 
-from avialsync.ui.plot_header import PlotHeader
+from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.theme import status_color
 from avialsync.ui.transport import Transport
 from avialsync.ui.view_toolbar import ViewToolbar
@@ -61,12 +61,19 @@ def test_descriptive_transport_controls_leave_a_usable_slider_at_narrow_width(qt
 
 
 def test_plot_header_buttons_name_their_effect(qtbot) -> None:
-    header = PlotHeader()
-    qtbot.addWidget(header)
+    """Reset is the pane's own action, which the View menu shows too (rule 15).
+
+    It read "Reset plots" here and "Reset Plot Zoom" in the menu for the same
+    Ctrl+0 command, so its text now comes only from that action.
+    """
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    header = pane._plot_header
 
     assert header.fit_all_button.text() == "Fit Y"
     assert header.fit_all_button.accessibleName() == "Fit Y ranges for visible channels"
-    assert header.reset_button.text() == "Reset plots"
+    assert header.reset_button.action is pane.reset_action
+    assert header.reset_button.text() == pane.reset_action.text() == "Reset Plots"
     assert header.reset_button.accessibleName() == "Reset plot ranges and time span"
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QPushButton, QWidget
 
+from avialsync.ui.action_button import ActionButton
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_sweep import PlotPresentation
 
@@ -15,18 +16,17 @@ class PlotHeader(QWidget):
     presentation_changed = Signal(object)
     fit_all_requested = Signal()
     row_height_changed = Signal(int)
-    reset_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 2, 8, 2)
         layout.setSpacing(6)
-        layout.addWidget(QLabel("Signals", self))
-        layout.addWidget(QLabel("Live", self))
+        layout.addWidget(QLabel(tr("Signals"), self))
+        layout.addWidget(QLabel(tr("Live"), self))
 
         self.presentation_combo = QComboBox(self)
-        self.presentation_combo.addItem("Scope", PlotPresentation.SCOPE)
+        self.presentation_combo.addItem(tr("Scope"), PlotPresentation.SCOPE)
         self.presentation_combo.setAccessibleName(tr("Live plot presentation"))
         self.presentation_combo.setToolTip(tr("Live plots clear and restart at each page"))
         self.presentation_combo.currentIndexChanged.connect(self._emit_presentation)
@@ -42,22 +42,21 @@ class PlotHeader(QWidget):
         self.fit_all_button.clicked.connect(self.fit_all_requested.emit)
         layout.addWidget(self.fit_all_button)
 
-        layout.addWidget(QLabel("Rows", self))
+        layout.addWidget(QLabel(tr("Rows"), self))
         self.row_height_combo = QComboBox(self)
-        self.row_height_combo.addItem("Compact", 72)
-        self.row_height_combo.addItem("Comfortable", 110)
-        self.row_height_combo.addItem("Large", 160)
+        self.row_height_combo.addItem(tr("Compact"), 72)
+        self.row_height_combo.addItem(tr("Comfortable"), 110)
+        self.row_height_combo.addItem(tr("Large"), 160)
         self.row_height_combo.setCurrentIndex(1)
         self.row_height_combo.setToolTip(tr("Shared visible channel row height"))
         self.row_height_combo.currentIndexChanged.connect(self._emit_row_height)
         layout.addWidget(self.row_height_combo)
 
-        self.reset_button = QPushButton(tr("Reset plots"), self)
+        # The plot pane's own Reset Plots action, which the View menu also
+        # shows: it said "Reset plots" here and "Reset Plot Zoom" there for the
+        # same Ctrl+0 command (rule 15, D-092).
+        self.reset_button = ActionButton(self)
         self.reset_button.setAccessibleName(tr("Reset plot ranges and time span"))
-        self.reset_button.setToolTip(
-            tr("Reset shared time span and fit every visible plot (Ctrl+0)")
-        )
-        self.reset_button.clicked.connect(self.reset_requested.emit)
         layout.addWidget(self.reset_button)
 
     def set_presentation(self, presentation: PlotPresentation) -> None:

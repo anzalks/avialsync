@@ -118,7 +118,10 @@ class PlotPane(QWidget):
         self._plot_header.presentation_changed.connect(self._on_presentation_changed)
         self._plot_header.fit_all_requested.connect(self.fit_all_y)
         self._plot_header.row_height_changed.connect(self._set_row_height)
-        self._plot_header.reset_requested.connect(self.reset_zoom)
+        self.reset_action = QAction(tr("Reset Plots"), self)
+        self.reset_action.setToolTip(tr("Reset the shared time span and fit every visible plot"))
+        self.reset_action.triggered.connect(self.reset_zoom)
+        self._plot_header.reset_button.set_action(self.reset_action)
         self.presentation_combo = self._plot_header.presentation_combo
         self.page_label = self._plot_header.page_label
         self.fit_all_button = self._plot_header.fit_all_button

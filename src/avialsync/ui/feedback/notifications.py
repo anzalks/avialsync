@@ -119,12 +119,12 @@ class NotificationStrip(QWidget):
         self.action_button.clicked.connect(self._run_action)
         self.action_button.setVisible(False)
 
-        self._details_button = QPushButton("Show details")
+        self._details_button = QPushButton(tr("Show details"))
         self._details_button.setAccessibleName(tr("Show the full error text"))
         self._details_button.clicked.connect(self._emit_details)
         self._details_button.setVisible(False)
 
-        self._dismiss = QPushButton("Dismiss")
+        self._dismiss = QPushButton(tr("Dismiss"))
         self._dismiss.setAccessibleName(tr("Dismiss this message"))
         self._dismiss.clicked.connect(self.clear)
 

@@ -1029,7 +1029,7 @@ class VideoPane(VideoTimingMixin, QWidget):
 
         olayout.addLayout(top_layout)
 
-        self.lbl_no_footage = QLabel("No Footage")
+        self.lbl_no_footage = QLabel(tr("No Footage"))
         self.lbl_no_footage.setStyleSheet("color: white; background-color: rgb(0,0,0);")
         self.lbl_no_footage.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_no_footage.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)

@@ -218,21 +218,21 @@ class ReadoutPanel(QGroupBox):
         self._cursor_time: float | None = None
 
         # Section labels + rows for optional sections
-        self._cam_label = QLabel("Camera Positions")
+        self._cam_label = QLabel(tr("Camera Positions"))
         set_bold(self._cam_label)
         self._cam_label.setVisible(False)
         self._cam_rows: list[_CameraRow] = []
 
-        self._stats_label = QLabel("Region Stats")
+        self._stats_label = QLabel(tr("Region Stats"))
         set_bold(self._stats_label)
         self._stats_label.setVisible(False)
         self._stats_rows: dict[str, _StatsRow] = {}
 
-        self._delta_label = QLabel("Δ Measurement")
+        self._delta_label = QLabel(tr("Δ Measurement"))
         set_bold(self._delta_label)
         self._delta_label.setVisible(False)
         self._delta_rows: dict[ChannelKey, _DeltaRow] = {}
-        self._delta_t_lbl = QLabel("Δt = —")
+        self._delta_t_lbl = QLabel(tr("Δt = —"))
         _set_monospace(self._delta_t_lbl)
 
     # ── Public API ────────────────────────────────────────────────────
@@ -393,7 +393,7 @@ class ReadoutPanel(QGroupBox):
             self._delta_rows[key] = row
 
         if camera_states:
-            fps_row = QLabel("Frames between:")
+            fps_row = QLabel(tr("Frames between:"))
             set_bold(fps_row)
             self._layout.insertWidget(self._layout.count() - 1, fps_row)
             for label, _tp, fps in camera_states:

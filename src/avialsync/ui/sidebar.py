@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.inspection import SourceInspection
+from avialsync.ui.action_button import ActionButton
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
@@ -380,10 +382,10 @@ class SensorInfoWidget(QFrame):
 
         # ── Show all / Hide all, for the whole source ────────────────
         bulk_row = QHBoxLayout()
-        show_all_btn = QPushButton("Show all")
+        show_all_btn = QPushButton(tr("Show all"))
         show_all_btn.setToolTip(tr("Show every channel of this source"))
         show_all_btn.clicked.connect(lambda: self._on_bulk_visibility(True))
-        hide_all_btn = QPushButton("Hide all")
+        hide_all_btn = QPushButton(tr("Hide all"))
         hide_all_btn.setToolTip(tr("Hide every channel of this source"))
         hide_all_btn.clicked.connect(lambda: self._on_bulk_visibility(False))
         # A push button defaults to the `Minimum` policy, which floors it at its
@@ -412,7 +414,7 @@ class SensorInfoWidget(QFrame):
 
         # ── Report button + Properties panel ─────────────────────────
         report_row = QHBoxLayout()
-        self._report_btn = QPushButton("Report…")
+        self._report_btn = QPushButton(tr("Report…"))
         self._report_btn.setVisible(False)
         self._report_btn.clicked.connect(lambda: self.report_requested.emit(self.path))
         report_row.addWidget(self._report_btn)
@@ -891,9 +893,6 @@ def _wrapped_note(text: str) -> QLabel:
 class SidebarPane(QWidget):
     """The left sidebar for file management and metadata."""
 
-    open_video_requested = Signal()
-    open_sensor_requested = Signal()
-
     video_offset_changed = Signal(str, float)
     video_mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ppm
     video_remove_requested = Signal(str)
@@ -908,7 +907,6 @@ class SidebarPane(QWidget):
     channel_group_visibility_changed = Signal(str, str, list, bool)
     tracking_visibility_changed = Signal(str, str, bool)  # source_path, surface, is_visible
     grid_mode_changed = Signal(bool)  # True = NxN grid, False = strip
-    reset_session_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -939,15 +937,15 @@ class SidebarPane(QWidget):
         self.content_layout.setContentsMargins(5, 5, 5, 5)
 
         # Row 1: Actions
-        actions_group = QGroupBox("Open Files")
+        actions_group = QGroupBox(tr("Open Files"))
         actions_layout = QVBoxLayout(actions_group)
-        self.btn_open_video = QPushButton("Open Videos")
-        self.btn_open_sensor = QPushButton("Open Sensor/Ephys Data")
-        self.btn_reset_session = QPushButton("Reset Session")
-        self.btn_reset_session.setToolTip(tr("Close all loaded sources and start a fresh session"))
-        self.btn_open_video.clicked.connect(self.open_video_requested)
-        self.btn_open_sensor.clicked.connect(self.open_sensor_requested)
-        self.btn_reset_session.clicked.connect(self.reset_session_requested)
+        # Second ways to reach File-menu commands, so they carry no text of
+        # their own: the menu's actions name them (rule 15, D-092). These read
+        # "Open Videos" beside a menu saying "Open Video(s)…" for as long as
+        # they were plain buttons. The window installs the actions.
+        self.btn_open_video = ActionButton(self)
+        self.btn_open_sensor = ActionButton(self)
+        self.btn_reset_session = ActionButton(self)
         # Stacked, not side by side. "Open Sensor/Ephys Data" alone wants 278 px
         # and the pair wanted 430, which made this group the widest thing in the
         # sidebar by a wide margin -- so either the labels were cut off or the
@@ -973,9 +971,9 @@ class SidebarPane(QWidget):
         self.videos_group = QGroupBox()
         videos_top = QHBoxLayout()
         videos_top.setContentsMargins(0, 0, 0, 0)
-        videos_title = QLabel("Videos")
+        videos_title = QLabel(tr("Videos"))
         set_bold(videos_title)
-        self._grid_chk = QCheckBox("⊞ Grid")
+        self._grid_chk = QCheckBox(tr("⊞ Grid"))
         self._grid_chk.setToolTip(tr("Arrange videos in an NxN grid instead of a horizontal strip"))
         self._grid_chk.toggled.connect(self.grid_mode_changed)
         videos_top.addWidget(videos_title)
@@ -988,7 +986,7 @@ class SidebarPane(QWidget):
         self._video_widgets: dict[str, VideoInfoWidget] = {}
 
         # Row 3: Sensors
-        self.sensors_group = QGroupBox("Sensor Data")
+        self.sensors_group = QGroupBox(tr("Sensor Data"))
         self.sensors_layout = QVBoxLayout(self.sensors_group)
         self.sensors_layout.addWidget(_wrapped_note("No sensor data loaded."))
         self.content_layout.addWidget(self.sensors_group)
@@ -1053,6 +1051,14 @@ class SidebarPane(QWidget):
     def _refresh_source_filter(self) -> None:
         """Reevaluate source cards after a per-source filter edit."""
         self._apply_source_filter(self._source_filter.text())
+
+    def install_open_actions(
+        self, open_video: QAction, open_sensor: QAction, reset: QAction
+    ) -> None:
+        """Show the Open Files buttons, driven by the File menu's own actions."""
+        self.btn_open_video.set_action(open_video)
+        self.btn_open_sensor.set_action(open_sensor)
+        self.btn_reset_session.set_action(reset)
 
     def _apply_source_filter(self, text: str) -> None:
         """Filter source cards and channel rows across the whole inspector."""

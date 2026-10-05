@@ -189,7 +189,7 @@ class MessagePanel(QGroupBox):
         self._table.itemSelectionChanged.connect(self._on_row_activated)
         layout.addWidget(self._table)
 
-        self._empty = QLabel("No messages in the loaded sources.", self)
+        self._empty = QLabel(tr("No messages in the loaded sources."), self)
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._empty)
 
