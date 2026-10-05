@@ -18,7 +18,9 @@ text goes:
 
 Line crossings are counted on a coarse occupancy grid, so a belt mesh of
 hundreds of segments costs a few thousand set lookups per paint, not a
-segment-by-rectangle test for each.
+segment-by-rectangle test for each. Positions are tested against labels, chrome
+and marks as arrays, all at once, so a frame of crowded labels lays out in a
+few milliseconds.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+import numpy as np
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPen
 
@@ -57,6 +60,51 @@ _FALLBACK_REACH = 160.0
 _FALLBACK_BUDGET = 8
 
 
+# Every ring position as parallel arrays, nearest first, so a label's
+# candidates are computed in one pass.
+_RING_OF = np.array([ring for ring in _RINGS for _ in _DIRECTIONS])
+_DX = np.array([dx for _ in _RINGS for dx, _ in _DIRECTIONS])
+_DY = np.array([dy for _ in _RINGS for _, dy in _DIRECTIONS])
+
+
+def _edges(rects: list[QRectF]) -> np.ndarray:
+    """Left, top, right and bottom of each rectangle, one row each."""
+    return np.array(
+        [(rect.left(), rect.top(), rect.right(), rect.bottom()) for rect in rects],
+        dtype=float,
+    ).reshape(-1, 4)
+
+
+def _meeting(edges: np.ndarray, rect: QRectF) -> np.ndarray:
+    """The rows of *edges* that *rect* intersects."""
+    hit = (edges[:, 0] < rect.right()) & (rect.left() < edges[:, 2])
+    hit &= (edges[:, 1] < rect.bottom()) & (rect.top() < edges[:, 3])
+    return edges[hit]
+
+
+def _overlaps(boxes: np.ndarray, others: np.ndarray) -> np.ndarray:
+    """How many of *others* each box meets, as :meth:`QRectF.intersects` decides.
+
+    Every rectangle here has a positive size, so open-interval overlap on both
+    axes is exactly Qt's test.
+    """
+    if not len(others):
+        return np.zeros(len(boxes), dtype=int)
+    a = boxes[:, None, :]
+    b = others[None, :, :]
+    meets = (a[..., 0] < b[..., 2]) & (b[..., 0] < a[..., 2])
+    meets &= (a[..., 1] < b[..., 3]) & (b[..., 1] < a[..., 3])
+    counts: np.ndarray = meets.sum(axis=1)
+    return counts
+
+
+def _spaced(boxes: np.ndarray, width: float, height: float) -> np.ndarray:
+    """*boxes* grown by 2 px a side, with :meth:`QRectF.adjusted`'s arithmetic."""
+    left = boxes[:, 0] - 2.0
+    top = boxes[:, 1] - 2.0
+    return np.stack((left, top, left + (width + 4.0), top + (height + 4.0)), axis=1)
+
+
 @dataclass
 class _Label:
     anchor: QPointF
@@ -86,6 +134,10 @@ class LabelLayout:
         self._cells: set[tuple[int, int]] = set()
         self._labels: list[_Label] = []
         self._searches = 0
+        # Obstacle edges as arrays, filled when :meth:`draw` starts.
+        self._avoid_edges = np.empty((0, 4))
+        self._mark_edges = np.empty((0, 4))
+        self._placed_rows: list[tuple[float, float, float, float]] = []
         font = QFont(painter.font())
         if font.pointSizeF() > 0:
             font.setPointSizeF(max(7.0, font.pointSizeF() * 0.9))
@@ -112,26 +164,31 @@ class LabelLayout:
         if text:
             self._labels.append(_Label(anchor, text, QColor(color), dashed))
 
-    def _crossings(self, rect: QRectF) -> int:
-        left, top = int(rect.left() // _CELL), int(rect.top() // _CELL)
-        right, bottom = int(rect.right() // _CELL), int(rect.bottom() // _CELL)
+    def _crossings(self, left: float, top: float, right: float, bottom: float) -> int:
+        first_column, first_row = int(left // _CELL), int(top // _CELL)
+        last_column, last_row = int(right // _CELL), int(bottom // _CELL)
         return sum(
             (column, row) in self._cells
-            for column in range(left, right + 1)
-            for row in range(top, bottom + 1)
+            for column in range(first_column, last_column + 1)
+            for row in range(first_row, last_row + 1)
         )
 
-    def _candidates(self, anchor: QPointF, width: float, height: float) -> list[QRectF]:
-        rects: list[QRectF] = []
-        for ring in _RINGS:
-            reach = self._radius + _GAP * ring
-            for dx, dy in _DIRECTIONS:
-                x = anchor.x() + dx * reach
-                y = anchor.y() + dy * reach
-                left = x if dx > 0 else x - width if dx < 0 else x - width / 2
-                top = y - height if dy < 0 else y if dy > 0 else y - height / 2
-                rects.append(QRectF(left, top, width, height))
-        return rects
+    def _candidates(self, anchor: QPointF, width: float, height: float) -> np.ndarray:
+        """Edges of every ring position round *anchor*, nearest first."""
+        reach = self._radius + _GAP * _RING_OF
+        x = anchor.x() + _DX * reach
+        y = anchor.y() + _DY * reach
+        left = np.where(_DX > 0, x, np.where(_DX < 0, x - width, x - width / 2))
+        top = np.where(_DY < 0, y - height, np.where(_DY > 0, y, y - height / 2))
+        return np.stack((left, top, left + width, top + height), axis=1)
+
+    def _placed_edges(self, placed: list[QRectF]) -> np.ndarray:
+        """Edges of *placed*, which only grows during a paint, converted once each."""
+        rows = self._placed_rows
+        rows.extend(
+            (rect.left(), rect.top(), rect.right(), rect.bottom()) for rect in placed[len(rows) :]
+        )
+        return np.array(rows, dtype=float).reshape(-1, 4)
 
     def _nearest_free(
         self, anchor: QPointF, width: float, height: float, placed: list[QRectF]
@@ -150,54 +207,72 @@ class LabelLayout:
             2 * (reach + width),
             2 * (reach + height),
         ).intersected(self._bounds)
-        near = [rect for rect in placed if rect.intersects(window)]
-        avoid = [rect for rect in self._avoid if rect.intersects(window)]
-        marks = [rect for rect in self._marks if rect.intersects(window)]
-        best: tuple[float, QRectF] | None = None
+        near = _meeting(self._placed_edges(placed), window)
+        avoid = _meeting(self._avoid_edges, window)
+        marks = _meeting(self._mark_edges, window)
+        ax, ay = anchor.x(), anchor.y()
+        lefts: list[float] = []
+        left = window.left()
+        while left + width <= window.right():
+            lefts.append(left)
+            left += max(8.0, width / 3.0)
+        tops: list[float] = []
         top = window.top()
         while top + height <= window.bottom():
-            left = window.left()
-            while left + width <= window.right():
-                rect = QRectF(left, top, width, height)
-                spaced = rect.adjusted(-2.0, -2.0, 2.0, 2.0)
-                if not any(spaced.intersects(other) for other in near) and not any(
-                    rect.intersects(other) for other in avoid
-                ):
-                    centre = rect.center()
-                    cost = math.hypot(centre.x() - anchor.x(), centre.y() - anchor.y())
-                    cost += 40.0 * sum(rect.intersects(other) for other in marks)
-                    if best is None or cost < best[0]:
-                        best = (cost, rect)
-                left += max(8.0, width / 3.0)
+            tops.append(top)
             top += height / 2.0
-        return None if best is None else best[1]
+        if not lefts or not tops:
+            return None
+        # Row by row, as a reader scans the window.
+        spots = [(left, top) for top in tops for left in lefts]
+        distances = [
+            math.hypot(left + width / 2.0 - ax, top + height / 2.0 - ay) for left, top in spots
+        ]
+        corner = np.array(spots, dtype=float)
+        boxes = np.concatenate((corner, corner + (width, height)), axis=1)
+        free = (_overlaps(_spaced(boxes, width, height), near) == 0) & (
+            _overlaps(boxes, avoid) == 0
+        )
+        if not free.any():
+            return None
+        cost = np.array(distances) + 40.0 * _overlaps(boxes, marks)
+        # argmin keeps the first of equal costs in scanning order.
+        best = int(np.argmin(np.where(free, cost, np.inf)))
+        return QRectF(spots[best][0], spots[best][1], width, height)
 
     def _place(self, label: _Label, placed: list[QRectF]) -> tuple[QRectF, bool]:
         width = self._metrics.horizontalAdvance(label.text) + 2 * _PAD_X
         height = self._metrics.height() + 2 * _PAD_Y
-        best: tuple[float, int, QRectF] | None = None
-        candidates = self._candidates(label.anchor, width, height)
+        best: tuple[float, int] | None = None
+        boxes = self._candidates(label.anchor, width, height)
         # Only obstacles a candidate can reach are worth testing against.
         reach = self._radius + _GAP * _RINGS[-1] + width + height
         region = QRectF(label.anchor.x() - reach, label.anchor.y() - reach, 2 * reach, 2 * reach)
-        near = [rect for rect in placed if rect.intersects(region)]
-        avoid = [rect for rect in self._avoid if rect.intersects(region)]
-        marks = [rect for rect in self._marks if rect.intersects(region)]
-        for index, rect in enumerate(candidates):
-            if not self._bounds.contains(rect):
+        near = _meeting(self._placed_edges(placed), region)
+        avoid = _meeting(self._avoid_edges, region)
+        marks = _meeting(self._mark_edges, region)
+        bounds = self._bounds
+        inside = (
+            (boxes[:, 0] >= bounds.left())
+            & (boxes[:, 2] <= bounds.right())
+            & (boxes[:, 1] >= bounds.top())
+            & (boxes[:, 3] <= bounds.bottom())
+        ).tolist()
+        blocked = (
+            (_overlaps(_spaced(boxes, width, height), near) > 0) | (_overlaps(boxes, avoid) > 0)
+        ).tolist()
+        covered = _overlaps(boxes, marks).tolist()
+        for index, edges in enumerate(boxes.tolist()):
+            if not inside[index]:
                 continue
-            spaced = rect.adjusted(-2.0, -2.0, 2.0, 2.0)
-            if any(spaced.intersects(other) for other in near) or any(
-                rect.intersects(other) for other in avoid
-            ):
+            if blocked[index]:
                 # Overlapping a label or the chrome is ruled out; no need to
                 # score how many marks or lines it would also cover.
                 cost = 1000.0 + index * 0.5
             else:
-                covered = sum(rect.intersects(other) for other in marks)
-                cost = 100.0 * covered + self._crossings(rect) + index * 0.5
+                cost = 100.0 * covered[index] + self._crossings(*edges) + index * 0.5
             if best is None or cost < best[0]:
-                best = (cost, index, rect)
+                best = (cost, index)
             if cost < 1.0:
                 break
         if (best is None or best[0] >= 1000.0) and self._searches < _FALLBACK_BUDGET:
@@ -206,18 +281,22 @@ class LabelLayout:
             if free is not None:
                 return free, True
         if best is None:
-            rect = candidates[0]
+            rect = QRectF(float(boxes[0, 0]), float(boxes[0, 1]), width, height)
             # Nothing fits inside the picture: clamp the nearest position in.
             rect.moveLeft(min(max(rect.left(), self._bounds.left()), self._bounds.right() - width))
             rect.moveTop(min(max(rect.top(), self._bounds.top()), self._bounds.bottom() - height))
             return rect, False
-        return best[2], best[1] >= len(_DIRECTIONS)
+        chosen = QRectF(float(boxes[best[1], 0]), float(boxes[best[1], 1]), width, height)
+        return chosen, best[1] >= len(_DIRECTIONS)
 
     def draw(self) -> None:
         """Place every label, short ones first, and paint them over the geometry."""
         painter = self._painter
         painter.save()
         painter.setFont(self._font)
+        self._avoid_edges = _edges(self._avoid)
+        self._mark_edges = _edges(self._marks)
+        self._placed_rows = []
         placed: list[QRectF] = []
         for label in sorted(self._labels, key=lambda item: len(item.text)):
             rect, far = self._place(label, placed)
