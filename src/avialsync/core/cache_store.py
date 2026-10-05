@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import time
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -45,6 +46,12 @@ __all__ = [
 
 #: Prefix of an entry that has been renamed aside for deletion.
 TRASH_PREFIX = ".trash-"
+
+#: Pauses before retrying a rename Windows refused.  A virus scanner or the
+#: search indexer opening a freshly written file is the common cause, and it
+#: lets go within moments; a reader that really holds the file does not, and
+#: the entry is then reported and kept.
+_RETRY_DELAYS = (0.05, 0.1, 0.2, 0.4)
 
 
 @dataclass(frozen=True)
@@ -149,9 +156,8 @@ def remove_entries(entries: Iterable[CacheEntry], root: Path | None = None) -> R
             continue
         size = _tree_size(directory)
         trash = sources / f"{TRASH_PREFIX}{uuid.uuid4().hex}"
-        try:
-            os.rename(directory, trash)
-        except OSError as error:
+        error = _rename_aside(directory, trash)
+        if error is not None:
             report.failed.append((str(directory), f"in use: {error.strerror or error}"))
             continue
         report.removed += 1
@@ -164,6 +170,22 @@ def remove_entries(entries: Iterable[CacheEntry], root: Path | None = None) -> R
 def remove_all(root: Path | None = None) -> RemovalReport:
     """Delete every entry in the cache."""
     return remove_entries(list_entries(root), root)
+
+
+def _rename_aside(directory: Path, trash: Path) -> OSError | None:
+    """Rename *directory* to *trash*, retrying a refusal; the last error if it never moved."""
+    for delay in (*_RETRY_DELAYS, None):
+        try:
+            os.rename(directory, trash)
+        except PermissionError as error:
+            if delay is None:
+                return error
+            time.sleep(delay)
+        except OSError as error:
+            return error
+        else:
+            return None
+    return None
 
 
 def _sweep_trash(sources: Path) -> None:

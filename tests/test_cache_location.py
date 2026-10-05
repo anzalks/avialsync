@@ -292,12 +292,35 @@ def test_an_entry_that_cannot_be_moved_aside_is_kept_whole(
     def in_use(src: object, dst: object) -> None:
         raise PermissionError(13, "in use")
 
+    monkeypatch.setattr(cache_store, "_RETRY_DELAYS", (0.0, 0.0))
     monkeypatch.setattr(os, "rename", in_use)
     report = cache_store.remove_all(root)
 
     assert report.removed == 0 and len(report.failed) == 1
     assert read_entry_record(directory) is not None
     assert (directory / "a_v.npy").is_file()
+
+
+def test_a_briefly_held_entry_is_removed_once_it_is_let_go(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A scanner holding a fresh file for a moment must not leave the entry behind."""
+    root = tmp_path / "root"
+    directory = _entry(root, _source(tmp_path / "a"))
+    real_rename = os.rename
+    refusals = [PermissionError(32, "sharing violation")] * 2
+
+    def held_twice(src: str, dst: str) -> None:
+        if refusals:
+            raise refusals.pop()
+        real_rename(src, dst)
+
+    monkeypatch.setattr(cache_store, "_RETRY_DELAYS", (0.0, 0.0, 0.0))
+    monkeypatch.setattr(os, "rename", held_twice)
+    report = cache_store.remove_all(root)
+
+    assert report.removed == 1 and not report.failed
+    assert not directory.exists()
 
 
 def test_a_trash_directory_left_by_an_interrupted_removal_is_swept(tmp_path: Path) -> None:
