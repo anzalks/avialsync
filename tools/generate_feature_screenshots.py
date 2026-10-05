@@ -1,7 +1,8 @@
 """Capture the screenshots for features the other generators do not cover.
 
-The Props and Tasks tabs, the File and View menus (including File → Cache and
-View → Overlays), the command palette, Preferences, and the light appearance.
+The Props tab (a ladder and the belt editor), the Tasks tab, the File and View
+menus (including File → Cache and View → Overlays), the command palette,
+Preferences, and the light appearance.
 
 Run with ``conda run -n avialsync python tools/generate_feature_screenshots.py``.
 Do **not** set ``QT_QPA_PLATFORM=offscreen`` — see ``tools/screenshot_kit.py``.
@@ -63,10 +64,30 @@ def _capture_menu(
         menu = _menu(window, submenu)
     menu.ensurePolished()
     menu.adjustSize()
-    menu.popup(window.mapToGlobal(window.rect().topLeft()) + window.rect().center() * 0)
+    menu.popup(window.mapToGlobal(window.rect().topLeft()))
     settle(app)
     menu.grab().save(str(path))
     menu.hide()
+    settle(app)
+
+
+def _capture_props(window: MainWindow, app: QApplication, out_dir: Path) -> None:
+    """The Props tab holding a ladder, then the belt editor.
+
+    The ladder is added through the panel's own Add control, so its prop file
+    lands in the fixture's temporary ``pose-3d/`` and nowhere else.
+    """
+    panel = window.props_app.panel
+    if panel is None:
+        raise RuntimeError("The Props panel was not built.")
+    panel.select_prop("", "ladder")
+    window.props_app.create("Ladder")
+    settle(app)
+    capture(window, out_dir / "feature_props_tab.png", (panel.kind, panel.name))
+    panel.kind.setCurrentIndex(panel.kind.findData("belt"))
+    settle(app)
+    capture(window, out_dir / "feature_props_belt.png", (panel.kind,))
+    panel.kind.setCurrentIndex(panel.kind.findData("ladder"))
     settle(app)
 
 
@@ -87,7 +108,7 @@ def _generate(out_dir: Path, session: Path) -> None:
 
     try:
         _show_tab(window, app, "Props")
-        capture(window, out_dir / "feature_props_tab.png")
+        _capture_props(window, app, out_dir)
         _show_tab(window, app, "Tasks")
         capture(window, out_dir / "feature_tasks_tab.png")
         _show_tab(window, app, "Sources")
