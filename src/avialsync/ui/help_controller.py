@@ -8,7 +8,7 @@ from PySide6.QtCore import QObject, QUrl, Slot
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication
 
-from avialsync.ui.about import citation_text, project_urls, version_report
+from avialsync.ui.about import citation_text, docs_url, project_urls, version_report
 from avialsync.ui.feedback.text_dialog import show_text
 from avialsync.ui.i18n import tr
 
@@ -37,6 +37,10 @@ class HelpController(QObject):
             self._window.notifications.show_warning(
                 tr("No {label} link is declared for this build.").format(label=label)
             )
+
+    def open_docs_page(self, page: str) -> None:
+        """Open *page* of the published guide, built on ``[project.urls]`` (DS-13)."""
+        QDesktopServices.openUrl(QUrl(docs_url(page)))
 
     @Slot()
     def report_a_problem(self) -> None:

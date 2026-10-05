@@ -16,6 +16,10 @@ if TYPE_CHECKING:
 Register = Callable[[QAction, str], QAction]
 
 
+#: The user-guide page Help → First Session Tutorial opens; a file in ``docs/``.
+FIRST_SESSION_PAGE = "tutorials/first-session.html"
+
+
 def build_help_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu:
     """Create this menu and connect its actions to the window."""
     # ── Help ──────────────────────────────────────────────────────
@@ -42,6 +46,8 @@ def build_help_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
     window._act_shortcuts.triggered.connect(window._show_shortcuts)
     _reg(window._act_shortcuts, "View")
 
+    _add_first_session_tutorial(window, help_menu, _reg)
+
     act = help_menu.addAction(tr("Documentation"))
     act.triggered.connect(
         lambda _checked=False: window._help_controller.open_project_url("Documentation")
@@ -67,3 +73,15 @@ def build_help_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
     act.triggered.connect(window._help_controller.show_about)
 
     return help_menu
+
+
+def _add_first_session_tutorial(window: MainWindow, help_menu: QMenu, _reg: Register) -> None:
+    """The tutorial the docs already carry, one click from the app (DS-13, F-33)."""
+    window._act_first_session = help_menu.addAction(tr("First Session Tutorial"))
+    window._act_first_session.setToolTip(
+        tr("Open the step-by-step tutorial for a first recording session")
+    )
+    window._act_first_session.triggered.connect(
+        lambda _checked=False: window._help_controller.open_docs_page(FIRST_SESSION_PAGE)
+    )
+    _reg(window._act_first_session, "View")

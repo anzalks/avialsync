@@ -260,6 +260,7 @@ class MainWindow(QMainWindow):
     _act_fit_videos: QAction
     _act_fullscreen: QAction
     _act_review_workflow: QAction
+    _act_first_session: QAction
     _act_shortcuts: QAction
     _recent_menu: QMenu
     _edit_menu: QMenu

@@ -550,6 +550,12 @@ channels loaded in that recording. Choose **Forget saved setup** in the dialog, 
 settings in **Preferences → Wheel Setup**, to clear those defaults. This does not remove any wheel
 already saved with a recording.
 
+## Getting help
+
+**Help → First Session Tutorial** opens the step-by-step tutorial for a first session, and
+**Help → Documentation** opens this guide. Guided panels carry a **Learn more** link to the section
+that explains them.
+
 ## Screen readers and the keyboard
 
 The plots, the Data Streams lanes, each camera and the 3D view describe themselves to screen

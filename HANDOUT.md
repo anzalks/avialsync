@@ -322,7 +322,8 @@ Two product laws govern that phase and outrank convention:
   and records the gutter as each trace's non-colour identifier (D-177). DS-11 decides against a
   main toolbar and puts Align → Synchronize as a glyph beside Open (D-178). DS-12 makes the
   plots, lanes, video panes and 3D view describe themselves to assistive technology on query
-  (D-179).
+  (D-179). DS-13 adds Help → First Session Tutorial and Learn more links from step panels, all
+  built on `[project.urls]` through `about.docs_url`.
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
