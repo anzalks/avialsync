@@ -17,6 +17,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QGroupBox,
@@ -30,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.messages import Message
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
 from avialsync.ui.time_format import TimeDisplayMode, format_time
@@ -132,6 +134,13 @@ class MessageStore(QObject):
         return untimed + timed
 
 
+#: What an empty Messages page says fills it (D-176, R5).
+_NO_MESSAGES = tr(
+    "No messages yet. Messages appear here when an opened recording carries them, "
+    "such as an acquisition system's event log."
+)
+
+
 class MessagePanel(QGroupBox):
     """Chronological list of recorded messages; a row seeks the timeline.
 
@@ -189,8 +198,7 @@ class MessagePanel(QGroupBox):
         self._table.itemSelectionChanged.connect(self._on_row_activated)
         layout.addWidget(self._table)
 
-        self._empty = QLabel(tr("No messages in the loaded sources."), self)
-        self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty = EmptyNote(_NO_MESSAGES, self)
         layout.addWidget(self._empty)
 
         self._refresh()
@@ -276,10 +284,14 @@ class MessagePanel(QGroupBox):
         self._table.setVisible(bool(shown))
         self._empty.setVisible(not has_any)
         self._empty.setText(
-            "No message matches this filter."
+            tr("No message matches this filter.")
             if (self._rows or self._untimed) and not has_any
-            else "No messages in the loaded sources."
+            else _NO_MESSAGES
         )
+
+    def install_empty_action(self, action: QAction) -> None:
+        """Offer the command that brings messages in (D-176)."""
+        self._empty.set_action(action)
 
     def _on_row_activated(self) -> None:
         rows = {index.row() for index in self._table.selectedIndexes()}

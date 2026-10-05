@@ -127,6 +127,8 @@ readout agree with what you see.
 
 ## 5. Undo, remove, compare
 
+Both removals are in the review panel's **⋯** menu, apart from **Apply swap**.
+
 - **Remove swap** reverses the accepted swap in force *at the playhead*. It never reaches into a part
   of the recording you are not looking at. If none is in force there, it tells you so instead of
   guessing.

@@ -234,7 +234,8 @@ def test_the_empty_changes_message_wraps_instead_of_clipping(qtbot) -> None:
     panel = ChangesPanel(AnnotationStore(), PointEditStore(), SwapStore())
     qtbot.addWidget(panel)
 
-    assert panel._empty.wordWrap()
+    # D-176: the message is an EmptyNote now; its sentence still wraps.
+    assert panel._empty.label.wordWrap()
 
 
 def test_the_empty_state_does_not_fill_a_slab_behind_its_message(qtbot) -> None:

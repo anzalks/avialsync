@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Signal
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, QUrl, Signal
 from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
+from avialsync.ui.empty_note import WRAP_WIDTH_PX
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_svg_icon
 from avialsync.ui.theme import set_bold
@@ -114,6 +115,12 @@ class StepPanel(QFrame):
         layout.addWidget(self.more)
         self.more.hide()
         self.more_toggle.hide()
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        """Prefer a narrow page: the instruction wraps rather than widening it (R3)."""
+        hint = super().sizeHint()
+        hint.setWidth(min(hint.width(), max(self.minimumSizeHint().width(), WRAP_WIDTH_PX)))
+        return hint
 
     # ── content ─────────────────────────────────────────────────────
 

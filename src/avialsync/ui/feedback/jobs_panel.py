@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
 
@@ -62,6 +63,15 @@ class JobsPanel(QGroupBox):
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self._table.setAccessibleName(tr("Background tasks, running and recently finished"))
         layout.addWidget(self._table)
+        self.empty_note = EmptyNote(
+            tr(
+                "Nothing is running. Imports, exports, cache builds and session saves "
+                "appear here while they work, then stay listed for a while."
+            ),
+            self,
+        )
+        layout.addWidget(self.empty_note)
+        self._table.hide()
 
     # ── updating ─────────────────────────────────────────────────────
 
@@ -79,6 +89,8 @@ class JobsPanel(QGroupBox):
         rows += [(job.label, job.outcome, job.duration_s, True) for job in self._history]
 
         self._table.setRowCount(len(rows))
+        self._table.setVisible(bool(rows))
+        self.empty_note.setVisible(not rows)
         for index, (label, state, seconds, done) in enumerate(rows):
             name = QTableWidgetItem(label)
             if done:

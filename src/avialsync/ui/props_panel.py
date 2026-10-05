@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QSize, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -34,6 +34,7 @@ from avialsync.core.physical_props import (
 )
 from avialsync.ui.about import docs_url
 from avialsync.ui.belt_placement_controls import BeltPlacementControls
+from avialsync.ui.empty_note import WRAP_WIDTH_PX, EmptyNote
 from avialsync.ui.i18n import tr
 from avialsync.ui.step_panel import StepPanel
 
@@ -57,6 +58,15 @@ def irregular_text(tag: StepIrregularity) -> str:
         "shifted": tr("shifted sideways"),
         "other": tr("irregular"),
     }[tag]
+
+
+class _NarrowList(QListWidget):
+    """A list that prefers the page's wrap width, not Qt's 256 px default (R3)."""
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        hint = super().sizeHint()
+        hint.setWidth(min(hint.width(), WRAP_WIDTH_PX))
+        return hint
 
 
 class PropsPanel(QWidget):
@@ -126,6 +136,10 @@ class PropsPanel(QWidget):
         header.addRow(tr("Saved"), self.ladders)
         header.addRow(tr("New"), self.name_row)
         root_layout.addLayout(header)
+        self.empty_note = EmptyNote(
+            tr("No props yet. Choose a kind, type a name, and press Add to place one."), self
+        )
+        root_layout.addWidget(self.empty_note)
         self.editor_stack = QStackedWidget(self)
         root_layout.addWidget(self.editor_stack)
         self.ladder_editor = QWidget(self.editor_stack)
@@ -133,7 +147,7 @@ class PropsPanel(QWidget):
         # The panel already has the outer margin; a second one inside each page
         # put the belt and ball editors a few pixels past a 280 px sidebar.
         layout.setContentsMargins(0, 0, 0, 0)
-        self.steps = QListWidget(self)
+        self.steps = _NarrowList(self)
         self.steps.setAccessibleName(tr("Clicked ladder steps"))
         self.steps.setAccessibleDescription(
             tr("Steps stay in the order placed; each preserves its own camera clicks.")
@@ -359,7 +373,7 @@ class PropsPanel(QWidget):
         self.belt_roller_controls.setLayout(roller_form)
         layout.addWidget(self.belt_roller_controls)
         self.belt_geometry_mode.currentIndexChanged.connect(self._update_belt_geometry_mode)
-        self.belt_vertices = QListWidget(self.belt_editor)
+        self.belt_vertices = _NarrowList(self.belt_editor)
         self.belt_vertices.setAccessibleName(tr("Belt support path vertices"))
         self.belt_vertices.setAccessibleDescription(
             tr("Declared points in order along the fixed belt support path.")
@@ -1029,6 +1043,7 @@ class PropsPanel(QWidget):
         self.ladders.setCurrentIndex(at if at >= 0 else 0)
         self.ladders.blockSignals(False)
         has_selection = bool(self.ladders.currentData())
+        self.empty_note.setVisible(not any(True for _ in self._store))
         self.remove_belt.setEnabled(kind == "belt" and has_selection)
         self.remove_ball.setEnabled(kind == "ball" and has_selection)
         self._refresh_steps()

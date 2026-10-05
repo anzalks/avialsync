@@ -31,7 +31,6 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
-    QLabel,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -43,6 +42,7 @@ from avialsync.core.identity_swaps import SwapEvent, SwapStore
 from avialsync.core.point_edits import PointEditStore, PointKey
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.annotations import AnnotationStore
+from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
 from avialsync.ui.time_format import TimeDisplayMode, format_time
@@ -126,11 +126,15 @@ class ChangesPanel(QGroupBox):
         self._table.itemSelectionChanged.connect(self._on_selection_changed)
         layout.addWidget(self._table)
 
-        self._empty = QLabel(tr("Nothing has been changed in this session yet."), self)
-        self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # Wrapped: the sidebar is narrower than the sentence, and an unwrapped
-        # centred label is clipped at both ends rather than at one.
-        self._empty.setWordWrap(True)
+        # Names what fills the page (D-176): wrapped, as the sidebar is
+        # narrower than the sentence.
+        self._empty = EmptyNote(
+            tr(
+                "Nothing has been changed yet. Flag a frame (M or Flag Frame under the "
+                "videos), label a range, or correct a tracked point, and it is listed here."
+            ),
+            self,
+        )
         layout.addWidget(self._empty)
 
         buttons = QHBoxLayout()

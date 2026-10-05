@@ -23,6 +23,11 @@
   next time.
 - **Tasks** opens from the status bar and lists what is loading, with a cancel where the work
   supports one.
+- An empty page says what will fill it: **Values**, **Messages**, **Changes**, **Props** and
+  **Tasks** each name what appears there and, where one menu command fills it, offer that command.
+  Guided panels (wheel and prop placement, identity review, alignment) show one step at a time:
+  one sentence, a bold next action, rarer and destructive choices in **⋯**, detail behind
+  **More…**, and **Learn more** linking to this guide.
 
   ![The Tasks popover beside the video and plots](../_static/screenshots/feature_tasks_tab.png)
 - **Tasks lists everything the application is doing** — imports, session saves and loads, proxy
@@ -65,7 +70,7 @@ Three routes, in the order to try them — all covered field by field, with anno
   when recordings agree at the start and separate by the end — a fixed offset cannot express that.
 - **Align → Synchronize TTL / events…** fits the mapping from TTL pulses or frame triggers. Choose reference and target
   evidence, set the **TTL high threshold** (or tick **Use all samples as events** when the reference
-  is already a list of event times), then leave **Alignment strategy** on **Automatic** unless you
+  is already a list of event times), then leave **Alignment strategy** (under **More…**) on **Automatic** unless you
   have a specific reason to override what the evidence supports. **Exact index** is valid only when
   each recorded frame has a corresponding event, not merely when an exposure was requested. Choose
   **Preview alignment**, inspect the matches and residuals, then **Accept mapping**. Nothing is
@@ -339,7 +344,8 @@ platform edge. Click the point in each camera where it is visible, use **Next po
 then **Save step**. A point clicked in two calibrated cameras is placed in 3D and reports its fit
 error; a point seen by one camera stays 2D and is still kept. Steps stay in the order you placed them —
 **Move step up** / **Move step down** reorder them, and **Rename selected step**, **Re-click selected
-step** and **Remove step** edit one. AvialSync never forces rungs onto one level, so an irregular
+step** and **Remove step** edit one; these are in the step panel's **⋯** menu, with the removals
+last. The panel's bold button, **Save and click next step**, is the usual next action. AvialSync never forces rungs onto one level, so an irregular
 ladder is recorded as it is. For a regular ladder, click the ends of two neighbouring rungs, set
 **Rungs in total**, and choose **Extrapolate from first two rungs**. The remaining rungs are drawn
 dashed, and the first and last estimates are labelled *(est.)*, with correct perspective in every camera where both rungs are visible;
@@ -474,15 +480,16 @@ least two cameras and their calibration (the same one Add 3D Marker uses).
 5. From the second bar on, the whole wheel is generated after each click and drawn **dashed** as
    a preview. There is no separate Generate step. While it is generating, the Wheel page says
    **Generating wheel…**, and the status bar and **Tasks** panel show the job. A notification
-   says when the wheel is first generated, and the Wheel page shows how far the clicks sit from it. Use **Flip Side** if the wheel is
-   drawn on the wrong side of the bars, **Undo Click** to take a click back, and **Done Labelling** to save
+   says when the wheel is first generated, and the Wheel page shows how far the clicks sit from it. Use **Flip Side** (in the step panel's
+   **⋯** menu) if the wheel is drawn on the wrong side of the bars, **Undo Click** to take a click back, and **Done Labelling** to save
    the wheel. **Done Labelling** becomes available when **2B** has its second camera click, that is,
    once both ends of bars 1 and 2 have two camera clicks each. It stays available while you label
    bar 3, which is optional and can improve the fit. You can finish with bar 3 only partly clicked:
    those clicks are saved, and the fit uses the two complete bars. If a complete bar 3 does not
    agree with bars 1 and 2, for example because its ends were clicked the other way round, the
    Wheel page says it was left out of the fit. Its clicks are still saved.
-   **Done Labelling** exits click mode and is one undo step; **Discard Clicks** exits without saving.
+   **Done Labelling** exits click mode and is one undo step; **Discard Clicks**, last in the **⋯** menu, exits
+   without saving. **More…** shows the legend for clicks and projected estimates.
 
    ![Wheel bars reconstructed as a dashed preview from stereo-clicked ends](../_static/screenshots/feature_props_wheel_preview.png)
 

@@ -93,6 +93,9 @@ def _file_reset(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     act.triggered.connect(window._reset_session)
     _reg(act, "File")
     window.sidebar.install_open_actions(window._act_open_video, window._act_open_sensor, act)
+    # Empty pages offer the command that fills them (D-176).
+    window.message_panel.install_empty_action(window._act_open_sensor)
+    window.readout_panel.install_empty_action(window._act_open_sensor)
     file_menu.addSeparator()
 
 

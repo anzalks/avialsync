@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QAbstractButton, QGroupBox, QPushButton
+from PySide6.QtWidgets import QAbstractButton, QPushButton
 
 from avialsync.ui.design_tokens import ControlRole, apply_role, role_of
 from avialsync.ui.icon_glyphs import GLYPHS
@@ -61,7 +61,7 @@ def test_roles_keep_tool_names_and_mark_destructive_shape(qtbot) -> None:
 
 
 def test_constructed_window_has_declared_roles(qtbot) -> None:
-    """Every existing button has a role; the Open group has one primary."""
+    """Every existing button has a role; the Open row has one primary (D-175)."""
     window = MainWindow()
     qtbot.addWidget(window)
     window.show()
@@ -73,12 +73,6 @@ def test_constructed_window_has_declared_roles(qtbot) -> None:
         if not button.objectName().startswith("qt_") and not button.property("av_role")
     ]
     assert not missing, missing
-    open_group = next(
-        group for group in window.findChildren(QGroupBox) if group.title() == "Open Files"
-    )
-    primaries = sum(
-        role_of(button) is ControlRole.PRIMARY
-        for button in open_group.findChildren(QAbstractButton)
-    )
-    assert primaries == 1
+    open_row = (window.sidebar.btn_open, window.sidebar.session_menu_button)
+    assert [role_of(button) is ControlRole.PRIMARY for button in open_row] == [True, False]
     window.close()

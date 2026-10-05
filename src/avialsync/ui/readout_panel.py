@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFontDatabase, QPalette
+from PySide6.QtGui import QAction, QFontDatabase, QPalette
 from PySide6.QtWidgets import (
     QFrame,
     QGroupBox,
@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.channel_reader import ChannelKey, MappedChannelReader, disambiguate
+from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_bold, set_font_family
 
@@ -200,6 +201,14 @@ class ReadoutPanel(QGroupBox):
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.viewport().setAutoFillBackground(False)
         outer.addWidget(self._scroll)
+        self.empty_note = EmptyNote(
+            tr(
+                "No values yet. Each visible channel and camera shows its value here "
+                "once a recording is open."
+            ),
+            self,
+        )
+        outer.addWidget(self.empty_note)
 
         self._content = QWidget()
         self._layout = QVBoxLayout(self._content)
@@ -261,6 +270,7 @@ class ReadoutPanel(QGroupBox):
             row = _ChannelReadout(labels[key], unit)
             self._layout.insertWidget(self._layout.count() - 1, row)
             self._rows[key] = (reader, row)
+        self._refresh_empty()
 
     def set_cursor(self, t: float) -> None:
         """Interpolate and display each channel's value at time *t*."""
@@ -299,6 +309,13 @@ class ReadoutPanel(QGroupBox):
             lead=tr("Channel values and camera frames at the current playhead."),
         )
 
+    def install_empty_action(self, action: QAction) -> None:
+        """Offer the command that gives this page something to show (D-176)."""
+        self.empty_note.set_action(action)
+
+    def _refresh_empty(self) -> None:
+        self.empty_note.setVisible(not self._rows and not self._cam_rows)
+
     def set_camera_states(self, states: list[tuple[str, float, float]]) -> None:
         """Update per-camera frame display.  states = [(label, time_pos, fps), ...]"""
         # Remove stale rows
@@ -310,9 +327,11 @@ class ReadoutPanel(QGroupBox):
 
         if not states:
             self._cam_label.setVisible(False)
+            self._refresh_empty()
             return
 
         self._cam_label.setVisible(True)
+        self._refresh_empty()
         self._layout.insertWidget(0, self._cam_label)
         for i, (label, time_pos, fps) in enumerate(states):
             row = _CameraRow(label)
@@ -336,9 +355,11 @@ class ReadoutPanel(QGroupBox):
         self._layout.removeWidget(self._cam_label)
         if not records:
             self._cam_label.setVisible(False)
+            self._refresh_empty()
             return
 
         self._cam_label.setVisible(True)
+        self._refresh_empty()
         self._layout.insertWidget(0, self._cam_label)
         for index, (label, frame_index, media_time) in enumerate(records):
             row = _CameraRow(label)
