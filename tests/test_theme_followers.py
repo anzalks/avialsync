@@ -24,7 +24,7 @@ from collections.abc import Iterator
 
 import pytest
 from PySide6.QtCore import QSize
-from PySide6.QtGui import QColor, QIcon, QPalette
+from PySide6.QtGui import QColor, QIcon, QImage, QPalette
 from PySide6.QtWidgets import QApplication, QPushButton, QStyle, QVBoxLayout, QWidget
 
 from avialsync.ui import theme
@@ -169,16 +169,19 @@ def test_severity_badges_read_and_differ(qtbot, switch, pref: str) -> None:
         set_status_icon(button, severity)
         badges[severity] = button.icon().pixmap(QSize(16, 16)).toImage()
 
+    def disc(image: QImage) -> QColor:
+        # Left of centre on the middle row: inside the disc at any pixel ratio,
+        # and clear of the glyph whatever font the platform draws it in.
+        return image.pixelColor(round(image.width() * 0.18), image.height() // 2)
+
     window = QApplication.palette().color(QPalette.ColorRole.Window)
     for severity, image in badges.items():
-        # The disc's colour, sampled clear of the glyph drawn at its centre.
-        fill = image.pixelColor(image.width() // 2, 2)
+        fill = disc(image)
         assert fill.alpha() > 0, f"{severity}: no badge drawn"
         assert abs(fill.lightnessF() - window.lightnessF()) > 0.2 or fill.saturationF() > 0.3, (
             f"{severity} badge vanishes into the window"
         )
-    warning = badges["warning"].pixelColor(8, 2)
-    error = badges["error"].pixelColor(8, 2)
+    warning, error = disc(badges["warning"]), disc(badges["error"])
     assert warning.hueF() != pytest.approx(error.hueF(), abs=0.02)
 
 

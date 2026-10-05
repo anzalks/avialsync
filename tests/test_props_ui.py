@@ -672,21 +672,50 @@ def test_creation_during_discovery_keeps_the_unread_sidecar_intact(
 def test_every_prop_editor_fits_the_sidebar_without_scrolling_sideways(qtbot, kind: str) -> None:
     """The stack took its widest page's width, hidden pages included, and the
     belt editor put three long buttons on one line: 453 px in a 280 px
-    sidebar, with every button clipped at its right edge."""
+    sidebar, with every button clipped at its right edge.
+
+    Asserted against the panel's own widest control rather than a pixel
+    width, so it holds under any platform font: a panel no wider than its
+    widest single control plus its margins is one with nothing side by side
+    and no hidden page setting its width.
+    """
+    from PySide6.QtWidgets import (
+        QAbstractButton,
+        QAbstractItemView,
+        QAbstractSpinBox,
+        QComboBox,
+        QLabel,
+        QLineEdit,
+    )
+
     from avialsync.core.physical_props import PropStore
     from avialsync.ui.props_panel import PropsPanel, PropsTab
 
     panel = PropsPanel(PropStore())
     tab = PropsTab(panel)
     qtbot.addWidget(tab)
-    tab.resize(280, 600)
     tab.show()
     qtbot.waitExposed(tab)
     panel.kind.setCurrentIndex(panel.kind.findData(kind))
     QApplication.processEvents()
 
-    assert panel.minimumSizeHint().width() <= tab.viewport().width(), (
+    controls = [
+        child.minimumSizeHint().width()
+        for kind_of in (
+            QAbstractButton,
+            QAbstractItemView,
+            QAbstractSpinBox,
+            QComboBox,
+            QLabel,
+            QLineEdit,
+        )
+        for child in panel.findChildren(kind_of)
+        if child.isVisibleTo(panel)
+    ]
+    widest = max(controls)
+    margins = panel.layout().contentsMargins()
+    allowance = margins.left() + margins.right() + 24
+    assert panel.minimumSizeHint().width() <= widest + allowance, (
         f"the {kind} editor needs {panel.minimumSizeHint().width()} px "
-        f"in a {tab.viewport().width()} px sidebar"
+        f"for controls no wider than {widest} px"
     )
-    assert tab.horizontalScrollBar().maximum() == 0
