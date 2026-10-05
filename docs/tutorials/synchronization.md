@@ -20,7 +20,8 @@ their own source names, timing, and fit results.
 
 ## 1. A fixed offset, when one recording is simply early or late
 
-Every source carries its own **Offset** and **Drift** in the left panel.
+Every source carries its own **Offset** and **Drift** in the left panel, behind the card's
+**Timing** row, which shows both values while it is closed. Click it to edit them.
 
 ![The per-source offset and drift fields in the left panel](../_static/screenshots/guide_offset_fields.png)
 

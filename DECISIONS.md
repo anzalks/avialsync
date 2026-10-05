@@ -5894,3 +5894,13 @@ panel without installing an action first.
 **Alternatives.** Painting the header text instead of labels would remove the stylesheet but duplicate eliding and accessibility the labels already have.
 
 **Consequences.** A snapshot caption always carries the full readout, formatted by the same `format_video_osd`, whatever the pane shows.
+
+---
+
+## 2026-10 · D-175 · Compact source cards; one Open button; Reset Session apart
+
+**Context.** Every source card showed its offset and drift spin boxes expanded, a sensor card printed a temporary directory's full path, and the Open group stacked Open Videos, Open Sensor/Ephys Data and Reset Session with equal weight (INTERFACE_DESIGN_PLAN F-19, F-25, F-26). A 4-camera, 12-file session filled the page with spin boxes.
+
+**Decision.** A card's header holds visibility (videos), a kind glyph, the eliding name with the full path in its tooltip, the quality badge, and one `⋯` overflow: Properties, Copy details, and Remove last, after a separator, with the bin glyph. Offset and drift sit behind a Timing disclosure that shows both values inline while closed; it wraps the card's own spin boxes, so they remain the one authority and an offset drag is still one undo command (D-087). Paths show `…/folder/name`. The Open group becomes one split button whose click runs File → Open Videos… and whose arrow lists the File menu's open actions (the same QActions); Reset Session moves to a separate session overflow beside it, marked with the danger reset glyph, and stays in File.
+
+**Alternatives.** A collapsible whole card hides the badge; a second row of text buttons for Remove keeps the equal weight F-24 objected to.

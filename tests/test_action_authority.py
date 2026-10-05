@@ -31,10 +31,13 @@ def window(qapp, qtbot) -> MainWindow:
 
 
 def test_open_and_reset_buttons_are_the_file_menus_actions(window: MainWindow) -> None:
+    """D-175: one split Open button and a session overflow, holding the File actions."""
+    sidebar = window.sidebar
+    assert sidebar.btn_open is not None and sidebar.session_menu_button is not None
+    assert sidebar.btn_open.defaultAction() is window._act_open_video
+    assert sidebar.btn_open.menu().actions() == [window._act_open_video, window._act_open_sensor]
+    assert sidebar.session_menu_button.menu().actions() == [window._act_reset_session]
     pairs = (
-        (window.sidebar.btn_open_video, window._act_open_video),
-        (window.sidebar.btn_open_sensor, window._act_open_sensor),
-        (window.sidebar.btn_reset_session, window._act_reset_session),
         (window.empty_state.open_videos_button, window._act_open_video),
         (window.empty_state.open_data_button, window._act_open_sensor),
     )

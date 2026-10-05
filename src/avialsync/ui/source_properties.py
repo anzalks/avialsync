@@ -113,6 +113,10 @@ class _PropertiesBase(QGroupBox):
         self._rows: list[tuple[str, QLabel]] = []
         self._title = title
 
+    def toggle_expanded(self) -> None:
+        """Open or close the section, as its own header button does."""
+        self._toggle()
+
     def _toggle(self) -> None:
         self._collapsed = not self._collapsed
         self._body.setVisible(not self._collapsed)

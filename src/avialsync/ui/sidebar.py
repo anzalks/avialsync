@@ -15,9 +15,11 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -25,13 +27,20 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.inspection import SourceInspection
-from avialsync.ui.action_button import ActionButton
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
 from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
-from avialsync.ui.icons import set_status_icon
+from avialsync.ui.icons import set_status_icon, set_svg_icon, svg_icon
 from avialsync.ui.quality_badge import findings_for, worst_severity
+from avialsync.ui.source_card import (
+    TimingDisclosure,
+    copy_to_clipboard,
+    kind_glyph,
+    open_split_button,
+    overflow_button,
+    short_path,
+)
 from avialsync.ui.source_properties import VideoPropertiesPanel
 from avialsync.ui.theme import follow_palette, separator_color, set_bold
 
@@ -185,17 +194,21 @@ class SensorInfoWidget(QFrame):
         self._alignment_summary: str = ""
         self._has_accepted_alignment: bool = True
 
-        close_btn = QPushButton(self)
-        close_btn.setFixedSize(20, 20)
-        close_btn.setToolTip(tr("Remove entire sensor source"))
-        close_btn.setAccessibleName(tr("Remove entire sensor source"))
-        apply_role(close_btn, ControlRole.DESTRUCTIVE, "remove")
-        close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
+        # One overflow, Remove last and marked (D-175); no close button of its own.
+        self.more_button = overflow_button(
+            self,
+            tr("More actions for {name}").format(name=Path(path).name),
+            [
+                (tr("Copy details"), self._copy_details, False),
+                (tr("Remove entire sensor source"), self._request_remove, True),
+            ],
+        )
 
+        header.addWidget(kind_glyph("data", tr("Data source"), self))
         header.addWidget(name_lbl, stretch=1)
         header.addWidget(self.identity_count)
         header.addWidget(self._badge_btn)
-        header.addWidget(close_btn)
+        header.addWidget(self.more_button)
         layout.addLayout(header)
 
         # Tracking overlays start enabled; high-volume plot rows stay opt-in.
@@ -231,7 +244,9 @@ class SensorInfoWidget(QFrame):
         # A path is one unbreakable token, so wrapping it does nothing and it
         # kept reporting its full width as the panel's minimum: 491 px for a
         # real session path. Elided, its length no longer constrains anything.
-        path_lbl = ElidedLabel(path)
+        # Folder and name, not a temporary directory's full path (F-26).
+        path_lbl = ElidedLabel(short_path(path))
+        path_lbl.setToolTip(path)
         layout.addWidget(path_lbl)
 
         n_ch = len(channels)
@@ -294,7 +309,12 @@ class SensorInfoWidget(QFrame):
         _commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Drift:"), self.drift_spin)
-        layout.addLayout(sync_form)
+        # Behind a disclosure that shows the values inline (D-175, F-25): the
+        # same spin boxes, so an offset drag is still one undo command.
+        timing_body = QWidget(self)
+        timing_body.setLayout(sync_form)
+        self.timing = TimingDisclosure(timing_body, self.offset_spin, self.drift_spin, self)
+        layout.addWidget(self.timing)
 
         # ── Separator ────────────────────────────────────────────────
         sep = QFrame()
@@ -428,6 +448,16 @@ class SensorInfoWidget(QFrame):
 
         self._props_panel = SensorPropertiesPanel(_make_empty_inspection(path), parent=self)
         layout.addWidget(self._props_panel)
+
+    def _request_remove(self) -> None:
+        self.remove_requested.emit(self.path)
+
+    def _copy_details(self) -> None:
+        n_ch = len(self._channels)
+        copy_to_clipboard(
+            f"{Path(self.path).name}\n{self.path}\n{n_ch} channels\n"
+            f"{tr('Offset and drift')}: {self.timing.summary()}"
+        )
 
     def set_identity_count(self, count: int) -> None:
         """Show how many accepted flips this pose source carries."""
@@ -711,16 +741,21 @@ class VideoInfoWidget(QFrame):
         name_lbl.setToolTip(path)
         set_bold(name_lbl)
 
-        close_btn = QPushButton(self)
-        close_btn.setFixedSize(20, 20)
-        close_btn.setToolTip(tr("Remove video source"))
-        close_btn.setAccessibleName(tr("Remove video source"))
-        apply_role(close_btn, ControlRole.DESTRUCTIVE, "remove")
-        close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
+        # One overflow, Remove last and marked (D-175); no close button of its own.
+        self.more_button = overflow_button(
+            self,
+            tr("More actions for {name}").format(name=Path(path).name),
+            [
+                (tr("Properties"), lambda: self._props_panel.toggle_expanded(), False),
+                (tr("Copy details"), self._copy_details, False),
+                (tr("Remove video source"), self._request_remove, True),
+            ],
+        )
 
         header_layout.addWidget(self.visibility_cb)
+        header_layout.addWidget(kind_glyph("video", tr("Video source"), self))
         header_layout.addWidget(name_lbl, stretch=1)
-        header_layout.addWidget(close_btn)
+        header_layout.addWidget(self.more_button)
         layout.addLayout(header_layout)
 
         # Metadata
@@ -733,7 +768,8 @@ class VideoInfoWidget(QFrame):
 
         timing = f"VFR {measured_fps:.2f} avg (nominal {fps:.2f})" if is_vfr else f"CFR {fps:.2f}"
         size = f" | {file_size / 1_048_576:.1f} MB" if file_size else ""
-        meta_lbl = QLabel(f"{codec.upper()} | {timing} | {duration:.1f}s{size}")
+        self._meta_text = f"{codec.upper()} | {timing} | {duration:.1f}s{size}"
+        meta_lbl = QLabel(self._meta_text)
         # Wrapped: unwrapped it wants 432 px on one line -- the widest thing in
         # a sidebar whose minimum is 180 px -- and forced everything else out
         # of alignment rather than folding.
@@ -789,13 +825,18 @@ class VideoInfoWidget(QFrame):
         _commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Drift:"), self.drift_spin)
-        layout.addLayout(sync_form)
+        # Behind a disclosure that shows the values inline (D-175, F-25): the
+        # same spin boxes, so an offset drag is still one undo command.
+        timing_body = QWidget(self)
+        timing_body.setLayout(sync_form)
+        self.timing = TimingDisclosure(timing_body, self.offset_spin, self.drift_spin, self)
+        layout.addWidget(self.timing)
 
         # Badge (hidden until inspection is available)
         self._badge_btn = _issues_button(self)
         self._badge_btn.setVisible(False)
         self._badge_btn.clicked.connect(lambda: self.badge_clicked.emit(self.path))
-        header_layout.insertWidget(2, self._badge_btn)  # between name and close
+        header_layout.insertWidget(3, self._badge_btn)  # between name and overflow
 
         #: Everything the badge reports comes from these three. Alignment is
         #: session state, not file state, so it arrives separately.
@@ -806,6 +847,16 @@ class VideoInfoWidget(QFrame):
         self._props_panel = VideoPropertiesPanel(loader=None, parent=self)
         self._loader: object = None
         layout.addWidget(self._props_panel)
+
+    def _request_remove(self) -> None:
+        self.remove_requested.emit(self.path)
+
+    def _copy_details(self) -> None:
+        copy_to_clipboard(
+            f"{Path(self.path).name}\n{self.path}\n{self._meta_text}\n"
+            f"{tr('Offset and drift')}: {self.timing.summary()}\n\n"
+            f"{self._props_panel.as_plain_text()}"
+        )
 
     def _on_offset_changed(self, val: float) -> None:
         self.offset_changed.emit(self.path, val)
@@ -942,26 +993,15 @@ class SidebarPane(QWidget):
         self.content_layout = QVBoxLayout(scroll_content)
         self.content_layout.setContentsMargins(5, 5, 5, 5)
 
-        # Row 1: Actions
-        actions_group = QGroupBox(tr("Open Files"))
-        actions_layout = QVBoxLayout(actions_group)
-        # Second ways to reach File-menu commands, so they carry no text of
-        # their own: the menu's actions name them (rule 15, D-092). These read
-        # "Open Videos" beside a menu saying "Open Video(s)…" for as long as
-        # they were plain buttons. The window installs the actions.
-        self.btn_open_video = ActionButton(self)
-        self.btn_open_sensor = ActionButton(self)
-        self.btn_reset_session = ActionButton(self)
-        # Stacked, not side by side. "Open Sensor/Ephys Data" alone wants 278 px
-        # and the pair wanted 430, which made this group the widest thing in the
-        # sidebar by a wide margin -- so either the labels were cut off or the
-        # sidebar had to carry a horizontal scrollbar to reach them. One button
-        # per row costs a little height, of which the sidebar has plenty.
-        for button in (self.btn_open_video, self.btn_open_sensor, self.btn_reset_session):
-            button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-            button.setMinimumWidth(120)
-            actions_layout.addWidget(button)
-        self.content_layout.addWidget(actions_group)
+        # Row 1: one split Open button and a session overflow (D-175). Both
+        # hold the File menu's own QActions, so nothing here has text of its
+        # own (rule 15, D-092); the window installs them. Reset Session is in
+        # the overflow, apart from Open, marked destructive.
+        self._open_row = QHBoxLayout()
+        self._open_row.setContentsMargins(0, 0, 0, 0)
+        self.btn_open: QToolButton | None = None
+        self.session_menu_button: QToolButton | None = None
+        self.content_layout.addLayout(self._open_row)
 
         self._source_filter = QLineEdit()
         self._source_filter.setPlaceholderText(tr("Filter sources and channels…"))
@@ -1061,13 +1101,25 @@ class SidebarPane(QWidget):
     def install_open_actions(
         self, open_video: QAction, open_sensor: QAction, reset: QAction
     ) -> None:
-        """Show the Open Files buttons, driven by the File menu's own actions."""
-        self.btn_open_video.set_action(open_video)
-        self.btn_open_sensor.set_action(open_sensor)
-        self.btn_reset_session.set_action(reset)
-        apply_role(self.btn_open_video, ControlRole.PRIMARY, "open")
-        apply_role(self.btn_open_sensor, ControlRole.SECONDARY, "data")
-        apply_role(self.btn_reset_session, ControlRole.DESTRUCTIVE, "reset")
+        """Show the Open button and session overflow, driven by the File menu's actions."""
+        self.btn_open = open_split_button(self, open_video, [open_sensor])
+        apply_role(self.btn_open, ControlRole.PRIMARY)
+        self.btn_open.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.session_menu_button = QToolButton(self)
+        self.session_menu_button.setAutoRaise(True)
+        self.session_menu_button.setAccessibleName(tr("Session actions"))
+        self.session_menu_button.setToolTip(tr("Session actions"))
+        self.session_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        set_svg_icon(self.session_menu_button, "more")
+        session_menu = QMenu(self.session_menu_button)
+        session_menu.setAccessibleName(tr("Session actions"))
+        session_menu.addAction(reset)
+        reset.setProperty("av_role", "destructive")
+        # Marked by glyph as well as place; the File menu shows the same icon.
+        reset.setIcon(svg_icon(self.session_menu_button, self.palette(), "reset", "danger"))
+        self.session_menu_button.setMenu(session_menu)
+        self._open_row.addWidget(self.btn_open, 1)
+        self._open_row.addWidget(self.session_menu_button)
 
     def _apply_source_filter(self, text: str) -> None:
         """Filter source cards and channel rows across the whole inspector."""

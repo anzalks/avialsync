@@ -314,7 +314,8 @@ Two product laws govern that phase and outrank convention:
   a full stop and no digit grouping, whatever the operating system's locale (D-173). DS-5 gives
   each camera a one-line header with an eliding name, a `chrome_rects()` contract for overlay
   labels, glyph Snapshot/Fit/Fullscreen buttons on their actions, and picture-shaped panes for
-  one or two cameras (D-174).
+  one or two cameras (D-174). DS-7 compacts the source cards: offset and drift behind a Timing
+  disclosure, one overflow per card, a split Open button, and Reset Session apart (D-175).
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
@@ -617,7 +618,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/feedback/tasks_button.py` | Status-bar Tasks button whose popover hosts the `JobsPanel` (D-172) | `TasksButton.popover` |
 | `ui/scrub_bar.py` | Cached coverage, annotation, and loop track under the seek handle; cursor ticks reuse it (D-170) | `ScrubBar.set_track_data()`, `track_build_count` |
 | `ui/feedback/status_line.py` | Transient status in the status bar, painted from the current palette with severity labels (D-170) | `StatusLine.set_status()`, `status_text()`, `ink_color()` |
-| `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
+| `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels. Compact cards: kind glyph, eliding name, badge, one `⋯` overflow (Properties, Copy details, Remove); offset/drift behind `card.timing`; one split Open button and a session overflow holding Reset Session (D-175) | `SidebarPane`, `btn_open`, `session_menu_button`, `VideoInfoWidget`, `SensorInfoWidget` |
+| `ui/source_card.py` | Card pieces: `TimingDisclosure` over the card's own spin boxes, `overflow_button`, `open_split_button`, `kind_glyph`, `short_path` (D-175) | `TimingDisclosure`, `short_path()` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/annotations.py` | Markers, and **the** definition of their CSV layout — three copies existed (D-100) | `AnnotationStore`, `Marker`, `marker_rows()`, `write_marker_rows()`, `MARKER_COLUMNS` |
 | `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |

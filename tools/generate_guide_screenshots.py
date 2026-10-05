@@ -168,6 +168,9 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
 
     # --- Offsets and drift, on the source itself -----------------------
     if info is not None:
+        # Behind each card's Timing disclosure (D-175); open it for the shot.
+        info.timing.set_open(True)
+        settle(app)
         capture(
             window,
             out_dir / "guide_offset_fields.png",
