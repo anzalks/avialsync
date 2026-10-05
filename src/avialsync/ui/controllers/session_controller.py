@@ -36,6 +36,7 @@ from avialsync.ui.controllers import (
     wheel_controller,
 )
 from avialsync.ui.i18n import tr
+from avialsync.ui.inspector_dock import restore_dock_state, save_dock_state
 from avialsync.ui.job_manager import on_ui_thread
 from avialsync.ui.preferences_dialog import read_setting
 from avialsync.ui.recent_files import add_recent, get_recent
@@ -62,9 +63,7 @@ def restore_geometry(window: MainWindow) -> None:
     geom = settings.value("window/geometry")
     if geom:
         window.restoreGeometry(geom)
-    h_state = settings.value("splitter/horizontal")
-    if h_state:
-        window._h_splitter.restoreState(h_state)
+    restore_dock_state(window, window.inspector_dock, settings)
     v_state = settings.value("splitter/vertical")
     if v_state:
         window._v_splitter.restoreState(v_state)
@@ -88,7 +87,7 @@ def restore_geometry(window: MainWindow) -> None:
 def save_geometry(window: MainWindow) -> None:
     settings = app_settings()
     settings.setValue("window/geometry", window.saveGeometry())
-    settings.setValue("splitter/horizontal", window._h_splitter.saveState())
+    save_dock_state(window, settings)
     # While nothing is loaded the plots and Data Streams are held at their
     # minimum for the drop target (D-127); that is not a layout the user chose,
     # so the one they did choose stays saved instead.

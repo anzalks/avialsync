@@ -173,7 +173,7 @@ and the **Fix Tracker handles**, because hiding them would leave that mode nothi
 
 ## Named layouts
 
-**View → Workspace → Save Current Layout…** stores the window geometry, every splitter position, and
+**View → Workspace → Save Current Layout…** stores the window geometry, every splitter position, where the inspector panel is docked or floating, and
 the selected inspector page under a name; picking that name later restores it. Aligning two
 recordings wants tall plots and small video, and checking a tracking overlay wants the opposite —
 this is so you do not rearrange the splitters each time.

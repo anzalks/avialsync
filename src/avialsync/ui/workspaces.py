@@ -28,9 +28,14 @@ from __future__ import annotations
 import dataclasses
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QByteArray, QSettings
+from PySide6.QtCore import QByteArray, QSettings, Qt
 
 from avialsync.ui.app_settings import app_settings
+from avialsync.ui.inspector_dock import (
+    apply_dock_state,
+    dock_state,
+    inspector_width_from_splitter_state,
+)
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -39,8 +44,11 @@ __all__ = ["Workspace", "capture", "apply", "save", "load", "names", "remove"]
 
 _GROUP = "workspaces"
 
-#: The splitters that make up a layout, by the attribute that holds each.
-_SPLITTERS = ("_h_splitter", "_v_splitter", "_media_splitter", "_content_splitter")
+#: The splitters that make up a layout, by the attribute that holds each. The
+#: inspector is a dock now (D-180); its place is in ``dock_state``.
+_SPLITTERS = ("_v_splitter", "_media_splitter", "_content_splitter")
+#: Where a workspace saved before D-180 kept the inspector's width.
+_LEGACY_INSPECTOR = "_h_splitter"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -52,6 +60,10 @@ class Workspace:
     inspector_tab: int
     plots_detached: bool = False
     plots_geometry: QByteArray = dataclasses.field(default_factory=QByteArray)
+    #: ``QMainWindow.saveState``: where the inspector dock sits (D-180).
+    dock_state: QByteArray = dataclasses.field(default_factory=QByteArray)
+    #: A pre-D-180 workspace's inspector width, read from its old splitter state.
+    legacy_inspector_width: int | None = None
 
 
 def _store() -> QSettings:
@@ -72,6 +84,7 @@ def capture(window: MainWindow) -> Workspace:
             if window._plots_detached and window._detached_plot_window is not None
             else QByteArray()
         ),
+        dock_state=dock_state(window),
     )
 
 
@@ -91,6 +104,14 @@ def apply(window: MainWindow, workspace: Workspace) -> None:
         splitter = getattr(window, name, None)
         if splitter is not None and state:
             splitter.restoreState(state)
+    if not workspace.dock_state.isEmpty():
+        apply_dock_state(window, window.inspector_dock, workspace.dock_state)
+    elif workspace.legacy_inspector_width:
+        window.resizeDocks(
+            [window.inspector_dock],
+            [workspace.legacy_inspector_width],
+            Qt.Orientation.Horizontal,
+        )
 
     tab_count = window._left_tabs.count()
     window._left_tabs.setCurrentIndex(max(0, min(workspace.inspector_tab, tab_count - 1)))
@@ -120,6 +141,7 @@ def save(name: str, workspace: Workspace) -> None:
     store.setValue("inspector_tab", workspace.inspector_tab)
     store.setValue("plots_detached", workspace.plots_detached)
     store.setValue("plots_geometry", workspace.plots_geometry)
+    store.setValue("dock_state", workspace.dock_state)
     store.endGroup()
 
 
@@ -151,12 +173,23 @@ def load(name: str) -> Workspace | None:
         plots_geometry = store.value("plots_geometry", QByteArray())
         if not isinstance(plots_geometry, QByteArray):
             plots_geometry = QByteArray()
+        docks = store.value("dock_state", QByteArray())
+        if not isinstance(docks, QByteArray):
+            docks = QByteArray()
+        legacy = store.value(f"splitter_{_LEGACY_INSPECTOR}")
+        legacy_width = (
+            inspector_width_from_splitter_state(legacy)
+            if docks.isEmpty() and isinstance(legacy, QByteArray)
+            else None
+        )
         return Workspace(
             geometry=geometry,
             splitters=splitters,
             inspector_tab=tab_index,
             plots_detached=plots_detached,
             plots_geometry=plots_geometry,
+            dock_state=docks,
+            legacy_inspector_width=legacy_width,
         )
     finally:
         store.endGroup()

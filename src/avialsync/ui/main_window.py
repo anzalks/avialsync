@@ -114,6 +114,7 @@ from avialsync.ui.identity_braid import BraidModel
 from avialsync.ui.identity_group_dialog import IdentityGroupDialog
 from avialsync.ui.identity_model_worker import BraidBuildJob, BraidBuildWorker
 from avialsync.ui.identity_panel import IdentityWindow
+from avialsync.ui.inspector_dock import DEFAULT_INSPECTOR_WIDTH, install_inspector_dock
 from avialsync.ui.inspector_nav import InspectorNav
 from avialsync.ui.job_manager import JobManager, on_ui_thread
 from avialsync.ui.levels_panel import LevelsPanel
@@ -637,9 +638,8 @@ class MainWindow(QMainWindow):
         # Hidden until a recording that has range to choose from is opened.
         self.sidebar.content_layout.addWidget(self.levels_panel)
 
-        h_splitter = PaneSplitter(Qt.Orientation.Horizontal)
-        h_splitter.addWidget(self._left_tabs)
-        self._h_splitter = h_splitter
+        # A dock, not a splitter pane: either side, floating, or closed (D-180).
+        self.inspector_dock = install_inspector_dock(self, self._left_tabs)
 
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
@@ -685,10 +685,6 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self._content_splitter)
         right_layout.addWidget(self.transport)
 
-        h_splitter.addWidget(right_widget)
-        h_splitter.setStretchFactor(0, 0)
-        h_splitter.setStretchFactor(1, 1)
-
         # Every workspace surface may shrink horizontally in a compact viewport.
         # QSplitter then distributes constrained width by the remembered
         # proportions instead of letting a child size hint enlarge the window
@@ -729,7 +725,7 @@ class MainWindow(QMainWindow):
         self._enforce_splitter_policy()
         self._apply_default_splitter_sizes()
 
-        layout.addWidget(h_splitter)
+        layout.addWidget(right_widget)
 
         # Child widgets receive drag events before QMainWindow. Forward those
         # events to the single capability-routing implementation below.
@@ -1096,7 +1092,6 @@ class MainWindow(QMainWindow):
 
     def _splitters(self) -> tuple[QSplitter, ...]:
         return (
-            self._h_splitter,
             self._content_splitter,
             self._v_splitter,
             self._media_splitter,
@@ -1142,8 +1137,10 @@ class MainWindow(QMainWindow):
         Handing the same ratios to the proportion store is what makes the
         intent below the thing the user sees.
         """
+        self.resizeDocks(
+            [self.inspector_dock], [DEFAULT_INSPECTOR_WIDTH], Qt.Orientation.Horizontal
+        )
         defaults = (
-            (self._h_splitter, (280, 1000)),
             (self._content_splitter, (620, 160)),
             (self._v_splitter, (380, 240)),
             # With three video columns, a quarter-width 3D pane is no wider
@@ -1152,9 +1149,9 @@ class MainWindow(QMainWindow):
         )
         for splitter, sizes in defaults:
             splitter.setSizes(list(sizes))
-        # The inspector column is skipped: it is not proportion-managed, because
-        # a source list that widens with the monitor only steals media width.
-        for splitter, sizes in defaults[1:]:
+        # The inspector dock is not proportion-managed: a source list that
+        # widens with the monitor only steals media width.
+        for splitter, sizes in defaults:
             self._pane_proportions.set_fractions(splitter, sizes)
 
     def coverage_group_for(self, path: str) -> str:

@@ -18,6 +18,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from avialsync.core.triggers import TriggerKind
@@ -148,7 +149,7 @@ def _capture_messages(window: MainWindow, app: QApplication, out_dir: Path, sess
     # The message text is the last column; at the inspector's usual width it is
     # scrolled off the right edge, and the image would show times and a source
     # but not a single message.
-    window._h_splitter.setSizes([640, 640])
+    window.resizeDocks([window.inspector_dock], [640], Qt.Orientation.Horizontal)
     settle(app)
     capture(
         window,

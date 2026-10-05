@@ -323,7 +323,8 @@ Two product laws govern that phase and outrank convention:
   main toolbar and puts Align → Synchronize as a glyph beside Open (D-178). DS-12 makes the
   plots, lanes, video panes and 3D view describe themselves to assistive technology on query
   (D-179). DS-13 adds Help → First Session Tutorial and Learn more links from step panels, all
-  built on `[project.urls]` through `about.docs_url`.
+  built on `[project.urls]` through `about.docs_url`. DS-14 makes the inspector a dock with
+  saved state and a one-time migration; the workspace column keeps its splitters (D-180).
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
@@ -630,6 +631,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/step_panel.py` | Shared guided-step panel: title and progress, one sentence, one primary, a secondary row, flow controls, an overflow whose entries follow their buttons' enablement, More… detail, and a Learn more link (D-176) | `StepPanel.set_primary()`, `add_secondary()`, `add_controls()`, `add_overflow(destructive=)`, `add_more()`, `set_progress()`, `set_learn_more()` |
 | `ui/empty_note.py` | What an empty inspector page says fills it, with an optional `ActionButton` on that command (D-176) | `EmptyNote.set_action()`, `WRAP_WIDTH_PX` |
 | `ui/accessible_views.py` | Accessible interfaces for painted surfaces, answered on query through `QAccessible.installFactory`; plots, lanes, video panes and the 3D view register a describer (D-179) | `register_painted(widget, role, value, detail)` |
+| `ui/inspector_dock.py` | The inspector as a `QDockWidget` (left/right, floating, closable) with `QMainWindow.saveState` persistence and the one-time migration of `splitter/horizontal` (D-180) | `install_inspector_dock()`, `restore_dock_state()`, `save_dock_state()`, `inspector_width_from_splitter_state()` |
 | `ui/source_card.py` | Card pieces: `TimingDisclosure` over the card's own spin boxes, `overflow_button`, `open_split_button`, `kind_glyph`, `short_path` (D-175) | `TimingDisclosure`, `short_path()` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/annotations.py` | Markers, and **the** definition of their CSV layout — three copies existed (D-100) | `AnnotationStore`, `Marker`, `marker_rows()`, `write_marker_rows()`, `MARKER_COLUMNS` |

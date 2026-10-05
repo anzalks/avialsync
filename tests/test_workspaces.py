@@ -97,7 +97,7 @@ def test_applying_repairs_a_collapsed_pane(window: MainWindow) -> None:
     """restoreState also restores the collapsible flag, so this is not optional."""
     captured = workspaces.capture(window)
     workspaces.apply(window, captured)
-    for name in ("_h_splitter", "_v_splitter", "_media_splitter", "_content_splitter"):
+    for name in ("_v_splitter", "_media_splitter", "_content_splitter"):
         splitter = getattr(window, name, None)
         if splitter is None:
             continue

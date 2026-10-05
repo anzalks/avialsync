@@ -134,6 +134,9 @@ def _view_panels(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
 def _view_inspector(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
     """One action per inspector page, so the palette and menu reach each (D-172)."""
     inspector_menu = view_menu.addMenu(tr("Inspector"))
+    # The dock's own toggle: shown, hidden, or floating (D-180).
+    inspector_menu.addAction(_reg(window.inspector_dock.toggleViewAction(), "View"))
+    inspector_menu.addSeparator()
     nav = window._left_tabs
     window._inspector_actions = []
     for index in range(nav.count()):

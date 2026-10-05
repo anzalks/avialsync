@@ -25,6 +25,9 @@
   events…**.
 - **Tasks** opens from the status bar and lists what is loading, with a cancel where the work
   supports one.
+- The left panel is a dock: drag its title to the other side of the window, float it onto a
+  second display, or close it. **View → Inspector → Show Inspector Panel** brings it back, and
+  **View → Bring Panels Back** re-docks it if its display is gone. Its place is remembered.
 - An empty page says what will fill it: **Values**, **Messages**, **Changes**, **Props** and
   **Tasks** each name what appears there and, where one menu command fills it, offer that command.
   Guided panels (wheel and prop placement, identity review, alignment) show one step at a time:

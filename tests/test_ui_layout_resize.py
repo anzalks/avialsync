@@ -47,8 +47,8 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
 
 
 def _splitters(window: MainWindow):
+    """The workspace column's splitters; the inspector is a dock (D-180)."""
     return {
-        "horizontal": window._h_splitter,
         "content": window._content_splitter,
         "vertical": window._v_splitter,
         "media": window._media_splitter,
@@ -71,6 +71,9 @@ def test_every_visible_pane_starts_with_real_size(window: MainWindow) -> None:
         for index in range(splitter.count()):
             if splitter.widget(index).isVisible():
                 assert sizes[index] > 0, f"{name} pane {index} started collapsed"
+    # D-180: the inspector is a dock; it starts docked and with real width.
+    dock = window.inspector_dock
+    assert dock.isVisible() and not dock.isFloating() and dock.width() > 0
 
 
 # ── Drag can never destroy a pane ─────────────────────────────────────
@@ -129,6 +132,7 @@ def test_shrinking_the_window_keeps_all_panes_visible(
         for index in range(splitter.count()):
             if splitter.widget(index).isVisible():
                 assert sizes[index] > 0, f"{name} pane {index} vanished when shrinking"
+    assert window.inspector_dock.width() > 0, "the inspector vanished when shrinking"
 
 
 def test_compact_viewport_keeps_every_workspace_surface_available(

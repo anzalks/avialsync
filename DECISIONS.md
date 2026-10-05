@@ -5950,3 +5950,15 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 **Decision.** `ui/accessible_views.register_painted` records a role and describer functions per widget, and one `QAccessible.installFactory` factory returns a `QAccessibleWidget` subclass whose Value and Description call them when a client asks. Plots (Chart): each shown row's name, value at the playhead and unit, capped at 32 rows; lanes (Chart): the playhead, and each lane's span or event count; a camera (Graphic): time and frame, with the full readout as description; the 3D view (Graphic): point count and view angles. One interface per widget rather than per-row child interfaces: a Python-owned interface with no QObject behind it is deleted by Qt's accessibility cache, which is a crash waiting on a platform's timing. Nothing calls `QAccessible.updateAccessibility` on the clock tick. Every primary button takes Tab focus.
 
 **Alternatives.** Rewriting `accessibleDescription` on every tick would push values per frame, against the 60 Hz budget.
+
+---
+
+## 2026-10 · D-180 · The inspector is a dock; the workspace column keeps its splitters
+
+**Context.** The window was four nested splitters, so nothing could move to a second display except the plots' own Detach Plots (INTERFACE_DESIGN_PLAN F-34, carried from UX_FOUNDATIONS WP-11). The three inner splitters carry load-bearing contracts: proportional resize and minimum enforcement through `PaneProportions` (D-049, D-061, D-098), and the empty-window layout that holds plots and Data Streams at their minimum for the drop target (D-127).
+
+**Decision.** The inspector becomes a `QDockWidget` (`inspector_dock`): left or right, floatable onto another display, closable, with its toggle under View → Inspector and View → Bring Panels Back re-docking it. Its arrangement is saved with `QMainWindow.saveState` under `window/dock_state`, and named workspaces store it as `dock_state`. A layout or workspace saved before this keeps its inspector width: the width is read from the old `splitter/horizontal` bytes and applied with `resizeDocks`, once, and the old key is removed. The workspace column — videos, 3D, plots, Data Streams, transport — stays the central widget with its three splitters, so `PaneProportions` and D-127 apply unchanged; the plots keep Detach Plots for a second display.
+
+**Alternatives.** Docking every pane would replace the proportion and empty-layout contracts with `QMainWindow`'s dock layout, which has no notion of either, and nested bottom docks cannot hold the transport full width under the plots.
+
+**Consequences.** `MainWindow._h_splitter` is gone; tests that pinned it assert the dock instead. The 640×480 floor and the empty layout hold.
